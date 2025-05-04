@@ -19,7 +19,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [x] Git hooks with Husky
 - [x] Pre-commit linting with lint-staged
 - [x] Automated code formatting
-- [x] Type checking on commit
+- [ ] Type checking on commit
 
 ### Authentication & Authorization
 
