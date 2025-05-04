@@ -8,7 +8,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky install",
+    "lint-staged": "lint-staged"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -27,6 +28,7 @@
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@next/eslint-plugin-next": "^15.3.1",
     "@types/node": "22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "19.0.2",
@@ -37,7 +39,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-tailwindcss": "^3.18.0",
-    "husky": "^9.1.7",
+    "husky": "^8.0.0",
     "lint-staged": "^15.5.1",
     "postcss": "8.4.49",
     "prettier": "^3.3.3",
