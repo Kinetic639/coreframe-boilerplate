@@ -7,7 +7,8 @@
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -36,6 +37,8 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-tailwindcss": "^3.18.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
     "postcss": "8.4.49",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.11",

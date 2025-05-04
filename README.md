@@ -9,14 +9,20 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ## 🗺️ Roadmap
 
 ### Core Infrastructure
+
 - [x] Next.js 15 with App Router setup
 - [x] TypeScript configuration
 - [x] Supabase integration
 - [x] Tailwind CSS + shadcn/ui setup
 - [x] ESLint + Prettier configuration
 - [x] pnpm package manager
+- [x] Git hooks with Husky
+- [x] Pre-commit linting with lint-staged
+- [x] Automated code formatting
+- [x] Type checking on commit
 
 ### Authentication & Authorization
+
 - [x] Email/password authentication
 - [x] Session management
 - [ ] Registration flow
@@ -29,6 +35,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Two-factor authentication
 
 ### User Dashboard
+
 - [ ] User profile management
 - [ ] Profile picture upload
 - [ ] Account settings
@@ -39,6 +46,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Usage statistics
 
 ### Admin Dashboard
+
 - [ ] User management
 - [ ] Role management
 - [ ] System settings
@@ -49,6 +57,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Backup management
 
 ### API & Backend
+
 - [x] Supabase database setup
 - [ ] API rate limiting
 - [ ] Webhook support
@@ -59,6 +68,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] API versioning
 
 ### UI/UX
+
 - [x] Responsive design
 - [x] Dark/Light mode
 - [x] Loading states
@@ -69,6 +79,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Custom themes
 
 ### Security
+
 - [x] Basic security headers
 - [ ] Rate limiting
 - [ ] IP blocking
@@ -79,6 +90,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Privacy policy
 
 ### Testing
+
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] E2E tests
@@ -89,6 +101,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Automated testing pipeline
 
 ### Documentation
+
 - [x] Basic README
 - [ ] API documentation
 - [ ] User guides
@@ -99,6 +112,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Security documentation
 
 ### Deployment
+
 - [ ] Vercel deployment
 - [ ] Supabase deployment
 - [ ] Database migrations
@@ -113,6 +127,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ### GitHub Actions Workflows
 
 - [x] Build and Test
+
   - [x] Install dependencies
   - [x] Run TypeScript type checking
   - [x] Run ESLint
@@ -156,6 +171,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ## ✨ Features
 
 ### 🛠 Core Stack
+
 - **Next.js 15** with App Router
 - **TypeScript** for type safety
 - **Supabase** for backend and auth
@@ -163,6 +179,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - **shadcn/ui** for beautiful components
 
 ### 🔐 Authentication
+
 - Email/password authentication
 - Role-based access control
 - Protected routes
@@ -170,6 +187,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - Password reset flow
 
 ### 📱 UI Components
+
 - Responsive design
 - Dark/Light mode
 - Beautiful form components
@@ -178,6 +196,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - Error handling
 
 ### 🚀 Development Experience
+
 - Server-side rendering
 - Hot reloading
 - ESLint + Prettier
@@ -187,6 +206,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - pnpm
 - Supabase account
@@ -194,23 +214,28 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/coreframe-boilerplate.git
 cd coreframe-boilerplate
 ```
 
 2. Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.example .env.local
 ```
+
 Fill in your Supabase credentials in `.env.local`
 
 4. Start the development server:
+
 ```bash
 pnpm dev
 ```
