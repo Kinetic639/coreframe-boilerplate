@@ -15,18 +15,18 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [x] Tailwind CSS + shadcn/ui setup
 - [x] ESLint + Prettier configuration
 - [x] pnpm package manager
-- [ ] CI/CD pipeline setup
-- [ ] Docker configuration
 
 ### Authentication & Authorization
 - [x] Email/password authentication
 - [x] Session management
+- [ ] Registration flow
+- [ ] Password reset flow
+- [ ] Password remind flow
+- [ ] Email verification
 - [ ] OAuth providers (Google, GitHub)
 - [ ] Role-based access control (RBAC)
 - [ ] Permission management
 - [ ] Two-factor authentication
-- [ ] Password reset flow
-- [ ] Email verification
 
 ### User Dashboard
 - [ ] User profile management
@@ -62,7 +62,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [x] Responsive design
 - [x] Dark/Light mode
 - [x] Loading states
-- [x] Error handling
+- [ ] Error handling
 - [ ] Animations
 - [ ] Accessibility improvements
 - [ ] Internationalization
@@ -107,6 +107,51 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Backup strategy
 - [ ] Disaster recovery
 - [ ] Scaling configuration
+
+## 🚀 CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+- [x] Build and Test
+  - [x] Install dependencies
+  - [x] Run TypeScript type checking
+  - [x] Run ESLint
+  - [x] Run Prettier formatting check
+  - [x] Run tests (if any)
+
+- [x] Deployment
+  - [x] Deploy to Vercel (production)
+  - [x] Deploy to Vercel (preview)
+  - [x] Environment variable validation
+
+### Quality Gates
+
+- [x] TypeScript compilation must pass
+- [x] ESLint must pass with no errors
+- [x] Prettier formatting must be consistent
+- [x] All tests must pass (if any)
+- [x] Build must succeed
+
+### Environment Variables
+
+- [x] Production environment variables
+- [x] Preview environment variables
+- [x] Development environment variables
+- [x] Required variables validation
+
+### Deployment Strategy
+
+- [x] Automatic deployment to Vercel
+- [x] Preview deployments for pull requests
+- [x] Production deployments from main branch
+- [x] Manual deployment option
+
+### Monitoring
+
+- [x] Build status notifications
+- [x] Deployment status notifications
+- [x] Error tracking integration
+- [x] Performance monitoring
 
 ## ✨ Features
 
@@ -204,62 +249,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    - `permissions`
 3. Enable Row Level Security (RLS)
 4. Configure email templates
-
-## 🎨 UI Components
-
-The project uses shadcn/ui components with Tailwind CSS. All components are fully customizable and accessible.
-
-### Example Usage
-
-```tsx
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-
-export function ExampleComponent() {
-  return (
-    <Card>
-      <Button variant="default">Click me</Button>
-    </Card>
-  )
-}
-```
-
-## 🔐 Authentication
-
-### Sign In
-
-```tsx
-'use client'
-
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-
-export function SignInForm() {
-  const supabase = createClientComponentClient()
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget as HTMLFormElement)
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
-    } catch (error) {
-      // Handle error
-    }
-  }
-  
-  return (
-    <form onSubmit={handleSubmit}>
-      {/* Form fields */}
-    </form>
-  )
-}
-```
 
 ## 🤝 Contributing
 
