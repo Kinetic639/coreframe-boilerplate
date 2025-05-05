@@ -11,7 +11,7 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Next.js and Supabase Starter Kit",
+  title: "CoreFrame Nextjs Boilerplate",
   description: "The fastest way to build apps with Next.js and Supabase",
 };
 
@@ -39,8 +39,8 @@ export default function RootLayout({
               <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
                 <div className="flex w-full max-w-5xl items-center justify-between p-3 px-5 text-sm">
                   <div className="flex items-center gap-5 font-semibold">
-                    <Link href={"/"}>Next.js Supabase Starter</Link>
-                  </div>{" "}
+                    <Link href={"/"}>CoreFrame Boilerplate</Link>
+                  </div>
                   <HeaderAuth />
                 </div>
               </nav>
@@ -48,14 +48,14 @@ export default function RootLayout({
 
               <footer className="mx-auto flex w-full items-center justify-center gap-8 border-t py-16 text-center text-xs">
                 <p>
-                  Powered by{" "}
+                  © {new Date().getFullYear()}{" "}
                   <a
-                    href="https://supabase.com/?utm_source=create-next-app&utm_medium=template&utm_term=nextjs"
+                    href="https://github.com/Kinetic639"
                     target="_blank"
-                    className="font-bold hover:underline"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
                   >
-                    Supabase
+                    @Kinetic639
                   </a>
                 </p>
                 <ThemeSwitcher />
