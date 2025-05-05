@@ -34,6 +34,48 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Permission management
 - [ ] Two-factor authentication
 
+### Email System
+
+- [ ] Email Infrastructure
+
+  - [ ] React Email integration for beautiful email templates
+  - [ ] Resend.com integration for reliable email delivery
+  - [ ] Email template management system
+  - [ ] Email queue system for handling high volume
+
+- [ ] Authentication Emails
+
+  - [ ] Welcome email for new users
+  - [ ] Email verification
+  - [ ] Password reset emails
+  - [ ] Password change confirmation
+  - [ ] Account deletion confirmation
+  - [ ] Two-factor authentication codes
+
+- [ ] Transactional Emails
+
+  - [ ] Account activity notifications
+  - [ ] Security alerts
+  - [ ] Profile update confirmations
+  - [ ] Subscription status changes
+  - [ ] Payment receipts
+  - [ ] Invoice notifications
+
+- [ ] Newsletter System
+
+  - [ ] Subscription management
+  - [ ] Newsletter templates
+  - [ ] Scheduled newsletter delivery
+  - [ ] Newsletter analytics
+  - [ ] Unsubscribe handling
+  - [ ] Newsletter preferences
+
+- [ ] Email Preferences
+  - [ ] User email preference management
+  - [ ] Email frequency settings
+  - [ ] Category-based email preferences
+  - [ ] Global email settings
+
 ### User Dashboard
 
 - [ ] User profile management
