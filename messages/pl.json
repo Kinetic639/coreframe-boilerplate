@@ -1,0 +1,21 @@
+{
+  "LocaleSwitcher": {
+    "label": "zmień język",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
+  },
+  "HomePage": {
+    "title": "Siema siema"
+  },
+  "LocaleLayout": {
+    "title": "siema apka"
+  },
+  "AuthButton": {
+    "greeting": "Cześć, {email}!",
+    "signOut": "Wyloguj",
+    "signIn": "Logowanie",
+    "signUp": "Rejestracja"
+  },
+  "ProtectedPage": {
+    "title": "To jest chroniona strona dostępna tylko dla zalogowanych userów"
+  }
+}

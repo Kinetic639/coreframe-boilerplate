@@ -1,31 +1,32 @@
-import { signOutAction } from "@/app/actions";
+import { signOutAction } from "@/app/[locale]/actions";
 import Link from "next/link";
 import { Button } from "./ui/button";
 import { createClient } from "@/utils/supabase/server";
+import { getTranslations } from "next-intl/server";
 
 export default async function AuthButton() {
   const supabase = await createClient();
-
+  const t = await getTranslations("AuthButton");
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   return user ? (
     <div className="flex items-center gap-4">
-      Hey, {user.email}!
+      {t("greeting", { email: user?.email || "" })}
       <form action={signOutAction}>
         <Button type="submit" variant={"outline"}>
-          Sign out
+          {t("signOut")}
         </Button>
       </form>
     </div>
   ) : (
     <div className="flex gap-2">
       <Button asChild size="sm" variant={"outline"}>
-        <Link href="/sign-in">Sign in</Link>
+        <Link href="/sign-in">{t("signIn")}</Link>
       </Button>
       <Button asChild size="sm" variant={"default"}>
-        <Link href="/sign-up">Sign up</Link>
+        <Link href="/sign-up">{t("signUp")}</Link>
       </Button>
     </div>
   );
