@@ -117,8 +117,7 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 - [ ] Error handling
 - [ ] Animations
 - [ ] Accessibility improvements
-- [ ] Internationalization
-- [ ] Custom themes
+- [x] Internationalization
 
 ### Security
 

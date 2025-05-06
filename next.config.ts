@@ -1,5 +1,6 @@
-import type { NextConfig } from "next";
-
+import {NextConfig} from 'next';
+import createNextIntlPlugin from 'next-intl/plugin';
+ 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
@@ -17,5 +18,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: false,
   },
 };
+ 
+const withNextIntl = createNextIntlPlugin();
+export default withNextIntl(nextConfig);
 
-export default nextConfig;
