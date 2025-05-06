@@ -25,13 +25,13 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 
 - [x] Email/password authentication
 - [x] Session management
-- [ ] Registration flow
-- [ ] Password reset flow
-- [ ] Password remind flow
-- [ ] Email verification
+- [x] Registration flow
+- [x] Password reset flow
+- [x] Password remind flow
+- [x] Email verification
 - [ ] OAuth providers (Google, GitHub)
-- [ ] Role-based access control (RBAC)
-- [ ] Permission management
+- [x] Role-based access control (RBAC)
+- [x] Permission management
 - [ ] Two-factor authentication
 
 ### Email System
