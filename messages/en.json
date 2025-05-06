@@ -1,0 +1,21 @@
+{
+  "LocaleSwitcher": {
+    "label": "Change language",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
+  },
+  "HomePage": {
+    "title": "Hellow world"
+  },
+  "LocaleLayout": {
+    "title": "Hellow world"
+  },
+  "AuthButton": {
+    "greeting": "Hello, {email}!",
+    "signOut": "Sign out",
+    "signIn": "Sign in",
+    "signUp": "Sign up"
+  },
+  "ProtectedPage": {
+    "title": "This is a protected page that you can only see as an authenticated user"
+  }
+}
