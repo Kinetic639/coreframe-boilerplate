@@ -14,7 +14,7 @@
   },
   "settings": {
     "next": {
-      "rootDir": "."
+      "rootDir": "src"
     }
   }
-} 
+}
