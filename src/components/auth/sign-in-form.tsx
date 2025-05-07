@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -22,6 +23,8 @@ interface SignInFormProps {
 }
 
 export function SignInForm({ message }: SignInFormProps) {
+  const t = useTranslations("authForms.SignInForm");
+
   const {
     register,
     handleSubmit,
@@ -39,38 +42,43 @@ export function SignInForm({ message }: SignInFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">Sign in</h1>
+      <h1 className="text-2xl font-medium">{t("title")}</h1>
       <p className="text-sm text-foreground">
-        Don't have an account?{" "}
+        {t("noAccount")}{" "}
         <Link className="font-medium text-primary underline" href="/sign-up">
-          Sign up
+          {t("signUp")}
         </Link>
       </p>
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+          <Label htmlFor="email">{t("emailLabel")}</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder={t("emailPlaceholder")}
+            {...register("email")}
+          />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("passwordLabel")}</Label>
             <Link className="text-xs text-foreground underline" href="/forgot-password">
-              Forgot Password?
+              {t("forgotPassword")}
             </Link>
           </div>
           <Input
             id="password"
             type="password"
-            placeholder="Your password"
+            placeholder={t("passwordPlaceholder")}
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="Signing in...">
-          Sign in
+        <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+          {t("submit")}
         </SubmitButton>
         {message && <FormMessage message={message} />}
       </div>

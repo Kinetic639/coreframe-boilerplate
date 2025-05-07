@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
 
 export default async function AuthButton() {
   const supabase = await createClient();
-  const t = await getTranslations("AuthButton");
+  const t = await getTranslations("authForms.AuthButton");
   const {
     data: { user },
   } = await supabase.auth.getUser();

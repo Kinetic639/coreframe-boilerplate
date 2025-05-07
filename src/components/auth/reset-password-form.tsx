@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 const resetPasswordSchema = z
   .object({
@@ -32,6 +33,8 @@ interface ResetPasswordFormProps {
 }
 
 export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
+  const t = useTranslations("authForms.ResetPasswordForm");
+
   const {
     register,
     handleSubmit,
@@ -49,26 +52,26 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">Reset password</h1>
-      <p className="text-sm text-foreground/60">Please enter your new password below.</p>
+      <h1 className="text-2xl font-medium">{t("title")}</h1>
+      <p className="text-sm text-foreground/60">{t("description")}</p>
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="password">New password</Label>
+          <Label htmlFor="password">{t("passwordLabel")}</Label>
           <Input
             id="password"
             type="password"
-            placeholder="New password"
+            placeholder={t("passwordPlaceholder")}
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <Label htmlFor="confirmPassword">{t("confirmPasswordLabel")}</Label>
           <Input
             id="confirmPassword"
             type="password"
-            placeholder="Confirm password"
+            placeholder={t("confirmPasswordPlaceholder")}
             {...register("confirmPassword")}
           />
           {errors.confirmPassword && (
@@ -76,8 +79,8 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
           )}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="Resetting password...">
-          Reset password
+        <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+          {t("submit")}
         </SubmitButton>
         {message && <FormMessage message={message} />}
       </div>

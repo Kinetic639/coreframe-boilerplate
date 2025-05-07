@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -21,6 +22,8 @@ interface ForgotPasswordFormProps {
 }
 
 export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
+  const t = useTranslations("authForms.ForgotPasswordForm");
+
   const {
     register,
     handleSubmit,
@@ -37,23 +40,29 @@ export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">Reset Password</h1>
+      <h1 className="text-2xl font-medium">{t("title")}</h1>
       <p className="text-sm text-foreground">
-        Already have an account?{" "}
+        {t("remembered")}{" "}
         <Link className="font-medium text-primary underline" href="/sign-in">
-          Sign in
+          {t("signIn")}
         </Link>
       </p>
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+          <Label htmlFor="email">{t("emailLabel")}</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder={t("emailPlaceholder")}
+            {...register("email")}
+          />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="Sending reset link...">
-          Reset Password
+        <SubmitButton disabled={isSubmitting} pendingText="...">
+          {t("submit")}
         </SubmitButton>
+
         {message && <FormMessage message={message} />}
       </div>
     </form>
