@@ -9,13 +9,56 @@
   "LocaleLayout": {
     "title": "siema apka"
   },
-  "AuthButton": {
-    "greeting": "Cześć, {email}!",
-    "signOut": "Wyloguj",
-    "signIn": "Logowanie",
-    "signUp": "Rejestracja"
-  },
   "ProtectedPage": {
     "title": "To jest chroniona strona dostępna tylko dla zalogowanych userów"
+  },
+  "authForms": {
+    "AuthButton": {
+      "greeting": "Cześć, {email}!",
+      "signOut": "Wyloguj",
+      "signIn": "Logowanie",
+      "signUp": "Rejestracja"
+    },
+    "SignInForm": {
+      "title": "Logowanie",
+      "noAccount": "Nie masz konta?",
+      "signUp": "Zarejestruj się",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "forgotPassword": "Zapomniałeś hasła?",
+      "submit": "Zaloguj się",
+      "pending": "Logowanie..."
+    },
+    "SignUpForm": {
+      "title": "Rejestracja",
+      "haveAccount": "Masz już konto?",
+      "signIn": "Zaloguj się",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "submit": "Zarejestruj się",
+      "pending": "Rejestrowanie..."
+    },
+    "ForgotPasswordForm": {
+      "title": "Zresetuj hasło",
+      "emailLabel": "Email",
+      "submit": "Wyślij link resetujący",
+      "emailPlaceholder": "email@przyklad.com",
+      "remembered": "Pamiętasz hasło?",
+      "signIn": "Zaloguj się"
+    },
+    "ResetPasswordForm": {
+      "title": "Ustaw nowe hasło",
+      "description": "Wprowadź nowe hasło poniżej.",
+      "passwordLabel": "Nowe hasło",
+      "passwordPlaceholder": "Wprowadź nowe hasło",
+      "confirmPasswordLabel": "Potwierdź hasło",
+      "confirmPasswordPlaceholder": "Wprowadź ponownie hasło",
+      "submit": "Zresetuj hasło",
+      "pending": "Resetuję hasło..."
+    }
   }
 }

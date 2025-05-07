@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -28,6 +29,8 @@ interface SignUpFormProps {
 }
 
 export function SignUpForm({ message }: SignUpFormProps) {
+  const t = useTranslations("authForms.SignUpForm");
+
   const {
     register,
     handleSubmit,
@@ -45,33 +48,38 @@ export function SignUpForm({ message }: SignUpFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">Sign up</h1>
+      <h1 className="text-2xl font-medium">{t("title")}</h1>
       <p className="text-sm text-foreground">
-        Already have an account?{" "}
+        {t("haveAccount")}{" "}
         <Link className="font-medium text-primary underline" href="/sign-in">
-          Sign in
+          {t("signIn")}
         </Link>
       </p>
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+          <Label htmlFor="email">{t("emailLabel")}</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder={t("emailPlaceholder")}
+            {...register("email")}
+          />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t("passwordLabel")}</Label>
           <Input
             id="password"
             type="password"
-            placeholder="Your password"
+            placeholder={t("passwordPlaceholder")}
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="Signing up...">
-          Sign up
+        <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+          {t("submit")}
         </SubmitButton>
         {message && <FormMessage message={message} />}
       </div>
