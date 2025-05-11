@@ -14,6 +14,10 @@ export const routing = defineRouting({
       en: "/protected/reset-password",
       pl: "/chronione/resetowanie-hasla",
     },
+    "/protected/admin-dashboard": {
+      en: "/protected/admin-dashboard",
+      pl: "/chronione/panel-administratora",
+    },
     "/sign-in": {
       en: "/sign-in",
       pl: "/logowanie",
