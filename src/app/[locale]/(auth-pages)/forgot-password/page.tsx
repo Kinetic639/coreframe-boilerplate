@@ -1,4 +1,4 @@
-import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { ForgotPasswordForm } from "@/components/auth/forms/forgot-password-form";
 import { Message } from "@/components/form-message";
 import { SmtpMessage } from "../smtp-message";
 
