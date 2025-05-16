@@ -1,6 +1,7 @@
-import { SignUpForm } from "@/components/auth/sign-up-form";
+import { SignUpForm } from "@/components/auth/forms/sign-up-form";
 import { FormMessage, Message } from "@/components/form-message";
 import { SmtpMessage } from "../smtp-message";
+import { AuthCard } from "@/components/auth/AuthCard";
 
 export default async function Signup(props: { searchParams: Promise<Message> }) {
   const searchParams = await props.searchParams;
@@ -14,7 +15,9 @@ export default async function Signup(props: { searchParams: Promise<Message> }) 
 
   return (
     <>
-      <SignUpForm message={searchParams} />
+      <AuthCard>
+        <SignUpForm message={searchParams} />
+      </AuthCard>
       <SmtpMessage />
     </>
   );

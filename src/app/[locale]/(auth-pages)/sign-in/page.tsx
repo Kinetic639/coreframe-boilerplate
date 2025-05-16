@@ -1,4 +1,4 @@
-import { SignInForm } from "@/components/auth/sign-in-form";
+import { SignInForm } from "@/components/auth/forms/sign-in-form";
 import { Message } from "@/components/form-message";
 
 export default async function Login(props: { searchParams: Promise<Message> }) {
