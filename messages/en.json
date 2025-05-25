@@ -1,16 +1,6 @@
 {
-  "LocaleSwitcher": {
-    "label": "Change language",
-    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
-  },
   "HomePage": {
     "title": "Hello there"
-  },
-  "LocaleLayout": {
-    "title": "hello app"
-  },
-  "ProtectedPage": {
-    "title": "This is a protected page available only to logged-in users"
   },
   "authForms": {
     "AuthButton": {
@@ -39,6 +29,8 @@
       "emailPlaceholder": "you@example.com",
       "passwordLabel": "Password",
       "passwordPlaceholder": "Your password",
+      "organizationNameLabel": "Organization Name",
+      "organizationNamePlaceholder": "Your organization name",
       "submit": "Sign up",
       "pending": "Signing up..."
     },
@@ -60,5 +52,397 @@
       "submit": "Reset password",
       "pending": "Resetting password..."
     }
+  },
+  "Error": {
+    "description": "<p>We've unfortunately encountered an error.</p><p>You can try to <retry>reload the page</retry> you were visiting.</p>",
+    "title": "Something went wrong!"
+  },
+  "IndexPage": {
+    "description": "This is a basic example that demonstrates the usage of <code>next-intl</code> with the Next.js App Router. Try changing the locale in the top right corner and see how the content changes.",
+    "title": "next-intl example",
+    "features": {
+      "title": "Platform Features",
+      "description": "Our platform provides everything mental health professionals need to deliver exceptional care remotely.",
+      "items": {
+        "appointments": {
+          "title": "Appointment Management",
+          "description": "Schedule and manage patient appointments with ease"
+        },
+        "hipaa": {
+          "title": "HIPAA Compliance",
+          "description": "Secure, encrypted platform for sensitive patient data"
+        },
+        "messaging": {
+          "title": "Secure Messaging",
+          "description": "Confidential communication between therapists and patients"
+        },
+        "notes": {
+          "title": "Session Notes",
+          "description": "Organized documentation for patient progress"
+        }
+      }
+    },
+    "roles": {
+      "title": "Role-Based Access",
+      "description": "Our platform provides tailored experiences for both therapists and patients.",
+      "therapists": {
+        "title": "For Therapists",
+        "features": [
+          "Comprehensive patient management dashboard",
+          "Secure session notes and treatment planning",
+          "Appointment scheduling and calendar integration",
+          "HIPAA-compliant messaging with patients"
+        ]
+      },
+      "patients": {
+        "title": "For Patients",
+        "features": [
+          "Easy appointment booking and management",
+          "Secure communication with your therapist",
+          "Access to assigned resources and homework",
+          "Progress tracking and appointment history"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "HIPAA Compliant"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Mental Health Professionals"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Secure Access"
+      }
+    },
+    "cta": {
+      "title": "Ready to Transform Your Practice?",
+      "description": "Join mental health professionals who trust our platform to connect with their patients securely.",
+      "button": "Create Your Account"
+    }
+  },
+  "LocaleLayout": {
+    "title": "next-intl example",
+    "brand": "TherapyConnect",
+    "description": "A secure, HIPAA-compliant platform designed to streamline your therapy practice and enhance patient care."
+  },
+  "LocaleSwitcher": {
+    "label": "Change language",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
+  },
+  "Manifest": {
+    "name": "next-intl example"
+  },
+  "Navigation": {
+    "home": "Home",
+    "pathnames": "Pathnames",
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "brand": "TherapyConnect",
+    "menu": {
+      "features": "Features",
+      "forTherapists": "For Therapists",
+      "forPatients": "For Patients",
+      "pricing": "Pricing"
+    },
+    "buttons": {
+      "dashboard": "Dashboard",
+      "signIn": "Sign In",
+      "signUp": "Sign Up"
+    }
+  },
+  "NotFoundPage": {
+    "description": "Please double-check the browser address bar or use the navigation to go to a known page.",
+    "title": "Page not found"
+  },
+  "PageLayout": {
+    "links": {
+      "docs": {
+        "description": "Learn more about next-intl in the official docs.",
+        "href": "https://next-intl.dev",
+        "title": "Docs"
+      },
+      "source": {
+        "description": "Browse the source code of this example on GitHub.",
+        "href": "https://github.com/amannn/next-intl/tree/main/examples/example-app-router",
+        "title": "Source code"
+      }
+    }
+  },
+  "PathnamesPage": {
+    "description": "<p>The pathnames are internationalized too.</p><p>If you're using the default language English, you'll see <code>/en/pathnames</code> in the browser address bar on this page.</p><p>If you change the locale to German, the URL is localized accordingly (<code>/de/pfadnamen</code>).</p>",
+    "title": "Pathnames"
+  },
+  "loginPage": {
+    "description": "<p>Login Page</p>",
+    "title": "Login"
+  },
+  "ProtectedPage": {
+    "protectedMessage": "This is a protected page that you can only see as an authenticated user",
+    "userDetails": "Your user details",
+    "nextSteps": "Next steps"
+  },
+  "Dashboard": {
+    "overview": "Overview",
+    "totalUsers": "Total Users",
+    "activeUsers": "Active Users",
+    "revenue": "Revenue",
+    "growth": "Growth",
+    "recentActivity": "Recent Activity",
+    "activityItem": "Activity {id}",
+    "minutesAgo": "{minutes} minutes ago",
+    "table": {
+      "showEmails": "Show Email Addresses",
+      "hideEmails": "Hide Email Addresses",
+      "emailsHidden": "Email addresses are hidden by default for privacy"
+    }
+  },
+  "Hero": {
+    "title": {
+      "start": "Transform Your",
+      "highlight": "Mental Health Practice",
+      "end": "with Our Platform"
+    },
+    "description": "A secure, HIPAA-compliant platform designed to streamline your therapy practice and enhance patient care.",
+    "buttons": {
+      "createAccount": "Create Your Account",
+      "signIn": "Sign In"
+    },
+    "features": {
+      "hipaa": "HIPAA Compliant",
+      "messaging": "Secure Messaging",
+      "care": "Patient-Centered Care"
+    }
+  },
+  "Features": {
+    "title": "Features",
+    "description": "Our platform provides tailored experiences for both therapists and patients.",
+    "roles": {
+      "title": "Role-Based Access",
+      "description": "Our platform provides tailored experiences for both therapists and patients.",
+      "therapists": {
+        "title": "For Therapists",
+        "features": [
+          "Comprehensive patient management dashboard",
+          "Secure session notes and treatment planning",
+          "Appointment scheduling and calendar integration",
+          "HIPAA-compliant messaging with patients"
+        ]
+      },
+      "patients": {
+        "title": "For Patients",
+        "features": [
+          "Easy appointment booking and management",
+          "Secure communication with your therapist",
+          "Access to assigned resources and homework",
+          "Progress tracking and appointment history"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "HIPAA Compliant"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Mental Health Professionals"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Secure Access"
+      }
+    },
+    "cta": {
+      "title": "Ready to Transform Your Practice?",
+      "description": "Join mental health professionals who trust our platform to connect with their patients securely.",
+      "button": "Create Your Account"
+    }
+  },
+  "Footer": {
+    "platform": {
+      "title": "Platform",
+      "features": "Features",
+      "pricing": "Pricing",
+      "dashboard": "Dashboard",
+      "security": "Security"
+    },
+    "forTherapists": {
+      "title": "For Therapists",
+      "patientManagement": "Patient Management",
+      "sessionNotes": "Session Notes",
+      "appointmentScheduling": "Appointment Scheduling",
+      "resourcesLibrary": "Resources Library"
+    },
+    "forPatients": {
+      "title": "For Patients",
+      "findTherapist": "Find a Therapist",
+      "bookAppointments": "Book Appointments",
+      "secureMessaging": "Secure Messaging",
+      "mentalHealthResources": "Mental Health Resources"
+    },
+    "legal": {
+      "title": "Legal",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "hipaaCompliance": "HIPAA Compliance",
+      "accessibility": "Accessibility"
+    },
+    "copyright": "© {year} TherapyConnect. All rights reserved.",
+    "socialMedia": {
+      "twitter": "Twitter",
+      "linkedin": "LinkedIn",
+      "instagram": "Instagram",
+      "facebook": "Facebook"
+    }
+  },
+  "AdminDashboard": {
+    "welcome": "Admin Dashboard",
+    "exportReport": "Export Report",
+    "manage": "Manage",
+    "features": {
+      "users": "Users",
+      "usersDesc": "Manage user accounts and permissions",
+      "activity": "Activity",
+      "activityDesc": "Monitor platform usage and events",
+      "security": "Security",
+      "securityDesc": "Review security settings and logs",
+      "settings": "Settings",
+      "settingsDesc": "Configure platform settings"
+    },
+    "table": {
+      "users": "Users",
+      "search": "Search users...",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions",
+      "edit": "Edit User",
+      "delete": "Delete User",
+      "showEmails": "Show Email Addresses",
+      "hideEmails": "Hide Email Addresses",
+      "emailsHidden": "Email addresses are hidden by default for privacy"
+    },
+    "recentActivity": "Recent Activity",
+    "activityItem": {
+      "title": "New user registration",
+      "time": "5 minutes ago"
+    },
+    "systemStatus": "System Status",
+    "status": {
+      "server": "Server Status",
+      "database": "Database Status",
+      "operational": "Operational"
+    },
+    "toast": {
+      "exportStarted": {
+        "title": "Export Started",
+        "description": "Your report is being generated and will be downloaded shortly"
+      },
+      "emailsToggle": {
+        "hidden": {
+          "title": "Emails Hidden",
+          "description": "Email addresses are now hidden"
+        },
+        "visible": {
+          "title": "Emails Visible",
+          "description": "Email addresses are now visible"
+        }
+      }
+    }
+  },
+  "UserDashboard": {
+    "welcome": "Welcome to Your Dashboard",
+    "viewDetails": "View Details",
+    "features": {
+      "appointments": {
+        "title": "Appointments",
+        "description": "Schedule and manage your therapy sessions"
+      },
+      "messages": {
+        "title": "Messages",
+        "description": "Secure communication with your therapist"
+      },
+      "notes": {
+        "title": "Notes & Progress",
+        "description": "Track your therapy journey and progress"
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "Manage your account and preferences"
+      }
+    },
+    "appointments": {
+      "upcoming": "Upcoming Appointments",
+      "description": "View and manage your scheduled sessions",
+      "schedule": "Schedule New",
+      "noUpcoming": "You have no upcoming appointments scheduled"
+    },
+    "activity": {
+      "logTest": "Log Test Activity",
+      "testMessage": "This is a test activity",
+      "success": "Test activity logged successfully",
+      "error": "Failed to log activity"
+    }
+  },
+  "Auth": {
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "Enter your password",
+    "fullNamePlaceholder": "John Doe",
+    "orContinueWith": "Or continue with",
+    "loginWith": "Login with {provider}",
+    "privacyTerms": {
+      "prefix": "By continuing, you agree to our",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "separator": "and"
+    },
+    "signIn": {
+      "title": "Welcome back",
+      "description": "Sign in to your account",
+      "action": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up"
+    },
+    "signUp": {
+      "title": "Create an account",
+      "description": "Enter your details to get started",
+      "action": "Sign up",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot password?",
+      "pageTitle": "Reset your password",
+      "description": "Enter your email address and we'll send you a link to reset your password",
+      "action": "Send reset link",
+      "rememberPassword": "Remember your password?",
+      "signInLink": "Sign in",
+      "checkEmail": "Check your email",
+      "emailSent": "If an account exists with that email, we've sent a password reset link"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password. Please try again.",
+      "emailNotConfirmed": "Please confirm your email address before signing in.",
+      "generic": "An error occurred while signing in.",
+      "unexpected": "An unexpected error occurred."
+    }
+  },
+  "ConfirmationPage": {
+    "title": "Check your email",
+    "description": "We've sent you a verification link to confirm your account",
+    "instructions": {
+      "primary": "Please check your email inbox and click the verification link to complete your registration.",
+      "secondary": "If you don't see the email, please check your spam folder."
+    },
+    "backToSignIn": "Return to sign in"
   }
 }

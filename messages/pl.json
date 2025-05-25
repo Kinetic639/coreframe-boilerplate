@@ -1,16 +1,6 @@
 {
-  "LocaleSwitcher": {
-    "label": "zmień język",
-    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
-  },
   "HomePage": {
     "title": "Siema siema"
-  },
-  "LocaleLayout": {
-    "title": "siema apka"
-  },
-  "ProtectedPage": {
-    "title": "To jest chroniona strona dostępna tylko dla zalogowanych userów"
   },
   "authForms": {
     "AuthButton": {
@@ -39,6 +29,8 @@
       "emailPlaceholder": "twoj@email.com",
       "passwordLabel": "Hasło",
       "passwordPlaceholder": "Twoje hasło",
+      "organizationNameLabel": "Nazwa organizacji",
+      "organizationNamePlaceholder": "Nazwa Twojej organizacji",
       "submit": "Zarejestruj się",
       "pending": "Rejestrowanie..."
     },
@@ -60,5 +52,353 @@
       "submit": "Zresetuj hasło",
       "pending": "Resetuję hasło..."
     }
+  },
+
+  "Error": {
+    "description": "<p>Niestety wystąpił błąd.</p><p>Możesz spróbować <retry>odświeżyć stronę</retry>, którą próbowałeś odwiedzić.</p>",
+    "title": "Coś poszło nie tak!"
+  },
+  "UserDashboard": {
+    "welcome": "Witaj w Twoim Panelu",
+    "viewDetails": "Zobacz Szczegóły",
+    "features": {
+      "appointments": {
+        "title": "Wizyty",
+        "description": "Planuj i zarządzaj sesjami terapeutycznymi"
+      },
+      "messages": {
+        "title": "Wiadomości",
+        "description": "Bezpieczna komunikacja z Twoim terapeutą"
+      },
+      "notes": {
+        "title": "Notatki i Postępy",
+        "description": "Śledź swoją drogę terapeutyczną i postępy"
+      },
+      "settings": {
+        "title": "Ustawienia",
+        "description": "Zarządzaj swoim kontem i preferencjami"
+      }
+    },
+    "appointments": {
+      "upcoming": "Nadchodzące Wizyty",
+      "description": "Przeglądaj i zarządzaj zaplanowanymi sesjami",
+      "schedule": "Zaplanuj Nową",
+      "noUpcoming": "Nie masz zaplanowanych nadchodzących wizyt"
+    },
+    "activity": {
+      "logTest": "Zapisz Testową Aktywność",
+      "testMessage": "To jest testowa aktywność",
+      "success": "Testowa aktywność została pomyślnie zapisana",
+      "error": "Nie udało się zapisać aktywności"
+    }
+  },
+  "IndexPage": {
+    "description": "To jest podstawowy przykład demonstrujący użycie <code>next-intl</code> z Next.js App Router. Spróbuj zmienić język w prawym górnym rogu i zobacz, jak zmienia się zawartość.",
+    "title": "Przykład next-intl",
+    "features": {
+      "title": "Funkcje Platformy",
+      "description": "Nasza platforma zapewnia wszystko, czego specjaliści zdrowia psychicznego potrzebują do świadczenia wyjątkowej opieki zdalnej.",
+      "items": {
+        "appointments": {
+          "title": "Zarządzanie Wizytami",
+          "description": "Łatwe planowanie i zarządzanie wizytami pacjentów"
+        },
+        "hipaa": {
+          "title": "Zgodność z HIPAA",
+          "description": "Bezpieczna, szyfrowana platforma do przechowywania danych pacjentów"
+        },
+        "messaging": {
+          "title": "Bezpieczna Komunikacja",
+          "description": "Poufna komunikacja między terapeutami a pacjentami"
+        },
+        "notes": {
+          "title": "Notatki z Sesji",
+          "description": "Uporządkowana dokumentacja postępów pacjenta"
+        }
+      }
+    },
+    "roles": {
+      "title": "Dostęp Oparty na Rolach",
+      "description": "Nasza platforma zapewnia dostosowane doświadczenia zarówno dla terapeutów, jak i pacjentów.",
+      "therapists": {
+        "title": "Dla Terapeutów",
+        "features": [
+          "Kompleksowy panel zarządzania pacjentami",
+          "Bezpieczne notatki z sesji i planowanie leczenia",
+          "Planowanie wizyt i integracja z kalendarzem",
+          "Komunikacja z pacjentami zgodna z HIPAA"
+        ]
+      },
+      "patients": {
+        "title": "Dla Pacjentów",
+        "features": [
+          "Łatwe rezerwowanie i zarządzanie wizytami",
+          "Bezpieczna komunikacja z terapeutą",
+          "Dostęp do przydzielonych materiałów i zadań",
+          "Śledzenie postępów i historia wizyt"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "Zgodność z HIPAA"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Specjalistów Zdrowia Psychicznego"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Bezpieczny Dostęp"
+      }
+    },
+    "cta": {
+      "title": "Gotowy na Transformację Swojej Praktyki?",
+      "description": "Dołącz do specjalistów zdrowia psychicznego, którzy ufają naszej platformie w bezpiecznym łączeniu się z pacjentami.",
+      "button": "Utwórz Konto"
+    }
+  },
+  "Dashboard": {
+    "overview": "Przegląd",
+    "totalUsers": "Liczba Użytkowników",
+    "activeUsers": "Aktywni Użytkownicy",
+    "revenue": "Przychód",
+    "growth": "Wzrost",
+    "recentActivity": "Ostatnia Aktywność",
+    "activityItem": "Aktywność {id}",
+    "minutesAgo": "{minutes} minut temu",
+    "table": {
+      "showEmails": "Pokaż Adresy Email",
+      "hideEmails": "Ukryj Adresy Email",
+      "emailsHidden": "Adresy email są domyślnie ukryte ze względu na prywatność"
+    }
+  },
+  "LocaleLayout": {
+    "title": "next-intl przykład",
+    "brand": "TherapyConnect",
+    "description": "Bezpieczna platforma zgodna z HIPAA, zaprojektowana aby usprawnić prowadzenie praktyki terapeutycznej i poprawić opiekę nad pacjentami."
+  },
+  "LocaleSwitcher": {
+    "label": "Zmień język",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Nieznany}}"
+  },
+  "Manifest": {
+    "name": "Przykład next-intl"
+  },
+  "Navigation": {
+    "home": "Strona główna",
+    "pathnames": "Ścieżki",
+    "login": "Zaloguj się",
+    "logout": "Wyloguj się",
+    "register": "Zarejestruj się",
+    "brand": "TherapyConnect",
+    "menu": {
+      "features": "Funkcje",
+      "forTherapists": "Dla Terapeutów",
+      "forPatients": "Dla Pacjentów",
+      "pricing": "Cennik"
+    },
+    "buttons": {
+      "dashboard": "Panel",
+      "signIn": "Zaloguj się",
+      "signUp": "Zarejestruj się"
+    }
+  },
+  "NotFoundPage": {
+    "description": "Sprawdź poprawność adresu w pasku przeglądarki lub użyj nawigacji, aby przejść do znanej strony.",
+    "title": "Nie znaleziono strony"
+  },
+  "PageLayout": {
+    "links": {
+      "docs": {
+        "description": "Dowiedz się więcej o next-intl w oficjalnej dokumentacji.",
+        "href": "https://next-intl.dev",
+        "title": "Dokumentacja"
+      },
+      "source": {
+        "description": "Przeglądaj kod źródłowy tego przykładu na GitHub.",
+        "href": "https://github.com/amannn/next-intl/tree/main/examples/example-app-router",
+        "title": "Kod źródłowy"
+      }
+    }
+  },
+  "PathnamesPage": {
+    "description": "<p>Ścieżki są również zinternacjonalizowane.</p><p>Jeśli używasz domyślnego języka angielskiego, zobaczysz <code>/en/pathnames</code> w pasku adresu przeglądarki na tej stronie.</p><p>Jeśli zmienisz język na polski, adres URL zostanie odpowiednio zlokalizowany (<code>/pl/sciezki</code>).</p>",
+    "title": "Ścieżki"
+  },
+  "loginPage": {
+    "description": "<p>Strona logowania</p>",
+    "title": "Logowanie"
+  },
+  "ProtectedPage": {
+    "protectedMessage": "To jest chroniona strona, którą możesz zobaczyć tylko jako zalogowany użytkownik",
+    "userDetails": "Twoje dane użytkownika",
+    "nextSteps": "Następne kroki"
+  },
+  "Hero": {
+    "title": {
+      "start": "Połącz się",
+      "highlight": "Bezpiecznie",
+      "end": "ze Swoimi Pacjentami"
+    },
+    "description": "Platforma zgodna z HIPAA, stworzona dla specjalistów zdrowia psychicznego, umożliwiająca łączenie się z pacjentami, zarządzanie wizytami i świadczenie bezpiecznej opieki zdalnej.",
+    "buttons": {
+      "createAccount": "Utwórz Konto",
+      "signIn": "Zaloguj się"
+    },
+    "features": {
+      "hipaa": "Zgodność z HIPAA",
+      "messaging": "Bezpieczna Komunikacja",
+      "care": "Opieka Skupiona na Pacjencie"
+    }
+  },
+  "Footer": {
+    "platform": {
+      "title": "Platforma",
+      "features": "Funkcje",
+      "pricing": "Cennik",
+      "dashboard": "Panel",
+      "security": "Bezpieczeństwo"
+    },
+    "forTherapists": {
+      "title": "Dla Terapeutów",
+      "patientManagement": "Zarządzanie Pacjentami",
+      "sessionNotes": "Notatki z Sesji",
+      "appointmentScheduling": "Planowanie Wizyt",
+      "resourcesLibrary": "Biblioteka Materiałów"
+    },
+    "forPatients": {
+      "title": "Dla Pacjentów",
+      "findTherapist": "Znajdź Terapeutę",
+      "bookAppointments": "Umów Wizytę",
+      "secureMessaging": "Bezpieczna Komunikacja",
+      "mentalHealthResources": "Materiały o Zdrowiu Psychicznym"
+    },
+    "legal": {
+      "title": "Prawne",
+      "privacyPolicy": "Polityka Prywatności",
+      "termsOfService": "Warunki Użytkowania",
+      "hipaaCompliance": "Zgodność z HIPAA",
+      "accessibility": "Dostępność"
+    },
+    "copyright": "© {year} TherapyConnect. Wszelkie prawa zastrzeżone.",
+    "socialMedia": {
+      "twitter": "Twitter",
+      "linkedin": "LinkedIn",
+      "instagram": "Instagram",
+      "facebook": "Facebook"
+    }
+  },
+  "AdminDashboard": {
+    "welcome": "Panel Administratora",
+    "exportReport": "Eksportuj Raport",
+    "manage": "Zarządzaj",
+    "features": {
+      "users": "Użytkownicy",
+      "usersDesc": "Zarządzaj kontami i uprawnieniami użytkowników",
+      "activity": "Aktywność",
+      "activityDesc": "Monitoruj użycie platformy i zdarzenia",
+      "security": "Bezpieczeństwo",
+      "securityDesc": "Przeglądaj ustawienia i logi bezpieczeństwa",
+      "settings": "Ustawienia",
+      "settingsDesc": "Konfiguruj ustawienia platformy"
+    },
+    "table": {
+      "users": "Użytkownicy",
+      "search": "Szukaj użytkowników...",
+      "name": "Imię i nazwisko",
+      "email": "Email",
+      "role": "Rola",
+      "status": "Status",
+      "actions": "Akcje",
+      "edit": "Edytuj Użytkownika",
+      "delete": "Usuń Użytkownika",
+      "showEmails": "Pokaż Adresy Email",
+      "hideEmails": "Ukryj Adresy Email",
+      "emailsHidden": "Adresy email są domyślnie ukryte ze względu na prywatność"
+    },
+    "recentActivity": "Ostatnia Aktywność",
+    "activityItem": {
+      "title": "Nowa rejestracja użytkownika",
+      "time": "5 minut temu"
+    },
+    "systemStatus": "Status Systemu",
+    "status": {
+      "server": "Status Serwera",
+      "database": "Status Bazy Danych",
+      "operational": "Operacyjny"
+    },
+    "toast": {
+      "exportStarted": {
+        "title": "Eksport Rozpoczęty",
+        "description": "Twój raport jest generowany i zostanie wkrótce pobrany"
+      },
+      "emailsToggle": {
+        "hidden": {
+          "title": "Adresy Email Ukryte",
+          "description": "Adresy email są teraz ukryte"
+        },
+        "visible": {
+          "title": "Adresy Email Widoczne",
+          "description": "Adresy email są teraz widoczne"
+        }
+      }
+    }
+  },
+  "Auth": {
+    "email": "Email",
+    "password": "Hasło",
+    "fullName": "Imię i nazwisko",
+    "emailPlaceholder": "ty@example.com",
+    "passwordPlaceholder": "Wprowadź hasło",
+    "fullNamePlaceholder": "Jan Kowalski",
+    "orContinueWith": "Lub kontynuuj przez",
+    "loginWith": "Zaloguj się przez {provider}",
+    "privacyTerms": {
+      "prefix": "Kontynuując, zgadzasz się na nasze",
+      "terms": "Warunki Użytkowania",
+      "privacy": "Polityka Prywatności",
+      "separator": "oraz"
+    },
+    "signIn": {
+      "title": "Witaj ponownie",
+      "description": "Zaloguj się na swoje konto",
+      "action": "Zaloguj się",
+      "noAccount": "Nie masz konta?",
+      "signUpLink": "Zarejestruj się"
+    },
+    "signUp": {
+      "title": "Utwórz konto",
+      "description": "Wprowadź swoje dane, aby rozpocząć",
+      "action": "Zarejestruj się",
+      "haveAccount": "Masz już konto?",
+      "signInLink": "Zaloguj się"
+    },
+    "forgotPassword": {
+      "title": "Zapomniałeś hasła?",
+      "pageTitle": "Resetuj hasło",
+      "description": "Wprowadź swój adres email, a wyślemy Ci link do resetowania hasła",
+      "action": "Wyślij link",
+      "rememberPassword": "Pamiętasz hasło?",
+      "signInLink": "Zaloguj się",
+      "checkEmail": "Sprawdź swoją skrzynkę",
+      "emailSent": "Jeśli konto z tym adresem email istnieje, wysłaliśmy link do resetowania hasła"
+    },
+    "errors": {
+      "invalidCredentials": "Nieprawidłowy email lub hasło. Spróbuj ponownie.",
+      "emailNotConfirmed": "Potwierdź adres email przed zalogowaniem.",
+      "generic": "Wystąpił błąd podczas logowania.",
+      "unexpected": "Wystąpił nieoczekiwany błąd. "
+    }
+  },
+  "ConfirmationPage": {
+    "title": "Sprawdź swoją skrzynkę",
+    "description": "Wysłaliśmy link weryfikacyjny do potwierdzenia Twojego konta",
+    "instructions": {
+      "primary": "Sprawdź swoją skrzynkę pocztową i kliknij w link weryfikacyjny, aby zakończyć rejestrację.",
+      "secondary": "Jeśli nie widzisz wiadomości, sprawdź folder spam."
+    },
+    "backToSignIn": "Wróć do logowania"
   }
 }

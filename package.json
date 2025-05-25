@@ -10,7 +10,7 @@
     "format:check": "prettier --check .",
     "prepare": "husky install",
     "lint-staged": "lint-staged",
-    "supabase:link:dev": "supabase link --project-ref yfrhgaeaqhvpytbrxeww",
+    "supabase:link:dev": "supabase link --project-ref qudfpmaixdjsjofjinzu",
     "supabase:link:prod": "supabase link --project-ref rsnjgdskfjwjozrmdwpd",
     "supabase:migration:new": "supabase migration new",
     "supabase:migration:up": "supabase migration up --linked",
@@ -40,6 +40,7 @@
     "react-dom": "19.0.0",
     "react-hook-form": "^7.56.2",
     "react-toastify": "^11.0.5",
+    "resend": "^4.5.1",
     "zod": "^3.24.3"
   },
   "devDependencies": {
