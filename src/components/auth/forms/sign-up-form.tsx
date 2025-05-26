@@ -20,6 +20,7 @@ const signUpSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       "Password must contain at least one uppercase letter, one lowercase letter, and one number"
     ),
+  organizationName: z.string().min(2, "Organization name is required"),
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -43,6 +44,7 @@ export function SignUpForm({ message }: SignUpFormProps) {
     const formData = new FormData();
     formData.append("email", data.email);
     formData.append("password", data.password);
+    formData.append("organizationName", data.organizationName);
     await signUpAction(formData);
   };
 
@@ -76,6 +78,19 @@ export function SignUpForm({ message }: SignUpFormProps) {
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="organizationName">{t("organizationNameLabel")}</Label>
+          <Input
+            id="organizationName"
+            type="text"
+            placeholder={t("organizationNamePlaceholder")}
+            {...register("organizationName")}
+          />
+          {errors.organizationName && (
+            <p className="text-sm text-destructive">{errors.organizationName.message}</p>
+          )}
         </div>
 
         <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>

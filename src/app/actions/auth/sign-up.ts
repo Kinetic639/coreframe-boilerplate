@@ -7,12 +7,19 @@ import { headers } from "next/headers";
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
+  const organizationName = formData.get("organizationName")?.toString();
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
 
-  if (!email || !password) {
-    return encodedRedirect("error", "/sign-up", "Email and password are required");
+  if (!email || !password || !organizationName) {
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      "Email, password, and organization name are required"
+    );
   }
+
+  // TODO: Add organization creation logic here
 
   const { error } = await supabase.auth.signUp({
     email,
