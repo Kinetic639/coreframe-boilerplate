@@ -1,14 +1,14 @@
 "use server";
 
 import { encodedRedirect } from "@/utils/utils";
-import { createClient } from "@/utils/supabase/server";
+import { createClientServer } from "@/utils/supabase/server";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const supabase = await createClient();
+  const supabase = await createClientServer();
 
   const { error } = await supabase.auth.signInWithPassword({
     email,

@@ -1,10 +1,13 @@
 import { signOutAction } from "@/app/[locale]/actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "./ui/button";
+import { createClient } from "@/utils/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 
 export default async function HeaderAuth() {
+export default async function AuthButton() {
+  const supabase = await createClient();
   const t = await getTranslations("authForms.AuthButton");
   const context = await loadUserContextServer();
 
