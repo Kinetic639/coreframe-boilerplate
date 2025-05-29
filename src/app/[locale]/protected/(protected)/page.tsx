@@ -5,7 +5,7 @@ import { InfoIcon, ShieldCheck } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import { CustomJwtPayload } from "@/utils/adminAuth";
+import { CustomJwtPayload } from "@/utils/auth/adminAuth";
 
 export default async function ProtectedPage() {
   const supabase = await createClient();
@@ -21,9 +21,11 @@ export default async function ProtectedPage() {
 
   // Check for admin role in JWT claims
   let isAdmin = false;
+  let roles = [];
   try {
     const jwt = jwtDecode<CustomJwtPayload>(session.access_token);
     isAdmin = jwt.user_role === "admin";
+    roles = jwt.roles;
   } catch (error) {
     console.error("Error decoding JWT:", error);
   }
@@ -35,6 +37,7 @@ export default async function ProtectedPage() {
           <InfoIcon size={16} strokeWidth={2} />
           {t("protectedMessage")}
         </div>
+        <pre>{JSON.stringify(roles, null, 2)}</pre>
       </div>
 
       {isAdmin && (

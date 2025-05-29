@@ -2,7 +2,7 @@
 
 import { updateUserRole, deleteUser } from "@/utils/admin";
 import { revalidatePath } from "next/cache";
-import { checkAdminRole } from "@/utils/adminAuth";
+import { checkAdminRole } from "@/utils/auth/adminAuth";
 
 // Update a user's role (admin/specialist)
 export async function updateUserRoleAction(formData: FormData) {
