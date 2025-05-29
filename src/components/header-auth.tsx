@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getTranslations } from "next-intl/server";
 import { Badge } from "./ui/badge";
 import { jwtDecode } from "jwt-decode";
-import { CustomJwtPayload } from "@/utils/adminAuth";
+import { CustomJwtPayload } from "@/utils/auth/adminAuth";
 
 export default async function AuthButton() {
   const supabase = await createClient();
