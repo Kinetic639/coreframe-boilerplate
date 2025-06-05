@@ -28,22 +28,14 @@ export function SignInForm({ message }: SignInFormProps) {
 
   const {
     register,
-    handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
   });
 
-  const onSubmit = async (data: SignInFormData) => {
-    const formData = new FormData();
-    formData.append("email", data.email);
-    formData.append("password", data.password);
-    await signInAction(formData);
-  };
-
   return (
     <AuthCard showImage={true} variant="signin">
-      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
+      <form action={signInAction} className="mx-auto flex min-w-64 max-w-64 flex-col">
         <h1 className="text-2xl font-medium">{t("title")}</h1>
         <p className="text-sm text-foreground">
           {t("noAccount")}{" "}
