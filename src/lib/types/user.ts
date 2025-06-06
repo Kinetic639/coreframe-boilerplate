@@ -10,9 +10,6 @@ export type UserPreferences = Pick<
   "organization_id" | "default_branch_id"
 >;
 
-export type Role = {
-  role: string;
-  org_id: string;
-  branch_id: string | null;
-  team_id: string | null;
+export type UserRole = Database["public"]["Tables"]["user_roles"]["Row"] & {
+  roles: Pick<Database["public"]["Tables"]["roles"]["Row"], "slug" | "label">;
 };

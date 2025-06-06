@@ -1,15 +1,27 @@
 import HeaderAuth from "@/components/header-auth";
-import LocaleSwitcher from "@/components/LocaleSwitcher";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { Link } from "@/i18n/navigation";
+import { Link, redirect } from "@/i18n/navigation";
+import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
-import { AppInitProvider } from "@/lib/stores/app-init-provider";
+import { AppInitProvider } from "@/lib/providers/app-init-provider";
+import { getLocale } from "next-intl/server";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  const context = await loadUserContextServer();
+  const userContext = await loadUserContextServer();
+  const appContext = await loadAppContextServer();
+  const context = {
+    ...userContext,
+    ...appContext,
+  };
 
+  const locale = await getLocale();
+
+  if (!userContext || !appContext) {
+    return redirect({ href: "/sign-in", locale });
+  }
+
+  // 🔁 Brak sesji – przekieruj na stronę logowania z uwzględnieniem lokalizacji
   if (!context) {
-    return <div className="p-4 text-center">Brak dostępu</div>;
+    return redirect({ href: "/sign-in", locale });
   }
   return (
     <AppInitProvider context={context}>
@@ -22,26 +34,15 @@ export default async function Layout({ children }: { children: React.ReactNode }
             <HeaderAuth />
           </div>
         </nav>
+
         <main className="flex min-h-0 flex-1 flex-col items-center justify-center">
-          <div className="flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-20 p-5">
+          <div className="flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-10 p-5">
+            <div className="w-full rounded bg-muted p-4 text-xs">
+              <pre>{JSON.stringify(context, null, 2)}</pre>
+            </div>
             {children}
           </div>
         </main>
-        <footer className="mx-auto mt-auto flex w-full items-center justify-center gap-8 border-t py-4 text-center text-xs">
-          <p>
-            © {new Date().getFullYear()}{" "}
-            <a
-              href="https://github.com/Kinetic639"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              @Kinetic639
-            </a>
-          </p>
-          <ThemeSwitcher />
-          <LocaleSwitcher />
-        </footer>
       </div>
     </AppInitProvider>
   );
