@@ -1,15 +1,13 @@
-// lib/stores/user-store.ts
 import { create } from "zustand";
-import type { User, Role, UserPreferences } from "@/lib/types/user";
+import type { User, UserPreferences, UserRole } from "@/lib/types/user";
 
 type UserStore = {
   user: User | null;
   preferences: UserPreferences | null;
-  roles: Role[];
+  roles: UserRole[];
   isLoaded: boolean;
 
-  setContext: (data: { user: User; preferences: UserPreferences; roles: Role[] }) => void;
-
+  setContext: (ctx: { user: User; preferences: UserPreferences; roles: UserRole[] }) => void;
   clear: () => void;
 };
 
@@ -19,10 +17,7 @@ export const useUserStore = create<UserStore>((set) => ({
   roles: [],
   isLoaded: false,
 
-  setContext: (ctx) => {
-    console.log("💾 zapisuję w Zustand:", ctx);
-    set({ user: ctx.user, preferences: ctx.preferences, roles: ctx.roles });
-  },
+  setContext: ({ user, preferences, roles }) => set({ user, preferences, roles, isLoaded: true }),
 
   clear: () => set({ user: null, preferences: null, roles: [], isLoaded: false }),
 }));
