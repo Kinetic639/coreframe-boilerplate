@@ -3,6 +3,44 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      branch_profiles: {
+        Row: {
+          bio: string | null;
+          branch_id: string;
+          created_at: string | null;
+          logo_url: string | null;
+          name: string | null;
+          slug: string | null;
+          website: string | null;
+        };
+        Insert: {
+          bio?: string | null;
+          branch_id: string;
+          created_at?: string | null;
+          logo_url?: string | null;
+          name?: string | null;
+          slug?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          bio?: string | null;
+          branch_id?: string;
+          created_at?: string | null;
+          logo_url?: string | null;
+          name?: string | null;
+          slug?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "branch_profiles_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: true;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       branches: {
         Row: {
           created_at: string | null;
@@ -10,6 +48,7 @@ export type Database = {
           id: string;
           name: string;
           organization_id: string;
+          slug: string | null;
         };
         Insert: {
           created_at?: string | null;
@@ -17,6 +56,7 @@ export type Database = {
           id?: string;
           name: string;
           organization_id: string;
+          slug?: string | null;
         };
         Update: {
           created_at?: string | null;
@@ -24,6 +64,7 @@ export type Database = {
           id?: string;
           name?: string;
           organization_id?: string;
+          slug?: string | null;
         };
         Relationships: [
           {
@@ -124,21 +165,27 @@ export type Database = {
           bio: string | null;
           created_at: string | null;
           logo_url: string | null;
+          name: string | null;
           organization_id: string;
+          slug: string | null;
           website: string | null;
         };
         Insert: {
           bio?: string | null;
           created_at?: string | null;
           logo_url?: string | null;
+          name?: string | null;
           organization_id: string;
+          slug?: string | null;
           website?: string | null;
         };
         Update: {
           bio?: string | null;
           created_at?: string | null;
           logo_url?: string | null;
+          name?: string | null;
           organization_id?: string;
+          slug?: string | null;
           website?: string | null;
         };
         Relationships: [
