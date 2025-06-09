@@ -6,21 +6,17 @@ export const routing = defineRouting({
   localePrefix: "as-needed",
   pathnames: {
     "/": "/",
-    "/protected": {
-      en: "/protected",
-      pl: "/chronione",
+    "/dashboard/reset-password": {
+      en: "/dashboard/reset-password",
+      pl: "/panel/resetowanie-hasla",
     },
-    "/protected/reset-password": {
-      en: "/protected/reset-password",
-      pl: "/chronione/resetowanie-hasla",
+    "/dashboard/admin-dashboard": {
+      en: "/dashboard/admin-dashboard",
+      pl: "/panel/panel-administratora",
     },
-    "/protected/admin-dashboard": {
-      en: "/protected/admin-dashboard",
-      pl: "/chronione/panel-administratora",
-    },
-    "/protected/branch": {
-      en: "/protected/branch",
-      pl: "/chronione/oddzial",
+    "/dashboard/branch": {
+      en: "/dashboard/branch",
+      pl: "/panel/oddzial",
     },
     "/sign-in": {
       en: "/sign-in",

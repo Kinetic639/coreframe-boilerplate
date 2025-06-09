@@ -160,6 +160,36 @@ export type Database = {
           },
         ];
       };
+      modules: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          label: string;
+          settings: Json | null;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          label: string;
+          settings?: Json | null;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          label?: string;
+          settings?: Json | null;
+          slug?: string;
+        };
+        Relationships: [];
+      };
       organization_profiles: {
         Row: {
           bio: string | null;
@@ -333,6 +363,48 @@ export type Database = {
             columns: ["branch_id"];
             isOneToOne: false;
             referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_modules: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          module_id: string;
+          setting_overrides: Json | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          module_id: string;
+          setting_overrides?: Json | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          module_id?: string;
+          setting_overrides?: Json | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_modules_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "modules";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_modules_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];

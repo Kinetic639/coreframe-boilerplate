@@ -30,7 +30,7 @@ export default function ProtectedPage() {
             Admin Access
           </div>
           <Button asChild>
-            <Link href="/protected/admin-dashboard">Access Admin Dashboard</Link>
+            <Link href="/dashboard/admin-dashboard">Access Admin Dashboard</Link>
           </Button>
         </div>
       )}
