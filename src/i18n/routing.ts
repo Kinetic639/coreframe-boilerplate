@@ -18,6 +18,10 @@ export const routing = defineRouting({
       en: "/protected/admin-dashboard",
       pl: "/chronione/panel-administratora",
     },
+    "/protected/branch": {
+      en: "/protected/branch",
+      pl: "/chronione/oddzial",
+    },
     "/sign-in": {
       en: "/sign-in",
       pl: "/logowanie",
