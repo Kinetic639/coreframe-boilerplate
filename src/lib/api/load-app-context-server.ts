@@ -48,11 +48,14 @@ export async function loadAppContextServer() {
   // 5. Set activeBranch from loaded profiles
   const activeBranch = availableBranches?.find((b) => b.branch_id === activeBranchId) ?? null;
 
+  // 4. Wyciągnij aktywny oddział z dostępnych
+  const activeBranch = availableBranches?.find((branch) => branch.id === activeBranchId) ?? null;
+
   return {
     active_org_id: activeOrgId,
     active_branch_id: activeBranchId,
     activeOrg: activeOrg ?? null,
-    activeBranch,
+    activeBranch: activeBranch ?? null,
     availableBranches: availableBranches ?? [],
   };
 }
