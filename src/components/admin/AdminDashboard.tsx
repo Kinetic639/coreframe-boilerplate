@@ -6,7 +6,7 @@ import { UsersTable, type User } from "./UsersTable";
 import {
   updateUserRoleAction,
   deleteUserAction,
-} from "@/app/[locale]/protected/admin-dashboard/actions";
+} from "@/app/[locale]/dashboard/admin-dashboard/actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, ShieldCheck, AlertTriangle } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";

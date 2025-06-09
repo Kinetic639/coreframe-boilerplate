@@ -25,13 +25,13 @@ export async function checkAdminRole() {
     const userRole = jwt.user_role;
 
     if (userRole !== "admin") {
-      // User doesn't have admin role, redirect to protected page
-      redirect("/protected");
+      // User doesn't have admin role, redirect to dashboard page
+      redirect("/dashboard");
     }
 
     return { isAdmin: true, userRole, userId: session.user.id, userEmail: session.user.email };
   } catch (error) {
     console.error("Error decoding JWT:", error);
-    redirect("/protected");
+    redirect("/dashboard");
   }
 }
