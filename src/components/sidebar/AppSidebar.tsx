@@ -6,8 +6,8 @@ const AppSidebar = () => {
   return (
     <Sidebar
       variant="sidebar"
-      className="border-none"
       collapsible="icon"
+      className="border-none bg-[color:var(--theme-color,_theme(colors.sidebar))]"
       style={
         {
           "--sidebar-width": "16rem",
@@ -15,7 +15,9 @@ const AppSidebar = () => {
         } as React.CSSProperties
       }
     >
-      <SidebarHeader className="pb-2 pt-4">header</SidebarHeader>
+      <SidebarHeader className="bg-[color:var(--theme-color,_theme(colors.sidebar))] pb-2 pt-4">
+        header
+      </SidebarHeader>
 
       <SidebarContent className="flex h-full flex-col justify-between">content</SidebarContent>
 
