@@ -20,5 +20,5 @@ export const signInAction = async (formData: FormData) => {
   }
 
   const locale = await getLocale();
-  return redirect({ href: "/protected", locale });
+  return redirect({ href: "/dashboard", locale });
 };

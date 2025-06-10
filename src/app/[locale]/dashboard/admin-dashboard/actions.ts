@@ -18,7 +18,7 @@ export async function updateUserRoleAction(formData: FormData) {
 
   try {
     await updateUserRole(userId, role);
-    revalidatePath("/[locale]/protected/admin-dashboard");
+    revalidatePath("/[locale]/dashboard/admin-dashboard");
     return { success: "User role updated successfully" };
   } catch (error) {
     console.error("Error updating user role:", error);
@@ -39,7 +39,7 @@ export async function deleteUserAction(formData: FormData) {
 
   try {
     await deleteUser(userId);
-    revalidatePath("/[locale]/protected/admin-dashboard");
+    revalidatePath("/[locale]/dashboard/admin-dashboard");
     return { success: "User deleted successfully" };
   } catch (error) {
     console.error("Error deleting user:", error);

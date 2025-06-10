@@ -1,7 +1,9 @@
 "use client";
 
-import { InfoIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { InfoIcon, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { useUserStore } from "@/lib/stores/user-store";
 
 export default function ProtectedPage() {
@@ -20,6 +22,18 @@ export default function ProtectedPage() {
         </div>
         <pre className="text-xs">{JSON.stringify({ user, preferences, roles }, null, 2)}</pre>
       </div>
+
+      {true && (
+        <div className="my-4">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <ShieldCheck size={16} />
+            Admin Access
+          </div>
+          <Button asChild>
+            <Link href="/dashboard/admin-dashboard">Access Admin Dashboard</Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
