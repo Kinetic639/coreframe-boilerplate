@@ -14,9 +14,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const sidebarItems = [
-  { path: "/protected/admin-dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/protected/admin-dashboard/users", label: "Users", icon: Users },
-  { path: "/protected/admin-dashboard/settings", label: "Settings", icon: Settings },
+  { path: "/dashboard/admin-dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/dashboard/admin-dashboard/users", label: "Users", icon: Users },
+  { path: "/dashboard/admin-dashboard/settings", label: "Settings", icon: Settings },
 ];
 
 export default function AppSidebar() {
@@ -31,7 +31,7 @@ export default function AppSidebar() {
           className={cn("ml-0 flex items-center px-2", state === "collapsed" && "justify-center")}
         >
           <Link
-            href="/protected/admin-dashboard"
+            href="/dashboard/admin-dashboard"
             className={cn(
               "flex items-center",
               state === "expanded" ? "gap-3" : "w-full justify-center"
