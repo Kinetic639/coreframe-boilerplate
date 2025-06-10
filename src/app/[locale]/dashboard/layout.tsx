@@ -17,6 +17,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
     ...userContext,
     ...appContext,
   };
+  const themeColor = appContext?.activeOrg?.theme_color ?? "#100c43";
 
   const locale = await getLocale();
 
@@ -31,35 +32,40 @@ export default async function Layout({ children }: { children: React.ReactNode }
   return (
     <SidebarProvider defaultOpen={sidebarState === "expanded"}>
       <AppInitProvider context={context}>
-        <div className="flex min-h-screen w-full">
-          {/* Sidebar with increased z-index to stay on top */}
-          <div className="relative z-50">
-            <AppSidebar />
-          </div>
+        <div
+          className="flex min-h-screen w-full"
+          style={{ "--theme-color": themeColor } as React.CSSProperties}
+        >
+          <div className="flex min-h-screen w-full">
+            {/* Sidebar with increased z-index to stay on top */}
+            <div className="relative z-50">
+              <AppSidebar />
+            </div>
 
-          {/* Main content area */}
-          <div className="flex flex-1 flex-col">
-            <header className="sticky top-0 z-20 flex flex-col bg-background">
-              <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
-                <div className="flex items-center gap-2">
-                  <SidebarTrigger />
+            {/* Main content area */}
+            <div className="flex flex-1 flex-col">
+              <header className="sticky top-0 z-20 flex flex-col bg-background">
+                <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
+                  <div className="flex items-center gap-2">
+                    <SidebarTrigger />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Search bar moved to the right */}
+                    <LocaleSwitcher />
+                    <ThemeSwitcher />
+                    <div className="relative w-64"></div>
+                  </div>
                 </div>
+              </header>
 
-                <div className="flex items-center gap-2">
-                  {/* Search bar moved to the right */}
-                  <LocaleSwitcher />
-                  <ThemeSwitcher />
-                  <div className="relative w-64"></div>
+              <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+                <div className="mb-12">
+                  <pre className="text-xs">{JSON.stringify({ appContext }, null, 2)}</pre>
                 </div>
-              </div>
-            </header>
-
-            <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
-              <div className="mb-12">
-                <pre className="text-xs">{JSON.stringify({ appContext }, null, 2)}</pre>
-              </div>
-              <div>{children}</div>
-            </main>
+                <div>{children}</div>
+              </main>
+            </div>
           </div>
         </div>
       </AppInitProvider>
