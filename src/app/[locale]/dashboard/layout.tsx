@@ -54,7 +54,12 @@ export default async function Layout({ children }: { children: React.ReactNode }
               </div>
             </header>
 
-            <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">{children}</main>
+            <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+              <div className="mb-12">
+                <pre className="text-xs">{JSON.stringify({ appContext }, null, 2)}</pre>
+              </div>
+              <div>{children}</div>
+            </main>
           </div>
         </div>
       </AppInitProvider>
