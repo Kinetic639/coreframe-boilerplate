@@ -4,7 +4,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["avatars.githubusercontent.com"],
+    domains: ["avatars.githubusercontent.com", "zlcnlalwfmmtusigeuyk.supabase.co"],
   },
   experimental: {
     serverActions: {
