@@ -6,6 +6,10 @@ export const routing = defineRouting({
   localePrefix: "as-needed",
   pathnames: {
     "/": "/",
+    "/dashboard": {
+      en: "/dashboard",
+      pl: "/panel",
+    },
     "/dashboard/reset-password": {
       en: "/dashboard/reset-password",
       pl: "/panel/resetowanie-hasla",
