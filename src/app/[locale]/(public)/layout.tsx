@@ -1,6 +1,5 @@
+import Footer from "@/components/footer";
 import HeaderAuth from "@/components/header-auth";
-import LocaleSwitcher from "@/components/LocaleSwitcher";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Link } from "@/i18n/navigation";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
@@ -19,21 +18,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
           {children}
         </div>
       </main>
-      <footer className="mx-auto mt-auto flex w-full items-center justify-center gap-8 border-t py-4 text-center text-xs">
-        <p>
-          © {new Date().getFullYear()}{" "}
-          <a
-            href="https://github.com/Kinetic639"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-          >
-            @Kinetic639
-          </a>
-        </p>
-        <ThemeSwitcher />
-        <LocaleSwitcher />
-      </footer>
+      <Footer />
+      <footer className="mx-auto mt-auto flex w-full items-center justify-center gap-8 border-t py-4 text-center text-xs"></footer>
     </div>
   );
 }

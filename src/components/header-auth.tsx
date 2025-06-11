@@ -2,7 +2,6 @@ import { signOutAction } from "@/app/[locale]/actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "./ui/button";
 import { getTranslations } from "next-intl/server";
-import { Badge } from "./ui/badge";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 
 export default async function HeaderAuth() {
@@ -22,20 +21,18 @@ export default async function HeaderAuth() {
     );
   }
 
-  const { user, roles } = context;
-
-  const userRole = roles?.length > 0 && roles[0].roles?.slug ? roles[0].roles.slug : null;
+  const { user } = context;
 
   return (
     <div className="flex items-center gap-4">
       <div className="flex flex-col items-end">
         <span>{t("greeting", { email: user.email ?? "" })}</span>
-        {userRole && (
-          <Badge variant="outline" className="capitalize">
-            {userRole}
-          </Badge>
-        )}
       </div>
+      <Link href="/dashboard">
+        <Button type="submit" variant="secondary">
+          Dashboard
+        </Button>
+      </Link>
       <form action={signOutAction}>
         <Button type="submit" variant="outline">
           {t("signOut")}
