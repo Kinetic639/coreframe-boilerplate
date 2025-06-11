@@ -17,7 +17,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
     ...userContext,
     ...appContext,
   };
-  const themeColor = appContext?.activeOrg?.theme_color ?? "#100c43";
+  const themeColor = appContext?.activeOrg?.theme_color;
 
   const locale = await getLocale();
 
