@@ -3,6 +3,7 @@ import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar"
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
 import { cn } from "../lib/utils";
+import ModuleSection from "./ModuleSection";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
@@ -25,7 +26,13 @@ const AppSidebar = async () => {
       }
     >
       <AppSidebarHeader logo={logo} />
-      <SidebarContent className="flex h-full flex-col justify-between">content</SidebarContent>
+      <SidebarContent className="flex h-full flex-col justify-between">
+        <div className="space-y-4 px-3 py-4">
+          {appContext?.userModules.map((module) => (
+            <ModuleSection key={module.id} module={module} />
+          ))}
+        </div>
+      </SidebarContent>
 
       {/* User Profile & Logout */}
       <SidebarFooter className="border-t border-white/10 px-3 py-2">footer</SidebarFooter>
