@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { PanelLeft } from "lucide-react";
-import AppSidebar from "@/components/admin/AppSidebar";
+import AppSidebar from "@/components/sidebar/AppSidebar";
 
 export default function AdminDashboardLayout({ children }: { children: ReactNode }) {
   return (
