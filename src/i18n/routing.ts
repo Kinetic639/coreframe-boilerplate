@@ -22,6 +22,14 @@ export const routing = defineRouting({
       en: "/dashboard/branch",
       pl: "/panel/oddzial",
     },
+    "/dashboard/warehouse/deliveries": {
+      en: "/warehouse/deliveries",
+      pl: "/magazyn/dostawy",
+    },
+    "/dashboard/warehouse/suppliers": {
+      en: "/warehouse/suppliers",
+      pl: "/magazyn/dostawcy",
+    },
     "/sign-in": {
       en: "/sign-in",
       pl: "/logowanie",
