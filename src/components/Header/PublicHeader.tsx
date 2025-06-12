@@ -1,19 +1,30 @@
-// PublicHeader.tsx
 "use client";
+
 import React, { useState } from "react";
 import { NavigationMenuList, NavigationMenu } from "@/components/ui/navigation-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
-import { Link } from "@/i18n/navigation";
-import { Menu, X } from "lucide-react";
+import { Link, useRouter } from "@/i18n/navigation";
+import { LayoutDashboard, Menu, X } from "lucide-react";
 import FeaturesMenu from "./FeaturesMenu";
 import SolutionsMenu from "./SolutionsMenu";
 import EducationalMenu from "./EducationalMenu";
 import MobileMenu from "./MobileMenu";
+import { useUserStore } from "@/lib/stores/user-store";
+import { createClient } from "@/utils/supabase/client";
 
 const PublicHeader = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const supabase = createClient();
+  const { user, clear } = useUserStore();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    clear();
+    router.refresh();
+  };
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -60,12 +71,28 @@ const PublicHeader = () => {
         {/* Right side buttons */}
         <div className="flex items-center gap-4">
           <div className="hidden items-center gap-4 md:flex">
-            <Button variant="outline" asChild className="card-hover">
-              <Link href="/sign-in">Zaloguj się</Link>
-            </Button>
-            <Button asChild className="card-hover">
-              <Link href="/sign-up">Rozpocznij za darmo</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button asChild className="gap-2">
+                  <Link href="/dashboard" className="flex items-center">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+                <Button onClick={handleLogout} variant="ghost" className="card-hover">
+                  Wyloguj się
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" asChild className="card-hover">
+                  <Link href="/sign-in">Zaloguj się</Link>
+                </Button>
+                <Button asChild className="card-hover">
+                  <Link href="/sign-up">Rozpocznij za darmo</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
