@@ -4,6 +4,104 @@
 
 @layer base {
   :root {
+    --background: 30 40% 98%;
+    --foreground: 24 80% 5%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 24 80% 5%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 80% 5%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 30 40% 98%;
+
+    --secondary: 215 20% 92%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 30 40% 96.1%;
+    --muted-foreground: 30 16% 46%;
+
+    --accent: 30 85% 94%;
+    --accent-foreground: 25 95% 53%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 30 40% 98%;
+
+    --border: 30 31% 91%;
+    --input: 30 31% 91%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.75rem;
+
+    /* App specific colors - orange theme */
+    --app-blue: 25 95% 53%;
+    --app-blue-dark: 25 94% 47%;
+    --app-blue-light: 25 96% 74%;
+
+    /* Sidebar theme - orange */
+    --sidebar-background: var(--app-blue);
+    --sidebar-foreground: white;
+    --sidebar-primary: white;
+    --sidebar-primary-foreground: var(--app-blue);
+    --sidebar-accent: var(--app-blue-dark);
+    --sidebar-accent-foreground: white;
+    --sidebar-border: var(--app-blue-dark);
+    --sidebar-ring: white;
+  }
+
+  .dark {
+    --background: 24 84% 5%;
+    --foreground: 30 40% 98%;
+
+    --card: 24 84% 5%;
+    --card-foreground: 30 40% 98%;
+
+    --popover: 24 84% 5%;
+    --popover-foreground: 30 40% 98%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 24 47% 11%;
+
+    --secondary: 30 25% 18%;
+    --secondary-foreground: 30 40% 98%;
+
+    --muted: 30 25% 18%;
+    --muted-foreground: 30 20% 65%;
+
+    --accent: 30 25% 18%;
+    --accent-foreground: 30 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 30 40% 98%;
+
+    --border: 30 25% 18%;
+    --input: 30 25% 18%;
+    --ring: 25 95% 53%;
+
+    /* App specific colors - dark orange theme */
+    --app-blue: 25 95% 60%;
+    --app-blue-dark: 25 95% 53%;
+    --app-blue-light: 25 96% 74%;
+
+    /* Sidebar theme - dark mode */
+    --sidebar-background: var(--app-blue);
+    --sidebar-foreground: white;
+    --sidebar-primary: white;
+    --sidebar-primary-foreground: var(--app-blue);
+    --sidebar-accent: var(--app-blue-dark);
+    --sidebar-accent-foreground: white;
+    --sidebar-border: var(--app-blue-dark);
+    --sidebar-ring: white;
+  }
+}
+
+/* @tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -82,4 +180,4 @@
   body {
     @apply bg-background text-foreground;
   }
-}
+} */
