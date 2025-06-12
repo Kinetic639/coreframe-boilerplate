@@ -1,18 +1,18 @@
 import Footer from "@/components/footer";
-import HeaderAuth from "@/components/header-auth";
-import { Link } from "@/i18n/navigation";
+import PublicHeader from "@/components/Header/PublicHeader";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
+      {/* <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
         <div className="flex w-full max-w-7xl items-center justify-between p-3 px-5 text-sm">
           <div className="flex items-center gap-5 font-semibold">
             <Link href={"/"}>CoreFrame Boilerplate</Link>
           </div>
           <HeaderAuth />
         </div>
-      </nav>
+      </nav> */}
+      <PublicHeader />
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center">
         <div className="flex w-full max-w-7xl flex-1 flex-col items-center justify-center gap-20 p-5">
           {children}
