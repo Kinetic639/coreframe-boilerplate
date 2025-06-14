@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { DashboardCard } from "./DashboardCard";
 import { UsersTable, type User } from "./UsersTable";
 import {
@@ -19,9 +19,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ users, adminCount, specialistCount }: AdminDashboardProps) {
-  const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState("users");
-  console.log(isPending);
 
   // Calculate total user count
   const totalUsers = users.length;

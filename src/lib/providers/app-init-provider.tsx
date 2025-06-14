@@ -12,7 +12,6 @@ export function AppInitProvider({
 }) {
   const setContext = useUserStore((s) => s.setContext);
   useEffect(() => {
-    console.log("📦 context z serwera:", context);
     if (context) setContext(context);
   }, [context, setContext]);
   useEffect(() => {
