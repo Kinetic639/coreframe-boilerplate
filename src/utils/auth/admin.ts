@@ -8,8 +8,6 @@ export async function fetchUsers(): Promise<User[]> {
     // Use admin client for fetching users
     const supabase = await createClient();
 
-    console.log("Supabase admin client created successfully");
-
     // Fetch users from auth.users table (requires service role key)
     const { data, error } = await supabase
       .from("users")
