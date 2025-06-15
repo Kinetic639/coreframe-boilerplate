@@ -8,5 +8,5 @@ export default async function DeliveriesPage() {
   // ⏳ sztuczne opóźnienie renderu (np. 2s)
   await simulateLoading(2000);
 
-  return <div className="text-xl">📦 Deliveries loaded!</div>;
+  return <div className="text-xl">Materials!</div>;
 }

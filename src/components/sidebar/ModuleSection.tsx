@@ -1,47 +1,34 @@
 "use client";
-import React from "react";
-import SidebarSection from "./SidebarSection";
-import { useSidebar } from "../ui/sidebar";
+
+import { useSidebar } from "@/components/ui/sidebar";
 import { motion } from "framer-motion";
+import { MenuItem } from "@/lib/types/module";
+import { RecursiveMenuItem } from "./RecursiveMnuItem";
 
 type ModuleSectionProps = {
   module: {
     slug: string;
     label: string;
-    settings: {
-      sidebar: {
-        key: string;
-        label: string;
-        icon: string;
-        children?: {
-          key: string;
-          label: string;
-          href: string;
-          icon?: string;
-        }[];
-      }[];
-    };
+    items: MenuItem[];
   };
 };
 
 export default function ModuleSection({ module }: ModuleSectionProps) {
-  const { label, settings } = module;
-  const sections = settings.sidebar ?? [];
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-1">
       <motion.p
         initial={false}
         animate={{ opacity: isExpanded ? 1 : 0 }}
-        transition={{ duration: 0.2, delay: 0.15 }}
-        className="overflow-hidden whitespace-nowrap text-sm font-semibold text-white transition-opacity duration-200"
+        transition={{ duration: 0.2 }}
+        className="list-none overflow-hidden whitespace-nowrap text-sm font-semibold text-white transition-opacity"
       >
-        {label}
+        {module.label}
       </motion.p>
-      {sections.map((section) => (
-        <SidebarSection key={section.key} section={section} />
+      {module.items.map((item) => (
+        <RecursiveMenuItem key={item.id} item={item} />
       ))}
     </div>
   );

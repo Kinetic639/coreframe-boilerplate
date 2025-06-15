@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUserStore } from "@/lib/stores/user-store";
+import { useAppStore, type AppContext } from "@/lib/stores/app-store";
 
 export function AppInitProvider({
   context,
   children,
 }: {
-  context: any;
+  context: AppContext;
   children: React.ReactNode;
 }) {
-  const setContext = useUserStore((s) => s.setContext);
-  useEffect(() => {
-    if (context) setContext(context);
-  }, [context, setContext]);
+  const setContext = useAppStore((s) => s.setContext);
+
   useEffect(() => {
     if (context) {
       setContext(context);
