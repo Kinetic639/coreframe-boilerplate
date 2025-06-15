@@ -4,10 +4,13 @@ import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
 import { cn } from "../lib/utils";
 import ModuleSection from "./ModuleSection";
+import { modules } from "@/modules";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
   const logo: string = appContext?.activeOrg?.logo_url;
+  const name: string = appContext?.activeOrg?.name;
+
   const themeColor = appContext?.activeOrg?.theme_color;
 
   return (
@@ -25,10 +28,10 @@ const AppSidebar = async () => {
         } as React.CSSProperties
       }
     >
-      <AppSidebarHeader logo={logo} />
+      <AppSidebarHeader logo={logo} name={name} />
       <SidebarContent className="flex h-full flex-col justify-between">
         <div className="space-y-4 px-3 py-4">
-          {appContext?.userModules.map((module) => (
+          {modules.map((module) => (
             <ModuleSection key={module.id} module={module} />
           ))}
         </div>

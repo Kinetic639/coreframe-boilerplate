@@ -18,8 +18,9 @@ import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "../ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
-function AnimatedHorizontalLine({ isActive }) {
+function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
@@ -65,20 +66,23 @@ export default function SidebarSection({ section }: SidebarSectionProps) {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
-  useEffect(() => {
-    if (section.children?.some((item) => pathname.startsWith(item.href))) {
-      setOpen(true);
-    }
-  }, [pathname]);
-
   if (!isExpanded) {
     console.log(section);
     return (
-      <SidebarMenuItem key={section.key} className="m-0 min-h-[40px] list-none">
-        <SidebarMenuButton isActive={true}>
-          <Icon className="h-4 w-4 flex-shrink-0" />
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <SidebarMenuItem key={section.key} className="m-0 min-h-[40px] list-none">
+              <SidebarMenuButton isActive={true}>
+                <Icon className="h-4 w-4 flex-shrink-0" />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>{section.label}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   }
 

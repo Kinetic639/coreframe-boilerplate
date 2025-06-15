@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
+import { cache } from "react";
 // Typ reprezentujący jeden moduł z nadpisanymi ustawieniami użytkownika
 type LoadedUserModule = {
   id: string;
@@ -17,7 +18,7 @@ function safeObject(obj: unknown): Record<string, unknown> {
     : {};
 }
 
-export async function loadAppContextServer() {
+export async function _loadAppContextServer() {
   const supabase = await createClient();
 
   const {
@@ -96,3 +97,4 @@ export async function loadAppContextServer() {
     userModules,
   };
 }
+export const loadAppContextServer = cache(_loadAppContextServer);

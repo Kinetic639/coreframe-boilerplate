@@ -6,7 +6,7 @@ import { ImageOff } from "lucide-react";
 import { SidebarHeader, useSidebar } from "../ui/sidebar";
 import { Link } from "@/i18n/navigation";
 
-const AppSidebarHeader = ({ logo }: { logo?: string }) => {
+const AppSidebarHeader = ({ logo, name }: { logo?: string; name?: string }) => {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
@@ -40,7 +40,7 @@ const AppSidebarHeader = ({ logo }: { logo?: string }) => {
             transition={{ duration: 0.2, delay: 0.15 }}
             className="sidebar-foreground overflow-hidden whitespace-nowrap font-bold leading-none transition-opacity duration-200"
           >
-            Grupa Cichy-Zasada
+            {name}
           </motion.div>
         </div>
       </Link>

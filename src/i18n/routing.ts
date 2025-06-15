@@ -1,5 +1,4 @@
 import { defineRouting } from "next-intl/routing";
-
 export const routing = defineRouting({
   locales: ["en", "pl"],
   defaultLocale: "pl",
@@ -8,27 +7,31 @@ export const routing = defineRouting({
     "/": "/",
     "/dashboard": {
       en: "/dashboard",
-      pl: "/panel",
+      pl: "/dashboard",
     },
     "/dashboard/reset-password": {
       en: "/dashboard/reset-password",
-      pl: "/panel/resetowanie-hasla",
+      pl: "/dashboard/resetowanie-hasla",
+    },
+    "/dashboard/warehouse/products/materials": {
+      en: "/dashboard/warehouse/products/materials",
+      pl: "/dashboard/magazyn/produkty/materialy",
     },
     "/dashboard/admin-dashboard": {
       en: "/dashboard/admin-dashboard",
-      pl: "/panel/panel-administratora",
+      pl: "/dashboard/panel-administratora",
     },
     "/dashboard/branch": {
       en: "/dashboard/branch",
-      pl: "/panel/oddzial",
+      pl: "/dashboard/oddzial",
     },
     "/dashboard/warehouse/deliveries": {
-      en: "/warehouse/deliveries",
-      pl: "/magazyn/dostawy",
+      en: "/dashboard/warehouse/deliveries",
+      pl: "/dashboard/magazyn/dostawy",
     },
     "/dashboard/warehouse/suppliers": {
-      en: "/warehouse/suppliers",
-      pl: "/magazyn/dostawcy",
+      en: "/dashboard/warehouse/suppliers",
+      pl: "/dashboard/magazyn/dostawcy",
     },
     "/sign-in": {
       en: "/sign-in",
