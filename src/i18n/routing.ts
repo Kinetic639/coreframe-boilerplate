@@ -17,6 +17,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/products/materials",
       pl: "/dashboard/magazyn/produkty/materialy",
     },
+    "/dashboard/warehouse/products/parts": {
+      en: "/dashboard/warehouse/products/parts",
+      pl: "/dashboard/magazyn/produkty/czesci",
+    },
     "/dashboard/admin-dashboard": {
       en: "/dashboard/admin-dashboard",
       pl: "/dashboard/panel-administratora",
