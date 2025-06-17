@@ -9,9 +9,9 @@ import {
 } from "@/components/ui/sidebar";
 import {
   Accordion,
-  AccordionContent,
   AccordionItem,
   AccordionTrigger,
+  AccordionContent,
 } from "@/components/ui/accordion";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Link, usePathname } from "@/i18n/navigation";
@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getCanonicalPath } from "@/utils/getCanonicalPath";
+import { usePersistentAccordionState } from "@/lib/hooks/usePersistentAccordionState";
 
 type MenuItem = {
   id: string;
@@ -68,16 +69,8 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   const isExpanded = state === "expanded";
 
   const Icon = (Icons as any)[item.icon || "Dot"] || Icons.Dot;
-
   const isActive = isPathActive(item, pathname);
-  const isAnySubActive = item.submenu?.some((child) => isPathActive(child, pathname)) ?? false;
   const hasChildren = !!item.submenu?.length;
-
-  const [open, setOpen] = useState(isAnySubActive);
-
-  useEffect(() => {
-    setOpen(isAnySubActive);
-  }, [isAnySubActive]);
 
   const content = (
     <>
@@ -98,6 +91,9 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
       </AnimatePresence>
     </>
   );
+
+  // PERSISTENT OPEN STATE
+  const [open, setOpen] = usePersistentAccordionState(item.id);
 
   if (!isExpanded) {
     return (
@@ -131,9 +127,6 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           className={cn(
             "transition-colors duration-200 hover:bg-white/10",
             isActive && "font-bold text-sidebar-foreground"
-
-            // !isActive &&
-            //   "transition-colors duration-200 opacity-50 grayscale hover:bg-white/10 hover:opacity-100 hover:grayscale-0"
           )}
         >
           <Link href={item.path!} className="flex w-full items-center">
@@ -149,7 +142,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
     <Accordion
       type="single"
       collapsible
-      value={open ? item.id : undefined}
+      value={open ? item.id : ""}
       onValueChange={(v) => setOpen(v === item.id)}
       className="w-full"
     >
@@ -169,7 +162,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
 
         <AccordionContent className="px-0 pb-0 pt-1">
           <SidebarMenuSub className="relative ml-2 mr-0 pl-4 pr-0">
-            {item?.submenu?.map((child) => (
+            {item.submenu.map((child) => (
               <RecursiveMenuItem key={child.id} item={child} nested={true} />
             ))}
           </SidebarMenuSub>
