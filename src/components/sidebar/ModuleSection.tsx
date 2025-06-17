@@ -1,7 +1,9 @@
 "use client";
 
-import { useSidebar } from "@/components/ui/sidebar";
+import { Accordion } from "@/components/ui/accordion";
 import { motion } from "framer-motion";
+import { usePersistentAccordionList } from "@/lib/hooks/usePersistentAccordionList";
+import { useSidebar } from "@/components/ui/sidebar";
 import { MenuItem } from "@/lib/types/module";
 import { RecursiveMenuItem } from "./RecursiveMnuItem";
 
@@ -17,19 +19,26 @@ export default function ModuleSection({ module }: ModuleSectionProps) {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
+  const [openItems, setOpenItems] = usePersistentAccordionList(module.slug);
+
   return (
-    <div className="space-y-1">
+    <Accordion
+      type="multiple"
+      value={openItems}
+      onValueChange={(v) => setOpenItems(v)}
+      className="space-y-1"
+    >
       <motion.p
         initial={false}
         animate={{ opacity: isExpanded ? 1 : 0 }}
         transition={{ duration: 0.2 }}
-        className="mb-1 list-none overflow-hidden whitespace-nowrap  text-sm text-orange-300 transition-opacity"
+        className="mb-1 list-none overflow-hidden whitespace-nowrap text-sm text-orange-300 transition-opacity"
       >
         {module.title}
       </motion.p>
       {module.items.map((item) => (
         <RecursiveMenuItem key={item.id} item={item} />
       ))}
-    </div>
+    </Accordion>
   );
 }
