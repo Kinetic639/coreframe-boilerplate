@@ -10,6 +10,7 @@ export interface MenuItem {
 
 export interface ModuleConfig {
   id: string;
+  slug: string;
   title: string;
   description?: string;
   color?: string;

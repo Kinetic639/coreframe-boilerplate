@@ -1,7 +1,8 @@
-import { ModuleConfig } from "@/types/module";
+import { ModuleConfig } from "@/lib/types/module";
 
 export const teamsModule: ModuleConfig = {
   id: "teams",
+  slug: "teams",
   title: "Zespoły",
   description: "Zarządzanie zespołami i komunikacją",
   color: "#8b5cf6",
@@ -9,25 +10,25 @@ export const teamsModule: ModuleConfig = {
     {
       id: "members",
       label: "Członkowie zespołu",
-      path: "/zespoly/czlonkowie",
+      path: "/dashboard/teams/members",
       icon: "Users",
     },
     {
       id: "communication",
       label: "Komunikacja",
-      path: "/zespoly/komunikacja",
+      path: "/dashboard/teams/communication",
       icon: "MessageSquare",
       submenu: [
         {
           id: "chat",
           label: "Chat zespołu",
-          path: "/zespoly/komunikacja/chat",
+          path: "/dashboard/teams/communication/chat",
           icon: "MessageCircle",
         },
         {
           id: "announcements",
           label: "Ogłoszenia",
-          path: "/zespoly/komunikacja/ogloszenia",
+          path: "/dashboard/teams/communication/announcements",
           icon: "Megaphone",
         },
       ],
@@ -35,13 +36,13 @@ export const teamsModule: ModuleConfig = {
     {
       id: "kanban",
       label: "Tablica Kanban",
-      path: "/zespoly/kanban",
+      path: "/dashboard/teams/kanban",
       icon: "Columns",
     },
     {
       id: "calendar",
       label: "Kalendarz zespołu",
-      path: "/zespoly/kalendarz",
+      path: "/dashboard/teams/calendar",
       icon: "Calendar",
     },
   ],
