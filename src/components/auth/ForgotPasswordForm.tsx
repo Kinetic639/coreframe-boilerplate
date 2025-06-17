@@ -37,7 +37,7 @@ export function ForgotPasswordForm({ showImage = true }: ForgotPasswordFormProps
 
         <div className="text-center text-sm">
           {t("forgotPassword.rememberPassword")}{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href="/sign-in" className="text-primary hover:underline">
             {t("forgotPassword.signInLink")}
           </Link>
         </div>

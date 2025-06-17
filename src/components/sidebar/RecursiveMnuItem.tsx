@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/accordion";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Link, usePathname } from "@/i18n/navigation";
+import { Pathnames } from "@/i18n/routing";
 import { useSidebar } from "@/components/ui/sidebar";
 import * as Icons from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,7 +26,7 @@ import { getCanonicalPath } from "@/utils/getCanonicalPath";
 type MenuItem = {
   id: string;
   label: string;
-  path?: string;
+  path?: Pathnames;
   icon?: string;
   submenu?: MenuItem[];
 };

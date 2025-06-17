@@ -65,7 +65,7 @@ export function SignUpForm({ showThirdParty = true, showImage = true }: SignUpFo
 
         <div className="text-center text-sm">
           {t("signUp.haveAccount")}{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href="/sign-in" className="text-primary hover:underline">
             {t("signUp.signInLink")}
           </Link>
         </div>

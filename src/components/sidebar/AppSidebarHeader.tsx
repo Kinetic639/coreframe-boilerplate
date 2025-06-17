@@ -38,7 +38,7 @@ const AppSidebarHeader = ({ logo, name }: { logo?: string; name?: string }) => {
             initial={false}
             animate={{ opacity: isExpanded ? 1 : 0 }}
             transition={{ duration: 0.2, delay: 0.15 }}
-            className="sidebar-foreground overflow-hidden whitespace-nowrap font-bold leading-none transition-opacity duration-200"
+            className="overflow-hidden whitespace-nowrap font-bold leading-none transition-opacity duration-200"
           >
             {name}
           </motion.div>

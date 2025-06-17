@@ -106,7 +106,7 @@ export function SignInForm({ showThirdParty = true, showImage = true }: SignInFo
 
         <div className="text-center text-sm">
           {t("signIn.noAccount")}{" "}
-          <Link href="/register" className="text-primary hover:underline">
+          <Link href="/sign-up" className="text-primary hover:underline">
             {t("signIn.signUpLink")}
           </Link>
         </div>

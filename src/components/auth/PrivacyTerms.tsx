@@ -10,14 +10,14 @@ export function PrivacyTerms() {
     <div className="text-balance text-center text-xs text-muted-foreground">
       {t("privacyTerms.prefix")}{" "}
       <Link
-        href="/legal/terms"
+        href="/"
         className="text-muted-foreground underline underline-offset-4 hover:text-primary"
       >
         {t("privacyTerms.terms")}
       </Link>{" "}
       {t("privacyTerms.separator")}{" "}
       <Link
-        href="/legal/privacy"
+        href="/"
         className="text-muted-foreground underline underline-offset-4 hover:text-primary"
       >
         {t("privacyTerms.privacy")}

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { Pathnames } from "@/i18n/routing";
 import {
   Accordion,
   AccordionContent,
@@ -53,7 +54,7 @@ type SidebarSectionProps = {
     children?: {
       key: string;
       label: string;
-      href: string;
+      href: Pathnames;
       icon?: string;
     }[];
   };

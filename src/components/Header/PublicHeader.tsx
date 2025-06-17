@@ -74,12 +74,12 @@ const PublicHeader = () => {
             {user ? (
               <>
                 <Button asChild className="gap-2">
-                  <Link href="/dashboard" className="flex items-center">
+                  <Link href="/dashboard/start" className="flex items-center">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>
                 </Button>
-                <Button onClick={handleLogout} variant="ghost" className="card-hover">
+                <Button onClick={handleLogout} variant="ghost">
                   Wyloguj się
                 </Button>
               </>

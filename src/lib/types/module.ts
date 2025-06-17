@@ -1,7 +1,9 @@
+import { Pathnames } from "@/i18n/routing";
+
 export interface MenuItem {
   id: string;
   label: string;
-  path: string;
+  path: Pathnames;
   icon: string;
   submenu?: MenuItem[];
 }

@@ -43,7 +43,7 @@ export function AuthCard({
           <div className="p-6 md:p-8">{children}</div>
           {showImage && (
             <div className={cn("relative hidden md:block", gradients[variant].background)}>
-              <div className="bg-grid-white/10 absolute inset-0" />
+              <div className=" absolute inset-0" />
               <div className={cn("absolute inset-0 opacity-20", gradients[variant].pattern)} />
             </div>
           )}
