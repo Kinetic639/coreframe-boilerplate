@@ -57,7 +57,17 @@ function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; nested?: boolean }) {
+export function RecursiveMenuItem({
+  item,
+  nested,
+  openItems,
+  setOpenItems,
+}: {
+  item: MenuItem;
+  nested: boolean;
+  openItems: string[];
+  setOpenItems: (v: string[]) => void;
+}) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
@@ -135,9 +145,16 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
         <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-current opacity-50 grayscale" />
       )}
       <AccordionTrigger
+        onClick={() =>
+          setOpenItems(
+            openItems.includes(item.id)
+              ? openItems.filter((id) => id !== item.id)
+              : [...openItems, item.id]
+          )
+        }
         className={cn(
           "rounded-md px-2 py-2 text-base no-underline hover:bg-white/10",
-          isActive && "bg-white/10 font-medium"
+          openItems.includes(item.id) && "bg-white/10 font-medium"
         )}
       >
         <div className="flex items-center">{content}</div>
@@ -145,8 +162,14 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
 
       <AccordionContent className="px-0 pb-0 pt-1">
         <SidebarMenuSub className="relative ml-2 mr-0 pl-4 pr-0">
-          {item.submenu.map((child) => (
-            <RecursiveMenuItem key={child.id} item={child} nested={true} />
+          {item.submenu?.map((child) => (
+            <RecursiveMenuItem
+              key={child.id}
+              item={child}
+              nested={true}
+              openItems={openItems}
+              setOpenItems={setOpenItems}
+            />
           ))}
         </SidebarMenuSub>
       </AccordionContent>
