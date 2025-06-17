@@ -1,7 +1,7 @@
 "use server";
 
-import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
+import { redirect } from "next/navigation";
 import type { Pathnames } from "@/i18n/routing";
 
 /**
@@ -17,14 +17,7 @@ export async function encodedRedirect(
   message: string
 ) {
   const locale = await getLocale();
-
-  return redirect({
-    href: {
-      pathname,
-      query: {
-        [type]: message,
-      },
-    },
-    locale,
-  });
+  const queryString = new URLSearchParams({ [type]: message }).toString();
+  const url = `/${locale}${pathname}${queryString ? `?${queryString}` : ""}`;
+  return redirect(url);
 }

@@ -2,6 +2,7 @@ import { ModuleConfig } from "@/lib/types/module";
 
 export const homeModule: ModuleConfig = {
   id: "home",
+  slug: "home",
   title: "Start",
   description: "Powitalny panel użytkownika z ogłoszeniami i aktualnościami",
   color: "#3b82f6", // niebieski

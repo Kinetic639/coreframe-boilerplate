@@ -1,9 +1,8 @@
 // This file will only contain helpers if needed. User actions are now in src/app/actions/users/.
 
-import { createClient } from "./supabase/server";
-import { User } from "@/components/admin/UsersTable";
+import { createClient } from "../supabase/server";
 
-export async function fetchUsers(): Promise<User[]> {
+export async function fetchUsers(): Promise<any[]> {
   try {
     // Use admin client for fetching users
     const supabase = await createClient();

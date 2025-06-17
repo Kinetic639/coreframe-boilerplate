@@ -2,6 +2,7 @@ import { ModuleConfig } from "@/lib/types/module";
 
 export const warehouseModule: ModuleConfig = {
   id: "warehouse",
+  slug: "warehouse",
   title: "Magazyn",
   description: "Zarządzanie magazynem i zapasami",
   color: "#10b981",
@@ -9,31 +10,31 @@ export const warehouseModule: ModuleConfig = {
     {
       id: "products",
       label: "Produkty",
-      path: "/dashboard/magazyn/produkty",
+      path: "/dashboard/warehouse/products", // kanoniczna baza
       icon: "Package",
       submenu: [
         {
           id: "products-list",
           label: "Lista produktów",
-          path: "/dashboard/magazyn/produkty/lista",
+          path: "/dashboard/warehouse/products/list", // jeszcze nie dodane do routingu
           icon: "List",
           submenu: [
             {
               id: "materials",
               label: "Materiały",
-              path: "/dashboard/magazyn/produkty/materialy",
+              path: "/dashboard/warehouse/products/materials",
               icon: "Package",
             },
             {
               id: "parts",
               label: "Części",
-              path: "/dashboard/magazyn/produkty/czesci",
+              path: "/dashboard/warehouse/products/parts",
               icon: "Cog",
             },
             {
               id: "accessories",
               label: "Akcesoria",
-              path: "/dashboard/magazyn/produkty/akcesoria",
+              path: "/dashboard/warehouse/products/accessories", // nowa
               icon: "Archive",
             },
           ],
@@ -41,7 +42,7 @@ export const warehouseModule: ModuleConfig = {
         {
           id: "categories",
           label: "Kategorie",
-          path: "/dashboard/magazyn/kategorie",
+          path: "/dashboard/warehouse/categories", // nowa
           icon: "FolderOpen",
         },
       ],
@@ -49,19 +50,19 @@ export const warehouseModule: ModuleConfig = {
     {
       id: "inventory",
       label: "Zapasy",
-      path: "/dashboard/magazyn/zapasy",
+      path: "/dashboard/warehouse/inventory", // nowa
       icon: "BarChart3",
       submenu: [
         {
           id: "stock-levels",
           label: "Poziomy zapasów",
-          path: "/dashboard/magazyn/zapasy/poziomy",
+          path: "/dashboard/warehouse/inventory/levels", // nowa
           icon: "TrendingUp",
         },
         {
           id: "stock-movements",
           label: "Ruchy magazynowe",
-          path: "/dashboard/magazyn/zapasy/ruchy",
+          path: "/dashboard/warehouse/inventory/movements", // nowa
           icon: "ArrowUpDown",
         },
       ],
@@ -69,19 +70,19 @@ export const warehouseModule: ModuleConfig = {
     {
       id: "suppliers",
       label: "Dostawcy",
-      path: "/dashboard/magazyn/dostawcy",
+      path: "/dashboard/warehouse/suppliers",
       icon: "Users",
       submenu: [
         {
           id: "supplier-list",
           label: "Lista dostawców",
-          path: "/dashboard/magazyn/dostawcy",
+          path: "/dashboard/warehouse/suppliers", // już istnieje
           icon: "Users",
         },
         {
           id: "deliveries",
           label: "Dostawy",
-          path: "/dashboard/magazyn/dostawy",
+          path: "/dashboard/warehouse/deliveries",
           icon: "Truck",
         },
       ],
