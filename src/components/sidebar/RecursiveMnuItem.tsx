@@ -20,6 +20,7 @@ import * as Icons from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { getCanonicalPath } from "@/utils/getCanonicalPath";
 
 type MenuItem = {
   id: string;
@@ -28,6 +29,15 @@ type MenuItem = {
   icon?: string;
   submenu?: MenuItem[];
 };
+
+function isPathActive(item: MenuItem, pathname: string): boolean {
+  const itemCanonical = getCanonicalPath(item.path || "");
+  const currentCanonical = getCanonicalPath(pathname);
+  if (!itemCanonical || !currentCanonical) return false;
+  if (itemCanonical === currentCanonical) return true;
+
+  return item.submenu?.some((child) => isPathActive(child, pathname)) ?? false;
+}
 
 function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   const [width, setWidth] = useState(0);
@@ -51,20 +61,22 @@ function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   );
 }
 
-// ... wszystko jak w Twoim kodzie do tego miejsca:
-
 export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; nested?: boolean }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
   const Icon = (Icons as any)[item.icon || "Dot"] || Icons.Dot;
-  const isActive = pathname === item.path;
+
+  const isActive = isPathActive(item, pathname);
+  const isAnySubActive = item.submenu?.some((child) => isPathActive(child, pathname)) ?? false;
   const hasChildren = !!item.submenu?.length;
 
-  const isAnySubActive = item.submenu?.some((child) => pathname === child.path) ?? false;
+  const [open, setOpen] = useState(isAnySubActive);
 
-  const [open, setOpen] = useState(() => isAnySubActive);
+  useEffect(() => {
+    setOpen(isAnySubActive);
+  }, [isAnySubActive]);
 
   const content = (
     <>
@@ -117,10 +129,10 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           isActive={isActive}
           className={cn(
             "transition-colors duration-200 hover:bg-white/10",
-            isActive && "font-bold text-sidebar-foreground",
-            !isActive &&
-              isAnySubActive &&
-              "opacity-50 grayscale hover:opacity-100 hover:grayscale-0"
+            isActive && "font-bold text-sidebar-foreground"
+
+            // !isActive &&
+            //   "transition-colors duration-200 opacity-50 grayscale hover:bg-white/10 hover:opacity-100 hover:grayscale-0"
           )}
         >
           <Link href={item.path!} className="flex w-full items-center">
