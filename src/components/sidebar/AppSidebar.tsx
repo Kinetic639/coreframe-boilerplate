@@ -5,6 +5,7 @@ import AppSidebarHeader from "./AppSidebarHeader";
 import { cn } from "../lib/utils";
 import ModuleSection from "./ModuleSection";
 import { modules } from "@/modules";
+import { ScrollArea } from "../ui/scroll-area";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
@@ -30,11 +31,13 @@ const AppSidebar = async () => {
     >
       <AppSidebarHeader logo={logo} name={name} />
       <SidebarContent className="flex h-full flex-col justify-between">
-        <div className="space-y-4 px-3 py-4">
-          {modules.map((module) => (
-            <ModuleSection key={module.id} module={module} />
-          ))}
-        </div>
+        <ScrollArea className="min-h-full">
+          <div className="flex flex-col gap-8 px-3 py-4">
+            {modules.map((module) => (
+              <ModuleSection key={module.id} module={module} />
+            ))}
+          </div>
+        </ScrollArea>
       </SidebarContent>
 
       {/* User Profile & Logout */}

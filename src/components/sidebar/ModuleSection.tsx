@@ -8,7 +8,7 @@ import { RecursiveMenuItem } from "./RecursiveMnuItem";
 type ModuleSectionProps = {
   module: {
     slug: string;
-    label: string;
+    title: string;
     items: MenuItem[];
   };
 };
@@ -23,9 +23,9 @@ export default function ModuleSection({ module }: ModuleSectionProps) {
         initial={false}
         animate={{ opacity: isExpanded ? 1 : 0 }}
         transition={{ duration: 0.2 }}
-        className="list-none overflow-hidden whitespace-nowrap text-sm font-semibold text-white transition-opacity"
+        className="text-small mb-1 list-none overflow-hidden  whitespace-nowrap text-orange-300 transition-opacity"
       >
-        {module.label}
+        {module.title}
       </motion.p>
       {module.items.map((item) => (
         <RecursiveMenuItem key={item.id} item={item} />
