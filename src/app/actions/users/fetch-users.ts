@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
-import { User } from "@/components/admin/UsersTable";
 
-export async function fetchUsers(): Promise<User[]> {
+export async function fetchUsers(): Promise<any[]> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase

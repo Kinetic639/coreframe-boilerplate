@@ -7,22 +7,9 @@ export const routing = defineRouting({
   pathnames: {
     "/": "/",
 
-    "/dashboard": {
-      en: "/dashboard",
-      pl: "/dashboard",
-    },
     "/dashboard/start": {
       en: "/dashboard/start",
       pl: "/dashboard/start",
-    },
-    "/dashboard/reset-password": {
-      en: "/dashboard/reset-password",
-      pl: "/dashboard/resetowanie-hasla",
-    },
-
-    "/dashboard/admin-dashboard": {
-      en: "/dashboard/admin-dashboard",
-      pl: "/dashboard/panel-administratora",
     },
 
     "/dashboard/branch": {
@@ -82,6 +69,10 @@ export const routing = defineRouting({
     "/forgot-password": {
       en: "/forgot-password",
       pl: "/zapomnialem-hasla",
+    },
+    "/dashboard/reset-password": {
+      en: "/dashboard/reset-password",
+      pl: "/dashboard/resetowanie-hasla",
     },
   },
 });
