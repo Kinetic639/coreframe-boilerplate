@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
-import { SidebarHeader, useSidebar } from "../ui/sidebar";
+import { SidebarHeader, useSidebar } from "../../ui/sidebar";
 import { Link } from "@/i18n/navigation";
 
 const AppSidebarHeader = ({ logo, name }: { logo?: string; name?: string }) => {
