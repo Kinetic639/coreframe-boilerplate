@@ -196,8 +196,10 @@ export type Database = {
           created_at: string | null;
           logo_url: string | null;
           name: string | null;
+          name_2: string | null;
           organization_id: string;
           slug: string | null;
+          theme_color: string | null;
           website: string | null;
         };
         Insert: {
@@ -205,8 +207,10 @@ export type Database = {
           created_at?: string | null;
           logo_url?: string | null;
           name?: string | null;
+          name_2?: string | null;
           organization_id: string;
           slug?: string | null;
+          theme_color?: string | null;
           website?: string | null;
         };
         Update: {
@@ -214,8 +218,10 @@ export type Database = {
           created_at?: string | null;
           logo_url?: string | null;
           name?: string | null;
+          name_2?: string | null;
           organization_id?: string;
           slug?: string | null;
+          theme_color?: string | null;
           website?: string | null;
         };
         Relationships: [
@@ -235,6 +241,7 @@ export type Database = {
           deleted_at: string | null;
           id: string;
           name: string;
+          name_2: string | null;
           slug: string | null;
         };
         Insert: {
@@ -243,6 +250,7 @@ export type Database = {
           deleted_at?: string | null;
           id?: string;
           name: string;
+          name_2?: string | null;
           slug?: string | null;
         };
         Update: {
@@ -251,6 +259,7 @@ export type Database = {
           deleted_at?: string | null;
           id?: string;
           name?: string;
+          name_2?: string | null;
           slug?: string | null;
         };
         Relationships: [

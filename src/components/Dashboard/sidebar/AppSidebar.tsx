@@ -11,6 +11,7 @@ const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
   const logo: string = appContext?.activeOrg?.logo_url;
   const name: string = appContext?.activeOrg?.name;
+  const name2: string = appContext?.activeOrg?.name_2;
 
   const themeColor = appContext?.activeOrg?.theme_color;
 
@@ -29,7 +30,7 @@ const AppSidebar = async () => {
         } as React.CSSProperties
       }
     >
-      <AppSidebarHeader logo={logo} name={name} />
+      <AppSidebarHeader logo={logo} name={name} name2={name2} />
       <SidebarContent className="flex h-full flex-col justify-between">
         <ScrollArea className="min-h-full">
           <div className="flex flex-col gap-8 px-3 py-4">

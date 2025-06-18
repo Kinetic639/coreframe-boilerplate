@@ -8,12 +8,19 @@ import FancySpinner from "./FancySpinner";
 type LoaderStaticProps = {
   logoUrl?: string | null;
   orgName?: string | null;
+  orgName2?: string | null;
   fullScreen?: boolean;
 };
 
-export default function Loader({ logoUrl, orgName, fullScreen = false }: LoaderStaticProps) {
+export default function Loader({
+  logoUrl,
+  orgName,
+  orgName2,
+  fullScreen = false,
+}: LoaderStaticProps) {
   const hasLogo = !!logoUrl;
   const hasName = !!orgName;
+  const hasName2 = !!orgName2;
 
   return (
     <div
@@ -22,7 +29,7 @@ export default function Loader({ logoUrl, orgName, fullScreen = false }: LoaderS
       } flex flex-col items-center justify-center gap-6 bg-muted/10 text-center`}
     >
       <motion.div
-        className="flex flex-col items-center gap-2"
+        className="flex items-center gap-2"
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -42,12 +49,13 @@ export default function Loader({ logoUrl, orgName, fullScreen = false }: LoaderS
 
         {/* Name or fallback */}
         <motion.div
-          className="text-xl font-semibold tracking-tight text-foreground"
+          className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none transition-opacity duration-200"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
         >
-          {hasName ? orgName : "Ładowanie..."}
+          <span> {hasName ? orgName : "Ładowanie..."}</span>
+          <span> {hasName2 ? orgName2 : "Ładowanie..."}</span>
         </motion.div>
       </motion.div>
 
