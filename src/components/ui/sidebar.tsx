@@ -256,30 +256,37 @@ const Sidebar = React.forwardRef<
 );
 Sidebar.displayName = "Sidebar";
 
-const SidebarTrigger = React.forwardRef<
-  React.ElementRef<typeof Button>,
-  React.ComponentProps<typeof Button>
->(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar();
+export interface SidebarTriggerProps extends React.ComponentProps<typeof Button> {
+  variant?: "ghost" | "default" | "themed" | "outline" | "link" | "destructive" | "secondary";
+}
 
-  return (
-    <Button
-      ref={ref}
-      data-sidebar="trigger"
-      variant="ghost"
-      size="icon"
-      className={cn("h-7 w-7", className)}
-      onClick={(event) => {
-        onClick?.(event);
-        toggleSidebar();
-      }}
-      {...props}
-    >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
-  );
-});
+const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, SidebarTriggerProps>(
+  ({ className, onClick, variant = "ghost", ...props }, ref) => {
+    const { toggleSidebar } = useSidebar();
+
+    // Map variant "themed" to internal button variant "ghost-themed"
+    const internalVariant = variant === "themed" ? "ghost-themed" : variant;
+
+    return (
+      <Button
+        ref={ref}
+        data-sidebar="trigger"
+        variant={internalVariant}
+        size="icon"
+        className={cn("h-7 w-7", className)}
+        onClick={(event) => {
+          onClick?.(event);
+          toggleSidebar();
+        }}
+        {...props}
+      >
+        <PanelLeft className="h-4 w-4" />
+        <span className="sr-only">Toggle Sidebar</span>
+      </Button>
+    );
+  }
+);
+
 SidebarTrigger.displayName = "SidebarTrigger";
 
 const SidebarRail = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(

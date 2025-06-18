@@ -16,7 +16,7 @@ const FancySpinner = () => {
       {ringConfigs.map((ring, index) => (
         <motion.div
           key={index}
-          className="absolute rounded-full border-primary border-t-transparent"
+          className="absolute rounded-full border-[var(--theme-color)] border-t-transparent"
           style={{
             height: `${ring.size}px`,
             width: `${ring.size}px`,
@@ -32,7 +32,7 @@ const FancySpinner = () => {
       ))}
 
       <motion.div
-        className="z-10 h-4 w-4 rounded-full bg-primary"
+        className="z-10 h-4 w-4 rounded-full bg-[var(--theme-color)]"
         animate={{
           scale: [1, 1.3, 1],
           opacity: [1, 0.6, 1],

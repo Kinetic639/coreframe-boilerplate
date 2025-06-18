@@ -20,6 +20,7 @@ const schema = z.object({
   website: z.string().url().optional(),
   logo_url: z.string().url().optional(),
   theme_color: z.string().optional(),
+  font_color: z.string().optional(), // ⬅️ DODANE
   bio: z.string().optional(),
 });
 
@@ -32,6 +33,7 @@ export default function OrganizationProfileForm({
     resolver: zodResolver(schema),
     defaultValues,
   });
+
   const router = useRouter();
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
@@ -41,7 +43,7 @@ export default function OrganizationProfileForm({
       toast.error(`Błąd: ${error.message}`);
     } else {
       toast.success("Profil organizacji został zaktualizowany.");
-      router.refresh();
+      router.refresh(); // ⬅️ Odświeżenie
     }
   };
 
@@ -53,12 +55,16 @@ export default function OrganizationProfileForm({
       <Input {...form.register("website")} placeholder="Strona internetowa" />
       <Input {...form.register("logo_url")} placeholder="Logo URL" />
       <ColorPicker name="theme_color" control={form.control} label="Kolor główny" />
+      <ColorPicker name="font_color" control={form.control} label="Kolor czcionki" />{" "}
+      {/* ⬅️ DODANE */}
       <textarea
         {...form.register("bio")}
         placeholder="Opis organizacji"
         className="w-full rounded border p-2"
       />
-      <Button type="submit">Zapisz zmiany</Button>
+      <Button type="submit" variant="themed">
+        Zapisz zmiany
+      </Button>
     </form>
   );
 }
