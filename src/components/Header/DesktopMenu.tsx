@@ -7,9 +7,9 @@ import {
   NavigationMenuContent,
   NavigationMenuLink,
 } from "@/components/ui/navigation-menu";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { educationalMenuItems, features, solutionsMenuItems } from "./menuData";
+import { Link } from "@/i18n/navigation";
 
 export default function DesktopMenu() {
   return (
