@@ -55,7 +55,7 @@ const PublicHeader = () => {
               />
               <li>
                 <Link
-                  href="/"
+                  href="/pricing"
                   className={cn(
                     "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
                     "text-foreground"

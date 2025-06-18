@@ -1,8 +1,6 @@
-import LocaleSwitcher from "@/components/LocaleSwitcher";
-import AppSidebar from "@/components/sidebar/AppSidebar";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import AppSidebar from "@/components/Dashboard/sidebar/AppSidebar";
 import Loader from "@/components/ui/Loader";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "@/i18n/navigation";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
@@ -11,6 +9,7 @@ import { UserInitProvider } from "@/lib/providers/user-init-provider";
 import { AppInitProvider } from "@/lib/providers/app-init-provider";
 import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
+import DashboardHeader from "@/components/Dashboard/DashboardHeader";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
   const userContext = await loadUserContextServer();
@@ -50,18 +49,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
 
                 {/* Main content */}
                 <div className="flex flex-1 flex-col overflow-hidden">
-                  <header className="sticky top-0 z-20 flex flex-col bg-background">
-                    <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
-                      <div className="flex items-center gap-2">
-                        <SidebarTrigger />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <LocaleSwitcher />
-                        <ThemeSwitcher />
-                        <div className="relative w-64" />
-                      </div>
-                    </div>
-                  </header>
+                  <DashboardHeader />
 
                   <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
                     {/* 👇 Debug info (do usunięcia w prod) */}

@@ -5,7 +5,16 @@ export const routing = defineRouting({
   defaultLocale: "pl",
   localePrefix: "as-needed",
   pathnames: {
+    //public
     "/": "/",
+    "/features": {
+      en: "/features",
+      pl: "/funkcjonalonosci",
+    },
+    "/pricing": {
+      en: "/pricing",
+      pl: "/cennik",
+    },
 
     "/dashboard/start": {
       en: "/dashboard/start",

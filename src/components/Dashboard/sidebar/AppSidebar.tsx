@@ -2,10 +2,10 @@ import React from "react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
-import { cn } from "../lib/utils";
+import { cn } from "../../lib/utils";
 import ModuleSection from "./ModuleSection";
 import { modules } from "@/modules";
-import { ScrollArea } from "../ui/scroll-area";
+import { ScrollArea } from "../../ui/scroll-area";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
