@@ -6,7 +6,15 @@ import { ImageOff } from "lucide-react";
 import { SidebarHeader, useSidebar } from "../../ui/sidebar";
 import { Link } from "@/i18n/navigation";
 
-const AppSidebarHeader = ({ logo, name }: { logo?: string; name?: string }) => {
+const AppSidebarHeader = ({
+  logo,
+  name,
+  name2,
+}: {
+  logo?: string;
+  name?: string;
+  name2?: string;
+}) => {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
@@ -38,9 +46,10 @@ const AppSidebarHeader = ({ logo, name }: { logo?: string; name?: string }) => {
             initial={false}
             animate={{ opacity: isExpanded ? 1 : 0 }}
             transition={{ duration: 0.2, delay: 0.15 }}
-            className="overflow-hidden whitespace-nowrap font-bold leading-none transition-opacity duration-200"
+            className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none transition-opacity duration-200"
           >
-            {name}
+            <span>{name}</span>
+            <span>{name2}</span>
           </motion.div>
         </div>
       </Link>
