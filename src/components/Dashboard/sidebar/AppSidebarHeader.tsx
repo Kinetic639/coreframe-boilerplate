@@ -46,7 +46,7 @@ const AppSidebarHeader = ({
             initial={false}
             animate={{ opacity: isExpanded ? 1 : 0 }}
             transition={{ duration: 0.2, delay: 0.15 }}
-            className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none transition-opacity duration-200"
+            className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none text-[color:var(--font-color)] transition-opacity duration-200"
           >
             <span>{name}</span>
             <span>{name2}</span>

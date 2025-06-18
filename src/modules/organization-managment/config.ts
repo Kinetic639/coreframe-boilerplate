@@ -1,11 +1,13 @@
 import { ModuleConfig } from "@/lib/types/module";
 
+export const ORG_MODULE_THEME_COLOR = "#6366f1"; // Indigo – always used as default
+
 export const orgManagmentModule: ModuleConfig = {
   id: "org-management",
   slug: "org-management",
   title: "Zarządzanie organizacją",
   description: "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
-  color: "#6366f1", // indigo
+  color: ORG_MODULE_THEME_COLOR, // indigo
   items: [
     {
       id: "organization-profile",

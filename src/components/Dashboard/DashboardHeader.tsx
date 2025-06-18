@@ -21,7 +21,7 @@ const DashboardHeader = () => {
       <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <SidebarTrigger />
+            <SidebarTrigger variant="themed" />
           </div>
 
           <div className="relative">
@@ -31,17 +31,17 @@ const DashboardHeader = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+          <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
             <MessagesSquare className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+          <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-8 w-8">
+              <Button variant="ghost-themed" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-8 w-8 ">
                   <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
                   <AvatarFallback>
                     <User className="h-4 w-4" />

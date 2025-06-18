@@ -50,7 +50,7 @@ function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
 
   return (
     <span
-      className="absolute left-[-10px] top-1/2 h-[1px] origin-left -translate-y-1/2 rounded bg-current opacity-50 grayscale transition-all duration-200"
+      className="absolute left-[-10px] top-1/2 h-[1px] origin-left -translate-y-1/2 rounded bg-[color:var(--font-color)] opacity-50 transition-all duration-200"
       style={{ width }}
       aria-hidden="true"
     />
@@ -66,9 +66,11 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   const isActive = isPathActive(item, pathname);
   const hasChildren = !!item.submenu?.length;
 
+  const iconClass = "h-4 w-4 stroke-[color:var(--font-color)] text-[color:var(--font-color)]";
+
   const content = (
     <>
-      {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
+      <Icon className={iconClass} />
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.span
@@ -77,7 +79,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
             animate={{ opacity: 1, width: "auto" }}
             exit={{ opacity: 0, width: 0 }}
             transition={{ duration: 0.2 }}
-            className="ml-3 overflow-hidden whitespace-nowrap text-sm"
+            className="ml-3 overflow-hidden whitespace-nowrap text-sm text-[color:var(--font-color)]"
           >
             {item.label}
           </motion.span>
@@ -93,12 +95,12 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           <TooltipTrigger asChild>
             <SidebarMenuItem className="m-0 min-h-[40px] list-none">
               <SidebarMenuButton isActive={isActive}>
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <Icon className={iconClass} />
               </SidebarMenuButton>
             </SidebarMenuItem>
           </TooltipTrigger>
           <TooltipContent side="right">
-            <p>{item.label}</p>
+            <p className="text-[color:var(--font-color)]">{item.label}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -109,7 +111,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
     return (
       <SidebarMenuSubItem className="relative list-none py-0.5">
         {nested && (
-          <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-current opacity-50 grayscale" />
+          <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-[color:var(--font-color)] opacity-50" />
         )}
         <AnimatedHorizontalLine isActive={isActive} />
         <SidebarMenuSubButton
@@ -117,12 +119,15 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           isActive={isActive}
           className={cn(
             "transition-colors duration-200 hover:bg-white/10",
-            isActive && "font-bold text-sidebar-foreground"
+            isActive && "bg-white/10 font-bold"
           )}
         >
-          <Link href={item.path!} className="flex w-full items-center">
-            <Icon className="mr-2 h-4 w-4" />
-            <span className="text-sm">{item.label}</span>
+          <Link
+            href={item.path!}
+            className="flex w-full items-center text-[color:var(--font-color)] no-underline hover:no-underline"
+          >
+            <Icon className={cn("mr-2", iconClass)} />
+            <span className="text-sm text-[color:var(--font-color)]">{item.label}</span>
           </Link>
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
@@ -132,12 +137,13 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   return (
     <AccordionItem value={item.id} className="relative border-none">
       {nested && (
-        <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-current opacity-50 grayscale" />
+        <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-[color:var(--font-color)] opacity-50" />
       )}
       <AccordionTrigger
         className={cn(
           "rounded-md px-2 py-2 text-base no-underline hover:bg-white/10",
-          isActive && "bg-white/10 font-medium"
+          isActive && "bg-white/10 font-medium text-[color:var(--font-color)]",
+          "text-[color:var(--font-color)]"
         )}
       >
         <div className="flex items-center">{content}</div>

@@ -15,6 +15,14 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        themed:
+          "bg-[var(--theme-color)] text-[color:var(--font-color)] hover:brightness-110 focus-visible:ring-[var(--theme-color)]",
+        /**
+         * 👇 nowy wariant ghost-themed:
+         */
+        "ghost-themed":
+          "hover:bg-[color-mix(in_srgb,var(--theme-color)_10%,white)] bg-opacity-20 hover:text-[color-mix(in_srgb,var(--theme-color)_90%,black)]",
+        // "bg-transparent text-[color:var(--font-color)] hover:bg-[var(--theme-color)] hover:text-[color:var(--font-color)] focus-visible:ring-[var(--theme-color)]",
       },
       size: {
         default: "h-10 px-4 py-2",

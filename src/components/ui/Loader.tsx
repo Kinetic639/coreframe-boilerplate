@@ -49,7 +49,7 @@ export default function Loader({
 
         {/* Name or fallback */}
         <motion.div
-          className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none transition-opacity duration-200"
+          className="flex flex-col gap-1 overflow-hidden whitespace-nowrap font-medium leading-none text-[var(--theme-color)] transition-opacity duration-200"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}

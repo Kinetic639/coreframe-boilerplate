@@ -39,7 +39,12 @@ export default async function Layout({ children }: { children: React.ReactNode }
           <UserInitProvider context={userContext}>
             <div
               className="flex h-screen w-full"
-              style={{ "--theme-color": themeColor } as React.CSSProperties}
+              style={
+                {
+                  "--theme-color": themeColor,
+                  "--font-color": appContext?.activeOrg?.font_color,
+                } as React.CSSProperties
+              }
             >
               <div className="flex w-full flex-1">
                 {/* Sidebar */}
