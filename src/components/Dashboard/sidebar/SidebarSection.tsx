@@ -17,9 +17,9 @@ import {
 import { Link, usePathname } from "@/i18n/navigation";
 import * as Icons from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSidebar } from "../ui/sidebar";
+import { useSidebar } from "../../ui/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 
 function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   const [width, setWidth] = useState(0);
