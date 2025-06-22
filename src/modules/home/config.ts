@@ -18,8 +18,7 @@ export const homeModule: ModuleConfig = {
       icon: "PlusCircle",
       type: "action",
       actionId: "openAddNewsModal",
-      allowedRoles: ["branch_admin"],
-      scope: ["branch"],
+      allowedUsers: [{ role: "branch_admin", scope: "branch" }],
     },
     {
       id: "second-news",
@@ -27,6 +26,7 @@ export const homeModule: ModuleConfig = {
       icon: "PlusCircle",
       type: "action",
       actionId: "openSecondNewsModalsss",
+      allowedUsers: [{ role: "org_owner", scope: "org" }],
     },
     {
       id: "third-news",
@@ -34,8 +34,6 @@ export const homeModule: ModuleConfig = {
       icon: "PlusCircle",
       type: "action",
       actionId: "openThirdNewsModalsss",
-      allowedRoles: ["org_owner"],
-      scope: ["org"],
     },
   ],
 };

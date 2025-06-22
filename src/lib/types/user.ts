@@ -13,3 +13,11 @@ export type UserPreferences = Pick<
 export type UserRole = Database["public"]["Tables"]["user_roles"]["Row"] & {
   roles: Pick<Database["public"]["Tables"]["roles"]["Row"], "slug" | "label">;
 };
+// types/roles.ts
+export type Scope = "org" | "branch";
+
+export type RoleCheck = {
+  role: string;
+  scope?: Scope; // jeśli nie podano, pasuje niezależnie od scope
+  id?: string; // jeśli nie podano, pasuje niezależnie od id
+};

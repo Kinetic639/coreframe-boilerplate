@@ -1,13 +1,16 @@
 import { Pathnames } from "@/i18n/routing";
 
 export type MenuItem = LinkMenuItem | ActionMenuItem;
+export interface AllowedUser {
+  role: string;
+  scope: string;
+}
 
 export interface BaseMenuItem {
   id: string;
   label: string;
   icon: string;
-  allowedRoles?: string[]; // np. ["owner", "admin"]
-  scope?: ("org" | "branch")[]; // ["org"] | ["branch"] | ["org", "branch"]
+  allowedUsers?: AllowedUser[];
 }
 
 export interface LinkMenuItem extends BaseMenuItem {
