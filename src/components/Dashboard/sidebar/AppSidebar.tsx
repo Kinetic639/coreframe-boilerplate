@@ -1,7 +1,6 @@
 import React from "react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
 import ModuleSection from "./ModuleSection";
 import { modules } from "@/modules";
@@ -11,21 +10,12 @@ import { appVersion } from "@/lib/version";
 import { ModuleConfig } from "@/lib/types/module";
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
-  const userContext = await loadUserContextServer();
 
   const logo: string = appContext?.activeOrg?.logo_url;
   const name: string = appContext?.activeOrg?.name;
   const name2: string = appContext?.activeOrg?.name_2;
   const themeColor = appContext?.activeOrg?.theme_color;
 
-  const activeOrgId = appContext?.active_org_id ?? null;
-  const activeBranchId = appContext?.active_branch_id ?? null;
-  const userRoles = userContext?.roles ?? [];
-  console.log("🧾 Sidebar context:", {
-    roles: userRoles,
-    activeOrgId,
-    activeBranchId,
-  });
   return (
     <Sidebar
       variant="sidebar"
