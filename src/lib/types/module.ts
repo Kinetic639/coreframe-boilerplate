@@ -1,11 +1,24 @@
 import { Pathnames } from "@/i18n/routing";
 
-export interface MenuItem {
+export type MenuItem = LinkMenuItem | ActionMenuItem;
+
+export interface BaseMenuItem {
   id: string;
   label: string;
-  path: Pathnames;
   icon: string;
+  allowedRoles?: string[]; // np. ["owner", "admin"]
+  scope?: ("org" | "branch")[]; // ["org"] | ["branch"] | ["org", "branch"]
+}
+
+export interface LinkMenuItem extends BaseMenuItem {
+  type?: "link";
+  path: Pathnames;
   submenu?: MenuItem[];
+}
+
+export interface ActionMenuItem extends BaseMenuItem {
+  type: "action";
+  actionId?: string;
 }
 
 export interface ModuleConfig {
@@ -15,14 +28,5 @@ export interface ModuleConfig {
   description?: string;
   color?: string;
   items: MenuItem[];
-}
-
-export interface OrganizationSettings {
-  name: string;
-  subtitle?: string;
-  logo?: string;
-  primaryColor: string;
-  backgroundColor: string;
-  textColor: string;
-  fontFamily: string;
+  actions?: Record<string, () => void>;
 }

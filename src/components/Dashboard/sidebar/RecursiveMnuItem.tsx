@@ -10,19 +10,22 @@ import {
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Link, usePathname } from "@/i18n/navigation";
-import { Pathnames } from "@/i18n/routing";
 import { useSidebar } from "@/components/ui/sidebar";
 import * as Icons from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { getCanonicalPath } from "@/utils/getCanonicalPath";
+import { Pathnames } from "@/i18n/routing";
+import { ActionButton } from "@/components/ui/ActionButton";
 
 export type MenuItem = {
   id: string;
   label: string;
   path?: Pathnames;
   icon?: string;
+  type?: "link" | "action";
+  onClick?: () => void;
   submenu?: MenuItem[];
 };
 
@@ -31,7 +34,6 @@ function isPathActive(item: MenuItem, pathname: string): boolean {
   const currentCanonical = getCanonicalPath(pathname);
   if (!itemCanonical || !currentCanonical) return false;
   if (itemCanonical === currentCanonical) return true;
-
   return item.submenu?.some((child) => isPathActive(child, pathname)) ?? false;
 }
 
@@ -65,6 +67,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   const Icon = (Icons as any)[item.icon || "Dot"] || Icons.Dot;
   const isActive = isPathActive(item, pathname);
   const hasChildren = !!item.submenu?.length;
+  const isAction = item.type === "action";
 
   const iconClass = "h-4 w-4 stroke-[color:var(--font-color)] text-[color:var(--font-color)]";
 
@@ -94,9 +97,15 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
         <Tooltip>
           <TooltipTrigger asChild>
             <SidebarMenuItem className="m-0 min-h-[40px] list-none">
-              <SidebarMenuButton isActive={isActive}>
-                <Icon className={iconClass} />
-              </SidebarMenuButton>
+              {isAction ? (
+                <SidebarMenuButton isActive={false} onClick={item.onClick}>
+                  <Icon className={iconClass} />
+                </SidebarMenuButton>
+              ) : (
+                <SidebarMenuButton isActive={isActive}>
+                  <Icon className={iconClass} />
+                </SidebarMenuButton>
+              )}
             </SidebarMenuItem>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -113,22 +122,43 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
         {nested && (
           <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-[color:var(--font-color)] opacity-50" />
         )}
-        <AnimatedHorizontalLine isActive={isActive} />
+        {!isAction && <AnimatedHorizontalLine isActive={isActive} />}
         <SidebarMenuSubButton
-          asChild
+          asChild={!isAction}
           isActive={isActive}
           className={cn(
-            "transition-colors duration-200 hover:bg-white/10",
+            "py-6 transition-colors duration-200",
+            // !isAction && " hover:bg-white/10 ",
+            // isAction && "py-0 p",
             isActive && "bg-white/10 font-bold"
           )}
+          {...(isAction ? { onClick: item.onClick } : {})}
         >
-          <Link
-            href={item.path!}
-            className="flex w-full items-center text-[color:var(--font-color)] no-underline hover:no-underline"
-          >
-            <Icon className={cn("mr-2", iconClass)} />
-            <span className="text-sm text-[color:var(--font-color)]">{item.label}</span>
-          </Link>
+          {isAction ? (
+            <ActionButton
+              className="w-full text-[color:var(--theme-color)]"
+              onClick={item.onClick}
+              nested={nested}
+              isActive={isActive}
+              variant="secondary"
+            >
+              <Icon
+                className={cn(
+                  "mr-2 h-4 w-4 stroke-[color:var(--theme-color)] text-[color:var(--theme-color)]",
+                  nested && "ml-2"
+                )}
+              />
+              <span className="text-sm ">{item.label}</span>
+            </ActionButton>
+          ) : (
+            <Link
+              href={item.path!}
+              className="flex w-full items-center text-[color:var(--font-color)] no-underline hover:no-underline"
+            >
+              <Icon className={cn("mr-2", iconClass)} />
+              <span className="text-sm text-[color:var(--font-color)]">{item.label}</span>
+            </Link>
+          )}
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>
     );
@@ -151,7 +181,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
 
       <AccordionContent className="px-0 pb-0 pt-1">
         <SidebarMenuSub className="relative ml-2 mr-0 pl-4 pr-0">
-          {item?.submenu?.map((child) => (
+          {item.submenu?.map((child) => (
             <RecursiveMenuItem key={child.id} item={child} nested={true} />
           ))}
         </SidebarMenuSub>
