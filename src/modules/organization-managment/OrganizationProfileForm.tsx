@@ -6,22 +6,22 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { updateOrganizationProfile } from "./api/updateProfile";
-import { Tables } from "@/types/supabase";
 import { toast } from "react-toastify";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { useRouter } from "@/i18n/navigation";
+import { Tables } from "../../../supabase/types/types";
 
 type OrganizationProfile = Tables<"organization_profiles">;
 
+// ZOD schema zgodny z Partial<OrganizationProfile> i nullable values
 const schema = z.object({
-  name: z.string().min(1),
-  name_2: z.string().optional(),
-  slug: z.string().optional(),
-  website: z.string().url().optional(),
-  logo_url: z.string().url().optional(),
-  theme_color: z.string().optional(),
-  font_color: z.string().optional(), // ⬅️ DODANE
-  bio: z.string().optional(),
+  name: z.string().nullable().optional(),
+  name_2: z.string().nullable().optional(),
+  slug: z.string().nullable().optional(),
+  website: z.string().url().nullable().optional(),
+  theme_color: z.string().nullable().optional(),
+  font_color: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
 });
 
 export default function OrganizationProfileForm({
@@ -43,7 +43,7 @@ export default function OrganizationProfileForm({
       toast.error(`Błąd: ${error.message}`);
     } else {
       toast.success("Profil organizacji został zaktualizowany.");
-      router.refresh(); // ⬅️ Odświeżenie
+      router.refresh();
     }
   };
 
@@ -53,10 +53,8 @@ export default function OrganizationProfileForm({
       <Input {...form.register("name_2")} placeholder="Nazwa organizacji (2)" />
       <Input {...form.register("slug")} placeholder="Slug" />
       <Input {...form.register("website")} placeholder="Strona internetowa" />
-      <Input {...form.register("logo_url")} placeholder="Logo URL" />
       <ColorPicker name="theme_color" control={form.control} label="Kolor główny" />
-      <ColorPicker name="font_color" control={form.control} label="Kolor czcionki" />{" "}
-      {/* ⬅️ DODANE */}
+      <ColorPicker name="font_color" control={form.control} label="Kolor czcionki" />
       <textarea
         {...form.register("bio")}
         placeholder="Opis organizacji"

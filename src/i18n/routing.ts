@@ -120,6 +120,32 @@ export const routing = defineRouting({
       pl: "/dashboard/zespoly/kalendarz",
     },
 
+    // === Support module ===
+    "/dashboard/support/help": {
+      en: "/dashboard/support/help",
+      pl: "/dashboard/wsparcie/pomoc",
+    },
+    "/dashboard/support/contact": {
+      en: "/dashboard/support/contact",
+      pl: "/dashboard/wsparcie/kontakt",
+    },
+    "/dashboard/support/announcements": {
+      en: "/dashboard/support/announcements",
+      pl: "/dashboard/wsparcie/ogloszenia",
+    },
+    "/dashboard/support/announcements/changelog": {
+      en: "/dashboard/support/announcements/changelog",
+      pl: "/dashboard/wsparcie/ogloszenia/zmiany",
+    },
+    "/dashboard/support/announcements/status": {
+      en: "/dashboard/support/announcements/status",
+      pl: "/dashboard/wsparcie/ogloszenia/status",
+    },
+    "/dashboard/support/announcements/roadmap": {
+      en: "/dashboard/support/announcements/roadmap",
+      pl: "/dashboard/wsparcie/ogloszenia/roadmapa",
+    },
+
     // === Auth ===
     "/sign-in": {
       en: "/sign-in",

@@ -32,7 +32,6 @@ export default async function Loading() {
       logoUrl = org?.logo_url ?? null;
       orgName = org?.name ?? null;
       orgName2 = org?.name_2 ?? null;
-      console.log("orgName2", orgName2);
     }
   }
 

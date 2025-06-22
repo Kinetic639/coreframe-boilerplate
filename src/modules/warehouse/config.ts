@@ -37,13 +37,17 @@ export const warehouseModule: ModuleConfig = {
               path: "/dashboard/warehouse/products/accessories", // nowa
               icon: "Archive",
             },
+
+            {
+              id: "add-produkt",
+              label: "Dodaj produkt",
+              icon: "PlusCircle",
+              type: "action",
+              allowedRoles: ["branch_admin"],
+              scope: ["branch"],
+              actionId: "opensnewproductmodal", // można użyć do mapowania
+            },
           ],
-        },
-        {
-          id: "categories",
-          label: "Kategorie",
-          path: "/dashboard/warehouse/categories", // nowa
-          icon: "FolderOpen",
         },
       ],
     },

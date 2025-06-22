@@ -9,6 +9,7 @@ export default async function Loading() {
 
   let logoUrl: string | null = null;
   let orgName: string | null = null;
+  let orgName2: string | null = null;
 
   if (session) {
     const userId = session.user.id;
@@ -31,7 +32,6 @@ export default async function Loading() {
       logoUrl = org?.logo_url ?? null;
       orgName = org?.name ?? null;
       orgName2 = org?.name_2 ?? null;
-      console.log("orgName2", orgName2);
     }
   }
 
