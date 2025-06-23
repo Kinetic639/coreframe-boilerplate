@@ -96,6 +96,34 @@
   }
 }
 
+/* nprogress custom styles */
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  background: var(--theme-color, #4f46e5); /* albo dowolny kolor */
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  transition: all 0.3s ease;
+}
+
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0px;
+  width: 100px;
+  height: 100%;
+  box-shadow: 0 0 10px #4f46e5, 0 0 5px #4f46e5;
+  opacity: 1;
+  transform: rotate(3deg) translate(0px, -4px);
+}
+
+
 /* @tailwind base;
 @tailwind components;
 @tailwind utilities;

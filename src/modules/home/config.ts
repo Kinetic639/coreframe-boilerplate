@@ -20,20 +20,5 @@ export const homeModule: ModuleConfig = {
       actionId: "openAddNewsModal",
       allowedUsers: [{ role: "branch_admin", scope: "branch" }],
     },
-    {
-      id: "second-news",
-      label: "Dodaj second",
-      icon: "PlusCircle",
-      type: "action",
-      actionId: "openSecondNewsModalsss",
-      allowedUsers: [{ role: "org_owner", scope: "org" }],
-    },
-    {
-      id: "third-news",
-      label: "Dodaj third",
-      icon: "PlusCircle",
-      type: "action",
-      actionId: "openThirdNewsModalsss",
-    },
   ],
 };
