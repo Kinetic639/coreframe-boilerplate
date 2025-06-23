@@ -1,4 +1,3 @@
-import { Pathnames } from "@/i18n/routing";
 import { Scope } from "./user";
 
 export type MenuItem = LinkMenuItem | ActionMenuItem;
@@ -16,7 +15,7 @@ export interface BaseMenuItem {
 
 export interface LinkMenuItem extends BaseMenuItem {
   type?: "link";
-  path: Pathnames;
+  path: string;
   submenu?: MenuItem[];
 }
 

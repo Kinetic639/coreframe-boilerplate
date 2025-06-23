@@ -148,7 +148,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
                   nested && "ml-2"
                 )}
               />
-              <span className="text-sm ">{item.label}</span>
+              <span className="mr-2 text-sm ">{item.label}</span>
             </ActionButton>
           ) : (
             <Link

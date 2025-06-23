@@ -63,14 +63,6 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/deliveries",
       pl: "/dashboard/magazyn/dostawy",
     },
-    "/dashboard/warehouse/products/materials": {
-      en: "/dashboard/warehouse/products/materials",
-      pl: "/dashboard/magazyn/produkty/materialy",
-    },
-    "/dashboard/warehouse/products/parts": {
-      en: "/dashboard/warehouse/products/parts",
-      pl: "/dashboard/magazyn/produkty/czesci",
-    },
 
     // === Org Management module ===
     "/dashboard/organization/profile": {

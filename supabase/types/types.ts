@@ -194,6 +194,7 @@ export type Database = {
         Row: {
           bio: string | null;
           created_at: string | null;
+          font_color: string | null;
           logo_url: string | null;
           name: string | null;
           name_2: string | null;
@@ -205,6 +206,7 @@ export type Database = {
         Insert: {
           bio?: string | null;
           created_at?: string | null;
+          font_color?: string | null;
           logo_url?: string | null;
           name?: string | null;
           name_2?: string | null;
@@ -216,6 +218,7 @@ export type Database = {
         Update: {
           bio?: string | null;
           created_at?: string | null;
+          font_color?: string | null;
           logo_url?: string | null;
           name?: string | null;
           name_2?: string | null;
@@ -289,6 +292,41 @@ export type Database = {
           slug?: string;
         };
         Relationships: [];
+      };
+      product_types: {
+        Row: {
+          created_at: string | null;
+          icon: string | null;
+          id: string;
+          name: string;
+          organization_id: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          icon?: string | null;
+          id?: string;
+          name: string;
+          organization_id: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          icon?: string | null;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          slug?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_types_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       role_permissions: {
         Row: {
