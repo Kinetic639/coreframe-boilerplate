@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Link, usePathname } from "@/i18n/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 import * as Icons from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { getCanonicalPath } from "@/utils/getCanonicalPath";
 import { Pathnames } from "@/i18n/routing";
 import { ActionButton } from "@/components/ui/ActionButton";
+import { SidebarLinkWithLoader } from "./SidebarLinkWithLoader";
 
 export type MenuItem = {
   id: string;
@@ -151,13 +152,13 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
               <span className="mr-2 text-sm ">{item.label}</span>
             </ActionButton>
           ) : (
-            <Link
+            <SidebarLinkWithLoader
               href={item.path!}
               className="flex w-full items-center text-[color:var(--font-color)] no-underline hover:no-underline"
             >
               <Icon className={cn("mr-2", iconClass)} />
               <span className="text-sm text-[color:var(--font-color)]">{item.label}</span>
-            </Link>
+            </SidebarLinkWithLoader>
           )}
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>

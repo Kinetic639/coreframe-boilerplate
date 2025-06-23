@@ -55,7 +55,6 @@ export default async function Layout({ children }: { children: React.ReactNode }
                 {/* Main content */}
                 <div className="flex flex-1 flex-col overflow-hidden">
                   <DashboardHeader />
-
                   <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
                     {/* 👇 Debug info (do usunięcia w prod) */}
                     <div className="mb-12">
