@@ -1,15 +1,21 @@
-import { warehouseModule } from "./warehouse/config";
 import { teamsModule } from "./teams/config";
 import { orgManagmentModule } from "./organization-managment/config";
 import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
+import { ModuleConfig } from "@/lib/types/module";
+import { getWarehouseModule } from "./warehouse/config";
 
-export const modules = [
-  homeModule,
-  warehouseModule,
-  teamsModule,
-  orgManagmentModule,
-  supportModule,
-];
+/**
+ * Ładuje wszystkie dostępne moduły, biorąc pod uwagę dynamiczne dane jak typy produktów itp.
+ */
+export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]> {
+  const warehouseModule = await getWarehouseModule(activeOrgId);
 
-export { homeModule, warehouseModule, teamsModule, orgManagmentModule, supportModule };
+  return [
+    homeModule,
+    warehouseModule, // dynamicznie załadowany
+    teamsModule,
+    orgManagmentModule,
+    supportModule,
+  ];
+}

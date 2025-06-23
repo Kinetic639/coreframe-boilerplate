@@ -15,7 +15,7 @@ export const ActionButton = React.forwardRef<HTMLButtonElement, ActionButtonProp
       <Button
         ref={ref}
         variant="ghost"
-        className={cn(nested && "pl-7", isActive && "", className)}
+        className={cn("", nested && "", isActive && "", className)}
         {...props}
       >
         {children}
