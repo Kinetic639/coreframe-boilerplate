@@ -21,3 +21,9 @@ export type RoleCheck = {
   scope?: Scope; // jeśli nie podano, pasuje niezależnie od scope
   id?: string; // jeśli nie podano, pasuje niezależnie od id
 };
+export type UserRoleFromToken = {
+  role: string;
+  org_id: string | null;
+  branch_id: string | null;
+  team_id: string | null;
+};
