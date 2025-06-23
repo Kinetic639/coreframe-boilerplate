@@ -6,6 +6,8 @@ import { usePersistentAccordionList } from "@/lib/hooks/usePersistentAccordionLi
 import { useSidebar } from "@/components/ui/sidebar";
 import { MenuItem } from "@/lib/types/module";
 import { RecursiveMenuItem } from "./RecursiveMnuItem";
+import { RoleCheck, Scope } from "@/lib/types/user";
+import HasAnyRoleClient from "@/components/auth/HasAnyRoleClient";
 
 type ModuleSectionProps = {
   module: {
@@ -13,9 +15,25 @@ type ModuleSectionProps = {
     title: string;
     items: MenuItem[];
   };
+  activeOrgId: string | null;
+  activeBranchId: string | null;
 };
 
-export default function ModuleSection({ module }: ModuleSectionProps) {
+function mapAllowedUsersToChecks(
+  allowedUsers: MenuItem["allowedUsers"],
+  activeOrgId: string | null,
+  activeBranchId: string | null
+): RoleCheck[] {
+  if (!allowedUsers) return [];
+
+  return allowedUsers.map((u) => ({
+    role: u.role,
+    scope: u.scope as Scope,
+    id: u.scope === "org" ? (activeOrgId ?? undefined) : (activeBranchId ?? undefined),
+  }));
+}
+
+export default function ModuleSection({ module, activeBranchId, activeOrgId }: ModuleSectionProps) {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
@@ -36,9 +54,19 @@ export default function ModuleSection({ module }: ModuleSectionProps) {
       >
         {module.title}
       </motion.p>
-      {module.items.map((item) => (
-        <RecursiveMenuItem key={item.id} item={item} />
-      ))}
+      {module.items.map((item) => {
+        const checks = mapAllowedUsersToChecks(item.allowedUsers, activeOrgId, activeBranchId);
+
+        if (!checks.length) {
+          return <RecursiveMenuItem key={item.id} item={item} />;
+        }
+
+        return (
+          <HasAnyRoleClient key={item.id} checks={checks}>
+            <RecursiveMenuItem item={item} />
+          </HasAnyRoleClient>
+        );
+      })}
     </Accordion>
   );
 }

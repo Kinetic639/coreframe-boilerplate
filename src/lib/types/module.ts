@@ -1,9 +1,10 @@
 import { Pathnames } from "@/i18n/routing";
+import { Scope } from "./user";
 
 export type MenuItem = LinkMenuItem | ActionMenuItem;
 export interface AllowedUser {
   role: string;
-  scope: string;
+  scope: Scope;
 }
 
 export interface BaseMenuItem {

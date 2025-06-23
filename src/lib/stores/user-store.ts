@@ -1,13 +1,17 @@
 import { create } from "zustand";
-import type { User, UserPreferences, UserRole } from "@/lib/types/user";
+import type { User, UserPreferences, UserRoleFromToken } from "@/lib/types/user";
 
 type UserStore = {
   user: User | null;
   preferences: UserPreferences | null;
-  roles: UserRole[];
+  roles: UserRoleFromToken[];
   isLoaded: boolean;
 
-  setContext: (ctx: { user: User; preferences: UserPreferences; roles: UserRole[] }) => void;
+  setContext: (ctx: {
+    user: User;
+    preferences: UserPreferences;
+    roles: UserRoleFromToken[];
+  }) => void;
   clear: () => void;
 };
 

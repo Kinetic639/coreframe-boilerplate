@@ -1,18 +1,13 @@
 // utils/getUserRolesFromJWT.ts
+
+import { UserRoleFromToken } from "@/lib/types/user";
 import { jwtDecode } from "jwt-decode";
 
-export type UserRole = {
-  branch_id: string | null;
-  org_id: string | null;
-  role: string;
-  team_id: string | null;
-};
-
 type DecodedJWT = {
-  roles?: UserRole[];
+  roles?: UserRoleFromToken[];
 };
 
-export function getUserRolesFromJWT(accessToken: string): UserRole[] {
+export function getUserRolesFromJWT(accessToken: string): UserRoleFromToken[] {
   try {
     const decoded = jwtDecode<DecodedJWT>(accessToken);
     return decoded.roles || [];

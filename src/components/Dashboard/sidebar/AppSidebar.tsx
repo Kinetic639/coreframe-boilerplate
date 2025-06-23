@@ -2,19 +2,29 @@ import React from "react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
-import ModuleSection from "./ModuleSection";
-import { modules } from "@/modules";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { appVersion } from "@/lib/version";
-import { ModuleConfig } from "@/lib/types/module";
+import { modules } from "@/modules";
+import ModuleSectionWrapper from "./ModuleSectionWrapper";
+import { createClient } from "@/utils/supabase/server";
+
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
+  const supabase = await createClient();
 
-  const logo: string = appContext?.activeOrg?.logo_url;
-  const name: string = appContext?.activeOrg?.name;
-  const name2: string = appContext?.activeOrg?.name_2;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession(); // 👈 pobieramy session
+
+  const accessToken = session?.access_token ?? "";
+
+  const logo = appContext?.activeOrg?.logo_url;
+  const name = appContext?.activeOrg?.name;
+  const name2 = appContext?.activeOrg?.name_2;
   const themeColor = appContext?.activeOrg?.theme_color;
+  const activeOrgId = appContext?.active_org_id ?? null;
+  const activeBranchId = appContext?.active_branch_id ?? null;
 
   return (
     <Sidebar
@@ -36,8 +46,14 @@ const AppSidebar = async () => {
       <SidebarContent className="flex h-full flex-col justify-between">
         <ScrollArea className="min-h-full">
           <div className="flex flex-col gap-8 px-3 py-4">
-            {modules.map((module: ModuleConfig) => (
-              <ModuleSection key={module.id} module={module} />
+            {modules.map((module) => (
+              <ModuleSectionWrapper
+                key={module.id}
+                module={module}
+                accessToken={accessToken}
+                activeOrgId={activeOrgId}
+                activeBranchId={activeBranchId}
+              />
             ))}
           </div>
         </ScrollArea>
