@@ -64,6 +64,20 @@ export const routing = defineRouting({
       pl: "/dashboard/magazyn/dostawy",
     },
 
+    // === Catalog module ===
+    "/dashboard/catalog/products": {
+      en: "/dashboard/catalog/products",
+      pl: "/dashboard/katalog/produkty",
+    },
+    "/dashboard/catalog/products/list": {
+      en: "/dashboard/catalog/products/list",
+      pl: "/dashboard/katalog/produkty/lista",
+    },
+    "/dashboard/catalog/categories": {
+      en: "/dashboard/catalog/categories",
+      pl: "/dashboard/katalog/kategorie",
+    },
+
     // === Org Management module ===
     "/dashboard/organization/profile": {
       en: "/dashboard/organization/profile",
