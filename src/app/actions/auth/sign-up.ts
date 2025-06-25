@@ -1,7 +1,7 @@
 "use server";
 
 import { encodedRedirect } from "@/utils/utils";
-import { createClient } from "@/utils/supabase/server";
+import { createClientServer } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 
 function slugify(name: string) {
@@ -15,7 +15,7 @@ export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const organizationName = formData.get("organizationName")?.toString();
-  const supabase = await createClient();
+  const supabase = await createClientServer();
   const origin = (await headers()).get("origin");
 
   if (!email || !password || !organizationName) {
