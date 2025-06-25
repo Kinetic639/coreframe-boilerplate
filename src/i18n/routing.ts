@@ -63,6 +63,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/deliveries",
       pl: "/dashboard/magazyn/dostawy",
     },
+    "/dashboard/warehouse/locations": {
+      en: "/dashboard/warehouse/locations",
+      pl: "/dashboard/magazyn/lokalizacje",
+    },
 
     // === Org Management module ===
     "/dashboard/organization/profile": {
@@ -160,3 +164,5 @@ export const routing = defineRouting({
 
 export type Pathnames = keyof typeof routing.pathnames;
 export type Locale = (typeof routing.locales)[number];
+
+export default routing;
