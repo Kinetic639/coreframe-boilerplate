@@ -4,6 +4,7 @@ import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { getWarehouseModule } from "./warehouse/config";
+import { Widget } from "@/lib/types/widgets";
 
 /**
  * Ładuje wszystkie dostępne moduły, biorąc pod uwagę dynamiczne dane jak typy produktów itp.
@@ -18,4 +19,8 @@ export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]
     orgManagmentModule,
     supportModule,
   ];
+}
+export async function getAllWidgets(activeOrgId: string): Promise<Widget[]> {
+  const modules = await getAllModules(activeOrgId);
+  return modules.flatMap((module) => module.widgets || []);
 }
