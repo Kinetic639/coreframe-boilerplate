@@ -1,4 +1,5 @@
 import { Scope } from "./user";
+import { Widget } from "./widgets";
 
 export type MenuItem = LinkMenuItem | ActionMenuItem;
 export interface AllowedUser {
@@ -32,4 +33,5 @@ export interface ModuleConfig {
   color?: string;
   items: MenuItem[];
   actions?: Record<string, () => void>;
+  widgets?: Widget[]; // 👈 tutaj
 }

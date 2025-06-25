@@ -1,9 +1,32 @@
-// modules/warehouse/index.ts
 import { ModuleConfig } from "@/lib/types/module";
 import { loadProductTypes } from "./api/load-product-types";
+import { Widget } from "@/lib/types/widgets";
 
 export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
   const productTypes = await loadProductTypes(orgId);
+
+  const widgets: Widget[] = [
+    {
+      id: "warehouse-summary",
+      title: "Podsumowanie produktów",
+      type: "chart",
+      data: {
+        labels: ["Lakiery", "Narzędzia", "Materiały ścierne", "Chemia"],
+        datasets: [
+          {
+            label: "Ilość",
+            data: [10, 5, 2, 7],
+            backgroundColor: "rgba(34, 197, 94, 0.2)",
+            borderColor: "rgba(34, 197, 94, 1)",
+          },
+        ],
+      },
+      config: {
+        type: "bar",
+        responsive: true,
+      },
+    },
+  ];
 
   return {
     id: "warehouse",
@@ -89,5 +112,6 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
         ],
       },
     ],
+    widgets,
   };
 }
