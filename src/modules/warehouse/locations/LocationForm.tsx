@@ -6,13 +6,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import LocationImageUploader from "./LocationImageUploader";
 
 const schema = z.object({
@@ -56,13 +56,13 @@ export default function LocationForm({
   });
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>{children}</SheetTrigger>
-      <SheetContent side="right" className="w-full max-w-md">
+    <Dialog>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="w-full max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <SheetHeader>
-            <SheetTitle>{defaultValues ? "Edytuj lokalizację" : "Nowa lokalizacja"}</SheetTitle>
-          </SheetHeader>
+          <DialogHeader>
+            <DialogTitle>{defaultValues ? "Edytuj lokalizację" : "Nowa lokalizacja"}</DialogTitle>
+          </DialogHeader>
           <Input {...form.register("name") } placeholder="Nazwa" />
           <select
             {...form.register("parentId")}
@@ -78,13 +78,11 @@ export default function LocationForm({
           {defaultValues?.locationId && (
             <LocationImageUploader imageUrl={defaultValues.imageUrl} locationId={defaultValues.locationId} />
           )}
-          <SheetFooter>
-            <Button type="submit" variant="themed">
-              Zapisz
-            </Button>
-          </SheetFooter>
+          <DialogFooter>
+            <Button type="submit" variant="themed">Zapisz</Button>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

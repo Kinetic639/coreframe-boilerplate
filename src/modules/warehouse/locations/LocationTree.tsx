@@ -17,6 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Card } from "@/components/ui/card";
 import ProductList, { Product } from "./ProductList";
+import type { LocationOption } from "./LocationForm";
 
 export interface Location {
   id: string;
@@ -27,12 +28,28 @@ export interface Location {
 
 interface Props {
   locations: Location[];
+  isEditMode?: boolean;
+  parentOptions?: LocationOption[];
+  onEdit?: (location: Location) => void;
+  onDelete?: (location: Location) => void;
 }
 
-function SortableItem({ location }: { location: Location }) {
+function SortableItem({
+  location,
+  isEditMode,
+  parentOptions,
+  onEdit,
+  onDelete,
+}: {
+  location: Location;
+  isEditMode: boolean;
+  parentOptions?: LocationOption[];
+  onEdit?: (location: Location) => void;
+  onDelete?: (location: Location) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: location.id,
-    disabled: location.products && location.products.length > 0,
+    disabled: !isEditMode || (location.products && location.products.length > 0),
   });
 
   const style: React.CSSProperties = {
@@ -48,11 +65,57 @@ function SortableItem({ location }: { location: Location }) {
       {...listeners}
       className={`rounded border p-2 ${isDragging ? "opacity-50" : ""}`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span>{location.name}</span>
-        {location.products && location.products.length > 0 && (
-          <span className="text-xs text-muted-foreground">{location.products.length} prod.</span>
-        )}
+        <div className="flex items-center gap-1">
+          {location.products && location.products.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {location.products.length} prod.
+            </span>
+          )}
+          {isEditMode && (
+            <>
+              <LocationForm
+                parentOptions={parentOptions || []}
+                defaultValues={{
+                  name: location.name,
+                  parentId: null,
+                  locationId: location.id,
+                  imageUrl: undefined,
+                }}
+                onSubmit={(vals) => onEdit?.({ ...location, name: vals.name })}
+              >
+                <Button size="icon" variant="ghost" type="button">
+                  ✏️
+                </Button>
+              </LocationForm>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="icon" variant="ghost" type="button">
+                    🗑️
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle>Usuń lokalizację?</DialogTitle>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="secondary" type="button" onClick={() => {}}>
+                      Anuluj
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      type="button"
+                      onClick={() => onDelete?.(location)}
+                    >
+                      Usuń
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </div>
       </div>
       {location.products && location.products.length > 0 && (
         <div className="mt-2">
@@ -63,15 +126,43 @@ function SortableItem({ location }: { location: Location }) {
   );
 }
 
-function LocationNode({ location, depth }: { location: Location; depth: number }) {
+function LocationNode({
+  location,
+  depth,
+  isEditMode,
+  parentOptions,
+  onEdit,
+  onDelete,
+}: {
+  location: Location;
+  depth: number;
+  isEditMode: boolean;
+  parentOptions?: LocationOption[];
+  onEdit?: (location: Location) => void;
+  onDelete?: (location: Location) => void;
+}) {
   return (
     <li className="mb-2">
-      <SortableItem location={location} />
+      <SortableItem
+        location={location}
+        isEditMode={isEditMode}
+        parentOptions={parentOptions}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
       {depth < 3 && location.children && location.children.length > 0 && (
         <ul className="ml-4 mt-2 space-y-2">
           <SortableContext items={location.children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             {location.children.map((child) => (
-              <LocationNode key={child.id} location={child} depth={depth + 1} />
+              <LocationNode
+                key={child.id}
+                location={child}
+                depth={depth + 1}
+                isEditMode={isEditMode}
+                parentOptions={parentOptions}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
             ))}
           </SortableContext>
         </ul>
@@ -80,7 +171,13 @@ function LocationNode({ location, depth }: { location: Location; depth: number }
   );
 }
 
-export default function LocationTree({ locations: initial }: Props) {
+export default function LocationTree({
+  locations: initial,
+  isEditMode = false,
+  parentOptions = [],
+  onEdit,
+  onDelete,
+}: Props) {
   const [locations, setLocations] = useState<Location[]>(initial);
 
   const sensors = useSensors(useSensor(PointerSensor));
@@ -116,12 +213,20 @@ export default function LocationTree({ locations: initial }: Props) {
   };
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext sensors={isEditMode ? sensors : []} onDragEnd={isEditMode ? handleDragEnd : undefined}>
       <Card className="p-4">
         <ul className="space-y-2">
           <SortableContext items={locations.map((l) => l.id)} strategy={verticalListSortingStrategy}>
             {locations.map((loc) => (
-              <LocationNode key={loc.id} location={loc} depth={1} />
+              <LocationNode
+                key={loc.id}
+                location={loc}
+                depth={1}
+                isEditMode={isEditMode}
+                parentOptions={parentOptions}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
             ))}
           </SortableContext>
         </ul>
