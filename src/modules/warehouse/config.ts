@@ -43,6 +43,12 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
         ],
       },
       {
+        id: "locations",
+        label: "Lokalizacje",
+        path: "/dashboard/warehouse/locations",
+        icon: "MapPin",
+      },
+      {
         id: "labels",
         label: "Etykiety i szablony",
         icon: "Tag",
