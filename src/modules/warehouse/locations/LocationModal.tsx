@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +16,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Location, getAllLocationsFlat, findLocationById } from "@/lib/mockData";
+import { createLocation, updateLocation } from "../api/locations";
+import { TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
 import { Building, Archive, Package, Palette, Image as ImageIcon } from "lucide-react";
 
 interface LocationModalProps {
@@ -91,31 +95,33 @@ export function LocationModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) return;
 
-    // In a real app, this would save to the backend
-    if (mode === "add") {
-      console.log("Add new location:", {
-        name: name.trim(),
-        parentId: selectedParentId,
-        customColor: selectedColor,
-        customIcon: selectedIcon,
-        imageUrl: imageUrl.trim() || undefined,
-      });
-    } else {
-      console.log("Update location:", {
-        id: location?.id,
-        name: name.trim(),
-        parentId: selectedParentId,
-        customColor: selectedColor,
-        customIcon: selectedIcon,
-        imageUrl: imageUrl.trim() || undefined,
-      });
+    const payload = {
+      name: name.trim(),
+      parent_id: selectedParentId,
+      color: selectedColor,
+      icon_name: selectedIcon,
+      imageUrl: imageUrl.trim() || null,
+    };
+
+    const { error } =
+      mode === "add"
+        ? await createLocation(payload as TablesInsert<"locations">)
+        : await updateLocation(location!.id, payload as TablesUpdate<"locations">);
+
+    if (error) {
+      toast.error(`Błąd: ${error.message}`);
+      return;
     }
 
+    toast.success(mode === "add" ? "Lokalizacja dodana." : "Lokalizacja zaktualizowana.");
+    router.refresh();
     onOpenChange(false);
   };
 
@@ -132,11 +138,11 @@ export function LocationModal({
     });
   };
 
-  // const getLocationLevel = () => {
-  //   if (!selectedParentId) return 1;
-  //   const parent = findLocationById(selectedParentId);
-  //   return parent ? parent.level + 1 : 1;
-  // };
+  const getLocationLevel = () => {
+    if (!selectedParentId) return 1;
+    const parent = findLocationById(selectedParentId);
+    return parent ? parent.level + 1 : 1;
+  };
 
   const getLevelName = (level: number) => {
     switch (level) {
