@@ -13,15 +13,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Location, getAllLocationsFlat, findLocationById } from "@/lib/mockData";
+import { loadLocations, createLocation, updateLocation } from "../api/locations";
+import { Tables } from "../../../../supabase/types/types";
+import { useAppContext } from "@/lib/hooks/us-app-context";
 import { Building, Archive, Package, Palette, Image as ImageIcon } from "lucide-react";
 
 interface LocationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "add" | "edit";
-  location: Location | null;
+  location: Tables<"locations"> | null;
   parentLocationId: string | null;
+  locations: Tables<"locations">[];
+  onSaved: () => Promise<void> | void;
 }
 
 const availableIcons = [
@@ -54,7 +58,10 @@ export function LocationModal({
   mode,
   location,
   parentLocationId,
+  locations,
+  onSaved,
 }: LocationModalProps) {
+  const { activeOrgId } = useAppContext();
   const [name, setName] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>("#3b82f6");
@@ -64,10 +71,10 @@ export function LocationModal({
   useEffect(() => {
     if (mode === "edit" && location) {
       setName(location.name);
-      setSelectedParentId(location.parentId);
-      setSelectedColor(location.customColor || "#3b82f6");
-      setSelectedIcon(location.customIcon || getDefaultIcon(location.level));
-      setImageUrl(location.imageUrl || "");
+      setSelectedParentId(location.parent_id);
+      setSelectedColor(location.color || "#3b82f6");
+      setSelectedIcon(location.icon_name || getDefaultIcon(location.level));
+      setImageUrl(location.image_url || "");
     } else if (mode === "add") {
       setName("");
       setSelectedParentId(parentLocationId);
@@ -97,31 +104,35 @@ export function LocationModal({
     if (!name.trim()) return;
 
     // In a real app, this would save to the backend
+    if (!activeOrgId) return;
+
     if (mode === "add") {
-      console.log("Add new location:", {
+      await createLocation({
         name: name.trim(),
-        parentId: selectedParentId,
-        customColor: selectedColor,
-        customIcon: selectedIcon,
-        imageUrl: imageUrl.trim() || undefined,
+        parent_id: selectedParentId,
+        color: selectedColor,
+        icon_name: selectedIcon,
+        image_url: imageUrl.trim() || null,
+        organization_id: activeOrgId,
+        level: getLocationLevel(),
       });
-    } else {
-      console.log("Update location:", {
-        id: location?.id,
+    } else if (location) {
+      await updateLocation(location.id, {
         name: name.trim(),
-        parentId: selectedParentId,
-        customColor: selectedColor,
-        customIcon: selectedIcon,
-        imageUrl: imageUrl.trim() || undefined,
+        parent_id: selectedParentId,
+        color: selectedColor,
+        icon_name: selectedIcon,
+        image_url: imageUrl.trim() || null,
       });
     }
+
+    if (onSaved) await onSaved();
 
     onOpenChange(false);
   };
 
   const getAvailableParents = () => {
-    const allLocations = getAllLocationsFlat();
-    return allLocations.filter((loc) => {
+    return locations.filter((loc) => {
       // Can't be a parent of itself
       if (mode === "edit" && location && loc.id === location.id) return false;
 
@@ -132,11 +143,11 @@ export function LocationModal({
     });
   };
 
-  // const getLocationLevel = () => {
-  //   if (!selectedParentId) return 1;
-  //   const parent = findLocationById(selectedParentId);
-  //   return parent ? parent.level + 1 : 1;
-  // };
+  const getLocationLevel = () => {
+    if (!selectedParentId) return 1;
+    const parent = locations.find((loc) => loc.id === selectedParentId);
+    return parent ? parent.level + 1 : 1;
+  };
 
   const getLevelName = (level: number) => {
     switch (level) {
@@ -156,7 +167,8 @@ export function LocationModal({
     setSelectedParentId(newParentId);
 
     // Auto-select appropriate icon based on level
-    const level = newParentId ? (findLocationById(newParentId)?.level || 0) + 1 : 1;
+    const parent = locations.find((loc) => loc.id === newParentId);
+    const level = parent ? parent.level + 1 : 1;
     setSelectedIcon(getDefaultIcon(level));
   };
 
