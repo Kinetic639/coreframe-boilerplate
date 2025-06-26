@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,9 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, QrCode, AlertCircle, CheckCircle, MapPin } from "lucide-react";
-import {
-  findQRCodeById,
-  findLocationById,
-  getAllLocationsFlat,
-  getLocationPath,
-} from "@/lib/mockData";
+import { loadLocations } from "../api/locations";
+import { Tables } from "../../../../supabase/types/types";
+import { useAppContext } from "@/lib/hooks/us-app-context";
 
 interface QRScannerProps {
   onLocationFound: (locationId: string) => void;
@@ -28,6 +25,8 @@ interface QRScannerProps {
 }
 
 export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
+  const { activeOrgId } = useAppContext();
+  const [locations, setLocations] = useState<Tables<"locations">[]>([]);
   const [qrCode, setQrCode] = useState("");
   const [scanResult, setScanResult] = useState<{
     found: boolean;
@@ -40,26 +39,25 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
   const [newLocationParent, setNewLocationParent] = useState<string | null>(null);
   const [assignmentMode, setAssignmentMode] = useState<"existing" | "new">("existing");
 
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!activeOrgId) return;
+      const data = await loadLocations(activeOrgId);
+      setLocations(data);
+    };
+    fetchData();
+  }, [activeOrgId]);
+
   const handleScan = () => {
     if (!qrCode.trim()) return;
 
-    const qrCodeData = findQRCodeById(qrCode.trim());
+    const location = locations.find((l) => l.id === qrCode.trim());
 
-    if (!qrCodeData) {
-      setScanResult({
-        found: false,
-        message: `Kod QR "${qrCode}" nie istnieje w systemie.`,
-      });
-      setShowAssignForm(false);
-      return;
-    }
-
-    if (qrCodeData.assignedLocationId) {
-      const location = findLocationById(qrCodeData.assignedLocationId);
+    if (location) {
       setScanResult({
         found: true,
-        locationId: qrCodeData.assignedLocationId,
-        message: `Kod QR przypisany do lokalizacji: ${location?.name || "Nieznana lokalizacja"}`,
+        locationId: location.id,
+        message: `Kod QR przypisany do lokalizacji: ${location.name}`,
       });
       setShowAssignForm(false);
     } else {
@@ -106,12 +104,23 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
     }
   };
 
+  const getLocationPath = (id: string) => {
+    const map = new Map(locations.map((l) => [l.id, l]));
+    const path: string[] = [];
+    let current = map.get(id);
+    while (current) {
+      path.unshift(current.name);
+      current = current.parent_id ? map.get(current.parent_id) : undefined;
+    }
+    return path.join(" > ");
+  };
+
   const getAvailableLocations = () => {
-    return getAllLocationsFlat();
+    return locations;
   };
 
   const getAvailableParents = () => {
-    return getAllLocationsFlat().filter((loc) => loc.level < 3);
+    return locations.filter((loc) => loc.level < 3);
   };
 
   const handleNewLocationParentChange = (value: string) => {
@@ -126,8 +135,8 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
           Powrót
         </Button>
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Skaner Kodów QR</h3>
-          <p className="text-sm text-gray-600">
+          <h3 className="text-lg font-semibold text-[color:var(--font-color)]">Skaner Kodów QR</h3>
+          <p className="text-sm text-[color:var(--font-color)]/70">
             Wprowadź kod QR aby sprawdzić przypisanie do lokalizacji
           </p>
         </div>
@@ -158,7 +167,7 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
             </div>
           </div>
 
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-[color:var(--font-color)]/70">
             Dostępne kody do testów: QR-001, QR-002, QR-003, QR-004, QR-005
           </div>
         </CardContent>
