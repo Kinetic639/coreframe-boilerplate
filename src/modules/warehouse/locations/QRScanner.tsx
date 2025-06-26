@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, QrCode, AlertCircle, CheckCircle, MapPin } from "lucide-react";
-import {
-  findQRCodeById,
-  findLocationById,
-  getAllLocationsFlat,
-  getLocationPath,
-} from "@/lib/mockData";
+import { createClient } from "@/utils/supabase/client";
+import { useLocations, LocationRow } from "./useLocations";
 
 interface QRScannerProps {
   onLocationFound: (locationId: string) => void;
@@ -39,27 +35,35 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
   const [newLocationName, setNewLocationName] = useState("");
   const [newLocationParent, setNewLocationParent] = useState<string | null>(null);
   const [assignmentMode, setAssignmentMode] = useState<"existing" | "new">("existing");
+  const supabase = createClient();
+  const { locations, mutate } = useLocations();
+  const locationMap = useMemo(() => {
+    const map = new Map<string, LocationRow>();
+    locations.forEach((l) => map.set(l.id, l));
+    return map;
+  }, [locations]);
+
+  const getLocationPath = (id: string) => {
+    const parts: string[] = [];
+    let current = locationMap.get(id);
+    while (current) {
+      parts.unshift(current.name);
+      if (!current.parent_id) break;
+      current = locationMap.get(current.parent_id);
+    }
+    return parts.join(" > ");
+  };
 
   const handleScan = () => {
     if (!qrCode.trim()) return;
 
-    const qrCodeData = findQRCodeById(qrCode.trim());
+    const location = locations.find((l) => l.code === qrCode.trim());
 
-    if (!qrCodeData) {
-      setScanResult({
-        found: false,
-        message: `Kod QR "${qrCode}" nie istnieje w systemie.`,
-      });
-      setShowAssignForm(false);
-      return;
-    }
-
-    if (qrCodeData.assignedLocationId) {
-      const location = findLocationById(qrCodeData.assignedLocationId);
+    if (location) {
       setScanResult({
         found: true,
-        locationId: qrCodeData.assignedLocationId,
-        message: `Kod QR przypisany do lokalizacji: ${location?.name || "Nieznana lokalizacja"}`,
+        locationId: location.id,
+        message: `Kod QR przypisany do lokalizacji: ${location.name}`,
       });
       setShowAssignForm(false);
     } else {
@@ -71,11 +75,11 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
     }
   };
 
-  const handleAssignToExisting = () => {
+  const handleAssignToExisting = async () => {
     if (!selectedLocationId) return;
 
-    // In a real app, this would update the backend
-    console.log(`Assign QR ${qrCode} to existing location ${selectedLocationId}`);
+    await supabase.from("locations").update({ code: qrCode }).eq("id", selectedLocationId);
+    mutate();
 
     setScanResult({
       found: true,
@@ -85,16 +89,31 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
     setShowAssignForm(false);
   };
 
-  const handleCreateNewLocation = () => {
+  const handleCreateNewLocation = async () => {
     if (!newLocationName.trim()) return;
 
-    // In a real app, this would create a new location and assign the QR code
-    console.log(
-      `Create new location "${newLocationName}" with parent "${newLocationParent}" and assign QR ${qrCode}`
-    );
+    let level = 1;
+    if (newLocationParent) {
+      const parent = locationMap.get(newLocationParent);
+      if (parent) level = parent.level + 1;
+    }
+
+    const { data } = await supabase
+      .from("locations")
+      .insert({
+        name: newLocationName.trim(),
+        parent_id: newLocationParent,
+        level,
+        code: qrCode,
+      })
+      .select()
+      .single();
+
+    mutate();
 
     setScanResult({
       found: true,
+      locationId: data?.id,
       message: `Utworzono nową lokalizację "${newLocationName}" i przypisano kod QR "${qrCode}".`,
     });
     setShowAssignForm(false);
@@ -106,13 +125,9 @@ export function QRScanner({ onLocationFound, onBack }: QRScannerProps) {
     }
   };
 
-  const getAvailableLocations = () => {
-    return getAllLocationsFlat();
-  };
+  const getAvailableLocations = () => locations;
 
-  const getAvailableParents = () => {
-    return getAllLocationsFlat().filter((loc) => loc.level < 3);
-  };
+  const getAvailableParents = () => locations.filter((loc) => loc.level < 3);
 
   const handleNewLocationParentChange = (value: string) => {
     setNewLocationParent(value === "no-parent" ? null : value);

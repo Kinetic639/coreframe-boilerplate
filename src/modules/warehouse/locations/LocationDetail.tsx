@@ -14,14 +14,8 @@ import {
 } from "lucide-react";
 import { ProductList } from "./ProductList";
 import { ImageModal } from "./ImageModal";
-import { useState } from "react";
-import {
-  findLocationById,
-  getLocationPath,
-  getTotalProductCountForLocation,
-  getProductsByLocationId,
-  qrCodes,
-} from "@/lib/mockData";
+import { useState, useMemo } from "react";
+import { useLocations, LocationRow } from "./useLocations";
 
 interface LocationDetailProps {
   locationId: string | null;
@@ -30,6 +24,23 @@ interface LocationDetailProps {
 
 export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  const { locations } = useLocations();
+  const locationMap = useMemo(() => {
+    const map = new Map<string, LocationRow>();
+    locations.forEach((l) => map.set(l.id, l));
+    return map;
+  }, [locations]);
+
+  const getLocationPath = (id: string) => {
+    const names: string[] = [];
+    let current = locationMap.get(id);
+    while (current) {
+      names.unshift(current.name);
+      if (!current.parent_id) break;
+      current = locationMap.get(current.parent_id);
+    }
+    return names.join(" > ");
+  };
 
   if (!locationId) {
     return (
@@ -42,7 +53,7 @@ export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
     );
   }
 
-  const location = findLocationById(locationId);
+  const location = locationMap.get(locationId);
   if (!location) {
     return (
       <div className="py-8 text-center">
@@ -55,9 +66,9 @@ export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
   }
 
   const locationPath = getLocationPath(locationId);
-  const directProducts = getProductsByLocationId(locationId);
-  const totalProductCount = getTotalProductCountForLocation(locationId);
-  const assignedQRCodes = qrCodes.filter((qr) => qr.assignedLocationId === locationId);
+  const directProducts: any[] = [];
+  const totalProductCount = 0;
+  const assignedQRCodes = location.code ? [location.code] : [];
 
   const getLevelBadgeColor = (level: number) => {
     switch (level) {
@@ -86,8 +97,8 @@ export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
   };
 
   const getLocationIcon = () => {
-    const iconName = location.customIcon;
-    const color = location.customColor || "#6b7280";
+    const iconName = location.icon_name || undefined;
+    const color = location.color || "#6b7280";
 
     const iconProps = {
       className: "h-5 w-5",
@@ -140,11 +151,11 @@ export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-gray-900">{location.name}</h3>
-              {location.customColor && (
+              {location.color && (
                 <div
                   className="h-4 w-4 rounded-full border border-gray-300"
-                  style={{ backgroundColor: location.customColor }}
-                  title={`Kolor: ${location.customColor}`}
+                  style={{ backgroundColor: location.color }}
+                  title={`Kolor: ${location.color}`}
                 />
               )}
             </div>
@@ -200,8 +211,8 @@ export function LocationDetail({ locationId, onBack }: LocationDetailProps) {
               <div className="mb-2 text-sm font-medium text-gray-500">Kody QR:</div>
               <div className="flex flex-wrap gap-2">
                 {assignedQRCodes.map((qr) => (
-                  <Badge key={qr.id} variant="outline" className="font-mono">
-                    {qr.id}
+                  <Badge key={qr} variant="outline" className="font-mono">
+                    {qr}
                   </Badge>
                 ))}
               </div>
