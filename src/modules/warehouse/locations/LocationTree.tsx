@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,21 +16,50 @@ import {
 } from "lucide-react";
 import { LocationModal } from "./LocationModal";
 import { ImageModal } from "./ImageModal";
-import { locations, Location, getTotalProductCountForLocation } from "@/lib/mockData";
+import { useLocations, LocationRow } from "./useLocations";
 import { cn } from "@/lib/utils";
+
+interface Location extends LocationRow {
+  children?: Location[];
+}
 
 interface LocationTreeProps {
   onLocationSelect: (locationId: string) => void;
 }
 
 export function LocationTree({ onLocationSelect }: LocationTreeProps) {
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["w1", "w2"]));
+  const { locations: flatLocations, isLoading } = useLocations();
+  const tree = useMemo(() => buildTree(flatLocations), [flatLocations]);
+
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [parentLocationId, setParentLocationId] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string>("");
+
+  useEffect(() => {
+    const rootIds = tree.map((l) => l.id);
+    setExpandedNodes(new Set(rootIds));
+  }, [tree]);
+
+  function buildTree(data: LocationRow[]): Location[] {
+    const map = new Map<string, Location>();
+    data.forEach((row) => {
+      map.set(row.id, { ...row, children: [] });
+    });
+
+    const roots: Location[] = [];
+    map.forEach((loc) => {
+      if (loc.parent_id && map.has(loc.parent_id)) {
+        map.get(loc.parent_id)!.children!.push(loc);
+      } else {
+        roots.push(loc);
+      }
+    });
+    return roots;
+  }
 
   const toggleExpanded = (nodeId: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -68,8 +97,8 @@ export function LocationTree({ onLocationSelect }: LocationTreeProps) {
   };
 
   const getLocationIcon = (location: Location) => {
-    const iconName = location.customIcon;
-    const color = location.customColor || "#6b7280";
+    const iconName = location.icon_name || undefined;
+    const color = location.color || "#6b7280";
 
     const iconProps = {
       className: "h-4 w-4",
@@ -98,9 +127,9 @@ export function LocationTree({ onLocationSelect }: LocationTreeProps) {
   };
 
   const getLevelColor = (location: Location) => {
-    if (location.customColor) {
+    if (location.color) {
       // Convert hex to RGB for background opacity
-      const hex = location.customColor.replace("#", "");
+      const hex = location.color.replace("#", "");
       const r = parseInt(hex.substr(0, 2), 16);
       const g = parseInt(hex.substr(2, 2), 16);
       const b = parseInt(hex.substr(4, 2), 16);
@@ -125,7 +154,7 @@ export function LocationTree({ onLocationSelect }: LocationTreeProps) {
   const renderLocationNode = (location: Location, depth: number = 0) => {
     const isExpanded = expandedNodes.has(location.id);
     const hasChildren = location.children && location.children.length > 0;
-    const totalProductCount = getTotalProductCountForLocation(location.id);
+    const totalProductCount = 0;
     const levelColors = getLevelColor(location);
 
     return (
@@ -179,11 +208,11 @@ export function LocationTree({ onLocationSelect }: LocationTreeProps) {
             <div className="flex-1 cursor-pointer" onClick={() => toggleExpanded(location.id)}>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-gray-900">{location.name}</span>
-                {location.customColor && (
+                {location.color && (
                   <div
                     className="h-3 w-3 rounded-full border border-gray-300"
-                    style={{ backgroundColor: location.customColor }}
-                    title={`Kolor: ${location.customColor}`}
+                    style={{ backgroundColor: location.color }}
+                    title={`Kolor: ${location.color}`}
                   />
                 )}
               </div>
@@ -275,7 +304,13 @@ export function LocationTree({ onLocationSelect }: LocationTreeProps) {
         </Button>
       </div>
 
-      <div className="space-y-3">{locations.map((location) => renderLocationNode(location))}</div>
+      {isLoading ? (
+        <div>Ładowanie...</div>
+      ) : (
+        <div className="space-y-3">
+          {tree.map((location) => renderLocationNode(location))}
+        </div>
+      )}
 
       <LocationModal
         open={modalOpen}
