@@ -14,7 +14,10 @@ import Image from "next/image";
 import useSWR from "swr";
 import { loadLocations } from "../api/locations";
 import { LocationForm } from "./LocationForm";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, Trash } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { deleteLocation } from "../api/locations";
+import { toast } from "react-toastify";
 import { Tables } from "../../../../supabase/types/types";
 
 export function LocationManager({
@@ -54,7 +57,12 @@ export function LocationManager({
               {loc.icon_name && (
                 <i className={`lucide lucide-${loc.icon_name} text-muted-foreground`} />
               )}
-              <span className="font-medium">{loc.name}</span>
+              <Link
+                href={`/dashboard/warehouse/locations/${loc.id}`}
+                className="font-medium hover:underline"
+              >
+                {loc.name}
+              </Link>
               {loc.code && <span className="ml-1 text-xs text-muted-foreground">({loc.code})</span>}
             </div>
             <div className="flex gap-1">
@@ -84,6 +92,27 @@ export function LocationManager({
                   }}
                 >
                   <Plus className="h-4 w-4" />
+                </span>
+              </Button>
+              <Button variant="ghost" size="icon" asChild>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="inline-flex h-8 w-8 items-center justify-center"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const ok = confirm("Usunąć lokalizację?");
+                    if (!ok) return;
+                    const success = await deleteLocation(loc.id);
+                    if (success) {
+                      toast.success("Lokalizacja usunięta");
+                      await mutate();
+                    } else {
+                      toast.error("Nie można usunąć lokalizacji");
+                    }
+                  }}
+                >
+                  <Trash className="h-4 w-4" />
                 </span>
               </Button>
             </div>
