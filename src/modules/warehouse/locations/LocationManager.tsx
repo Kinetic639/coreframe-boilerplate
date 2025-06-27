@@ -9,28 +9,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAppContext } from "@/lib/hooks/us-app-context";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Image from "next/image";
+import useSWR from "swr";
 import { loadLocations } from "../api/locations";
 import { LocationForm } from "./LocationForm";
 import { Pencil, Plus } from "lucide-react";
 import { Tables } from "../../../../supabase/types/types";
 
-export function LocationManager() {
+export function LocationManager({
+  initialLocations = [],
+}: {
+  initialLocations?: Tables<"locations">[];
+}) {
   const { activeOrgId } = useAppContext();
-  const [locations, setLocations] = useState<Tables<"locations">[]>([]);
+  const { data: locations = initialLocations, mutate } = useSWR(
+    activeOrgId ? ["locations", activeOrgId] : null,
+    () => loadLocations(activeOrgId!),
+    { fallbackData: initialLocations }
+  );
   const [openModal, setOpenModal] = useState<"add" | "edit" | null>(null);
   const [activeLocation, setActiveLocation] = useState<Tables<"locations"> | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
-
-  async function fetchLocations() {
-    if (!activeOrgId) return;
-    const data = await loadLocations(activeOrgId);
-    setLocations(data);
-  }
-
-  useEffect(() => {
-    fetchLocations();
-  }, [activeOrgId]);
 
   const rootLocations = locations.filter((l) => !l.parent_id);
 
@@ -43,9 +43,11 @@ export function LocationManager() {
           <div className="flex w-full items-center justify-between pr-2">
             <div className="flex items-center gap-2">
               {loc.image_url && (
-                <img
+                <Image
                   src={loc.image_url}
-                  alt="lokalizacja"
+                  alt={loc.name}
+                  width={24}
+                  height={24}
                   className="h-6 w-6 rounded-sm border border-muted object-cover"
                 />
               )}
@@ -126,8 +128,8 @@ export function LocationManager() {
           <LocationForm
             parentId={parentId}
             mode="add"
-            onSuccess={() => {
-              fetchLocations();
+            onSuccess={async () => {
+              await mutate();
               setOpenModal(null);
             }}
           />
@@ -143,8 +145,8 @@ export function LocationManager() {
           <LocationForm
             mode="edit"
             location={activeLocation}
-            onSuccess={() => {
-              fetchLocations();
+            onSuccess={async () => {
+              await mutate();
               setOpenModal(null);
             }}
           />

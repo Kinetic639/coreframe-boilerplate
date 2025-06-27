@@ -10,6 +10,8 @@ import { toast } from "react-toastify";
 import { createClient } from "@/utils/supabase/client";
 import { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
 
+const BUCKET = process.env.NEXT_PUBLIC_LOCATION_BUCKET || "location-images";
+
 interface LocationFormProps {
   mode?: "add" | "edit";
   parentId?: string | null;
@@ -41,10 +43,14 @@ export function LocationForm({
   }, [mode, location]);
 
   async function uploadImage(file: File): Promise<string | null> {
+    if (!BUCKET) {
+      toast.error("Brak konfiguracji dla koszyka zdjęć");
+      return null;
+    }
     const supabase = createClient();
     const filePath = `locations/${Date.now()}-${file.name}`;
 
-    const { error } = await supabase.storage.from("location-images").upload(filePath, file, {
+    const { error } = await supabase.storage.from(BUCKET).upload(filePath, file, {
       cacheControl: "3600",
       upsert: false,
     });
@@ -54,7 +60,7 @@ export function LocationForm({
       return null;
     }
 
-    const { data } = supabase.storage.from("location-images").getPublicUrl(filePath);
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
 
     return data.publicUrl ?? null;
   }
