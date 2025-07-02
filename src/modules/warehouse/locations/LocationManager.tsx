@@ -1,78 +1,115 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { QrCode, MapPin } from "lucide-react";
-import { LocationTree } from "./LocationTree";
-import { QRScanner } from "./QRScanner";
-import { LocationDetail } from "./LocationDetail";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
+import { LocationForm } from "./LocationForm";
+import { Tables } from "../../../../supabase/types/types";
+import { loadLocations } from "../api/locations";
+import { LocationTreeItem, Tree } from "./LocationTree";
 
-type View = "tree" | "qr" | "detail";
+interface Props {
+  locations: Tables<"locations">[];
+  activeOrgId: string;
+  activeBranchId: string;
+}
 
-export function LocationManager() {
-  const [currentView, setCurrentView] = useState<View>("tree");
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+export function LocationManager({ locations: initial, activeOrgId, activeBranchId }: Props) {
+  const [locations, setLocations] = useState(initial);
+  const [openModal, setOpenModal] = useState<"add" | "edit" | null>(null);
+  const [activeLocation, setActiveLocation] = useState<Tables<"locations"> | null>(null);
+  const [parentId, setParentId] = useState<string | null>(null);
 
-  const handleLocationSelect = (locationId: string) => {
-    setSelectedLocationId(locationId);
-    setCurrentView("detail");
+  const fetchLocations = async () => {
+    const data = await loadLocations(activeOrgId, activeBranchId);
+    setLocations(data);
   };
 
-  const handleQRScan = (locationId: string) => {
-    setSelectedLocationId(locationId);
-    setCurrentView("detail");
+  const parentLocation = parentId ? (locations.find((l) => l.id === parentId) ?? null) : null;
+
+  const buildTree = (all: Tables<"locations">[]): LocationTreeItem[] => {
+    const byParent: Record<string | null, Tables<"locations">[]> = {};
+    all.forEach((loc) => {
+      const pid = loc.parent_id ?? null;
+      byParent[pid] = [...(byParent[pid] || []), loc];
+    });
+
+    const build = (parentId: string | null): LocationTreeItem[] =>
+      (byParent[parentId] || []).map((loc) => ({
+        id: loc.id,
+        name: loc.name,
+        icon_name: loc.icon_name,
+        code: loc.code,
+        color: loc.color,
+        raw: loc,
+        children: build(loc.id),
+      }));
+
+    return build(null);
   };
 
-  const renderContent = () => {
-    switch (currentView) {
-      case "tree":
-        return <LocationTree onLocationSelect={handleLocationSelect} />;
-      case "qr":
-        return <QRScanner onLocationFound={handleQRScan} onBack={() => setCurrentView("tree")} />;
-      case "detail":
-        return (
-          <LocationDetail locationId={selectedLocationId} onBack={() => setCurrentView("tree")} />
-        );
-      default:
-        return <LocationTree onLocationSelect={handleLocationSelect} />;
-    }
-  };
+  const tree = buildTree(locations);
 
   return (
-    <div className="space-y-6">
-      {/* Navigation */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-blue-600" />
-              {currentView === "tree" && "Drzewo Lokalizacji"}
-              {currentView === "qr" && "Skaner Kodów QR"}
-              {currentView === "detail" && "Szczegóły Lokalizacji"}
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={currentView === "tree" ? "default" : "outline"}
-                onClick={() => setCurrentView("tree")}
-                className="flex items-center gap-2"
-              >
-                <MapPin className="h-4 w-4" />
-                Lokalizacje
-              </Button>
-              <Button
-                variant={currentView === "qr" ? "default" : "outline"}
-                onClick={() => setCurrentView("qr")}
-                className="flex items-center gap-2"
-              >
-                <QrCode className="h-4 w-4" />
-                Skaner QR
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>{renderContent()}</CardContent>
-      </Card>
-    </div>
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Lokalizacje magazynowe</h2>
+          <Button
+            onClick={() => {
+              setParentId(null);
+              setOpenModal("add");
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nowa lokalizacja
+          </Button>
+        </div>
+
+        <Tree
+          data={tree}
+          onSelect={(item) => {
+            setActiveLocation(item.raw);
+            setOpenModal("edit");
+          }}
+        />
+      </div>
+
+      {/* Dodawanie */}
+      <Dialog open={openModal === "add"} onOpenChange={(v) => v || setOpenModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dodaj lokalizację</DialogTitle>
+          </DialogHeader>
+          <LocationForm
+            mode="add"
+            parentLocation={parentLocation}
+            onSuccess={() => {
+              fetchLocations();
+              setOpenModal(null);
+              setParentId(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edycja */}
+      <Dialog open={openModal === "edit"} onOpenChange={(v) => v || setOpenModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edytuj lokalizację</DialogTitle>
+          </DialogHeader>
+          <LocationForm
+            mode="edit"
+            location={activeLocation}
+            onSuccess={() => {
+              fetchLocations();
+              setOpenModal(null);
+              setActiveLocation(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
