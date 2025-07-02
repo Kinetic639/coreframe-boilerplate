@@ -170,6 +170,7 @@ export type Database = {
           description: string | null;
           icon_name: string | null;
           id: string;
+          image_url: string | null;
           level: number;
           name: string;
           organization_id: string | null;
@@ -186,6 +187,7 @@ export type Database = {
           description?: string | null;
           icon_name?: string | null;
           id?: string;
+          image_url?: string | null;
           level?: number;
           name: string;
           organization_id?: string | null;
@@ -202,6 +204,7 @@ export type Database = {
           description?: string | null;
           icon_name?: string | null;
           id?: string;
+          image_url?: string | null;
           level?: number;
           name?: string;
           organization_id?: string | null;
