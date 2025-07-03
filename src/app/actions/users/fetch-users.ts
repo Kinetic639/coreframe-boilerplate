@@ -1,6 +1,11 @@
 import { createClient } from "@/utils/supabase/server";
 
-export async function fetchUsers(): Promise<any[]> {
+interface User {
+  id: string;
+  username: string;
+}
+
+export async function fetchUsers(): Promise<User[]> {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase

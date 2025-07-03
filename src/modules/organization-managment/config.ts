@@ -6,6 +6,7 @@ export const orgManagmentModule: ModuleConfig = {
   id: "org-management",
   slug: "org-management",
   title: "Zarządzanie organizacją",
+  icon: "Settings",
   description: "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
   color: ORG_MODULE_THEME_COLOR, // indigo
   items: [
