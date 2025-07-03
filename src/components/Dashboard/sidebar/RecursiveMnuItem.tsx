@@ -97,7 +97,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <SidebarMenuItem className="m-0 min-h-[40px] list-none">
+            <SidebarMenuItem className="m-0 h-9 list-none">
               {isAction ? (
                 <SidebarMenuButton isActive={false} onClick={item.onClick}>
                   <Icon className={iconClass} />
@@ -119,7 +119,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
 
   if (!hasChildren) {
     return (
-      <SidebarMenuSubItem className="relative list-none py-0.5">
+      <SidebarMenuSubItem className="relative list-none py-1">
         {nested && (
           <span className="absolute bottom-0 left-[-10px] top-0 w-px bg-[color:var(--font-color)] opacity-50" />
         )}
@@ -128,7 +128,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           asChild={!isAction}
           isActive={isActive}
           className={cn(
-            "py-6 transition-colors duration-200",
+            "py-2.5 transition-colors duration-200",
             "hover:bg-white/10",
             isActive && "bg-white/10 font-bold"
           )}
@@ -136,7 +136,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
         >
           {isAction ? (
             <ActionButton
-              className="w-full text-[color:var(--theme-color)]"
+              className="h-9 w-full text-[color:var(--theme-color)]"
               onClick={item.onClick}
               nested={nested}
               isActive={isActive}
@@ -171,7 +171,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
       )}
       <AccordionTrigger
         className={cn(
-          "rounded-md px-2 py-2 text-base no-underline hover:bg-white/10",
+          "rounded-md px-2 py-2.5 text-base no-underline hover:bg-white/10",
           isActive && "bg-white/10 font-medium text-[color:var(--font-color)]",
           "text-[color:var(--font-color)]"
         )}
