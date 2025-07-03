@@ -3,7 +3,7 @@ import LocaleSwitcher from "../LocaleSwitcher";
 import { ThemeSwitcher } from "../theme-switcher";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Button } from "../ui/button";
-import { Bell, LogOut, MessagesSquare, Search, Settings, User } from "lucide-react";
+import { Bell, LogOut, MessagesSquare, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Input } from "../ui/input";
+import { BranchSelector } from "./BranchSelector";
 
 const DashboardHeader = () => {
   return (
@@ -24,10 +24,7 @@ const DashboardHeader = () => {
             <SidebarTrigger variant="themed" />
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Szukaj..." className="w-64 pl-9" />
-          </div>
+          <BranchSelector />
         </div>
 
         <div className="flex items-center gap-4">
