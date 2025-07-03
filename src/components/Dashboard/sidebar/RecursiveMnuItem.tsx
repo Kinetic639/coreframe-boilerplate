@@ -44,7 +44,7 @@ function AnimatedHorizontalLine({ isActive }: { isActive: boolean }) {
   useEffect(() => {
     if (isActive) {
       setWidth(0);
-      const timeout = setTimeout(() => setWidth(12), 10);
+      const timeout = setTimeout(() => setWidth(9), 10);
       return () => clearTimeout(timeout);
     } else {
       setWidth(0);
