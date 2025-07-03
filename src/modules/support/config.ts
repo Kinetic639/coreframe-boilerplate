@@ -4,6 +4,7 @@ export const supportModule: ModuleConfig = {
   id: "support",
   slug: "support",
   title: "Wsparcie",
+  icon: "LifeBuoy",
   description: "Panel pomocy, nowości i kontaktu z zespołem wsparcia",
   items: [
     {

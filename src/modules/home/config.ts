@@ -4,6 +4,7 @@ export const homeModule: ModuleConfig = {
   id: "home",
   slug: "home",
   title: "Start",
+  icon: "Home",
   color: "#3b82f6",
   items: [
     {
