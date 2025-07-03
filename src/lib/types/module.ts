@@ -29,6 +29,7 @@ export interface ModuleConfig {
   id: string;
   slug: string;
   title: string;
+  icon?: string;
   description?: string;
   color?: string;
   items: MenuItem[];

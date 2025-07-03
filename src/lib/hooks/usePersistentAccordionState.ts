@@ -13,11 +13,11 @@ export function usePersistentAccordionState(id: string, defaultOpen = false) {
     } else {
       setOpen(defaultOpen);
     }
-  }, [id]);
+  }, [key, defaultOpen]);
 
   useEffect(() => {
     localStorage.setItem(key, String(open));
-  }, [open]);
+  }, [open, key]);
 
   return [open, setOpen] as const;
 }

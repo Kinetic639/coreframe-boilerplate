@@ -15,11 +15,11 @@ export function usePersistentAccordionList(key: string) {
         setOpen([]);
       }
     }
-  }, [key]);
+  }, [storageKey]);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify(open));
-  }, [open]);
+  }, [open, storageKey]);
 
   return [open, setOpen] as const;
 }

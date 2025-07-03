@@ -32,6 +32,7 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
     id: "warehouse",
     slug: "warehouse",
     title: "Magazyn",
+    icon: "Warehouse",
     description: "Zarządzanie magazynem i zapasami",
     color: "#10b981",
     items: [

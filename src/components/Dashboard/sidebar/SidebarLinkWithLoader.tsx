@@ -17,7 +17,7 @@ export function SidebarLinkWithLoader({ href, children, className }: Props) {
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     startTransition(() => {
-      router.push(href as any);
+      router.push(href as Pathnames);
     });
   };
 

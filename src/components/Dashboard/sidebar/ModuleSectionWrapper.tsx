@@ -60,13 +60,20 @@ export default function ModuleSectionWrapper({
     return checks.length === 0 || hasMatchingRole(roles, checks);
   });
 
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
   return (
     <ModuleSectionClient
       module={{
         slug: module.slug,
         title: module.title,
+        icon: module.icon,
         items: visibleItems,
       }}
+      activeBranchId={activeBranchId}
+      activeOrgId={activeOrgId}
     />
   );
 }
