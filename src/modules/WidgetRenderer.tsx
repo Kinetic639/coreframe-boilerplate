@@ -29,8 +29,18 @@ ChartJS.register(
   Legend
 );
 
+interface ChartProps {
+  data: {
+    labels: string[];
+    datasets: any[];
+  };
+  options?: any;
+}
+
 export function WidgetRenderer({ widget }: { widget: Widget }) {
-  const Icon = widget.config?.icon ? (LucideIcons as any)[widget.config.icon] : null;
+  const Icon = widget.config?.icon
+    ? (LucideIcons as { [key: string]: React.ElementType })[widget.config.icon]
+    : null;
 
   if (widget.type === "metric") {
     return (
@@ -39,7 +49,7 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
           <CardTitle>{widget.title}</CardTitle>
           {Icon && (
             <Icon
-              className={cn("h-6 w-6", widget.config?.color && `text-${widget.config.color}-500`)}
+              className={cn("h-6 w-6", widget.config?.color && `text-${widget.config.color}`)}
             />
           )}
         </CardHeader>
@@ -111,7 +121,7 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
   return null;
 }
 
-const chartComponentMap: Record<string, React.FC<any>> = {
+const chartComponentMap: Record<string, React.FC<ChartProps>> = {
   bar: Bar,
   line: Line,
   pie: Pie,

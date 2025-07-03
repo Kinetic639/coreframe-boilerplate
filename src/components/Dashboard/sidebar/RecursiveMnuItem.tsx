@@ -65,7 +65,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
-  const Icon = (Icons as any)[item.icon || "Dot"] || Icons.Dot;
+  const Icon = (Icons as { [key: string]: React.ElementType })[item.icon || "Dot"] || Icons.Dot;
   const isActive = isPathActive(item, pathname);
   const hasChildren = !!item.submenu?.length;
   const isAction = item.type === "action";
@@ -129,8 +129,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           isActive={isActive}
           className={cn(
             "py-6 transition-colors duration-200",
-            // !isAction && " hover:bg-white/10 ",
-            // isAction && "py-0 p",
+            "hover:bg-white/10",
             isActive && "bg-white/10 font-bold"
           )}
           {...(isAction ? { onClick: item.onClick } : {})}

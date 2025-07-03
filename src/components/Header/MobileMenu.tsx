@@ -88,7 +88,7 @@ const Dropdown = ({
   items,
 }: {
   title: string;
-  items: { icon: any; title: string; href: string }[];
+  items: { icon: React.ElementType; title: string; href: string }[];
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>

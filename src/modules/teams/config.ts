@@ -4,6 +4,7 @@ export const teamsModule: ModuleConfig = {
   id: "teams",
   slug: "teams",
   title: "Zespoły",
+  icon: "Users",
   description: "Zarządzanie zespołami i komunikacją",
   color: "#8b5cf6",
   items: [

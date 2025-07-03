@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Check, X, ArrowRight, Percent } from "lucide-react";
@@ -16,7 +16,7 @@ const Pricing = () => {
   const [products, setProducts] = useState(1000);
 
   // Obliczanie ceny dla planu niestandardowego
-  const calculateCustomPrice = () => {
+  const calculateCustomPrice = useCallback(() => {
     const basePrice = 29;
     const locationPrice = Math.floor(locations / 10) * 10;
     const userPrice = users * 5;
@@ -26,14 +26,14 @@ const Pricing = () => {
 
     // Apply 20% discount for yearly billing
     return isYearly ? Math.round(monthlyPrice * 0.8) : monthlyPrice;
-  };
+  }, [locations, users, products, isYearly]);
 
   const [customPrice, setCustomPrice] = useState(calculateCustomPrice());
 
   // Aktualizacja niestandardowej ceny, gdy zmieniają się wartości suwaków lub typ subskrypcji
   useEffect(() => {
     setCustomPrice(calculateCustomPrice());
-  }, [locations, users, products, isYearly]);
+  }, [calculateCustomPrice]);
 
   // Calculate price with yearly discount
   const getPrice = (monthlyPrice: number) => {
