@@ -1,68 +1,156 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { updateOrganizationProfile } from "@/modules/organization-managment/api/updateProfile";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { updateOrganizationProfile } from "./api/updateProfile";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
+import { Save } from "lucide-react";
+import { useState } from "react";
 import { toast } from "react-toastify";
-import { ColorPicker } from "@/components/ui/color-picker";
+
+import { organizationSchema, OrganizationFormData } from "./schema";
+import LogoUploader from "./LogoUploader";
+import ColorPickerField from "@/components/forms/ColorPickerField";
 import { useRouter } from "@/i18n/navigation";
-import { Tables } from "../../../supabase/types/types";
 
-type OrganizationProfile = Tables<"organization_profiles">;
-
-// ZOD schema zgodny z Partial<OrganizationProfile> i nullable values
-const schema = z.object({
-  name: z.string().nullable().optional(),
-  name_2: z.string().nullable().optional(),
-  slug: z.string().nullable().optional(),
-  website: z.string().url().nullable().optional(),
-  theme_color: z.string().nullable().optional(),
-  font_color: z.string().nullable().optional(),
-  bio: z.string().nullable().optional(),
-});
-
-export default function OrganizationProfileForm({
+export default function OrganizationForm({
   defaultValues,
 }: {
-  defaultValues?: Partial<OrganizationProfile>;
+  defaultValues: OrganizationFormData;
 }) {
-  const form = useForm({
-    resolver: zodResolver(schema),
+  const router = useRouter();
+  const form = useForm<OrganizationFormData>({
+    resolver: zodResolver(organizationSchema),
     defaultValues,
   });
 
-  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (values: z.infer<typeof schema>) => {
-    const { error } = await updateOrganizationProfile(values);
+  const onSubmit = async (data: OrganizationFormData) => {
+    setLoading(true);
 
+    const { error } = await updateOrganizationProfile(data);
     if (error) {
-      toast.error(`Błąd: ${error.message}`);
+      toast.error(`❌ Błąd: ${error.message}`);
     } else {
-      toast.success("Profil organizacji został zaktualizowany.");
+      toast.success("✅ Profil organizacji zaktualizowany.");
       router.refresh();
     }
+
+    setLoading(false);
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-      <Input {...form.register("name")} placeholder="Nazwa organizacji (1)" />
-      <Input {...form.register("name_2")} placeholder="Nazwa organizacji (2)" />
-      <Input {...form.register("slug")} placeholder="Slug" />
-      <Input {...form.register("website")} placeholder="Strona internetowa" />
-      <ColorPicker name="theme_color" control={form.control} label="Kolor główny" />
-      <ColorPicker name="font_color" control={form.control} label="Kolor czcionki" />
-      <textarea
-        {...form.register("bio")}
-        placeholder="Opis organizacji"
-        className="w-full rounded border p-2"
-      />
-      <Button type="submit" variant="themed">
-        Zapisz zmiany
-      </Button>
-    </form>
+    <FormProvider {...form}>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            name="name"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nazwa organizacji *</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="name_2"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Nazwa alternatywna</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="slug"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Slug organizacji *</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="website"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Strona internetowa</FormLabel>
+                <FormControl>
+                  <Input {...field} placeholder="https://example.com" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="bio"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Opis organizacji</FormLabel>
+                <FormControl>
+                  <Textarea rows={4} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            name="logo_url"
+            control={form.control}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Logo organizacji</FormLabel>
+                <LogoUploader
+                  organizationId={form.getValues().organization_id}
+                  currentUrl={field.value ?? undefined}
+                  onUpload={(url) => field.onChange(url)}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <ColorPickerField name="theme_color" label="Kolor motywu" />
+            <ColorPickerField name="font_color" label="Kolor czcionki" />
+          </div>
+
+          <Button type="submit" disabled={loading} variant="themed">
+            <Save className="mr-2 h-4 w-4" />
+            {loading ? "Zapisuję..." : "Zapisz zmiany"}
+          </Button>
+        </form>
+      </Form>
+    </FormProvider>
   );
 }
