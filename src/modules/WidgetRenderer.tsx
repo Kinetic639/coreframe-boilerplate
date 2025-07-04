@@ -36,9 +36,17 @@ interface ChartProps {
   options?: ChartOptions;
 }
 
+const chartComponentMap: Record<string, React.FC<ChartProps>> = {
+  bar: Bar,
+  line: Line,
+  pie: Pie,
+  doughnut: Doughnut,
+};
+
 export function WidgetRenderer({ widget }: { widget: Widget }) {
-  const Icon = widget.config?.icon
-    ? (LucideIcons as { [key: string]: React.ElementType })[widget.config.icon]
+  const iconKey = widget.config?.icon;
+  const Icon = iconKey
+    ? (LucideIcons as unknown as Record<string, React.ElementType>)[iconKey]
     : null;
 
   if (widget.type === "metric") {
@@ -119,10 +127,3 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
 
   return null;
 }
-
-const chartComponentMap: Record<string, React.FC<ChartProps>> = {
-  bar: Bar,
-  line: Line,
-  pie: Pie,
-  doughnut: Doughnut,
-};
