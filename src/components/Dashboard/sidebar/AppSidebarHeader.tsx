@@ -23,7 +23,7 @@ const AppSidebarHeader = ({
   const showPlaceholder = !logo || hasError;
 
   return (
-    <SidebarHeader className="px-3 py-2">
+    <SidebarHeader className="p-2">
       <Link href="/" className="block w-full">
         <div className="m-0 flex min-w-0 items-center gap-2">
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
