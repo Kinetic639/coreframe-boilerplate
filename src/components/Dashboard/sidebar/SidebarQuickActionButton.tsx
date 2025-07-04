@@ -24,14 +24,22 @@ export const SidebarQuickActionButton = ({
         <Button
           variant="ghost"
           size="icon"
-          title={title}
           onClick={onClick}
-          className={cn("rounded-md", className)}
+          className={cn(
+            "h-6 w-6 rounded-sm p-0.5 text-[color:var(--font-color)] opacity-40 transition hover:bg-[color-mix(in_srgb,var(--theme-color)_90%,white)] hover:text-[color:var(--font-color)] hover:opacity-100",
+            className
+          )}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-3.5 w-3.5" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="right">{title}</TooltipContent>
+      <TooltipContent
+        side="top"
+        sideOffset={4}
+        className="rounded-sm bg-popover px-2 py-0.5 text-xs text-foreground"
+      >
+        {title}
+      </TooltipContent>
     </Tooltip>
   );
 };
