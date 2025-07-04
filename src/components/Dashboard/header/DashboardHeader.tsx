@@ -1,8 +1,8 @@
 import React from "react";
-import LocaleSwitcher from "../LocaleSwitcher";
-import { ThemeSwitcher } from "../theme-switcher";
-import { SidebarTrigger } from "../ui/sidebar";
-import { Button } from "../ui/button";
+import LocaleSwitcher from "../../LocaleSwitcher";
+import { ThemeSwitcher } from "../../theme-switcher";
+import { SidebarTrigger } from "../../ui/sidebar";
+import { Button } from "../../ui/button";
 import { Bell, LogOut, MessagesSquare, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,8 +11,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+} from "../../ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { BranchSelector } from "./BranchSelector";
 
 const DashboardHeader = () => {

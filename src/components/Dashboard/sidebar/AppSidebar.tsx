@@ -3,7 +3,6 @@ import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar"
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { appVersion } from "@/lib/version";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
@@ -50,11 +49,11 @@ const AppSidebar = async () => {
       <SidebarContent className="flex h-full flex-col justify-between">
         <ScrollArea className="min-h-full">
           <div className="flex flex-col gap-4 px-3 py-4">
-            {modules.map((module, index) => (
+            {modules.map((module) => (
               <React.Fragment key={module.id}>
-                {index > 0 && (
+                {/* {index > 0 && (
                   <Separator className="my-4 bg-[color:var(--font-color)] opacity-20" />
-                )}
+                )} */}
                 <ModuleSectionWrapper
                   module={module}
                   accessToken={accessToken}

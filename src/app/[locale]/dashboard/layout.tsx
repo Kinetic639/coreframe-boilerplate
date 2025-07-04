@@ -9,7 +9,14 @@ import { UserInitProvider } from "@/lib/providers/user-init-provider";
 import { AppInitProvider } from "@/lib/providers/app-init-provider";
 import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
-import DashboardHeader from "@/components/Dashboard/DashboardHeader";
+import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
+
+function hexToRgb(hex: string): string {
+  const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return "0,0,0";
+  const [, r, g, b] = match;
+  return `${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}`;
+}
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
   const userContext = await loadUserContextServer();
@@ -42,6 +49,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
               style={
                 {
                   "--theme-color": themeColor,
+                  "--theme-color-rgb": hexToRgb(themeColor),
                   "--font-color": appContext?.activeOrg?.font_color,
                 } as React.CSSProperties
               }
