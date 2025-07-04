@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Widget } from "@/lib/types/widgets";
+import { Widget, WidgetChart } from "@/lib/types/widgets";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,14 +29,16 @@ ChartJS.register(
   Legend
 );
 
-import type { ChartData, ChartOptions } from "chart.js";
+import type { ChartData, ChartOptions, ChartType } from "chart.js";
 
-interface ChartProps {
-  data: ChartData;
-  options?: ChartOptions;
+interface ChartProps<TChartType extends ChartType = ChartType> {
+  data: ChartData<TChartType>;
+  options?: ChartOptions<TChartType>;
 }
 
-const chartComponentMap: Record<string, React.FC<ChartProps>> = {
+const chartComponentMap: {
+  [key in WidgetChart["config"]["type"]]: React.FC<ChartProps<key>>;
+} = {
   bar: Bar,
   line: Line,
   pie: Pie,
@@ -44,12 +46,11 @@ const chartComponentMap: Record<string, React.FC<ChartProps>> = {
 };
 
 export function WidgetRenderer({ widget }: { widget: Widget }) {
-  const iconKey = widget.config?.icon;
-  const Icon = iconKey
-    ? (LucideIcons as unknown as Record<string, React.ElementType>)[iconKey]
-    : null;
-
   if (widget.type === "metric") {
+    const iconKey = widget.config?.icon;
+    const Icon = iconKey
+      ? (LucideIcons as unknown as Record<string, React.ElementType>)[iconKey]
+      : null;
     return (
       <Card className="p-4">
         <CardHeader className="flex items-center justify-between">
