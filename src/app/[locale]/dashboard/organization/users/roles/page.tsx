@@ -89,7 +89,7 @@ export default function RolesPage() {
             Zarządzanie rolami użytkowników i ich uprawnieniami w organizacji
           </p>
         </div>
-        <Button>
+        <Button variant="themed">
           <Plus className="mr-2 h-4 w-4" />
           Dodaj rolę
         </Button>

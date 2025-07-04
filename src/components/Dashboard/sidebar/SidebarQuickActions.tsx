@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { ChevronsUp, Expand } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
+import { SidebarQuickActionButton } from "./SidebarQuickActionButton";
 
 const SidebarQuickActions = () => {
   const { state } = useSidebar();
@@ -11,30 +11,23 @@ const SidebarQuickActions = () => {
   if (!isExpanded) return null;
 
   return (
-    <div className="mt-3 flex gap-2">
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Collapse All"
-        onClick={() => {
-          // TODO: implement collapse all
-          console.log("Collapse All");
-        }}
-      >
-        <ChevronsUp className="h-4 w-4" />
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        title="Toggle Multi-Open"
-        onClick={() => {
-          // TODO: implement toggle multi-open
-          console.log("Toggle Multi-Open Mode");
-        }}
-      >
-        <Expand className="h-4 w-4" />
-      </Button>
+    <div className="mt-2 px-2 pb-1 pt-1">
+      <div className="flex items-center justify-end gap-1 border-border/40 pb-1">
+        <SidebarQuickActionButton
+          icon={ChevronsUp}
+          title="Collapse all sections"
+          onClick={() => {
+            console.log("Collapse All");
+          }}
+        />
+        <SidebarQuickActionButton
+          icon={Expand}
+          title="Toggle multi-open mode"
+          onClick={() => {
+            console.log("Toggle Multi-Open Mode");
+          }}
+        />
+      </div>
     </div>
   );
 };

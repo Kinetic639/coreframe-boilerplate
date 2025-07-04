@@ -48,7 +48,7 @@ const AppSidebar = async () => {
 
       <SidebarContent className="flex h-full flex-col justify-between">
         <ScrollArea className="min-h-full">
-          <div className="flex flex-col gap-4 px-3 py-4">
+          <div className="flex flex-col gap-4 px-3 py-0">
             {modules.map((module) => (
               <React.Fragment key={module.id}>
                 {/* {index > 0 && (
