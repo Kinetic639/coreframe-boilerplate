@@ -1,12 +1,12 @@
 "use server";
 
 import { encodedRedirect } from "@/utils/utils";
-import { createClientServer } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 
 export const forgotPasswordAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
-  const supabase = await createClientServer();
+  const supabase = await createClient();
   const origin = (await headers()).get("origin");
 
   if (!email) {

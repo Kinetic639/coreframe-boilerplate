@@ -1,10 +1,10 @@
 "use server";
 
 import { encodedRedirect } from "@/utils/utils";
-import { createClientServer } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 
 export const resetPasswordAction = async (formData: FormData) => {
-  const supabase = await createClientServer();
+  const supabase = await createClient();
 
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
