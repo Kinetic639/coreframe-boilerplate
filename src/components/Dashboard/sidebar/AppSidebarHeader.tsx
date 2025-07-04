@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { SidebarHeader, useSidebar } from "../../ui/sidebar";
 import { Link } from "@/i18n/navigation";
+import SidebarQuickActions from "./SidebarQuickActions";
 
 const AppSidebarHeader = ({
   logo,
@@ -19,12 +20,11 @@ const AppSidebarHeader = ({
   const isExpanded = state === "expanded";
 
   const [hasError, setHasError] = useState(false);
-
   const showPlaceholder = !logo || hasError;
 
   return (
-    <SidebarHeader className="py-2">
-      <Link href="/" className="h-full w-full">
+    <SidebarHeader className="px-3 py-2">
+      <Link href="/" className="block w-full">
         <div className="m-0 flex min-w-0 items-center gap-2">
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
             {showPlaceholder ? (
@@ -53,6 +53,7 @@ const AppSidebarHeader = ({
           </motion.div>
         </div>
       </Link>
+      <SidebarQuickActions />
     </SidebarHeader>
   );
 };

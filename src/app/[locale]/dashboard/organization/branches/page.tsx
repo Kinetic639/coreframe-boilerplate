@@ -69,7 +69,7 @@ export default function BranchesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Oddziały organizacji</h1>
           <p className="text-muted-foreground">Zarządzanie oddziałami i ich lokalizacjami</p>
         </div>
-        <Button>
+        <Button variant="themed">
           <Plus className="mr-2 h-4 w-4" />
           Dodaj oddział
         </Button>
@@ -195,8 +195,8 @@ export default function BranchesPage() {
                     <TableRow key={branch.id} className="hover:bg-muted/50">
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10">
-                            <Building2 className="h-4 w-4 text-primary" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--theme-color)_10%,white)]">
+                            <Building2 className="h-4 w-4 text-[color-mix(in_srgb,var(--theme-color)_90%,black)]" />
                           </div>
                           <div>
                             <div className="font-medium">{branch.name}</div>
@@ -248,7 +248,11 @@ export default function BranchesPage() {
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-[color-mix(in_srgb,var(--theme-color)_10%,white)] hover:text-[color-mix(in_srgb,var(--theme-color)_90%,black)]"
+                            >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
