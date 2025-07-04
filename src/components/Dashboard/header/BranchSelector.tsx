@@ -96,6 +96,13 @@ export function BranchSelector() {
                   key={branch.branch_id}
                   value={branch.name ?? branch.slug ?? branch.branch_id}
                   onSelect={() => handleBranchSelect(branch.branch_id)}
+                  className={cn(
+                    "cursor-pointer transition-colors",
+                    "hover:bg-[rgba(var(--theme-color-rgb),0.08)]",
+                    "hover:text-[var(--theme-color)]",
+                    "focus:bg-[rgba(var(--theme-color-rgb),0.08)]",
+                    "focus:text-[var(--theme-color)]"
+                  )}
                 >
                   <div className="flex flex-1 items-center gap-2">
                     <Building2 className="h-4 w-4" />
