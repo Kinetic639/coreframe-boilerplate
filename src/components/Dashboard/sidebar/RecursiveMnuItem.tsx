@@ -153,11 +153,10 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
           ) : (
             <SidebarLinkWithLoader
               href={item.path!}
+              icon={<Icon className={cn("mr-2", iconClass)} />}
+              label={item.label}
               className="flex w-full items-center text-[color:var(--font-color)] no-underline hover:no-underline"
-            >
-              <Icon className={cn("mr-2", iconClass)} />
-              <span className="text-sm text-[color:var(--font-color)]">{item.label}</span>
-            </SidebarLinkWithLoader>
+            />
           )}
         </SidebarMenuSubButton>
       </SidebarMenuSubItem>

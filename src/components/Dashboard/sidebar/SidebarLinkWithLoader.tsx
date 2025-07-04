@@ -2,15 +2,16 @@ import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
 import { Pathnames } from "@/i18n/routing";
-import { Loader2 } from "lucide-react";
+import { WaveDotsLoader } from "@/components/WaveDotsLoader";
 
 type Props = {
   href: Pathnames | string;
-  children: React.ReactNode;
+  icon: React.ReactNode;
+  label: string;
   className?: string;
 };
 
-export function SidebarLinkWithLoader({ href, children, className }: Props) {
+export function SidebarLinkWithLoader({ href, icon, label, className }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -28,13 +29,11 @@ export function SidebarLinkWithLoader({ href, children, className }: Props) {
       className={cn("relative flex items-center gap-2", className)}
       aria-disabled={isPending}
     >
-      {children}
-
-      {isPending && (
-        <Loader2
-          className="h-4 w-4 animate-spin text-[color:var(--font-color)] opacity-75"
-          strokeWidth={2}
-        />
+      {icon}
+      {isPending ? (
+        <WaveDotsLoader />
+      ) : (
+        <span className="text-sm text-[color:var(--font-color)]">{label}</span>
       )}
     </a>
   );
