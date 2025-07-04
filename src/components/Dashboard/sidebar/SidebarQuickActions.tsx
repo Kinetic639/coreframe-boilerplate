@@ -17,14 +17,14 @@ const SidebarQuickActions = () => {
           icon={ChevronsUp}
           title="Collapse all sections"
           onClick={() => {
-            console.log("Collapse All");
+            console.warn("Collapse All");
           }}
         />
         <SidebarQuickActionButton
           icon={Expand}
           title="Toggle multi-open mode"
           onClick={() => {
-            console.log("Toggle Multi-Open Mode");
+            console.warn("Toggle Multi-Open Mode");
           }}
         />
       </div>

@@ -29,12 +29,11 @@ ChartJS.register(
   Legend
 );
 
+import type { ChartData, ChartOptions } from "chart.js";
+
 interface ChartProps {
-  data: {
-    labels: string[];
-    datasets: any[];
-  };
-  options?: any;
+  data: ChartData;
+  options?: ChartOptions;
 }
 
 export function WidgetRenderer({ widget }: { widget: Widget }) {

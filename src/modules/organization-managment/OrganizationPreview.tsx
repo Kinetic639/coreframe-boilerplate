@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, Globe, Image as ImageIcon } from "lucide-react";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrganizationFormData } from "./schema";
 import { useFormContext } from "react-hook-form";
@@ -22,9 +23,11 @@ export default function OrganizationPreview({ values }: { values: Partial<Organi
         {/* Logo */}
         <div className="text-center">
           {watch.logo_url ? (
-            <img
+            <Image
               src={watch.logo_url}
               alt="Logo organizacji"
+              width={80}
+              height={80}
               className="mx-auto h-20 w-20 rounded-lg border object-cover"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
