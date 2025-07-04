@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { appVersion } from "@/lib/version";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
 import { createClient } from "@/utils/supabase/server";
-import { getAllModules } from "@/modules"; // 🔄 zamiana statycznego importu na dynamiczny
+import { getAllModules } from "@/modules";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
@@ -67,7 +67,7 @@ const AppSidebar = async () => {
       </SidebarContent>
 
       <SidebarFooter className="flex items-center justify-center border-t border-white/10 px-3 py-1 text-xs text-[color:var(--font-color)] opacity-50">
-        Version: {appVersion}
+        Besio version: {appVersion}
       </SidebarFooter>
     </Sidebar>
   );
