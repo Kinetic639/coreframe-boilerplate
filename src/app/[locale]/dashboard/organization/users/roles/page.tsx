@@ -35,6 +35,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { mockRoles, mockUserRoles, mockUsers } from "@/lib/mock/organization";
+import { Tables } from "../../../../../../../supabase/types/types";
 
 export default function RolesPage() {
   const rolesWithUserCount = React.useMemo(() => {
@@ -326,7 +327,7 @@ export default function RolesPage() {
                       Przypisani użytkownicy:
                     </div>
                     <div className="space-y-1">
-                      {role.users.slice(0, 3).map((user: any) => (
+                      {role.users.slice(0, 3).map((user: Tables<"users">) => (
                         <div key={user.id} className="text-xs">
                           {user.first_name} {user.last_name}
                         </div>

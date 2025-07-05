@@ -1,9 +1,10 @@
 import React from "react";
 import { createClient } from "@/utils/supabase/server";
-import { getUserRolesFromJWT, UserRole } from "@/utils/auth/getUserRolesFromJWT";
+import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
 import HasAnyRoleServer from "@/components/auth/HasAnyRoleServer";
 import { getAllWidgets } from "@/modules";
 import { WidgetRenderer } from "@/modules/WidgetRenderer";
+import { UserRoleFromToken } from "@/lib/types/user";
 
 export default async function DeliveriesPage() {
   const supabase = await createClient();
@@ -12,7 +13,7 @@ export default async function DeliveriesPage() {
   } = await supabase.auth.getSession();
 
   const token = session?.access_token;
-  const roles: UserRole[] = token ? getUserRolesFromJWT(token) : [];
+  const roles: UserRoleFromToken[] = token ? getUserRolesFromJWT(token) : [];
 
   // Pobierz aktywną organizację z pierwszej roli (w przyszłości z kontekstu)
   const activeOrgId = roles.find((r) => r.org_id)?.org_id;

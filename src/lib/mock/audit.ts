@@ -142,9 +142,7 @@ export const mockAuditItems: AuditItem[] = [
 ];
 
 // Helper functions
-export function getAuditSchedulesByBranch(branchId: string): AuditSchedule[] {
-  console.log(branchId);
-
+export function getAuditSchedulesByBranch(): AuditSchedule[] {
   return mockAuditSchedules;
 }
 

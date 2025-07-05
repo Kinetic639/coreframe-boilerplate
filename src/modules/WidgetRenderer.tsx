@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Widget } from "@/lib/types/widgets";
+import { Widget, WidgetChart } from "@/lib/types/widgets";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,20 +29,28 @@ ChartJS.register(
   Legend
 );
 
-interface ChartProps {
-  data: {
-    labels: string[];
-    datasets: any[];
-  };
-  options?: any;
+import type { ChartData, ChartOptions, ChartType } from "chart.js";
+
+interface ChartProps<TChartType extends ChartType = ChartType> {
+  data: ChartData<TChartType>;
+  options?: ChartOptions<TChartType>;
 }
 
-export function WidgetRenderer({ widget }: { widget: Widget }) {
-  const Icon = widget.config?.icon
-    ? (LucideIcons as { [key: string]: React.ElementType })[widget.config.icon]
-    : null;
+const chartComponentMap: {
+  [key in WidgetChart["config"]["type"]]: React.FC<ChartProps<key>>;
+} = {
+  bar: Bar,
+  line: Line,
+  pie: Pie,
+  doughnut: Doughnut,
+};
 
+export function WidgetRenderer({ widget }: { widget: Widget }) {
   if (widget.type === "metric") {
+    const iconKey = widget.config?.icon;
+    const Icon = iconKey
+      ? (LucideIcons as unknown as Record<string, React.ElementType>)[iconKey]
+      : null;
     return (
       <Card className="p-4">
         <CardHeader className="flex items-center justify-between">
@@ -120,10 +128,3 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
 
   return null;
 }
-
-const chartComponentMap: Record<string, React.FC<ChartProps>> = {
-  bar: Bar,
-  line: Line,
-  pie: Pie,
-  doughnut: Doughnut,
-};

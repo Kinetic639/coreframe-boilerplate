@@ -2,7 +2,7 @@
 
 import { createClient } from "../supabase/server";
 
-export async function fetchUsers(): Promise<any[]> {
+export async function fetchUsers(): Promise<Tables<"users">[]> {
   try {
     // Use admin client for fetching users
     const supabase = await createClient();
