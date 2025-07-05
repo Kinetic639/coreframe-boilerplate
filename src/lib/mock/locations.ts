@@ -191,10 +191,18 @@ export const mockLocations: Tables<"locations">[] = [
 ];
 
 // Mock function to get product count for a location
-import { mockStockLocations } from "./products";
-
 export function getLocationProductCount(locationId: string): number {
-  return mockStockLocations
-    .filter((stock) => stock.location_id === locationId)
-    .reduce((total, stock) => total + stock.quantity, 0);
+  const counts: Record<string, number> = {
+    "1": 245,
+    "2": 89,
+    "3": 156,
+    "4": 78,
+    "5": 34,
+    "6": 45,
+    "7": 67,
+    "8": 23,
+    "9": 12,
+    "10": 56,
+  };
+  return counts[locationId] || 0;
 }
