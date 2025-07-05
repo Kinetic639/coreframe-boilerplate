@@ -4,9 +4,7 @@ import { redirect } from "next/navigation";
 
 export type CustomJwtPayload = {
   user_role?: string;
-} & {
-  [key: string]: any;
-};
+} & Record<string, unknown>;
 
 export async function checkAdminRole() {
   const supabase = await createClient();
