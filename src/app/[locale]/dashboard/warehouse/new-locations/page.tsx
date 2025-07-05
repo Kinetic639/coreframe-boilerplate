@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LocationTreeItem } from "@/lib/types/location-tree";
-import { Plus, Search, MapPin, Building2 } from "lucide-react";
+import { Plus, Search, MapPin, Building2, Loader } from "lucide-react";
 import { useBranchStore } from "@/lib/stores/branch-store";
-import { getLocationProductCountByBranch } from "@/lib/mock/branches";
+import { createClient } from "@/utils/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { buildLocationTree } from "@/modules/warehouse/utils/buildLocationstree";
 import { LocationTree } from "@/modules/warehouse/locations/location-tree";
@@ -17,14 +17,44 @@ import { LocationFormDialog } from "@/modules/warehouse/locations/location-form-
 import { toast } from "react-toastify";
 
 export default function LocationsPage() {
-  const { activeBranchId, getActiveBranch, getActiveBranchLocations } = useBranchStore();
+  const { activeBranchId, getActiveBranch } = useBranchStore();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<LocationTreeItem | undefined>();
   const [parentLocation, setParentLocation] = React.useState<LocationTreeItem | undefined>();
+  const [locations, setLocations] = React.useState<LocationTreeItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
   const activeBranch = getActiveBranch();
-  const branchLocations = getActiveBranchLocations();
+
+  React.useEffect(() => {
+    const fetchLocations = async () => {
+      setLoading(true);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("locations")
+        .select("*")
+        .eq("branch_id", activeBranchId)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.error("Error fetching locations:", error);
+        toast.error("Błąd podczas ładowania lokalizacji.");
+      } else {
+        setLocations(data as LocationTreeItem[]);
+      }
+      setLoading(false);
+    };
+
+    if (activeBranchId) {
+      fetchLocations();
+    } else {
+      setLocations([]);
+      setLoading(false);
+    }
+  }, [activeBranchId]);
+
+  const branchLocations = locations;
 
   const locationTree = React.useMemo(() => {
     const filtered = searchQuery
@@ -56,22 +86,58 @@ export default function LocationsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteLocation = (location: LocationTreeItem) => {
-    const productCount = getLocationProductCountByBranch(activeBranchId, location.id);
-    if (productCount > 0) {
-      toast.warning("Lokalizacja zawiera produkty. Najpierw przenieś wszystkie produkty.");
+  const handleDeleteLocation = async (location: LocationTreeItem) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("locations")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", location.id);
 
-      return;
+    if (error) {
+      console.error("Error deleting location:", error);
+      toast.error("Błąd podczas usuwania lokalizacji.");
+    } else {
+      setLocations((prev) => prev.filter((loc) => loc.id !== location.id));
+      toast.success(`Lokalizacja "${location.name}" została usunięta.`);
     }
-
-    toast.success(`Lokalizacja "${location.name}" została usunięta.`);
   };
 
-  const handleSaveLocation = (data: any) => {
+  const handleSaveLocation = async (data: any) => {
+    const supabase = createClient();
     if (editingLocation) {
-      toast.success(`Lokalizacja "${data.name}" została zaktualizowana.`);
+      const { error } = await supabase.from("locations").update(data).eq("id", editingLocation.id);
+
+      if (error) {
+        console.error("Error updating location:", error);
+        toast.error("Błąd podczas aktualizacji lokalizacji.");
+      } else {
+        toast.success(`Lokalizacja "${data.name}" została zaktualizowana.`);
+      }
     } else {
-      toast.success(`Lokalizacja "${data.name}" została dodana.`);
+      const { error } = await supabase.from("locations").insert({
+        ...data,
+        branch_id: activeBranchId,
+        parent_id: parentLocation?.id || null,
+      });
+
+      if (error) {
+        console.error("Error adding location:", error);
+        toast.error("Błąd podczas dodawania lokalizacji.");
+      } else {
+        toast.success(`Lokalizacja "${data.name}" została dodana.`);
+      }
+    }
+    // Re-fetch locations to update the tree
+    const { data: newLocations, error } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("branch_id", activeBranchId)
+      .is("deleted_at", null);
+
+    if (error) {
+      console.error("Error re-fetching locations:", error);
+    } else {
+      setLocations(newLocations as LocationTreeItem[]);
     }
   };
 
@@ -150,7 +216,12 @@ export default function LocationsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3 md:p-6">
-            {locationTree.length > 0 ? (
+            {loading ? (
+              <div className="py-8 text-center text-muted-foreground md:py-12">
+                <Loader className="mx-auto mb-4 h-12 w-12 opacity-50 md:h-16 md:w-16" />
+                <h3 className="mb-2 text-base font-medium md:text-lg">Ładowanie lokalizacji...</h3>
+              </div>
+            ) : locationTree.length > 0 ? (
               <>
                 {/* Desktop Tree - Hidden on mobile */}
                 <div className="hidden lg:block">
