@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSupabaseUpload } from "@/lib/hooks/use-supabase-upload";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Nazwa jest wymagana"),
@@ -43,6 +44,7 @@ const locationSchema = z.object({
   color: z.string().min(1, "Kolor jest wymagany"),
   icon_name: z.string().min(1, "Ikona jest wymagana"),
   image_url: z.string().url().optional().or(z.literal("")),
+  image_file: z.any().optional(),
 });
 
 type LocationFormData = z.infer<typeof locationSchema>;
@@ -94,6 +96,8 @@ export function LocationFormDialog({
 }: LocationFormDialogProps) {
   const isEditing = !!location;
 
+  const { uploadFile, error: uploadError } = useSupabaseUpload();
+
   const form = useForm<LocationFormData>({
     resolver: zodResolver(locationSchema),
     defaultValues: {
@@ -103,6 +107,7 @@ export function LocationFormDialog({
       color: location?.color || "#3b82f6",
       icon_name: location?.icon_name || "MapPin",
       image_url: location?.raw.image_url || "",
+      image_file: undefined,
     },
   });
 
@@ -115,6 +120,7 @@ export function LocationFormDialog({
         color: location.color || "#3b82f6",
         icon_name: location.icon_name || "MapPin",
         image_url: location.raw.image_url || "",
+        image_file: undefined,
       });
     } else {
       form.reset({
@@ -124,12 +130,29 @@ export function LocationFormDialog({
         color: "#3b82f6",
         icon_name: "MapPin",
         image_url: "",
+        image_file: undefined,
       });
     }
   }, [location, form]);
 
-  const onSubmit = (data: LocationFormData) => {
-    onSave(data);
+  const onSubmit = async (data: LocationFormData) => {
+    let imageUrl = data.image_url;
+
+    if (data.image_file) {
+      const file = data.image_file as File;
+      const fileName = `${Date.now()}-${file.name}`;
+      const publicUrl = await uploadFile("location-images", file, fileName);
+
+      if (publicUrl) {
+        imageUrl = publicUrl;
+      } else if (uploadError) {
+        console.error("Upload error:", uploadError);
+        // Handle upload error, maybe show a toast notification
+        return;
+      }
+    }
+
+    onSave({ ...data, image_url: imageUrl });
     onOpenChange(false);
   };
 
@@ -293,6 +316,39 @@ export function LocationFormDialog({
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="image_file"
+                render={({ field: { value: _value, onChange, ...fieldProps } }) => (
+                  <FormItem>
+                    <FormLabel>Prześlij zdjęcie</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...fieldProps}
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          onChange(event.target.files && event.target.files[0]);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>Prześlij plik zdjęcia dla lokalizacji.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("image_url") && (
+                <div className="rounded-lg border bg-muted/20 p-4">
+                  <h4 className="mb-2 text-sm font-medium">Podgląd zdjęcia:</h4>
+                  <img
+                    src={form.watch("image_url")}
+                    alt="Podgląd zdjęcia"
+                    className="h-32 w-32 rounded-md object-cover"
+                  />
+                </div>
+              )}
 
               {/* Preview */}
               <div className="rounded-lg border bg-muted/20 p-4">
