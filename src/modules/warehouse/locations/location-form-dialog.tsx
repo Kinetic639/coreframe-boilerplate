@@ -4,7 +4,7 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import * as Icons from "lucide-react";
+import { Icon } from "@/components/ui/icon";
 import {
   Dialog,
   DialogContent,
@@ -135,9 +135,6 @@ export function LocationFormDialog({
 
   const selectedIcon = form.watch("icon_name");
   const selectedColor = form.watch("color");
-  const SelectedIcon = Icons[selectedIcon as keyof typeof Icons] as React.ComponentType<{
-    className?: string;
-  }>;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -218,7 +215,10 @@ export function LocationFormDialog({
                             <SelectValue placeholder="Wybierz ikonę">
                               {field.value && (
                                 <div className="flex items-center gap-2">
-                                  <SelectedIcon className="h-4 w-4" />
+                                  <Icon
+                                    name={field.value as keyof typeof Icons}
+                                    className="h-4 w-4"
+                                  />
                                   {field.value}
                                 </div>
                               )}
@@ -226,19 +226,14 @@ export function LocationFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {iconOptions.map((icon) => {
-                            const IconComponent = Icons[
-                              icon as keyof typeof Icons
-                            ] as React.ComponentType<{ className?: string }>;
-                            return (
-                              <SelectItem key={icon} value={icon}>
-                                <div className="flex items-center gap-2">
-                                  <IconComponent className="h-4 w-4" />
-                                  {icon}
-                                </div>
-                              </SelectItem>
-                            );
-                          })}
+                          {iconOptions.map((icon) => (
+                            <SelectItem key={icon} value={icon}>
+                              <div className="flex items-center gap-2">
+                                <Icon name={icon as keyof typeof Icons} className="h-4 w-4" />
+                                {icon}
+                              </div>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -307,7 +302,7 @@ export function LocationFormDialog({
                     className="flex h-10 w-10 items-center justify-center rounded-md text-white"
                     style={{ backgroundColor: selectedColor }}
                   >
-                    <SelectedIcon className="h-5 w-5" />
+                    <Icon name={selectedIcon as keyof typeof Icons} className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">

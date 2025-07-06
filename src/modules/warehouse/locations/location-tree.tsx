@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import * as Icons from "lucide-react";
+import { Icon } from "@/components/ui/icon";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,13 +65,6 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
   const [correctionDialogOpen, setCorrectionDialogOpen] = React.useState(false);
 
   const hasChildren = location.children && location.children.length > 0;
-  const IconComponent = location.icon_name
-    ? (Icons[location.icon_name as keyof typeof Icons] as React.ComponentType<{
-        className?: string;
-      }>)
-    : Icons.MapPin;
-
-  const ValidIcon = typeof IconComponent === "function" ? IconComponent : Icons.MapPin;
 
   const currentUser = getCurrentUser();
 
@@ -193,7 +186,7 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-white"
             style={{ backgroundColor: location.color || "#6b7280" }}
           >
-            <ValidIcon className="h-5 w-5" />
+            <Icon name={location.icon_name || "MapPin"} className="h-5 w-5" />
           </div>
 
           {/* Location Image */}
