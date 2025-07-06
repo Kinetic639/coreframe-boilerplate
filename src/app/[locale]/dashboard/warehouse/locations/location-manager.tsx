@@ -108,8 +108,17 @@ export default function LocationManager({
 
   const handleSaveLocation = async (data: any) => {
     const supabase = createClient();
+    // Destructure to exclude image_file from the data sent to Supabase
+    if (data.image_file) {
+      delete data.image_file;
+    }
+    const locationDataToSave = data;
+
     if (editingLocation) {
-      const { error } = await supabase.from("locations").update(data).eq("id", editingLocation.id);
+      const { error } = await supabase
+        .from("locations")
+        .update(locationDataToSave)
+        .eq("id", editingLocation.id);
 
       if (error) {
         console.error("Error updating location:", error);
@@ -119,7 +128,7 @@ export default function LocationManager({
       }
     } else {
       const { error } = await supabase.from("locations").insert({
-        ...data,
+        ...locationDataToSave,
         branch_id: activeBranchId,
         parent_id: parentLocation?.id || null,
       });
