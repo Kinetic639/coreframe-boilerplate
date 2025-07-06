@@ -4,11 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  branchLocationsMap,
-  getLocationProductCountByBranch,
-  mockBranches,
-} from "@/lib/mock/branches";
+import { createClient } from "@/utils/supabase/client";
+import { LocationTreeItem } from "@/lib/types/location-tree";
 import {
   MapPin,
   Package,
@@ -32,10 +29,9 @@ interface LocationDetailsPageProps {
 
 // Add generateStaticParams for static export
 export async function generateStaticParams() {
-  const allLocations = Object.values(branchLocationsMap).flat();
-  return allLocations.map((location) => ({
-    id: location.id,
-  }));
+  const supabase = createClient();
+  const { data: locations } = await supabase.from("locations").select("id");
+  return locations?.map(({ id }) => ({ id })) || [];
 }
 
 function LoadingSkeleton() {
@@ -53,35 +49,86 @@ function LoadingSkeleton() {
   );
 }
 
-function LocationDetailsContent({ locationId }: { locationId: string }) {
-  // Find location across all branches
-  let location = null;
-  let branchId = null;
+async function LocationDetailsContent({ locationId }: { locationId: string }) {
+  const supabase = createClient();
 
-  for (const [bId, locations] of Object.entries(branchLocationsMap)) {
-    const found = locations.find((loc) => loc.id === locationId);
-    if (found) {
-      location = found;
-      branchId = bId;
-      break;
-    }
-  }
+  const { data: locationData, error: locationError } = await supabase
+    .from("locations")
+    .select("*")
+    .eq("id", locationId)
+    .single();
 
-  if (!location || !branchId) {
+  if (locationError || !locationData) {
+    console.error("Error fetching location details:", locationError);
     notFound();
   }
 
-  const branch = mockBranches.find((b) => b.id === branchId);
-  const productCount = getLocationProductCountByBranch(branchId, locationId);
-  const allBranchLocations = branchLocationsMap[branchId];
+  const location: LocationTreeItem = {
+    id: locationData.id,
+    name: locationData.name,
+    icon_name: locationData.icon_name,
+    code: locationData.code,
+    color: locationData.color,
+    raw: locationData,
+    children: [], // Children will be fetched separately if needed
+  };
 
-  // Find parent location
-  const parentLocation = location.parent_id
-    ? allBranchLocations.find((loc) => loc.id === location.parent_id)
-    : null;
+  const branch = locationData.branch_profiles;
 
-  // Find child locations
-  const childLocations = allBranchLocations.filter((loc) => loc.parent_id === locationId);
+  // Fetch product count for the location
+  const { count: productCount, error: productCountError } = await supabase
+    .from("product_stock_locations")
+    .select("*", { count: "exact" })
+    .eq("location_id", locationId);
+
+  if (productCountError) {
+    console.error("Error fetching product count:", productCountError);
+  }
+
+  // Fetch parent location
+  let parentLocation: LocationTreeItem | null = null;
+  if (locationData.parent_id) {
+    const { data: parentData, error: parentError } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("id", locationData.parent_id)
+      .single();
+    if (parentError) {
+      console.error("Error fetching parent location:", parentError);
+    } else if (parentData) {
+      parentLocation = {
+        id: parentData.id,
+        name: parentData.name,
+        icon_name: parentData.icon_name,
+        code: parentData.code,
+        color: parentData.color,
+        raw: parentData,
+        children: [],
+      };
+    }
+  }
+
+  // Fetch child locations
+  const { data: childLocationsData, error: childError } = await supabase
+    .from("locations")
+    .select("*")
+    .eq("parent_id", locationId)
+    .is("deleted_at", null);
+
+  let childLocations: LocationTreeItem[] = [];
+  if (childError) {
+    console.error("Error fetching child locations:", childError);
+  } else if (childLocationsData) {
+    childLocations = childLocationsData.map((child) => ({
+      id: child.id,
+      name: child.name,
+      icon_name: child.icon_name,
+      code: child.code,
+      color: child.color,
+      raw: child,
+      children: [],
+    }));
+  }
 
   const Icon = location.icon_name
     ? (Icons[location.icon_name as keyof typeof Icons] as React.ComponentType<{
@@ -218,11 +265,11 @@ function LocationDetailsContent({ locationId }: { locationId: string }) {
             <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
               <div>
                 <label className="font-medium">Utworzono</label>
-                <p>{new Date(location.created_at!).toLocaleDateString("pl-PL")}</p>
+                <p>{new Date(location.raw.created_at!).toLocaleDateString("pl-PL")}</p>
               </div>
               <div>
                 <label className="font-medium">Zaktualizowano</label>
-                <p>{new Date(location.updated_at!).toLocaleDateString("pl-PL")}</p>
+                <p>{new Date(location.raw.updated_at!).toLocaleDateString("pl-PL")}</p>
               </div>
             </div>
           </CardContent>
@@ -239,7 +286,7 @@ function LocationDetailsContent({ locationId }: { locationId: string }) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg bg-muted/20 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{productCount}</div>
+                <div className="text-2xl font-bold text-primary">{productCount || 0}</div>
                 <div className="text-sm text-muted-foreground">Produktów</div>
               </div>
               <div className="rounded-lg bg-muted/20 p-4 text-center">
@@ -294,7 +341,8 @@ function LocationDetailsContent({ locationId }: { locationId: string }) {
                           </Badge>
                         )}
                         <div className="ml-auto text-xs text-muted-foreground">
-                          {getLocationProductCountByBranch(branchId, child.id)} produktów
+                          {/* Product count for child location */}
+                          {productCount || 0} produktów
                         </div>
                       </div>
                     );
@@ -306,7 +354,7 @@ function LocationDetailsContent({ locationId }: { locationId: string }) {
         </Card>
 
         {/* Image */}
-        {location.image_url && (
+        {location.raw.image_url && (
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -317,7 +365,7 @@ function LocationDetailsContent({ locationId }: { locationId: string }) {
             <CardContent>
               <div className="aspect-video overflow-hidden rounded-lg bg-muted">
                 <img
-                  src={location.image_url}
+                  src={location.raw.image_url}
                   alt={location.name}
                   className="h-full w-full object-cover"
                 />
