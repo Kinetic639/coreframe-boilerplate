@@ -1,10 +1,15 @@
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+"use client";
+import { useAppStore } from "@/lib/stores/app-store";
 import LocationManager from "./location-manager";
 
-export default async function LocationsPage() {
-  const context = await loadAppContextServer();
-  const activeBranchId = context?.activeBranch?.branch_id || null;
-  const activeBranchName = context?.activeBranch?.name || "";
+export default function LocationsPage() {
+  const { activeBranch, isLoaded } = useAppStore();
+  const activeBranchId = activeBranch?.branch_id || null;
+  const activeBranchName = activeBranch?.name || "";
+
+  if (!isLoaded) {
+    return <div>Loading...</div>; // Or a proper skeleton loader
+  }
 
   return <LocationManager activeBranchId={activeBranchId} activeBranchName={activeBranchName} />;
 }

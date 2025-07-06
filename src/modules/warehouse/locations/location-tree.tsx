@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useBranchStore } from "@/lib/stores/branch-store";
+import { useAppStore } from "@/lib/stores/app-store";
 import { getProductsForLocations } from "@/lib/mock/audit";
 import { getCurrentUser } from "@/lib/mock/organization";
 import { AuditStartDialog } from "../audit/audit-start-dialog";
@@ -55,7 +55,7 @@ interface LocationNodeProps {
 
 function LocationNode({ location, onEdit, onAddChild, onDelete, level }: LocationNodeProps) {
   const router = useRouter();
-  const { activeBranchId } = useBranchStore();
+  const { activeBranchId } = useAppStore();
   const { startAudit, completeAudit, resetAudit } = useAuditStore();
   const [isOpen, setIsOpen] = React.useState(level < 2);
   const [imageModalOpen, setImageModalOpen] = React.useState(false);
