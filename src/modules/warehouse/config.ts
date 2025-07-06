@@ -73,12 +73,6 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
         icon: "MapPin",
       },
       {
-        id: "locations",
-        label: "Nowe Lokalizacje",
-        path: "/dashboard/warehouse/new-locations",
-        icon: "MapPin",
-      },
-      {
         id: "labels",
         label: "Etykiety i szablony",
         icon: "Tag",

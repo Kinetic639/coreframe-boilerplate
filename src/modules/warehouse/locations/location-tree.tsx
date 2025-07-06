@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Icons from "lucide-react";
 import { LocationTreeItem } from "@/lib/types/location-tree";
@@ -36,6 +35,7 @@ import { AuditProcessDialog } from "../audit/audit-process-dialog";
 import { AuditSummaryDialog } from "../audit/audit-summary-dialog";
 import { QuantityCorrectionDialog } from "../audit/quantity-correction-dialog";
 import { useAuditStore } from "@/lib/stores/audit-store";
+import { useRouter } from "@/i18n/navigation";
 
 interface LocationTreeProps {
   locations: LocationTreeItem[];
@@ -76,7 +76,7 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
   const currentUser = getCurrentUser();
 
   const handleViewDetails = () => {
-    router.push(`/dashboard/warehouse/locations/${location.id}`);
+    router.push({ pathname: "/dashboard/warehouse/locations/[id]", params: { id: location.id } });
   };
 
   const handleEdit = (e: React.MouseEvent) => {
