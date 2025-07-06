@@ -43,11 +43,13 @@ function LocationItemMobile({
   const [isExpanded, setIsExpanded] = React.useState(level === 0);
 
   const hasChildren = location.children && location.children.length > 0;
-  const Icon = location.icon_name
+  const IconComponent = location.icon_name
     ? (Icons[location.icon_name as keyof typeof Icons] as React.ComponentType<{
         className?: string;
       }>)
     : Icons.MapPin;
+
+  const ValidIcon = typeof IconComponent === "function" ? IconComponent : Icons.MapPin;
 
   const handleViewDetails = () => {
     router.push(`/dashboard/warehouse/locations/${location.id}`);
@@ -114,7 +116,7 @@ function LocationItemMobile({
           className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-white shadow-sm"
           style={{ backgroundColor: location.color || "#6b7280" }}
         >
-          <Icon className="h-5 w-5" />
+          <ValidIcon className="h-5 w-5" />
         </div>
 
         {/* Location Details */}
