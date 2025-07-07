@@ -226,7 +226,7 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
           </div>
 
           {/* Actions */}
-          <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex flex-shrink-0 items-center gap-1">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleViewDetails}>
               <Eye className="h-3 w-3" />
             </Button>

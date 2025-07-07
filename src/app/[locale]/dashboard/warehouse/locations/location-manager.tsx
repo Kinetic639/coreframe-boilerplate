@@ -187,22 +187,11 @@ export default function LocationManager({
         <div>
           <div className="mb-2 flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Lokalizacje</h1>
-            {activeBranchName && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                {activeBranchName}
-              </Badge>
-            )}
           </div>
           <p className="text-sm text-muted-foreground md:text-base">
-            Zarządzanie strukturą lokalizacji magazynowych w aktywnym oddziale
+            Zarządzanie strukturą lokalizacji magazynowych w wybranym oddziale
           </p>
         </div>
-        <Button onClick={handleAddLocation} className="h-9 md:h-10">
-          <Plus className="mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Dodaj lokalizację</span>
-          <span className="sm:hidden">Dodaj</span>
-        </Button>
       </motion.div>
 
       {/* Search and Sort */}
@@ -263,19 +252,29 @@ export default function LocationManager({
         transition={{ delay: 0.2 }}
       >
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <MapPin className="h-5 w-5" />
-              Struktura lokalizacji
-              {activeBranchName && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  - {activeBranchName}
-                </span>
-              )}
-            </CardTitle>
-            <CardDescription className="text-sm">
-              Hierarchiczna struktura wszystkich lokalizacji magazynowych w aktywnym oddziale
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="flex items-center justify-between text-base md:text-lg">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Struktura lokalizacji
+                  {activeBranchName && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Building2 className="h-3 w-3" />
+                      {activeBranchName}
+                    </Badge>
+                  )}
+                </div>
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Hierarchiczna struktura lokalizacji magazynowych w oddziale
+              </CardDescription>
+            </div>
+            <Button onClick={handleAddLocation} className="h-9 md:h-10" variant="themed">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Dodaj lokalizację</span>
+              <span className="sm:hidden">Dodaj</span>
+            </Button>
           </CardHeader>
           <CardContent className="p-3 md:p-6">
             {loading ? (
