@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Tables } from "../../../supabase/types/types";
+import { UserLocation } from "../types";
 
 // 🔸 Typ jednego modułu użytkownika
 export type LoadedUserModule = {
@@ -17,12 +18,14 @@ export type AppContext = {
   activeBranchId: string | null;
   availableBranches: Tables<"branch_profiles">[];
   userModules: LoadedUserModule[];
+  location: UserLocation | null;
 };
 
 // 🧠 Zustand store
 type AppStore = AppContext & {
   isLoaded: boolean;
   setContext: (context: AppContext) => void;
+  setLocation: (location: UserLocation | null) => void;
   clear: () => void;
 };
 
@@ -34,12 +37,14 @@ export const useAppStore = create<AppStore>((set) => ({
   availableBranches: [],
   userModules: [],
   isLoaded: false,
+  location: null,
 
   setContext: (context) =>
     set({
       ...context,
       isLoaded: true,
     }),
+  setLocation: (location) => set({ location }),
 
   clear: () =>
     set({
@@ -50,5 +55,6 @@ export const useAppStore = create<AppStore>((set) => ({
       availableBranches: [],
       userModules: [],
       isLoaded: false,
+      location: null,
     }),
 }));

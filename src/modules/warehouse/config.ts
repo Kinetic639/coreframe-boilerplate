@@ -90,6 +90,7 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
             path: "/dashboard/warehouse/labels/locations",
             icon: "MapPin",
           },
+
           {
             id: "label-templates",
             label: "Szablony etykiet",
