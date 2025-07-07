@@ -5,8 +5,15 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LocationTreeItem } from "@/lib/types/location-tree";
-import { Plus, Search, MapPin, Building2, Loader } from "lucide-react";
+import { Plus, Search, MapPin, Building2, Loader, ArrowUpDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { buildLocationTree } from "@/modules/warehouse/utils/buildLocationstree";
@@ -25,6 +32,8 @@ export default function LocationManager({
   activeBranchName,
 }: LocationManagerProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [sortKey, setSortKey] = React.useState<"name" | "code" | "created_at">("name");
+  const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<LocationTreeItem | undefined>();
   const [parentLocation, setParentLocation] = React.useState<LocationTreeItem | undefined>();
@@ -69,8 +78,21 @@ export default function LocationManager({
         )
       : branchLocations;
 
-    return buildLocationTree(filtered);
-  }, [branchLocations, searchQuery, activeBranchId]);
+    const sorted = [...filtered].sort((a, b) => {
+      let compareValue = 0;
+      if (sortKey === "name") {
+        compareValue = a.name.localeCompare(b.name);
+      } else if (sortKey === "code") {
+        compareValue = (a.code || "").localeCompare(b.code || "");
+      } else if (sortKey === "created_at") {
+        compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+
+      return sortOrder === "asc" ? compareValue : -compareValue;
+    });
+
+    return buildLocationTree(sorted);
+  }, [branchLocations, searchQuery, sortKey, sortOrder, activeBranchId]);
 
   const handleAddLocation = () => {
     setEditingLocation(undefined);
@@ -183,25 +205,52 @@ export default function LocationManager({
         </Button>
       </motion.div>
 
-      {/* Search */}
+      {/* Search and Sort */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base md:text-lg">Wyszukiwanie</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-              <Input
-                placeholder="Szukaj lokalizacji po nazwie lub kodzie..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+          <CardContent className="pt-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end">
+              <div className="relative flex-grow">
+                <h3 className="mb-2 text-sm font-medium">Wyszukiwanie</h3>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Szukaj lokalizacji po nazwie lub kodzie..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Sortowanie</h3>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={sortKey}
+                    onValueChange={(value: "name" | "code" | "created_at") => setSortKey(value)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Sortuj według" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Nazwa</SelectItem>
+                      <SelectItem value="code">Kod</SelectItem>
+                      <SelectItem value="created_at">Data utworzenia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                  >
+                    <ArrowUpDown className={sortOrder === "asc" ? "rotate-180" : ""} />
+                  </Button>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
