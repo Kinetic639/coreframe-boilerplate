@@ -43,7 +43,7 @@ export default function LogoUploader({
     } = supabase.storage.from("organization-logos").getPublicUrl(filePath);
 
     onUpload(publicUrl);
-    toast.success("✅ Logo zaktualizowane");
+    toast.success("Logo zaktualizowane");
     setUploading(false);
   };
 

@@ -69,34 +69,6 @@ export default function BranchesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Oddziały organizacji</h1>
           <p className="text-muted-foreground">Zarządzanie oddziałami i ich lokalizacjami</p>
         </div>
-        <Button variant="themed">
-          <Plus className="mr-2 h-4 w-4" />
-          Dodaj oddział
-        </Button>
-      </motion.div>
-
-      {/* Search */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Wyszukiwanie</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-              <Input
-                placeholder="Szukaj oddziałów po nazwie lub slug..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
       </motion.div>
 
       {/* Stats Cards */}
@@ -160,6 +132,30 @@ export default function BranchesPage() {
         </Card>
       </motion.div>
 
+      {/* Search */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Wyszukiwanie</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
+              <Input
+                placeholder="Szukaj oddziałów po nazwie lub slug..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* Branches Table */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -167,14 +163,21 @@ export default function BranchesPage() {
         transition={{ delay: 0.3 }}
       >
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Lista oddziałów ({filteredBranches.length})
-            </CardTitle>
-            <CardDescription>
-              Wszystkie oddziały organizacji z podstawowymi statystykami
-            </CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Lista oddziałów ({filteredBranches.length})
+              </CardTitle>
+              <CardDescription>
+                Wszystkie oddziały organizacji z podstawowymi statystykami
+              </CardDescription>
+            </div>
+
+            <Button variant="themed">
+              <Plus className="mr-2 h-4 w-4" />
+              Dodaj oddział
+            </Button>
           </CardHeader>
           <CardContent>
             {filteredBranches.length > 0 ? (

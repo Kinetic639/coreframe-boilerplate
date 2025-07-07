@@ -180,8 +180,8 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
 
       <AccordionContent className="px-0 pb-0 pt-1">
         <SidebarMenuSub className="relative ml-2 mr-0 pl-4 pr-0">
-          {item.submenu?.map((child) => (
-            <RecursiveMenuItem key={child.id} item={child} nested={true} />
+          {item.submenu?.map((child, index) => (
+            <RecursiveMenuItem key={`${child.id}-${index}`} item={child} nested={true} />
           ))}
         </SidebarMenuSub>
       </AccordionContent>

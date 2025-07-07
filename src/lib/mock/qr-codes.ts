@@ -214,15 +214,15 @@ export function generateQrToken(): string {
   return `QR-${timestamp}-${random}`.toUpperCase();
 }
 
-// // Mock permissions - in real app this would come from RBAC
-// export function canUserManageQrCodes(userId: string): boolean {
-//   // For demo purposes, allow all users to manage QR codes
-//   // In real app, check user roles and permissions
-//   return true;
-// }
+// Mock permissions - in real app this would come from RBAC
+export function canUserManageQrCodes(): boolean {
+  // For demo purposes, allow all users to manage QR codes
+  // In real app, check user roles and permissions
+  return true;
+}
 
-// export function canUserAssignQrCodes(userId: string): boolean {
-//   // For demo purposes, allow all users to assign QR codes
-//   // In real app, check specific permissions like 'manage:locations'
-//   return true;
-// }
+export function canUserAssignQrCodes(): boolean {
+  // For demo purposes, allow all users to assign QR codes
+  // In real app, check specific permissions like 'manage:locations'
+  return true;
+}

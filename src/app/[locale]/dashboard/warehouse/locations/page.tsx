@@ -1,22 +1,15 @@
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { loadLocationsServer } from "@/modules/warehouse/api/locations";
-import { LocationManager } from "@/modules/warehouse/locations/LocationManager";
+"use client";
+import { useAppStore } from "@/lib/stores/app-store";
+import LocationManager from "./location-manager";
 
-export default async function LocationsPage() {
-  const context = await loadAppContextServer();
+export default function LocationsPage() {
+  const { activeBranch, isLoaded } = useAppStore();
+  const activeBranchId = activeBranch?.branch_id || null;
+  const activeBranchName = activeBranch?.name || "";
 
-  const orgId = context?.active_org_id;
-  const branchId = context?.active_branch_id;
-
-  if (!orgId || !branchId) {
-    return <div className="p-4 text-red-600">Brak aktywnej organizacji lub oddziału.</div>;
+  if (!isLoaded) {
+    return <div>Loading...</div>; // Or a proper skeleton loader
   }
 
-  const locations = await loadLocationsServer(orgId, branchId);
-
-  return (
-    <div className="mx-auto max-w-7xl px-4">
-      <LocationManager locations={locations} activeOrgId={orgId} activeBranchId={branchId} />
-    </div>
-  );
+  return <LocationManager activeBranchId={activeBranchId} activeBranchName={activeBranchName} />;
 }
