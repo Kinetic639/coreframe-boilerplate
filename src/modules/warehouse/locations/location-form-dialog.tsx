@@ -36,12 +36,14 @@ import { Badge } from "@/components/ui/badge";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSupabaseUpload } from "@/lib/hooks/use-supabase-upload";
+import { useAppStore } from "@/lib/stores/app-store";
+import { cn } from "@/utils";
 
 const locationSchema = z.object({
   name: z.string().min(1, "Nazwa jest wymagana"),
   code: z.string().optional(),
   description: z.string().optional(),
-  color: z.string().min(1, "Kolor jest wymagany"),
+  color: z.string().nullable().optional(),
   icon_name: z.string().min(1, "Ikona jest wymagana"),
   image_url: z.string().url().optional().or(z.literal("")),
   image_file: z.any().optional(),
@@ -73,6 +75,7 @@ const iconOptions = [
 ];
 
 const colorOptions = [
+  "default", // Special value for theme color
   "#3b82f6",
   "#10b981",
   "#f59e0b",
@@ -95,6 +98,8 @@ export function LocationFormDialog({
   onSave,
 }: LocationFormDialogProps) {
   const isEditing = !!location;
+  const { activeOrg } = useAppStore();
+  const defaultThemeColor = activeOrg?.theme_color || "#6b7280"; // Fallback to a default gray if no theme color
 
   const { uploadFile, error: uploadError } = useSupabaseUpload();
 
@@ -104,7 +109,7 @@ export function LocationFormDialog({
       name: location?.name || "",
       code: location?.code || "",
       description: location?.raw.description || "",
-      color: location?.color || "#3b82f6",
+      color: location?.color || "default", // Set default to 'default' string
       icon_name: location?.icon_name || "MapPin",
       image_url: location?.raw.image_url || "",
       image_file: undefined,
@@ -117,7 +122,7 @@ export function LocationFormDialog({
         name: location.name,
         code: location.code || "",
         description: location.raw.description || "",
-        color: location.color || "#3b82f6",
+        color: location.color || "default", // Set default to 'default' string
         icon_name: location.icon_name || "MapPin",
         image_url: location.raw.image_url || "",
         image_file: undefined,
@@ -127,7 +132,7 @@ export function LocationFormDialog({
         name: "",
         code: "",
         description: "",
-        color: "#3b82f6",
+        color: "default", // Set default to 'default' string
         icon_name: "MapPin",
         image_url: "",
         image_file: undefined,
@@ -152,7 +157,10 @@ export function LocationFormDialog({
       }
     }
 
-    onSave({ ...data, image_url: imageUrl });
+    // If 'default' is selected, set color to null for database
+    const colorToSave = data.color === "default" ? null : data.color;
+
+    onSave({ ...data, image_url: imageUrl, color: colorToSave });
     onOpenChange(false);
   };
 
@@ -269,30 +277,62 @@ export function LocationFormDialog({
                   name="color"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kolor *</FormLabel>
+                      <FormLabel>Kolor</FormLabel>
                       <FormControl>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
                             <div
                               className="h-8 w-8 rounded border"
-                              style={{ backgroundColor: field.value }}
+                              style={{
+                                backgroundColor:
+                                  selectedColor === "default" ? defaultThemeColor : selectedColor,
+                              }}
                             />
                             <Input
                               type="color"
                               className="h-8 w-16 rounded border p-1"
-                              {...field}
+                              value={
+                                selectedColor === "default"
+                                  ? defaultThemeColor
+                                  : selectedColor || "#000000"
+                              }
+                              onChange={(e) => field.onChange(e.target.value)}
+                              disabled={selectedColor === "default"}
                             />
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {colorOptions.map((color) => (
-                              <button
-                                key={color}
-                                type="button"
-                                className="h-6 w-6 rounded border-2 border-transparent hover:border-gray-300"
-                                style={{ backgroundColor: color }}
-                                onClick={() => field.onChange(color)}
-                              />
-                            ))}
+                            <button
+                              key="default"
+                              type="button"
+                              className={cn(
+                                "h-6 w-6 rounded border-2",
+                                selectedColor === "default"
+                                  ? "border-primary"
+                                  : "border-transparent",
+                                "hover:border-gray-300"
+                              )}
+                              style={{ backgroundColor: defaultThemeColor }}
+                              onClick={() => field.onChange("default")}
+                            >
+                              <span className="sr-only">Domyślny (kolor motywu)</span>
+                            </button>
+                            {colorOptions
+                              .filter((color) => color !== "default")
+                              .map((color) => (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  className={cn(
+                                    "h-6 w-6 rounded border-2",
+                                    selectedColor === color
+                                      ? "border-primary"
+                                      : "border-transparent",
+                                    "hover:border-gray-300"
+                                  )}
+                                  style={{ backgroundColor: color }}
+                                  onClick={() => field.onChange(color)}
+                                />
+                              ))}
                           </div>
                         </div>
                       </FormControl>
@@ -356,7 +396,10 @@ export function LocationFormDialog({
                 <div className="flex items-center gap-3">
                   <div
                     className="flex h-10 w-10 items-center justify-center rounded-md text-white"
-                    style={{ backgroundColor: selectedColor }}
+                    style={{
+                      backgroundColor:
+                        selectedColor === "default" ? defaultThemeColor : selectedColor,
+                    }}
                   >
                     <Icon name={selectedIcon as keyof typeof Icons} className="h-5 w-5" />
                   </div>
