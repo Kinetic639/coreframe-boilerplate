@@ -7,11 +7,13 @@ import {
 import { Tables } from "../../../supabase/types/types";
 
 interface ProductFilters {
-  search: string;
-  minPrice: number | "";
-  maxPrice: number | "";
-  supplierId: string | "";
-  locationId: string | "";
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  supplierId?: string;
+  locationId?: string;
+  tags?: string[];
+  showLowStock?: boolean;
 }
 
 interface UseProductFiltersResult {
@@ -21,18 +23,20 @@ interface UseProductFiltersResult {
   itemsPerPage: number;
   handlePageChange: (page: number) => void;
   handleItemsPerPageChange: (items: number) => void;
-  handleFilterChange: (filters: Partial<ProductFilters>) => void;
+  handleFilterChange: (filters: ProductFilters) => void;
   availableSuppliers: Tables<"suppliers">[];
   availableLocations: Tables<"locations">[];
 }
 
 export const useProductFilters = (products: ProductWithDetails[]): UseProductFiltersResult => {
   const [filters, setFilters] = useState<ProductFilters>({
-    search: "",
-    minPrice: "",
-    maxPrice: "",
-    supplierId: "",
-    locationId: "",
+    search: undefined,
+    minPrice: undefined,
+    maxPrice: undefined,
+    supplierId: undefined,
+    locationId: undefined,
+    tags: undefined,
+    showLowStock: undefined,
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -57,37 +61,57 @@ export const useProductFilters = (products: ProductWithDetails[]): UseProductFil
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch =
+        filters.search === undefined ||
         filters.search === "" ||
         product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
         product.sku?.toLowerCase().includes(filters.search.toLowerCase()) ||
         product.barcode?.toLowerCase().includes(filters.search.toLowerCase()) ||
         product.variants.some(
           (variant) =>
-            variant.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-            variant.sku?.toLowerCase().includes(filters.search.toLowerCase())
+            variant.name.toLowerCase().includes(filters.search!.toLowerCase()) ||
+            variant.sku?.toLowerCase().includes(filters.search!.toLowerCase())
         );
 
       const matchesPrice =
-        (filters.minPrice === "" ||
+        (filters.minPrice === undefined ||
           product.variants.some(
-            (v) => v.inventory_data && v.inventory_data.purchase_price >= filters.minPrice
+            (v) => v.inventory_data && v.inventory_data.purchase_price >= filters.minPrice!
           )) &&
-        (filters.maxPrice === "" ||
+        (filters.maxPrice === undefined ||
           product.variants.some(
-            (v) => v.inventory_data && v.inventory_data.purchase_price <= filters.maxPrice
+            (v) => v.inventory_data && v.inventory_data.purchase_price <= filters.maxPrice!
           ));
 
       const matchesSupplier =
+        filters.supplierId === undefined ||
         filters.supplierId === "" ||
         product.suppliers.some((supplier) => supplier.id === filters.supplierId);
 
       const matchesLocation =
+        filters.locationId === undefined ||
         filters.locationId === "" ||
         product.variants.some((variant) =>
           variant.stock_locations.some((sl) => sl.location_id === filters.locationId)
         );
 
-      return matchesSearch && matchesPrice && matchesSupplier && matchesLocation;
+      const matchesTags =
+        filters.tags === undefined ||
+        filters.tags.length === 0 ||
+        (product.tags && product.tags.some((tag) => filters.tags!.includes(tag)));
+
+      const matchesLowStock =
+        filters.showLowStock === undefined ||
+        !filters.showLowStock ||
+        product.variants.some((v) => v.inventory_data && v.inventory_data.stock_quantity < 10); // Assuming low stock is < 10
+
+      return (
+        matchesSearch &&
+        matchesPrice &&
+        matchesSupplier &&
+        matchesLocation &&
+        matchesTags &&
+        matchesLowStock
+      );
     });
   }, [products, filters]);
 

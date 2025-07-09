@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProductFilters } from "@/modules/warehouse/products/hooks/use-product-filters";
+import { ProductAdvancedFiltersDialog } from "./product-advanced-filters-dialog";
 
 interface ProductFiltersProps {
   onFilterChange: (filters: {
@@ -21,33 +22,47 @@ interface ProductFiltersProps {
     maxPrice?: number | "";
     supplierId?: string | "";
     locationId?: string | "";
+    tags?: string[];
+    showLowStock?: boolean;
   }) => void;
 }
 
+interface SavedFilterCriteria {
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  supplierId?: string;
+  locationId?: string;
+  tags?: string[];
+  showLowStock?: boolean;
+}
+
 export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
-  const { availableSuppliers, availableLocations } = useProductFilters([]); // Pass empty array as products are not needed here
+  const { availableSuppliers, availableLocations } = useProductFilters([]);
 
   const [search, setSearch] = React.useState("");
   const [minPrice, setMinPrice] = React.useState<number | "">("");
   const [maxPrice, setMaxPrice] = React.useState<number | "">("");
   const [supplierId, setSupplierId] = React.useState<string | "">("all");
   const [locationId, setLocationId] = React.useState<string | "">("all");
+  const [advancedFilters, setAdvancedFilters] = React.useState<SavedFilterCriteria>({});
 
   React.useEffect(() => {
     const handler = setTimeout(() => {
       onFilterChange({
         search,
-        minPrice: minPrice === "" ? "" : Number(minPrice),
-        maxPrice: maxPrice === "" ? "" : Number(maxPrice),
-        supplierId: supplierId === "all" ? "" : supplierId,
-        locationId: locationId === "all" ? "" : locationId,
+        minPrice: minPrice === "" ? undefined : Number(minPrice),
+        maxPrice: maxPrice === "" ? undefined : Number(maxPrice),
+        supplierId: supplierId === "all" ? undefined : supplierId,
+        locationId: locationId === "all" ? undefined : locationId,
+        ...advancedFilters,
       });
-    }, 300); // Debounce search input
+    }, 300);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [search, minPrice, maxPrice, supplierId, locationId, onFilterChange]);
+  }, [search, minPrice, maxPrice, supplierId, locationId, advancedFilters, onFilterChange]);
 
   const handleClearFilters = () => {
     setSearch("");
@@ -55,6 +70,28 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
     setMaxPrice("");
     setSupplierId("all");
     setLocationId("all");
+    setAdvancedFilters({});
+  };
+
+  const handleApplyAdvancedFilters = (filters: SavedFilterCriteria) => {
+    setAdvancedFilters(filters);
+    // Also update basic filters if they are part of the advanced filters
+    if (filters.search !== undefined) setSearch(filters.search);
+    if (filters.minPrice !== undefined) setMinPrice(filters.minPrice);
+    if (filters.maxPrice !== undefined) setMaxPrice(filters.maxPrice);
+    if (filters.supplierId !== undefined)
+      setSupplierId(filters.supplierId === "" ? "all" : filters.supplierId);
+    if (filters.locationId !== undefined)
+      setLocationId(filters.locationId === "" ? "all" : filters.locationId);
+  };
+
+  const currentCombinedFilters = {
+    search,
+    minPrice: minPrice === "" ? undefined : Number(minPrice),
+    maxPrice: maxPrice === "" ? undefined : Number(maxPrice),
+    supplierId: supplierId === "all" ? undefined : supplierId,
+    locationId: locationId === "all" ? undefined : locationId,
+    ...advancedFilters,
   };
 
   return (
@@ -132,6 +169,14 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
           <XCircle className="mr-2 h-4 w-4" />
           Wyczyść filtry
         </Button>
+      </div>
+      <div className="flex items-end">
+        <ProductAdvancedFiltersDialog
+          onApplyFilter={handleApplyAdvancedFilters}
+          currentFilters={currentCombinedFilters}
+          availableSuppliers={availableSuppliers}
+          availableLocations={availableLocations}
+        />
       </div>
     </div>
   );
