@@ -88,13 +88,13 @@ export default function ProductsPage() {
               onValueChange={(value: DisplayMode) => value && setDisplayMode(value)}
               aria-label="Wybierz tryb wyświetlania"
             >
-              <ToggleGroupItem value="grid" aria-label="Widok siatki">
+              <ToggleGroupItem value="grid" aria-label="Widok siatki" className="rounded-l-[6px]">
                 <LayoutGrid className="h-4 w-4" />
               </ToggleGroupItem>
               <ToggleGroupItem value="list" aria-label="Widok listy">
                 <List className="h-4 w-4" />
               </ToggleGroupItem>
-              <ToggleGroupItem value="table" aria-label="Widok tabeli">
+              <ToggleGroupItem value="table" aria-label="Widok tabeli" className="rounded-r-[6px]">
                 <TableIcon className="h-4 w-4" />
               </ToggleGroupItem>
             </ToggleGroup>

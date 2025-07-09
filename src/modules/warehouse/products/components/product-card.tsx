@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/card";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { Badge } from "@/components/ui/badge";
-import { Package, Warehouse, DollarSign, Tag } from "lucide-react";
+import { Package, Warehouse, DollarSign } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface ProductCardProps {
@@ -28,27 +29,52 @@ export function ProductCard({ product }: ProductCardProps) {
   const firstVariant = product.variants[0];
   const displayPrice = firstVariant?.inventory_data?.purchase_price || 0;
 
+  const getLocalizedUnit = (unit: string) => {
+    switch (unit) {
+      case "szt.":
+        return "szt.";
+      case "kg":
+        return "kg";
+      case "m":
+        return "m";
+      case "litr":
+        return "litr";
+      default:
+        return unit;
+    }
+  };
+
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex h-full flex-col overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
+      <div className="relative h-48 w-full">
+        <Image
+          src={product.main_image_id || "/images/placeholder-product.png"} // Use product image or placeholder
+          alt={product.name}
+          layout="fill"
+          objectFit="cover"
+          className="rounded-t-lg"
+        />
+      </div>
       <CardHeader className="pb-2">
+        <div className="text-xs text-muted-foreground">
+          {product.sku && <span>SKU: {product.sku}</span>}
+          {product.sku && product.barcode && <span className="mx-1">|</span>}
+          {product.barcode && <span>EAN: {product.barcode}</span>}
+        </div>
         <CardTitle className="line-clamp-1 text-lg">{product.name}</CardTitle>
         <CardDescription className="line-clamp-2">
           {product.description || "Brak opisu"}
         </CardDescription>
+        <div className="mt-2 flex items-center justify-between">
+          <div className="text-2xl font-bold text-primary">
+            {totalStock} {getLocalizedUnit(product.default_unit)}
+          </div>
+          <Badge variant={totalStock > 0 ? "secondary" : "destructive"}>
+            {totalStock > 0 ? "W magazynie" : "Brak w magazynie"}
+          </Badge>
+        </div>
       </CardHeader>
       <CardContent className="flex-grow">
-        <div className="mb-2 flex items-center gap-2">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Tag className="h-3 w-3" />
-            SKU: {product.sku}
-          </Badge>
-          {product.barcode && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Tag className="h-3 w-3" />
-              EAN: {product.barcode}
-            </Badge>
-          )}
-        </div>
         <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
           <DollarSign className="h-4 w-4" />
           Cena zakupu:{" "}
@@ -60,13 +86,17 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Warehouse className="h-4 w-4" />
-          Łączny stan:{" "}
+          Lokalizacje:{" "}
           <span className="font-medium text-foreground">
-            {totalStock} {product.default_unit}
+            {
+              new Set(
+                product.variants.flatMap((v) => v.stock_locations.map((sl) => sl.location_id))
+              ).size
+            }
           </span>
         </div>
       </CardContent>
-      <CardFooter className="pt-2">
+      <CardFooter className="flex items-center justify-center pt-2">
         <Link href={`/dashboard/warehouse/products/${product.id}`}>
           <Button variant="outline" className="w-full">
             Zobacz szczegóły
