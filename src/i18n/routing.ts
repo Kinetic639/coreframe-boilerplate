@@ -27,10 +27,7 @@ export const routing = defineRouting({
     },
 
     // === Warehouse module (uzupełnienia) ===
-    "/dashboard/warehouse/products/list": {
-      en: "/dashboard/warehouse/products/list",
-      pl: "/dashboard/magazyn/produkty/lista",
-    },
+
     "/dashboard/warehouse/products/accessories": {
       en: "/dashboard/warehouse/products/accessories",
       pl: "/dashboard/magazyn/produkty/akcesoria",

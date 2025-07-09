@@ -1,4 +1,4 @@
-import { Tables } from "@/lib/types";
+import { Tables } from "../../../supabase/types/types";
 
 // Main organization - GCZ Grupa Cichy-Zasada
 export const mockOrganization: Tables<"organizations"> = {
