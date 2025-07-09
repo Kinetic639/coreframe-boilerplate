@@ -1,4 +1,4 @@
-import { Tables } from "@/lib/types";
+import { Tables } from "../../../supabase/types/types";
 
 export interface BranchWithLocations {
   branch: Tables<"branches">;
