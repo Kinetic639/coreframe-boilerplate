@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, XCircle } from "lucide-react";
+import { Search, XCircle, Filter, Save } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -13,86 +13,129 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProductFilters } from "@/modules/warehouse/products/hooks/use-product-filters";
-import { ProductAdvancedFiltersDialog } from "./product-advanced-filters-dialog";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ProductAdvancedFiltersDialog } from "./product-advanced-filters-dialog"; // Will be created in next step
 
 interface ProductFiltersProps {
   onFilterChange: (filters: {
     search?: string;
-    minPrice?: number | "";
-    maxPrice?: number | "";
-    supplierId?: string | "";
-    locationId?: string | "";
+    minPrice?: number;
+    maxPrice?: number;
+    supplierId?: string;
+    locationId?: string;
     tags?: string[];
     showLowStock?: boolean;
   }) => void;
 }
 
-interface SavedFilterCriteria {
-  search?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  supplierId?: string;
-  locationId?: string;
-  tags?: string[];
-  showLowStock?: boolean;
+interface FilterState {
+  search: string;
+  minPrice: number | "";
+  maxPrice: number | "";
+  supplierId: string;
+  locationId: string;
+  tags: string[];
+  showLowStock: boolean;
 }
 
 export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
-  const { availableSuppliers, availableLocations } = useProductFilters([]);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { availableSuppliers, availableLocations } = useProductFilters([]); // This will be updated to accept filters later
 
-  const [search, setSearch] = React.useState("");
-  const [minPrice, setMinPrice] = React.useState<number | "">("");
-  const [maxPrice, setMaxPrice] = React.useState<number | "">("");
-  const [supplierId, setSupplierId] = React.useState<string | "">("all");
-  const [locationId, setLocationId] = React.useState<string | "">("all");
-  const [advancedFilters, setAdvancedFilters] = React.useState<SavedFilterCriteria>({});
+  const getFilterValue = (param: string) => searchParams.get(param) || "";
+  const getNumberFilterValue = (param: string) => {
+    const value = searchParams.get(param);
+    return value ? parseFloat(value) : "";
+  };
+  const getBooleanFilterValue = (param: string) => searchParams.get(param) === "true";
+  const getArrayFilterValue = (param: string) => {
+    const value = searchParams.get(param);
+    return value ? value.split(",") : [];
+  };
 
+  const [filters, setFilters] = React.useState<FilterState>({
+    search: getFilterValue("search"),
+    minPrice: getNumberFilterValue("minPrice"),
+    maxPrice: getNumberFilterValue("maxPrice"),
+    supplierId: getFilterValue("supplierId") || "all",
+    locationId: getFilterValue("locationId") || "all",
+    tags: getArrayFilterValue("tags"),
+    showLowStock: getBooleanFilterValue("showLowStock"),
+  });
+
+  // Sync URL params with filter state and trigger onFilterChange
   React.useEffect(() => {
+    const newSearchParams = new URLSearchParams();
+
+    const updateParam = (key: string, value: any, defaultValue?: any) => {
+      if (
+        value === defaultValue ||
+        value === "" ||
+        value === undefined ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
+        newSearchParams.delete(key);
+      } else {
+        newSearchParams.set(key, String(value));
+      }
+    };
+
+    updateParam("search", filters.search);
+    updateParam("minPrice", filters.minPrice);
+    updateParam("maxPrice", filters.maxPrice);
+    updateParam("supplierId", filters.supplierId, "all");
+    updateParam("locationId", filters.locationId, "all");
+    updateParam("tags", filters.tags.join(","));
+    updateParam("showLowStock", filters.showLowStock, false);
+
+    // Debounce URL update to prevent excessive re-renders/navigation
     const handler = setTimeout(() => {
+      router.replace(`?${newSearchParams.toString()}`);
       onFilterChange({
-        search,
-        minPrice: minPrice === "" ? undefined : Number(minPrice),
-        maxPrice: maxPrice === "" ? undefined : Number(maxPrice),
-        supplierId: supplierId === "all" ? undefined : supplierId,
-        locationId: locationId === "all" ? undefined : locationId,
-        ...advancedFilters,
+        search: filters.search || undefined,
+        minPrice: filters.minPrice === "" ? undefined : Number(filters.minPrice),
+        maxPrice: filters.maxPrice === "" ? undefined : Number(filters.maxPrice),
+        supplierId: filters.supplierId === "all" ? undefined : filters.supplierId,
+        locationId: filters.locationId === "all" ? undefined : filters.locationId,
+        tags: filters.tags.length > 0 ? filters.tags : undefined,
+        showLowStock: filters.showLowStock || undefined,
       });
     }, 300);
 
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [search, minPrice, maxPrice, supplierId, locationId, advancedFilters, onFilterChange]);
+    return () => clearTimeout(handler);
+  }, [filters, onFilterChange, router, searchParams]);
+
+  // Update local state when URL params change (e.g., from back/forward buttons or direct URL entry)
+  React.useEffect(() => {
+    setFilters({
+      search: getFilterValue("search"),
+      minPrice: getNumberFilterValue("minPrice"),
+      maxPrice: getNumberFilterValue("maxPrice"),
+      supplierId: getFilterValue("supplierId") || "all",
+      locationId: getFilterValue("locationId") || "all",
+      tags: getArrayFilterValue("tags"),
+      showLowStock: getBooleanFilterValue("showLowStock"),
+    });
+  }, [searchParams]);
 
   const handleClearFilters = () => {
-    setSearch("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSupplierId("all");
-    setLocationId("all");
-    setAdvancedFilters({});
+    setFilters({
+      search: "",
+      minPrice: "",
+      maxPrice: "",
+      supplierId: "all",
+      locationId: "all",
+      tags: [],
+      showLowStock: false,
+    });
   };
 
-  const handleApplyAdvancedFilters = (filters: SavedFilterCriteria) => {
-    setAdvancedFilters(filters);
-    // Also update basic filters if they are part of the advanced filters
-    if (filters.search !== undefined) setSearch(filters.search);
-    if (filters.minPrice !== undefined) setMinPrice(filters.minPrice);
-    if (filters.maxPrice !== undefined) setMaxPrice(filters.maxPrice);
-    if (filters.supplierId !== undefined)
-      setSupplierId(filters.supplierId === "" ? "all" : filters.supplierId);
-    if (filters.locationId !== undefined)
-      setLocationId(filters.locationId === "" ? "all" : filters.locationId);
+  const handleApplyAdvancedFilters = (appliedCriteria: FilterState) => {
+    setFilters(appliedCriteria);
   };
 
-  const currentCombinedFilters = {
-    search,
-    minPrice: minPrice === "" ? undefined : Number(minPrice),
-    maxPrice: maxPrice === "" ? undefined : Number(maxPrice),
-    supplierId: supplierId === "all" ? undefined : supplierId,
-    locationId: locationId === "all" ? undefined : locationId,
-    ...advancedFilters,
-  };
+  const [isAdvancedFilterDialogOpen, setIsAdvancedFilterDialogOpen] = React.useState(false);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -102,8 +145,8 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
         <Input
           id="search"
           placeholder="Nazwa, SKU, kod kreskowy..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={filters.search}
+          onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
           className="pl-10"
         />
       </div>
@@ -114,8 +157,13 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
           id="minPrice"
           type="number"
           placeholder="Min. cena"
-          value={minPrice}
-          onChange={(e) => setMinPrice(e.target.value === "" ? "" : parseFloat(e.target.value))}
+          value={filters.minPrice}
+          onChange={(e) =>
+            setFilters((prev) => ({
+              ...prev,
+              minPrice: e.target.value === "" ? "" : parseFloat(e.target.value),
+            }))
+          }
         />
       </div>
 
@@ -125,14 +173,22 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
           id="maxPrice"
           type="number"
           placeholder="Max. cena"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(e.target.value === "" ? "" : parseFloat(e.target.value))}
+          value={filters.maxPrice}
+          onChange={(e) =>
+            setFilters((prev) => ({
+              ...prev,
+              maxPrice: e.target.value === "" ? "" : parseFloat(e.target.value),
+            }))
+          }
         />
       </div>
 
       <div>
         <Label htmlFor="supplier">Dostawca</Label>
-        <Select value={supplierId} onValueChange={setSupplierId}>
+        <Select
+          value={filters.supplierId}
+          onValueChange={(value) => setFilters((prev) => ({ ...prev, supplierId: value }))}
+        >
           <SelectTrigger id="supplier">
             <SelectValue placeholder="Wybierz dostawcę" />
           </SelectTrigger>
@@ -149,7 +205,10 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
 
       <div>
         <Label htmlFor="location">Lokalizacja magazynowa</Label>
-        <Select value={locationId} onValueChange={setLocationId}>
+        <Select
+          value={filters.locationId}
+          onValueChange={(value) => setFilters((prev) => ({ ...prev, locationId: value }))}
+        >
           <SelectTrigger id="location">
             <SelectValue placeholder="Wybierz lokalizację" />
           </SelectTrigger>
@@ -164,18 +223,63 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
         </Select>
       </div>
 
-      <div className="flex items-end">
+      <div className="space-y-2">
+        <Label htmlFor="tags">Tagi (rozdziel przecinkami)</Label>
+        <Input
+          id="tags"
+          placeholder="np. Promocja, Nowość"
+          value={filters.tags.join(", ")}
+          onChange={(e) =>
+            setFilters((prev) => ({
+              ...prev,
+              tags: e.target.value
+                .split(",")
+                .map((tag) => tag.trim())
+                .filter(Boolean),
+            }))
+          }
+        />
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="showLowStock"
+          checked={filters.showLowStock}
+          onChange={(e) => setFilters((prev) => ({ ...prev, showLowStock: e.target.checked }))}
+          className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+        />
+        <Label htmlFor="showLowStock">Niski</Label>
+      </div>
+
+      <div className="flex items-end gap-2">
         <Button variant="outline" onClick={handleClearFilters} className="w-full">
           <XCircle className="mr-2 h-4 w-4" />
           Wyczyść filtry
         </Button>
       </div>
-      <div className="flex items-end">
+      <div className="flex items-end gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setIsAdvancedFilterDialogOpen(true)}
+          className="w-full"
+        >
+          <Save className="mr-2 h-4 w-4" />
+          Zapisz bieżące filtry
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setIsAdvancedFilterDialogOpen(true)}
+          className="w-full"
+        >
+          <Filter className="mr-2 h-4 w-4" />
+          Zarządzaj zapisanymi filtrami
+        </Button>
         <ProductAdvancedFiltersDialog
+          open={isAdvancedFilterDialogOpen}
+          onOpenChange={setIsAdvancedFilterDialogOpen}
           onApplyFilter={handleApplyAdvancedFilters}
-          currentFilters={currentCombinedFilters}
-          availableSuppliers={availableSuppliers}
-          availableLocations={availableLocations}
+          currentFilters={filters}
         />
       </div>
     </div>
