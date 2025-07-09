@@ -13,7 +13,7 @@ import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { Package, Warehouse, DollarSign } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Edit } from "lucide-react";
+import { PackagePlus } from "lucide-react";
 import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
 
 interface ProductCardProps {
@@ -110,8 +110,8 @@ export function ProductCard({ product }: ProductCardProps) {
       </CardContent>
       <CardFooter className="flex items-center justify-between pt-2">
         <Link href={`/dashboard/warehouse/products/${product.id}`} className="flex-grow">
-          <Button variant="outline" className="w-full">
-            Zobacz szczegóły
+          <Button className="w-full" variant="themed">
+            Szczegóły
           </Button>
         </Link>
         <Button
@@ -120,7 +120,7 @@ export function ProductCard({ product }: ProductCardProps) {
           onClick={() => setIsCorrectionDialogOpen(true)}
           className="ml-2 flex-shrink-0"
         >
-          <Edit className="h-4 w-4" />
+          <PackagePlus className="h-4 w-4" />
         </Button>
         <ProductAmountCorrectionDialog
           open={isCorrectionDialogOpen}
