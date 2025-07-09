@@ -229,3 +229,7 @@ export const getMockSuppliers = (): Tables<"suppliers">[] => {
 export const getMockLocations = (): Tables<"locations">[] => {
   return mockLocations;
 };
+
+export const getMockProductById = (id: string): ProductWithDetails | undefined => {
+  return mockProductsData.find((p) => p.id === id);
+};
