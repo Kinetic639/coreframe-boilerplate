@@ -1,10 +1,7 @@
 import { ModuleConfig } from "@/lib/types/module";
-import { loadProductTypes } from "./api/load-product-types";
 import { Widget } from "@/lib/types/widgets";
 
-export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
-  const productTypes = await loadProductTypes(orgId);
-
+export async function getWarehouseModule(): Promise<ModuleConfig> {
   const widgets: Widget[] = [
     {
       id: "warehouse-summary",
@@ -37,34 +34,10 @@ export async function getWarehouseModule(orgId: string): Promise<ModuleConfig> {
     color: "#10b981",
     items: [
       {
-        id: "products",
+        id: "products-list",
         label: "Produkty",
         path: "/dashboard/warehouse/products",
         icon: "Package",
-        submenu: [
-          {
-            id: "products-list",
-            label: "Lista produktów",
-            path: "/dashboard/warehouse/products/list",
-            icon: "List",
-            submenu: [
-              ...productTypes.map((type) => ({
-                id: `type-${type.slug}`,
-                label: type.name,
-                path: `/dashboard/warehouse/products?type=${type.slug}`,
-                icon: "Package",
-              })),
-              // {
-              //   id: "add-type",
-              //   label: "Nowy Typ",
-              //   icon: "PlusCircle",
-              //   type: "action",
-              //   actionId: "addNewProductType",
-              //   allowedUsers: [{ role: "org_owner", scope: "org" }],
-              // },
-            ],
-          },
-        ],
       },
       {
         id: "locations",
