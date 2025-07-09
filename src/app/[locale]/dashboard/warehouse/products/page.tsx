@@ -12,13 +12,31 @@ import { useProductFilters } from "@/modules/warehouse/products/hooks/use-produc
 import { ProductCard } from "@/modules/warehouse/products/components/product-card";
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
-import { PaginationControls } from "@/components/ui/pagination-controls"; // Assuming this component exists or will be created
+import { ProductFormDialog } from "@/modules/warehouse/products/components/product-form-dialog";
+import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { PaginationControls } from "@/components/ui/pagination-controls";
 
 type DisplayMode = "grid" | "list" | "table";
 
 export default function ProductsPage() {
   const allProducts = React.useMemo(() => getMockProducts(), []);
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [selectedProduct, setSelectedProduct] = React.useState<ProductWithDetails | undefined>(
+    undefined
+  );
+
+  const handleAddNew = () => {
+    setSelectedProduct(undefined);
+    setIsFormOpen(true);
+  };
+
+  const handleSaveProduct = (data: any) => {
+    console.log("Saving product:", data);
+    // Here you would typically call an API to save the product
+    // For now, we just log it and close the dialog
+    setIsFormOpen(false);
+  };
 
   const {
     filteredData,
@@ -44,7 +62,7 @@ export default function ProductsPage() {
             Zarządzanie produktami, wariantami i stanami magazynowymi
           </p>
         </div>
-        <Button>
+        <Button onClick={handleAddNew}>
           <Plus className="mr-2 h-4 w-4" />
           Dodaj produkt
         </Button>
@@ -129,6 +147,12 @@ export default function ProductsPage() {
           </CardContent>
         </Card>
       </motion.div>
+      <ProductFormDialog
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        product={selectedProduct}
+        onSave={handleSaveProduct}
+      />
     </div>
   );
 }
