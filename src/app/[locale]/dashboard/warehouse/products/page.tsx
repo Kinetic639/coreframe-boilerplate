@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
+import { ProductLoadingSkeleton } from "@/modules/warehouse/products/components/product-loading-skeleton";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,44 +110,46 @@ export default function ProductsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <Card>
-          <CardHeader>
-            <CardTitle>Lista produktów ({filteredData.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {filteredData.length === 0 ? (
-              <div className="py-12 text-center text-muted-foreground">
-                <h3 className="mb-2 text-lg font-medium">Brak produktów</h3>
-                <p>Nie znaleziono produktów spełniających kryteria filtrowania.</p>
-              </div>
-            ) : (
-              <>
-                {displayMode === "grid" && (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {filteredData.map((product) => (
-                      <ProductCard key={product.id} product={product} />
-                    ))}
-                  </div>
-                )}
-                {displayMode === "list" && (
-                  <div className="space-y-4">
-                    {filteredData.map((product) => (
-                      <ProductList key={product.id} product={product} />
-                    ))}
-                  </div>
-                )}
-                {displayMode === "table" && <ProductTable products={filteredData} />}
-                <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={handlePageChange}
-                  onItemsPerPageChange={handleItemsPerPageChange}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <Suspense fallback={<ProductLoadingSkeleton />}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista produktów ({filteredData.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {filteredData.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <h3 className="mb-2 text-lg font-medium">Brak produktów</h3>
+                  <p>Nie znaleziono produktów spełniających kryteria filtrowania.</p>
+                </div>
+              ) : (
+                <>
+                  {displayMode === "grid" && (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {filteredData.map((product) => (
+                        <ProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )}
+                  {displayMode === "list" && (
+                    <div className="space-y-4">
+                      {filteredData.map((product) => (
+                        <ProductList key={product.id} product={product} />
+                      ))}
+                    </div>
+                  )}
+                  {displayMode === "table" && <ProductTable products={filteredData} />}
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={handlePageChange}
+                    onItemsPerPageChange={handleItemsPerPageChange}
+                  />
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </Suspense>
       </motion.div>
       <ProductFormDialog
         open={isFormOpen}

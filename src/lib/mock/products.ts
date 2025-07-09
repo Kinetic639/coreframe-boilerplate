@@ -1,4 +1,4 @@
-import { Tables } from "@/lib/types";
+import { Tables } from "../../../supabase/types/types";
 import { branchLocationsMap } from "./branches";
 
 // Mock suppliers for automotive products
