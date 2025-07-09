@@ -4,60 +4,41 @@ import * as React from "react";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Package, Warehouse, DollarSign, Tag, Eye } from "lucide-react";
+import { Package, Eye } from "lucide-react";
+import { Link } from "@/i18n/navigation";
+import { Card, CardContent } from "@/components/ui/card";
 
-interface ProductListProps {
-  product: ProductWithDetails;
-}
-
-export function ProductList({ product }: ProductListProps) {
-  const totalStock = product.variants.reduce((sum, variant) => {
-    return sum + variant.stock_locations.reduce((s, sl) => s + sl.quantity, 0);
-  }, 0);
-
-  const firstVariant = product.variants[0];
-  const displayPrice = firstVariant?.inventory_data?.purchase_price || 0;
+export function ProductList({ product }: { product: ProductWithDetails }) {
+  const totalStock = product.variants.reduce(
+    (acc, v) => acc + v.stock_locations.reduce((accSL, sl) => accSL + sl.quantity, 0),
+    0
+  );
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-      <div className="flex-grow space-y-1">
-        <h3 className="line-clamp-1 text-lg font-semibold">{product.name}</h3>
-        <p className="line-clamp-2 text-sm text-muted-foreground">
-          {product.description || "Brak opisu"}
-        </p>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            <Tag className="h-3 w-3" />
-            SKU: {product.sku}
-          </Badge>
-          {product.barcode && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Tag className="h-3 w-3" />
-              EAN: {product.barcode}
-            </Badge>
-          )}
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <DollarSign className="h-3 w-3" />
-            <span className="font-medium text-foreground">{displayPrice.toFixed(2)} PLN</span>
-          </span>
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Package className="h-3 w-3" />
-            <span className="font-medium text-foreground">{product.variants.length} wariantów</span>
-          </span>
-          <span className="flex items-center gap-1 text-muted-foreground">
-            <Warehouse className="h-3 w-3" />
-            <span className="font-medium text-foreground">
-              {totalStock} {product.default_unit}
-            </span>
-          </span>
+    <Card className="transition-all hover:shadow-md">
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
+          <Package className="h-8 w-8 text-muted-foreground" />
         </div>
-      </div>
-      <div className="ml-4 flex-shrink-0">
-        <Button variant="outline" size="sm">
-          <Eye className="mr-2 h-4 w-4" />
-          Szczegóły
-        </Button>
-      </div>
-    </div>
+        <div className="flex-grow">
+          <h3 className="font-semibold">{product.name}</h3>
+          <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+          <p className="text-sm text-muted-foreground">
+            Liczba wariantów: {product.variants.length}
+          </p>
+        </div>
+        <div className="ml-auto flex items-center gap-4">
+          <Badge variant={totalStock > 0 ? "secondary" : "destructive"}>
+            {totalStock > 0 ? `${totalStock} w magazynie` : "Brak w magazynie"}
+          </Badge>
+          <Link href={`/dashboard/warehouse/products/${product.id}`}>
+            <Button variant="outline" size="sm">
+              <Eye className="mr-2 h-4 w-4" />
+              Zobacz
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

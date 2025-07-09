@@ -18,6 +18,8 @@ interface ProductCardProps {
   product: ProductWithDetails;
 }
 
+import { Link } from "@/i18n/navigation";
+
 export function ProductCard({ product }: ProductCardProps) {
   const totalStock = product.variants.reduce((sum, variant) => {
     return sum + variant.stock_locations.reduce((s, sl) => s + sl.quantity, 0);
@@ -65,9 +67,11 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </CardContent>
       <CardFooter className="pt-2">
-        <Button variant="outline" className="w-full">
-          Zobacz szczegóły
-        </Button>
+        <Link href={`/dashboard/warehouse/products/${product.id}`}>
+          <Button variant="outline" className="w-full">
+            Zobacz szczegóły
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
