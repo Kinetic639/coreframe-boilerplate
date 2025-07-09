@@ -231,8 +231,9 @@ const generateMockProducts = (count: number): ProductWithDetails[] => {
       const numStockLocations = Math.floor(random() * 2) + 1;
       for (let k = 0; k < numStockLocations; k++) {
         const randomLocation = mockLocations[Math.floor(random() * mockLocations.length)];
+        const quantity = i % 5 === 0 ? 1 : Math.floor(random() * 200) + 10; // Set to 1 for low stock, otherwise higher
         stockLocations.push({
-          ...createMockStockLocation(product.id, randomLocation.id),
+          ...createMockStockLocation(product.id, randomLocation.id, { quantity }),
           location: randomLocation,
         });
       }
