@@ -13,6 +13,8 @@ import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { Package, Warehouse, DollarSign } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Edit } from "lucide-react";
+import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
 
 interface ProductCardProps {
   product: ProductWithDetails;
@@ -21,6 +23,8 @@ interface ProductCardProps {
 import { Link } from "@/i18n/navigation";
 
 export function ProductCard({ product }: ProductCardProps) {
+  const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = React.useState(false);
+
   const totalStock = product.variants.reduce((sum, variant) => {
     return sum + variant.stock_locations.reduce((s, sl) => s + sl.quantity, 0);
   }, 0);
@@ -104,12 +108,25 @@ export function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-center pt-2">
-        <Link href={`/dashboard/warehouse/products/${product.id}`}>
+      <CardFooter className="flex items-center justify-between pt-2">
+        <Link href={`/dashboard/warehouse/products/${product.id}`} className="flex-grow">
           <Button variant="outline" className="w-full">
             Zobacz szczegóły
           </Button>
         </Link>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsCorrectionDialogOpen(true)}
+          className="ml-2 flex-shrink-0"
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+        <ProductAmountCorrectionDialog
+          open={isCorrectionDialogOpen}
+          onOpenChange={setIsCorrectionDialogOpen}
+          product={product}
+        />
       </CardFooter>
     </Card>
   );
