@@ -23,31 +23,19 @@ interface UseProductFiltersResult {
   itemsPerPage: number;
   handlePageChange: (page: number) => void;
   handleItemsPerPageChange: (items: number) => void;
-  handleFilterChange: (filters: ProductFilters) => void;
   availableSuppliers: Tables<"suppliers">[];
   availableLocations: Tables<"locations">[];
 }
 
-export const useProductFilters = (products: ProductWithDetails[]): UseProductFiltersResult => {
-  const [filters, setFilters] = useState<ProductFilters>({
-    search: undefined,
-    minPrice: undefined,
-    maxPrice: undefined,
-    supplierId: undefined,
-    locationId: undefined,
-    tags: undefined,
-    showLowStock: undefined,
-  });
+export const useProductFilters = (
+  products: ProductWithDetails[],
+  filters: ProductFilters
+): UseProductFiltersResult => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const availableSuppliers = useMemo(() => getMockSuppliers(), []);
   const availableLocations = useMemo(() => getMockLocations(), []);
-
-  const handleFilterChange = useCallback((newFilters: Partial<ProductFilters>) => {
-    setFilters((prevFilters) => ({ ...prevFilters, ...newFilters }));
-    setCurrentPage(1); // Reset to first page on filter change
-  }, []);
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -133,7 +121,6 @@ export const useProductFilters = (products: ProductWithDetails[]): UseProductFil
     itemsPerPage,
     handlePageChange,
     handleItemsPerPageChange,
-    handleFilterChange,
     availableSuppliers,
     availableLocations,
   };

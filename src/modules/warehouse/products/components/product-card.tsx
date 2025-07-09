@@ -76,7 +76,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </CardDescription>
         <div className="mt-2 flex items-center justify-between">
           <div
-            className={`text-2xl font-bold ${totalStock > 0 && totalStock < 10 ? "text-red-500" : totalStock === 0 ? "text-red-500" : "text-primary"}`}
+            className={`text-2xl font-bold ${totalStock > 0 && totalStock < 10 ? "text-red-500" : totalStock === 0 ? "text-red-500" : "text-foreground"}`}
           >
             {totalStock} {getLocalizedUnit(product.default_unit)}
           </div>

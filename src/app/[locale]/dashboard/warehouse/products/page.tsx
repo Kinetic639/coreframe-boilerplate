@@ -17,6 +17,7 @@ import { ProductTable } from "@/modules/warehouse/products/components/product-ta
 import { ProductFormDialog } from "@/modules/warehouse/products/components/product-form-dialog";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { PaginationControls } from "@/components/ui/pagination-controls";
+import { useSearchParams } from "next/navigation";
 
 type DisplayMode = "grid" | "list" | "table";
 
@@ -40,6 +41,9 @@ export default function ProductsPage() {
     setIsFormOpen(false);
   };
 
+  const searchParams = useSearchParams();
+  const [currentFilters, setCurrentFilters] = React.useState<any>({});
+
   const {
     filteredData,
     currentPage,
@@ -47,8 +51,26 @@ export default function ProductsPage() {
     itemsPerPage,
     handlePageChange,
     handleItemsPerPageChange,
-    handleFilterChange,
-  } = useProductFilters(allProducts);
+  } = useProductFilters(allProducts, currentFilters);
+
+  React.useEffect(() => {
+    // This effect ensures that when the URL search params change, the currentFilters state is updated.
+    // This is crucial for useProductFilters to react to URL-driven filter changes.
+    const filtersFromUrl = {
+      search: searchParams.get("search") || undefined,
+      minPrice: searchParams.get("minPrice")
+        ? parseFloat(searchParams.get("minPrice")!)
+        : undefined,
+      maxPrice: searchParams.get("maxPrice")
+        ? parseFloat(searchParams.get("maxPrice")!)
+        : undefined,
+      supplierId: searchParams.get("supplierId") || undefined,
+      locationId: searchParams.get("locationId") || undefined,
+      tags: searchParams.get("tags") ? searchParams.get("tags")!.split(",") : undefined,
+      showLowStock: searchParams.get("showLowStock") === "true" || undefined,
+    };
+    setCurrentFilters(filtersFromUrl);
+  }, [searchParams]);
 
   return (
     <div className="space-y-6">
@@ -82,7 +104,7 @@ export default function ProductsPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
             <div className="flex-grow">
-              <ProductFilters onFilterChange={handleFilterChange} />
+              <ProductFilters onFilterChange={setCurrentFilters} />
             </div>
             <ToggleGroup
               type="single"
