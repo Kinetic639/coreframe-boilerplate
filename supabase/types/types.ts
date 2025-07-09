@@ -972,6 +972,7 @@ export type Database = {
       };
       users: {
         Row: {
+          avatar_url: string | null;
           created_at: string | null;
           default_branch_id: string | null;
           deleted_at: string | null;
@@ -982,6 +983,7 @@ export type Database = {
           status_id: string | null;
         };
         Insert: {
+          avatar_url?: string | null;
           created_at?: string | null;
           default_branch_id?: string | null;
           deleted_at?: string | null;
@@ -992,6 +994,7 @@ export type Database = {
           status_id?: string | null;
         };
         Update: {
+          avatar_url?: string | null;
           created_at?: string | null;
           default_branch_id?: string | null;
           deleted_at?: string | null;
