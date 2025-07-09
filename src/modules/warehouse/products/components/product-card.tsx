@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
-import { Badge } from "@/components/ui/badge";
 import { Package, Warehouse, DollarSign } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,17 @@ export function ProductCard({ product }: ProductCardProps) {
   };
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
+    <Card className="relative flex h-full flex-col overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
+      {totalStock > 0 && totalStock < 10 && (
+        <div className="absolute right-2 top-2 z-10 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">
+          NISKI STAN
+        </div>
+      )}
+      {totalStock === 0 && (
+        <div className="absolute right-2 top-2 z-10 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">
+          BRAK W MAGAZYNIE
+        </div>
+      )}
       <div className="relative h-48 w-full">
         <Image
           src={product.main_image_id || "/images/placeholder-product.png"} // Use product image or placeholder
@@ -66,12 +75,11 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.description || "Brak opisu"}
         </CardDescription>
         <div className="mt-2 flex items-center justify-between">
-          <div className="text-2xl font-bold text-primary">
+          <div
+            className={`text-2xl font-bold ${totalStock > 0 && totalStock < 10 ? "text-red-500" : totalStock === 0 ? "text-red-500" : "text-primary"}`}
+          >
             {totalStock} {getLocalizedUnit(product.default_unit)}
           </div>
-          <Badge variant={totalStock > 0 ? "secondary" : "destructive"}>
-            {totalStock > 0 ? "W magazynie" : "Brak w magazynie"}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent className="flex-grow">
