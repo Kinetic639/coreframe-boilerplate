@@ -46,6 +46,32 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         icon: "MapPin",
       },
       {
+        id: "audits",
+        label: "Audyty",
+        icon: "ClipboardCheck", // lub inna ikona pasująca do audytów
+        path: "/dashboard/warehouse/audits",
+        submenu: [
+          {
+            id: "audit-overview",
+            label: "Audyty magazynowe",
+            path: "/dashboard/warehouse/audits",
+            icon: "ClipboardCheck",
+          },
+          {
+            id: "audit-schedule",
+            label: "Grafik audytów",
+            path: "/dashboard/warehouse/audits/schedule",
+            icon: "CalendarDays",
+          },
+          {
+            id: "audit-history",
+            label: "Historia audytów",
+            path: "/dashboard/warehouse/audits/history",
+            icon: "History",
+          },
+        ],
+      },
+      {
         id: "labels",
         label: "Etykiety i szablony",
         icon: "Tag",
@@ -63,7 +89,6 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             path: "/dashboard/warehouse/labels/locations",
             icon: "MapPin",
           },
-
           {
             id: "label-templates",
             label: "Szablony etykiet",
