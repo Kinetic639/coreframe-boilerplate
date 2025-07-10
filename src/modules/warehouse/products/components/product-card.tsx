@@ -10,10 +10,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
-import { Package, Warehouse, DollarSign } from "lucide-react";
+import { Package, Warehouse, DollarSign, EllipsisVertical } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { PackagePlus } from "lucide-react";
 import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
 
 interface ProductCardProps {
@@ -120,7 +119,7 @@ export function ProductCard({ product }: ProductCardProps) {
           onClick={() => setIsCorrectionDialogOpen(true)}
           className="ml-2 flex-shrink-0"
         >
-          <PackagePlus className="h-4 w-4" />
+          <EllipsisVertical className="h-4 w-4" />
         </Button>
         <ProductAmountCorrectionDialog
           open={isCorrectionDialogOpen}
