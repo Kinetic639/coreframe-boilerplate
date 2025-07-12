@@ -5,6 +5,7 @@ import HasAnyRoleServer from "@/components/auth/HasAnyRoleServer";
 import { getAllWidgets } from "@/modules";
 import { WidgetRenderer } from "@/modules/WidgetRenderer";
 import { UserRoleFromToken } from "@/lib/types/user";
+import PermissionDebug from "@/components/debug/PermissionDebug";
 
 export default async function DeliveriesPage() {
   const supabase = await createClient();
@@ -82,6 +83,10 @@ export default async function DeliveriesPage() {
       >
         <div className="border bg-purple-100 p-4">✅ Dostęp: dowolny admin</div>
       </HasAnyRoleServer>
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold">Dashboard</h1>
+        <PermissionDebug />
+      </div>
     </div>
   );
 }

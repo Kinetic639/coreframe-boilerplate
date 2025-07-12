@@ -150,13 +150,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "invitations_role_id_fkey";
-            columns: ["role_id"];
-            isOneToOne: false;
-            referencedRelation: "roles";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "invitations_team_id_fkey";
             columns: ["team_id"];
             isOneToOne: false;
@@ -380,18 +373,21 @@ export type Database = {
       };
       permissions: {
         Row: {
+          deleted_at: string | null;
           id: string;
-          label: string;
+          label: string | null;
           slug: string;
         };
         Insert: {
+          deleted_at?: string | null;
           id?: string;
-          label: string;
+          label?: string | null;
           slug: string;
         };
         Update: {
+          deleted_at?: string | null;
           id?: string;
-          label?: string;
+          label?: string | null;
           slug?: string;
         };
         Relationships: [];
@@ -801,16 +797,22 @@ export type Database = {
       };
       role_permissions: {
         Row: {
+          allowed: boolean;
+          deleted_at: string | null;
           id: string;
           permission_id: string;
           role_id: string;
         };
         Insert: {
+          allowed?: boolean;
+          deleted_at?: string | null;
           id?: string;
           permission_id: string;
           role_id: string;
         };
         Update: {
+          allowed?: boolean;
+          deleted_at?: string | null;
           id?: string;
           permission_id?: string;
           role_id?: string;
@@ -834,24 +836,35 @@ export type Database = {
       };
       roles: {
         Row: {
-          description: string | null;
+          deleted_at: string | null;
           id: string;
-          label: string;
-          slug: string;
+          is_basic: boolean;
+          name: string;
+          organization_id: string | null;
         };
         Insert: {
-          description?: string | null;
+          deleted_at?: string | null;
           id?: string;
-          label: string;
-          slug: string;
+          is_basic?: boolean;
+          name: string;
+          organization_id?: string | null;
         };
         Update: {
-          description?: string | null;
+          deleted_at?: string | null;
           id?: string;
-          label?: string;
-          slug?: string;
+          is_basic?: boolean;
+          name?: string;
+          organization_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "roles_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       stock_movements: {
         Row: {
@@ -1126,6 +1139,36 @@ export type Database = {
           },
         ];
       };
+      user_permission_overrides: {
+        Row: {
+          allowed: boolean;
+          deleted_at: string | null;
+          id: string;
+          permission_id: string;
+          scope: string;
+          scope_id: string;
+          user_id: string;
+        };
+        Insert: {
+          allowed: boolean;
+          deleted_at?: string | null;
+          id?: string;
+          permission_id: string;
+          scope: string;
+          scope_id: string;
+          user_id: string;
+        };
+        Update: {
+          allowed?: boolean;
+          deleted_at?: string | null;
+          id?: string;
+          permission_id?: string;
+          scope?: string;
+          scope_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_preferences: {
         Row: {
           created_at: string | null;
@@ -1191,71 +1234,37 @@ export type Database = {
           },
         ];
       };
-      user_roles: {
+      user_role_assignments: {
         Row: {
-          branch_id: string | null;
-          created_at: string | null;
           deleted_at: string | null;
           id: string;
-          organization_id: string | null;
           role_id: string;
-          team_id: string | null;
+          scope: string;
+          scope_id: string;
           user_id: string;
         };
         Insert: {
-          branch_id?: string | null;
-          created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
-          organization_id?: string | null;
           role_id: string;
-          team_id?: string | null;
+          scope: string;
+          scope_id: string;
           user_id: string;
         };
         Update: {
-          branch_id?: string | null;
-          created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
-          organization_id?: string | null;
           role_id?: string;
-          team_id?: string | null;
+          scope?: string;
+          scope_id?: string;
           user_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "user_roles_branch_id_fkey";
-            columns: ["branch_id"];
-            isOneToOne: false;
-            referencedRelation: "branches";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_roles_organization_id_fkey";
-            columns: ["organization_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_roles_role_id_fkey";
+            foreignKeyName: "user_role_assignments_role_id_fkey";
             columns: ["role_id"];
             isOneToOne: false;
             referencedRelation: "roles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_roles_team_id_fkey";
-            columns: ["team_id"];
-            isOneToOne: false;
-            referencedRelation: "teams";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
