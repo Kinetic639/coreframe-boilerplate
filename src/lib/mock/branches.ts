@@ -1,4 +1,5 @@
 import { Tables } from "../../../supabase/types/types";
+import { getUsersByBranch } from "./organization";
 
 export interface BranchWithLocations {
   branch: Tables<"branches">;
@@ -60,6 +61,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "war-2",
@@ -77,6 +79,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "war-3",
@@ -94,6 +97,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "war-4",
@@ -111,6 +115,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "war-5",
@@ -128,6 +133,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "war-6",
@@ -145,6 +151,7 @@ const warsawLocations: Tables<"locations">[] = [
     created_at: "2023-01-15T00:00:00.000Z",
     updated_at: "2024-01-15T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
 ];
 
@@ -167,6 +174,7 @@ const krakowLocations: Tables<"locations">[] = [
     created_at: "2023-02-01T00:00:00.000Z",
     updated_at: "2024-01-10T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "kra-2",
@@ -184,6 +192,7 @@ const krakowLocations: Tables<"locations">[] = [
     created_at: "2023-02-01T00:00:00.000Z",
     updated_at: "2024-01-10T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "kra-3",
@@ -201,6 +210,7 @@ const krakowLocations: Tables<"locations">[] = [
     created_at: "2023-02-01T00:00:00.000Z",
     updated_at: "2024-01-10T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "kra-4",
@@ -218,6 +228,7 @@ const krakowLocations: Tables<"locations">[] = [
     created_at: "2023-02-01T00:00:00.000Z",
     updated_at: "2024-01-10T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
 ];
 
@@ -240,6 +251,7 @@ const gdanskLocations: Tables<"locations">[] = [
     created_at: "2023-02-15T00:00:00.000Z",
     updated_at: "2024-01-05T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "gda-2",
@@ -257,6 +269,7 @@ const gdanskLocations: Tables<"locations">[] = [
     created_at: "2023-02-15T00:00:00.000Z",
     updated_at: "2024-01-05T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "gda-3",
@@ -274,6 +287,7 @@ const gdanskLocations: Tables<"locations">[] = [
     created_at: "2023-02-15T00:00:00.000Z",
     updated_at: "2024-01-05T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "gda-4",
@@ -291,6 +305,7 @@ const gdanskLocations: Tables<"locations">[] = [
     created_at: "2023-02-15T00:00:00.000Z",
     updated_at: "2024-01-05T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "gda-5",
@@ -308,6 +323,7 @@ const gdanskLocations: Tables<"locations">[] = [
     created_at: "2023-02-15T00:00:00.000Z",
     updated_at: "2024-01-05T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
 ];
 
@@ -330,6 +346,7 @@ const wroclawLocations: Tables<"locations">[] = [
     created_at: "2023-03-01T00:00:00.000Z",
     updated_at: "2023-12-20T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "wro-2",
@@ -347,6 +364,7 @@ const wroclawLocations: Tables<"locations">[] = [
     created_at: "2023-03-01T00:00:00.000Z",
     updated_at: "2023-12-20T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "wro-3",
@@ -364,6 +382,7 @@ const wroclawLocations: Tables<"locations">[] = [
     created_at: "2023-03-01T00:00:00.000Z",
     updated_at: "2023-12-20T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
   {
     id: "wro-4",
@@ -381,6 +400,7 @@ const wroclawLocations: Tables<"locations">[] = [
     created_at: "2023-03-01T00:00:00.000Z",
     updated_at: "2023-12-20T00:00:00.000Z",
     deleted_at: null,
+    is_virtual: false,
   },
 ];
 
@@ -444,4 +464,11 @@ export function getTotalProductCountByBranch(branchId: string): number {
   if (!counts) return 0;
 
   return Object.values(counts).reduce((total, count) => total + count, 0);
+}
+export function getBranchesWithStats() {
+  return mockBranches.map((branch) => ({
+    ...branch,
+    userCount: getUsersByBranch(branch.id).length,
+    productCount: getTotalProductCountByBranch(branch.id),
+  }));
 }
