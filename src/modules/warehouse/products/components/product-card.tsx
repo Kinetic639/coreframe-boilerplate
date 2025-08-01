@@ -9,14 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { ProductWithVariants } from "@/modules/warehouse/api/products";
 import { Package, Warehouse, DollarSign, EllipsisVertical } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
 
 interface ProductCardProps {
-  product: ProductWithDetails;
+  product: ProductWithVariants;
 }
 
 import { Link } from "@/i18n/navigation";
@@ -24,12 +24,12 @@ import { Link } from "@/i18n/navigation";
 export function ProductCard({ product }: ProductCardProps) {
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = React.useState(false);
 
-  const totalStock = product.variants.reduce((sum, variant) => {
-    return sum + variant.stock_locations.reduce((s, sl) => s + sl.quantity, 0);
-  }, 0);
+  const totalStock =
+    product.variants?.reduce((sum, variant) => {
+      return sum + (variant.stock_locations?.reduce((s, sl) => s + (sl.quantity || 0), 0) || 0);
+    }, 0) || 0;
 
-  const firstVariant = product.variants[0];
-  const displayPrice = firstVariant?.inventory_data?.purchase_price || 0;
+  const displayPrice = product.inventory_data?.purchase_price || 0;
 
   const getLocalizedUnit = (unit: string) => {
     switch (unit) {
@@ -93,7 +93,8 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Package className="h-4 w-4" />
-          Warianty: <span className="font-medium text-foreground">{product.variants.length}</span>
+          Warianty:{" "}
+          <span className="font-medium text-foreground">{product.variants?.length || 1}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Warehouse className="h-4 w-4" />
@@ -101,7 +102,9 @@ export function ProductCard({ product }: ProductCardProps) {
           <span className="font-medium text-foreground">
             {
               new Set(
-                product.variants.flatMap((v) => v.stock_locations.map((sl) => sl.location_id))
+                product.variants?.flatMap(
+                  (v) => v.stock_locations?.map((sl) => sl.location_id) || []
+                ) || []
               ).size
             }
           </span>

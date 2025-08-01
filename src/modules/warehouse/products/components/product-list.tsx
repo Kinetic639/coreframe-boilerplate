@@ -1,18 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { ProductWithVariants } from "@/modules/warehouse/api/products";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, Eye } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 
-export function ProductList({ product }: { product: ProductWithDetails }) {
-  const totalStock = product.variants.reduce(
-    (acc, v) => acc + v.stock_locations.reduce((accSL, sl) => accSL + sl.quantity, 0),
-    0
-  );
+export function ProductList({ product }: { product: ProductWithVariants }) {
+  const totalStock =
+    product.variants?.reduce(
+      (acc, v) =>
+        acc + (v.stock_locations?.reduce((accSL, sl) => accSL + (sl.quantity || 0), 0) || 0),
+      0
+    ) || 0;
 
   return (
     <Card className="transition-all hover:shadow-md">

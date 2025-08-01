@@ -8,26 +8,39 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List, Table as TableIcon } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { getMockProducts } from "@/lib/mock/products-extended";
 import { ProductFilters } from "@/modules/warehouse/products/components/product-filters";
-import { useProductFilters } from "@/modules/warehouse/products/hooks/use-product-filters";
 import { ProductCard } from "@/modules/warehouse/products/components/product-card";
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
 import { NewProductFormDialog } from "@/modules/warehouse/products/components/new-product-form-dialog";
-import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { productService, ProductWithVariants } from "@/modules/warehouse/api/products";
+import { useAppStore } from "@/lib/stores/app-store";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useSearchParams } from "next/navigation";
 
 type DisplayMode = "grid" | "list" | "table";
 
 export default function ProductsPage() {
-  const allProducts = React.useMemo(() => getMockProducts(), []);
+  const { activeBranchId, isLoaded } = useAppStore();
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
   const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [selectedProduct, setSelectedProduct] = React.useState<ProductWithDetails | undefined>(
+  const [selectedProduct, setSelectedProduct] = React.useState<ProductWithVariants | undefined>(
     undefined
   );
+
+  // Product data state
+  const [products, setProducts] = React.useState<ProductWithVariants[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(12);
+  const [totalProducts, setTotalProducts] = React.useState(0);
+
+  // Filter state
+  const searchParams = useSearchParams();
+  const [currentFilters, setCurrentFilters] = React.useState<any>({});
 
   const handleAddNew = () => {
     setSelectedProduct(undefined);
@@ -35,27 +48,60 @@ export default function ProductsPage() {
   };
 
   const handleProductSuccess = () => {
-    // Refresh the product list or show success message
+    // Refresh the product list
+    loadProducts();
     console.log("Product operation completed successfully");
-    // TODO: Add actual product list refresh logic here
-    // For now, we'll just close the dialog (handled by the form component)
   };
 
-  const searchParams = useSearchParams();
-  const [currentFilters, setCurrentFilters] = React.useState<any>({});
+  // Load products from Supabase
+  const loadProducts = React.useCallback(async () => {
+    if (!activeBranchId || !isLoaded) return;
 
-  const {
-    filteredData,
-    currentPage,
-    totalPages,
-    itemsPerPage,
-    handlePageChange,
-    handleItemsPerPageChange,
-  } = useProductFilters(allProducts, currentFilters);
+    setLoading(true);
+    setError(null);
 
+    try {
+      const filters = {
+        search: currentFilters.search,
+        minPrice: currentFilters.minPrice,
+        maxPrice: currentFilters.maxPrice,
+        locationId: currentFilters.locationId,
+        showLowStock: currentFilters.showLowStock,
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage,
+      };
+
+      const result = await productService.getProductsByBranch(activeBranchId, filters);
+      setProducts(result.products);
+      setTotalProducts(result.total);
+    } catch (err) {
+      console.error("Error loading products:", err);
+      setError("Błąd podczas ładowania produktów");
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeBranchId, isLoaded, currentFilters, currentPage, itemsPerPage]);
+
+  // Load products when dependencies change
   React.useEffect(() => {
-    // This effect ensures that when the URL search params change, the currentFilters state is updated.
-    // This is crucial for useProductFilters to react to URL-driven filter changes.
+    loadProducts();
+  }, [loadProducts]);
+
+  // Handle pagination
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page
+  };
+
+  const totalPages = Math.ceil(totalProducts / itemsPerPage);
+
+  // Update filters from URL params
+  React.useEffect(() => {
     const filtersFromUrl = {
       search: searchParams.get("search") || undefined,
       minPrice: searchParams.get("minPrice")
@@ -64,12 +110,11 @@ export default function ProductsPage() {
       maxPrice: searchParams.get("maxPrice")
         ? parseFloat(searchParams.get("maxPrice")!)
         : undefined,
-      supplierId: searchParams.get("supplierId") || undefined,
       locationId: searchParams.get("locationId") || undefined,
-      tags: searchParams.get("tags") ? searchParams.get("tags")!.split(",") : undefined,
       showLowStock: searchParams.get("showLowStock") === "true" || undefined,
     };
     setCurrentFilters(filtersFromUrl);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [searchParams]);
 
   return (
@@ -135,38 +180,68 @@ export default function ProductsPage() {
         <Suspense fallback={<ProductLoadingSkeleton />}>
           <Card>
             <CardHeader>
-              <CardTitle>Lista produktów ({filteredData.length})</CardTitle>
+              <CardTitle>Lista produktów ({loading ? "..." : totalProducts})</CardTitle>
             </CardHeader>
             <CardContent>
-              {filteredData.length === 0 ? (
+              {loading ? (
+                <ProductLoadingSkeleton />
+              ) : error ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <h3 className="mb-2 text-lg font-medium text-red-600">Błąd</h3>
+                  <p>{error}</p>
+                  <Button onClick={loadProducts} variant="outline" className="mt-4">
+                    Spróbuj ponownie
+                  </Button>
+                </div>
+              ) : products.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground">
                   <h3 className="mb-2 text-lg font-medium">Brak produktów</h3>
-                  <p>Nie znaleziono produktów spełniających kryteria filtrowania.</p>
+                  <p>
+                    {currentFilters.search ||
+                    currentFilters.minPrice ||
+                    currentFilters.maxPrice ||
+                    currentFilters.locationId ||
+                    currentFilters.showLowStock
+                      ? "Nie znaleziono produktów spełniających kryteria filtrowania."
+                      : "Nie dodano jeszcze żadnych produktów do tego oddziału."}
+                  </p>
+                  {!currentFilters.search &&
+                    !currentFilters.minPrice &&
+                    !currentFilters.maxPrice &&
+                    !currentFilters.locationId &&
+                    !currentFilters.showLowStock && (
+                      <Button onClick={handleAddNew} className="mt-4">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Dodaj pierwszy produkt
+                      </Button>
+                    )}
                 </div>
               ) : (
                 <>
                   {displayMode === "grid" && (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {filteredData.map((product) => (
+                      {products.map((product) => (
                         <ProductCard key={product.id} product={product} />
                       ))}
                     </div>
                   )}
                   {displayMode === "list" && (
                     <div className="space-y-4">
-                      {filteredData.map((product) => (
+                      {products.map((product) => (
                         <ProductList key={product.id} product={product} />
                       ))}
                     </div>
                   )}
-                  {displayMode === "table" && <ProductTable products={filteredData} />}
-                  <PaginationControls
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    itemsPerPage={itemsPerPage}
-                    onPageChange={handlePageChange}
-                    onItemsPerPageChange={handleItemsPerPageChange}
-                  />
+                  {displayMode === "table" && <ProductTable products={products} />}
+                  {totalPages > 1 && (
+                    <PaginationControls
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      itemsPerPage={itemsPerPage}
+                      onPageChange={handlePageChange}
+                      onItemsPerPageChange={handleItemsPerPageChange}
+                    />
+                  )}
                 </>
               )}
             </CardContent>
