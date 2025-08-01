@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { ProductWithVariants } from "@/modules/warehouse/api/products";
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import { Eye } from "lucide-react";
 
 import { Link } from "@/i18n/navigation";
 
-export function ProductTable({ products }: { products: ProductWithDetails[] }) {
+export function ProductTable({ products }: { products: ProductWithVariants[] }) {
   return (
     <Table>
       <TableHeader>
@@ -29,15 +29,18 @@ export function ProductTable({ products }: { products: ProductWithDetails[] }) {
       </TableHeader>
       <TableBody>
         {products.map((product) => {
-          const totalStock = product.variants.reduce(
-            (acc, v) => acc + v.stock_locations.reduce((accSL, sl) => accSL + sl.quantity, 0),
-            0
-          );
+          const totalStock =
+            product.variants?.reduce(
+              (acc, v) =>
+                acc +
+                (v.stock_locations?.reduce((accSL, sl) => accSL + (sl.quantity || 0), 0) || 0),
+              0
+            ) || 0;
           return (
             <TableRow key={product.id}>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell>{product.sku}</TableCell>
-              <TableCell>{product.variants.length}</TableCell>
+              <TableCell>{product.variants?.length || 1}</TableCell>
               <TableCell>{totalStock}</TableCell>
               <TableCell className="text-right">
                 <Link href={`/dashboard/warehouse/products/${product.id}`}>

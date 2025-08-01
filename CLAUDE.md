@@ -99,7 +99,7 @@ The application uses a modular architecture where features are organized as modu
 
 ### 1. Home Module (`/dashboard/start`)
 
-**Purpose**: Dashboard home page with news and announcements
+**Purpose**: Dashboard home page with news and announcements  
 **Features**:
 
 - News feed display (`/dashboard/start`)
@@ -108,105 +108,119 @@ The application uses a modular architecture where features are organized as modu
 
 ### 2. Warehouse Module (`/dashboard/warehouse/*`)
 
-**Purpose**: Complete warehouse management system
-**Color Theme**: `#10b981` (green)
+**Purpose**: Complete warehouse management system with B2B and ecommerce integration  
+**Color Theme**: `#10b981` (green)  
 **Features**:
 
-#### Products Management (`/dashboard/warehouse/products`)
+#### Products Management
 
-- **Product Cards/List/Table Views**: Multi-view product display with grid, list, and table modes
-- **Advanced Filtering**: Search, price range, supplier, location, tags, low stock filtering
-- **Product Details**: SKU, EAN, variants, stock levels, purchase prices
-- **Stock Management**: Real-time stock tracking across multiple locations
-- **Amount Corrections**: Quick stock adjustment dialogs
-- **CRUD Operations**: Add, edit, delete products with form dialogs
-- **Pagination**: Server-side pagination with customizable items per page
+- Normalized structure:
+  - `products` – base data
+  - `product_variants` – sizes/colors/forms
+  - `product_inventory_data` – per-org/branch purchase data
+  - `product_ecommerce_data` – pricing, visibility, descriptions
+  - `product_location_stock` – per-location stock tracking
+  - `product_images` – ecommerce/magazine visuals
+- Multi-view layout (cards, list, table)
+- Filtering by tags, suppliers, location, price, availability
+- Real-time stock display and quantity corrections
+- Full CRUD with dialogs
+- Pagination and mobile-friendly design
 
-#### Locations Management (`/dashboard/warehouse/locations`)
+#### Locations Management
 
-- **Hierarchical Location Tree**: Nested location structure management
-- **Location CRUD**: Add, edit, delete warehouse locations
-- **QR Code Generation**: Generate QR codes for locations
-- **Mobile-responsive**: Separate mobile location tree component
+- Hierarchical location tree (3 levels)
+- Each location with icon name + HEX color
+- QR code generation
+- Mobile version of tree
+- Soft delete with `deleted_at` support
 
-#### Audits System (`/dashboard/warehouse/audits`)
+#### Audits System
 
-- **Audit Overview**: Main audit dashboard
-- **Audit Scheduling** (`/schedule`): Plan and schedule warehouse audits
-- **Audit History** (`/history`): Historical audit records
-- **Audit Process Dialogs**: Start, process, and complete audits
-- **Quantity Corrections**: Handle stock discrepancies during audits
+- Audit scheduler (e.g. weekly)
+- Historical audit logs with discrepancy metrics
+- Interactive audit flow with step-by-step modal
+- Stock correction during audit
+- Trigger points in tree and details view
 
-#### Labels & Templates (`/dashboard/warehouse/labels`)
+#### Labels & Templates
 
-- **Product Labels** (`/products`): Generate product labels
-- **Location Labels** (`/locations`): Generate location labels
-- **Label Templates** (`/templates`): Manage label templates
+- Label generator for products and locations
+- Templates manager
 
-#### Suppliers Management (`/dashboard/warehouse/suppliers`)
+#### Suppliers
 
-- **Supplier List** (`/list`): Manage supplier information
-- **Deliveries** (`/deliveries`): Track incoming deliveries
+- Supplier CRUD
+- Incoming deliveries management
+
+#### B2B Katalog (Business Clients)
+
+- Supplier:
+  - Own admin panel
+  - Invite clients (manual invites)
+  - Public/private catalogs
+  - Client-specific pricing/rates
+  - View and process orders from clients
+- Client:
+  - Invite-only access
+  - Can be linked to many suppliers
+  - See supplier-specific catalog
+  - Place orders based on their warehouse stock
+
+> This replaces traditional B2B with spreadsheets and paper workflows.
 
 ### 3. Teams Module (`/dashboard/teams/*`)
 
-**Purpose**: Team collaboration and communication
-**Color Theme**: `#8b5cf6` (purple)
+**Purpose**: Team collaboration and communication  
+**Color Theme**: `#8b5cf6` (purple)  
 **Features**:
 
-- **Team Members** (`/members`): Manage team member profiles
-- **Communication Hub** (`/communication`):
-  - Team Chat (`/chat`): Internal team messaging
-  - Announcements (`/announcements`): Team-wide notifications
-- **Kanban Board** (`/kanban`): Task and project management
-- **Team Calendar** (`/calendar`): Shared team scheduling
+- Member management
+- Chat, announcements
+- Kanban board
+- Shared calendar
 
 ### 4. Organization Management Module (`/dashboard/organization/*`)
 
-**Purpose**: Administrative panel for organization management
-**Color Theme**: `#6366f1` (indigo)
+**Purpose**: Administrative control for organization and branches  
+**Color Theme**: `#6366f1` (indigo)  
 **Features**:
 
-- **Organization Profile** (`/profile`): Company profile management with logo upload
-- **Branches Management** (`/branches`): Multi-branch organization support
-- **User Management** (`/users`):
-  - User List (`/list`): View and manage all users
-  - Roles & Permissions (`/roles`): RBAC system management
+- Org profile (logo, description, slug)
+- Branches list and CRUD
+- User roles and permissions
 
 ### 5. Support Module (`/dashboard/support/*`)
 
-**Purpose**: Help system and customer support
+**Purpose**: Help and feedback  
 **Features**:
 
-- **Help Center** (`/help`): Documentation and FAQ
-- **Contact Support** (`/contact`): Support ticket system
-- **Announcements** (`/announcements`):
-  - Changelog (`/changelog`): System updates and changes
-  - System Status (`/status`): Service status monitoring
-  - Roadmap (`/roadmap`): Future development plans
+- Help Center and FAQ
+- Contact Support system
+- Announcements, changelog, roadmap
+- System status monitoring
 
 ## Module Architecture Details
 
 ### Dynamic Module Loading
 
-- Modules are loaded dynamically based on organization context via `getAllModules(activeOrgId)`
-- Each module defines widgets that appear on the dashboard home page
-- Module configurations include permissions and role-based access control
+- Modules loaded via `getAllModules(activeOrgId)`
+- Widget aggregation via `getAllWidgets()`
+- Based on `userModules[]` and organization context
 
 ### Widget System
 
-- Modules can define dashboard widgets (charts, stats, quick actions)
-- Widgets are aggregated via `getAllWidgets()` for dashboard display
-- Example: Warehouse module includes product summary chart widget
+- Modules define widgets for dashboard (charts, stats, quick links)
+- Example: warehouse product summary, audit reminder, B2B order alerts
 
-### Role-Based Module Access
+### Role-Based Access
 
-- Menu items can specify `allowedUsers` with role and scope restrictions
-- Roles include: `branch_admin`, `org_admin`, etc.
-- Scopes include: `branch`, `organization`
+- Menu items define `allowedUsers` with `role` + `scope`
+- Dynamic RBAC via `HasAnyRole*` components
+- Scopes: branch, organization
 
 ### Internationalization in Modules
 
-- All module labels and content use Polish language
-- Module titles and descriptions are localized
-- Navigation menu items support i18n
+- Full i18n in Polish (default) and English
+- Localized routing and translations
+- All modules support message files and i18n-compatible strings

@@ -262,18 +262,23 @@ export class ProductService {
         .from("products")
         .select(
           `
-          *,
-          variants:product_variants(
-            *,
-            stock_locations:product_stock_locations(*)
-          ),
-          inventory_data:product_inventory_data(*),
-          ecommerce_data:product_ecommerce_data(*),
-          suppliers:product_suppliers(
-            supplier:suppliers(*)
-          )
-        `
+  *,
+  variants:product_variants(
+    *,
+    stock_locations:product_stock_locations(
+      *,
+      location:locations!inner(branch_id)
+    )
+  ),
+  inventory_data:product_inventory_data(*),
+  ecommerce_data:product_ecommerce_data(*),
+  suppliers:product_suppliers(
+    supplier:suppliers(*)
+  )
+`,
+          { count: "exact" }
         )
+
         .eq("id", productId)
         .is("deleted_at", null)
         .single();
@@ -311,27 +316,23 @@ export class ProductService {
         .from("products")
         .select(
           `
+        *,
+        variants:product_variants(*),
+        stock_locations:product_stock_locations(
           *,
-          variants:product_variants(
-            *,
-            stock_locations:product_stock_locations(
-              *,
-              location:locations!inner(branch_id)
-            )
-          ),
-          inventory_data:product_inventory_data(*),
-          ecommerce_data:product_ecommerce_data(*),
-          suppliers:product_suppliers(
-            supplier:suppliers(*)
-          )
-        `
+          location:locations!inner(branch_id)
+        ),
+        inventory_data:product_inventory_data(*),
+        ecommerce_data:product_ecommerce_data(*),
+        suppliers:product_suppliers(
+          supplier:suppliers(*)
         )
+      `,
+          { count: "exact" }
+        )
+        .eq("stock_locations.location.branch_id", branchId)
         .is("deleted_at", null);
 
-      // Filter by branch through stock locations
-      query = query.eq("variants.stock_locations.location.branch_id", branchId);
-
-      // Apply filters
       if (filters?.search) {
         query = query.or(
           `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`
@@ -339,25 +340,21 @@ export class ProductService {
       }
 
       if (filters?.locationId) {
-        query = query.eq("variants.stock_locations.location_id", filters.locationId);
+        query = query.eq("stock_locations.location_id", filters.locationId);
       }
 
-      // Apply pagination
       if (filters?.limit) {
         query = query.range(filters.offset || 0, (filters.offset || 0) + filters.limit - 1);
       }
 
-      const { data: products, error: productsError, count } = await query;
+      const { data: products, error, count } = await query;
+      if (error) throw error;
 
-      if (productsError) throw productsError;
-
-      // Transform the suppliers data structure
       const transformedProducts = (products || []).map((product: any) => ({
         ...product,
         suppliers: product.suppliers?.map((ps: any) => ps.supplier) || [],
       })) as ProductWithVariants[];
 
-      // Apply post-query filters (for complex logic)
       let filteredProducts = transformedProducts;
 
       if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
@@ -371,10 +368,8 @@ export class ProductService {
 
       if (filters?.showLowStock) {
         filteredProducts = filteredProducts.filter((product) => {
-          const totalStock = product.variants.reduce((sum, variant) => {
-            return sum + variant.stock_locations.reduce((s, sl) => s + sl.quantity, 0);
-          }, 0);
-          return totalStock < 10; // Define low stock threshold
+          const totalStock = product.stock_locations.reduce((sum, sl) => sum + sl.quantity, 0);
+          return totalStock < 10;
         });
       }
 
