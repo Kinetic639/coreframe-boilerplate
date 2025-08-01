@@ -12,12 +12,15 @@ export function UserInitProvider({
   children: React.ReactNode;
 }) {
   const setContext = useUserStore((s) => s.setContext);
-  useEffect(() => {
-    if (context) setContext(context);
-  }, [context, setContext]);
+
   useEffect(() => {
     if (context) {
-      setContext(context);
+      setContext({
+        user: context.user,
+        preferences: context.preferences,
+        roles: context.roles,
+        permissions: context.permissions,
+      });
     }
   }, [context, setContext]);
 
