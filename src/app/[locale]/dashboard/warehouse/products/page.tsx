@@ -14,7 +14,7 @@ import { useProductFilters } from "@/modules/warehouse/products/hooks/use-produc
 import { ProductCard } from "@/modules/warehouse/products/components/product-card";
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
-import { ProductFormDialog } from "@/modules/warehouse/products/components/product-form-dialog";
+import { NewProductFormDialog } from "@/modules/warehouse/products/components/new-product-form-dialog";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useSearchParams } from "next/navigation";
@@ -34,11 +34,11 @@ export default function ProductsPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveProduct = (data: any) => {
-    console.log("Saving product:", data);
-    // Here you would typically call an API to save the product
-    // For now, we just log it and close the dialog
-    setIsFormOpen(false);
+  const handleProductSuccess = () => {
+    // Refresh the product list or show success message
+    console.log("Product operation completed successfully");
+    // TODO: Add actual product list refresh logic here
+    // For now, we'll just close the dialog (handled by the form component)
   };
 
   const searchParams = useSearchParams();
@@ -173,11 +173,11 @@ export default function ProductsPage() {
           </Card>
         </Suspense>
       </motion.div>
-      <ProductFormDialog
+      <NewProductFormDialog
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         product={selectedProduct}
-        onSave={handleSaveProduct}
+        onSuccess={handleProductSuccess}
       />
     </div>
   );
