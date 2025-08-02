@@ -71,9 +71,12 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
       supplierData.supplier_contacts?.find((contact: any) => contact.is_primary) || null,
   };
 
-  // Get total number of products from this supplier (if we have that relationship)
-  // This would require a products table with supplier_id - placeholder for now
-  const totalProducts = 0;
+  // Get total number of products from this supplier
+  const { count: totalProducts } = await supabase
+    .from("product_suppliers")
+    .select("*", { count: "exact", head: true })
+    .eq("supplier_id", supplierId)
+    .is("deleted_at", null);
 
   return (
     <div className="space-y-6">
@@ -258,7 +261,7 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-lg bg-muted/20 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{totalProducts}</div>
+                <div className="text-2xl font-bold text-primary">{totalProducts || 0}</div>
                 <div className="text-sm text-muted-foreground">Produktów</div>
               </div>
               <div className="rounded-lg bg-muted/20 p-4 text-center">

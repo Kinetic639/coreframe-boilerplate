@@ -65,6 +65,13 @@ The application uses a modular architecture where features are organized as modu
 - Dashboard layout with sidebar navigation using shadcn/ui sidebar component
 - Responsive design with mobile-first approach
 
+**IMPORTANT**: Always prioritize using shadcn/ui components over creating custom components. If you need a UI component:
+
+1. First check if shadcn/ui has that component available
+2. Add the shadcn/ui component using `npx shadcn@latest add [component-name]`
+3. Only create custom components if shadcn/ui doesn't have a suitable component
+4. Common shadcn/ui components include: button, input, dialog, select, radio-group, checkbox, tabs, accordion, etc.
+
 ### State Management
 
 - Zustand for client-side state management
