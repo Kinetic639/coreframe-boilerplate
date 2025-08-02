@@ -20,6 +20,7 @@ import { buildLocationTree } from "@/modules/warehouse/utils/buildLocationstree"
 import { LocationTree } from "@/modules/warehouse/locations/location-tree";
 import { LocationTreeMobile } from "@/modules/warehouse/locations/location-tree-mobile";
 import { LocationFormDialog } from "@/modules/warehouse/locations/location-form-dialog";
+import { MoveLocationDialog } from "@/modules/warehouse/locations/move-location-dialog";
 import { toast } from "react-toastify";
 
 interface LocationManagerProps {
@@ -35,10 +36,64 @@ export default function LocationManager({
   const [sortKey, setSortKey] = React.useState<"name" | "code" | "created_at">("name");
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<LocationTreeItem | undefined>();
+  const [movingLocation, setMovingLocation] = React.useState<LocationTreeItem | undefined>();
   const [parentLocation, setParentLocation] = React.useState<LocationTreeItem | undefined>();
   const [locations, setLocations] = React.useState<LocationTreeItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+
+  // Function to calculate total product count including children
+  const calculateLocationProductCounts = async (
+    locations: LocationTreeItem[]
+  ): Promise<LocationTreeItem[]> => {
+    const supabase = createClient();
+
+    // Get all product stock counts by location
+    const { data: stockData, error } = await supabase
+      .from("product_stock_locations")
+      .select("location_id, quantity");
+
+    if (error) {
+      console.error("Error fetching stock data:", error);
+      return locations;
+    }
+
+    // Create a map of location to total quantity
+    const locationStockMap = new Map<string, number>();
+    stockData?.forEach((stock) => {
+      const current = locationStockMap.get(stock.location_id) || 0;
+      locationStockMap.set(stock.location_id, current + (stock.quantity || 0));
+    });
+
+    // Function to calculate total count including descendants
+    const calculateTotalCount = (
+      locationId: string,
+      locationMap: Map<string, LocationTreeItem>
+    ): number => {
+      const location = locationMap.get(locationId);
+      if (!location) return 0;
+
+      let totalCount = locationStockMap.get(locationId) || 0;
+
+      // Add counts from all descendants
+      const descendants = locations.filter((l) => l.parent_id === locationId);
+      descendants.forEach((child) => {
+        totalCount += calculateTotalCount(child.id, locationMap);
+      });
+
+      return totalCount;
+    };
+
+    // Create a map for quick location lookup
+    const locationMap = new Map(locations.map((loc) => [loc.id, loc]));
+
+    // Update product counts for all locations
+    return locations.map((location) => ({
+      ...location,
+      productCount: calculateTotalCount(location.id, locationMap),
+    }));
+  };
 
   React.useEffect(() => {
     const fetchLocations = async () => {
@@ -53,8 +108,12 @@ export default function LocationManager({
       if (error) {
         console.error("Error fetching locations:", error);
         toast.error("Błąd podczas ładowania lokalizacji.");
+        setLocations([]);
       } else {
-        setLocations(data as LocationTreeItem[]);
+        const locationsWithCounts = await calculateLocationProductCounts(
+          data as LocationTreeItem[]
+        );
+        setLocations(locationsWithCounts);
       }
       setLoading(false);
     };
@@ -128,6 +187,43 @@ export default function LocationManager({
     }
   };
 
+  const handleMoveLocation = (location: LocationTreeItem) => {
+    setMovingLocation(location);
+    setIsMoveDialogOpen(true);
+  };
+
+  const handleConfirmMove = async (locationId: string, newParentId: string | null) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("locations")
+      .update({ parent_id: newParentId })
+      .eq("id", locationId);
+
+    if (error) {
+      console.error("Error moving location:", error);
+      toast.error("Błąd podczas przenoszenia lokalizacji.");
+    } else {
+      // Re-fetch locations to update the tree
+      const { data: newLocations, error: fetchError } = await supabase
+        .from("locations")
+        .select("*")
+        .eq("branch_id", activeBranchId)
+        .is("deleted_at", null);
+
+      if (fetchError) {
+        console.error("Error re-fetching locations:", fetchError);
+      } else {
+        const locationsWithCounts = await calculateLocationProductCounts(
+          newLocations as LocationTreeItem[]
+        );
+        setLocations(locationsWithCounts);
+      }
+
+      const movingLoc = locations.find((l) => l.id === locationId);
+      toast.success(`Lokalizacja "${movingLoc?.name}" została przeniesiona.`);
+    }
+  };
+
   const handleSaveLocation = async (data: any) => {
     const supabase = createClient();
     // Destructure to exclude image_file from the data sent to Supabase
@@ -172,7 +268,10 @@ export default function LocationManager({
     if (error) {
       console.error("Error re-fetching locations:", error);
     } else {
-      setLocations(newLocations as LocationTreeItem[]);
+      const locationsWithCounts = await calculateLocationProductCounts(
+        newLocations as LocationTreeItem[]
+      );
+      setLocations(locationsWithCounts);
     }
   };
 
@@ -291,6 +390,7 @@ export default function LocationManager({
                     onEdit={handleEditLocation}
                     onAddChild={handleAddChildLocation}
                     onDelete={handleDeleteLocation}
+                    onMove={handleMoveLocation}
                   />
                 </div>
 
@@ -301,6 +401,7 @@ export default function LocationManager({
                     onEdit={handleEditLocation}
                     onAddChild={handleAddChildLocation}
                     onDelete={handleDeleteLocation}
+                    onMove={handleMoveLocation}
                   />
                 </div>
               </>
@@ -334,6 +435,15 @@ export default function LocationManager({
         location={editingLocation}
         parentLocation={parentLocation}
         onSave={handleSaveLocation}
+      />
+
+      {/* Move Location Dialog */}
+      <MoveLocationDialog
+        open={isMoveDialogOpen}
+        onOpenChange={setIsMoveDialogOpen}
+        location={movingLocation}
+        allLocations={locations}
+        onMove={handleConfirmMove}
       />
     </div>
   );

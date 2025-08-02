@@ -312,10 +312,8 @@ export class ProductService {
     }
   ): Promise<{ products: ProductWithVariants[]; total: number }> {
     try {
-      let query = this.supabase
-        .from("products")
-        .select(
-          `
+      // Build the base query with proper supplier filtering
+      let selectQuery = `
         *,
         variants:product_variants(*),
         stock_locations:product_stock_locations(
@@ -323,15 +321,31 @@ export class ProductService {
           location:locations!inner(branch_id)
         ),
         inventory_data:product_inventory_data(*),
-        ecommerce_data:product_ecommerce_data(*),
+        ecommerce_data:product_ecommerce_data(*)`;
+
+      // If filtering by supplier, only include products that have that supplier relationship
+      if (filters?.supplierId) {
+        selectQuery += `,
+        suppliers:product_suppliers!inner(
+          supplier:suppliers!inner(*)
+        )`;
+      } else {
+        selectQuery += `,
         suppliers:product_suppliers(
           supplier:suppliers(*)
-        )
-      `,
-          { count: "exact" }
-        )
+        )`;
+      }
+
+      let query = this.supabase
+        .from("products")
+        .select(selectQuery, { count: "exact" })
         .eq("stock_locations.location.branch_id", branchId)
         .is("deleted_at", null);
+
+      // Apply supplier filter with inner join
+      if (filters?.supplierId) {
+        query = query.eq("suppliers.supplier_id", filters.supplierId);
+      }
 
       if (filters?.search) {
         query = query.or(
