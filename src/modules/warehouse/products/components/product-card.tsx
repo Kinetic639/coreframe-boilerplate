@@ -106,13 +106,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <Warehouse className="h-4 w-4" />
           Lokalizacje:{" "}
           <span className="font-medium text-foreground">
-            {
-              new Set(
-                product.variants?.flatMap(
-                  (v) => v.stock_locations?.map((sl) => sl.location_id) || []
-                ) || []
-              ).size
-            }
+            {new Set(product.stock_locations?.map((sl) => sl.location_id) || []).size}
           </span>
         </div>
       </CardContent>
