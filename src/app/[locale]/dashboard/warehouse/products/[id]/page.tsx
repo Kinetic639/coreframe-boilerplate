@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
+import { useAppStore } from "@/lib/stores/app-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,20 +71,21 @@ interface ProductWithDetails {
 export default function ProductDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
+  const { activeBranchId } = useAppStore();
   const [product, setProduct] = React.useState<ProductWithDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    if (id) {
+    if (id && activeBranchId) {
       fetchProduct(id);
     }
-  }, [id]);
+  }, [id, activeBranchId]);
 
   const fetchProduct = async (productId: string) => {
     try {
       const supabase = createClient();
 
-      // Fetch product with all related data
+      // Fetch product with all related data (filtered by current branch)
       const { data: productData, error } = await supabase
         .from("products")
         .select(
@@ -92,7 +94,7 @@ export default function ProductDetailPage() {
           variants:product_variants(*),
           stock_locations:product_stock_locations(
             *,
-            location:locations(name)
+            location:locations!inner(name, branch_id)
           ),
           inventory_data:product_inventory_data(*),
           ecommerce_data:product_ecommerce_data(*),
@@ -102,6 +104,7 @@ export default function ProductDetailPage() {
         `
         )
         .eq("id", productId)
+        .eq("stock_locations.location.branch_id", activeBranchId)
         .is("deleted_at", null)
         .single();
 
