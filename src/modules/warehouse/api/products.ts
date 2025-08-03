@@ -25,7 +25,7 @@ export type CreateProductData = {
   purchase_price?: number;
   vat_rate?: number;
   weight?: number;
-  dimensions?: Record<string, any>;
+  dimensions?: Record<string, unknown>;
   packaging_type?: string;
 
   // Initial stock location (branch context)
@@ -35,7 +35,7 @@ export type CreateProductData = {
   // Variant data (default variant will be created)
   variant_name?: string;
   variant_sku?: string;
-  variant_attributes?: Record<string, any>;
+  variant_attributes?: Record<string, unknown>;
 };
 
 export type UpdateProductData = Partial<CreateProductData> & {

@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Bar, Line, Pie, Doughnut } from "react-chartjs-2";
+import { RecentActivitiesWidget } from "@/components/Dashboard/widgets/RecentActivitiesWidget";
 import {
   Chart as ChartJS,
   BarElement,
@@ -45,6 +46,11 @@ const chartComponentMap: {
   doughnut: Doughnut,
 };
 
+// Registry of custom widget components
+const customWidgetRegistry: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  RecentActivitiesWidget,
+};
+
 export function WidgetRenderer({ widget }: { widget: Widget }) {
   if (widget.type === "metric") {
     const iconKey = widget.config?.icon;
@@ -55,11 +61,7 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
       <Card className="p-4">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>{widget.title}</CardTitle>
-          {Icon && (
-            <Icon
-              className={cn("h-6 w-6", widget.config?.color && `text-${widget.config.color}`)}
-            />
-          )}
+          {Icon && <Icon className={cn("h-6 w-6", widget.config?.color && `text-blue-500`)} />}
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold">{widget.data.value}</div>
@@ -124,6 +126,26 @@ export function WidgetRenderer({ widget }: { widget: Widget }) {
         </CardContent>
       </Card>
     );
+  }
+
+  if (widget.type === "custom") {
+    const CustomComponent = customWidgetRegistry[widget.componentName];
+    if (!CustomComponent) {
+      return (
+        <Card className="p-4">
+          <CardHeader>
+            <CardTitle>{widget.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Unknown widget component: {widget.componentName}
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return <CustomComponent {...(widget.config || {})} {...(widget.data || {})} />;
   }
 
   return null;

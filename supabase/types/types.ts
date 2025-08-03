@@ -8,6 +8,189 @@ export type Database = {
   };
   public: {
     Tables: {
+      activities: {
+        Row: {
+          action_id: string | null;
+          branch_id: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          description: string;
+          entity_id: string | null;
+          entity_type_id: string | null;
+          id: string;
+          ip_address: unknown | null;
+          metadata: Json | null;
+          module_id: string | null;
+          organization_id: string;
+          session_id: string | null;
+          status: string | null;
+          updated_at: string | null;
+          url: string | null;
+          user_agent: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          action_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description: string;
+          entity_id?: string | null;
+          entity_type_id?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          metadata?: Json | null;
+          module_id?: string | null;
+          organization_id: string;
+          session_id?: string | null;
+          status?: string | null;
+          updated_at?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          action_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string;
+          entity_id?: string | null;
+          entity_type_id?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          metadata?: Json | null;
+          module_id?: string | null;
+          organization_id?: string;
+          session_id?: string | null;
+          status?: string | null;
+          updated_at?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activities_action_id_fkey";
+            columns: ["action_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_actions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_entity_type_id_fkey";
+            columns: ["entity_type_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_entity_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_modules";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      activity_actions: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
+      activity_entity_types: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          module_id: string | null;
+          slug: string;
+          table_name: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          module_id?: string | null;
+          slug: string;
+          table_name?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          module_id?: string | null;
+          slug?: string;
+          table_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_entity_types_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_modules";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      activity_modules: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          name: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          name: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          name?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
       branch_profiles: {
         Row: {
           bio: string | null;
@@ -569,6 +752,66 @@ export type Database = {
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_suppliers: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          is_preferred: boolean | null;
+          lead_time_days: number | null;
+          minimum_order_quantity: number | null;
+          notes: string | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_price: number | null;
+          supplier_product_code: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_preferred?: boolean | null;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          notes?: string | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_price?: number | null;
+          supplier_product_code?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_preferred?: boolean | null;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          notes?: string | null;
+          product_id?: string;
+          supplier_id?: string;
+          supplier_price?: number | null;
+          supplier_product_code?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_suppliers_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_suppliers_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
             referencedColumns: ["id"];
           },
         ];
@@ -1547,18 +1790,3 @@ export const Constants = {
     Enums: {},
   },
 } as const;
-
-// Type exports for suppliers
-export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
-export type SupplierInsert = Database["public"]["Tables"]["suppliers"]["Insert"];
-export type SupplierUpdate = Database["public"]["Tables"]["suppliers"]["Update"];
-
-export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
-export type SupplierContactInsert = Database["public"]["Tables"]["supplier_contacts"]["Insert"];
-export type SupplierContactUpdate = Database["public"]["Tables"]["supplier_contacts"]["Update"];
-
-// Combined type for supplier with contacts
-export type SupplierWithContacts = Supplier & {
-  supplier_contacts: SupplierContact[];
-  primary_contact?: SupplierContact | null;
-};

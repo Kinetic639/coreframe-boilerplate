@@ -7,6 +7,7 @@ import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 import { getSidebarStateServer } from "@/lib/cookies/get-sidebar-state-server";
 import { UserInitProvider } from "@/lib/providers/user-init-provider";
 import { AppInitProvider } from "@/lib/providers/app-init-provider";
+import { QueryClientProvider } from "@/lib/providers/query-client-provider";
 import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
@@ -33,46 +34,49 @@ export default async function Layout({ children }: { children: React.ReactNode }
   return (
     <Suspense fallback={<p>Loading</p>}>
       <SidebarProvider defaultOpen={sidebarState === "expanded"}>
-        <AppInitProvider
-          context={{
-            activeOrg: appContext.activeOrg,
-            activeBranch: appContext.activeBranch,
-            activeOrgId: appContext.active_org_id,
-            activeBranchId: appContext.active_branch_id,
-            availableBranches: appContext.availableBranches,
-            userModules: appContext.userModules,
-          }}
-        >
-          <UserInitProvider context={userContext}>
-            <div
-              className="flex h-screen w-full"
-              style={
-                {
-                  "--theme-color": themeColor,
-                  "--theme-color-rgb": hexToRgb(themeColor),
-                  "--font-color": appContext?.activeOrg?.font_color,
-                } as React.CSSProperties
-              }
-            >
-              <div className="flex w-full flex-1">
-                {/* Sidebar */}
-                <div className="relative z-50">
-                  <AppSidebar />
-                </div>
+        <QueryClientProvider>
+          <AppInitProvider
+            context={{
+              activeOrg: appContext.activeOrg,
+              activeBranch: appContext.activeBranch,
+              activeOrgId: appContext.active_org_id,
+              activeBranchId: appContext.active_branch_id,
+              availableBranches: appContext.availableBranches,
+              userModules: appContext.userModules,
+              location: null, // Initialize as null, can be set later via setLocation
+            }}
+          >
+            <UserInitProvider context={userContext}>
+              <div
+                className="flex h-screen w-full"
+                style={
+                  {
+                    "--theme-color": themeColor,
+                    "--theme-color-rgb": hexToRgb(themeColor),
+                    "--font-color": appContext?.activeOrg?.font_color,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="flex w-full flex-1">
+                  {/* Sidebar */}
+                  <div className="relative z-50">
+                    <AppSidebar />
+                  </div>
 
-                {/* Main content */}
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <DashboardHeader />
-                  <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
-                    <Suspense fallback={<Loader />}>
-                      <div>{children}</div>
-                    </Suspense>
-                  </main>
+                  {/* Main content */}
+                  <div className="flex flex-1 flex-col overflow-hidden">
+                    <DashboardHeader />
+                    <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+                      <Suspense fallback={<Loader />}>
+                        <div>{children}</div>
+                      </Suspense>
+                    </main>
+                  </div>
                 </div>
               </div>
-            </div>
-          </UserInitProvider>
-        </AppInitProvider>
+            </UserInitProvider>
+          </AppInitProvider>
+        </QueryClientProvider>
       </SidebarProvider>
     </Suspense>
   );
