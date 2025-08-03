@@ -5,6 +5,7 @@ export type ProductWithVariants = Tables<"products"> & {
   variants: (Tables<"product_variants"> & {
     stock_locations: Tables<"product_stock_locations">[];
   })[];
+  stock_locations?: Tables<"product_stock_locations">[];
   inventory_data: Tables<"product_inventory_data"> | null;
   ecommerce_data: Tables<"product_ecommerce_data"> | null;
   suppliers: Tables<"suppliers">[];
