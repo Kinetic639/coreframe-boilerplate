@@ -383,7 +383,8 @@ export class ProductService {
 
       if (filters?.showLowStock) {
         filteredProducts = filteredProducts.filter((product) => {
-          const totalStock = product.stock_locations.reduce((sum, sl) => sum + sl.quantity, 0);
+          const totalStock =
+            product.stock_locations?.reduce((sum, sl) => sum + (sl.quantity || 0), 0) || 0;
           return totalStock < 10;
         });
       }
