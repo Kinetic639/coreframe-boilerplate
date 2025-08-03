@@ -51,4 +51,11 @@ export type WidgetChart = WidgetBase & {
   };
 };
 
-export type Widget = WidgetMetric | WidgetList | WidgetChart;
+export type WidgetCustom = WidgetBase & {
+  type: "custom";
+  componentName: string;
+  config?: Record<string, unknown>;
+  data?: Record<string, unknown>;
+};
+
+export type Widget = WidgetMetric | WidgetList | WidgetChart | WidgetCustom;

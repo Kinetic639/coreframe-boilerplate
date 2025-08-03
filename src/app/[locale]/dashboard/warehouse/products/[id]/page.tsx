@@ -36,7 +36,7 @@ interface ProductWithDetails {
     id: string;
     name: string;
     sku?: string;
-    attributes?: Record<string, any>;
+    attributes?: Record<string, unknown>;
     inventory_data?: {
       purchase_price?: number;
     };
@@ -50,7 +50,7 @@ interface ProductWithDetails {
     vat_rate?: number;
     packaging_type?: string;
     weight?: number;
-    dimensions?: Record<string, any>;
+    dimensions?: Record<string, unknown>;
   };
   ecommerce_data?: {
     price?: number;
