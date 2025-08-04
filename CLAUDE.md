@@ -95,6 +95,41 @@ The application uses a modular architecture where features are organized as modu
 - Format code with `npm run format` to maintain consistency
 - Build must succeed with `npm run build` before deployment
 
+### Documentation and Library Reference
+
+**IMPORTANT**: Always use Context7 MCP server for up-to-date library documentation when coding.
+
+#### Context7 Usage Pattern
+
+1. **Always resolve library ID first**: Use `mcp__context7__resolve-library-id` with the library name
+2. **Then fetch documentation**: Use `mcp__context7__get-library-docs` with the resolved library ID
+
+#### When to Use Context7
+
+- Before implementing any feature with external libraries (React, Next.js, Supabase, shadcn/ui, etc.)
+- When encountering API changes or deprecated methods
+- For best practices and latest patterns
+- When debugging library-specific issues
+
+#### Examples
+
+```
+// First resolve library ID
+mcp__context7__resolve-library-id: "next.js"
+// Then get docs with resolved ID
+mcp__context7__get-library-docs: "/vercel/next.js"
+
+// For React hooks
+mcp__context7__resolve-library-id: "react"
+mcp__context7__get-library-docs: "/facebook/react"
+
+// For Supabase
+mcp__context7__resolve-library-id: "supabase"
+mcp__context7__get-library-docs: "/supabase/supabase"
+```
+
+**Never skip Context7 lookup** - always verify current documentation before implementing features or fixing issues.
+
 ## Implemented Modules
 
 ### 1. Home Module (`/dashboard/start`)

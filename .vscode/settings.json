@@ -1,0 +1,5 @@
+{
+  "claude.enableAllProjectMcpServers": true,
+  "claude.enabledMcpjsonServers": ["context7", "supabase"],
+  "claude.disabledMcpjsonServers": []
+}
