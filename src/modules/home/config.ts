@@ -1,4 +1,20 @@
 import { ModuleConfig } from "@/lib/types/module";
+import { Widget } from "@/lib/types/widgets";
+
+const widgets: Widget[] = [
+  {
+    id: "recent-activities",
+    title: "Recent Activities",
+    type: "custom",
+    componentName: "RecentActivitiesWidget",
+    config: {
+      limit: 8,
+      autoRefresh: true,
+      showViewAll: true,
+      className: "col-span-2",
+    },
+  },
+];
 
 export const homeModule: ModuleConfig = {
   id: "home",
@@ -22,4 +38,5 @@ export const homeModule: ModuleConfig = {
       allowedUsers: [{ role: "branch_admin", scope: "branch" }],
     },
   ],
+  widgets,
 };

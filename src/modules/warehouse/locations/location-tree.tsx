@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   ClipboardList,
   Settings,
+  ArrowRight,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,6 +43,7 @@ interface LocationTreeProps {
   onEdit?: (location: LocationTreeItem) => void;
   onAddChild?: (parentLocation: LocationTreeItem) => void;
   onDelete?: (location: LocationTreeItem) => void;
+  onMove?: (location: LocationTreeItem) => void;
   level?: number;
 }
 
@@ -50,10 +52,18 @@ interface LocationNodeProps {
   onEdit?: (location: LocationTreeItem) => void;
   onAddChild?: (parentLocation: LocationTreeItem) => void;
   onDelete?: (location: LocationTreeItem) => void;
+  onMove?: (location: LocationTreeItem) => void;
   level: number;
 }
 
-function LocationNode({ location, onEdit, onAddChild, onDelete, level }: LocationNodeProps) {
+function LocationNode({
+  location,
+  onEdit,
+  onAddChild,
+  onDelete,
+  onMove,
+  level,
+}: LocationNodeProps) {
   const router = useRouter();
   const { activeBranchId } = useAppStore();
   const { startAudit, completeAudit, resetAudit } = useAuditStore();
@@ -85,6 +95,11 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete?.(location);
+  };
+
+  const handleMove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onMove?.(location);
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
@@ -246,6 +261,10 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
                   <Plus className="mr-2 h-3 w-3" />
                   Dodaj podlokalizację
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleMove}>
+                  <ArrowRight className="mr-2 h-3 w-3" />
+                  Przenieś lokalizację
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleStartAudit}>
                   <ClipboardList className="mr-2 h-3 w-3" />
@@ -286,6 +305,7 @@ function LocationNode({ location, onEdit, onAddChild, onDelete, level }: Locatio
                       onEdit={onEdit}
                       onAddChild={onAddChild}
                       onDelete={onDelete}
+                      onMove={onMove}
                       level={level + 1}
                     />
                   ))}
@@ -350,6 +370,7 @@ export function LocationTree({
   onEdit,
   onAddChild,
   onDelete,
+  onMove,
   level = 0,
 }: LocationTreeProps) {
   return (
@@ -361,6 +382,7 @@ export function LocationTree({
           onEdit={onEdit}
           onAddChild={onAddChild}
           onDelete={onDelete}
+          onMove={onMove}
           level={level}
         />
       ))}

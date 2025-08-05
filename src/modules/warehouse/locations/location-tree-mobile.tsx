@@ -7,7 +7,16 @@ import * as Icons from "lucide-react";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Eye, Edit, Plus, Trash2, MoreHorizontal } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Edit,
+  Plus,
+  Trash2,
+  MoreHorizontal,
+  ArrowRight,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +31,7 @@ interface LocationTreeMobileProps {
   onEdit?: (location: LocationTreeItem) => void;
   onAddChild?: (parentLocation: LocationTreeItem) => void;
   onDelete?: (location: LocationTreeItem) => void;
+  onMove?: (location: LocationTreeItem) => void;
 }
 
 interface LocationItemMobileProps {
@@ -29,6 +39,7 @@ interface LocationItemMobileProps {
   onEdit?: (location: LocationTreeItem) => void;
   onAddChild?: (parentLocation: LocationTreeItem) => void;
   onDelete?: (location: LocationTreeItem) => void;
+  onMove?: (location: LocationTreeItem) => void;
   level: number;
 }
 
@@ -37,6 +48,7 @@ function LocationItemMobile({
   onEdit,
   onAddChild,
   onDelete,
+  onMove,
   level,
 }: LocationItemMobileProps) {
   const router = useRouter();
@@ -68,6 +80,11 @@ function LocationItemMobile({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete?.(location);
+  };
+
+  const handleMove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onMove?.(location);
   };
 
   const canDelete = (location.productCount || 0) === 0;
@@ -167,6 +184,10 @@ function LocationItemMobile({
               <Plus className="mr-3 h-4 w-4" />
               Dodaj podlokalizację
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMove} className="text-sm">
+              <ArrowRight className="mr-3 h-4 w-4" />
+              Przenieś lokalizację
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleDelete}
@@ -205,6 +226,7 @@ function LocationItemMobile({
                   onEdit={onEdit}
                   onAddChild={onAddChild}
                   onDelete={onDelete}
+                  onMove={onMove}
                   level={level + 1}
                 />
               ))}
@@ -221,6 +243,7 @@ export function LocationTreeMobile({
   onEdit,
   onAddChild,
   onDelete,
+  onMove,
 }: LocationTreeMobileProps) {
   return (
     <div className="space-y-0 pb-4">
@@ -231,6 +254,7 @@ export function LocationTreeMobile({
           onEdit={onEdit}
           onAddChild={onAddChild}
           onDelete={onDelete}
+          onMove={onMove}
           level={0}
         />
       ))}

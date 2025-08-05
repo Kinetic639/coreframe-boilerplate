@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProductWithVariants } from "@/modules/warehouse/api/products";
-import { Package, Warehouse, DollarSign, EllipsisVertical } from "lucide-react";
+import { Package, Warehouse, DollarSign, EllipsisVertical, ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
@@ -59,13 +59,19 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       )}
       <div className="relative h-48 w-full">
-        <Image
-          src={product.main_image_id || "/images/placeholder-product.png"} // Use product image or placeholder
-          alt={product.name}
-          layout="fill"
-          objectFit="cover"
-          className="rounded-t-lg"
-        />
+        {product.main_image_id ? (
+          <Image
+            src={product.main_image_id}
+            alt={product.name}
+            layout="fill"
+            objectFit="cover"
+            className="rounded-t-lg"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center rounded-t-lg bg-muted">
+            <ImageIcon className="h-16 w-16 text-muted-foreground" />
+          </div>
+        )}
       </div>
       <CardHeader className="pb-2">
         <div className="text-xs text-muted-foreground">
@@ -100,13 +106,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <Warehouse className="h-4 w-4" />
           Lokalizacje:{" "}
           <span className="font-medium text-foreground">
-            {
-              new Set(
-                product.variants?.flatMap(
-                  (v) => v.stock_locations?.map((sl) => sl.location_id) || []
-                ) || []
-              ).size
-            }
+            {new Set(product.stock_locations?.map((sl) => sl.location_id) || []).size}
           </span>
         </div>
       </CardContent>
