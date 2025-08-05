@@ -33,47 +33,62 @@ import {
   Briefcase,
   Package,
   Calculator,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import { mockRoles, mockUserRoles, mockUsers } from "@/lib/mock/organization";
-import { Tables } from "../../../../../../../supabase/types/types";
+import { useRoles, useRoleStatistics } from "@/hooks/useRoles";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function RolesPage() {
-  const rolesWithUserCount = React.useMemo(() => {
-    return mockRoles.map((role) => {
-      const userCount = mockUserRoles.filter((ur) => ur.role_id === role.id).length;
-      const users = mockUserRoles
-        .filter((ur) => ur.role_id === role.id)
-        .map((ur) => mockUsers.find((u) => u.id === ur.user_id))
-        .filter(Boolean);
+  const { roles: rolesWithUserCount, loading: rolesLoading, error: rolesError } = useRoles();
+  const { statistics, loading: statsLoading, error: statsError } = useRoleStatistics();
 
-      return {
-        ...role,
-        userCount,
-        users,
-      };
-    });
-  }, []);
+  if (rolesLoading || statsLoading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading roles...</span>
+        </div>
+      </div>
+    );
+  }
 
-  const getRoleIcon = (roleSlug: string) => {
+  if (rolesError || statsError) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {rolesError || statsError || "Failed to load roles data"}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const getRoleIcon = (roleName: string) => {
     const icons = {
-      "org-owner": Crown,
-      "branch-manager": Briefcase,
-      "warehouse-manager": Package,
+      org_owner: Crown,
+      org_admin: Shield,
+      branch_manager: Briefcase,
+      branch_employee: UserCheck,
+      warehouse_manager: Package,
       employee: UserCheck,
       accountant: Calculator,
     };
-    return icons[roleSlug as keyof typeof icons] || Shield;
+    return icons[roleName as keyof typeof icons] || Shield;
   };
 
-  const getRoleColor = (roleSlug: string) => {
+  const getRoleColor = (roleName: string) => {
     const colors = {
-      "org-owner": "text-purple-600",
-      "branch-manager": "text-blue-600",
-      "warehouse-manager": "text-green-600",
+      org_owner: "text-purple-600",
+      org_admin: "text-indigo-600",
+      branch_manager: "text-blue-600",
+      branch_employee: "text-gray-600",
+      warehouse_manager: "text-green-600",
       employee: "text-gray-600",
       accountant: "text-orange-600",
     };
-    return colors[roleSlug as keyof typeof colors] || "text-gray-600";
+    return colors[roleName as keyof typeof colors] || "text-gray-600";
   };
 
   return (
@@ -109,7 +124,7 @@ export default function RolesPage() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockRoles.length}</div>
+            <div className="text-2xl font-bold">{statistics.totalRoles}</div>
             <p className="text-xs text-muted-foreground">Zdefiniowane role</p>
           </CardContent>
         </Card>
@@ -120,7 +135,7 @@ export default function RolesPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockUserRoles.length}</div>
+            <div className="text-2xl font-bold">{statistics.totalAssignments}</div>
             <p className="text-xs text-muted-foreground">Aktywne przypisania</p>
           </CardContent>
         </Card>
@@ -131,9 +146,7 @@ export default function RolesPage() {
             <Crown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {mockUserRoles.filter((ur) => ur.role_id === "org-owner").length}
-            </div>
+            <div className="text-2xl font-bold">{statistics.orgOwnersCount}</div>
             <p className="text-xs text-muted-foreground">Właściciele organizacji</p>
           </CardContent>
         </Card>
@@ -144,7 +157,7 @@ export default function RolesPage() {
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{statistics.totalPermissions}</div>
             <p className="text-xs text-muted-foreground">Różnych uprawnień</p>
           </CardContent>
         </Card>
@@ -180,8 +193,8 @@ export default function RolesPage() {
               </TableHeader>
               <TableBody>
                 {rolesWithUserCount.map((role) => {
-                  const Icon = getRoleIcon(role.slug);
-                  const colorClass = getRoleColor(role.slug);
+                  const Icon = getRoleIcon(role.name);
+                  const colorClass = getRoleColor(role.name);
 
                   return (
                     <TableRow key={role.id} className="hover:bg-muted/50">
@@ -193,16 +206,18 @@ export default function RolesPage() {
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <div className="font-medium">{role.label}</div>
+                            <div className="font-medium">{role.name}</div>
                             <div className="font-mono text-sm text-muted-foreground">
-                              {role.slug}
+                              {role.is_basic ? "System" : "Custom"}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs">
-                          <p className="text-sm">{role.description}</p>
+                          <p className="text-sm">
+                            {role.is_basic ? "System role" : "Custom organization role"}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -220,33 +235,33 @@ export default function RolesPage() {
                         <div className="flex items-center gap-2">
                           <Key className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm">
-                            {role.slug === "org-owner"
+                            {role.name === "org_owner"
                               ? "Wszystkie"
-                              : role.slug === "branch-manager"
-                                ? "Oddział"
-                                : role.slug === "warehouse-manager"
-                                  ? "Magazyn"
-                                  : role.slug === "accountant"
-                                    ? "Finanse"
-                                    : "Podstawowe"}
+                              : role.name === "org_admin"
+                                ? "Administracyjne"
+                                : role.name === "branch_manager"
+                                  ? "Oddział"
+                                  : role.name === "branch_employee"
+                                    ? "Podstawowe"
+                                    : "Niestandardowe"}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            role.slug === "org-owner"
+                            role.name === "org_owner" || role.name === "org_admin"
                               ? "default"
-                              : role.slug.includes("manager")
+                              : role.name.includes("branch")
                                 ? "secondary"
                                 : "outline"
                           }
                         >
-                          {role.slug === "org-owner"
+                          {role.name === "org_owner" || role.name === "org_admin"
                             ? "Organizacja"
-                            : role.slug.includes("manager")
+                            : role.name.includes("branch")
                               ? "Oddział"
-                              : "Lokalny"}
+                              : "Niestandardowy"}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -300,8 +315,8 @@ export default function RolesPage() {
         className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
       >
         {rolesWithUserCount.map((role) => {
-          const Icon = getRoleIcon(role.slug);
-          const colorClass = getRoleColor(role.slug);
+          const Icon = getRoleIcon(role.name);
+          const colorClass = getRoleColor(role.name);
 
           return (
             <Card key={role.id} className="transition-shadow hover:shadow-md">
@@ -313,13 +328,15 @@ export default function RolesPage() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-base">{role.label}</CardTitle>
+                    <CardTitle className="text-base">{role.name}</CardTitle>
                     <p className="text-sm text-muted-foreground">{role.userCount} użytkowników</p>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="mb-3 text-sm text-muted-foreground">{role.description}</p>
+                <p className="mb-3 text-sm text-muted-foreground">
+                  {role.is_basic ? "System role" : "Custom organization role"}
+                </p>
 
                 {role.users && role.users.length > 0 && (
                   <div>
@@ -327,7 +344,7 @@ export default function RolesPage() {
                       Przypisani użytkownicy:
                     </div>
                     <div className="space-y-1">
-                      {role.users.slice(0, 3).map((user: Tables<"users">) => (
+                      {role.users.slice(0, 3).map((user) => (
                         <div key={user.id} className="text-xs">
                           {user.first_name} {user.last_name}
                         </div>
