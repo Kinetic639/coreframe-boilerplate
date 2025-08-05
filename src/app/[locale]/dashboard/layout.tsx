@@ -35,12 +35,26 @@ export default async function Layout({ children }: { children: React.ReactNode }
       <SidebarProvider defaultOpen={sidebarState === "expanded"}>
         <AppInitProvider
           context={{
-            activeOrg: appContext.activeOrg,
-            activeBranch: appContext.activeBranch,
+            activeOrg: appContext.activeOrg
+              ? {
+                  ...appContext.activeOrg,
+                  id: appContext.activeOrg.organization_id,
+                }
+              : null,
+            activeBranch: appContext.activeBranch
+              ? {
+                  ...appContext.activeBranch,
+                  id: appContext.activeBranch.branch_id,
+                }
+              : null,
             activeOrgId: appContext.active_org_id,
             activeBranchId: appContext.active_branch_id,
-            availableBranches: appContext.availableBranches,
+            availableBranches: appContext.availableBranches.map((branch) => ({
+              ...branch,
+              id: branch.branch_id,
+            })),
             userModules: appContext.userModules,
+            location: null,
           }}
         >
           <UserInitProvider context={userContext}>
