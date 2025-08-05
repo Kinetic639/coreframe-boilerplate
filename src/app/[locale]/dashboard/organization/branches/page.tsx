@@ -7,11 +7,11 @@ import BranchTable from "@/modules/organization-managment/components/branches/Br
 export default async function BranchesPage() {
   const context = await loadAppContextServer();
 
-  if (!context?.active_org_id) {
+  if (!context?.activeOrgId) {
     return <div>Brak aktywnej organizacji</div>;
   }
 
-  const branchesWithStats = await getBranchesWithStatsFromDb(context.active_org_id);
+  const branchesWithStats = await getBranchesWithStatsFromDb(context.activeOrgId);
 
   return (
     <div className="space-y-6">

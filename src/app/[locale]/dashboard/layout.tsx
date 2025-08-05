@@ -39,8 +39,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
             context={{
               activeOrg: appContext.activeOrg,
               activeBranch: appContext.activeBranch,
-              activeOrgId: appContext.active_org_id,
-              activeBranchId: appContext.active_branch_id,
+              activeOrgId: appContext.activeOrgId,
+              activeBranchId: appContext.activeBranchId,
               availableBranches: appContext.availableBranches,
               userModules: appContext.userModules,
               location: null, // Initialize as null, can be set later via setLocation

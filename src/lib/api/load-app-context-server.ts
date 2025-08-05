@@ -89,12 +89,29 @@ export async function _loadAppContextServer() {
     .filter((m): m is LoadedUserModule => m !== null);
 
   return {
-    active_org_id: activeOrgId,
-    active_branch_id: activeBranchId,
-    activeOrg: activeOrg,
-    activeBranch,
-    availableBranches: availableBranches ?? [],
+    activeOrgId: activeOrgId,
+    activeBranchId: activeBranchId,
+    activeOrg: activeOrg
+      ? {
+          ...activeOrg,
+          id: activeOrg.organization_id,
+          name: activeOrg.name || "Unknown Organization",
+        }
+      : null,
+    activeBranch: activeBranch
+      ? {
+          ...activeBranch,
+          id: activeBranch.branch_id,
+          name: activeBranch.name || "Unknown Branch",
+        }
+      : null,
+    availableBranches: (availableBranches ?? []).map((branch) => ({
+      ...branch,
+      id: branch.branch_id,
+      name: branch.name || "Unknown Branch",
+    })),
     userModules,
+    location: null,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);

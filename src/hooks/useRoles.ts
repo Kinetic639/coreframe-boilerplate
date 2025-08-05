@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { fetchRolesWithUserCounts, fetchRoleStatistics, RoleWithUserCount } from "@/lib/api/roles";
 import { useAppStore } from "@/lib/stores/app-store";
 
@@ -8,7 +8,7 @@ export function useRoles() {
   const [error, setError] = useState<string | null>(null);
   const { activeOrg } = useAppStore();
 
-  const fetchRoles = async () => {
+  const fetchRoles = React.useCallback(async () => {
     if (!activeOrg?.id) {
       setError("No active organization");
       setLoading(false);
@@ -26,11 +26,11 @@ export function useRoles() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrg?.id]);
 
   useEffect(() => {
     fetchRoles();
-  }, [activeOrg?.id, fetchRoles]);
+  }, [fetchRoles]);
 
   return {
     roles,
@@ -51,7 +51,7 @@ export function useRoleStatistics() {
   const [error, setError] = useState<string | null>(null);
   const { activeOrg } = useAppStore();
 
-  const fetchStatistics = async () => {
+  const fetchStatistics = React.useCallback(async () => {
     if (!activeOrg?.id) {
       setError("No active organization");
       setLoading(false);
@@ -69,11 +69,11 @@ export function useRoleStatistics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrg?.id]);
 
   useEffect(() => {
     fetchStatistics();
-  }, [activeOrg?.id, fetchStatistics]);
+  }, [fetchStatistics]);
 
   return {
     statistics,
