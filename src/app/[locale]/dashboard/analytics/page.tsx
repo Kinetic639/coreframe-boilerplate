@@ -5,11 +5,11 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ActivityIcon, TrendingUpIcon, UsersIcon, AlertTriangleIcon } from "lucide-react";
+import { generateDashboardMetadata, MetadataProps } from "@/lib/metadata";
 
-export const metadata: Metadata = {
-  title: "Analytics Dashboard",
-  description: "Activity analytics and insights for your organization",
-};
+export async function generateMetadata({ params }: MetadataProps): Promise<Metadata> {
+  return generateDashboardMetadata(params, "metadata.dashboard.analytics");
+}
 
 export default function AnalyticsPage() {
   // Mock data for the summary cards

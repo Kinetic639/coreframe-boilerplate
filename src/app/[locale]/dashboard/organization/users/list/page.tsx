@@ -328,17 +328,29 @@ export default function UsersListPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                (window.location.href = `/dashboard/organization/users/${user.id}`)
+                              }
+                            >
                               <Edit className="mr-2 h-4 w-4" />
-                              Edytuj użytkownika
+                              Zarządzaj użytkownikiem
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                (window.location.href = `/dashboard/organization/users/${user.id}?tab=roles`)
+                              }
+                            >
                               <Shield className="mr-2 h-4 w-4" />
                               Zmień rolę
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                (window.location.href = `/dashboard/organization/users/${user.id}?tab=profile`)
+                              }
+                            >
                               <Building2 className="mr-2 h-4 w-4" />
-                              Zmień oddział
+                              Edytuj profil
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status_id === "active" ? (
