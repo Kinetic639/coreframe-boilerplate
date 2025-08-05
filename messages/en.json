@@ -125,9 +125,142 @@
     }
   },
   "LocaleLayout": {
-    "title": "next-intl example",
-    "brand": "TherapyConnect",
-    "description": "A secure, HIPAA-compliant platform designed to streamline your therapy practice and enhance patient care."
+    "title": "CoreFrame - Enterprise SaaS Platform",
+    "brand": "CoreFrame",
+    "description": "A comprehensive enterprise SaaS platform with advanced warehouse management, user administration, and analytics capabilities."
+  },
+  "metadata": {
+    "common": {
+      "appName": "CoreFrame",
+      "separator": " | ",
+      "defaultDescription": "Enterprise-grade SaaS platform for modern businesses"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Sign In",
+        "description": "Access your CoreFrame account with secure enterprise authentication"
+      },
+      "signUp": {
+        "title": "Sign Up",
+        "description": "Create your CoreFrame organization account and start managing your business"
+      },
+      "forgotPassword": {
+        "title": "Reset Password",
+        "description": "Reset your CoreFrame account password securely"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Enterprise SaaS Platform",
+        "description": "CoreFrame provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
+      },
+      "features": {
+        "title": "Features",
+        "description": "Discover powerful features including warehouse management, user roles, inventory tracking, and enterprise analytics"
+      },
+      "pricing": {
+        "title": "Pricing",
+        "description": "Choose the perfect plan for your organization with flexible pricing options and enterprise-grade features"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Dashboard",
+        "description": "Overview of your organization's key metrics, activities, and quick access to important features"
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Comprehensive business analytics and reporting for data-driven decision making"
+      },
+      "reports": {
+        "title": "Reports",
+        "description": "Generate detailed reports and analyze your business performance metrics"
+      },
+      "activities": {
+        "title": "Activity Timeline",
+        "description": "Track all organizational activities and system events in real-time"
+      },
+      "testActivity": {
+        "title": "Test Activity",
+        "description": "Test and monitor system activities for quality assurance"
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Products",
+        "description": "Comprehensive product catalog management with inventory tracking and stock control"
+      },
+      "productDetail": {
+        "title": "Product Details",
+        "description": "Detailed product information, inventory levels, and management options"
+      },
+      "locations": {
+        "title": "Locations",
+        "description": "Warehouse location management with hierarchical organization and QR codes"
+      },
+      "locationDetail": {
+        "title": "Location Details",
+        "description": "Detailed location information, stock levels, and management options"
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "description": "Supplier relationship management and vendor catalog administration"
+      },
+      "supplierDetail": {
+        "title": "Supplier Details",
+        "description": "Comprehensive supplier information and relationship management"
+      },
+      "suppliersList": {
+        "title": "Suppliers List",
+        "description": "Complete list of suppliers with contact information and management tools"
+      },
+      "deliveries": {
+        "title": "Deliveries",
+        "description": "Track and manage incoming deliveries and shipment processing"
+      },
+      "audits": {
+        "title": "Inventory Audits",
+        "description": "Schedule and manage inventory audits for accurate stock control"
+      },
+      "auditHistory": {
+        "title": "Audit History",
+        "description": "Historical record of all inventory audits and discrepancy reports"
+      },
+      "auditSchedule": {
+        "title": "Audit Schedule",
+        "description": "Schedule and manage upcoming inventory audits and recurring tasks"
+      }
+    },
+    "organization": {
+      "profile": {
+        "title": "Organization Profile",
+        "description": "Manage your organization settings, branding, and configuration options"
+      },
+      "branches": {
+        "title": "Branch Management",
+        "description": "Manage organizational branches, locations, and hierarchical structure"
+      },
+      "users": {
+        "title": "User Management",
+        "description": "Comprehensive user administration with role-based access control"
+      },
+      "usersList": {
+        "title": "Users List",
+        "description": "Complete list of organization users with management and administrative tools"
+      },
+      "userDetail": {
+        "title": "User Details",
+        "description": "Detailed user profile with role management and permission overrides"
+      },
+      "userRoles": {
+        "title": "User Roles",
+        "description": "Role-based access control system with granular permission management"
+      },
+      "userManage": {
+        "title": "User Administration",
+        "description": "Advanced user management tools for enterprise user administration"
+      }
+    }
   },
   "LocaleSwitcher": {
     "label": "Change language",

@@ -6,6 +6,27 @@ import { getAllWidgets } from "@/modules";
 import { WidgetRenderer } from "@/modules/WidgetRenderer";
 import { UserRoleFromToken } from "@/lib/types/user";
 import PermissionDebug from "@/components/debug/PermissionDebug";
+import { getTranslations } from "next-intl/server";
+import { Metadata } from "next";
+
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "metadata.dashboard.start" });
+  const common = await getTranslations({ locale, namespace: "metadata.common" });
+
+  return {
+    title: `${t("title")}${common("separator")}${common("appName")}`,
+    description: t("description"),
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
 
 export default async function DeliveriesPage() {
   const supabase = await createClient();

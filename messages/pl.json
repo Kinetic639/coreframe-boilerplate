@@ -175,9 +175,142 @@
     }
   },
   "LocaleLayout": {
-    "title": "MS Mag App",
-    "brand": "TherapyConnect",
-    "description": "Bezpieczna platforma zgodna z HIPAA, zaprojektowana aby usprawnić prowadzenie praktyki terapeutycznej i poprawić opiekę nad pacjentami."
+    "title": "CoreFrame - Platforma SaaS dla Przedsiębiorstw",
+    "brand": "CoreFrame",
+    "description": "Kompleksowa platforma SaaS dla przedsiębiorstw z zaawansowanym zarządzaniem magazynem, administracją użytkowników i możliwościami analitycznymi."
+  },
+  "metadata": {
+    "common": {
+      "appName": "CoreFrame",
+      "separator": " | ",
+      "defaultDescription": "Platforma SaaS klassy enterprise dla nowoczesnych firm"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Logowanie",
+        "description": "Uzyskaj dostęp do swojego konta CoreFrame z bezpieczną uwierzytelnianiem enterprise"
+      },
+      "signUp": {
+        "title": "Rejestracja",
+        "description": "Utwórz konto organizacji CoreFrame i zacznij zarządzać swoim biznesem"
+      },
+      "forgotPassword": {
+        "title": "Resetuj Hasło",
+        "description": "Bezpiecznie zresetuj hasło do swojego konta CoreFrame"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Platforma SaaS dla Przedsiębiorstw",
+        "description": "CoreFrame zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
+      },
+      "features": {
+        "title": "Funkcje",
+        "description": "Odkryj potężne funkcje obejmujące zarządzanie magazynem, role użytkowników, śledzenie zapasów i analitykę enterprise"
+      },
+      "pricing": {
+        "title": "Cennik",
+        "description": "Wybierz idealny plan dla swojej organizacji z elastycznymi opcjami cenowymi i funkcjami klasy enterprise"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Panel Główny",
+        "description": "Przegląd kluczowych wskaźników organizacji, aktywności i szybki dostęp do ważnych funkcji"
+      },
+      "analytics": {
+        "title": "Analityka",
+        "description": "Kompleksowa analityka biznesowa i raportowanie dla podejmowania decyzji opartych na danych"
+      },
+      "reports": {
+        "title": "Raporty",
+        "description": "Generuj szczegółowe raporty i analizuj wskaźniki wydajności swojego biznesu"
+      },
+      "activities": {
+        "title": "Oś Czasu Aktywności",
+        "description": "Śledź wszystkie aktywności organizacyjne i zdarzenia systemowe w czasie rzeczywistym"
+      },
+      "testActivity": {
+        "title": "Test Aktywności",
+        "description": "Testuj i monitoruj aktywności systemowe w celu zapewnienia jakości"
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Produkty",
+        "description": "Kompleksowe zarządzanie katalogiem produktów ze śledzeniem zapasów i kontrolą stanu"
+      },
+      "productDetail": {
+        "title": "Szczegóły Produktu",
+        "description": "Szczegółowe informacje o produkcie, poziomy zapasów i opcje zarządzania"
+      },
+      "locations": {
+        "title": "Lokalizacje",
+        "description": "Zarządzanie lokalizacjami magazynowymi z hierarchiczną organizacją i kodami QR"
+      },
+      "locationDetail": {
+        "title": "Szczegóły Lokalizacji",
+        "description": "Szczegółowe informacje o lokalizacji, poziomy zapasów i opcje zarządzania"
+      },
+      "suppliers": {
+        "title": "Dostawcy",
+        "description": "Zarządzanie relacjami z dostawcami i administracja katalogiem dostawców"
+      },
+      "supplierDetail": {
+        "title": "Szczegóły Dostawcy",
+        "description": "Kompleksowe informacje o dostawcy i zarządzanie relacjami"
+      },
+      "suppliersList": {
+        "title": "Lista Dostawców",
+        "description": "Kompletna lista dostawców z informacjami kontaktowymi i narzędziami zarządzania"
+      },
+      "deliveries": {
+        "title": "Dostawy",
+        "description": "Śledź i zarządzaj przychodzącymi dostawami i przetwarzaniem przesyłek"
+      },
+      "audits": {
+        "title": "Audyty Magazynowe",
+        "description": "Planuj i zarządzaj audytami magazynowymi dla dokładnej kontroli zapasów"
+      },
+      "auditHistory": {
+        "title": "Historia Audytów",
+        "description": "Historyczny zapis wszystkich audytów magazynowych i raportów rozbieżności"
+      },
+      "auditSchedule": {
+        "title": "Harmonogram Audytów",
+        "description": "Planuj i zarządzaj nadchodzącymi audytami magazynowymi i zadaniami cyklicznymi"
+      }
+    },
+    "organization": {
+      "profile": {
+        "title": "Profil Organizacji",
+        "description": "Zarządzaj ustawieniami organizacji, brandingiem i opcjami konfiguracji"
+      },
+      "branches": {
+        "title": "Zarządzanie Oddziałami",
+        "description": "Zarządzaj oddziałami organizacyjnymi, lokalizacjami i strukturą hierarchiczną"
+      },
+      "users": {
+        "title": "Zarządzanie Użytkownikami",
+        "description": "Kompleksowa administracja użytkowników z kontrolą dostępu opartą na rolach"
+      },
+      "usersList": {
+        "title": "Lista Użytkowników",
+        "description": "Kompletna lista użytkowników organizacji z narzędziami zarządzania i administracyjnymi"
+      },
+      "userDetail": {
+        "title": "Szczegóły Użytkownika",
+        "description": "Szczegółowy profil użytkownika z zarządzaniem rolami i nadpisywaniem uprawnień"
+      },
+      "userRoles": {
+        "title": "Role Użytkowników",
+        "description": "System kontroli dostępu oparty na rolach z szczegółowym zarządzaniem uprawnieniami"
+      },
+      "userManage": {
+        "title": "Administracja Użytkowników",
+        "description": "Zaawansowane narzędzia zarządzania użytkownikami dla administracji enterprise"
+      }
+    }
   },
   "LocaleSwitcher": {
     "label": "Zmień język",
