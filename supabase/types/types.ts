@@ -8,6 +8,189 @@ export type Database = {
   };
   public: {
     Tables: {
+      activities: {
+        Row: {
+          action_id: string | null;
+          branch_id: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          description: string;
+          entity_id: string | null;
+          entity_type_id: string | null;
+          id: string;
+          ip_address: unknown | null;
+          metadata: Json | null;
+          module_id: string | null;
+          organization_id: string;
+          session_id: string | null;
+          status: string | null;
+          updated_at: string | null;
+          url: string | null;
+          user_agent: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          action_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description: string;
+          entity_id?: string | null;
+          entity_type_id?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          metadata?: Json | null;
+          module_id?: string | null;
+          organization_id: string;
+          session_id?: string | null;
+          status?: string | null;
+          updated_at?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          action_id?: string | null;
+          branch_id?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string;
+          entity_id?: string | null;
+          entity_type_id?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          metadata?: Json | null;
+          module_id?: string | null;
+          organization_id?: string;
+          session_id?: string | null;
+          status?: string | null;
+          updated_at?: string | null;
+          url?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activities_action_id_fkey";
+            columns: ["action_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_actions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_entity_type_id_fkey";
+            columns: ["entity_type_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_entity_types";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_modules";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      activity_actions: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
+      activity_entity_types: {
+        Row: {
+          created_at: string | null;
+          description: string | null;
+          id: string;
+          module_id: string | null;
+          slug: string;
+          table_name: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          module_id?: string | null;
+          slug: string;
+          table_name?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: string | null;
+          id?: string;
+          module_id?: string | null;
+          slug?: string;
+          table_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "activity_entity_types_module_id_fkey";
+            columns: ["module_id"];
+            isOneToOne: false;
+            referencedRelation: "activity_modules";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      activity_modules: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          name: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          name: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          name?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
       branch_profiles: {
         Row: {
           bio: string | null;
@@ -578,22 +761,43 @@ export type Database = {
           created_at: string | null;
           deleted_at: string | null;
           id: string;
-          product_id: string | null;
-          supplier_id: string | null;
+          is_preferred: boolean | null;
+          lead_time_days: number | null;
+          minimum_order_quantity: number | null;
+          notes: string | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_price: number | null;
+          supplier_product_code: string | null;
+          updated_at: string | null;
         };
         Insert: {
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
-          product_id?: string | null;
-          supplier_id?: string | null;
+          is_preferred?: boolean | null;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          notes?: string | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_price?: number | null;
+          supplier_product_code?: string | null;
+          updated_at?: string | null;
         };
         Update: {
           created_at?: string | null;
           deleted_at?: string | null;
           id?: string;
-          product_id?: string | null;
-          supplier_id?: string | null;
+          is_preferred?: boolean | null;
+          lead_time_days?: number | null;
+          minimum_order_quantity?: number | null;
+          notes?: string | null;
+          product_id?: string;
+          supplier_id?: string;
+          supplier_price?: number | null;
+          supplier_product_code?: string | null;
+          updated_at?: string | null;
         };
         Relationships: [
           {
@@ -922,32 +1126,144 @@ export type Database = {
           },
         ];
       };
-      suppliers: {
+      supplier_contacts: {
         Row: {
-          contact_info: Json | null;
           created_at: string | null;
           deleted_at: string | null;
+          department: string | null;
+          email: string | null;
+          first_name: string;
           id: string;
-          name: string;
+          is_active: boolean | null;
+          is_primary: boolean | null;
+          last_name: string;
+          mobile: string | null;
+          notes: string | null;
+          phone: string | null;
+          position: string | null;
+          supplier_id: string;
           updated_at: string | null;
         };
         Insert: {
-          contact_info?: Json | null;
           created_at?: string | null;
           deleted_at?: string | null;
+          department?: string | null;
+          email?: string | null;
+          first_name: string;
           id?: string;
-          name: string;
+          is_active?: boolean | null;
+          is_primary?: boolean | null;
+          last_name: string;
+          mobile?: string | null;
+          notes?: string | null;
+          phone?: string | null;
+          position?: string | null;
+          supplier_id: string;
           updated_at?: string | null;
         };
         Update: {
-          contact_info?: Json | null;
           created_at?: string | null;
           deleted_at?: string | null;
+          department?: string | null;
+          email?: string | null;
+          first_name?: string;
           id?: string;
-          name?: string;
+          is_active?: boolean | null;
+          is_primary?: boolean | null;
+          last_name?: string;
+          mobile?: string | null;
+          notes?: string | null;
+          phone?: string | null;
+          position?: string | null;
+          supplier_id?: string;
           updated_at?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "supplier_contacts_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      suppliers: {
+        Row: {
+          address_line_1: string | null;
+          address_line_2: string | null;
+          city: string | null;
+          company_registration_number: string | null;
+          country: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          delivery_terms: string | null;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          notes: string | null;
+          organization_id: string;
+          payment_terms: string | null;
+          postal_code: string | null;
+          state_province: string | null;
+          tags: string[] | null;
+          tax_number: string | null;
+          updated_at: string | null;
+          website: string | null;
+        };
+        Insert: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          notes?: string | null;
+          organization_id: string;
+          payment_terms?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          notes?: string | null;
+          organization_id?: string;
+          payment_terms?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       teams: {
         Row: {

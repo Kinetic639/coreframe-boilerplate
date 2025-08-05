@@ -13,13 +13,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LocationTreeItem } from "@/lib/types/location-tree";
-import { Plus, Search, MapPin, Building2, Loader, ArrowUpDown } from "lucide-react";
+import {
+  Plus,
+  Search,
+  MapPin,
+  Building2,
+  Loader,
+  ArrowUpDown,
+  Move,
+  GripVertical,
+} from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { buildLocationTree } from "@/modules/warehouse/utils/buildLocationstree";
 import { LocationTree } from "@/modules/warehouse/locations/location-tree";
 import { LocationTreeMobile } from "@/modules/warehouse/locations/location-tree-mobile";
+import { ImprovedDraggableLocationTree } from "@/modules/warehouse/locations/improved-draggable-location-tree";
 import { LocationFormDialog } from "@/modules/warehouse/locations/location-form-dialog";
+import { MoveLocationDialog } from "@/modules/warehouse/locations/move-location-dialog";
 import { toast } from "react-toastify";
 
 interface LocationManagerProps {
@@ -32,13 +43,70 @@ export default function LocationManager({
   activeBranchName,
 }: LocationManagerProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [sortKey, setSortKey] = React.useState<"name" | "code" | "created_at">("name");
+  const [sortKey, setSortKey] = React.useState<"name" | "code" | "created_at" | "sort_order">(
+    "sort_order"
+  );
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("asc");
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = React.useState(false);
   const [editingLocation, setEditingLocation] = React.useState<LocationTreeItem | undefined>();
+  const [movingLocation, setMovingLocation] = React.useState<LocationTreeItem | undefined>();
   const [parentLocation, setParentLocation] = React.useState<LocationTreeItem | undefined>();
   const [locations, setLocations] = React.useState<LocationTreeItem[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [isReorderMode, setIsReorderMode] = React.useState(false);
+
+  // Function to calculate total product count including children
+  const calculateLocationProductCounts = async (
+    locations: LocationTreeItem[]
+  ): Promise<LocationTreeItem[]> => {
+    const supabase = createClient();
+
+    // Get all product stock counts by location
+    const { data: stockData, error } = await supabase
+      .from("product_stock_locations")
+      .select("location_id, quantity");
+
+    if (error) {
+      console.error("Error fetching stock data:", error);
+      return locations;
+    }
+
+    // Create a map of location to total quantity
+    const locationStockMap = new Map<string, number>();
+    stockData?.forEach((stock) => {
+      const current = locationStockMap.get(stock.location_id) || 0;
+      locationStockMap.set(stock.location_id, current + (stock.quantity || 0));
+    });
+
+    // Function to calculate total count including descendants
+    const calculateTotalCount = (
+      locationId: string,
+      locationMap: Map<string, LocationTreeItem>
+    ): number => {
+      const location = locationMap.get(locationId);
+      if (!location) return 0;
+
+      let totalCount = locationStockMap.get(locationId) || 0;
+
+      // Add counts from all descendants
+      const descendants = locations.filter((l) => l.parent_id === locationId);
+      descendants.forEach((child) => {
+        totalCount += calculateTotalCount(child.id, locationMap);
+      });
+
+      return totalCount;
+    };
+
+    // Create a map for quick location lookup
+    const locationMap = new Map(locations.map((loc) => [loc.id, loc]));
+
+    // Update product counts for all locations
+    return locations.map((location) => ({
+      ...location,
+      productCount: calculateTotalCount(location.id, locationMap),
+    }));
+  };
 
   React.useEffect(() => {
     const fetchLocations = async () => {
@@ -48,13 +116,19 @@ export default function LocationManager({
         .from("locations")
         .select("*")
         .eq("branch_id", activeBranchId)
-        .is("deleted_at", null);
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
 
       if (error) {
         console.error("Error fetching locations:", error);
         toast.error("Błąd podczas ładowania lokalizacji.");
+        setLocations([]);
       } else {
-        setLocations(data as LocationTreeItem[]);
+        const locationsWithCounts = await calculateLocationProductCounts(
+          data as LocationTreeItem[]
+        );
+        setLocations(locationsWithCounts);
       }
       setLoading(false);
     };
@@ -86,6 +160,8 @@ export default function LocationManager({
         compareValue = (a.code || "").localeCompare(b.code || "");
       } else if (sortKey === "created_at") {
         compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortKey === "sort_order") {
+        compareValue = (a.sort_order || 0) - (b.sort_order || 0);
       }
 
       return sortOrder === "asc" ? compareValue : -compareValue;
@@ -128,6 +204,50 @@ export default function LocationManager({
     }
   };
 
+  const handleMoveLocation = (location: LocationTreeItem) => {
+    setMovingLocation(location);
+    setIsMoveDialogOpen(true);
+  };
+
+  const handleConfirmMove = async (locationId: string, newParentId: string | null) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("locations")
+      .update({ parent_id: newParentId })
+      .eq("id", locationId);
+
+    if (error) {
+      console.error("Error moving location:", error);
+      toast.error("Błąd podczas przenoszenia lokalizacji.");
+    } else {
+      await refreshLocations();
+      const movingLoc = locations.find((l) => l.id === locationId);
+      toast.success(`Lokalizacja "${movingLoc?.name}" została przeniesiona.`);
+    }
+  };
+
+  const refreshLocations = async () => {
+    if (!activeBranchId) return;
+
+    const supabase = createClient();
+    const { data: newLocations, error } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("branch_id", activeBranchId)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error re-fetching locations:", error);
+    } else {
+      const locationsWithCounts = await calculateLocationProductCounts(
+        newLocations as LocationTreeItem[]
+      );
+      setLocations(locationsWithCounts);
+    }
+  };
+
   const handleSaveLocation = async (data: any) => {
     const supabase = createClient();
     // Destructure to exclude image_file from the data sent to Supabase
@@ -162,18 +282,8 @@ export default function LocationManager({
         toast.success(`Lokalizacja "${data.name}" została dodana.`);
       }
     }
-    // Re-fetch locations to update the tree
-    const { data: newLocations, error } = await supabase
-      .from("locations")
-      .select("*")
-      .eq("branch_id", activeBranchId)
-      .is("deleted_at", null);
 
-    if (error) {
-      console.error("Error re-fetching locations:", error);
-    } else {
-      setLocations(newLocations as LocationTreeItem[]);
-    }
+    await refreshLocations();
   };
 
   return (
@@ -220,12 +330,15 @@ export default function LocationManager({
                 <div className="flex items-center gap-2">
                   <Select
                     value={sortKey}
-                    onValueChange={(value: "name" | "code" | "created_at") => setSortKey(value)}
+                    onValueChange={(value: "name" | "code" | "created_at" | "sort_order") =>
+                      setSortKey(value)
+                    }
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Sortuj według" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="sort_order">Kolejność</SelectItem>
                       <SelectItem value="name">Nazwa</SelectItem>
                       <SelectItem value="code">Kod</SelectItem>
                       <SelectItem value="created_at">Data utworzenia</SelectItem>
@@ -239,6 +352,17 @@ export default function LocationManager({
                     <ArrowUpDown className={sortOrder === "asc" ? "rotate-180" : ""} />
                   </Button>
                 </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-medium">Tryb zmiany kolejności</h3>
+                <Button
+                  variant={isReorderMode ? "default" : "outline"}
+                  onClick={() => setIsReorderMode(!isReorderMode)}
+                  className="flex items-center gap-2"
+                >
+                  <Move className="h-4 w-4" />
+                  {isReorderMode ? "Wyłącz tryb" : "Włącz tryb"}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -284,25 +408,55 @@ export default function LocationManager({
               </div>
             ) : locationTree.length > 0 ? (
               <>
-                {/* Desktop Tree - Hidden on mobile */}
-                <div className="hidden lg:block">
-                  <LocationTree
-                    locations={locationTree}
-                    onEdit={handleEditLocation}
-                    onAddChild={handleAddChildLocation}
-                    onDelete={handleDeleteLocation}
-                  />
-                </div>
+                {isReorderMode ? (
+                  /* Draggable Tree for reordering */
+                  <div className="space-y-4">
+                    <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+                      <h4 className="mb-2 font-medium">Tryb zmiany kolejności</h4>
+                      <p>
+                        Przeciągnij lokalizacje za pomocą uchwytów aby zmienić ich kolejność.
+                        Lokalizacje można przestawiać tylko w ramach tego samego poziomu hierarchii.
+                      </p>
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        <GripVertical className="h-3 w-3" />
+                        <span>Użyj tego uchwytu aby przeciągnąć lokalizację</span>
+                      </div>
+                    </div>
+                    <ImprovedDraggableLocationTree
+                      locations={locationTree}
+                      onEdit={handleEditLocation}
+                      onAddChild={handleAddChildLocation}
+                      onDelete={handleDeleteLocation}
+                      onMove={handleMoveLocation}
+                      onReorderComplete={refreshLocations}
+                      branchId={activeBranchId || ""}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    {/* Desktop Tree - Hidden on mobile */}
+                    <div className="hidden lg:block">
+                      <LocationTree
+                        locations={locationTree}
+                        onEdit={handleEditLocation}
+                        onAddChild={handleAddChildLocation}
+                        onDelete={handleDeleteLocation}
+                        onMove={handleMoveLocation}
+                      />
+                    </div>
 
-                {/* Mobile Tree - Hidden on desktop */}
-                <div className="lg:hidden">
-                  <LocationTreeMobile
-                    locations={locationTree}
-                    onEdit={handleEditLocation}
-                    onAddChild={handleAddChildLocation}
-                    onDelete={handleDeleteLocation}
-                  />
-                </div>
+                    {/* Mobile Tree - Hidden on desktop */}
+                    <div className="lg:hidden">
+                      <LocationTreeMobile
+                        locations={locationTree}
+                        onEdit={handleEditLocation}
+                        onAddChild={handleAddChildLocation}
+                        onDelete={handleDeleteLocation}
+                        onMove={handleMoveLocation}
+                      />
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <div className="py-8 text-center text-muted-foreground md:py-12">
@@ -334,6 +488,15 @@ export default function LocationManager({
         location={editingLocation}
         parentLocation={parentLocation}
         onSave={handleSaveLocation}
+      />
+
+      {/* Move Location Dialog */}
+      <MoveLocationDialog
+        open={isMoveDialogOpen}
+        onOpenChange={setIsMoveDialogOpen}
+        location={movingLocation}
+        allLocations={locations}
+        onMove={handleConfirmMove}
       />
     </div>
   );

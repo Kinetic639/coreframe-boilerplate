@@ -5,6 +5,7 @@ export type ProductWithVariants = Tables<"products"> & {
   variants: (Tables<"product_variants"> & {
     stock_locations: Tables<"product_stock_locations">[];
   })[];
+  stock_locations?: Tables<"product_stock_locations">[];
   inventory_data: Tables<"product_inventory_data"> | null;
   ecommerce_data: Tables<"product_ecommerce_data"> | null;
   suppliers: Tables<"suppliers">[];
@@ -24,7 +25,7 @@ export type CreateProductData = {
   purchase_price?: number;
   vat_rate?: number;
   weight?: number;
-  dimensions?: Record<string, any>;
+  dimensions?: Record<string, unknown>;
   packaging_type?: string;
 
   // Initial stock location (branch context)
@@ -34,7 +35,7 @@ export type CreateProductData = {
   // Variant data (default variant will be created)
   variant_name?: string;
   variant_sku?: string;
-  variant_attributes?: Record<string, any>;
+  variant_attributes?: Record<string, unknown>;
 };
 
 export type UpdateProductData = Partial<CreateProductData> & {
@@ -312,10 +313,8 @@ export class ProductService {
     }
   ): Promise<{ products: ProductWithVariants[]; total: number }> {
     try {
-      let query = this.supabase
-        .from("products")
-        .select(
-          `
+      // Build the base query with proper supplier filtering
+      let selectQuery = `
         *,
         variants:product_variants(*),
         stock_locations:product_stock_locations(
@@ -323,15 +322,31 @@ export class ProductService {
           location:locations!inner(branch_id)
         ),
         inventory_data:product_inventory_data(*),
-        ecommerce_data:product_ecommerce_data(*),
+        ecommerce_data:product_ecommerce_data(*)`;
+
+      // If filtering by supplier, only include products that have that supplier relationship
+      if (filters?.supplierId) {
+        selectQuery += `,
+        suppliers:product_suppliers!inner(
+          supplier:suppliers!inner(*)
+        )`;
+      } else {
+        selectQuery += `,
         suppliers:product_suppliers(
           supplier:suppliers(*)
-        )
-      `,
-          { count: "exact" }
-        )
+        )`;
+      }
+
+      let query = this.supabase
+        .from("products")
+        .select(selectQuery, { count: "exact" })
         .eq("stock_locations.location.branch_id", branchId)
         .is("deleted_at", null);
+
+      // Apply supplier filter with inner join
+      if (filters?.supplierId) {
+        query = query.eq("suppliers.supplier_id", filters.supplierId);
+      }
 
       if (filters?.search) {
         query = query.or(
@@ -368,7 +383,8 @@ export class ProductService {
 
       if (filters?.showLowStock) {
         filteredProducts = filteredProducts.filter((product) => {
-          const totalStock = product.stock_locations.reduce((sum, sl) => sum + sl.quantity, 0);
+          const totalStock =
+            product.stock_locations?.reduce((sum, sl) => sum + (sl.quantity || 0), 0) || 0;
           return totalStock < 10;
         });
       }

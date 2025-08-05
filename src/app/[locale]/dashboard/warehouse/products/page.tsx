@@ -65,6 +65,7 @@ export default function ProductsPage() {
         search: currentFilters.search,
         minPrice: currentFilters.minPrice,
         maxPrice: currentFilters.maxPrice,
+        supplierId: currentFilters.supplierId,
         locationId: currentFilters.locationId,
         showLowStock: currentFilters.showLowStock,
         limit: itemsPerPage,
@@ -110,6 +111,7 @@ export default function ProductsPage() {
       maxPrice: searchParams.get("maxPrice")
         ? parseFloat(searchParams.get("maxPrice")!)
         : undefined,
+      supplierId: searchParams.get("supplierId") || undefined,
       locationId: searchParams.get("locationId") || undefined,
       showLowStock: searchParams.get("showLowStock") === "true" || undefined,
     };
@@ -200,6 +202,7 @@ export default function ProductsPage() {
                     {currentFilters.search ||
                     currentFilters.minPrice ||
                     currentFilters.maxPrice ||
+                    currentFilters.supplierId ||
                     currentFilters.locationId ||
                     currentFilters.showLowStock
                       ? "Nie znaleziono produktów spełniających kryteria filtrowania."
@@ -208,6 +211,7 @@ export default function ProductsPage() {
                   {!currentFilters.search &&
                     !currentFilters.minPrice &&
                     !currentFilters.maxPrice &&
+                    !currentFilters.supplierId &&
                     !currentFilters.locationId &&
                     !currentFilters.showLowStock && (
                       <Button onClick={handleAddNew} className="mt-4">

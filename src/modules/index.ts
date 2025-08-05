@@ -4,6 +4,7 @@ import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { getWarehouseModule } from "./warehouse/config";
+import { getAnalyticsModule } from "./analytics/config";
 import { Widget } from "@/lib/types/widgets";
 
 /**
@@ -11,12 +12,14 @@ import { Widget } from "@/lib/types/widgets";
  */
 export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]> {
   const warehouseModule = await getWarehouseModule(activeOrgId);
+  const analyticsModule = await getAnalyticsModule();
 
   return [
     homeModule,
     warehouseModule, // dynamicznie załadowany
     teamsModule,
     orgManagmentModule,
+    analyticsModule, // analytics module for activity tracking
     supportModule,
   ];
 }
