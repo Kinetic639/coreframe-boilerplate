@@ -47,21 +47,10 @@ export async function fetchRolesWithUserCounts(
     throw new Error(`Failed to fetch roles: ${rolesError.message}`);
   }
 
-  // Fetch user role assignments with user details
+  // Fetch user role assignments
   const { data: assignments, error: assignmentsError } = await supabase
     .from("user_role_assignments")
-    .select(
-      `
-      role_id,
-      users:user_id (
-        id,
-        email,
-        first_name,
-        last_name,
-        avatar_url
-      )
-    `
-    )
+    .select("role_id, user_id")
     .eq("scope_id", organizationId)
     .is("deleted_at", null);
 
@@ -69,15 +58,37 @@ export async function fetchRolesWithUserCounts(
     throw new Error(`Failed to fetch user assignments: ${assignmentsError.message}`);
   }
 
+  // Get unique user IDs and fetch user details separately
+  let users: User[] = [];
+  if (assignments && assignments.length > 0) {
+    const userIds = [...new Set(assignments.map((a) => a.user_id))];
+
+    const { data: userData, error: usersError } = await supabase
+      .from("users")
+      .select("id, email, first_name, last_name")
+      .in("id", userIds)
+      .is("deleted_at", null);
+
+    if (usersError) {
+      throw new Error(`Failed to fetch users: ${usersError.message}`);
+    }
+
+    users = userData || [];
+  }
+
+  // Create user map for quick lookup
+  const userMap = new Map<string, User>();
+  users.forEach((user) => userMap.set(user.id, user));
+
   // Combine roles with user counts and user details
   const rolesWithUserCounts: RoleWithUserCount[] = (roles || []).map((role) => {
     const roleAssignments = assignments?.filter((a) => a.role_id === role.id) || [];
-    const users = roleAssignments.map((a) => a.users).filter(Boolean) as User[];
+    const roleUsers = roleAssignments.map((a) => userMap.get(a.user_id)).filter(Boolean) as User[];
 
     return {
       ...role,
       userCount: roleAssignments.length,
-      users,
+      users: roleUsers,
     };
   });
 
@@ -107,27 +118,10 @@ export async function fetchUserRoleAssignments(
 ): Promise<UserRoleAssignmentWithDetails[]> {
   const supabase = createClient();
 
+  // Fetch assignments first
   const { data: assignments, error } = await supabase
     .from("user_role_assignments")
-    .select(
-      `
-      *,
-      users:user_id (
-        id,
-        email,
-        first_name,
-        last_name,
-        avatar_url,
-        status_id
-      ),
-      roles:role_id (
-        id,
-        name,
-        is_basic,
-        organization_id
-      )
-    `
-    )
+    .select("*")
     .eq("scope_id", organizationId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -136,7 +130,51 @@ export async function fetchUserRoleAssignments(
     throw new Error(`Failed to fetch user role assignments: ${error.message}`);
   }
 
-  return assignments || [];
+  if (!assignments || assignments.length === 0) {
+    return [];
+  }
+
+  // Get unique user and role IDs
+  const userIds = [...new Set(assignments.map((a) => a.user_id))];
+  const roleIds = [...new Set(assignments.map((a) => a.role_id))];
+
+  // Fetch users and roles separately
+  const [usersResult, rolesResult] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id, email, first_name, last_name, status_id")
+      .in("id", userIds)
+      .is("deleted_at", null),
+    supabase
+      .from("roles")
+      .select("id, name, is_basic, organization_id")
+      .in("id", roleIds)
+      .is("deleted_at", null),
+  ]);
+
+  if (usersResult.error) {
+    throw new Error(`Failed to fetch users: ${usersResult.error.message}`);
+  }
+
+  if (rolesResult.error) {
+    throw new Error(`Failed to fetch roles: ${rolesResult.error.message}`);
+  }
+
+  // Create maps for quick lookup
+  const userMap = new Map();
+  const roleMap = new Map();
+
+  usersResult.data?.forEach((user) => userMap.set(user.id, user));
+  rolesResult.data?.forEach((role) => roleMap.set(role.id, role));
+
+  // Combine the data
+  const assignmentsWithDetails: UserRoleAssignmentWithDetails[] = assignments.map((assignment) => ({
+    ...assignment,
+    users: userMap.get(assignment.user_id) || null,
+    roles: roleMap.get(assignment.role_id) || null,
+  }));
+
+  return assignmentsWithDetails;
 }
 
 /**
@@ -148,20 +186,7 @@ export async function fetchOrganizationUsers(organizationId: string): Promise<Us
   // Get all users who have role assignments in this organization
   const { data: assignments, error: assignmentsError } = await supabase
     .from("user_role_assignments")
-    .select(
-      `
-      user_id,
-      users:user_id (
-        id,
-        email,
-        first_name,
-        last_name,
-        avatar_url,
-        status_id,
-        created_at
-      )
-    `
-    )
+    .select("user_id")
     .eq("scope_id", organizationId)
     .is("deleted_at", null);
 
@@ -169,15 +194,25 @@ export async function fetchOrganizationUsers(organizationId: string): Promise<Us
     throw new Error(`Failed to fetch organization users: ${assignmentsError.message}`);
   }
 
-  // Extract unique users
-  const usersMap = new Map<string, User>();
-  assignments?.forEach((assignment) => {
-    if (assignment.users) {
-      usersMap.set(assignment.users.id, assignment.users);
-    }
-  });
+  if (!assignments || assignments.length === 0) {
+    return [];
+  }
 
-  return Array.from(usersMap.values()).sort(
+  // Get unique user IDs
+  const userIds = [...new Set(assignments.map((a) => a.user_id))];
+
+  // Fetch user details
+  const { data: users, error: usersError } = await supabase
+    .from("users")
+    .select("id, email, first_name, last_name, status_id, created_at")
+    .in("id", userIds)
+    .is("deleted_at", null);
+
+  if (usersError) {
+    throw new Error(`Failed to fetch users: ${usersError.message}`);
+  }
+
+  return (users || []).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 }

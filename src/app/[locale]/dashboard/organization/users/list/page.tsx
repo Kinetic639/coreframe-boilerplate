@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -41,39 +42,24 @@ import {
   Shield,
   UserCheck,
   UserX,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
-import {
-  mockRoles,
-  mockUserRoles,
-  getUsersByOrganization,
-  mockOrganization,
-} from "@/lib/mock/organization";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
-import { mockBranches } from "@/lib/mock/branches";
+import { useOrganizationUsers } from "@/hooks/useOrganizationUsers";
+import { useAppStore } from "@/lib/stores/app-store";
 
 export default function UsersListPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [branchFilter, setBranchFilter] = React.useState<string>("all");
 
-  const organizationUsers = getUsersByOrganization(mockOrganization.id);
+  const { users: organizationUsers, loading, error } = useOrganizationUsers();
+  const { availableBranches } = useAppStore();
 
   const usersWithDetails = React.useMemo(() => {
-    return organizationUsers.map((user) => {
-      const userRole = mockUserRoles.find((ur) => ur.user_id === user.id);
-      const role = userRole ? mockRoles.find((r) => r.id === userRole.role_id) : null;
-      const branch = user.default_branch_id
-        ? mockBranches.find((b) => b.id === user.default_branch_id)
-        : null;
-
-      return {
-        ...user,
-        role,
-        branch,
-        userRole,
-      };
-    });
+    return organizationUsers;
   }, [organizationUsers]);
 
   const filteredUsers = React.useMemo(() => {
@@ -81,14 +67,16 @@ export default function UsersListPage() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+        const fullName = `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
         const matchesSearch = fullName.includes(query) || user.email.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
 
-      // Status filter
-      if (statusFilter !== "all" && user.status_id !== statusFilter) {
-        return false;
+      // Status filter (simplified - using active/inactive based on status_id)
+      if (statusFilter !== "all") {
+        const isActive = user.status_id === "active" || !user.status_id; // Default to active if no status
+        if (statusFilter === "active" && !isActive) return false;
+        if (statusFilter === "inactive" && isActive) return false;
       }
 
       // Branch filter
@@ -99,6 +87,26 @@ export default function UsersListPage() {
       return true;
     });
   }, [usersWithDetails, searchQuery, statusFilter, branchFilter]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading users...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{error || "Failed to load users"}</AlertDescription>
+      </Alert>
+    );
+  }
 
   const getStatusBadge = (statusId: string | null) => {
     const variants = {
@@ -192,8 +200,8 @@ export default function UsersListPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Wszystkie oddziały</SelectItem>
-                    {mockBranches.map((branch) => (
-                      <SelectItem key={branch.id} value={branch.id}>
+                    {availableBranches.map((branch) => (
+                      <SelectItem key={branch.branch_id} value={branch.branch_id}>
                         {branch.name}
                       </SelectItem>
                     ))}
@@ -260,10 +268,6 @@ export default function UsersListPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={user.avatar_url}
-                              alt={`${user.first_name} ${user.last_name}`}
-                            />
                             <AvatarFallback className="text-xs">
                               {getUserInitials(user.first_name, user.last_name)}
                             </AvatarFallback>
@@ -288,7 +292,7 @@ export default function UsersListPage() {
                         {user.role ? (
                           <div className="flex items-center gap-2">
                             <Shield className="h-4 w-4 text-muted-foreground" />
-                            <Badge variant="outline">{user.role.label}</Badge>
+                            <Badge variant="outline">{user.role.name}</Badge>
                           </div>
                         ) : (
                           <span className="text-muted-foreground">Brak roli</span>
