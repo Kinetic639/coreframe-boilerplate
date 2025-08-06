@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LabelGenerator } from "@/modules/warehouse/components/labels/LabelGenerator";
-import type { LabelTemplate, LabelGenerationRequest } from "@/lib/types/qr-system";
+import type { LabelTemplate, LabelGenerationRequest, QRLabel } from "@/lib/types/qr-system";
 import { toast } from "sonner";
 
 // Mock templates - in real app this would come from database
@@ -241,7 +241,7 @@ export default function LabelGeneratorPage() {
   };
 
   const generateAndDownloadPDF = async (
-    labels: any[],
+    labels: QRLabel[],
     request: LabelGenerationRequest,
     batchId?: string
   ) => {
