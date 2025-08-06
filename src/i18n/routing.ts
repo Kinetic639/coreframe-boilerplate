@@ -84,6 +84,40 @@ export const routing = defineRouting({
       pl: "/dashboard/magazyn/dostawy",
     },
 
+    // === QR & Labels System (Warehouse module) ===
+    "/dashboard/warehouse/labels": {
+      en: "/dashboard/warehouse/labels",
+      pl: "/dashboard/magazyn/etykiety",
+    },
+    "/dashboard/warehouse/labels/generator": {
+      en: "/dashboard/warehouse/labels/generator",
+      pl: "/dashboard/magazyn/etykiety/generator",
+    },
+    "/dashboard/warehouse/labels/templates": {
+      en: "/dashboard/warehouse/labels/templates",
+      pl: "/dashboard/magazyn/etykiety/szablony",
+    },
+    "/dashboard/warehouse/labels/templates/create": {
+      en: "/dashboard/warehouse/labels/templates/create",
+      pl: "/dashboard/magazyn/etykiety/szablony/utworz",
+    },
+    "/dashboard/warehouse/labels/batches": {
+      en: "/dashboard/warehouse/labels/batches",
+      pl: "/dashboard/magazyn/etykiety/partie",
+    },
+    "/dashboard/warehouse/labels/history": {
+      en: "/dashboard/warehouse/labels/history",
+      pl: "/dashboard/magazyn/etykiety/historia",
+    },
+    "/dashboard/warehouse/scanning": {
+      en: "/dashboard/warehouse/scanning",
+      pl: "/dashboard/magazyn/skanowanie",
+    },
+    "/dashboard/warehouse/scanning/delivery": {
+      en: "/dashboard/warehouse/scanning/delivery",
+      pl: "/dashboard/magazyn/skanowanie/dostawa",
+    },
+
     // === Org Management module ===
     "/dashboard/organization/profile": {
       en: "/dashboard/organization/profile",
