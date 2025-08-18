@@ -65,7 +65,7 @@ export function QRScanner({
 }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isScanning, setIsScanning] = useState(false);
@@ -83,24 +83,26 @@ export function QRScanner({
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // Initialize camera on component mount
-  useEffect(() => {
-    initializeCamera();
-    return () => {
-      stopScanning();
-    };
-  }, [initializeCamera, stopScanning]);
+  // --- helpers ---
 
-  // Auto-start scanning if enabled
-  useEffect(() => {
-    if (autoStart && cameraAvailable && !isScanning) {
-      startScanning();
+  const stopScanning = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
     }
-  }, [autoStart, cameraAvailable, isScanning, startScanning]);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+    setScanStatus("idle");
+  }, []);
 
   const initializeCamera = useCallback(async () => {
     setIsInitializing(true);
-
     try {
       const available = await checkCameraAvailability();
       setCameraAvailable(available);
@@ -109,12 +111,11 @@ export function QRScanner({
         const devices = await getCameraDevices();
         setCameras(devices);
 
-        // Select the back camera if available
-        const backCamera = devices.find(
-          (device) =>
-            device.label.toLowerCase().includes("back") ||
-            device.label.toLowerCase().includes("rear")
-        );
+        // wybór tylnej kamery jeśli jest
+        const backCamera = devices.find((device) => {
+          const label = (device.label || "").toLowerCase();
+          return label.includes("back") || label.includes("rear");
+        });
         setSelectedCamera(backCamera?.deviceId || devices[0]?.deviceId || "");
       }
     } catch (error) {
@@ -127,11 +128,9 @@ export function QRScanner({
 
   const validateScanResult = useCallback((result: ScannerResult): boolean => {
     if (result.type === "qr_code") {
-      // Check if it's a valid QR token or URL
       const token = extractQRTokenFromURL(result.code);
       return token !== null || isValidQRToken(result.code);
     } else {
-      // Validate barcode
       return isValidBarcode(result.code, result.format);
     }
   }, []);
@@ -141,25 +140,19 @@ export function QRScanner({
       setLastScanResult(result);
       setScanStatus("success");
 
-      // Provide feedback
       handleScanSuccess(scannerConfig);
-
-      // Call the callback
       onScanResult(result);
 
-      // Stop continuous scanning if not enabled
       if (!scannerConfig.continuousScanning) {
         stopScanning();
       }
 
-      // Reset status after 2 seconds
-      setTimeout(() => {
-        if (!scannerConfig.continuousScanning) {
-          setScanStatus("idle");
-        }
-      }, 2000);
+      // reset status po 2s (gdy nie skanujemy ciągle)
+      if (!scannerConfig.continuousScanning) {
+        setTimeout(() => setScanStatus("idle"), 2000);
+      }
     },
-    [scannerConfig, onScanResult, stopScanning]
+    [onScanResult, scannerConfig, stopScanning]
   );
 
   const startScanLoop = useCallback(() => {
@@ -170,11 +163,8 @@ export function QRScanner({
 
       try {
         const results = await scanFromVideo(videoRef.current, scannerConfig);
-
         if (results.length > 0) {
-          const result = results[0]; // Take the first result
-
-          // Validate the result
+          const result = results[0];
           if (validateScanResult(result)) {
             handleValidScan(result);
           }
@@ -182,7 +172,7 @@ export function QRScanner({
       } catch (error) {
         console.error("Scan error:", error);
       }
-    }, 500); // Scan every 500ms
+    }, 500);
   }, [isScanning, scannerConfig, validateScanResult, handleValidScan]);
 
   const startScanning = useCallback(async () => {
@@ -197,16 +187,13 @@ export function QRScanner({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await videoRef.current.play();
 
-        // Enable flashlight if supported and requested
         if (flashEnabled) {
           try {
             const track = stream.getVideoTracks()[0];
-            await track.applyConstraints({
-              // @ts-ignore - torch is not in standard types yet
-              advanced: [{ torch: true }],
-            });
+            // @ts-ignore - torch nie jest w typach
+            await track.applyConstraints({ advanced: [{ torch: true }] });
           } catch (error) {
             console.warn("Flashlight not supported:", error);
           }
@@ -218,69 +205,34 @@ export function QRScanner({
     } catch (error) {
       console.error("Error starting camera:", error);
       setScanStatus("error");
-      onError?.("Błäd podczas uruchamiania kamery");
+      onError?.("Błąd podczas uruchamiania kamery");
     } finally {
       setIsInitializing(false);
     }
   }, [cameraAvailable, isScanning, selectedCamera, flashEnabled, onError, startScanLoop]);
 
-  const stopScanning = useCallback(() => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
+  // --- effects ---
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    setIsScanning(false);
-    setScanStatus("idle");
-  }, []);
-
-  const validateScanResult = (result: ScannerResult): boolean => {
-    if (result.type === "qr_code") {
-      // Check if it's a valid QR token or URL
-      const token = extractQRTokenFromURL(result.code);
-      return token !== null || isValidQRToken(result.code);
-    } else {
-      // Validate barcode
-      return isValidBarcode(result.code, result.format);
-    }
-  };
-
-  const handleValidScan = (result: ScannerResult) => {
-    setLastScanResult(result);
-    setScanStatus("success");
-
-    // Provide feedback
-    handleScanSuccess(scannerConfig);
-
-    // Call the callback
-    onScanResult(result);
-
-    // Stop continuous scanning if not enabled
-    if (!scannerConfig.continuousScanning) {
+  // init kamery przy montowaniu + sprzątanie
+  useEffect(() => {
+    initializeCamera();
+    return () => {
       stopScanning();
-    }
+    };
+  }, [initializeCamera, stopScanning]);
 
-    // Reset status after 2 seconds
-    setTimeout(() => {
-      if (!scannerConfig.continuousScanning) {
-        setScanStatus("idle");
-      }
-    }, 2000);
-  };
+  // auto-start jeśli włączony
+  useEffect(() => {
+    if (autoStart && cameraAvailable && !isScanning) {
+      startScanning();
+    }
+  }, [autoStart, cameraAvailable, isScanning, startScanning]);
+
+  // --- handlers UI ---
 
   const handleManualEntry = () => {
     if (!manualCode.trim()) return;
 
-    // Determine if it's QR or barcode
     const token = extractQRTokenFromURL(manualCode);
     const isQR = token !== null || isValidQRToken(manualCode);
 
@@ -320,7 +272,6 @@ export function QRScanner({
       onError?.("Błąd podczas skanowania pliku");
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -331,19 +282,19 @@ export function QRScanner({
 
     try {
       const track = streamRef.current.getVideoTracks()[0];
-      await track.applyConstraints({
-        // @ts-ignore
-        advanced: [{ torch: !flashEnabled }],
-      });
-      setFlashEnabled(!flashEnabled);
+      // @ts-ignore - torch nie jest w typach
+      await track.applyConstraints({ advanced: [{ torch: !flashEnabled }] });
+      setFlashEnabled((v) => !v);
     } catch (error) {
       console.warn("Flashlight toggle failed:", error);
     }
   };
 
+  // --- render ---
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Scanner Header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ScanLine className="h-5 w-5" />
@@ -366,7 +317,7 @@ export function QRScanner({
         </Button>
       </div>
 
-      {/* Camera Scanner */}
+      {/* Camera */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -427,14 +378,12 @@ export function QRScanner({
                 playsInline
               />
 
-              {/* Scanning overlay */}
               {isScanning && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="h-48 w-48 animate-pulse rounded-lg border-2 border-dashed border-white" />
                 </div>
               )}
 
-              {/* Status overlay */}
               {scanStatus === "scanning" && (
                 <div className="absolute left-4 top-4">
                   <Badge variant="default" className="border-blue-200 bg-blue-100 text-blue-800">
@@ -448,7 +397,7 @@ export function QRScanner({
         </CardContent>
       </Card>
 
-      {/* Manual Entry */}
+      {/* Manual */}
       {showManualEntry && (
         <Card>
           <CardHeader>
@@ -463,7 +412,7 @@ export function QRScanner({
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="Wklej lub wpisz kod QR/kreskowy"
-                onKeyPress={(e) => e.key === "Enter" && handleManualEntry()}
+                onKeyDown={(e) => e.key === "Enter" && handleManualEntry()}
               />
               <Button onClick={handleManualEntry} disabled={!manualCode.trim()}>
                 Skanuj
@@ -473,7 +422,7 @@ export function QRScanner({
         </Card>
       )}
 
-      {/* File Upload */}
+      {/* File */}
       {showFileUpload && (
         <Card>
           <CardHeader>
@@ -502,7 +451,7 @@ export function QRScanner({
         </Card>
       )}
 
-      {/* Last Scan Result */}
+      {/* Last result */}
       {lastScanResult && (
         <Card>
           <CardHeader>
@@ -526,7 +475,7 @@ export function QRScanner({
         </Card>
       )}
 
-      {/* Settings Dialog */}
+      {/* Settings */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent>
           <DialogHeader>
