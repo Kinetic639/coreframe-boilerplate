@@ -28,15 +28,36 @@ export async function _loadAppContextServer() {
   if (!session) return null;
   const userId = session.user.id;
 
-  // 1. Preferences
+  // 1. Get user preferences, or fallback to their owned organization
   const { data: preferences } = await supabase
     .from("user_preferences")
     .select("organization_id, default_branch_id")
     .eq("user_id", userId)
     .single();
 
-  const activeOrgId = preferences?.organization_id ?? null;
+  let activeOrgId = preferences?.organization_id ?? null;
   const activeBranchId = preferences?.default_branch_id ?? null;
+
+  // 🔄 Fallback: If no preferences, find user's owned organization
+  if (!activeOrgId) {
+    const { data: ownedOrg } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("created_by", userId)
+      .limit(1)
+      .single();
+
+    if (ownedOrg) {
+      activeOrgId = ownedOrg.id;
+
+      // Create default preferences for this user
+      await supabase.from("user_preferences").upsert({
+        user_id: userId,
+        organization_id: activeOrgId,
+        default_branch_id: null, // Will be set later when branches are available
+      });
+    }
+  }
 
   // 2. Organization profile
   const { data: activeOrg } = await supabase

@@ -12,7 +12,8 @@ import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
 
-function hexToRgb(hex: string): string {
+function hexToRgb(hex: string | null): string {
+  if (!hex) return "0,0,0";
   const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
   if (!match) return "0,0,0";
   const [, r, g, b] = match;
