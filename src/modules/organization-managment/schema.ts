@@ -3,17 +3,55 @@ import * as z from "zod";
 
 export const organizationSchema = z.object({
   organization_id: z.string(),
-  name: z.string().min(1),
-  name_2: z.string().optional(),
+  // Required fields
+  name: z.string().min(1, "Organization name is required"),
   slug: z
     .string()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/),
-  bio: z.string().max(500).optional(),
-  website: z.string().url().optional().or(z.literal("")),
-  logo_url: z.string().url().optional().or(z.literal("")),
-  theme_color: z.string().min(1),
-  font_color: z.string().min(1),
+    .min(1, "Slug is required")
+    .regex(/^[a-z0-9-]+$/, "Slug can only contain lowercase letters, numbers, and hyphens"),
+
+  // Optional fields - use nullable() for better handling
+  name_2: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  bio: z
+    .string()
+    .max(500, "Description cannot exceed 500 characters")
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  website: z
+    .union([z.string().url("Must be a valid URL"), z.literal(""), z.null(), z.undefined()])
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  logo_url: z
+    .union([z.string().url("Must be a valid URL"), z.literal(""), z.null(), z.undefined()])
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  theme_color: z
+    .union([
+      z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+      z.literal(""),
+      z.null(),
+      z.undefined(),
+    ])
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
+  font_color: z
+    .union([
+      z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Must be a valid hex color"),
+      z.literal(""),
+      z.null(),
+      z.undefined(),
+    ])
+    .nullable()
+    .optional()
+    .transform((val) => val || null),
 });
 
 export type OrganizationFormData = z.infer<typeof organizationSchema>;
