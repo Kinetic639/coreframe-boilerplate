@@ -102,6 +102,51 @@ The application uses a modular architecture where features are organized as modu
 - Format code with `npm run format` to maintain consistency
 - Build must succeed with `npm run build` before deployment
 
+### Security & Authorization Requirements
+
+**MANDATORY**: When implementing any new feature, you MUST validate and implement proper security measures:
+
+#### 1. Row Level Security (RLS) & Policies
+
+- **Always check existing RLS policies** before making changes to avoid breaking functionality
+- **Never modify or delete existing policies** in a destructive way
+- **Add new policies incrementally** - create new policies rather than replacing existing ones
+- **Test RLS policies thoroughly** to ensure they don't block legitimate operations
+- Use the database `public.authorize()` function for server-side permission validation
+
+#### 2. Permission System
+
+- **Verify required permissions exist** in the `permissions` table for the feature
+- **Check role assignments** - ensure appropriate roles have the necessary permissions
+- **Use permission-based access control** - validate permissions both client-side and server-side
+- **Never bypass permission checks** - always validate permissions before operations
+
+#### 3. Storage Security
+
+- **Implement storage bucket policies** for file uploads/access
+- **Use organization/branch-specific folder structures** to isolate data
+- **Validate file types and sizes** before upload
+- **Use server actions** for file operations instead of direct client calls
+
+#### 4. Database Security Checklist
+
+Before implementing database operations:
+
+- ✅ RLS policies in place for all affected tables
+- ✅ Proper permission validation using `public.authorize()`
+- ✅ User context and organization/branch isolation
+- ✅ Server-side validation in API routes/server actions
+- ✅ No direct client-side database modifications
+
+#### 5. Security Testing
+
+- Test with different user roles and permission levels
+- Verify RLS policies prevent unauthorized access
+- Check that file uploads respect storage policies
+- Validate that permission checks work on both client and server
+
+**Remember**: Security is implemented in layers - database RLS, permission validation, server-side checks, and client-side guards. All layers must be properly configured for robust security.
+
 ### Documentation and Library Reference
 
 **IMPORTANT**: Always use Context7 MCP server for up-to-date library documentation when coding.

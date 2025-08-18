@@ -75,7 +75,7 @@ export default function OrganizationForm({
               <FormItem>
                 <FormLabel>Nazwa alternatywna</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -103,7 +103,7 @@ export default function OrganizationForm({
               <FormItem>
                 <FormLabel>Strona internetowa</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="https://example.com" />
+                  <Input {...field} value={field.value || ""} placeholder="https://example.com" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -117,7 +117,7 @@ export default function OrganizationForm({
               <FormItem>
                 <FormLabel>Opis organizacji</FormLabel>
                 <FormControl>
-                  <Textarea rows={4} {...field} />
+                  <Textarea rows={4} {...field} value={field.value || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -24,13 +24,13 @@ export default function ColorPickerField({ name, label }: Props) {
               <Input
                 type="color"
                 value={field.value || "#000000"}
-                onChange={(e) => field.onChange(e.target.value)}
+                onChange={(e) => field.onChange(e.target.value || null)}
                 className="h-10 w-14 rounded border p-1"
               />
               <Input
                 type="text"
                 value={field.value || ""}
-                onChange={(e) => field.onChange(e.target.value)}
+                onChange={(e) => field.onChange(e.target.value || null)}
                 className="flex-1"
                 placeholder="#000000"
               />

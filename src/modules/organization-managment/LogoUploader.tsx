@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import { toast } from "react-toastify";
-import { Upload } from "lucide-react";
+import { uploadOrganizationLogo } from "./api/uploadLogo";
 
 export default function LogoUploader({
   organizationId,
@@ -17,48 +15,82 @@ export default function LogoUploader({
   onUpload: (url: string) => void;
 }) {
   const [uploading, setUploading] = useState(false);
-  const supabase = createClient();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const ext = file.name.split(".").pop();
-    const filePath = `${organizationId}.${ext}`;
-
-    setUploading(true);
-
-    const { error: uploadError } = await supabase.storage
-      .from("organization-logos")
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      toast.error(`❌ Upload error: ${uploadError.message}`);
-      setUploading(false);
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("❌ Please select an image file");
       return;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("organization-logos").getPublicUrl(filePath);
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("❌ File size must be less than 5MB");
+      return;
+    }
 
-    onUpload(publicUrl);
-    toast.success("Logo zaktualizowane");
-    setUploading(false);
+    setUploading(true);
+
+    try {
+      // Use server action for upload with proper authorization
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("organizationId", organizationId);
+
+      const result = await uploadOrganizationLogo(formData);
+
+      if (result.error) {
+        toast.error(`❌ ${result.error.message}`);
+        return;
+      }
+
+      if (result.success && result.url) {
+        onUpload(result.url);
+        toast.success("✅ Logo zaktualizowane");
+      }
+    } catch (error) {
+      toast.error(
+        `❌ Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
-    <div className="space-y-2">
-      {currentUrl && (
-        <div className="relative h-20 w-20 rounded border bg-white">
-          <Image src={currentUrl} alt="Logo" fill className="object-contain" />
+    <div className="space-y-4">
+      {/* Current Logo Display */}
+      {currentUrl ? (
+        <div className="relative h-32 w-32 rounded-lg border bg-white p-2">
+          <Image src={currentUrl} alt="Current Logo" fill className="object-contain" />
+        </div>
+      ) : (
+        <div className="flex h-32 w-32 items-center justify-center rounded-lg border border-dashed bg-gray-50">
+          <p className="text-sm text-gray-500">No logo</p>
         </div>
       )}
-      <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} />
-      <Button type="button" variant="outline" disabled={uploading}>
-        <Upload className="mr-2 h-4 w-4" />
-        {uploading ? "Wgrywanie..." : "Wgraj logo"}
-      </Button>
+
+      {/* File Input */}
+      <div className="space-y-2">
+        <label className="block">
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+            onChange={handleFileChange}
+            disabled={uploading}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+          />
+        </label>
+
+        <p className="text-xs text-gray-500">
+          Supported formats: PNG, JPEG, GIF, WebP. Max size: 5MB.
+        </p>
+
+        {uploading && <div className="text-sm text-blue-600">⏳ Uploading logo...</div>}
+      </div>
     </div>
   );
 }
