@@ -20,7 +20,8 @@ const signUpSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       "Password must contain at least one uppercase letter, one lowercase letter, and one number"
     ),
-  organizationName: z.string().min(2, "Organization name is required"),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -44,7 +45,8 @@ export function SignUpForm({ message }: SignUpFormProps) {
     const formData = new FormData();
     formData.append("email", data.email);
     formData.append("password", data.password);
-    formData.append("organizationName", data.organizationName);
+    formData.append("firstName", data.firstName || "");
+    formData.append("lastName", data.lastName || "");
     await signUpAction(formData);
   };
 
@@ -81,16 +83,27 @@ export function SignUpForm({ message }: SignUpFormProps) {
         </div>
 
         <div className="flex flex-col gap-1">
-          <Label htmlFor="organizationName">{t("organizationNameLabel")}</Label>
+          <Label htmlFor="firstName">{t("firstNameLabel")}</Label>
           <Input
-            id="organizationName"
+            id="firstName"
             type="text"
-            placeholder={t("organizationNamePlaceholder")}
-            {...register("organizationName")}
+            placeholder={t("firstNamePlaceholder")}
+            {...register("firstName")}
           />
-          {errors.organizationName && (
-            <p className="text-sm text-destructive">{errors.organizationName.message}</p>
+          {errors.firstName && (
+            <p className="text-sm text-destructive">{errors.firstName.message}</p>
           )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="lastName">{t("lastNameLabel")}</Label>
+          <Input
+            id="lastName"
+            type="text"
+            placeholder={t("lastNamePlaceholder")}
+            {...register("lastName")}
+          />
+          {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
         </div>
 
         <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>

@@ -42,7 +42,7 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
 
   const userId = session.user.id;
 
-  // 🔐 Dekoduj JWT i wyciągnij role
+  // 🔐 First try to get roles from JWT claims (if hook is configured)
   let roles: UserRoleFromToken[] = [];
 
   try {
@@ -50,6 +50,31 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     roles = jwt.roles ?? [];
   } catch (err) {
     console.warn("❌ JWT decode error:", err);
+  }
+
+  // 🔄 Fallback: If no roles in JWT, fetch directly from database
+  if (roles.length === 0) {
+    const { data: roleAssignments } = await supabase
+      .from("user_role_assignments")
+      .select(
+        `
+        role_id,
+        scope,
+        scope_id,
+        roles(name)
+      `
+      )
+      .eq("user_id", userId)
+      .is("deleted_at", null);
+
+    roles = (roleAssignments ?? [])
+      .map((assignment) => ({
+        role_id: assignment.role_id,
+        role: Array.isArray(assignment.roles) ? assignment.roles[0]?.name : assignment.roles?.name,
+        org_id: assignment.scope === "org" ? assignment.scope_id : null,
+        branch_id: assignment.scope === "branch" ? assignment.scope_id : null,
+      }))
+      .filter((role) => role.role); // Filter out roles without names
   }
 
   // 🧠 Preferencje użytkownika
