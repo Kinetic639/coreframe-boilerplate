@@ -277,26 +277,33 @@ export async function fetchRoleStatistics(organizationId: string) {
     throw new Error(`Failed to fetch assignments count: ${assignmentsCountError.message}`);
   }
 
-  // Get org owners count
-  const { data: orgOwnerRole, error: orgOwnerRoleError } = await supabase
+  // Get org owners count - handle multiple org_owner roles
+  const { data: orgOwnerRoles, error: orgOwnerRoleError } = await supabase
     .from("roles")
     .select("id")
     .eq("name", "org_owner")
-    .single();
+    .is("deleted_at", null);
 
   if (orgOwnerRoleError) {
     throw new Error(`Failed to fetch org owner role: ${orgOwnerRoleError.message}`);
   }
 
-  const { count: orgOwnersCount, error: orgOwnersCountError } = await supabase
-    .from("user_role_assignments")
-    .select("*", { count: "exact", head: true })
-    .eq("role_id", orgOwnerRole.id)
-    .eq("scope_id", organizationId)
-    .is("deleted_at", null);
+  let orgOwnersCount = 0;
+  if (orgOwnerRoles && orgOwnerRoles.length > 0) {
+    const orgOwnerRoleIds = orgOwnerRoles.map((role) => role.id);
 
-  if (orgOwnersCountError) {
-    throw new Error(`Failed to fetch org owners count: ${orgOwnersCountError.message}`);
+    const { count: ownersCount, error: orgOwnersCountError } = await supabase
+      .from("user_role_assignments")
+      .select("*", { count: "exact", head: true })
+      .in("role_id", orgOwnerRoleIds)
+      .eq("scope_id", organizationId)
+      .is("deleted_at", null);
+
+    if (orgOwnersCountError) {
+      throw new Error(`Failed to fetch org owners count: ${orgOwnersCountError.message}`);
+    }
+
+    orgOwnersCount = ownersCount || 0;
   }
 
   // Get total permissions count
@@ -311,7 +318,7 @@ export async function fetchRoleStatistics(organizationId: string) {
   return {
     totalRoles: totalRoles || 0,
     totalAssignments: totalAssignments || 0,
-    orgOwnersCount: orgOwnersCount || 0,
+    orgOwnersCount,
     totalPermissions: totalPermissions || 0,
   };
 }
