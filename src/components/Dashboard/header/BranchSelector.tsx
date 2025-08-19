@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAppStore } from "@/lib/stores/app-store";
 import { changeBranch } from "@actions/changeBranch";
 import { useHasHydrated } from "@/lib/hooks/use-hydrated-value";
+import { fetchAvailableBranches } from "@/lib/api/branches";
 
 export function BranchSelector() {
   const [open, setOpen] = React.useState(false);
@@ -27,29 +28,35 @@ export function BranchSelector() {
     activeBranchId,
     availableBranches,
     activeBranch,
-    setContext,
-    activeOrg,
+    setActiveBranch,
+    updateAvailableBranches,
     activeOrgId,
-    userModules,
   } = useAppStore();
 
   const handleBranchSelect = (branchId: string) => {
     startTransition(async () => {
-      await changeBranch(branchId);
-
-      const newBranch = availableBranches.find((b) => b.branch_id === branchId) ?? null;
-
-      setContext({
-        activeBranchId: branchId,
-        activeBranch: newBranch,
-        availableBranches,
-        activeOrg,
-        activeOrgId,
-        userModules,
-      });
-
-      setOpen(false);
+      try {
+        await changeBranch(branchId);
+        setActiveBranch(branchId);
+        setOpen(false);
+      } catch (error) {
+        console.error("Failed to change branch:", error);
+      }
     });
+  };
+
+  const handleOpenChange = async (newOpen: boolean) => {
+    setOpen(newOpen);
+
+    // Refresh available branches when opening the selector
+    if (newOpen && activeOrgId) {
+      try {
+        const updatedBranches = await fetchAvailableBranches(activeOrgId);
+        updateAvailableBranches(updatedBranches);
+      } catch (error) {
+        console.error("Failed to refresh branches:", error);
+      }
+    }
   };
 
   if (!hydrated) {
@@ -69,7 +76,7 @@ export function BranchSelector() {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

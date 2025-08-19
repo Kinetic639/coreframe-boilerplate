@@ -66,21 +66,15 @@ export async function _loadAppContextServer() {
     .eq("organization_id", activeOrgId)
     .single();
 
-  // 3. Branches
-  const { data: branchesRaw } = await supabase
-    .from("branches")
-    .select("id")
-    .eq("organization_id", activeOrgId)
-    .is("deleted_at", null);
-
-  const branchIds = branchesRaw?.map((b) => b.id) ?? [];
-
+  // 3. Branches - Load directly from branches table
   const { data: availableBranches } = await supabase
-    .from("branch_profiles")
+    .from("branches")
     .select("*")
-    .in("branch_id", branchIds);
+    .eq("organization_id", activeOrgId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
 
-  const activeBranch = availableBranches?.find((b) => b.branch_id === activeBranchId) ?? null;
+  const activeBranch = availableBranches?.find((b) => b.id === activeBranchId) ?? null;
 
   // 4. User modules
   const { data: userModulesRaw } = await supabase
@@ -122,13 +116,13 @@ export async function _loadAppContextServer() {
     activeBranch: activeBranch
       ? {
           ...activeBranch,
-          id: activeBranch.branch_id,
+          branch_id: activeBranch.id, // Add branch_id for compatibility
           name: activeBranch.name || "Unknown Branch",
         }
       : null,
     availableBranches: (availableBranches ?? []).map((branch) => ({
       ...branch,
-      id: branch.branch_id,
+      branch_id: branch.id, // Add branch_id for compatibility
       name: branch.name || "Unknown Branch",
     })),
     userModules,

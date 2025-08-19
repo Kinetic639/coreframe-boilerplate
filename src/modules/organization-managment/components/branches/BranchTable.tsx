@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Edit, Eye, MoreHorizontal, Package, Trash2, Users } from "lucide-react";
+import { Building2, Edit, MoreHorizontal, Package, Trash2, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,10 @@ import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
 import { Tables } from "../../../../../supabase/types/types";
 import BranchSearch from "./BranchSearch";
+import BranchFormDialog from "./BranchFormDialog";
+import BranchDeleteDialog from "./BranchDeleteDialog";
+import { useAppStore } from "@/lib/stores/app-store";
+import { fetchAvailableBranches } from "@/lib/api/branches";
 
 type BranchWithStats = Tables<"branches"> & {
   userCount: number;
@@ -33,14 +37,54 @@ type BranchWithStats = Tables<"branches"> & {
 
 export default function BranchTable({ initialBranches }: { initialBranches: BranchWithStats[] }) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [branches, setBranches] = React.useState<BranchWithStats[]>(initialBranches);
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
+  const [selectedBranch, setSelectedBranch] = React.useState<BranchWithStats | null>(null);
+  const { activeOrgId, updateAvailableBranches } = useAppStore();
+
+  // Update branches when initialBranches changes
+  React.useEffect(() => {
+    setBranches(initialBranches);
+  }, [initialBranches]);
 
   const filteredBranches = React.useMemo(() => {
-    return initialBranches.filter(
+    return branches.filter(
       (branch) =>
         branch.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         branch.slug?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [initialBranches, searchQuery]);
+  }, [branches, searchQuery]);
+
+  const handleSuccess = async () => {
+    // Refresh the branch table data by reloading the page
+    window.location.reload();
+
+    // Also refresh the branch selector data
+    if (activeOrgId) {
+      try {
+        const updatedBranches = await fetchAvailableBranches(activeOrgId);
+        updateAvailableBranches(updatedBranches);
+      } catch (error) {
+        console.error("Failed to refresh branch selector:", error);
+      }
+    }
+  };
+
+  const handleCreateBranch = () => {
+    setSelectedBranch(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditBranch = (branch: BranchWithStats) => {
+    setSelectedBranch(branch);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteBranch = (branch: BranchWithStats) => {
+    setSelectedBranch(branch);
+    setIsDeleteOpen(true);
+  };
 
   return (
     <>
@@ -62,7 +106,7 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
               </CardDescription>
             </div>
 
-            <Button variant="themed">
+            <Button variant="themed" onClick={handleCreateBranch}>
               <Building2 className="mr-2 h-4 w-4" />
               Dodaj oddział
             </Button>
@@ -148,16 +192,15 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Zobacz szczegóły
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditBranch(branch)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edytuj oddział
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleDeleteBranch(branch)}
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Usuń oddział
                             </DropdownMenuItem>
@@ -180,7 +223,7 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
                     : "Nie utworzono jeszcze żadnych oddziałów."}
                 </p>
                 {!searchQuery && (
-                  <Button>
+                  <Button onClick={handleCreateBranch} variant="themed">
                     <Building2 className="mr-2 h-4 w-4" />
                     Dodaj pierwszy oddział
                   </Button>
@@ -190,6 +233,20 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
           </CardContent>
         </Card>
       </motion.div>
+
+      <BranchFormDialog
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        branch={selectedBranch}
+        onSuccess={handleSuccess}
+      />
+
+      <BranchDeleteDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        branch={selectedBranch}
+        onSuccess={handleSuccess}
+      />
     </>
   );
 }
