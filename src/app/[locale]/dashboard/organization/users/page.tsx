@@ -37,6 +37,14 @@ function UsersOverview() {
       color: "text-green-500",
       stats: "5 zdefiniowanych ról",
     },
+    {
+      title: "Zaproszenia",
+      description: "Zarządzanie zaproszeniami użytkowników do organizacji",
+      icon: UserPlus,
+      href: "/dashboard/organization/users/invitations",
+      color: "text-purple-500",
+      stats: "Oczekujące zaproszenia",
+    },
   ];
 
   return (
@@ -48,7 +56,7 @@ function UsersOverview() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {modules.map((module) => {
           const Icon = module.icon;
           return (

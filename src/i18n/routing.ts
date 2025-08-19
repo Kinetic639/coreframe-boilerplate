@@ -139,6 +139,16 @@ export const routing = defineRouting({
       en: "/dashboard/organization/users/roles",
       pl: "/dashboard/organizacja/uzytkownicy/role",
     },
+    "/dashboard/organization/users/invitations": {
+      en: "/dashboard/organization/users/invitations",
+      pl: "/dashboard/organizacja/uzytkownicy/zaproszenia",
+    },
+
+    // === Invitation system ===
+    "/invite/[token]": {
+      en: "/invite/[token]",
+      pl: "/zaproszenie/[token]",
+    },
 
     // === Teams module ===
     "/dashboard/teams/members": {
