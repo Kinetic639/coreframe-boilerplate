@@ -7,7 +7,7 @@ import { Metadata } from "next";
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<Message>;
+  searchParams: Promise<Message & { invitation?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -44,7 +44,7 @@ export default async function Signup(props: Props) {
   return (
     <>
       <AuthCard>
-        <SignUpForm message={searchParams} />
+        <SignUpForm message={searchParams} invitationToken={searchParams.invitation} />
       </AuthCard>
       <SmtpMessage />
     </>

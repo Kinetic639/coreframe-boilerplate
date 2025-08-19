@@ -35,6 +35,12 @@ export const orgManagmentModule: ModuleConfig = {
           icon: "List",
         },
         {
+          id: "invitations",
+          label: "Zaproszenia",
+          path: "/dashboard/organization/users/invitations",
+          icon: "Mail",
+        },
+        {
           id: "roles",
           label: "Role i uprawnienia",
           path: "/dashboard/organization/users/roles",

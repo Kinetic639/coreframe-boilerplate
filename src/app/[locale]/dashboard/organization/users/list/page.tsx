@@ -49,11 +49,13 @@ import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
 import { useOrganizationUsers } from "@/hooks/useOrganizationUsers";
 import { useAppStore } from "@/lib/stores/app-store";
+import { InvitationFormDialog } from "@/modules/organization-managment/components/invitations/InvitationFormDialog";
 
 export default function UsersListPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [branchFilter, setBranchFilter] = React.useState<string>("all");
+  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
 
   const { users: organizationUsers, loading, error } = useOrganizationUsers();
   const { availableBranches } = useAppStore();
@@ -149,9 +151,9 @@ export default function UsersListPage() {
             Zarządzanie wszystkimi użytkownikami w organizacji
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setInviteDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Dodaj użytkownika
+          Zaproś użytkownika
         </Button>
       </motion.div>
 
@@ -390,9 +392,9 @@ export default function UsersListPage() {
                     : "Nie dodano jeszcze żadnych użytkowników do organizacji."}
                 </p>
                 {!(searchQuery || statusFilter !== "all" || branchFilter !== "all") && (
-                  <Button>
+                  <Button onClick={() => setInviteDialogOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Dodaj pierwszego użytkownika
+                    Zaproś pierwszego użytkownika
                   </Button>
                 )}
               </div>
@@ -400,6 +402,15 @@ export default function UsersListPage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <InvitationFormDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        onSuccess={() => {
+          // Optionally refresh users list here
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }
