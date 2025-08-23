@@ -47,17 +47,13 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
-import {
-  fetchOrganizationInvitations,
-  fetchInvitationStatistics,
-  type InvitationWithDetails,
-} from "@/lib/api/invitations";
+import { useOrganizationInvitations } from "@/hooks/useOrganizationInvitations";
+import { type InvitationWithDetails } from "@/app/actions/invitations-server";
 import {
   cancelInvitationAction,
   resendInvitationAction,
   cleanupExpiredInvitationsAction,
 } from "@/app/actions/invitations";
-import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
 
 interface InvitationManagementViewProps {
@@ -65,50 +61,17 @@ interface InvitationManagementViewProps {
 }
 
 export function InvitationManagementView({ onInviteUser }: InvitationManagementViewProps) {
-  const [invitations, setInvitations] = React.useState<InvitationWithDetails[]>([]);
   const [filteredInvitations, setFilteredInvitations] = React.useState<InvitationWithDetails[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
-  const [stats, setStats] = React.useState({
-    total: 0,
-    pending: 0,
-    accepted: 0,
-    rejected: 0,
-    expired: 0,
-    cancelled: 0,
-  });
 
-  const { activeOrgId } = useAppStore();
+  const { invitations, stats, loading, error, refetch } = useOrganizationInvitations();
 
-  const loadInvitations = React.useCallback(async () => {
-    if (!activeOrgId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [invitationsData, statsData] = await Promise.all([
-        fetchOrganizationInvitations(activeOrgId),
-        fetchInvitationStatistics(activeOrgId),
-      ]);
-
-      setInvitations(invitationsData);
-      setStats(statsData);
-    } catch (err) {
-      console.error("Error loading invitations:", err);
-      setError(err instanceof Error ? err.message : "Failed to load invitations");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeOrgId]);
-
-  // Load invitations on mount and when organization changes
-  React.useEffect(() => {
-    loadInvitations();
-  }, [loadInvitations]);
+  // Use refetch from the hook instead of local loadInvitations
+  const loadInvitations = React.useCallback(() => {
+    refetch();
+  }, [refetch]);
 
   // Filter invitations based on search and status
   React.useEffect(() => {

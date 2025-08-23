@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { fetchUserDetail, UserDetailWithAssignments } from "@/lib/api/user-detail";
+import {
+  fetchUserDetailServer,
+  type UserDetailWithAssignments,
+} from "@/app/actions/users/fetch-user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
 
 export function useUserDetail(userId: string) {
@@ -18,7 +21,7 @@ export function useUserDetail(userId: string) {
     try {
       setLoading(true);
       setError(null);
-      const userData = await fetchUserDetail(userId, activeOrg.id);
+      const userData = await fetchUserDetailServer(userId, activeOrg.id);
       setUser(userData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch user details");

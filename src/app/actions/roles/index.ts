@@ -43,14 +43,15 @@ async function verifyOrgOwnerAccess(organizationId: string): Promise<boolean> {
   }
 
   const roles = getUserRolesFromJWT(session.access_token);
-  return (
-    hasMatchingRole(roles, [
-      {
-        role: "org_owner",
-        scope: "org",
-      },
-    ]) && roles.some((r) => r.role === "org_owner" && r.scope_id === organizationId)
-  );
+
+  // Use the same pattern as HasAnyRoleServer
+  return hasMatchingRole(roles, [
+    {
+      role: "org_owner",
+      scope: "org",
+      id: organizationId,
+    },
+  ]);
 }
 
 // Server Actions
@@ -59,16 +60,16 @@ async function verifyOrgOwnerAccess(organizationId: string): Promise<boolean> {
  * Get all roles available for an organization
  */
 export async function getRolesForOrganization(organizationId: string) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session) {
-    throw new Error("You must be signed in to perform this action");
+  // Check if user has access to view roles
+  if (!(await verifyOrgOwnerAccess(organizationId))) {
+    throw new Error("Unauthorized: Only organization owners can view roles");
   }
 
-  const { data: roles, error } = await supabase
+  // Use service role client to bypass RLS policies since we've already verified permissions
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  const { data: roles, error } = await serviceSupabase
     .from("roles")
     .select("*")
     .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
@@ -96,7 +97,14 @@ export async function getAllPermissions() {
     throw new Error("You must be signed in to perform this action");
   }
 
-  const { data: permissions, error } = await supabase.from("permissions").select("*").order("slug");
+  // Use service role client to bypass RLS policies for permissions table
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  const { data: permissions, error } = await serviceSupabase
+    .from("permissions")
+    .select("*")
+    .order("slug");
 
   if (error) {
     throw new Error(`Failed to fetch permissions: ${error.message}`);
@@ -109,14 +117,16 @@ export async function getAllPermissions() {
  * Get user role assignments for an organization
  */
 export async function getUserRoleAssignments(organizationId: string) {
-  const supabase = await createClient();
-
   // Check if user has access to view assignments
   if (!(await verifyOrgOwnerAccess(organizationId))) {
     throw new Error("Unauthorized: Only organization owners can view role assignments");
   }
 
-  const { data: assignments, error } = await supabase
+  // Use service role client to bypass RLS policies since we've already verified permissions
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  const { data: assignments, error } = await serviceSupabase
     .from("user_role_assignments")
     .select(
       `
@@ -371,14 +381,16 @@ export async function createPermissionOverride(
  * Get permission overrides for a user in an organization
  */
 export async function getUserPermissionOverrides(userId: string, organizationId: string) {
-  const supabase = await createClient();
-
   // Verify permissions
   if (!(await verifyOrgOwnerAccess(organizationId))) {
     throw new Error("Unauthorized: Only organization owners can view permission overrides");
   }
 
-  const { data: overrides, error } = await supabase
+  // Use service role client to bypass RLS policies since we've already verified permissions
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  const { data: overrides, error } = await serviceSupabase
     .from("user_permission_overrides")
     .select(
       `
@@ -444,4 +456,159 @@ export async function removePermissionOverride(
 
   revalidatePath("/dashboard/organization/users/roles");
   return { success: true };
+}
+
+/**
+ * Fetch roles with user counts for an organization (server-side)
+ */
+export async function fetchRolesWithUserCountsServer(organizationId: string) {
+  // Check if user has access to view roles
+  if (!(await verifyOrgOwnerAccess(organizationId))) {
+    throw new Error("Unauthorized: Only organization owners can view roles");
+  }
+
+  // Use service role client to bypass RLS policies since we've already verified permissions
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  // Fetch roles
+  const { data: roles, error: rolesError } = await serviceSupabase
+    .from("roles")
+    .select("*")
+    .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
+    .is("deleted_at", null)
+    .order("is_basic", { ascending: false })
+    .order("name");
+
+  if (rolesError) {
+    throw new Error(`Failed to fetch roles: ${rolesError.message}`);
+  }
+
+  // Fetch user role assignments
+  const { data: assignments, error: assignmentsError } = await serviceSupabase
+    .from("user_role_assignments")
+    .select("role_id, user_id")
+    .eq("scope_id", organizationId)
+    .is("deleted_at", null);
+
+  if (assignmentsError) {
+    throw new Error(`Failed to fetch user assignments: ${assignmentsError.message}`);
+  }
+
+  // Get unique user IDs and fetch user details separately
+  let users: any[] = [];
+  if (assignments && assignments.length > 0) {
+    const userIds = [...new Set(assignments.map((a) => a.user_id))];
+
+    const { data: userData, error: usersError } = await serviceSupabase
+      .from("users")
+      .select("id, email, first_name, last_name")
+      .in("id", userIds)
+      .is("deleted_at", null);
+
+    if (usersError) {
+      throw new Error(`Failed to fetch users: ${usersError.message}`);
+    }
+
+    users = userData || [];
+  }
+
+  // Create user map for quick lookup
+  const userMap = new Map<string, any>();
+  users.forEach((user) => userMap.set(user.id, user));
+
+  // Combine roles with user counts and user details
+  const rolesWithUserCounts = (roles || []).map((role) => {
+    const roleAssignments = assignments?.filter((a) => a.role_id === role.id) || [];
+    const roleUsers = roleAssignments.map((a) => userMap.get(a.user_id)).filter(Boolean);
+
+    return {
+      ...role,
+      userCount: roleAssignments.length,
+      users: roleUsers,
+    };
+  });
+
+  return rolesWithUserCounts;
+}
+
+/**
+ * Get role statistics for dashboard (server-side)
+ */
+export async function fetchRoleStatisticsServer(organizationId: string) {
+  // Check if user has access to view statistics
+  if (!(await verifyOrgOwnerAccess(organizationId))) {
+    throw new Error("Unauthorized: Only organization owners can view role statistics");
+  }
+
+  // Use service role client to bypass RLS policies since we've already verified permissions
+  const { createServiceClient } = await import("@/utils/supabase/service");
+  const serviceSupabase = createServiceClient();
+
+  // Get total roles count
+  const { count: totalRoles, error: rolesCountError } = await serviceSupabase
+    .from("roles")
+    .select("*", { count: "exact", head: true })
+    .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
+    .is("deleted_at", null);
+
+  if (rolesCountError) {
+    throw new Error(`Failed to fetch roles count: ${rolesCountError.message}`);
+  }
+
+  // Get total assignments count
+  const { count: totalAssignments, error: assignmentsCountError } = await serviceSupabase
+    .from("user_role_assignments")
+    .select("*", { count: "exact", head: true })
+    .eq("scope_id", organizationId)
+    .is("deleted_at", null);
+
+  if (assignmentsCountError) {
+    throw new Error(`Failed to fetch assignments count: ${assignmentsCountError.message}`);
+  }
+
+  // Get org owners count - handle multiple org_owner roles
+  const { data: orgOwnerRoles, error: orgOwnerRoleError } = await serviceSupabase
+    .from("roles")
+    .select("id")
+    .eq("name", "org_owner")
+    .is("deleted_at", null);
+
+  if (orgOwnerRoleError) {
+    throw new Error(`Failed to fetch org owner role: ${orgOwnerRoleError.message}`);
+  }
+
+  let orgOwnersCount = 0;
+  if (orgOwnerRoles && orgOwnerRoles.length > 0) {
+    const orgOwnerRoleIds = orgOwnerRoles.map((role) => role.id);
+
+    const { count: ownersCount, error: orgOwnersCountError } = await serviceSupabase
+      .from("user_role_assignments")
+      .select("*", { count: "exact", head: true })
+      .in("role_id", orgOwnerRoleIds)
+      .eq("scope_id", organizationId)
+      .is("deleted_at", null);
+
+    if (orgOwnersCountError) {
+      throw new Error(`Failed to fetch org owners count: ${orgOwnersCountError.message}`);
+    }
+
+    orgOwnersCount = ownersCount || 0;
+  }
+
+  // Get total permissions count
+  const { count: totalPermissions, error: permissionsCountError } = await serviceSupabase
+    .from("permissions")
+    .select("*", { count: "exact", head: true });
+
+  if (permissionsCountError) {
+    throw new Error(`Failed to fetch permissions count: ${permissionsCountError.message}`);
+  }
+
+  return {
+    totalRoles: totalRoles || 0,
+    totalAssignments: totalAssignments || 0,
+    orgOwnersCount,
+    totalPermissions: totalPermissions || 0,
+  };
 }

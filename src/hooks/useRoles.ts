@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { fetchRolesWithUserCounts, fetchRoleStatistics, RoleWithUserCount } from "@/lib/api/roles";
+import { fetchRolesWithUserCountsServer, fetchRoleStatisticsServer } from "@/app/actions/roles";
 import { useAppStore } from "@/lib/stores/app-store";
+
+export interface RoleWithUserCount {
+  id: string;
+  name: string;
+  is_basic: boolean;
+  organization_id: string | null;
+  userCount: number;
+  users: {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+  }[];
+}
 
 export function useRoles() {
   const [roles, setRoles] = useState<RoleWithUserCount[]>([]);
@@ -18,7 +32,7 @@ export function useRoles() {
     try {
       setLoading(true);
       setError(null);
-      const rolesData = await fetchRolesWithUserCounts(activeOrg.id);
+      const rolesData = await fetchRolesWithUserCountsServer(activeOrg.id);
       setRoles(rolesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch roles");
@@ -61,7 +75,7 @@ export function useRoleStatistics() {
     try {
       setLoading(true);
       setError(null);
-      const stats = await fetchRoleStatistics(activeOrg.id);
+      const stats = await fetchRoleStatisticsServer(activeOrg.id);
       setStatistics(stats);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch statistics");
