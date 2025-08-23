@@ -39,7 +39,7 @@ export default async function StartPage() {
     return redirect({ href: "/sign-in", locale });
   }
 
-  const { roles, permissions } = userContext;
+  const { roles, permissions, detailedPermissions } = userContext;
   const { activeOrgId, activeOrg } = appContext;
 
   // Pobierz widgety
@@ -82,7 +82,74 @@ export default async function StartPage() {
       {/* 🔑 Uprawnienia użytkownika */}
       <div>
         <h2 className="text-lg font-semibold">Uprawnienia użytkownika:</h2>
-        {permissions.length > 0 ? (
+        {detailedPermissions && detailedPermissions.length > 0 ? (
+          <div className="mt-2 space-y-3">
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="h-3 w-3 rounded border border-blue-300 bg-blue-100"></div>
+                <span>Z roli</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-3 w-3 rounded border border-green-300 bg-green-100"></div>
+                <span>Override: przyznane</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-3 w-3 rounded border border-red-300 bg-red-100"></div>
+                <span>Override: odebrane</span>
+              </div>
+            </div>
+
+            {/* Permissions */}
+            <div className="grid grid-cols-2 gap-2">
+              {detailedPermissions
+                .filter((dp) => dp.source === "role" || (dp.source === "override" && dp.allowed))
+                .map((detailedPermission, i) => {
+                  const isRole = detailedPermission.source === "role";
+
+                  const bgColor = isRole ? "bg-blue-100" : "bg-green-100";
+                  const textColor = isRole ? "text-blue-800" : "text-green-800";
+                  const borderColor = isRole ? "border-blue-300" : "border-green-300";
+                  const icon = isRole ? "👤" : "⚡";
+
+                  return (
+                    <span
+                      key={i}
+                      className={`rounded border px-2 py-1 text-sm ${bgColor} ${textColor} ${borderColor} flex items-center gap-1`}
+                      title={isRole ? "Uprawnienie z roli" : "Uprawnienie z override"}
+                    >
+                      <span className="text-xs">{icon}</span>
+                      {detailedPermission.slug}
+                    </span>
+                  );
+                })}
+            </div>
+
+            {/* Show denied overrides separately if any */}
+            {detailedPermissions.some((dp) => dp.source === "override" && !dp.allowed) && (
+              <div className="mt-4">
+                <h3 className="mb-2 text-sm font-medium text-red-700">
+                  Uprawnienia odebrane przez override:
+                </h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {detailedPermissions
+                    .filter((dp) => dp.source === "override" && !dp.allowed)
+                    .map((detailedPermission, i) => (
+                      <span
+                        key={i}
+                        className="flex items-center gap-1 rounded border border-red-300 bg-red-100 px-2 py-1 text-sm text-red-800"
+                        title="Uprawnienie odebrane przez override"
+                      >
+                        <span className="text-xs">🚫</span>
+                        {detailedPermission.slug}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : permissions.length > 0 ? (
+          // Fallback to simple display if detailedPermissions not available
           <div className="mt-2 grid grid-cols-2 gap-2">
             {permissions.map((permission, i) => (
               <span key={i} className="rounded bg-blue-100 px-2 py-1 text-sm text-blue-800">

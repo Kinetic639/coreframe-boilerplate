@@ -75,14 +75,14 @@ export async function hasPermission(
       .from("user_permission_overrides")
       .select(
         `
-        is_granted,
+        allowed,
         permissions:permission_id (
           slug
         )
       `
       )
       .eq("user_id", userId)
-      .eq("organization_id", scope === "org" ? scopeId : undefined)
+      .eq("scope_id", scope === "org" ? scopeId : undefined)
       .is("deleted_at", null)
       .single();
 
@@ -93,7 +93,7 @@ export async function hasPermission(
 
     // If there's an override for this permission, use it
     if (override && override.permissions?.slug === permissionSlug) {
-      return override.is_granted;
+      return override.allowed;
     }
 
     // Otherwise, return the role-based permission
@@ -159,7 +159,7 @@ export async function getUserEffectivePermissions(
       .select(
         `
         permission_id,
-        is_granted,
+        allowed,
         permissions:permission_id (
           id,
           slug,
@@ -168,7 +168,7 @@ export async function getUserEffectivePermissions(
       `
       )
       .eq("user_id", userId)
-      .eq("organization_id", organizationId)
+      .eq("scope_id", organizationId)
       .is("deleted_at", null);
 
     if (overrideError) {
@@ -184,7 +184,7 @@ export async function getUserEffectivePermissions(
     overrides?.forEach((override) => {
       if (override.permissions) {
         processedPermissions.add(override.permissions.id);
-        if (override.is_granted) {
+        if (override.allowed) {
           granted.push(override.permissions);
         } else {
           denied.push(override.permissions);
@@ -205,7 +205,7 @@ export async function getUserEffectivePermissions(
       overrides:
         overrides?.map((o) => ({
           permission_id: o.permission_id,
-          is_granted: o.is_granted,
+          is_granted: o.allowed,
         })) || [],
     };
   } catch (error) {

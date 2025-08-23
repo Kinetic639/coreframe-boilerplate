@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Save, Edit2, X, CheckCircle, AlertCircle } from "lucide-react";
-import { UserDetailWithAssignments, updateUserProfile } from "@/lib/api/user-detail";
+import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import { updateUserProfile } from "@/lib/api/user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useState } from "react";
 

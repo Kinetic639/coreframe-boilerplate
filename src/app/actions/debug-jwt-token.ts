@@ -1,11 +1,17 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { jwtDecode } from "jwt-decode";
 
 export async function debugJwtToken() {
   try {
     const supabase = await createClient();
+    // Use service role for debug queries to bypass RLS
+    const serviceSupabase = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const {
       data: { session },
@@ -29,8 +35,8 @@ export async function debugJwtToken() {
       };
     }
 
-    // Test the RLS policies directly
-    const { data: testQuery, error: testError } = await supabase
+    // Test the RLS policies directly using service role to bypass RLS
+    const { data: testQuery, error: testError } = await serviceSupabase
       .from("user_role_assignments")
       .select("id, user_id, role_id, scope, scope_id")
       .limit(1);

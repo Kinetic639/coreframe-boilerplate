@@ -53,6 +53,8 @@ import {
 import {
   UserDetailWithAssignments,
   UserPermissionOverrideWithDetails,
+} from "@/app/actions/users/fetch-user-detail";
+import {
   upsertPermissionOverride,
   removePermissionOverride,
   fetchAvailablePermissions,

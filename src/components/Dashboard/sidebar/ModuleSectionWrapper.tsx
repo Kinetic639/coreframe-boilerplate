@@ -9,6 +9,7 @@ type Props = {
   accessToken: string;
   activeOrgId: string | null;
   activeBranchId: string | null;
+  userPermissions: string[]; // Add user permissions
 };
 
 function mapAllowedUsersToChecks(
@@ -47,18 +48,87 @@ function hasMatchingRole(userRoles: UserRoleFromToken[], checks: RoleCheck[]): b
   });
 }
 
+function hasRequiredPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
+  if (!requiredPermissions || requiredPermissions.length === 0) return true;
+
+  // User must have ALL required permissions (AND logic)
+  return requiredPermissions.every((permission) => userPermissions.includes(permission));
+}
+
 export default function ModuleSectionWrapper({
   module,
   accessToken,
   activeOrgId,
   activeBranchId,
+  userPermissions,
 }: Props) {
   const roles = getUserRolesFromJWT(accessToken);
 
-  const visibleItems = module.items.filter((item) => {
-    const checks = mapAllowedUsersToChecks(item.allowedUsers, activeOrgId, activeBranchId);
-    return checks.length === 0 || hasMatchingRole(roles, checks);
-  });
+  const visibleItems = module.items
+    .filter((item) => {
+      // Check permission-based access first (preferred)
+      if (item.requiredPermissions) {
+        const hasAccess = hasRequiredPermissions(userPermissions, item.requiredPermissions);
+        if (!hasAccess) return false;
+      }
+      // Fallback to role-based access for backward compatibility
+      else if (item.allowedUsers) {
+        const checks = mapAllowedUsersToChecks(item.allowedUsers, activeOrgId, activeBranchId);
+        const hasAccess = checks.length === 0 || hasMatchingRole(roles, checks);
+        if (!hasAccess) return false;
+      }
+
+      // If the item has submenu, filter it too
+      if (item.submenu) {
+        const visibleSubmenu = item.submenu.filter((subitem) => {
+          // Check permission-based access first (preferred)
+          if (subitem.requiredPermissions) {
+            return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
+          }
+
+          // Fallback to role-based access for backward compatibility
+          if (subitem.allowedUsers) {
+            const checks = mapAllowedUsersToChecks(
+              subitem.allowedUsers,
+              activeOrgId,
+              activeBranchId
+            );
+            return checks.length === 0 || hasMatchingRole(roles, checks);
+          }
+
+          // If no restrictions, show the subitem
+          return true;
+        });
+
+        // Update the item's submenu to only show visible items
+        (item as any).submenu = visibleSubmenu;
+
+        // Hide the parent item if no submenu items are visible
+        if (visibleSubmenu.length === 0) return false;
+      }
+
+      return true;
+    })
+    .map((item) => ({
+      ...item,
+      // Ensure submenu is properly filtered
+      submenu: item.submenu
+        ? item.submenu.filter((subitem) => {
+            if (subitem.requiredPermissions) {
+              return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
+            }
+            if (subitem.allowedUsers) {
+              const checks = mapAllowedUsersToChecks(
+                subitem.allowedUsers,
+                activeOrgId,
+                activeBranchId
+              );
+              return checks.length === 0 || hasMatchingRole(roles, checks);
+            }
+            return true;
+          })
+        : undefined,
+    }));
 
   if (visibleItems.length === 0) {
     return null;
