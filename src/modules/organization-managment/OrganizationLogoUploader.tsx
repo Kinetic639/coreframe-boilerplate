@@ -35,33 +35,82 @@ export default function OrganizationLogoUploader({ logoUrl, organizationId }: Pr
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("❌ Plik jest za duży. Maksymalny rozmiar to 2MB.");
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("❌ Nieprawidłowy typ pliku. Wybierz obraz.");
+      return;
+    }
+
     const fileExt = file.name.split(".").pop();
     const fileName = `${organizationId}.${fileExt}`;
     const filePath = fileName;
 
+    console.log("🔍 Uploading logo:", {
+      organizationId,
+      fileName,
+      filePath,
+      fileSize: file.size,
+      fileType: file.type,
+    });
+
     setUploading(true);
 
-    const { error: uploadError } = await supabase.storage
-      .from("organization-logos")
-      .upload(filePath, file, {
-        upsert: true,
-      });
+    try {
+      // Clear any previous uploads with same organization ID
+      const { error: deleteError } = await supabase.storage
+        .from("organization-logos")
+        .remove([filePath]);
 
-    if (uploadError) {
-      toast.error(`❌ Błąd podczas wgrywania logo: ${uploadError.message}`);
-      setUploading(false);
-      return;
-    }
+      if (deleteError && deleteError.message !== "Not found") {
+        console.warn("⚠️ Could not delete existing file:", deleteError);
+      }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("organization-logos").getPublicUrl(filePath);
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from("organization-logos")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: true,
+        });
 
-    const success = await updateOrganizationLogoUrl(publicUrl);
+      console.log("🔍 Upload response:", { uploadData, uploadError });
 
-    if (success) {
-      setPreview(publicUrl);
-      toast.success("✅ Logo zaktualizowane.");
+      if (uploadError) {
+        console.error("❌ Upload error details:", {
+          message: uploadError.message,
+          cause: uploadError.cause,
+          statusCode: uploadError.statusCode,
+          filePath: filePath,
+        });
+        toast.error(`❌ Błąd podczas wgrywania logo: ${uploadError.message}`);
+        setUploading(false);
+        return;
+      }
+
+      console.log("✅ Upload successful");
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("organization-logos").getPublicUrl(filePath);
+
+      console.log("🔍 Generated public URL:", publicUrl);
+
+      const success = await updateOrganizationLogoUrl(publicUrl);
+
+      if (success) {
+        setPreview(publicUrl);
+        toast.success("✅ Logo zaktualizowane.");
+        // Force reload of the page to refresh the sidebar logo
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("❌ Unexpected error:", error);
+      toast.error("❌ Wystąpił nieoczekiwany błąd.");
     }
 
     setUploading(false);

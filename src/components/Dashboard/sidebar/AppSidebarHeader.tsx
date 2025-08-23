@@ -22,6 +22,25 @@ const AppSidebarHeader = ({
   const [hasError, setHasError] = useState(false);
   const showPlaceholder = !logo || hasError;
 
+  // Debug logo loading
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.error("❌ Logo failed to load:", {
+      src: e.currentTarget.src,
+      error: e.currentTarget.error,
+      naturalWidth: e.currentTarget.naturalWidth,
+      naturalHeight: e.currentTarget.naturalHeight,
+    });
+    setHasError(true);
+  };
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.log("✅ Logo loaded successfully:", {
+      src: e.currentTarget.src,
+      naturalWidth: e.currentTarget.naturalWidth,
+      naturalHeight: e.currentTarget.naturalHeight,
+    });
+  };
+
   return (
     <SidebarHeader className="p-2">
       <Link href="/" className="block w-full">
@@ -36,7 +55,8 @@ const AppSidebarHeader = ({
                 width={40}
                 height={40}
                 className="h-10 w-10 rounded object-cover"
-                onError={() => setHasError(true)}
+                onError={handleImageError}
+                onLoad={handleImageLoad}
                 priority
               />
             )}
