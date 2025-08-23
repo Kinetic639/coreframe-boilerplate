@@ -28,7 +28,8 @@ import {
   Shield,
   Trash2,
 } from "lucide-react";
-import { UserDetailWithAssignments, updateUserStatus } from "@/lib/api/user-detail";
+import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import { updateUserStatus } from "@/lib/api/user-detail";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";

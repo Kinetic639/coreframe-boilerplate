@@ -1,9 +1,15 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export async function debugAppContext() {
   const supabase = await createClient();
+  // Use service role for debug queries to bypass RLS
+  const serviceSupabase = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const {
     data: { session },
@@ -63,7 +69,7 @@ export async function debugAppContext() {
   let branchesError = null;
 
   if (activeOrgId) {
-    const result = await supabase
+    const result = await serviceSupabase
       .from("branches")
       .select("*")
       .eq("organization_id", activeOrgId)
@@ -77,7 +83,7 @@ export async function debugAppContext() {
   let rolesResult = null;
   let rolesError = null;
 
-  const rolesTest = await supabase.from("roles").select("*").limit(5);
+  const rolesTest = await serviceSupabase.from("roles").select("*").limit(5);
 
   rolesResult = rolesTest.data;
   rolesError = rolesTest.error;
@@ -87,7 +93,7 @@ export async function debugAppContext() {
   let roleAssignmentsError = null;
 
   if (activeOrgId) {
-    const assignmentsTest = await supabase
+    const assignmentsTest = await serviceSupabase
       .from("user_role_assignments")
       .select("*")
       .eq("scope_id", activeOrgId)

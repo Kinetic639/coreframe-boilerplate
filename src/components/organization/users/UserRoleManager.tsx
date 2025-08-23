@@ -46,12 +46,8 @@ import {
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import {
-  UserDetailWithAssignments,
-  assignUserRole,
-  removeUserRole,
-  fetchAvailableRoles,
-} from "@/lib/api/user-detail";
+import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import { assignUserRole, removeUserRole, fetchAvailableRoles } from "@/lib/api/user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useState, useEffect } from "react";
 

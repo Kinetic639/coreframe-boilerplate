@@ -1,6 +1,7 @@
 import React from "react";
 import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { getAllModules } from "@/modules";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
+  const userContext = await loadUserContextServer();
   const supabase = await createClient();
 
   const {
@@ -25,6 +27,7 @@ const AppSidebar = async () => {
   const themeColor = appContext?.activeOrg?.theme_color;
   const activeOrgId = appContext?.active_org_id ?? null;
   const activeBranchId = appContext?.active_branch_id ?? null;
+  const userPermissions = userContext?.permissions ?? [];
 
   // 🔄 Dynamiczne ładowanie modułów (np. z Supabase)
   const modules = await getAllModules(activeOrgId);
@@ -59,6 +62,7 @@ const AppSidebar = async () => {
                   accessToken={accessToken}
                   activeOrgId={activeOrgId}
                   activeBranchId={activeBranchId}
+                  userPermissions={userPermissions}
                 />
               </React.Fragment>
             ))}

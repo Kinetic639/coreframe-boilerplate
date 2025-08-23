@@ -12,6 +12,7 @@ export interface BaseMenuItem {
   label: string;
   icon: string;
   allowedUsers?: AllowedUser[];
+  requiredPermissions?: string[]; // New permission-based access control
 }
 
 export interface LinkMenuItem extends BaseMenuItem {

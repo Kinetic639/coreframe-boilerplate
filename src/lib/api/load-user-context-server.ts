@@ -15,6 +15,13 @@ export type CustomJwtPayload = {
   roles: UserRoleFromToken[];
 };
 
+// 🔸 Detailed permission info
+export type DetailedPermission = {
+  slug: string;
+  source: "role" | "override";
+  allowed?: boolean; // For overrides, whether it's granted or denied
+};
+
 // 🔸 Typ wyniku
 export type UserContext = {
   user: {
@@ -29,6 +36,7 @@ export type UserContext = {
   };
   roles: UserRoleFromToken[];
   permissions: string[];
+  detailedPermissions?: DetailedPermission[]; // New detailed info
 };
 
 export async function loadUserContextServer(): Promise<UserContext | null> {
@@ -152,7 +160,89 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     })
     .filter((slug: string | null): slug is string => typeof slug === "string");
 
-  console.log("🔍 Final permissions array:", permissions);
+  console.log("🔍 Base permissions from roles:", permissions);
+
+  // 🔐 Apply permission overrides if user has an active organization
+  let finalPermissions = [...permissions];
+  let detailedPermissions: DetailedPermission[] = [];
+
+  // Track role-based permissions
+  permissions.forEach((slug) => {
+    detailedPermissions.push({
+      slug,
+      source: "role",
+    });
+  });
+
+  if (preferences.organization_id) {
+    console.log("🔍 Fetching permission overrides for org:", preferences.organization_id);
+
+    // First get the overrides
+    const { data: overrides, error: overrideError } = await supabase
+      .from("user_permission_overrides")
+      .select("permission_id, allowed")
+      .eq("user_id", userId)
+      .eq("scope_id", preferences.organization_id)
+      .is("deleted_at", null);
+
+    // Then get permission slugs for those IDs
+    let overridesWithPermissions: any[] = [];
+    if (!overrideError && overrides && overrides.length > 0) {
+      const permissionIds = overrides.map((o) => o.permission_id);
+
+      const { data: permissions, error: permError } = await supabase
+        .from("permissions")
+        .select("id, slug")
+        .in("id", permissionIds);
+
+      if (!permError && permissions) {
+        const permissionMap = new Map(permissions.map((p) => [p.id, p.slug]));
+        overridesWithPermissions = overrides.map((override) => ({
+          ...override,
+          permission_slug: permissionMap.get(override.permission_id),
+        }));
+      }
+    }
+
+    if (overrideError) {
+      console.error("🔍 Error fetching permission overrides:", overrideError);
+    } else {
+      console.log("🔍 Permission overrides found:", overridesWithPermissions);
+
+      // Apply overrides
+      const permissionSet = new Set(finalPermissions);
+
+      overridesWithPermissions.forEach((override) => {
+        const permissionSlug = override.permission_slug;
+        if (permissionSlug) {
+          // Remove any existing entry from detailedPermissions for this slug
+          detailedPermissions = detailedPermissions.filter((dp) => dp.slug !== permissionSlug);
+
+          // Add override entry
+          detailedPermissions.push({
+            slug: permissionSlug,
+            source: "override",
+            allowed: override.allowed,
+          });
+
+          if (override.allowed) {
+            // Grant permission (add if not present)
+            permissionSet.add(permissionSlug);
+            console.log("🔍 Override GRANTED permission:", permissionSlug);
+          } else {
+            // Deny permission (remove if present)
+            permissionSet.delete(permissionSlug);
+            console.log("🔍 Override DENIED permission:", permissionSlug);
+          }
+        }
+      });
+
+      finalPermissions = Array.from(permissionSet);
+    }
+  }
+
+  console.log("🔍 Final permissions array (with overrides):", finalPermissions);
+  console.log("🔍 Detailed permissions:", detailedPermissions);
 
   // ✅ Zbuduj kontekst
   const userContext = {
@@ -164,7 +254,8 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     },
     preferences,
     roles,
-    permissions,
+    permissions: finalPermissions,
+    detailedPermissions,
   };
 
   console.log("🔍 User context built:", {
