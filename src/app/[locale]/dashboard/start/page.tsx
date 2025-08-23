@@ -5,6 +5,7 @@ import HasAnyRoleServer from "@/components/auth/HasAnyRoleServer";
 import { getAllWidgets } from "@/modules";
 import { WidgetRenderer } from "@/modules/WidgetRenderer";
 import PermissionDebug from "@/components/debug/PermissionDebug";
+import { PermissionTestComponent } from "@/components/debug/PermissionTestComponent";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import { redirect } from "@/i18n/navigation";
@@ -140,8 +141,9 @@ export default async function StartPage() {
         </HasAnyRoleServer>
       )}
       <div className="space-y-4">
-        <h1 className="text-xl font-bold">Dashboard</h1>
+        <h1 className="text-xl font-bold">Debug Components</h1>
         <PermissionDebug />
+        <PermissionTestComponent />
       </div>
     </div>
   );

@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Supabase Commands
 
+**IMPORTANT: NEVER run local Supabase. Always use remote project ID: zlcnlalwfmmtusigeuyk**
+
 - `npm run supabase:link:dev` - Link to development Supabase project
 - `npm run supabase:link:prod` - Link to production Supabase project
 - `npm run supabase:migration:new` - Create new database migration

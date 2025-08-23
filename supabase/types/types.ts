@@ -1,7 +1,7 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)";
@@ -190,44 +190,6 @@ export type Database = {
           slug?: string;
         };
         Relationships: [];
-      };
-      branch_profiles: {
-        Row: {
-          bio: string | null;
-          branch_id: string;
-          created_at: string | null;
-          logo_url: string | null;
-          name: string | null;
-          slug: string | null;
-          website: string | null;
-        };
-        Insert: {
-          bio?: string | null;
-          branch_id: string;
-          created_at?: string | null;
-          logo_url?: string | null;
-          name?: string | null;
-          slug?: string | null;
-          website?: string | null;
-        };
-        Update: {
-          bio?: string | null;
-          branch_id?: string;
-          created_at?: string | null;
-          logo_url?: string | null;
-          name?: string | null;
-          slug?: string | null;
-          website?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "branch_profiles_branch_id_fkey";
-            columns: ["branch_id"];
-            isOneToOne: true;
-            referencedRelation: "branches";
-            referencedColumns: ["id"];
-          },
-        ];
       };
       branches: {
         Row: {
@@ -469,6 +431,54 @@ export type Database = {
         };
         Relationships: [];
       };
+      organization_members: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          joined_at: string | null;
+          organization_id: string;
+          status: string;
+          updated_at: string | null;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          joined_at?: string | null;
+          organization_id: string;
+          status?: string;
+          updated_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          joined_at?: string | null;
+          organization_id?: string;
+          status?: string;
+          updated_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_members_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_profiles: {
         Row: {
           bio: string | null;
@@ -556,22 +566,70 @@ export type Database = {
       };
       permissions: {
         Row: {
+          action: string;
+          category: string;
+          conflicts_with: string[] | null;
+          created_at: string | null;
           deleted_at: string | null;
+          dependencies: string[] | null;
+          description: string | null;
           id: string;
+          is_dangerous: boolean | null;
+          is_system: boolean | null;
           label: string | null;
+          metadata: Json | null;
+          name: string | null;
+          priority: number | null;
+          requires_mfa: boolean | null;
+          resource_type: string | null;
+          scope_types: string[] | null;
           slug: string;
+          subcategory: string | null;
+          updated_at: string | null;
         };
         Insert: {
+          action: string;
+          category: string;
+          conflicts_with?: string[] | null;
+          created_at?: string | null;
           deleted_at?: string | null;
+          dependencies?: string[] | null;
+          description?: string | null;
           id?: string;
+          is_dangerous?: boolean | null;
+          is_system?: boolean | null;
           label?: string | null;
+          metadata?: Json | null;
+          name?: string | null;
+          priority?: number | null;
+          requires_mfa?: boolean | null;
+          resource_type?: string | null;
+          scope_types?: string[] | null;
           slug: string;
+          subcategory?: string | null;
+          updated_at?: string | null;
         };
         Update: {
+          action?: string;
+          category?: string;
+          conflicts_with?: string[] | null;
+          created_at?: string | null;
           deleted_at?: string | null;
+          dependencies?: string[] | null;
+          description?: string | null;
           id?: string;
+          is_dangerous?: boolean | null;
+          is_system?: boolean | null;
           label?: string | null;
+          metadata?: Json | null;
+          name?: string | null;
+          priority?: number | null;
+          requires_mfa?: boolean | null;
+          resource_type?: string | null;
+          scope_types?: string[] | null;
           slug?: string;
+          subcategory?: string | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -1656,9 +1714,27 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      authorize: {
+        Args: {
+          branch_id?: string;
+          organization_id?: string;
+          required_permissions?: string[];
+          required_roles?: string[];
+          user_id: string;
+        };
+        Returns: Json;
+      };
       custom_access_token_hook: {
         Args: { event: Json };
         Returns: Json;
+      };
+      handle_user_signup_hook: {
+        Args: { event: Json };
+        Returns: Json;
+      };
+      user_has_permission: {
+        Args: { permission_slug: string; user_id: string };
+        Returns: boolean;
       };
     };
     Enums: {
