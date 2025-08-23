@@ -5,6 +5,8 @@ import { testUserPermissions } from "@/app/actions/test-permissions";
 import { debugAppContext } from "@/app/actions/debug-app-context";
 import { debugUserContext } from "@/app/actions/debug-user-context";
 import { debugJwtToken } from "@/app/actions/debug-jwt-token";
+// opcjonalnie kiedy będziesz mieć akcję do testu service role:
+// import { debugServiceRole } from "@/app/actions/debug-service-role";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -13,6 +15,10 @@ export function PermissionTestComponent() {
   const [appContextResult, setAppContextResult] = useState<any>(null);
   const [userContextResult, setUserContextResult] = useState<any>(null);
   const [jwtResult, setJwtResult] = useState<any>(null);
+
+  // 🔧 brakujący stan – to usuwa ReferenceError
+  const serviceRoleResult: any = null;
+
   const [loading, setLoading] = useState(false);
 
   const handleTest = async () => {
@@ -20,8 +26,9 @@ export function PermissionTestComponent() {
     try {
       const testResult = await testUserPermissions();
       setResult(testResult);
-    } catch (error) {
-      setResult({ error: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setResult({ error: message });
     } finally {
       setLoading(false);
     }
@@ -32,8 +39,9 @@ export function PermissionTestComponent() {
     try {
       const appResult = await debugAppContext();
       setAppContextResult(appResult);
-    } catch (error) {
-      setAppContextResult({ error: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setAppContextResult({ error: message });
     } finally {
       setLoading(false);
     }
@@ -44,8 +52,9 @@ export function PermissionTestComponent() {
     try {
       const userResult = await debugUserContext();
       setUserContextResult(userResult);
-    } catch (error) {
-      setUserContextResult({ error: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setUserContextResult({ error: message });
     } finally {
       setLoading(false);
     }
@@ -54,14 +63,29 @@ export function PermissionTestComponent() {
   const handleJwtTest = async () => {
     setLoading(true);
     try {
-      const jwtResult = await debugJwtToken();
-      setJwtResult(jwtResult);
-    } catch (error) {
-      setJwtResult({ error: error.message });
+      const res = await debugJwtToken();
+      setJwtResult(res);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setJwtResult({ error: message, success: false });
     } finally {
       setLoading(false);
     }
   };
+
+  // Jeśli kiedyś dodasz akcję do testu service role, możesz odkomentować:
+  // const handleServiceRoleTest = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const res = await debugServiceRole();
+  //     setServiceRoleResult(res);
+  //   } catch (error: unknown) {
+  //     const message = error instanceof Error ? error.message : "Unknown error";
+  //     setServiceRoleResult({ success: false, error: message });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
     <Card className="w-full max-w-2xl">
@@ -82,6 +106,12 @@ export function PermissionTestComponent() {
           <Button onClick={handleJwtTest} disabled={loading} variant="secondary">
             {loading ? "Testing..." : "Debug JWT Token"}
           </Button>
+
+          {/* Gdy będzie akcja service role, możesz dodać przycisk:
+          <Button onClick={handleServiceRoleTest} disabled={loading} variant="outline">
+            {loading ? "Testing..." : "Test Service Role Client"}
+          </Button>
+          */}
         </div>
 
         {result && (
@@ -90,11 +120,9 @@ export function PermissionTestComponent() {
             <pre className="overflow-auto rounded bg-gray-100 p-4 text-sm">
               {JSON.stringify(result, null, 2)}
             </pre>
-
             {result.isAuthorized && (
               <div className="font-semibold text-green-600">✅ User has required permissions!</div>
             )}
-
             {result.isAuthorized === false && (
               <div className="font-semibold text-red-600">❌ User lacks required permissions!</div>
             )}
@@ -107,14 +135,11 @@ export function PermissionTestComponent() {
             <pre className="overflow-auto rounded bg-gray-100 p-4 text-sm">
               {JSON.stringify(appContextResult, null, 2)}
             </pre>
-
-            {appContextResult.wouldRedirect && (
+            {appContextResult.wouldRedirect ? (
               <div className="font-semibold text-red-600">
                 ❌ App context would cause redirect to login!
               </div>
-            )}
-
-            {!appContextResult.wouldRedirect && (
+            ) : (
               <div className="font-semibold text-green-600">
                 ✅ App context should allow access!
               </div>
@@ -128,14 +153,11 @@ export function PermissionTestComponent() {
             <pre className="overflow-auto rounded bg-gray-100 p-4 text-sm">
               {JSON.stringify(userContextResult, null, 2)}
             </pre>
-
-            {userContextResult.permissions && userContextResult.permissions.length > 0 && (
+            {userContextResult.permissions?.length > 0 ? (
               <div className="font-semibold text-green-600">
                 ✅ User has {userContextResult.permissions.length} permissions loaded!
               </div>
-            )}
-
-            {(!userContextResult.permissions || userContextResult.permissions.length === 0) && (
+            ) : (
               <div className="font-semibold text-red-600">❌ User has no permissions loaded!</div>
             )}
           </div>
@@ -147,14 +169,11 @@ export function PermissionTestComponent() {
             <pre className="overflow-auto rounded bg-gray-100 p-4 text-sm">
               {JSON.stringify(serviceRoleResult, null, 2)}
             </pre>
-
-            {serviceRoleResult.success && (
+            {serviceRoleResult.success ? (
               <div className="font-semibold text-green-600">
                 ✅ Service role client connected successfully!
               </div>
-            )}
-
-            {!serviceRoleResult.success && (
+            ) : (
               <div className="font-semibold text-red-600">
                 ❌ Service role client connection failed!
               </div>
@@ -168,19 +187,16 @@ export function PermissionTestComponent() {
             <pre className="overflow-auto rounded bg-gray-100 p-4 text-sm">
               {JSON.stringify(jwtResult, null, 2)}
             </pre>
-
             {jwtResult.success && !jwtResult.testQueryError && (
               <div className="font-semibold text-green-600">
                 ✅ JWT token working and RLS policies allow access!
               </div>
             )}
-
             {jwtResult.success && jwtResult.testQueryError && (
               <div className="font-semibold text-red-600">
                 ❌ JWT token valid but RLS policies block access: {jwtResult.testQueryError}
               </div>
             )}
-
             {!jwtResult.success && (
               <div className="font-semibold text-red-600">❌ JWT token debug failed!</div>
             )}
