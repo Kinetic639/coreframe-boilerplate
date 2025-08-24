@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -21,6 +23,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
   Shield,
   Plus,
   Edit,
@@ -35,44 +48,100 @@ import {
   Calculator,
   Loader2,
   AlertCircle,
+  Copy,
+  Eye,
 } from "lucide-react";
-import { useRoles, useRoleStatistics } from "@/hooks/useRoles";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from "@/i18n/navigation";
+import {
+  fetchOrganizationRoles,
+  deleteRole,
+  fetchPermissionsByCategory,
+  type RoleWithPermissions,
+  type PermissionsByCategory,
+} from "@/app/actions/roles/role-management";
+import { RoleCreateDialog } from "@/components/organization/roles/RoleCreateDialog";
+import { RoleCloneDialog } from "@/components/organization/roles/RoleCloneDialog";
 
 export default function RolesPage() {
-  const { roles: rolesWithUserCount, loading: rolesLoading, error: rolesError } = useRoles();
-  const { statistics, loading: statsLoading, error: statsError } = useRoleStatistics();
+  const t = useTranslations("organization.roleManagement");
 
-  if (rolesLoading || statsLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Loading roles...</span>
-        </div>
-      </div>
-    );
-  }
+  const [roles, setRoles] = React.useState<RoleWithPermissions[]>([]);
+  const [allPermissions, setAllPermissions] = React.useState<PermissionsByCategory>({});
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = React.useState<string | null>(null);
+  const [roleToDelete, setRoleToDelete] = React.useState<RoleWithPermissions | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [cloneDialogOpen, setCloneDialogOpen] = React.useState(false);
+  const [roleToClone, setRoleToClone] = React.useState<RoleWithPermissions | null>(null);
 
-  if (rolesError || statsError) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {rolesError || statsError || "Failed to load roles data"}
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  const loadRoles = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [rolesData, permissionsData] = await Promise.all([
+        fetchOrganizationRoles(),
+        fetchPermissionsByCategory(),
+      ]);
+
+      setRoles(rolesData);
+      setAllPermissions(permissionsData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load roles");
+      console.error("Error loading roles:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    loadRoles();
+  }, [loadRoles]);
+
+  const handleDeleteRole = async (role: RoleWithPermissions) => {
+    if (role.assignedUsersCount && role.assignedUsersCount > 0) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(role.id);
+      const result = await deleteRole(role.id);
+
+      if (result.success) {
+        await loadRoles(); // Refresh data
+        setRoleToDelete(null);
+      } else {
+        setError(result.error || "Failed to delete role");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete role");
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  const handleCreateComplete = () => {
+    setCreateDialogOpen(false);
+    loadRoles(); // Refresh data
+  };
+
+  const handleCloneComplete = () => {
+    setCloneDialogOpen(false);
+    setRoleToClone(null);
+    loadRoles(); // Refresh data
+  };
 
   const getRoleIcon = (roleName: string) => {
     const icons = {
       org_owner: Crown,
       org_admin: Shield,
       branch_manager: Briefcase,
+      branch_admin: Briefcase,
       branch_employee: UserCheck,
       warehouse_manager: Package,
       employee: UserCheck,
+      member: UserCheck,
       accountant: Calculator,
     };
     return icons[roleName as keyof typeof icons] || Shield;
@@ -83,13 +152,55 @@ export default function RolesPage() {
       org_owner: "text-purple-600",
       org_admin: "text-indigo-600",
       branch_manager: "text-blue-600",
+      branch_admin: "text-blue-600",
       branch_employee: "text-gray-600",
       warehouse_manager: "text-green-600",
       employee: "text-gray-600",
+      member: "text-gray-600",
       accountant: "text-orange-600",
     };
     return colors[roleName as keyof typeof colors] || "text-gray-600";
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="mb-2 h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <Skeleton className="h-96" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={loadRoles}>Try Again</Button>
+      </div>
+    );
+  }
+
+  const basicRoles = roles.filter((role) => role.is_basic);
+  const customRoles = roles.filter((role) => !role.is_basic);
+  const totalUsers = roles.reduce((sum, role) => sum + (role.assignedUsersCount || 0), 0);
+  const totalPermissions = Object.values(allPermissions).reduce(
+    (sum, perms) => sum + perms.length,
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -100,14 +211,12 @@ export default function RolesPage() {
         className="flex items-center justify-between"
       >
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Role i uprawnienia</h1>
-          <p className="text-muted-foreground">
-            Zarządzanie rolami użytkowników i ich uprawnieniami w organizacji
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
+          <p className="text-muted-foreground">{t("description")}</p>
         </div>
-        <Button variant="themed">
+        <Button onClick={() => setCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Dodaj rolę
+          {t("createRole")}
         </Button>
       </motion.div>
 
@@ -120,45 +229,49 @@ export default function RolesPage() {
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Łączna liczba ról</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Roles</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.totalRoles}</div>
-            <p className="text-xs text-muted-foreground">Zdefiniowane role</p>
+            <div className="text-2xl font-bold">{roles.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {basicRoles.length} basic, {customRoles.length} custom
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Przypisani użytkownicy</CardTitle>
+            <CardTitle className="text-sm font-medium">Assigned Users</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.totalAssignments}</div>
-            <p className="text-xs text-muted-foreground">Aktywne przypisania</p>
+            <div className="text-2xl font-bold">{totalUsers}</div>
+            <p className="text-xs text-muted-foreground">Active assignments</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Administratorzy</CardTitle>
+            <CardTitle className="text-sm font-medium">Organization Owners</CardTitle>
             <Crown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.orgOwnersCount}</div>
-            <p className="text-xs text-muted-foreground">Właściciele organizacji</p>
+            <div className="text-2xl font-bold">
+              {roles.find((r) => r.name === "org_owner")?.assignedUsersCount || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">Organization administrators</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Uprawnienia</CardTitle>
+            <CardTitle className="text-sm font-medium">Permissions</CardTitle>
             <Key className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{statistics.totalPermissions}</div>
-            <p className="text-xs text-muted-foreground">Różnych uprawnień</p>
+            <div className="text-2xl font-bold">{totalPermissions}</div>
+            <p className="text-xs text-muted-foreground">Available permissions</p>
           </CardContent>
         </Card>
       </motion.div>
@@ -173,26 +286,25 @@ export default function RolesPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Lista ról ({rolesWithUserCount.length})
+              Roles List ({roles.length})
             </CardTitle>
             <CardDescription>
-              Wszystkie role zdefiniowane w organizacji z liczbą przypisanych użytkowników
+              All roles defined in your organization with assigned user counts
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Rola</TableHead>
-                  <TableHead>Opis</TableHead>
-                  <TableHead>Użytkownicy</TableHead>
-                  <TableHead>Uprawnienia</TableHead>
-                  <TableHead>Zakres</TableHead>
-                  <TableHead className="w-[100px]">Akcje</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Users</TableHead>
+                  <TableHead>Permissions</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rolesWithUserCount.map((role) => {
+                {roles.map((role) => {
                   const Icon = getRoleIcon(role.name);
                   const colorClass = getRoleColor(role.name);
 
@@ -207,26 +319,35 @@ export default function RolesPage() {
                           </div>
                           <div>
                             <div className="font-medium">{role.name}</div>
-                            <div className="font-mono text-sm text-muted-foreground">
-                              {role.is_basic ? "System" : "Custom"}
+                            <div className="text-sm text-muted-foreground">
+                              {role.organization_id ? "Custom role" : "System role"}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs">
-                          <p className="text-sm">
-                            {role.is_basic ? "System role" : "Custom organization role"}
-                          </p>
+                          {role.description ? (
+                            <p className="line-clamp-2 text-sm text-muted-foreground">
+                              {role.description}
+                            </p>
+                          ) : (
+                            <p className="text-sm italic text-muted-foreground">No description</p>
+                          )}
+                          <span
+                            className={`mt-1 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${role.is_basic ? "bg-gray-100 text-gray-800" : "bg-blue-100 text-blue-800"}`}
+                          >
+                            {role.is_basic ? "System" : "Custom"}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{role.userCount}</span>
-                          {role.userCount > 0 && (
+                          <span className="font-medium">{role.assignedUsersCount || 0}</span>
+                          {role.assignedUsersCount && role.assignedUsersCount > 0 && (
                             <Badge variant="outline" className="text-xs">
-                              Aktywne
+                              Active
                             </Badge>
                           )}
                         </div>
@@ -234,35 +355,8 @@ export default function RolesPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Key className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">
-                            {role.name === "org_owner"
-                              ? "Wszystkie"
-                              : role.name === "org_admin"
-                                ? "Administracyjne"
-                                : role.name === "branch_manager"
-                                  ? "Oddział"
-                                  : role.name === "branch_employee"
-                                    ? "Podstawowe"
-                                    : "Niestandardowe"}
-                          </span>
+                          <span className="text-sm">{role.permissions?.length || 0} assigned</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            role.name === "org_owner" || role.name === "org_admin"
-                              ? "default"
-                              : role.name.includes("branch")
-                                ? "secondary"
-                                : "outline"
-                          }
-                        >
-                          {role.name === "org_owner" || role.name === "org_admin"
-                            ? "Organizacja"
-                            : role.name.includes("branch")
-                              ? "Oddział"
-                              : "Niestandardowy"}
-                        </Badge>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -272,29 +366,40 @@ export default function RolesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edytuj rolę
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/organization/roles/${role.id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                {t("roleDetails")}
+                              </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Key className="mr-2 h-4 w-4" />
-                              Zarządzaj uprawnieniami
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Users className="mr-2 h-4 w-4" />
-                              Zobacz użytkowników
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className="text-red-600"
-                              disabled={role.userCount > 0}
+                              onClick={() => {
+                                setRoleToClone(role);
+                                setCloneDialogOpen(true);
+                              }}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Usuń rolę
-                              {role.userCount > 0 && (
-                                <span className="ml-auto text-xs">(ma użytkowników)</span>
-                              )}
+                              <Copy className="mr-2 h-4 w-4" />
+                              {t("cloneRole")}
                             </DropdownMenuItem>
+                            {!role.is_basic && (
+                              <>
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/dashboard/organization/roles/${role.id}`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    {t("editRole")}
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  disabled={role.assignedUsersCount && role.assignedUsersCount > 0}
+                                  onClick={() => setRoleToDelete(role)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  {t("deleteRole")}
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -307,61 +412,50 @@ export default function RolesPage() {
         </Card>
       </motion.div>
 
-      {/* Role Details Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-      >
-        {rolesWithUserCount.map((role) => {
-          const Icon = getRoleIcon(role.name);
-          const colorClass = getRoleColor(role.name);
+      {/* Create Role Dialog */}
+      {createDialogOpen && (
+        <RoleCreateDialog
+          allPermissions={allPermissions}
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onComplete={handleCreateComplete}
+        />
+      )}
 
-          return (
-            <Card key={role.id} className="transition-shadow hover:shadow-md">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg bg-muted ${colorClass}`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-base">{role.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{role.userCount} użytkowników</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-3 text-sm text-muted-foreground">
-                  {role.is_basic ? "System role" : "Custom organization role"}
-                </p>
+      {/* Clone Role Dialog */}
+      {cloneDialogOpen && roleToClone && (
+        <RoleCloneDialog
+          sourceRole={roleToClone}
+          open={cloneDialogOpen}
+          onOpenChange={setCloneDialogOpen}
+          onComplete={handleCloneComplete}
+        />
+      )}
 
-                {role.users && role.users.length > 0 && (
-                  <div>
-                    <div className="mb-2 text-xs font-medium text-muted-foreground">
-                      Przypisani użytkownicy:
-                    </div>
-                    <div className="space-y-1">
-                      {role.users.slice(0, 3).map((user) => (
-                        <div key={user.id} className="text-xs">
-                          {user.first_name} {user.last_name}
-                        </div>
-                      ))}
-                      {role.users.length > 3 && (
-                        <div className="text-xs text-muted-foreground">
-                          +{role.users.length - 3} więcej
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </motion.div>
+      {/* Delete Role Dialog */}
+      <AlertDialog open={!!roleToDelete} onOpenChange={(open) => !open && setRoleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("confirmDelete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteWarning")} This will permanently delete the role "{roleToDelete?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => roleToDelete && handleDeleteRole(roleToDelete)}
+              disabled={deleteLoading === roleToDelete?.id}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading === roleToDelete?.id && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {t("deleteRole")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

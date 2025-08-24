@@ -230,36 +230,6 @@
         "title": "Audit Schedule",
         "description": "Schedule and manage upcoming inventory audits and recurring tasks"
       }
-    },
-    "organization": {
-      "profile": {
-        "title": "Organization Profile",
-        "description": "Manage your organization settings, branding, and configuration options"
-      },
-      "branches": {
-        "title": "Branch Management",
-        "description": "Manage organizational branches, locations, and hierarchical structure"
-      },
-      "users": {
-        "title": "User Management",
-        "description": "Comprehensive user administration with role-based access control"
-      },
-      "usersList": {
-        "title": "Users List",
-        "description": "Complete list of organization users with management and administrative tools"
-      },
-      "userDetail": {
-        "title": "User Details",
-        "description": "Detailed user profile with role management and permission overrides"
-      },
-      "userRoles": {
-        "title": "User Roles",
-        "description": "Role-based access control system with granular permission management"
-      },
-      "userManage": {
-        "title": "User Administration",
-        "description": "Advanced user management tools for enterprise user administration"
-      }
     }
   },
   "LocaleSwitcher": {
