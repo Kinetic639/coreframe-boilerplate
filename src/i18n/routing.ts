@@ -202,6 +202,28 @@ export const routing = defineRouting({
       pl: "/dashboard/wsparcie/ogloszenia/roadmapa",
     },
 
+    // === Development module ===
+    "/dashboard/development": {
+      en: "/dashboard/development",
+      pl: "/dashboard/deweloperskie",
+    },
+    "/dashboard/development/permissions": {
+      en: "/dashboard/development/permissions",
+      pl: "/dashboard/deweloperskie/uprawnienia",
+    },
+    "/dashboard/development/context": {
+      en: "/dashboard/development/context",
+      pl: "/dashboard/deweloperskie/kontekst",
+    },
+    "/dashboard/development/logo": {
+      en: "/dashboard/development/logo",
+      pl: "/dashboard/deweloperskie/logo",
+    },
+    "/dashboard/development/service": {
+      en: "/dashboard/development/service",
+      pl: "/dashboard/deweloperskie/serwis",
+    },
+
     // === Auth ===
     "/sign-in": {
       en: "/sign-in",
