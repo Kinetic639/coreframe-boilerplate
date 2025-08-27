@@ -191,6 +191,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      auth_debug: {
+        Row: {
+          created_at: string | null;
+          id: number;
+          log_data: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: number;
+          log_data?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: number;
+          log_data?: string | null;
+        };
+        Relationships: [];
+      };
+      auth_hook_debug: {
+        Row: {
+          created_at: string | null;
+          debug_info: Json | null;
+          event_data: Json | null;
+          id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          debug_info?: Json | null;
+          event_data?: Json | null;
+          id?: string;
+        };
+        Update: {
+          created_at?: string | null;
+          debug_info?: Json | null;
+          event_data?: Json | null;
+          id?: string;
+        };
+        Relationships: [];
+      };
       branches: {
         Row: {
           created_at: string | null;
@@ -225,6 +264,45 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      debug_logs: {
+        Row: {
+          created_at: string | null;
+          event_data: Json | null;
+          id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          event_data?: Json | null;
+          id?: string;
+        };
+        Update: {
+          created_at?: string | null;
+          event_data?: Json | null;
+          id?: string;
+        };
+        Relationships: [];
+      };
+      hook_execution_log: {
+        Row: {
+          executed_at: string | null;
+          id: number;
+          roles_found: number | null;
+          user_id: string | null;
+        };
+        Insert: {
+          executed_at?: string | null;
+          id?: number;
+          roles_found?: number | null;
+          user_id?: string | null;
+        };
+        Update: {
+          executed_at?: string | null;
+          id?: number;
+          roles_found?: number | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
       };
       invitations: {
         Row: {
@@ -430,6 +508,66 @@ export type Database = {
           system?: boolean;
         };
         Relationships: [];
+      };
+      news_posts: {
+        Row: {
+          author_id: string | null;
+          badges: string[] | null;
+          branch_id: string | null;
+          content: Json;
+          created_at: string | null;
+          excerpt: string | null;
+          id: string;
+          organization_id: string;
+          priority: string | null;
+          published_at: string | null;
+          title: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          author_id?: string | null;
+          badges?: string[] | null;
+          branch_id?: string | null;
+          content: Json;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          organization_id: string;
+          priority?: string | null;
+          published_at?: string | null;
+          title: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          author_id?: string | null;
+          badges?: string[] | null;
+          branch_id?: string | null;
+          content?: Json;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          organization_id?: string;
+          priority?: string | null;
+          published_at?: string | null;
+          title?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "news_posts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "news_posts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       organization_members: {
         Row: {
@@ -1099,6 +1237,7 @@ export type Database = {
       roles: {
         Row: {
           deleted_at: string | null;
+          description: string | null;
           id: string;
           is_basic: boolean;
           name: string;
@@ -1106,6 +1245,7 @@ export type Database = {
         };
         Insert: {
           deleted_at?: string | null;
+          description?: string | null;
           id?: string;
           is_basic?: boolean;
           name: string;
@@ -1113,6 +1253,7 @@ export type Database = {
         };
         Update: {
           deleted_at?: string | null;
+          description?: string | null;
           id?: string;
           is_basic?: boolean;
           name?: string;
@@ -1127,6 +1268,27 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      simple_debug_log: {
+        Row: {
+          data: Json | null;
+          id: number;
+          log_time: string | null;
+          message: string | null;
+        };
+        Insert: {
+          data?: Json | null;
+          id?: number;
+          log_time?: string | null;
+          message?: string | null;
+        };
+        Update: {
+          data?: Json | null;
+          id?: number;
+          log_time?: string | null;
+          message?: string | null;
+        };
+        Relationships: [];
       };
       stock_movements: {
         Row: {
@@ -1728,8 +1890,95 @@ export type Database = {
         Args: { event: Json };
         Returns: Json;
       };
+      debug_roles: {
+        Args: { uid: string };
+        Returns: Json;
+      };
+      get_invitation_stats: {
+        Args: { org_id: string };
+        Returns: Json;
+      };
+      get_organization_invitations: {
+        Args: { org_id: string };
+        Returns: {
+          accepted_at: string;
+          branch: Json;
+          branch_id: string;
+          created_at: string;
+          deleted_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invited_by: string;
+          organization: Json;
+          organization_id: string;
+          rejected_at: string;
+          role: Json;
+          role_id: string;
+          status: string;
+          token: string;
+          updated_at: string;
+        }[];
+      };
+      get_organization_user_stats: {
+        Args: { org_id: string };
+        Returns: Json;
+      };
+      get_organization_users: {
+        Args: { org_id: string };
+        Returns: {
+          avatar_url: string;
+          branch: Json;
+          created_at: string;
+          default_branch_id: string;
+          email: string;
+          first_name: string;
+          id: string;
+          last_name: string;
+          role: Json;
+          status_id: string;
+        }[];
+      };
+      get_permissions_for_roles: {
+        Args: { role_ids: string[] };
+        Returns: {
+          slug: string;
+        }[];
+      };
+      get_user_detail: {
+        Args: { org_id: string; target_user_id: string };
+        Returns: {
+          branch: Json;
+          created_at: string;
+          default_branch_id: string;
+          deleted_at: string;
+          email: string;
+          first_name: string;
+          id: string;
+          last_name: string;
+          permission_overrides: Json;
+          roles: Json;
+          status_id: string;
+        }[];
+      };
+      get_user_roles: {
+        Args: { target_user_id: string };
+        Returns: Json;
+      };
+      get_user_roles_for_hook: {
+        Args: { user_uuid: string };
+        Returns: Json;
+      };
       handle_user_signup_hook: {
         Args: { event: Json };
+        Returns: Json;
+      };
+      test_auth_context: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      test_jwt_claims: {
+        Args: Record<PropertyKey, never>;
         Returns: Json;
       };
       user_has_permission: {
