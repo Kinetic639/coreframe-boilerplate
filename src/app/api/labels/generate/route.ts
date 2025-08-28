@@ -30,24 +30,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Get user's organization and branch context
-    const { data: userRoles } = await supabase
-      .from("user_roles")
-      .select("organization_id, branch_id")
+    // Get user's organization and branch context from user_preferences
+    const { data: preferences } = await supabase
+      .from("user_preferences")
+      .select("organization_id, default_branch_id")
       .eq("user_id", user.id)
-      .limit(1)
       .single();
 
-    if (!userRoles) {
-      return NextResponse.json({ error: "User context not found" }, { status: 400 });
+    let organizationId = preferences?.organization_id;
+    const activeBranchId = preferences?.default_branch_id;
+
+    // Fallback: If no preferences, try to find user's owned organization
+    if (!organizationId) {
+      const { data: ownedOrg } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("created_by", user.id)
+        .limit(1)
+        .single();
+
+      if (ownedOrg) {
+        organizationId = ownedOrg.id;
+      }
     }
+
+    if (!organizationId) {
+      return NextResponse.json({ error: "User context not found" }, { status: 403 });
+    }
+
+    // Get user's active branch or first available branch
+    const { data: branches } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .is("deleted_at", null);
+
+    if (!branches || branches.length === 0) {
+      return NextResponse.json({ error: "No branches found for organization" }, { status: 403 });
+    }
+
+    // Use preferred branch or first available
+    const branchId =
+      activeBranchId && branches.find((b) => b.id === activeBranchId)
+        ? activeBranchId
+        : branches[0].id;
 
     // Verify template exists and user has access
     const { data: template, error: templateError } = await supabase
       .from("label_templates")
       .select("*")
       .eq("id", templateId)
-      .or(`is_system.eq.true,organization_id.eq.${userRoles.organization_id}`)
+      .or(`is_system.eq.true,organization_id.eq.${organizationId}`)
       .single();
 
     if (templateError || !template) {
@@ -69,8 +102,8 @@ export async function POST(request: NextRequest) {
           labels_per_sheet: 1, // Default, would be calculated based on layout
           sheet_layout: "single", // Default
           created_by: user.id,
-          organization_id: userRoles.organization_id,
-          branch_id: userRoles.branch_id,
+          organization_id: organizationId,
+          branch_id: branchId,
         })
         .select("id")
         .single();
@@ -100,8 +133,8 @@ export async function POST(request: NextRequest) {
         assigned_at: entityId ? new Date().toISOString() : null,
         assigned_by: entityId ? user.id : null,
         created_by: user.id,
-        organization_id: userRoles.organization_id,
-        branch_id: userRoles.branch_id,
+        organization_id: organizationId,
+        branch_id: branchId,
         is_active: true,
         metadata: {
           batch_id: batchId,

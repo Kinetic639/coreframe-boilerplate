@@ -7,6 +7,14 @@ export const generateLabelPDF = async (
   template: LabelTemplate,
   _options: Record<string, unknown> = {}
 ) => {
+  if (!labels || labels.length === 0) {
+    throw new Error("No labels provided for PDF generation");
+  }
+
+  if (!template) {
+    throw new Error("No template provided for PDF generation");
+  }
+
   try {
     const { jsPDF } = await import("jspdf");
     const QRCode = await import("qrcode");
@@ -51,14 +59,21 @@ export const generateLabelPDF = async (
       const y = margin + row * template.height_mm;
 
       // Generate QR code as data URL
-      const qrDataUrl = await QRCode.toDataURL(label.qr_token, {
-        width: Math.floor(template.qr_size_mm * 3.78), // Convert mm to pixels (300 DPI)
-        margin: 0,
-        color: {
-          dark: template.text_color || "#000000",
-          light: template.background_color || "#FFFFFF",
-        },
-      });
+      let qrDataUrl: string;
+      try {
+        qrDataUrl = await QRCode.toDataURL(label.qr_token, {
+          width: Math.floor(template.qr_size_mm * 3.78), // Convert mm to pixels (300 DPI)
+          margin: 0,
+          color: {
+            dark: template.text_color || "#000000",
+            light: template.background_color || "#FFFFFF",
+          },
+        });
+      } catch (qrError) {
+        console.error(`Error generating QR code for label ${label.qr_token}:`, qrError);
+        // Skip this label and continue with others
+        continue;
+      }
 
       // Draw label background
       pdf.setFillColor(template.background_color || "#FFFFFF");
@@ -115,7 +130,13 @@ export const generateLabelPDF = async (
         pdf.setTextColor(template.text_color || "#000000");
         pdf.setFontSize(template.label_text_size || 12);
 
-        const labelText = `${template.label_type.toUpperCase()}-${i + 1}`;
+        // Generate more meaningful label text
+        let labelText = `${template.label_type.toUpperCase()}-${String(i + 1).padStart(3, "0")}`;
+
+        // If we have entity-specific data, use that instead
+        if (label.entity_id) {
+          labelText = `${template.label_type.toUpperCase()}-${label.entity_id.substring(0, 8).toUpperCase()}`;
+        }
         const textWidth = pdf.getTextWidth(labelText);
 
         let textX = x;
@@ -132,11 +153,21 @@ export const generateLabelPDF = async (
             textY = y + template.height_mm - 2;
             break;
           case "right":
-            textX = x + qrSize + 4;
+            // Position text to the right of QR code, considering QR position
+            if (template.qr_position === "left") {
+              textX = x + qrSize + 4;
+            } else {
+              textX = x + template.width_mm - textWidth - 2;
+            }
             textY = y + template.height_mm / 2 + 2;
             break;
           case "left":
-            textX = x + 2;
+            // Position text to the left of QR code, considering QR position
+            if (template.qr_position === "right") {
+              textX = x + 2;
+            } else {
+              textX = x + 2;
+            }
             textY = y + template.height_mm / 2 + 2;
             break;
           case "top":
@@ -171,7 +202,13 @@ export const downloadPDF = (pdf: jsPDF, filename: string) => {
 
 export const generateFileName = (request: LabelGenerationRequest) => {
   const timestamp = new Date().toISOString().split("T")[0];
-  return request.batchName
-    ? `${request.batchName}.pdf`
+
+  // Sanitize batch name if provided
+  const sanitizedBatchName = request.batchName
+    ? request.batchName.replace(/[^a-zA-Z0-9_-]/g, "_").substring(0, 50)
+    : null;
+
+  return sanitizedBatchName
+    ? `${sanitizedBatchName}_${timestamp}.pdf`
     : `labels_${request.labelType}_${timestamp}.pdf`;
 };

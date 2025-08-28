@@ -381,6 +381,209 @@ export type Database = {
           },
         ];
       };
+      label_batches: {
+        Row: {
+          batch_description: string | null;
+          batch_name: string;
+          batch_status: string | null;
+          branch_id: string;
+          created_at: string | null;
+          created_by: string | null;
+          generated_at: string | null;
+          id: string;
+          label_template_id: string | null;
+          label_type: string;
+          labels_per_sheet: number | null;
+          organization_id: string;
+          pdf_generated: boolean | null;
+          pdf_path: string | null;
+          quantity: number;
+          sheet_layout: string | null;
+        };
+        Insert: {
+          batch_description?: string | null;
+          batch_name: string;
+          batch_status?: string | null;
+          branch_id: string;
+          created_at?: string | null;
+          created_by?: string | null;
+          generated_at?: string | null;
+          id?: string;
+          label_template_id?: string | null;
+          label_type: string;
+          labels_per_sheet?: number | null;
+          organization_id: string;
+          pdf_generated?: boolean | null;
+          pdf_path?: string | null;
+          quantity: number;
+          sheet_layout?: string | null;
+        };
+        Update: {
+          batch_description?: string | null;
+          batch_name?: string;
+          batch_status?: string | null;
+          branch_id?: string;
+          created_at?: string | null;
+          created_by?: string | null;
+          generated_at?: string | null;
+          id?: string;
+          label_template_id?: string | null;
+          label_type?: string;
+          labels_per_sheet?: number | null;
+          organization_id?: string;
+          pdf_generated?: boolean | null;
+          pdf_path?: string | null;
+          quantity?: number;
+          sheet_layout?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "label_batches_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "label_batches_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "label_batches_label_template_id_fkey";
+            columns: ["label_template_id"];
+            isOneToOne: false;
+            referencedRelation: "label_templates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "label_batches_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      label_templates: {
+        Row: {
+          background_color: string | null;
+          border_color: string | null;
+          border_enabled: boolean | null;
+          border_width: number | null;
+          category: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          dpi: number | null;
+          height_mm: number;
+          id: string;
+          is_default: boolean | null;
+          is_system: boolean | null;
+          label_text_position: string | null;
+          label_text_size: number | null;
+          label_type: string;
+          layout_direction: string | null;
+          name: string;
+          organization_id: string | null;
+          qr_position: string | null;
+          qr_size_mm: number | null;
+          section_balance: string | null;
+          show_barcode: boolean | null;
+          show_code: boolean | null;
+          show_hierarchy: boolean | null;
+          show_label_text: boolean | null;
+          template_config: Json;
+          text_color: string | null;
+          updated_at: string | null;
+          width_mm: number;
+        };
+        Insert: {
+          background_color?: string | null;
+          border_color?: string | null;
+          border_enabled?: boolean | null;
+          border_width?: number | null;
+          category?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          dpi?: number | null;
+          height_mm: number;
+          id?: string;
+          is_default?: boolean | null;
+          is_system?: boolean | null;
+          label_text_position?: string | null;
+          label_text_size?: number | null;
+          label_type: string;
+          layout_direction?: string | null;
+          name: string;
+          organization_id?: string | null;
+          qr_position?: string | null;
+          qr_size_mm?: number | null;
+          section_balance?: string | null;
+          show_barcode?: boolean | null;
+          show_code?: boolean | null;
+          show_hierarchy?: boolean | null;
+          show_label_text?: boolean | null;
+          template_config?: Json;
+          text_color?: string | null;
+          updated_at?: string | null;
+          width_mm: number;
+        };
+        Update: {
+          background_color?: string | null;
+          border_color?: string | null;
+          border_enabled?: boolean | null;
+          border_width?: number | null;
+          category?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          dpi?: number | null;
+          height_mm?: number;
+          id?: string;
+          is_default?: boolean | null;
+          is_system?: boolean | null;
+          label_text_position?: string | null;
+          label_text_size?: number | null;
+          label_type?: string;
+          layout_direction?: string | null;
+          name?: string;
+          organization_id?: string | null;
+          qr_position?: string | null;
+          qr_size_mm?: number | null;
+          section_balance?: string | null;
+          show_barcode?: boolean | null;
+          show_code?: boolean | null;
+          show_hierarchy?: boolean | null;
+          show_label_text?: boolean | null;
+          template_config?: Json;
+          text_color?: string | null;
+          updated_at?: string | null;
+          width_mm?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "label_templates_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "label_templates_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       locations: {
         Row: {
           branch_id: string | null;
@@ -389,6 +592,7 @@ export type Database = {
           created_at: string | null;
           deleted_at: string | null;
           description: string | null;
+          has_qr_assigned: boolean | null;
           icon_name: string | null;
           id: string;
           image_url: string | null;
@@ -397,6 +601,9 @@ export type Database = {
           name: string;
           organization_id: string | null;
           parent_id: string | null;
+          qr_assigned_at: string | null;
+          qr_assigned_by: string | null;
+          qr_label_id: string | null;
           sort_order: number;
           updated_at: string | null;
         };
@@ -407,6 +614,7 @@ export type Database = {
           created_at?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          has_qr_assigned?: boolean | null;
           icon_name?: string | null;
           id?: string;
           image_url?: string | null;
@@ -415,6 +623,9 @@ export type Database = {
           name: string;
           organization_id?: string | null;
           parent_id?: string | null;
+          qr_assigned_at?: string | null;
+          qr_assigned_by?: string | null;
+          qr_label_id?: string | null;
           sort_order?: number;
           updated_at?: string | null;
         };
@@ -425,6 +636,7 @@ export type Database = {
           created_at?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          has_qr_assigned?: boolean | null;
           icon_name?: string | null;
           id?: string;
           image_url?: string | null;
@@ -433,6 +645,9 @@ export type Database = {
           name?: string;
           organization_id?: string | null;
           parent_id?: string | null;
+          qr_assigned_at?: string | null;
+          qr_assigned_by?: string | null;
+          qr_label_id?: string | null;
           sort_order?: number;
           updated_at?: string | null;
         };
@@ -442,6 +657,20 @@ export type Database = {
             columns: ["parent_id"];
             isOneToOne: false;
             referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "locations_qr_assigned_by_fkey";
+            columns: ["qr_assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "locations_qr_label_id_fkey";
+            columns: ["qr_label_id"];
+            isOneToOne: false;
+            referencedRelation: "qr_labels";
             referencedColumns: ["id"];
           },
         ];
@@ -1109,6 +1338,7 @@ export type Database = {
           id: string;
           name: string;
           product_id: string | null;
+          qr_label_id: string | null;
           sku: string | null;
           updated_at: string | null;
         };
@@ -1119,6 +1349,7 @@ export type Database = {
           id?: string;
           name: string;
           product_id?: string | null;
+          qr_label_id?: string | null;
           sku?: string | null;
           updated_at?: string | null;
         };
@@ -1129,6 +1360,7 @@ export type Database = {
           id?: string;
           name?: string;
           product_id?: string | null;
+          qr_label_id?: string | null;
           sku?: string | null;
           updated_at?: string | null;
         };
@@ -1138,6 +1370,13 @@ export type Database = {
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_variants_qr_label_id_fkey";
+            columns: ["qr_label_id"];
+            isOneToOne: false;
+            referencedRelation: "qr_labels";
             referencedColumns: ["id"];
           },
         ];
@@ -1151,9 +1390,13 @@ export type Database = {
           default_unit: string | null;
           deleted_at: string | null;
           description: string | null;
+          has_qr_assigned: boolean | null;
           id: string;
           main_image_id: string | null;
           name: string;
+          qr_assigned_at: string | null;
+          qr_assigned_by: string | null;
+          qr_label_id: string | null;
           sku: string | null;
           updated_at: string | null;
         };
@@ -1165,9 +1408,13 @@ export type Database = {
           default_unit?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          has_qr_assigned?: boolean | null;
           id?: string;
           main_image_id?: string | null;
           name: string;
+          qr_assigned_at?: string | null;
+          qr_assigned_by?: string | null;
+          qr_label_id?: string | null;
           sku?: string | null;
           updated_at?: string | null;
         };
@@ -1179,9 +1426,13 @@ export type Database = {
           default_unit?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          has_qr_assigned?: boolean | null;
           id?: string;
           main_image_id?: string | null;
           name?: string;
+          qr_assigned_at?: string | null;
+          qr_assigned_by?: string | null;
+          qr_label_id?: string | null;
           sku?: string | null;
           updated_at?: string | null;
         };
@@ -1191,6 +1442,195 @@ export type Database = {
             columns: ["base_unit_id"];
             isOneToOne: false;
             referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "products_qr_assigned_by_fkey";
+            columns: ["qr_assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "products_qr_label_id_fkey";
+            columns: ["qr_label_id"];
+            isOneToOne: false;
+            referencedRelation: "qr_labels";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      qr_labels: {
+        Row: {
+          assigned_at: string | null;
+          assigned_by: string | null;
+          branch_id: string;
+          created_at: string | null;
+          created_by: string | null;
+          deleted_at: string | null;
+          entity_id: string | null;
+          entity_type: string | null;
+          id: string;
+          is_active: boolean | null;
+          is_printed: boolean | null;
+          label_template_id: string | null;
+          label_type: string;
+          metadata: Json | null;
+          organization_id: string;
+          print_count: number | null;
+          printed_at: string | null;
+          qr_token: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          branch_id: string;
+          created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_printed?: boolean | null;
+          label_template_id?: string | null;
+          label_type: string;
+          metadata?: Json | null;
+          organization_id: string;
+          print_count?: number | null;
+          printed_at?: string | null;
+          qr_token: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          assigned_at?: string | null;
+          assigned_by?: string | null;
+          branch_id?: string;
+          created_at?: string | null;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_printed?: boolean | null;
+          label_template_id?: string | null;
+          label_type?: string;
+          metadata?: Json | null;
+          organization_id?: string;
+          print_count?: number | null;
+          printed_at?: string | null;
+          qr_token?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fk_qr_labels_template";
+            columns: ["label_template_id"];
+            isOneToOne: false;
+            referencedRelation: "label_templates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_labels_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_labels_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_labels_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_labels_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      qr_scan_logs: {
+        Row: {
+          branch_id: string | null;
+          error_message: string | null;
+          id: string;
+          ip_address: unknown | null;
+          organization_id: string | null;
+          qr_token: string;
+          redirect_path: string | null;
+          scan_context: Json | null;
+          scan_result: string;
+          scan_type: string;
+          scanned_at: string | null;
+          scanner_type: string | null;
+          user_agent: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          branch_id?: string | null;
+          error_message?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          organization_id?: string | null;
+          qr_token: string;
+          redirect_path?: string | null;
+          scan_context?: Json | null;
+          scan_result: string;
+          scan_type: string;
+          scanned_at?: string | null;
+          scanner_type?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          branch_id?: string | null;
+          error_message?: string | null;
+          id?: string;
+          ip_address?: unknown | null;
+          organization_id?: string | null;
+          qr_token?: string;
+          redirect_path?: string | null;
+          scan_context?: Json | null;
+          scan_result?: string;
+          scan_type?: string;
+          scanned_at?: string | null;
+          scanner_type?: string | null;
+          user_agent?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qr_scan_logs_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_scan_logs_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_scan_logs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
@@ -1265,6 +1705,143 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      scanning_operation_items: {
+        Row: {
+          code_type: string;
+          entity_id: string | null;
+          entity_type: string | null;
+          id: string;
+          location_id: string | null;
+          notes: string | null;
+          operation_id: string | null;
+          quantity: number | null;
+          scan_data: Json | null;
+          scan_result: string;
+          scanned_at: string | null;
+          scanned_by: string | null;
+          scanned_code: string;
+        };
+        Insert: {
+          code_type: string;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          location_id?: string | null;
+          notes?: string | null;
+          operation_id?: string | null;
+          quantity?: number | null;
+          scan_data?: Json | null;
+          scan_result: string;
+          scanned_at?: string | null;
+          scanned_by?: string | null;
+          scanned_code: string;
+        };
+        Update: {
+          code_type?: string;
+          entity_id?: string | null;
+          entity_type?: string | null;
+          id?: string;
+          location_id?: string | null;
+          notes?: string | null;
+          operation_id?: string | null;
+          quantity?: number | null;
+          scan_data?: Json | null;
+          scan_result?: string;
+          scanned_at?: string | null;
+          scanned_by?: string | null;
+          scanned_code?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "scanning_operation_items_location_id_fkey";
+            columns: ["location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "scanning_operation_items_operation_id_fkey";
+            columns: ["operation_id"];
+            isOneToOne: false;
+            referencedRelation: "scanning_operations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "scanning_operation_items_scanned_by_fkey";
+            columns: ["scanned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      scanning_operations: {
+        Row: {
+          branch_id: string;
+          completed_at: string | null;
+          id: string;
+          metadata: Json | null;
+          operation_name: string;
+          operation_status: string | null;
+          operation_type: string;
+          organization_id: string;
+          scanned_items: number | null;
+          started_at: string | null;
+          started_by: string | null;
+          total_items: number | null;
+        };
+        Insert: {
+          branch_id: string;
+          completed_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          operation_name: string;
+          operation_status?: string | null;
+          operation_type: string;
+          organization_id: string;
+          scanned_items?: number | null;
+          started_at?: string | null;
+          started_by?: string | null;
+          total_items?: number | null;
+        };
+        Update: {
+          branch_id?: string;
+          completed_at?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          operation_name?: string;
+          operation_status?: string | null;
+          operation_type?: string;
+          organization_id?: string;
+          scanned_items?: number | null;
+          started_at?: string | null;
+          started_by?: string | null;
+          total_items?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "scanning_operations_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "scanning_operations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "scanning_operations_started_by_fkey";
+            columns: ["started_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
         ];
