@@ -24,8 +24,8 @@ importers:
         specifier: ^0.1.15
         version: 0.1.16(@modelcontextprotocol/sdk@1.17.1)(@types/react@19.1.8)
       '@hookform/resolvers':
-        specifier: ^5.1.1
-        version: 5.1.1(react-hook-form@7.60.0(react@19.0.0))
+        specifier: ^5.2.1
+        version: 5.2.1(react-hook-form@7.62.0(react@19.0.0))
       '@radix-ui/react-accordion':
         specifier: ^1.2.11
         version: 1.2.11(@types/react-dom@19.0.2(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -165,8 +165,8 @@ importers:
         specifier: 19.0.0
         version: 19.0.0(react@19.0.0)
       react-hook-form:
-        specifier: ^7.60.0
-        version: 7.60.0(react@19.0.0)
+        specifier: ^7.62.0
+        version: 7.62.0(react@19.0.0)
       react-toastify:
         specifier: ^11.0.5
         version: 11.0.5(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -174,14 +174,14 @@ importers:
         specifier: ^4.6.0
         version: 4.6.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       sonner:
-        specifier: ^2.0.6
+        specifier: ^2.0.7
         version: 2.0.7(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
       zod:
-        specifier: ^3.25.74
-        version: 3.25.74
+        specifier: ^3.25.76
+        version: 3.25.76
       zustand:
         specifier: ^5.0.6
         version: 5.0.6(@types/react@19.1.8)(react@19.0.0)(use-sync-external-store@1.5.0(react@19.0.0))
@@ -420,8 +420,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  '@hookform/resolvers@5.1.1':
-    resolution: {integrity: sha512-J/NVING3LMAEvexJkyTLjruSm7aOFx7QX21pzkiJfMoNG0wl5aFEjLTl7ay7IQb9EWY6AkrBy7tHL2Alijpdcg==}
+  '@hookform/resolvers@5.2.1':
+    resolution: {integrity: sha512-u0+6X58gkjMcxur1wRWokA7XsiiBJ6aK17aPZxhkoYiK5J+HcTx0Vhu9ovXe6H+dVpO6cjrn2FkJTryXEMlryQ==}
     peerDependencies:
       react-hook-form: ^7.55.0
 
@@ -3783,8 +3783,8 @@ packages:
     peerDependencies:
       react: ^19.0.0
 
-  react-hook-form@7.60.0:
-    resolution: {integrity: sha512-SBrYOvMbDB7cV8ZfNpaiLcgjH/a1c7aK0lK+aNigpf4xWLO8q+o4tcvVurv3c4EOyzn/3dCsYt4GKD42VvJ/+A==}
+  react-hook-form@7.62.0:
+    resolution: {integrity: sha512-7KWFejc98xqG/F4bAxpL41NB3o1nnvQO1RWZT3TqRZYL8RryQETGfEdVnJN2fy1crCiBLLjkRBVK05j24FxJGA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       react: ^16.8.0 || ^17 || ^18 || ^19
@@ -4566,8 +4566,8 @@ packages:
     peerDependencies:
       zod: ^3.24.1
 
-  zod@3.25.74:
-    resolution: {integrity: sha512-J8poo92VuhKjNknViHRAIuuN6li/EwFbAC8OedzI8uxpEPGiXHGQu9wemIAioIpqgfB4SySaJhdk0mH5Y4ICBg==}
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
   zustand@5.0.6:
     resolution: {integrity: sha512-ihAqNeUVhe0MAD+X8M5UzqyZ9k3FFZLBTtqo6JLPwV53cbRB/mJwBI0PxcIgqhBBHlEs8G45OTDTMq3gNcLq3A==}
@@ -4803,11 +4803,11 @@ snapshots:
       glob: 10.4.5
       highlight.js: 11.11.1
       ink: 6.1.0(@types/react@19.1.8)(react@19.1.1)
-      ink-big-text: 2.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1)
-      ink-gradient: 3.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))
-      ink-link: 4.1.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))
-      ink-select-input: 6.2.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1)
-      ink-spinner: 5.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1)
+      ink-big-text: 2.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1)
+      ink-gradient: 3.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))
+      ink-link: 4.1.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))
+      ink-select-input: 6.2.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1)
+      ink-spinner: 5.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1)
       lowlight: 3.3.0
       mime-types: 3.0.1
       open: 10.2.0
@@ -4819,7 +4819,7 @@ snapshots:
       strip-json-comments: 3.1.1
       update-notifier: 7.3.1
       yargs: 17.7.2
-      zod: 3.25.74
+      zod: 3.25.76
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - '@types/react'
@@ -4853,10 +4853,10 @@ snapshots:
       protobufjs: 7.5.3
       yargs: 17.7.2
 
-  '@hookform/resolvers@5.1.1(react-hook-form@7.60.0(react@19.0.0))':
+  '@hookform/resolvers@5.2.1(react-hook-form@7.62.0(react@19.0.0))':
     dependencies:
       '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.60.0(react@19.0.0)
+      react-hook-form: 7.62.0(react@19.0.0)
 
   '@humanfs/core@0.19.1': {}
 
@@ -5005,8 +5005,8 @@ snapshots:
       express-rate-limit: 7.5.1(express@5.1.0)
       pkce-challenge: 5.0.0
       raw-body: 3.0.0
-      zod: 3.25.74
-      zod-to-json-schema: 3.24.6(zod@3.25.74)
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.6(zod@3.25.76)
     transitivePeerDependencies:
       - supports-color
 
@@ -7532,14 +7532,14 @@ snapshots:
 
   ini@4.1.1: {}
 
-  ink-big-text@2.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1):
+  ink-big-text@2.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1):
     dependencies:
       cfonts: 3.3.0
       ink: 6.1.0(@types/react@19.1.8)(react@19.1.1)
       prop-types: 15.8.1
       react: 19.1.1
 
-  ink-gradient@3.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1)):
+  ink-gradient@3.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0)):
     dependencies:
       '@types/gradient-string': 1.1.6
       gradient-string: 2.0.2
@@ -7547,20 +7547,20 @@ snapshots:
       prop-types: 15.8.1
       strip-ansi: 7.1.0
 
-  ink-link@4.1.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1)):
+  ink-link@4.1.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0)):
     dependencies:
       ink: 6.1.0(@types/react@19.1.8)(react@19.1.1)
       prop-types: 15.8.1
       terminal-link: 3.0.0
 
-  ink-select-input@6.2.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1):
+  ink-select-input@6.2.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1):
     dependencies:
       figures: 6.1.0
       ink: 6.1.0(@types/react@19.1.8)(react@19.1.1)
       react: 19.1.1
       to-rotated: 1.0.0
 
-  ink-spinner@5.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.1.1))(react@19.1.1):
+  ink-spinner@5.0.0(ink@6.1.0(@types/react@19.1.8)(react@19.0.0))(react@19.1.1):
     dependencies:
       cli-spinners: 2.9.2
       ink: 6.1.0(@types/react@19.1.8)(react@19.1.1)
@@ -8411,7 +8411,7 @@ snapshots:
       react: 19.0.0
       scheduler: 0.25.0
 
-  react-hook-form@7.60.0(react@19.0.0):
+  react-hook-form@7.62.0(react@19.0.0):
     dependencies:
       react: 19.0.0
 
@@ -9350,11 +9350,11 @@ snapshots:
 
   yoga-layout@3.2.1: {}
 
-  zod-to-json-schema@3.24.6(zod@3.25.74):
+  zod-to-json-schema@3.24.6(zod@3.25.76):
     dependencies:
-      zod: 3.25.74
+      zod: 3.25.76
 
-  zod@3.25.74: {}
+  zod@3.25.76: {}
 
   zustand@5.0.6(@types/react@19.1.8)(react@19.0.0)(use-sync-external-store@1.5.0(react@19.0.0)):
     optionalDependencies:
