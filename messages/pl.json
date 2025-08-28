@@ -503,5 +503,90 @@
       "secondary": "Jeśli nie widzisz wiadomości, sprawdź folder spam."
     },
     "backToSignIn": "Wróć do logowania"
+  },
+  "news": {
+    "title": "Aktualności",
+    "addNews": "Dodaj Aktualność",
+    "newsHistory": "Historia Aktualności",
+    "recentNews": "Najnowsze Aktualności",
+    "noNews": "Brak aktualności",
+    "noNewsDescription": "Nie ma obecnie żadnych aktualności do wyświetlenia.",
+    "form": {
+      "title": "Tytuł",
+      "titlePlaceholder": "Wprowadź tytuł aktualności...",
+      "content": "Treść",
+      "contentPlaceholder": "Wprowadź treść aktualności...",
+      "excerpt": "Streszczenie",
+      "excerptPlaceholder": "Krótkie streszczenie (opcjonalne)...",
+      "priority": "Priorytet",
+      "badges": "Oznaczenia",
+      "badgePlaceholder": "Dodaj oznaczenie (naciśnij Enter)",
+      "publishDate": "Data Publikacji",
+      "save": "Zapisz Aktualność",
+      "cancel": "Anuluj",
+      "edit": "Edytuj Aktualność",
+      "delete": "Usuń Aktualność",
+      "confirmDelete": "Czy na pewno chcesz usunąć tę aktualność?",
+      "saving": "Zapisywanie...",
+      "updating": "Aktualizowanie...",
+      "deleting": "Usuwanie..."
+    },
+    "priority": {
+      "normal": "Normalny",
+      "important": "Ważny",
+      "urgent": "Pilny",
+      "critical": "Krytyczny"
+    },
+    "badges": {
+      "announcement": "Ogłoszenie",
+      "update": "Aktualizacja",
+      "maintenance": "Konserwacja",
+      "feature": "Nowa Funkcja",
+      "bugfix": "Poprawka Błędu",
+      "security": "Bezpieczeństwo",
+      "important": "Ważne",
+      "urgent": "Pilne",
+      "info": "Informacja"
+    },
+    "widget": {
+      "title": "Najnowsze Aktualności",
+      "viewAll": "Zobacz Wszystkie Aktualności",
+      "publishedBy": "Opublikowane przez {author}",
+      "timeAgo": "{time} temu"
+    },
+    "editor": {
+      "placeholder": "Wprowadź treść aktualności tutaj...",
+      "toolbar": {
+        "bold": "Pogrubienie",
+        "italic": "Kursywa",
+        "underline": "Podkreślenie",
+        "strikethrough": "Przekreślenie",
+        "link": "Dodaj Link",
+        "heading": "Nagłówek",
+        "bulletList": "Lista Punktowa",
+        "numberedList": "Lista Numerowana",
+        "quote": "Cytat",
+        "code": "Blok Kodu"
+      }
+    },
+    "filters": {
+      "all": "Wszystkie",
+      "priority": "Filtruj po Priorytecie",
+      "author": "Filtruj po Autorze",
+      "dateRange": "Zakres Dat"
+    },
+    "success": {
+      "created": "Aktualność utworzona pomyślnie",
+      "updated": "Aktualność zaktualizowana pomyślnie",
+      "deleted": "Aktualność usunięta pomyślnie"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować aktualności",
+      "createFailed": "Nie udało się utworzyć aktualności",
+      "updateFailed": "Nie udało się zaktualizować aktualności",
+      "deleteFailed": "Nie udało się usunąć aktualności",
+      "titleRequired": "Tytuł jest wymagany",
+      "contentRequired": "Treść jest wymagana"
+    }
   }
 }

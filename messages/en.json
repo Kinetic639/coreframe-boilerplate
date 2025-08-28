@@ -547,5 +547,90 @@
       "secondary": "If you don't see the email, please check your spam folder."
     },
     "backToSignIn": "Return to sign in"
+  },
+  "news": {
+    "title": "News",
+    "addNews": "Add News",
+    "newsHistory": "News History",
+    "recentNews": "Recent News",
+    "noNews": "No news available",
+    "noNewsDescription": "There are currently no news posts to display.",
+    "form": {
+      "title": "Title",
+      "titlePlaceholder": "Enter news title...",
+      "content": "Content",
+      "contentPlaceholder": "Enter news content...",
+      "excerpt": "Excerpt",
+      "excerptPlaceholder": "Brief summary (optional)...",
+      "priority": "Priority",
+      "badges": "Badges",
+      "badgePlaceholder": "Add badge (press Enter)",
+      "publishDate": "Publish Date",
+      "save": "Save News",
+      "cancel": "Cancel",
+      "edit": "Edit News",
+      "delete": "Delete News",
+      "confirmDelete": "Are you sure you want to delete this news post?",
+      "saving": "Saving...",
+      "updating": "Updating...",
+      "deleting": "Deleting..."
+    },
+    "priority": {
+      "normal": "Normal",
+      "important": "Important",
+      "urgent": "Urgent",
+      "critical": "Critical"
+    },
+    "badges": {
+      "announcement": "Announcement",
+      "update": "Update",
+      "maintenance": "Maintenance",
+      "feature": "New Feature",
+      "bugfix": "Bug Fix",
+      "security": "Security",
+      "important": "Important",
+      "urgent": "Urgent",
+      "info": "Info"
+    },
+    "widget": {
+      "title": "Recent News",
+      "viewAll": "View All News",
+      "publishedBy": "Published by {author}",
+      "timeAgo": "{time} ago"
+    },
+    "editor": {
+      "placeholder": "Enter your news content here...",
+      "toolbar": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "strikethrough": "Strikethrough",
+        "link": "Add Link",
+        "heading": "Heading",
+        "bulletList": "Bullet List",
+        "numberedList": "Numbered List",
+        "quote": "Quote",
+        "code": "Code Block"
+      }
+    },
+    "filters": {
+      "all": "All",
+      "priority": "Filter by Priority",
+      "author": "Filter by Author",
+      "dateRange": "Date Range"
+    },
+    "success": {
+      "created": "News post created successfully",
+      "updated": "News post updated successfully",
+      "deleted": "News post deleted successfully"
+    },
+    "errors": {
+      "loadFailed": "Failed to load news",
+      "createFailed": "Failed to create news post",
+      "updateFailed": "Failed to update news post",
+      "deleteFailed": "Failed to delete news post",
+      "titleRequired": "Title is required",
+      "contentRequired": "Content is required"
+    }
   }
 }
