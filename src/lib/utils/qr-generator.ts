@@ -1,4 +1,4 @@
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { writeBarcode } from "zxing-wasm/writer";
 import type { LabelTemplate, LabelPreviewData } from "@/lib/types/qr-system";
 
@@ -14,7 +14,7 @@ export interface QRGenerationOptions {
 }
 
 export interface BarcodeGenerationOptions {
-  format?: "QRCode" | "Code128" | "EAN13" | "UPC";
+  format?: "QRCode" | "Code128" | "EAN-13" | "UPC-A";
   scale?: number;
   margin?: number;
 }
@@ -117,7 +117,7 @@ export function generateQRCodeURL(token: string, baseUrl?: string): string {
     baseUrl ||
     (typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "");
+      : process.env.NEXT_PUBLIC_APP_URL || "https://app.coreframe.pl");
   return `${base}/qr/${token}`;
 }
 
@@ -144,12 +144,15 @@ export function calculateLabelPixelSize(template: LabelTemplate): {
 }
 
 /**
- * Generate label preview data for canvas rendering
+ * Generate label preview data for canvas rendering with new two-section layout
  */
 export async function generateLabelPreview(previewData: LabelPreviewData): Promise<string> {
+  // Ensure this runs only on the client side
+  if (typeof window === "undefined") {
+    throw new Error("generateLabelPreview can only be called on the client side");
+  }
   const template = previewData.template;
   const { width, height } = calculateLabelPixelSize(template);
-  const qrSize = calculateQRPixelSize(template);
 
   // Create canvas
   const canvas = document.createElement("canvas");
@@ -167,6 +170,125 @@ export async function generateLabelPreview(previewData: LabelPreviewData): Promi
     ctx.lineWidth = template.border_width;
     ctx.strokeRect(0, 0, width, height);
   }
+
+  // Calculate section dimensions based on layout
+  const sections = calculateSectionLayout(template, width, height);
+
+  // Generate and draw QR code in its section
+  await drawQRSection(ctx, template, previewData, sections.qrSection);
+
+  // Draw additional data in its section
+  if (template.show_label_text && previewData.displayText) {
+    drawDataSection(ctx, template, previewData, sections.dataSection);
+  }
+
+  return canvas.toDataURL();
+}
+
+/**
+ * Calculate section layout for two-section label design
+ */
+interface SectionLayout {
+  qrSection: { x: number; y: number; width: number; height: number };
+  dataSection: { x: number; y: number; width: number; height: number };
+}
+
+function calculateSectionLayout(
+  template: LabelTemplate,
+  labelWidth: number,
+  labelHeight: number
+): SectionLayout {
+  const margin = 4; // Margin between sections
+
+  // Determine layout direction based on data section position
+  const isHorizontal =
+    template.label_text_position === "left" || template.label_text_position === "right";
+
+  if (isHorizontal) {
+    // Horizontal layout (side by side)
+    const totalAvailableWidth = labelWidth - margin;
+
+    let qrWidth: number, dataWidth: number;
+
+    // Calculate section widths based on balance setting
+    switch (template.section_balance) {
+      case "qr-priority":
+        qrWidth = Math.floor(totalAvailableWidth * 0.7);
+        dataWidth = totalAvailableWidth - qrWidth;
+        break;
+      case "data-priority":
+        dataWidth = Math.floor(totalAvailableWidth * 0.7);
+        qrWidth = totalAvailableWidth - dataWidth;
+        break;
+      case "equal":
+      default:
+        qrWidth = Math.floor(totalAvailableWidth / 2);
+        dataWidth = totalAvailableWidth - qrWidth;
+        break;
+    }
+
+    if (template.label_text_position === "left") {
+      // Data section on left, QR on right
+      return {
+        dataSection: { x: 0, y: 0, width: dataWidth, height: labelHeight },
+        qrSection: { x: dataWidth + margin, y: 0, width: qrWidth, height: labelHeight },
+      };
+    } else {
+      // QR section on left, data on right
+      return {
+        qrSection: { x: 0, y: 0, width: qrWidth, height: labelHeight },
+        dataSection: { x: qrWidth + margin, y: 0, width: dataWidth, height: labelHeight },
+      };
+    }
+  } else {
+    // Vertical layout (stacked)
+    const totalAvailableHeight = labelHeight - margin;
+
+    let qrHeight: number, dataHeight: number;
+
+    // Calculate section heights based on balance setting
+    switch (template.section_balance) {
+      case "qr-priority":
+        qrHeight = Math.floor(totalAvailableHeight * 0.7);
+        dataHeight = totalAvailableHeight - qrHeight;
+        break;
+      case "data-priority":
+        dataHeight = Math.floor(totalAvailableHeight * 0.7);
+        qrHeight = totalAvailableHeight - dataHeight;
+        break;
+      case "equal":
+      default:
+        qrHeight = Math.floor(totalAvailableHeight / 2);
+        dataHeight = totalAvailableHeight - qrHeight;
+        break;
+    }
+
+    if (template.label_text_position === "top") {
+      // Data section on top, QR on bottom
+      return {
+        dataSection: { x: 0, y: 0, width: labelWidth, height: dataHeight },
+        qrSection: { x: 0, y: dataHeight + margin, width: labelWidth, height: qrHeight },
+      };
+    } else {
+      // QR section on top, data on bottom (default)
+      return {
+        qrSection: { x: 0, y: 0, width: labelWidth, height: qrHeight },
+        dataSection: { x: 0, y: qrHeight + margin, width: labelWidth, height: dataHeight },
+      };
+    }
+  }
+}
+
+/**
+ * Draw QR code within its designated section
+ */
+async function drawQRSection(
+  ctx: CanvasRenderingContext2D,
+  template: LabelTemplate,
+  previewData: LabelPreviewData,
+  section: { x: number; y: number; width: number; height: number }
+) {
+  const qrSize = Math.min(section.width, section.height) * 0.8; // Leave some margin within section
 
   // Generate QR code
   const qrUrl = generateQRCodeURL(previewData.qrToken);
@@ -186,209 +308,117 @@ export async function generateLabelPreview(previewData: LabelPreviewData): Promi
     qrImage.src = qrDataUrl;
   });
 
-  // Calculate QR position
-  const { qrX, qrY } = calculateQRPosition(template, width, height, qrSize);
+  // Calculate QR position within its section based on qr_position setting
+  const { qrX, qrY } = calculateQRPositionInSection(template, section, qrSize);
   ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
-
-  // Draw text if enabled
-  if (
-    template.show_label_text &&
-    previewData.displayText &&
-    template.label_text_position !== "none"
-  ) {
-    drawLabelText(ctx, template, previewData.displayText, width, height, qrX, qrY, qrSize);
-  }
-
-  // Draw code if enabled
-  if (template.show_code && previewData.codeText) {
-    drawCodeText(ctx, template, previewData.codeText, width, height, qrX, qrY, qrSize);
-  }
-
-  // Draw hierarchy if enabled
-  if (template.show_hierarchy && previewData.hierarchy && previewData.hierarchy.length > 0) {
-    drawHierarchyText(ctx, template, previewData.hierarchy, width, height, qrX, qrY, qrSize);
-  }
-
-  // Draw barcode if enabled and available
-  if (template.show_barcode && previewData.barcode) {
-    await drawBarcode(ctx, template, previewData.barcode, width, height, qrX, qrY, qrSize);
-  }
-
-  return canvas.toDataURL();
 }
 
 /**
- * Calculate QR code position based on template settings
+ * Calculate QR position within its section
  */
-function calculateQRPosition(
+function calculateQRPositionInSection(
   template: LabelTemplate,
-  labelWidth: number,
-  labelHeight: number,
+  section: { x: number; y: number; width: number; height: number },
   qrSize: number
 ): { qrX: number; qrY: number } {
-  const margin = 10; // Base margin in pixels
+  const margin = 5;
 
   switch (template.qr_position) {
     case "top-left":
-      return { qrX: margin, qrY: margin };
+      return {
+        qrX: section.x + margin,
+        qrY: section.y + margin,
+      };
     case "top-right":
-      return { qrX: labelWidth - qrSize - margin, qrY: margin };
+      return {
+        qrX: section.x + section.width - qrSize - margin,
+        qrY: section.y + margin,
+      };
     case "bottom-left":
-      return { qrX: margin, qrY: labelHeight - qrSize - margin };
+      return {
+        qrX: section.x + margin,
+        qrY: section.y + section.height - qrSize - margin,
+      };
     case "bottom-right":
-      return { qrX: labelWidth - qrSize - margin, qrY: labelHeight - qrSize - margin };
+      return {
+        qrX: section.x + section.width - qrSize - margin,
+        qrY: section.y + section.height - qrSize - margin,
+      };
+    case "left":
+      return {
+        qrX: section.x + margin,
+        qrY: section.y + (section.height - qrSize) / 2,
+      };
+    case "right":
+      return {
+        qrX: section.x + section.width - qrSize - margin,
+        qrY: section.y + (section.height - qrSize) / 2,
+      };
     case "center":
     default:
       return {
-        qrX: (labelWidth - qrSize) / 2,
-        qrY: (labelHeight - qrSize) / 2,
+        qrX: section.x + (section.width - qrSize) / 2,
+        qrY: section.y + (section.height - qrSize) / 2,
       };
   }
 }
 
 /**
- * Draw label text on canvas
+ * Draw additional data within its designated section
  */
-function drawLabelText(
+function drawDataSection(
   ctx: CanvasRenderingContext2D,
   template: LabelTemplate,
-  text: string,
-  labelWidth: number,
-  labelHeight: number,
-  _qrX: number,
-  _qrY: number,
-  _qrSize: number
+  previewData: LabelPreviewData,
+  section: { x: number; y: number; width: number; height: number }
 ) {
   ctx.fillStyle = template.text_color;
   ctx.font = `${template.label_text_size}px Arial`;
-  ctx.textAlign = "center";
 
-  let textX: number;
-  let textY: number;
+  const margin = 8;
+  const maxWidth = section.width - margin * 2;
+  let currentY = section.y + margin + template.label_text_size;
 
-  switch (template.label_text_position) {
-    case "top":
-      textX = labelWidth / 2;
-      textY = 20;
-      break;
-    case "bottom":
-      textX = labelWidth / 2;
-      textY = labelHeight - 10;
-      break;
-    case "left":
-      ctx.textAlign = "left";
-      textX = 10;
-      textY = labelHeight / 2;
-      break;
-    case "right":
-      ctx.textAlign = "right";
-      textX = labelWidth - 10;
-      textY = labelHeight / 2;
-      break;
-    default:
-      return;
+  // Draw main display text
+  if (previewData.displayText) {
+    ctx.textAlign = "left";
+    const lines = wrapText(ctx, previewData.displayText, maxWidth);
+
+    for (const line of lines) {
+      if (currentY > section.y + section.height - margin) break; // Don't overflow section
+      ctx.fillText(line, section.x + margin, currentY);
+      currentY += template.label_text_size + 2;
+    }
   }
 
-  // Truncate text if too long
-  const maxWidth = labelWidth - 20;
-  let displayText = text;
-  while (ctx.measureText(displayText).width > maxWidth && displayText.length > 0) {
-    displayText = displayText.substring(0, displayText.length - 1) + "...";
+  // Draw code if enabled
+  if (template.show_code && previewData.codeText) {
+    ctx.font = `${Math.max(8, template.label_text_size - 2)}px monospace`;
+    currentY += 4;
+    if (currentY <= section.y + section.height - margin) {
+      ctx.fillText(previewData.codeText, section.x + margin, currentY);
+    }
   }
-
-  ctx.fillText(displayText, textX, textY);
 }
 
 /**
- * Draw code text (SKU, location code) on canvas
+ * Helper function to wrap text within specified width
  */
-function drawCodeText(
-  ctx: CanvasRenderingContext2D,
-  template: LabelTemplate,
-  code: string,
-  labelWidth: number,
-  labelHeight: number,
-  _qrX: number,
-  qrY: number,
-  qrSize: number
-) {
-  ctx.fillStyle = template.text_color;
-  ctx.font = `${Math.max(8, template.label_text_size - 2)}px monospace`;
-  ctx.textAlign = "center";
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = words[0];
 
-  // Position code text near the QR code
-  const textY = qrY + qrSize + 15;
-  ctx.fillText(code, labelWidth / 2, textY);
-}
-
-/**
- * Draw hierarchy text (for locations) on canvas
- */
-function drawHierarchyText(
-  ctx: CanvasRenderingContext2D,
-  template: LabelTemplate,
-  hierarchy: string[],
-  labelWidth: number,
-  labelHeight: number,
-  _qrX: number,
-  _qrY: number,
-  _qrSize: number
-) {
-  const hierarchyText = hierarchy.join(" > ");
-  ctx.fillStyle = template.text_color;
-  ctx.font = `${Math.max(6, template.label_text_size - 4)}px Arial`;
-  ctx.textAlign = "center";
-
-  const textY = labelHeight - 5;
-
-  // Truncate hierarchy if too long
-  const maxWidth = labelWidth - 10;
-  let displayText = hierarchyText;
-  while (ctx.measureText(displayText).width > maxWidth && displayText.length > 0) {
-    displayText = displayText.substring(0, displayText.length - 1) + "...";
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = ctx.measureText(currentLine + " " + word).width;
+    if (width < maxWidth) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
   }
-
-  ctx.fillText(displayText, labelWidth / 2, textY);
-}
-
-/**
- * Draw barcode on canvas
- */
-async function drawBarcode(
-  ctx: CanvasRenderingContext2D,
-  template: LabelTemplate,
-  barcodeText: string,
-  labelWidth: number,
-  labelHeight: number,
-  _qrX: number,
-  qrY: number,
-  qrSize: number
-) {
-  try {
-    const { svg } = await generateBarcode(barcodeText, { scale: 2 });
-
-    // Convert SVG to image and draw on canvas
-    // This is a simplified version - in production you might want to use a library
-    // that can properly render SVG to canvas
-    const svgBlob = new Blob([svg], { type: "image/svg+xml" });
-    const svgUrl = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    await new Promise((resolve) => {
-      img.onload = resolve;
-      img.src = svgUrl;
-    });
-
-    // Position barcode below QR code
-    const barcodeY = qrY + qrSize + 30;
-    const barcodeWidth = Math.min(labelWidth - 20, img.width);
-    const barcodeHeight = (img.height * barcodeWidth) / img.width;
-    const barcodeX = (labelWidth - barcodeWidth) / 2;
-
-    ctx.drawImage(img, barcodeX, barcodeY, barcodeWidth, barcodeHeight);
-
-    URL.revokeObjectURL(svgUrl);
-  } catch (error) {
-    console.error("Error drawing barcode:", error);
-  }
+  lines.push(currentLine);
+  return lines;
 }
