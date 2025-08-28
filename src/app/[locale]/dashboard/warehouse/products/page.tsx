@@ -50,7 +50,7 @@ export default function ProductsPage() {
   const handleProductSuccess = () => {
     // Refresh the product list
     loadProducts();
-    console.log("Product operation completed successfully");
+    // console.log("Product operation completed successfully");
   };
 
   // Load products from Supabase

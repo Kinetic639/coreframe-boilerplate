@@ -110,57 +110,56 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
   let permissionsRaw = null;
 
   if (roles.length > 0) {
-    console.log(
-      "🔍 Fetching permissions for roles:",
-      roles.map((r) => r.role_id)
-    );
+    // console.log(
+    //   // "🔍 Fetching permissions for roles:",
+    //   roles.map((r) => r.role_id)
+    // );
 
     // Use regular supabase client since it works in test-permissions
     const roleIds = roles.map((r) => r.role_id);
-    console.log("🔍 Role IDs being passed to RPC:", roleIds);
+    // console.log("🔍 Role IDs being passed to RPC:", roleIds);
 
-    const { data: servicePerms, error: serviceError } = await supabase.rpc(
-      "get_permissions_for_roles",
-      { role_ids: roleIds }
-    );
+    const { data: servicePerms } = await supabase.rpc("get_permissions_for_roles", {
+      role_ids: roleIds,
+    });
 
-    console.log("🔍 RPC result:", { servicePerms, serviceError });
-    console.log("🔍 Service perms type:", typeof servicePerms, Array.isArray(servicePerms));
-    console.log("🔍 Service perms raw:", JSON.stringify(servicePerms, null, 2));
+    // console.log("🔍 RPC result:", { servicePerms, serviceError });
+    // console.log("🔍 Service perms type:", typeof servicePerms, Array.isArray(servicePerms));
+    // console.log("🔍 Service perms raw:", JSON.stringify(servicePerms, null, 2));
 
     permissionsRaw = servicePerms;
   }
 
-  console.log("🔍 Processing permissions, permissionsRaw:", permissionsRaw);
-  console.log("🔍 permissionsRaw type:", typeof permissionsRaw, Array.isArray(permissionsRaw));
+  // console.log("🔍 Processing permissions, permissionsRaw:", permissionsRaw);
+  // console.log("🔍 permissionsRaw type:", typeof permissionsRaw, Array.isArray(permissionsRaw));
 
   const permissions: string[] = (permissionsRaw ?? [])
     .map((p: any) => {
-      console.log("🔍 Processing permission item:", p);
+      // console.log("🔍 Processing permission item:", p);
 
       // Handle different RPC return formats
       if (p && typeof p === "object") {
         // Format 1: Direct slug property
         if ("slug" in p) {
           const slug = p.slug as string;
-          console.log("🔍 Extracted slug (format 1):", slug);
+          // console.log("🔍 Extracted slug (format 1):", slug);
           return slug;
         }
 
         // Format 2: Function name as key
         if ("get_permissions_for_roles" in p) {
           const slug = p.get_permissions_for_roles as string;
-          console.log("🔍 Extracted slug (format 2):", slug);
+          // console.log("🔍 Extracted slug (format 2):", slug);
           return slug;
         }
       }
 
-      console.log("🔍 Item did not match any pattern:", p);
+      // console.log("🔍 Item did not match any pattern:", p);
       return null;
     })
     .filter((slug: string | null): slug is string => typeof slug === "string");
 
-  console.log("🔍 Base permissions from roles:", permissions);
+  // console.log("🔍 Base permissions from roles:", permissions);
 
   // 🔐 Apply permission overrides if user has an active organization
   let finalPermissions = [...permissions];
@@ -175,7 +174,7 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
   });
 
   if (preferences.organization_id) {
-    console.log("🔍 Fetching permission overrides for org:", preferences.organization_id);
+    // console.log("🔍 Fetching permission overrides for org:", preferences.organization_id);
 
     // First get the overrides
     const { data: overrides, error: overrideError } = await supabase
@@ -207,7 +206,7 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     if (overrideError) {
       console.error("🔍 Error fetching permission overrides:", overrideError);
     } else {
-      console.log("🔍 Permission overrides found:", overridesWithPermissions);
+      // console.log("🔍 Permission overrides found:", overridesWithPermissions);
 
       // Apply overrides
       const permissionSet = new Set(finalPermissions);
@@ -228,11 +227,11 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
           if (override.allowed) {
             // Grant permission (add if not present)
             permissionSet.add(permissionSlug);
-            console.log("🔍 Override GRANTED permission:", permissionSlug);
+            // console.log("🔍 Override GRANTED permission:", permissionSlug);
           } else {
             // Deny permission (remove if present)
             permissionSet.delete(permissionSlug);
-            console.log("🔍 Override DENIED permission:", permissionSlug);
+            // console.log("🔍 Override DENIED permission:", permissionSlug);
           }
         }
       });
@@ -241,8 +240,8 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     }
   }
 
-  console.log("🔍 Final permissions array (with overrides):", finalPermissions);
-  console.log("🔍 Detailed permissions:", detailedPermissions);
+  // console.log("🔍 Final permissions array (with overrides):", finalPermissions);
+  // console.log("🔍 Detailed permissions:", detailedPermissions);
 
   // ✅ Zbuduj kontekst
   const userContext = {
@@ -258,13 +257,13 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     detailedPermissions,
   };
 
-  console.log("🔍 User context built:", {
-    userId,
-    rolesCount: roles.length,
-    permissionsCount: permissions.length,
-    roles: roles.map((r) => r.role),
-    permissions: permissions.slice(0, 5), // First 5 permissions for debugging
-  });
+  // console.log("🔍 User context built:", {
+  //   userId,
+  //   rolesCount: roles.length,
+  //   permissionsCount: permissions.length,
+  //   roles: roles.map((r) => r.role),
+  //   permissions: permissions.slice(0, 5), // First 5 permissions for debugging
+  // });
 
   return userContext;
 }

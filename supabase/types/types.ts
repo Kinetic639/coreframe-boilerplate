@@ -509,6 +509,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      news_posts: {
+        Row: {
+          author_id: string | null;
+          badges: string[] | null;
+          branch_id: string | null;
+          content: Json;
+          created_at: string | null;
+          excerpt: string | null;
+          id: string;
+          organization_id: string;
+          priority: string | null;
+          published_at: string | null;
+          title: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          author_id?: string | null;
+          badges?: string[] | null;
+          branch_id?: string | null;
+          content: Json;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          organization_id: string;
+          priority?: string | null;
+          published_at?: string | null;
+          title: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          author_id?: string | null;
+          badges?: string[] | null;
+          branch_id?: string | null;
+          content?: Json;
+          created_at?: string | null;
+          excerpt?: string | null;
+          id?: string;
+          organization_id?: string;
+          priority?: string | null;
+          published_at?: string | null;
+          title?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "news_posts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "news_posts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_members: {
         Row: {
           created_at: string | null;
@@ -1177,6 +1237,7 @@ export type Database = {
       roles: {
         Row: {
           deleted_at: string | null;
+          description: string | null;
           id: string;
           is_basic: boolean;
           name: string;
@@ -1184,6 +1245,7 @@ export type Database = {
         };
         Insert: {
           deleted_at?: string | null;
+          description?: string | null;
           id?: string;
           is_basic?: boolean;
           name: string;
@@ -1191,6 +1253,7 @@ export type Database = {
         };
         Update: {
           deleted_at?: string | null;
+          description?: string | null;
           id?: string;
           is_basic?: boolean;
           name?: string;

@@ -3,6 +3,18 @@ import { Widget } from "@/lib/types/widgets";
 
 const widgets: Widget[] = [
   {
+    id: "recent-news",
+    title: "Recent News",
+    type: "custom",
+    componentName: "RecentNewsWidget",
+    config: {
+      limit: 5,
+      showActions: true,
+      compact: true,
+      className: "col-span-2",
+    },
+  },
+  {
     id: "recent-activities",
     title: "Recent Activities",
     type: "custom",
@@ -24,18 +36,16 @@ export const homeModule: ModuleConfig = {
   color: "#3b82f6",
   items: [
     {
-      id: "news",
-      label: "Aktualności",
+      id: "dashboard",
+      label: "Dashboard",
       path: "/dashboard/start",
-      icon: "Newspaper",
+      icon: "Home",
     },
     {
-      id: "add-news",
-      label: "Dodaj aktualność",
-      icon: "PlusCircle",
-      type: "action",
-      actionId: "openAddNewsModal",
-      allowedUsers: [{ role: "branch_admin", scope: "branch" }],
+      id: "news-history",
+      label: "News History",
+      path: "/dashboard/news",
+      icon: "Newspaper",
     },
   ],
   widgets,

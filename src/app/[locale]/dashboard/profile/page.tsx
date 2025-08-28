@@ -129,7 +129,7 @@ export default function ProfilePage() {
         throw new Error("User not authenticated");
       }
 
-      console.log("Auth user:", authUser.id);
+      // console.log("Auth user:", authUser.id);
 
       // Fetch user basic info
       const { data: userData, error: userError } = await supabase
@@ -143,7 +143,7 @@ export default function ProfilePage() {
         throw new Error(`Failed to fetch user data: ${userError.message}`);
       }
 
-      console.log("User data:", userData);
+      // console.log("User data:", userData);
 
       // Fetch user's organization from user_preferences
       const { data: userPrefs, error: prefsError } = await supabase
@@ -164,7 +164,7 @@ export default function ProfilePage() {
         throw new Error(`Failed to fetch user preferences: ${prefsError.message}`);
       }
 
-      console.log("User preferences:", userPrefs);
+      // console.log("User preferences:", userPrefs);
 
       if (!userPrefs?.organization_id) {
         throw new Error("User has no organization assigned");

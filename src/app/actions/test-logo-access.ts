@@ -11,7 +11,7 @@ export async function testLogoAccess(organizationId: string) {
       .from("organization-logos")
       .list("");
 
-    console.log("🔍 Storage list result:", { files, listError });
+    // console.log("🔍 Storage list result:", { files, listError });
 
     // Test generating a public URL for the organization
     const filePath = `${organizationId}.png`; // Assuming PNG format

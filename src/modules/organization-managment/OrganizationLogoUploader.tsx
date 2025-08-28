@@ -71,14 +71,14 @@ export default function OrganizationLogoUploader({ logoUrl, organizationId }: Pr
         console.warn("⚠️ Could not delete existing file:", deleteError);
       }
 
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("organization-logos")
         .upload(filePath, file, {
           cacheControl: "3600",
           upsert: true,
         });
 
-      console.log("🔍 Upload response:", { uploadData, uploadError });
+      // console.log("🔍 Upload response:", { uploadData, uploadError });
 
       if (uploadError) {
         console.error("❌ Upload error details:", {
@@ -92,13 +92,13 @@ export default function OrganizationLogoUploader({ logoUrl, organizationId }: Pr
         return;
       }
 
-      console.log("✅ Upload successful");
+      // console.log("✅ Upload successful");
 
       const {
         data: { publicUrl },
       } = supabase.storage.from("organization-logos").getPublicUrl(filePath);
 
-      console.log("🔍 Generated public URL:", publicUrl);
+      // console.log("🔍 Generated public URL:", publicUrl);
 
       const success = await updateOrganizationLogoUrl(publicUrl);
 

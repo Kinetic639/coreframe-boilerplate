@@ -7,7 +7,7 @@ export async function testRolesAccess() {
   const supabase = await createClient();
 
   try {
-    console.log("🔍 Testing direct roles access...");
+    // console.log("🔍 Testing direct roles access...");
 
     // Test basic roles query
     const { data: roles, error } = await supabase
@@ -21,7 +21,7 @@ export async function testRolesAccess() {
       return { success: false, error: error.message, data: null };
     }
 
-    console.log("✅ Roles query successful:", roles);
+    // console.log("✅ Roles query successful:", roles);
     return { success: true, error: null, data: roles };
   } catch (err) {
     console.error("❌ Exception in testRolesAccess:", err);
