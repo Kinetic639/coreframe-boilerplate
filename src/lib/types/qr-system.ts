@@ -53,8 +53,10 @@ export interface LabelTemplate {
 
   // Additional elements
   show_code: boolean;
-  show_hierarchy: boolean;
-  show_barcode: boolean;
+
+  // New layout properties
+  layout_direction?: "row" | "column";
+  section_balance?: "equal" | "qr-priority" | "data-priority";
 
   // Colors and styling
   background_color: string;

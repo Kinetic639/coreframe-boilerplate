@@ -2,6 +2,7 @@ import { teamsModule } from "./teams/config";
 import { orgManagmentModule } from "./organization-managment/config";
 import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
+import { developmentModule } from "./development/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { getWarehouseModule } from "./warehouse/config";
 import { getAnalyticsModule } from "./analytics/config";
@@ -20,6 +21,7 @@ export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]
     teamsModule,
     orgManagmentModule,
     analyticsModule, // analytics module for activity tracking
+    developmentModule, // development tools and debugging
     supportModule,
   ];
 }
