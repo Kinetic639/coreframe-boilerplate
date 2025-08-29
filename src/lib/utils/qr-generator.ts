@@ -144,7 +144,79 @@ export function calculateLabelPixelSize(template: LabelTemplate): {
 }
 
 /**
- * Generate label preview data for canvas rendering with new two-section layout
+ * Calculate optimal label height based on actual content
+ */
+function calculateOptimalLabelHeight(
+  template: LabelTemplate,
+  previewData: LabelPreviewData,
+  labelWidth: number
+): number {
+  const padding = 16; // Base padding around the label
+  const margin = 4; // Margin between sections
+
+  // Calculate QR code size (based on template settings)
+  const qrSize = Math.min(labelWidth * 0.4, calculateQRPixelSize(template));
+
+  // If no text is shown, height is just QR + padding
+  if (!template.show_label_text || !previewData.displayText) {
+    return qrSize + padding * 2;
+  }
+
+  // Calculate text content height
+  const textHeight = calculateTextContentHeight(template, previewData, labelWidth);
+
+  // Determine layout direction based on text position
+  const isHorizontal =
+    template.label_text_position === "left" || template.label_text_position === "right";
+
+  if (isHorizontal) {
+    // Side-by-side layout: height is the maximum of QR or text content
+    return Math.max(qrSize, textHeight) + padding * 2;
+  } else {
+    // Vertical layout: height is QR + text + margin between sections
+    return qrSize + textHeight + margin + padding * 2;
+  }
+}
+
+/**
+ * Calculate the height needed for text content
+ */
+function calculateTextContentHeight(
+  template: LabelTemplate,
+  previewData: LabelPreviewData,
+  labelWidth: number
+): number {
+  // Create a temporary canvas to measure text
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d")!;
+
+  tempCtx.font = `${template.label_text_size}px Arial`;
+
+  let totalHeight = 0;
+  const lineHeight = template.label_text_size + 2;
+  const margin = 8;
+
+  // Calculate available width for text (considering horizontal layouts)
+  const isHorizontal =
+    template.label_text_position === "left" || template.label_text_position === "right";
+  const maxWidth = isHorizontal
+    ? labelWidth * 0.6 - margin * 2 // Leave space for QR in horizontal layout
+    : labelWidth - margin * 2; // Full width in vertical layout
+
+  if (previewData.displayText) {
+    const lines = wrapText(tempCtx, previewData.displayText, maxWidth);
+    totalHeight += lines.length * lineHeight + template.label_text_size; // Add initial line height offset
+  }
+
+  if (template.show_code && previewData.codeText) {
+    totalHeight += Math.max(8, template.label_text_size - 2) + 4; // Code text height + spacing
+  }
+
+  return Math.max(totalHeight, template.label_text_size * 2); // Minimum height for text section
+}
+
+/**
+ * Generate label preview data for canvas rendering with dynamic height adjustment
  */
 export async function generateLabelPreview(previewData: LabelPreviewData): Promise<string> {
   // Ensure this runs only on the client side
@@ -152,27 +224,30 @@ export async function generateLabelPreview(previewData: LabelPreviewData): Promi
     throw new Error("generateLabelPreview can only be called on the client side");
   }
   const template = previewData.template;
-  const { width, height } = calculateLabelPixelSize(template);
+  const { width } = calculateLabelPixelSize(template);
 
-  // Create canvas
+  // Calculate actual content height needed
+  const actualHeight = calculateOptimalLabelHeight(template, previewData, width);
+
+  // Create canvas with dynamic height
   const canvas = document.createElement("canvas");
   canvas.width = width;
-  canvas.height = height;
+  canvas.height = actualHeight;
   const ctx = canvas.getContext("2d")!;
 
   // Set background
   ctx.fillStyle = template.background_color;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, width, actualHeight);
 
   // Draw border if enabled
   if (template.border_enabled) {
     ctx.strokeStyle = template.border_color;
     ctx.lineWidth = template.border_width;
-    ctx.strokeRect(0, 0, width, height);
+    ctx.strokeRect(0, 0, width, actualHeight);
   }
 
-  // Calculate section dimensions based on layout
-  const sections = calculateSectionLayout(template, width, height);
+  // Calculate section dimensions based on layout with dynamic height
+  const sections = calculateSectionLayout(template, width, actualHeight);
 
   // Generate and draw QR code in its section
   await drawQRSection(ctx, template, previewData, sections.qrSection);
@@ -198,22 +273,27 @@ function calculateSectionLayout(
   labelWidth: number,
   labelHeight: number
 ): SectionLayout {
+  const padding = 8; // Padding from label edges
   const margin = 4; // Margin between sections
+
+  // Calculate available space
+  const availableWidth = labelWidth - padding * 2;
+  const availableHeight = labelHeight - padding * 2;
 
   // Determine layout direction based on data section position
   const isHorizontal =
     template.label_text_position === "left" || template.label_text_position === "right";
 
   if (isHorizontal) {
-    // Horizontal layout (side by side)
-    const totalAvailableWidth = labelWidth - margin;
+    // Horizontal layout (side by side) - centered vertically
+    const totalAvailableWidth = availableWidth - margin;
 
     let qrWidth: number, dataWidth: number;
 
     // Calculate section widths based on balance setting
     switch (template.section_balance) {
       case "qr-priority":
-        qrWidth = Math.floor(totalAvailableWidth * 0.7);
+        qrWidth = Math.floor(totalAvailableWidth * 0.6);
         dataWidth = totalAvailableWidth - qrWidth;
         break;
       case "data-priority":
@@ -222,7 +302,7 @@ function calculateSectionLayout(
         break;
       case "equal":
       default:
-        qrWidth = Math.floor(totalAvailableWidth / 2);
+        qrWidth = Math.floor(totalAvailableWidth * 0.4);
         dataWidth = totalAvailableWidth - qrWidth;
         break;
     }
@@ -230,50 +310,73 @@ function calculateSectionLayout(
     if (template.label_text_position === "left") {
       // Data section on left, QR on right
       return {
-        dataSection: { x: 0, y: 0, width: dataWidth, height: labelHeight },
-        qrSection: { x: dataWidth + margin, y: 0, width: qrWidth, height: labelHeight },
+        dataSection: {
+          x: padding,
+          y: padding,
+          width: dataWidth,
+          height: availableHeight,
+        },
+        qrSection: {
+          x: padding + dataWidth + margin,
+          y: padding,
+          width: qrWidth,
+          height: availableHeight,
+        },
       };
     } else {
-      // QR section on left, data on right
+      // QR section on left, data on right (default)
       return {
-        qrSection: { x: 0, y: 0, width: qrWidth, height: labelHeight },
-        dataSection: { x: qrWidth + margin, y: 0, width: dataWidth, height: labelHeight },
+        qrSection: {
+          x: padding,
+          y: padding,
+          width: qrWidth,
+          height: availableHeight,
+        },
+        dataSection: {
+          x: padding + qrWidth + margin,
+          y: padding,
+          width: dataWidth,
+          height: availableHeight,
+        },
       };
     }
   } else {
     // Vertical layout (stacked)
-    const totalAvailableHeight = labelHeight - margin;
-
-    let qrHeight: number, dataHeight: number;
-
-    // Calculate section heights based on balance setting
-    switch (template.section_balance) {
-      case "qr-priority":
-        qrHeight = Math.floor(totalAvailableHeight * 0.7);
-        dataHeight = totalAvailableHeight - qrHeight;
-        break;
-      case "data-priority":
-        dataHeight = Math.floor(totalAvailableHeight * 0.7);
-        qrHeight = totalAvailableHeight - dataHeight;
-        break;
-      case "equal":
-      default:
-        qrHeight = Math.floor(totalAvailableHeight / 2);
-        dataHeight = totalAvailableHeight - qrHeight;
-        break;
-    }
+    const qrSize = Math.min(availableWidth, calculateQRPixelSize(template));
+    const qrHeight = qrSize + 10; // QR size + some padding
+    const dataHeight = availableHeight - qrHeight - margin;
 
     if (template.label_text_position === "top") {
       // Data section on top, QR on bottom
       return {
-        dataSection: { x: 0, y: 0, width: labelWidth, height: dataHeight },
-        qrSection: { x: 0, y: dataHeight + margin, width: labelWidth, height: qrHeight },
+        dataSection: {
+          x: padding,
+          y: padding,
+          width: availableWidth,
+          height: dataHeight,
+        },
+        qrSection: {
+          x: padding,
+          y: padding + dataHeight + margin,
+          width: availableWidth,
+          height: qrHeight,
+        },
       };
     } else {
       // QR section on top, data on bottom (default)
       return {
-        qrSection: { x: 0, y: 0, width: labelWidth, height: qrHeight },
-        dataSection: { x: 0, y: qrHeight + margin, width: labelWidth, height: dataHeight },
+        qrSection: {
+          x: padding,
+          y: padding,
+          width: availableWidth,
+          height: qrHeight,
+        },
+        dataSection: {
+          x: padding,
+          y: padding + qrHeight + margin,
+          width: availableWidth,
+          height: dataHeight,
+        },
       };
     }
   }
@@ -288,7 +391,10 @@ async function drawQRSection(
   previewData: LabelPreviewData,
   section: { x: number; y: number; width: number; height: number }
 ) {
-  const qrSize = Math.min(section.width, section.height) * 0.8; // Leave some margin within section
+  // Calculate appropriate QR size that fits well in the section
+  const maxQRSize = Math.min(section.width, section.height) * 0.9;
+  const templateQRSize = calculateQRPixelSize(template);
+  const qrSize = Math.min(maxQRSize, templateQRSize);
 
   // Generate QR code
   const qrUrl = generateQRCodeURL(previewData.qrToken);
@@ -364,7 +470,7 @@ function calculateQRPositionInSection(
 }
 
 /**
- * Draw additional data within its designated section
+ * Draw additional data within its designated section with proper centering
  */
 function drawDataSection(
   ctx: CanvasRenderingContext2D,
@@ -377,17 +483,33 @@ function drawDataSection(
 
   const margin = 8;
   const maxWidth = section.width - margin * 2;
-  let currentY = section.y + margin + template.label_text_size;
+
+  // Calculate total content height to center it vertically
+  let totalContentHeight = 0;
+  const lineHeight = template.label_text_size + 2;
+
+  let lines: string[] = [];
+  if (previewData.displayText) {
+    lines = wrapText(ctx, previewData.displayText, maxWidth);
+    totalContentHeight += lines.length * lineHeight;
+  }
+
+  if (template.show_code && previewData.codeText) {
+    totalContentHeight += Math.max(8, template.label_text_size - 2) + 4;
+  }
+
+  // Center content vertically within the section
+  const startY = section.y + (section.height - totalContentHeight) / 2 + template.label_text_size;
+  let currentY = Math.max(startY, section.y + margin + template.label_text_size);
 
   // Draw main display text
-  if (previewData.displayText) {
+  if (previewData.displayText && lines.length > 0) {
     ctx.textAlign = "left";
-    const lines = wrapText(ctx, previewData.displayText, maxWidth);
 
     for (const line of lines) {
       if (currentY > section.y + section.height - margin) break; // Don't overflow section
       ctx.fillText(line, section.x + margin, currentY);
-      currentY += template.label_text_size + 2;
+      currentY += lineHeight;
     }
   }
 

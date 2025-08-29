@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Edit, Trash2, Copy, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { LabelTemplate } from "@/lib/types/qr-system";
 import { LabelPreview } from "@/modules/warehouse/components/labels/LabelPreview";
@@ -16,6 +17,7 @@ interface TemplateWithPreview extends LabelTemplate {
 }
 
 export default function LabelTemplatesPage() {
+  const router = useRouter();
   const [templates, setTemplates] = useState<TemplateWithPreview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateWithPreview | null>(null);
@@ -54,8 +56,8 @@ export default function LabelTemplatesPage() {
   };
 
   const handleEditTemplate = (template: TemplateWithPreview) => {
-    // Navigate to edit page with template ID
-    window.location.href = `/dashboard/warehouse/labels/templates/edit/${template.id}`;
+    // Navigate to edit page with template ID using Next.js router
+    router.push(`/dashboard/warehouse/labels/templates/edit/${template.id}`);
   };
 
   const handleCloneTemplate = async (template: TemplateWithPreview) => {
