@@ -48,13 +48,6 @@ const mockRecentActivity = [
 
 const quickActions = [
   {
-    title: "Generator Etykiet",
-    description: "Twórz nowe etykiety QR",
-    href: "/dashboard/warehouse/labels/generator",
-    icon: Plus,
-    color: "bg-blue-500",
-  },
-  {
     title: "Szablony",
     description: "Zarządzaj szablonami etykiet",
     href: "/dashboard/warehouse/labels/templates",
@@ -87,14 +80,6 @@ export default function LabelsMainPage() {
           <p className="text-muted-foreground">
             Zarządzaj etykietami QR, generuj nowe kody i przypisuj je do lokalizacji oraz produktów
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/dashboard/warehouse/labels/generator">
-              <Plus className="mr-2 h-4 w-4" />
-              Nowa Etykieta
-            </Link>
-          </Button>
         </div>
       </div>
 
@@ -155,7 +140,7 @@ export default function LabelsMainPage() {
           <CardTitle>Szybkie Akcje</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {quickActions.map((action) => {
               const Icon = action.icon;
               return (

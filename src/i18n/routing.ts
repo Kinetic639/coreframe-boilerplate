@@ -89,9 +89,9 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/labels",
       pl: "/dashboard/magazyn/etykiety",
     },
-    "/dashboard/warehouse/labels/generator": {
-      en: "/dashboard/warehouse/labels/generator",
-      pl: "/dashboard/magazyn/etykiety/generator",
+    "/dashboard/warehouse/labels/create": {
+      en: "/dashboard/warehouse/labels/create",
+      pl: "/dashboard/magazyn/etykiety/kreator",
     },
     "/dashboard/warehouse/labels/templates": {
       en: "/dashboard/warehouse/labels/templates",

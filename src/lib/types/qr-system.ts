@@ -22,6 +22,62 @@ export interface QRLabel {
   deleted_at?: string;
 }
 
+export interface LabelTemplateField {
+  id: string;
+  label_template_id: string;
+  field_type: "text" | "blank" | "qr_code";
+  field_name: string;
+  field_value?: string; // For text fields, null for blank fields
+
+  // Position and sizing
+  position_x: number;
+  position_y: number;
+  width_mm: number;
+  height_mm: number;
+
+  // Text styling (for text fields)
+  font_size: number;
+  font_weight: "normal" | "bold" | "light";
+  text_align: "left" | "center" | "right";
+  vertical_align: "top" | "center" | "bottom";
+
+  // Field behavior
+  show_label: boolean; // Whether to show a label for this field
+  label_text?: string; // The label text if show_label is true
+  label_position?:
+    | "inside-top-left"
+    | "inside-top-center"
+    | "inside-top-right"
+    | "inside-center-left"
+    | "inside-center-center"
+    | "inside-center-right"
+    | "inside-bottom-left"
+    | "inside-bottom-center"
+    | "inside-bottom-right";
+  label_font_size?: number; // Label font size
+  label_color?: string; // Label text color
+  is_required: boolean;
+  sort_order: number;
+
+  // Styling
+  text_color: string;
+  background_color: string;
+  border_enabled: boolean;
+  border_width: number;
+  border_color: string;
+
+  // Padding
+  padding_top?: number;
+  padding_right?: number;
+  padding_bottom?: number;
+  padding_left?: number;
+
+  // Metadata
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
 export interface LabelTemplate {
   id: string;
   name: string;
@@ -33,6 +89,7 @@ export interface LabelTemplate {
   width_mm: number;
   height_mm: number;
   dpi: number;
+  orientation: "portrait" | "landscape";
 
   // Template configuration
   template_config: Record<string, string | number | boolean | null>;
@@ -53,10 +110,14 @@ export interface LabelTemplate {
 
   // Additional elements
   show_code: boolean;
+  show_additional_info: boolean;
+  additional_info_position: "top" | "bottom" | "left" | "right";
 
   // New layout properties
-  layout_direction?: "row" | "column";
+  layout_direction?: "row" | "column" | "row-reverse" | "column-reverse";
+  items_alignment?: "start" | "center" | "end";
   section_balance?: "equal" | "qr-priority" | "data-priority";
+  field_vertical_gap?: number; // Gap between fields in mm
 
   // Colors and styling
   background_color: string;
@@ -64,6 +125,15 @@ export interface LabelTemplate {
   border_enabled: boolean;
   border_width: number;
   border_color: string;
+
+  // Label padding
+  label_padding_top?: number;
+  label_padding_right?: number;
+  label_padding_bottom?: number;
+  label_padding_left?: number;
+
+  // Fields relationship
+  fields?: LabelTemplateField[];
 
   is_default: boolean;
   is_system: boolean;

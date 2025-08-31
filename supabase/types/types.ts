@@ -467,8 +467,101 @@ export type Database = {
           },
         ];
       };
+      label_template_fields: {
+        Row: {
+          background_color: string | null;
+          border_color: string | null;
+          border_enabled: boolean | null;
+          border_width: number | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          field_name: string;
+          field_type: string;
+          field_value: string | null;
+          font_size: number | null;
+          font_weight: string | null;
+          height_mm: number;
+          id: string;
+          is_required: boolean | null;
+          label_template_id: string | null;
+          label_text: string | null;
+          position_x: number;
+          position_y: number;
+          show_label: boolean | null;
+          sort_order: number | null;
+          text_align: string | null;
+          text_color: string | null;
+          updated_at: string | null;
+          vertical_align: string | null;
+          width_mm: number;
+        };
+        Insert: {
+          background_color?: string | null;
+          border_color?: string | null;
+          border_enabled?: boolean | null;
+          border_width?: number | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          field_name: string;
+          field_type: string;
+          field_value?: string | null;
+          font_size?: number | null;
+          font_weight?: string | null;
+          height_mm?: number;
+          id?: string;
+          is_required?: boolean | null;
+          label_template_id?: string | null;
+          label_text?: string | null;
+          position_x?: number;
+          position_y?: number;
+          show_label?: boolean | null;
+          sort_order?: number | null;
+          text_align?: string | null;
+          text_color?: string | null;
+          updated_at?: string | null;
+          vertical_align?: string | null;
+          width_mm?: number;
+        };
+        Update: {
+          background_color?: string | null;
+          border_color?: string | null;
+          border_enabled?: boolean | null;
+          border_width?: number | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          field_name?: string;
+          field_type?: string;
+          field_value?: string | null;
+          font_size?: number | null;
+          font_weight?: string | null;
+          height_mm?: number;
+          id?: string;
+          is_required?: boolean | null;
+          label_template_id?: string | null;
+          label_text?: string | null;
+          position_x?: number;
+          position_y?: number;
+          show_label?: boolean | null;
+          sort_order?: number | null;
+          text_align?: string | null;
+          text_color?: string | null;
+          updated_at?: string | null;
+          vertical_align?: string | null;
+          width_mm?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "label_template_fields_label_template_id_fkey";
+            columns: ["label_template_id"];
+            isOneToOne: false;
+            referencedRelation: "label_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       label_templates: {
         Row: {
+          additional_info_position: string | null;
           background_color: string | null;
           border_color: string | null;
           border_enabled: boolean | null;
@@ -489,9 +582,11 @@ export type Database = {
           layout_direction: string | null;
           name: string;
           organization_id: string | null;
+          orientation: string | null;
           qr_position: string | null;
           qr_size_mm: number | null;
           section_balance: string | null;
+          show_additional_info: boolean | null;
           show_barcode: boolean | null;
           show_code: boolean | null;
           show_hierarchy: boolean | null;
@@ -502,6 +597,7 @@ export type Database = {
           width_mm: number;
         };
         Insert: {
+          additional_info_position?: string | null;
           background_color?: string | null;
           border_color?: string | null;
           border_enabled?: boolean | null;
@@ -522,9 +618,11 @@ export type Database = {
           layout_direction?: string | null;
           name: string;
           organization_id?: string | null;
+          orientation?: string | null;
           qr_position?: string | null;
           qr_size_mm?: number | null;
           section_balance?: string | null;
+          show_additional_info?: boolean | null;
           show_barcode?: boolean | null;
           show_code?: boolean | null;
           show_hierarchy?: boolean | null;
@@ -535,6 +633,7 @@ export type Database = {
           width_mm: number;
         };
         Update: {
+          additional_info_position?: string | null;
           background_color?: string | null;
           border_color?: string | null;
           border_enabled?: boolean | null;
@@ -555,9 +654,11 @@ export type Database = {
           layout_direction?: string | null;
           name?: string;
           organization_id?: string | null;
+          orientation?: string | null;
           qr_position?: string | null;
           qr_size_mm?: number | null;
           section_balance?: string | null;
+          show_additional_info?: boolean | null;
           show_barcode?: boolean | null;
           show_code?: boolean | null;
           show_hierarchy?: boolean | null;

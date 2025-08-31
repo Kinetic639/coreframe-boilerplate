@@ -78,9 +78,9 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         path: "/dashboard/warehouse/labels",
         submenu: [
           {
-            id: "label-generator",
-            label: "Generator etykiet",
-            path: "/dashboard/warehouse/labels/generator",
+            id: "label-creator",
+            label: "Kreator etykiet",
+            path: "/dashboard/warehouse/labels/create",
             icon: "Plus",
           },
           {
