@@ -194,11 +194,11 @@ export default function LabelTemplatesPage() {
                 </div>
 
                 {/* Preview Area */}
-                <div className="flex min-h-[80px] items-center justify-center rounded-lg bg-muted/30 p-4">
+                <div className="flex min-h-[120px] max-w-full items-center justify-center overflow-hidden rounded-lg bg-muted/30 p-6">
                   <TemplateMiniature
                     template={template}
-                    width={Math.min(Number(template.width_mm) * 2, 80)}
-                    height={Math.min(Number(template.height_mm) * 2, 50)}
+                    maxWidth={240}
+                    maxHeight={100}
                     onClick={() => handlePreviewTemplate(template)}
                   />
                 </div>

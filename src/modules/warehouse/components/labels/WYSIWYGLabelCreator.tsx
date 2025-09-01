@@ -1,6 +1,19 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+
+// Simple debounce utility
+function debounce(func: Function, wait: number) {
+  let timeout: NodeJS.Timeout | null = null;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      if (timeout) clearTimeout(timeout);
+      func(...args);
+    };
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +28,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Save, Download, Eye, Edit, Settings, Star, Loader2 } from "lucide-react";
+import { Plus, Save, Download, Eye, Edit, Settings, Star, Loader2, Copy } from "lucide-react";
 import { LabelTemplate, LabelTemplateField } from "@/lib/types/qr-system";
 import { InteractiveLabelCanvas } from "./InteractiveLabelCanvas";
 import { LabelFieldEditor } from "./LabelFieldEditor";
@@ -40,6 +53,8 @@ interface WYSIWYGLabelCreatorProps {
 export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreatorProps = {}) {
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(!!templateId);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [originalTemplateId, setOriginalTemplateId] = useState<string | null>(templateId || null);
+  const [isEditingTemplate, setIsEditingTemplate] = useState(!!templateId);
   const [labelTemplate, setLabelTemplate] = useState<LabelTemplate>({
     id: uuidv4(),
     name: "",
@@ -116,6 +131,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
             };
 
             setLabelTemplate(mappedTemplate);
+            setOriginalTemplateId(data.template.id);
+            setIsEditingTemplate(true);
+
             // Check if it's a custom size
             const matchesStandardSize = LABEL_SIZES.some(
               (size) =>
@@ -266,7 +284,30 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
     if (selectedField?.id === fieldId) {
       setSelectedField((prev) => (prev ? { ...prev, ...updates } : null));
     }
+
+    // Auto-save field changes if we're editing an existing template
+    if (isEditingTemplate && originalTemplateId) {
+      debouncedSaveFields();
+    }
   };
+
+  // Debounced field save function
+  const debouncedSaveFields = useCallback(
+    debounce(async () => {
+      if (!originalTemplateId || !labelTemplate.fields) return;
+
+      try {
+        await fetch(`/api/labels/templates/${originalTemplateId}/fields`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fields: labelTemplate.fields }),
+        });
+      } catch (error) {
+        console.error("Error auto-saving fields:", error);
+      }
+    }, 1000),
+    [originalTemplateId, labelTemplate.fields]
+  );
 
   const removeField = (fieldId: string) => {
     setLabelTemplate((prev) => {
@@ -328,7 +369,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
     console.log("Generating labels:", labelTemplate);
   };
 
-  const saveAsTemplate = async () => {
+  const saveAsTemplate = async (saveAsNew = false) => {
     if (!labelTemplate.name.trim()) {
       toast.error("Nazwa szablonu jest wymagana. Wprowadź nazwę szablonu przed zapisaniem.");
       return;
@@ -336,21 +377,46 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
 
     setIsSavingTemplate(true);
     try {
-      // Debug: log the template data being sent
       console.log("Saving template with fields:", labelTemplate.fields);
       console.log("Full template data:", labelTemplate);
 
-      const response = await fetch("/api/labels/templates", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(labelTemplate),
-      });
+      const isUpdating = isEditingTemplate && originalTemplateId && !saveAsNew;
+
+      let response;
+      if (isUpdating) {
+        // Update existing template
+        response = await fetch(`/api/labels/templates/${originalTemplateId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(labelTemplate),
+        });
+      } else {
+        // Create new template
+        const templateData = { ...labelTemplate };
+        if (saveAsNew) {
+          // Generate new ID and name for "Save as New"
+          templateData.id = uuidv4();
+          templateData.name = `${templateData.name} (kopia)`;
+        }
+
+        response = await fetch("/api/labels/templates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(templateData),
+        });
+      }
 
       const data = await response.json();
       if (data.success) {
-        toast.success("Szablon został zapisany! Możesz go teraz używać do generowania etykiet.");
+        if (isUpdating) {
+          toast.success("Szablon został zaktualizowany!");
+        } else {
+          toast.success("Szablon został zapisany! Możesz go teraz używać do generowania etykiet.");
+          // Switch to edit mode for the new template
+          setOriginalTemplateId(data.template.id);
+          setIsEditingTemplate(true);
+          setLabelTemplate((prev) => ({ ...prev, id: data.template.id }));
+        }
         onSaved?.(labelTemplate);
       } else {
         toast.error(`Błąd podczas zapisywania szablonu: ${data.error || "Spróbuj ponownie"}`);
@@ -409,14 +475,31 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
               Podgląd
             </Button>
           </div>
-          <Button onClick={saveAsTemplate} variant="outline" disabled={isSavingTemplate}>
-            {isSavingTemplate ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
+          <div className="flex gap-2">
+            {isEditingTemplate && originalTemplateId && (
+              <Button
+                onClick={() => saveAsTemplate(true)}
+                variant="outline"
+                disabled={isSavingTemplate}
+                size="sm"
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Zapisz jako nowy
+              </Button>
             )}
-            {isSavingTemplate ? "Zapisywanie..." : "Zapisz wzór"}
-          </Button>
+            <Button
+              onClick={() => saveAsTemplate(false)}
+              variant="outline"
+              disabled={isSavingTemplate}
+            >
+              {isSavingTemplate ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {isSavingTemplate ? "Zapisywanie..." : isEditingTemplate ? "Zapisz" : "Zapisz wzór"}
+            </Button>
+          </div>
           <Button onClick={generateLabels}>
             <Download className="mr-2 h-4 w-4" />
             Generuj PDF

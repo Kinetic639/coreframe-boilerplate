@@ -49,10 +49,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const labelType = searchParams.get("labelType");
 
-    // Build query
+    // Build query with fields relationship
     let query = supabase
       .from("label_templates")
-      .select("*")
+      .select(
+        `
+        *,
+        fields:label_template_fields(*)
+      `
+      )
       .or(`is_system.eq.true,organization_id.eq.${organizationId}`)
       .is("deleted_at", null)
       .order("is_system", { ascending: false }) // System templates first
@@ -271,6 +276,9 @@ export async function POST(request: NextRequest) {
         vertical_align: field.vertical_align || "top",
         show_label: field.show_label || false,
         label_text: field.label_text || null,
+        label_position: field.label_position || "inside-top-left",
+        label_color: field.label_color || "#666666",
+        label_font_size: field.label_font_size || 10,
         is_required: field.is_required || false,
         sort_order: field.sort_order || 0,
         text_color: field.text_color || "#000000",
@@ -278,6 +286,10 @@ export async function POST(request: NextRequest) {
         border_enabled: field.border_enabled || false,
         border_width: field.border_width || 0.5,
         border_color: field.border_color || "#000000",
+        padding_top: field.padding_top || 2,
+        padding_right: field.padding_right || 2,
+        padding_bottom: field.padding_bottom || 2,
+        padding_left: field.padding_left || 2,
       }));
 
       const { error: fieldsError } = await supabase

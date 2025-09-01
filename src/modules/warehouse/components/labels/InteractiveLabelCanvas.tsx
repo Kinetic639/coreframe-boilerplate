@@ -142,10 +142,10 @@ export function InteractiveLabelCanvas({
       : viewMode === "edit"
         ? `${1 * zoomLevel}px dashed #ccc`
         : "none",
-    paddingTop: `${mmToPx(2)}px`,
-    paddingRight: `${mmToPx(2)}px`,
-    paddingBottom: `${mmToPx(2)}px`,
-    paddingLeft: `${mmToPx(2)}px`,
+    paddingTop: `${mmToPx(field.padding_top || 2)}px`,
+    paddingRight: `${mmToPx(field.padding_right || 2)}px`,
+    paddingBottom: `${mmToPx(field.padding_bottom || 2)}px`,
+    paddingLeft: `${mmToPx(field.padding_left || 2)}px`,
     color: field.text_color,
     fontSize: `${field.font_size * zoomLevel}px`,
     fontWeight: field.font_weight,
@@ -203,6 +203,7 @@ export function InteractiveLabelCanvas({
 
     const getFieldWithLabelStyle = () => {
       const baseStyle = getFieldStyle(field, isSelected);
+      const labelPosition = field.label_position || "inside-top-left";
 
       // Create a flex container that reserves space for labels
       const containerStyle: any = {
@@ -229,8 +230,11 @@ export function InteractiveLabelCanvas({
     const getLabelStyle = () => {
       if (!hasLabel) return {};
 
+      const labelPosition = field.label_position || "inside-top-left";
+      const labelFontSize = field.label_font_size || 10;
+
       const labelStyle: any = {
-        fontSize: `${labelFontSize}px`,
+        fontSize: `${labelFontSize * zoomLevel}px`,
         color: field.label_color || "#666",
         flexShrink: 0,
         lineHeight: 1.2,
@@ -277,6 +281,8 @@ export function InteractiveLabelCanvas({
     };
 
     const getContentStyle = () => {
+      const labelPosition = field.label_position || "inside-top-left";
+
       const contentStyle: any = {
         flex: 1,
         display: "flex",
