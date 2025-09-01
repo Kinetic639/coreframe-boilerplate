@@ -1,19 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-
-// Simple debounce utility
-function debounce(func: Function, wait: number) {
-  let timeout: NodeJS.Timeout | null = null;
-  return function executedFunction(...args: any[]) {
-    const later = () => {
-      if (timeout) clearTimeout(timeout);
-      func(...args);
-    };
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +16,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Save, Download, Eye, Edit, Settings, Star, Loader2, Copy } from "lucide-react";
-import { LabelTemplate, LabelTemplateField } from "@/lib/types/qr-system";
+import { LabelTemplate } from "@/lib/types/qr-system";
 import { InteractiveLabelCanvas } from "./InteractiveLabelCanvas";
 import { LabelFieldEditor } from "./LabelFieldEditor";
+import { LabelGenerationDialog } from "./LabelGenerationDialog";
+import { useLabelCreatorStore } from "@/lib/stores/label-creator-store";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "react-toastify";
 
@@ -43,64 +32,44 @@ const LABEL_SIZES = [
   { name: "Niestandardowa", width: 0, height: 0 },
 ];
 
-type ViewMode = "edit" | "preview";
-
 interface WYSIWYGLabelCreatorProps {
   templateId?: string; // If provided, load this template for editing
   onSaved?: (template: LabelTemplate) => void; // Callback when template is saved
 }
 
 export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreatorProps = {}) {
-  const [isLoadingTemplate, setIsLoadingTemplate] = useState(!!templateId);
-  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
-  const [originalTemplateId, setOriginalTemplateId] = useState<string | null>(templateId || null);
-  const [isEditingTemplate, setIsEditingTemplate] = useState(!!templateId);
-  const [labelTemplate, setLabelTemplate] = useState<LabelTemplate>({
-    id: uuidv4(),
-    name: "",
-    description: "",
-    label_type: "generic",
-    category: "medium",
-    width_mm: 40,
-    height_mm: 20,
-    dpi: 300,
-    orientation: "portrait",
-    template_config: {},
-    qr_position: "left",
-    qr_size_mm: 15,
-    show_label_text: false,
-    label_text_position: "bottom",
-    label_text_size: 12,
-    show_code: false,
-    show_additional_info: true,
-    additional_info_position: "bottom",
-    layout_direction: "row",
-    section_balance: "equal",
-    background_color: "#FFFFFF",
-    text_color: "#000000",
-    border_enabled: true,
-    border_width: 0.5,
-    border_color: "#000000",
-    field_vertical_gap: 2,
-    label_padding_top: 2,
-    label_padding_right: 2,
-    label_padding_bottom: 2,
-    label_padding_left: 2,
-    fields: [],
-    is_default: false,
-    is_system: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  // Use the store for state management
+  const {
+    currentTemplate: labelTemplate,
+    selectedField,
+    viewMode,
+    isCustomSize,
+    generationDialogOpen,
+    isLoadingTemplate,
+    isSavingTemplate,
+    originalTemplateId,
+    isEditingTemplate,
+    updateTemplate,
+    setSelectedField,
+    setViewMode,
+    setIsCustomSize,
+    setGenerationDialogOpen,
+    addField,
+    updateField,
+    removeField,
+    moveField,
+    loadTemplate,
+    setLoadingStates,
+  } = useLabelCreatorStore();
 
-  const [selectedField, setSelectedField] = useState<LabelTemplateField | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("edit");
-  const [isCustomSize, setIsCustomSize] = useState(false);
+  // Local loading state for template loading
+  const [localIsLoadingTemplate, setLocalIsLoadingTemplate] = useState(!!templateId);
 
   // Load template if templateId is provided
   useEffect(() => {
-    if (templateId && isLoadingTemplate) {
-      const loadTemplate = async () => {
+    if (templateId && localIsLoadingTemplate) {
+      const loadTemplateData = async () => {
+        setLoadingStates({ isLoadingTemplate: true });
         try {
           const response = await fetch(`/api/labels/templates/${templateId}`);
           const data = await response.json();
@@ -130,16 +99,12 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
               fields: template.fields ?? [],
             };
 
-            setLabelTemplate(mappedTemplate);
-            setOriginalTemplateId(data.template.id);
-            setIsEditingTemplate(true);
+            loadTemplate(mappedTemplate);
+            setLoadingStates({
+              isEditingTemplate: true,
+              originalTemplateId: data.template.id,
+            });
 
-            // Check if it's a custom size
-            const matchesStandardSize = LABEL_SIZES.some(
-              (size) =>
-                size.width === data.template.width_mm && size.height === data.template.height_mm
-            );
-            setIsCustomSize(!matchesStandardSize || data.template.category === "custom");
             toast.success("Szablon został załadowany do edycji");
           } else {
             toast.error(
@@ -150,35 +115,14 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
           console.error("Error loading template:", error);
           toast.error("Błąd podczas ładowania szablonu. Sprawdź połączenie i spróbuj ponownie.");
         } finally {
-          setIsLoadingTemplate(false);
+          setLoadingStates({ isLoadingTemplate: false });
+          setLocalIsLoadingTemplate(false);
         }
       };
 
-      loadTemplate();
+      loadTemplateData();
     }
-  }, [templateId, isLoadingTemplate]);
-
-  // Helper function to calculate required height based on fields
-  const calculateRequiredHeight = useCallback(
-    (
-      fieldCount: number,
-      fieldVerticalGap: number = 2,
-      labelPaddingTop: number = 2,
-      labelPaddingBottom: number = 2
-    ) => {
-      if (fieldCount === 0) return 15; // Minimum height for QR only
-
-      const fieldHeight = 4; // Standard field height in mm
-      const totalFieldHeight = fieldCount * fieldHeight;
-      const totalGapHeight = (fieldCount - 1) * fieldVerticalGap;
-      const requiredContentHeight = totalFieldHeight + totalGapHeight;
-      const requiredTotalHeight = requiredContentHeight + labelPaddingTop + labelPaddingBottom;
-
-      // Add some extra padding for better visual appearance
-      return Math.max(requiredTotalHeight + 4, 15);
-    },
-    []
-  );
+  }, [templateId, localIsLoadingTemplate, labelTemplate, loadTemplate, setLoadingStates]);
 
   const handleSizeChange = (sizeName: string) => {
     const size = LABEL_SIZES.find((s) => s.name === sizeName);
@@ -187,186 +131,42 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
         setIsCustomSize(true);
       } else {
         setIsCustomSize(false);
-        setLabelTemplate((prev) => ({
-          ...prev,
+        updateTemplate({
           width_mm: size.width,
           height_mm: size.height,
-        }));
+        });
       }
     }
   };
 
   const handleAdditionalInfoToggle = (showAdditionalInfo: boolean) => {
-    setLabelTemplate((prev) => {
-      if (showAdditionalInfo) {
-        // When enabling additional info, restore to standard rectangle size
-        const standardSize = LABEL_SIZES.find((s) => s.name === "Średnia (40×20mm)");
-        return {
-          ...prev,
-          show_additional_info: showAdditionalInfo,
-          width_mm: standardSize?.width || 40,
-          height_mm: standardSize?.height || 20,
-        };
-      } else {
-        // When hiding additional info, make it a square
-        const squareSize = Math.min(prev.width_mm, prev.height_mm);
-        return {
-          ...prev,
-          show_additional_info: showAdditionalInfo,
-          width_mm: squareSize,
-          height_mm: squareSize,
-        };
-      }
-    });
-  };
-
-  const addField = useCallback(
-    (fieldType: "text" | "blank") => {
-      const fieldCount = labelTemplate.fields?.length || 0;
-      const newFieldCount = fieldCount + 1;
-
-      const newField: LabelTemplateField = {
-        id: uuidv4(),
-        label_template_id: labelTemplate.id,
-        field_type: fieldType,
-        field_name: `Field ${newFieldCount}`,
-        field_value: fieldType === "text" ? "Sample text" : null,
-        position_x: 0, // Not used in CSS layout
-        position_y: 0, // Not used in CSS layout
-        width_mm: 30, // Default width, not used in CSS layout
-        height_mm: 4,
-        font_size: 10,
-        font_weight: "normal",
-        text_align: "left",
-        vertical_align: "center",
-        show_label: false,
-        label_text: null,
-        is_required: false,
-        sort_order: newFieldCount,
-        text_color: "#000000",
-        background_color: "transparent",
-        border_enabled: false,
-        border_width: 0.5,
-        border_color: "#000000",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      // Calculate required height for the new field count
-      const requiredHeight = calculateRequiredHeight(
-        newFieldCount,
-        labelTemplate.field_vertical_gap || 2,
-        labelTemplate.label_padding_top || 2,
-        labelTemplate.label_padding_bottom || 2
-      );
-
-      setLabelTemplate((prev) => ({
-        ...prev,
-        fields: [...(prev.fields || []), newField],
-        // Auto-adjust height if current height is insufficient
-        height_mm: Math.max(prev.height_mm, requiredHeight),
-      }));
-      setSelectedField(newField);
-    },
-    [labelTemplate, calculateRequiredHeight]
-  );
-
-  const updateField = (fieldId: string, updates: Partial<LabelTemplateField>) => {
-    setLabelTemplate((prev) => ({
-      ...prev,
-      fields: prev.fields?.map((field) =>
-        field.id === fieldId
-          ? { ...field, ...updates, updated_at: new Date().toISOString() }
-          : field
-      ),
-    }));
-
-    if (selectedField?.id === fieldId) {
-      setSelectedField((prev) => (prev ? { ...prev, ...updates } : null));
-    }
-
-    // Auto-save field changes if we're editing an existing template
-    if (isEditingTemplate && originalTemplateId) {
-      debouncedSaveFields();
-    }
-  };
-
-  // Debounced field save function
-  const debouncedSaveFields = useCallback(
-    debounce(async () => {
-      if (!originalTemplateId || !labelTemplate.fields) return;
-
-      try {
-        await fetch(`/api/labels/templates/${originalTemplateId}/fields`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fields: labelTemplate.fields }),
-        });
-      } catch (error) {
-        console.error("Error auto-saving fields:", error);
-      }
-    }, 1000),
-    [originalTemplateId, labelTemplate.fields]
-  );
-
-  const removeField = (fieldId: string) => {
-    setLabelTemplate((prev) => {
-      const filteredFields = prev.fields?.filter((field) => field.id !== fieldId) || [];
-
-      // Update sort_order for remaining fields
-      const reorderedFields = filteredFields.map((field, index) => ({
-        ...field,
-        sort_order: index + 1,
-        updated_at: new Date().toISOString(),
-      }));
-
-      // Calculate the minimum height needed for remaining fields
-      const minRequiredHeight = calculateRequiredHeight(
-        filteredFields.length,
-        prev.field_vertical_gap || 2,
-        prev.label_padding_top || 2,
-        prev.label_padding_bottom || 2
-      );
-
-      return {
-        ...prev,
-        fields: reorderedFields,
-        // Only shrink if the current height is much larger than needed (more than 10mm extra)
-        height_mm: prev.height_mm - minRequiredHeight > 10 ? minRequiredHeight : prev.height_mm,
-      };
-    });
-
-    if (selectedField?.id === fieldId) {
-      setSelectedField(null);
-    }
-  };
-
-  const moveField = (fieldId: string, direction: "up" | "down") => {
-    setLabelTemplate((prev) => {
-      const fields = [...(prev.fields || [])];
-      const fieldIndex = fields.findIndex((f) => f.id === fieldId);
-
-      if (fieldIndex === -1) return prev;
-
-      const newIndex = direction === "up" ? fieldIndex - 1 : fieldIndex + 1;
-      if (newIndex < 0 || newIndex >= fields.length) return prev;
-
-      // Swap fields
-      [fields[fieldIndex], fields[newIndex]] = [fields[newIndex], fields[fieldIndex]];
-
-      // Update sort_order
-      fields.forEach((field, index) => {
-        field.sort_order = index + 1;
-        field.updated_at = new Date().toISOString();
+    if (showAdditionalInfo) {
+      // When enabling additional info, restore to standard rectangle size
+      const standardSize = LABEL_SIZES.find((s) => s.name === "Średnia (40×20mm)");
+      updateTemplate({
+        show_additional_info: showAdditionalInfo,
+        width_mm: standardSize?.width || 40,
+        height_mm: standardSize?.height || 20,
       });
-
-      return { ...prev, fields };
-    });
+    } else {
+      // When hiding additional info, make it a square
+      const squareSize = Math.min(labelTemplate.width_mm, labelTemplate.height_mm);
+      updateTemplate({
+        show_additional_info: showAdditionalInfo,
+        width_mm: squareSize,
+        height_mm: squareSize,
+      });
+    }
   };
 
-  const generateLabels = async () => {
-    // TODO: Implement PDF generation
-    console.log("Generating labels:", labelTemplate);
+  const generateLabels = () => {
+    // Check if template has a name
+    if (!labelTemplate.name.trim()) {
+      toast.error("Najpierw nadaj nazwę etykiecie!");
+      return;
+    }
+    // Open generation dialog with current template
+    setGenerationDialogOpen(true);
   };
 
   const saveAsTemplate = async (saveAsNew = false) => {
@@ -375,11 +175,8 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
       return;
     }
 
-    setIsSavingTemplate(true);
+    setLoadingStates({ isSavingTemplate: true });
     try {
-      console.log("Saving template with fields:", labelTemplate.fields);
-      console.log("Full template data:", labelTemplate);
-
       const isUpdating = isEditingTemplate && originalTemplateId && !saveAsNew;
 
       let response;
@@ -413,9 +210,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
         } else {
           toast.success("Szablon został zapisany! Możesz go teraz używać do generowania etykiet.");
           // Switch to edit mode for the new template
-          setOriginalTemplateId(data.template.id);
-          setIsEditingTemplate(true);
-          setLabelTemplate((prev) => ({ ...prev, id: data.template.id }));
+          setLoadingStates({
+            originalTemplateId: data.template.id,
+            isEditingTemplate: true,
+          });
+          updateTemplate({ id: data.template.id });
         }
         onSaved?.(labelTemplate);
       } else {
@@ -425,7 +224,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
       console.error("Error saving template:", error);
       toast.error("Błąd podczas zapisywania szablonu. Sprawdź połączenie i spróbuj ponownie.");
     } finally {
-      setIsSavingTemplate(false);
+      setLoadingStates({ isSavingTemplate: false });
     }
   };
 
@@ -435,7 +234,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
         (s) => s.width === labelTemplate.width_mm && s.height === labelTemplate.height_mm
       )?.name || "Niestandardowa";
 
-  if (isLoadingTemplate) {
+  if (isLoadingTemplate || localIsLoadingTemplate) {
     return (
       <div className="container mx-auto flex h-screen items-center justify-center p-6">
         <div className="text-center">
@@ -502,7 +301,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
           </div>
           <Button onClick={generateLabels}>
             <Download className="mr-2 h-4 w-4" />
-            Generuj PDF
+            Generuj etykiety
           </Button>
         </div>
       </div>
@@ -556,9 +355,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                       <Input
                         id="name"
                         value={labelTemplate.name}
-                        onChange={(e) =>
-                          setLabelTemplate((prev) => ({ ...prev, name: e.target.value }))
-                        }
+                        onChange={(e) => updateTemplate({ name: e.target.value })}
                         placeholder="np. Etykiety produktów"
                         className="h-8"
                       />
@@ -591,10 +388,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             type="number"
                             value={labelTemplate.width_mm}
                             onChange={(e) =>
-                              setLabelTemplate((prev) => ({
-                                ...prev,
+                              updateTemplate({
                                 width_mm: parseFloat(e.target.value) || 25,
-                              }))
+                              })
                             }
                             className="h-8"
                           />
@@ -608,10 +404,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             type="number"
                             value={labelTemplate.height_mm}
                             onChange={(e) =>
-                              setLabelTemplate((prev) => ({
-                                ...prev,
+                              updateTemplate({
                                 height_mm: parseFloat(e.target.value) || 25,
-                              }))
+                              })
                             }
                             className="h-8"
                           />
@@ -647,10 +442,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             type="number"
                             value={labelTemplate.field_vertical_gap || 2}
                             onChange={(e) =>
-                              setLabelTemplate((prev) => ({
-                                ...prev,
+                              updateTemplate({
                                 field_vertical_gap: parseFloat(e.target.value) || 2,
-                              }))
+                              })
                             }
                             min="0"
                             max="10"
@@ -667,7 +461,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             value={labelTemplate.layout_direction || "row"}
                             onValueChange={(
                               value: "row" | "column" | "row-reverse" | "column-reverse"
-                            ) => setLabelTemplate((prev) => ({ ...prev, layout_direction: value }))}
+                            ) => updateTemplate({ layout_direction: value })}
                           >
                             <SelectTrigger className="h-8">
                               <SelectValue />
@@ -692,7 +486,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                           <Select
                             value={labelTemplate.items_alignment || "center"}
                             onValueChange={(value: "start" | "center" | "end") =>
-                              setLabelTemplate((prev) => ({ ...prev, items_alignment: value }))
+                              updateTemplate({ items_alignment: value })
                             }
                           >
                             <SelectTrigger className="h-8">
@@ -716,9 +510,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                         <Switch
                           id="label-border"
                           checked={labelTemplate.border_enabled}
-                          onCheckedChange={(checked) =>
-                            setLabelTemplate((prev) => ({ ...prev, border_enabled: checked }))
-                          }
+                          onCheckedChange={(checked) => updateTemplate({ border_enabled: checked })}
                         />
                       </div>
 
@@ -733,10 +525,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="number"
                               value={labelTemplate.border_width}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   border_width: parseFloat(e.target.value) || 0.5,
-                                }))
+                                })
                               }
                               min="0.5"
                               max="5"
@@ -753,10 +544,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="color"
                               value={labelTemplate.border_color}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   border_color: e.target.value,
-                                }))
+                                })
                               }
                               className="h-8"
                             />
@@ -773,10 +563,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="number"
                               value={labelTemplate.label_padding_top || 2}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   label_padding_top: parseFloat(e.target.value) || 2,
-                                }))
+                                })
                               }
                               min="0"
                               max="10"
@@ -790,10 +579,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="number"
                               value={labelTemplate.label_padding_bottom || 2}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   label_padding_bottom: parseFloat(e.target.value) || 2,
-                                }))
+                                })
                               }
                               min="0"
                               max="10"
@@ -807,10 +595,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="number"
                               value={labelTemplate.label_padding_left || 2}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   label_padding_left: parseFloat(e.target.value) || 2,
-                                }))
+                                })
                               }
                               min="0"
                               max="10"
@@ -824,10 +611,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                               type="number"
                               value={labelTemplate.label_padding_right || 2}
                               onChange={(e) =>
-                                setLabelTemplate((prev) => ({
-                                  ...prev,
+                                updateTemplate({
                                   label_padding_right: parseFloat(e.target.value) || 2,
-                                }))
+                                })
                               }
                               min="0"
                               max="10"
@@ -990,6 +776,14 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
           </div>
         </div>
       </div>
+
+      {/* Label Generation Dialog */}
+      <LabelGenerationDialog
+        templates={[labelTemplate]}
+        open={generationDialogOpen}
+        onClose={() => setGenerationDialogOpen(false)}
+        currentTemplate={labelTemplate}
+      />
     </div>
   );
 }
