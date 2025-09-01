@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run format` - Format code with Prettier
 - `npm run format:check` - Check code formatting
 
+**CRITICAL**: ALWAYS kill the development server (bash_1 or any background process) when finished testing or implementing a task. Use KillBash tool to terminate any running processes before completing tasks. Never leave servers running in the background.
+
 ## Supabase Commands
 
 **IMPORTANT: NEVER run local Supabase. Always use remote project ID: zlcnlalwfmmtusigeuyk**

@@ -19,6 +19,7 @@ import { Plus, Save, Download, Eye, Monitor, Smartphone } from "lucide-react";
 import { LabelTemplate, LabelTemplateField } from "@/lib/types/qr-system";
 import { LabelFieldEditor } from "./LabelFieldEditor";
 import { LabelPreviewCanvas } from "./LabelPreviewCanvas";
+import { LabelGenerationDialog } from "./LabelGenerationDialog";
 import { v4 as uuidv4 } from "uuid";
 
 const LABEL_SIZES = [
@@ -64,6 +65,7 @@ export function LabelCreatorPage() {
   const [selectedField, setSelectedField] = useState<LabelTemplateField | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
   const [isCustomSize, setIsCustomSize] = useState(false);
+  const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
 
   const handleSizeChange = (sizeName: string) => {
     const size = LABEL_SIZES.find((s) => s.name === sizeName);
@@ -197,14 +199,19 @@ export function LabelCreatorPage() {
     }
   };
 
-  const generateLabels = async () => {
-    // TODO: Implement label generation with PDF download
-    console.log("Generating labels:", labelTemplate);
+  const generateLabels = () => {
+    // Check if template has a name
+    if (!labelTemplate.name.trim()) {
+      alert("Najpierw nadaj nazwę etykiecie!");
+      return;
+    }
+    // Open generation dialog with current template
+    setGenerationDialogOpen(true);
   };
 
   const saveAsTemplate = async () => {
     // TODO: Implement save as template functionality
-    console.log("Saving template:", labelTemplate);
+    void labelTemplate; // Suppress unused warning until implementation
   };
 
   const currentSize = isCustomSize
@@ -461,7 +468,7 @@ export function LabelCreatorPage() {
                 </Button>
                 <Button onClick={generateLabels}>
                   <Download className="mr-2 h-4 w-4" />
-                  Generuj i pobierz PDF
+                  Generuj etykiety
                 </Button>
                 <Button variant="outline">
                   <Eye className="mr-2 h-4 w-4" />
@@ -489,6 +496,14 @@ export function LabelCreatorPage() {
           </Card>
         </div>
       </div>
+
+      {/* Label Generation Dialog */}
+      <LabelGenerationDialog
+        templates={[labelTemplate]}
+        open={generationDialogOpen}
+        onClose={() => setGenerationDialogOpen(false)}
+        currentTemplate={labelTemplate}
+      />
     </div>
   );
 }

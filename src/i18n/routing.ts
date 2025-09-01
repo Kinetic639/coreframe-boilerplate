@@ -93,6 +93,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/labels/create",
       pl: "/dashboard/magazyn/etykiety/kreator",
     },
+    "/dashboard/warehouse/labels/assign": {
+      en: "/dashboard/warehouse/labels/assign",
+      pl: "/dashboard/magazyn/etykiety/przypisz",
+    },
     "/dashboard/warehouse/labels/templates": {
       en: "/dashboard/warehouse/labels/templates",
       pl: "/dashboard/magazyn/etykiety/szablony",
@@ -156,6 +160,12 @@ export const routing = defineRouting({
     "/invite/[token]": {
       en: "/invite/[token]",
       pl: "/zaproszenie/[token]",
+    },
+
+    // === QR redirect system ===
+    "/qr/[token]": {
+      en: "/qr/[token]",
+      pl: "/qr/[token]",
     },
 
     // === Teams module ===

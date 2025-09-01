@@ -78,6 +78,12 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         path: "/dashboard/warehouse/labels",
         submenu: [
           {
+            id: "labels-overview",
+            label: "Przegląd etykiet",
+            path: "/dashboard/warehouse/labels",
+            icon: "List",
+          },
+          {
             id: "label-creator",
             label: "Kreator etykiet",
             path: "/dashboard/warehouse/labels/create",
