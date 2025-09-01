@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,12 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Save, Download, Eye, Edit, Settings, Star } from "lucide-react";
+import { Plus, Save, Download, Eye, Edit, Settings, Star, Loader2 } from "lucide-react";
 import { LabelTemplate, LabelTemplateField } from "@/lib/types/qr-system";
 import { InteractiveLabelCanvas } from "./InteractiveLabelCanvas";
 import { LabelFieldEditor } from "./LabelFieldEditor";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "react-toastify";
 
 const LABEL_SIZES = [
   { name: "Mała (25×15mm)", width: 25, height: 15 },
@@ -31,7 +32,14 @@ const LABEL_SIZES = [
 
 type ViewMode = "edit" | "preview";
 
-export function WYSIWYGLabelCreator() {
+interface WYSIWYGLabelCreatorProps {
+  templateId?: string; // If provided, load this template for editing
+  onSaved?: (template: LabelTemplate) => void; // Callback when template is saved
+}
+
+export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreatorProps = {}) {
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(!!templateId);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [labelTemplate, setLabelTemplate] = useState<LabelTemplate>({
     id: uuidv4(),
     name: "",
@@ -51,6 +59,8 @@ export function WYSIWYGLabelCreator() {
     show_code: false,
     show_additional_info: true,
     additional_info_position: "bottom",
+    layout_direction: "row",
+    section_balance: "equal",
     background_color: "#FFFFFF",
     text_color: "#000000",
     border_enabled: true,
@@ -71,6 +81,64 @@ export function WYSIWYGLabelCreator() {
   const [selectedField, setSelectedField] = useState<LabelTemplateField | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("edit");
   const [isCustomSize, setIsCustomSize] = useState(false);
+
+  // Load template if templateId is provided
+  useEffect(() => {
+    if (templateId && isLoadingTemplate) {
+      const loadTemplate = async () => {
+        try {
+          const response = await fetch(`/api/labels/templates/${templateId}`);
+          const data = await response.json();
+
+          if (data.success && data.template) {
+            // Map database template to our LabelTemplate interface with defaults
+            const template = data.template;
+            const config = template.template_config || {};
+
+            const mappedTemplate: LabelTemplate = {
+              ...labelTemplate, // Keep current defaults
+              ...template, // Override with database data
+              // Extract fields from template_config and provide defaults
+              field_vertical_gap: config.field_vertical_gap ?? template.field_vertical_gap ?? 2,
+              label_padding_top: config.label_padding_top ?? template.label_padding_top ?? 2,
+              label_padding_right: config.label_padding_right ?? template.label_padding_right ?? 2,
+              label_padding_bottom:
+                config.label_padding_bottom ?? template.label_padding_bottom ?? 2,
+              label_padding_left: config.label_padding_left ?? template.label_padding_left ?? 2,
+              items_alignment: config.items_alignment ?? template.items_alignment ?? "center",
+              // Ensure required fields have defaults
+              show_additional_info: template.show_additional_info ?? true,
+              additional_info_position: template.additional_info_position ?? "bottom",
+              layout_direction: template.layout_direction ?? "row",
+              section_balance: template.section_balance ?? "equal",
+              orientation: template.orientation ?? "portrait",
+              fields: template.fields ?? [],
+            };
+
+            setLabelTemplate(mappedTemplate);
+            // Check if it's a custom size
+            const matchesStandardSize = LABEL_SIZES.some(
+              (size) =>
+                size.width === data.template.width_mm && size.height === data.template.height_mm
+            );
+            setIsCustomSize(!matchesStandardSize || data.template.category === "custom");
+            toast.success("Szablon został załadowany do edycji");
+          } else {
+            toast.error(
+              `Nie udało się załadować szablonu: ${data.error || "Szablon nie znaleziony"}`
+            );
+          }
+        } catch (error) {
+          console.error("Error loading template:", error);
+          toast.error("Błąd podczas ładowania szablonu. Sprawdź połączenie i spróbuj ponownie.");
+        } finally {
+          setIsLoadingTemplate(false);
+        }
+      };
+
+      loadTemplate();
+    }
+  }, [templateId, isLoadingTemplate]);
 
   // Helper function to calculate required height based on fields
   const calculateRequiredHeight = useCallback(
@@ -144,7 +212,7 @@ export function WYSIWYGLabelCreator() {
         label_template_id: labelTemplate.id,
         field_type: fieldType,
         field_name: `Field ${newFieldCount}`,
-        field_value: fieldType === "text" ? "Sample text" : undefined,
+        field_value: fieldType === "text" ? "Sample text" : null,
         position_x: 0, // Not used in CSS layout
         position_y: 0, // Not used in CSS layout
         width_mm: 30, // Default width, not used in CSS layout
@@ -154,7 +222,7 @@ export function WYSIWYGLabelCreator() {
         text_align: "left",
         vertical_align: "center",
         show_label: false,
-        label_position: "inside-top-left",
+        label_text: null,
         is_required: false,
         sort_order: newFieldCount,
         text_color: "#000000",
@@ -162,10 +230,6 @@ export function WYSIWYGLabelCreator() {
         border_enabled: false,
         border_width: 0.5,
         border_color: "#000000",
-        padding_top: 2,
-        padding_right: 2,
-        padding_bottom: 2,
-        padding_left: 2,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -265,8 +329,38 @@ export function WYSIWYGLabelCreator() {
   };
 
   const saveAsTemplate = async () => {
-    // TODO: Implement save template
-    console.log("Saving template:", labelTemplate);
+    if (!labelTemplate.name.trim()) {
+      toast.error("Nazwa szablonu jest wymagana. Wprowadź nazwę szablonu przed zapisaniem.");
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      // Debug: log the template data being sent
+      console.log("Saving template with fields:", labelTemplate.fields);
+      console.log("Full template data:", labelTemplate);
+
+      const response = await fetch("/api/labels/templates", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(labelTemplate),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success("Szablon został zapisany! Możesz go teraz używać do generowania etykiet.");
+        onSaved?.(labelTemplate);
+      } else {
+        toast.error(`Błąd podczas zapisywania szablonu: ${data.error || "Spróbuj ponownie"}`);
+      }
+    } catch (error) {
+      console.error("Error saving template:", error);
+      toast.error("Błąd podczas zapisywania szablonu. Sprawdź połączenie i spróbuj ponownie.");
+    } finally {
+      setIsSavingTemplate(false);
+    }
   };
 
   const currentSize = isCustomSize
@@ -274,6 +368,17 @@ export function WYSIWYGLabelCreator() {
     : LABEL_SIZES.find(
         (s) => s.width === labelTemplate.width_mm && s.height === labelTemplate.height_mm
       )?.name || "Niestandardowa";
+
+  if (isLoadingTemplate) {
+    return (
+      <div className="container mx-auto flex h-screen items-center justify-center p-6">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="mt-2 text-muted-foreground">Ładowanie szablonu...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto flex max-h-screen flex-col p-6">
@@ -304,9 +409,13 @@ export function WYSIWYGLabelCreator() {
               Podgląd
             </Button>
           </div>
-          <Button onClick={saveAsTemplate} variant="outline">
-            <Save className="mr-2 h-4 w-4" />
-            Zapisz
+          <Button onClick={saveAsTemplate} variant="outline" disabled={isSavingTemplate}>
+            {isSavingTemplate ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {isSavingTemplate ? "Zapisywanie..." : "Zapisz wzór"}
           </Button>
           <Button onClick={generateLabels}>
             <Download className="mr-2 h-4 w-4" />

@@ -27,7 +27,7 @@ export interface LabelTemplateField {
   label_template_id: string;
   field_type: "text" | "blank" | "qr_code";
   field_name: string;
-  field_value?: string; // For text fields, null for blank fields
+  field_value?: string | null;
 
   // Position and sizing
   position_x: number;
@@ -36,112 +36,84 @@ export interface LabelTemplateField {
   height_mm: number;
 
   // Text styling (for text fields)
-  font_size: number;
-  font_weight: "normal" | "bold" | "light";
-  text_align: "left" | "center" | "right";
-  vertical_align: "top" | "center" | "bottom";
+  font_size?: number | null;
+  font_weight?: string | null;
+  text_align?: string | null;
+  vertical_align?: string | null;
 
   // Field behavior
-  show_label: boolean; // Whether to show a label for this field
-  label_text?: string; // The label text if show_label is true
-  label_position?:
-    | "inside-top-left"
-    | "inside-top-center"
-    | "inside-top-right"
-    | "inside-center-left"
-    | "inside-center-center"
-    | "inside-center-right"
-    | "inside-bottom-left"
-    | "inside-bottom-center"
-    | "inside-bottom-right";
-  label_font_size?: number; // Label font size
-  label_color?: string; // Label text color
-  is_required: boolean;
-  sort_order: number;
+  show_label?: boolean | null;
+  label_text?: string | null;
+  is_required?: boolean | null;
+  sort_order?: number | null;
 
   // Styling
-  text_color: string;
-  background_color: string;
-  border_enabled: boolean;
-  border_width: number;
-  border_color: string;
-
-  // Padding
-  padding_top?: number;
-  padding_right?: number;
-  padding_bottom?: number;
-  padding_left?: number;
+  text_color?: string | null;
+  background_color?: string | null;
+  border_enabled?: boolean | null;
+  border_width?: number | null;
+  border_color?: string | null;
 
   // Metadata
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface LabelTemplate {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   label_type: "location" | "product" | "generic";
-  category?: "small" | "medium" | "large" | "custom";
+  category?: string | null;
 
   // Physical dimensions
   width_mm: number;
   height_mm: number;
-  dpi: number;
-  orientation: "portrait" | "landscape";
+  dpi?: number | null;
+  orientation?: string | null;
 
-  // Template configuration
-  template_config: Record<string, string | number | boolean | null>;
-  qr_position:
-    | "top-left"
-    | "top-right"
-    | "bottom-left"
-    | "bottom-right"
-    | "center"
-    | "left"
-    | "right";
-  qr_size_mm: number;
+  // Template configuration - JSON field in database
+  template_config: Record<string, any>;
+
+  // QR Code settings
+  qr_position?: string | null;
+  qr_size_mm?: number | null;
 
   // Label text options
-  show_label_text: boolean;
-  label_text_position: "top" | "bottom" | "left" | "right" | "center" | "none";
-  label_text_size: number;
+  show_label_text?: boolean | null;
+  label_text_position?: string | null;
+  label_text_size?: number | null;
 
   // Additional elements
-  show_code: boolean;
-  show_additional_info: boolean;
-  additional_info_position: "top" | "bottom" | "left" | "right";
+  show_code?: boolean | null;
+  show_additional_info?: boolean | null;
+  additional_info_position?: string | null;
+  show_barcode?: boolean | null;
+  show_hierarchy?: boolean | null;
 
-  // New layout properties
-  layout_direction?: "row" | "column" | "row-reverse" | "column-reverse";
-  items_alignment?: "start" | "center" | "end";
-  section_balance?: "equal" | "qr-priority" | "data-priority";
-  field_vertical_gap?: number; // Gap between fields in mm
+  // Layout properties
+  layout_direction?: string | null;
+  section_balance?: string | null;
 
   // Colors and styling
-  background_color: string;
-  text_color: string;
-  border_enabled: boolean;
-  border_width: number;
-  border_color: string;
-
-  // Label padding
-  label_padding_top?: number;
-  label_padding_right?: number;
-  label_padding_bottom?: number;
-  label_padding_left?: number;
+  background_color?: string | null;
+  text_color?: string | null;
+  border_enabled?: boolean | null;
+  border_width?: number | null;
+  border_color?: string | null;
 
   // Fields relationship
   fields?: LabelTemplateField[];
 
-  is_default: boolean;
-  is_system: boolean;
-  organization_id?: string;
-  created_by?: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
+  // Template metadata
+  is_default?: boolean | null;
+  is_system?: boolean | null;
+  organization_id?: string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface QRScanLog {
