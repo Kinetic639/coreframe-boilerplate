@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { LabelTemplate, LabelTemplateField } from "@/lib/types/qr-system";
+import { QRCodeComponent } from "@/components/ui/qr-code";
 
 interface InteractiveLabelCanvasProps {
   template: LabelTemplate;
@@ -34,8 +35,8 @@ export function InteractiveLabelCanvas({
   const labelWidth = isQROnly
     ? mmToPx(
         template.qr_size_mm +
-          (template.label_padding_left || 2) +
-          (template.label_padding_right || 2) +
+          ((template.template_config as any)?.label_padding_left || 2) +
+          ((template.template_config as any)?.label_padding_right || 2) +
           4
       )
     : mmToPx(template.width_mm);
@@ -93,10 +94,10 @@ export function InteractiveLabelCanvas({
     border: template.border_enabled
       ? `${template.border_width * zoomLevel}px solid ${template.border_color}`
       : "none",
-    paddingTop: `${mmToPx(template.label_padding_top || 2)}px`,
-    paddingRight: `${mmToPx(template.label_padding_right || 2)}px`,
-    paddingBottom: `${mmToPx(template.label_padding_bottom || 2)}px`,
-    paddingLeft: `${mmToPx(template.label_padding_left || 2)}px`,
+    paddingTop: `${mmToPx((template.template_config as any)?.label_padding_top || 2)}px`,
+    paddingRight: `${mmToPx((template.template_config as any)?.label_padding_right || 2)}px`,
+    paddingBottom: `${mmToPx((template.template_config as any)?.label_padding_bottom || 2)}px`,
+    paddingLeft: `${mmToPx((template.template_config as any)?.label_padding_left || 2)}px`,
     position: "relative" as const,
     display: "flex",
     flexDirection: isQROnly ? "row" : getFlexDirection(layoutDirection),
@@ -141,10 +142,10 @@ export function InteractiveLabelCanvas({
       : viewMode === "edit"
         ? `${1 * zoomLevel}px dashed #ccc`
         : "none",
-    paddingTop: `${mmToPx(field.padding_top || 2)}px`,
-    paddingRight: `${mmToPx(field.padding_right || 2)}px`,
-    paddingBottom: `${mmToPx(field.padding_bottom || 2)}px`,
-    paddingLeft: `${mmToPx(field.padding_left || 2)}px`,
+    paddingTop: `${mmToPx(2)}px`,
+    paddingRight: `${mmToPx(2)}px`,
+    paddingBottom: `${mmToPx(2)}px`,
+    paddingLeft: `${mmToPx(2)}px`,
     color: field.text_color,
     fontSize: `${field.font_size * zoomLevel}px`,
     fontWeight: field.font_weight,
@@ -165,95 +166,40 @@ export function InteractiveLabelCanvas({
     overflow: "hidden",
   });
 
-  const renderQRCode = () => (
-    <div style={qrStyle}>
-      {/* Realistic QR code representation */}
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          backgroundColor: "#fff",
-          position: "relative",
-          display: "grid",
-          gridTemplate: "repeat(25, 1fr) / repeat(25, 1fr)",
-          gap: 0,
-        }}
-      >
-        {/* Generate QR code pattern */}
-        {Array.from({ length: 625 }, (_, i) => {
-          const row = Math.floor(i / 25);
-          const col = i % 25;
+  const renderQRCode = () => {
+    // Generate a sample QR token for preview
+    const qrToken = `QR${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
 
-          // Finder patterns (corners)
-          const isFinderPattern =
-            (row < 7 && col < 7) || (row < 7 && col >= 18) || (row >= 18 && col < 7);
+    // Calculate proper QR size that fits within the allocated space
+    const qrWidth = qrStyle.width as number;
+    const qrHeight = qrStyle.height as number;
+    const qrSize = Math.min(qrWidth, qrHeight, (template.qr_size_mm || 15) * zoomLevel);
 
-          // Timing patterns
-          const isTimingPattern =
-            (row === 6 && col >= 8 && col <= 16) || (col === 6 && row >= 8 && row <= 16);
+    // Ensure qrSize is a valid number
+    const validQrSize = Math.max(20, Math.floor(Number(qrSize) || 20));
 
-          // Data pattern (pseudo-random)
-          const isData =
-            !isFinderPattern &&
-            !isTimingPattern &&
-            ((row + col) % 3 === 0 || (row * col + row + col) % 5 === 0);
-
-          const shouldBeFilled = isFinderPattern || isTimingPattern || isData;
-
-          return (
-            <div
-              key={i}
-              style={{
-                backgroundColor: shouldBeFilled ? "#000" : "#fff",
-                width: "100%",
-                height: "100%",
-              }}
-            />
-          );
-        })}
-
-        {/* Finder pattern squares */}
-        {[
-          { top: 0, left: 0 },
-          { top: 0, right: 0 },
-          { bottom: 0, left: 0 },
-        ].map((pos, idx) => (
-          <div
-            key={idx}
-            style={{
-              position: "absolute",
-              width: "28%",
-              height: "28%",
-              border: "8% solid #000",
-              backgroundColor: "#fff",
-              ...pos,
-            }}
-          >
-            <div
-              style={{
-                width: "35%",
-                height: "35%",
-                backgroundColor: "#000",
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-              }}
-            />
-          </div>
-        ))}
+    return (
+      <div style={qrStyle}>
+        <QRCodeComponent
+          value={qrToken}
+          size={validQrSize}
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            width: `${validQrSize}px`,
+            height: `${validQrSize}px`,
+          }}
+        />
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderField = (field: LabelTemplateField) => {
     const isSelected = selectedField?.id === field.id;
-    const labelPosition = field.label_position || "inside-top-left";
     const hasLabel = field.show_label && field.label_text;
 
     // Calculate label space requirements
-    const labelFontSize = (field.label_font_size || 10) * zoomLevel;
-    const labelSpace = hasLabel ? labelFontSize + 4 * zoomLevel : 0; // font size + padding
+    const labelSpace = hasLabel ? 12 * zoomLevel : 0; // Default label size + padding
 
     const getFieldWithLabelStyle = () => {
       const baseStyle = getFieldStyle(field, isSelected);
@@ -407,7 +353,9 @@ export function InteractiveLabelCanvas({
 
                 {template.show_additional_info && template.fields && template.fields.length > 0 && (
                   <div style={fieldsContainerStyle}>
-                    {template.fields.sort((a, b) => a.sort_order - b.sort_order).map(renderField)}
+                    {template.fields
+                      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                      .map(renderField)}
                   </div>
                 )}
 

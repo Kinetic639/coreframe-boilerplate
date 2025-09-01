@@ -1,11 +1,11 @@
-import { Metadata } from "next";
+"use client";
+
+import { useSearchParams } from "next/navigation";
 import { WYSIWYGLabelCreator } from "@/modules/warehouse/components/labels/WYSIWYGLabelCreator";
 
-export const metadata: Metadata = {
-  title: "Kreator etykiet - Magazyn",
-  description: "Projektuj etykiety w trybie WYSIWYG z interaktywnym podglądem",
-};
-
 export default function Page() {
-  return <WYSIWYGLabelCreator />;
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get("templateId");
+
+  return <WYSIWYGLabelCreator templateId={templateId || undefined} />;
 }

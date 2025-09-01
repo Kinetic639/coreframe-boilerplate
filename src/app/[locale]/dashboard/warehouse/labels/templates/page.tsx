@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Edit, Trash2, Copy, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import type { LabelTemplate } from "@/lib/types/qr-system";
-import { LabelPreview } from "@/modules/warehouse/components/labels/LabelPreview";
-import { generateQRToken } from "@/lib/utils/qr-generator";
+import { TemplateMiniature } from "@/modules/warehouse/components/labels/TemplateMiniature";
+import { TemplatePreview } from "@/modules/warehouse/components/labels/TemplatePreview";
 
 interface TemplateWithPreview extends LabelTemplate {
   usage_count?: number;
@@ -36,15 +36,11 @@ export default function LabelTemplatesPage() {
       if (data.success) {
         setTemplates(data.templates);
       } else {
-        toast.error("Błąd podczas pobierania szablonów", {
-          description: data.error || "Spróbuj ponownie",
-        });
+        toast.error(`Błąd podczas pobierania szablonów: ${data.error || "Spróbuj ponownie"}`);
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
-      toast.error("Błąd podczas pobierania szablonów", {
-        description: "Sprawdź połączenie i spróbuj ponownie",
-      });
+      toast.error("Błąd podczas pobierania szablonów. Sprawdź połączenie i spróbuj ponownie");
     } finally {
       setIsLoading(false);
     }
@@ -55,9 +51,9 @@ export default function LabelTemplatesPage() {
     setShowPreview(true);
   };
 
-  const handleEditTemplate = (template: TemplateWithPreview) => {
-    // Navigate to edit page with template ID using Next.js router
-    router.push(`/dashboard/warehouse/labels/templates/edit/${template.id}`);
+  const handleUseTemplate = (template: TemplateWithPreview) => {
+    // Navigate to creator with template ID to load the template
+    router.push(`/dashboard/warehouse/labels/create?templateId=${template.id}`);
   };
 
   const handleCloneTemplate = async (template: TemplateWithPreview) => {
@@ -84,18 +80,16 @@ export default function LabelTemplatesPage() {
 
       const data = await response.json();
       if (data.success) {
-        toast.success("Szablon został sklonowany!", {
-          description: "Nowy szablon został utworzony na podstawie wybranego",
-        });
+        toast.success(
+          "Szablon został sklonowany! Nowy szablon został utworzony na podstawie wybranego"
+        );
         fetchTemplates(); // Refresh the list
       } else {
         throw new Error(data.error);
       }
     } catch (error) {
       console.error("Error cloning template:", error);
-      toast.error("Błąd podczas klonowania szablonu", {
-        description: "Spróbuj ponownie",
-      });
+      toast.error("Błąd podczas klonowania szablonu. Spróbuj ponownie");
     }
   };
 
@@ -118,9 +112,7 @@ export default function LabelTemplatesPage() {
       }
     } catch (error) {
       console.error("Error deleting template:", error);
-      toast.error("Błąd podczas usuwania szablonu", {
-        description: "Spróbuj ponownie",
-      });
+      toast.error("Błąd podczas usuwania szablonu. Spróbuj ponownie");
     }
   };
 
@@ -147,9 +139,9 @@ export default function LabelTemplatesPage() {
         </div>
         <div className="flex gap-2">
           <Button asChild>
-            <Link href="/dashboard/warehouse/labels/templates/create">
+            <Link href="/dashboard/warehouse/labels/create">
               <Plus className="mr-2 h-4 w-4" />
-              Nowy Szablon
+              Stwórz szablon w kreatorze
             </Link>
           </Button>
         </div>
@@ -203,16 +195,12 @@ export default function LabelTemplatesPage() {
 
                 {/* Preview Area */}
                 <div className="flex min-h-[80px] items-center justify-center rounded-lg bg-muted/30 p-4">
-                  <div
-                    className="flex cursor-pointer items-center justify-center border-2 border-dashed border-muted-foreground/30 bg-white text-xs text-muted-foreground transition-colors hover:bg-muted/10"
-                    style={{
-                      width: `${Math.min(Number(template.width_mm) * 2, 80)}px`,
-                      height: `${Math.min(Number(template.height_mm) * 2, 50)}px`,
-                    }}
+                  <TemplateMiniature
+                    template={template}
+                    width={Math.min(Number(template.width_mm) * 2, 80)}
+                    height={Math.min(Number(template.height_mm) * 2, 50)}
                     onClick={() => handlePreviewTemplate(template)}
-                  >
-                    Kliknij dla podglądu
-                  </div>
+                  />
                 </div>
 
                 {/* Actions */}
@@ -226,17 +214,15 @@ export default function LabelTemplatesPage() {
                     <Eye className="mr-2 h-4 w-4" />
                     Podgląd
                   </Button>
-                  {!template.is_system && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleEditTemplate(template)}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edytuj
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleUseTemplate(template)}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Użyj
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -273,18 +259,7 @@ export default function LabelTemplatesPage() {
                 </Button>
               </div>
 
-              <LabelPreview
-                data={{
-                  qrToken: generateQRToken(),
-                  displayText:
-                    selectedTemplate.label_type === "location"
-                      ? "Przykładowa Lokalizacja"
-                      : "Przykładowy Produkt",
-                  codeText: selectedTemplate.label_type === "location" ? "LOC-001" : "PRD-001",
-                  template: selectedTemplate,
-                }}
-                showControls={true}
-              />
+              <TemplatePreview template={selectedTemplate} />
             </div>
           </div>
         </div>
@@ -305,9 +280,9 @@ export default function LabelTemplatesPage() {
                 </p>
               </div>
               <Button asChild>
-                <Link href="/dashboard/warehouse/labels/templates/create">
+                <Link href="/dashboard/warehouse/labels/create">
                   <Plus className="mr-2 h-4 w-4" />
-                  Stwórz pierwszy szablon
+                  Stwórz pierwszy szablon w kreatorze
                 </Link>
               </Button>
             </div>
@@ -331,9 +306,9 @@ export default function LabelTemplatesPage() {
                 </p>
               </div>
               <Button asChild>
-                <Link href="/dashboard/warehouse/labels/templates/create">
+                <Link href="/dashboard/warehouse/labels/create">
                   <Plus className="mr-2 h-4 w-4" />
-                  Rozpocznij tworzenie
+                  Rozpocznij tworzenie w kreatorze
                 </Link>
               </Button>
             </div>

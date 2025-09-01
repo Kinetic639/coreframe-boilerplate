@@ -139,22 +139,43 @@ export async function POST(request: NextRequest) {
       width_mm,
       height_mm,
       dpi = 300,
-      template_config = {},
       qr_position = "center",
       qr_size_mm = 15,
       show_label_text = true,
       label_text_position = "bottom",
       label_text_size = 12,
       show_code = false,
-      layout_direction = "column",
+      layout_direction = "row",
       section_balance = "equal",
+      orientation = "portrait",
+      show_additional_info = true,
+      additional_info_position = "bottom",
       background_color = "#FFFFFF",
       text_color = "#000000",
       border_enabled = true,
       border_width = 0.5,
       border_color = "#000000",
       is_default = false,
+      fields = [],
+      // Additional fields that go into template_config
+      field_vertical_gap = 2,
+      label_padding_top = 2,
+      label_padding_right = 2,
+      label_padding_bottom = 2,
+      label_padding_left = 2,
+      items_alignment = "center",
     } = body;
+
+    // Build template_config with additional properties that don't have dedicated columns
+    const template_config = {
+      ...body.template_config,
+      field_vertical_gap,
+      label_padding_top,
+      label_padding_right,
+      label_padding_bottom,
+      label_padding_left,
+      items_alignment,
+    };
 
     // Validate required fields
     if (!name || !label_type || !width_mm || !height_mm) {
@@ -209,6 +230,9 @@ export async function POST(request: NextRequest) {
         show_code,
         layout_direction,
         section_balance,
+        orientation,
+        show_additional_info,
+        additional_info_position,
         background_color,
         text_color,
         border_enabled,
@@ -228,6 +252,42 @@ export async function POST(request: NextRequest) {
         { success: false, error: "Failed to create template" },
         { status: 500 }
       );
+    }
+
+    // Save template fields if any
+    if (fields && fields.length > 0) {
+      const fieldsToInsert = fields.map((field: any) => ({
+        label_template_id: template.id,
+        field_type: field.field_type,
+        field_name: field.field_name,
+        field_value: field.field_value || null,
+        position_x: field.position_x || 0,
+        position_y: field.position_y || 0,
+        width_mm: field.width_mm || 20,
+        height_mm: field.height_mm || 10,
+        font_size: field.font_size || 12,
+        font_weight: field.font_weight || "normal",
+        text_align: field.text_align || "left",
+        vertical_align: field.vertical_align || "top",
+        show_label: field.show_label || false,
+        label_text: field.label_text || null,
+        is_required: field.is_required || false,
+        sort_order: field.sort_order || 0,
+        text_color: field.text_color || "#000000",
+        background_color: field.background_color || "transparent",
+        border_enabled: field.border_enabled || false,
+        border_width: field.border_width || 0.5,
+        border_color: field.border_color || "#000000",
+      }));
+
+      const { error: fieldsError } = await supabase
+        .from("label_template_fields")
+        .insert(fieldsToInsert);
+
+      if (fieldsError) {
+        console.error("Error creating template fields:", fieldsError);
+        // Don't fail the whole request, just log the error
+      }
     }
 
     return NextResponse.json({
