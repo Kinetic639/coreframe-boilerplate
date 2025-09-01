@@ -44,8 +44,17 @@ export interface LabelTemplateField {
   // Field behavior
   show_label?: boolean | null;
   label_text?: string | null;
+  label_position?: string | null;
+  label_color?: string | null;
+  label_font_size?: number | null;
   is_required?: boolean | null;
   sort_order?: number | null;
+
+  // Padding (individual field padding)
+  padding_top?: number | null;
+  padding_right?: number | null;
+  padding_bottom?: number | null;
+  padding_left?: number | null;
 
   // Styling
   text_color?: string | null;

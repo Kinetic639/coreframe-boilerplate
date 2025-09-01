@@ -14,6 +14,19 @@ export function TemplatePreview({ template, className = "" }: TemplatePreviewPro
   // Add sample data to template for preview
   const previewTemplate: LabelTemplate = {
     ...template,
+    // Ensure all required properties are present
+    field_vertical_gap:
+      template.field_vertical_gap || (template.template_config as any)?.field_vertical_gap || 2,
+    label_padding_top:
+      template.label_padding_top || (template.template_config as any)?.label_padding_top || 2,
+    label_padding_right:
+      template.label_padding_right || (template.template_config as any)?.label_padding_right || 2,
+    label_padding_bottom:
+      template.label_padding_bottom || (template.template_config as any)?.label_padding_bottom || 2,
+    label_padding_left:
+      template.label_padding_left || (template.template_config as any)?.label_padding_left || 2,
+    items_alignment:
+      template.items_alignment || (template.template_config as any)?.items_alignment || "center",
     fields:
       template.fields?.map((field, index) => ({
         ...field,
@@ -47,7 +60,12 @@ export function TemplatePreview({ template, className = "" }: TemplatePreviewPro
       <Card className="p-6">
         <div className="flex justify-center">
           <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <InteractiveLabelCanvas template={previewTemplate} viewMode="preview" />
+            <InteractiveLabelCanvas
+              template={previewTemplate}
+              viewMode="preview"
+              selectedField={null}
+              onFieldSelect={() => {}}
+            />
           </div>
         </div>
       </Card>
