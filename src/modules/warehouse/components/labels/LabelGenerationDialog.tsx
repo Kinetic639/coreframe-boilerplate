@@ -13,13 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, Download, FileText, QrCode, MapPin } from "lucide-react";
 import { LabelTemplate } from "@/lib/types/qr-system";
-import { LabelGenerator, LabelGenerationOptions } from "@/lib/utils/label-generator";
 import { useLabelCreatorStore } from "@/lib/stores/label-creator-store";
 import { toast } from "react-toastify";
+import {
+  GeneratePdfPayload,
+  PAGE_PRESETS,
+  convertToPDFTemplate,
+  convertToPDFFields,
+} from "@/lib/labels/types";
 
 interface LabelGenerationDialogProps {
   templates?: LabelTemplate[];
@@ -40,7 +52,11 @@ export function LabelGenerationDialog({
 }: LabelGenerationDialogProps) {
   // Get the current template from the store if no currentTemplate is provided
   const { currentTemplate: storeTemplate } = useLabelCreatorStore();
+  console.log("DEBUG: Store template:", storeTemplate);
+  console.log("DEBUG: Store template fields:", storeTemplate?.fields);
   const templateToUse = currentTemplate || storeTemplate;
+  console.log("DEBUG: Final templateToUse:", templateToUse);
+  console.log("DEBUG: Final templateToUse fields:", templateToUse?.fields);
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const handleClose = () => {
@@ -63,6 +79,7 @@ export function LabelGenerationDialog({
     templateToUse?.label_type === "location" ? "location" : defaultType
   );
   const [quantity, setQuantity] = useState(10);
+  const [pagePreset, setPagePreset] = useState<keyof typeof PAGE_PRESETS>("A4_CUSTOM_2x5");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -79,49 +96,121 @@ export function LabelGenerationDialog({
     setIsGenerating(true);
 
     try {
-      const labelGenerator = new LabelGenerator();
+      // Konwertuj template na format PDF zachowując wszystkie opcje kreatora
+      console.log("DEBUG: selectedTemplate before conversion:", selectedTemplate);
+      console.log("DEBUG: selectedTemplate.fields:", selectedTemplate.fields);
+      const pdfTemplate = convertToPDFTemplate(selectedTemplate);
+      pdfTemplate.fields = convertToPDFFields(selectedTemplate.fields);
+      console.log("DEBUG: pdfTemplate after conversion:", pdfTemplate);
+      console.log("DEBUG: pdfTemplate.fields after conversion:", pdfTemplate.fields);
 
-      const options: LabelGenerationOptions = {
-        template: selectedTemplate,
-        quantity,
-        labelType,
+      // Generuj dane etykiet - każda ma unikalny QR kod
+      const labelsData = Array.from({ length: quantity }, (_, index) => {
+        const qrToken = `qr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${index}`;
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
+        let qrUrl: string;
+        if (labelType === "product") {
+          qrUrl = `${baseUrl}/dashboard/warehouse/products/scan/${qrToken}`;
+        } else if (labelType === "location") {
+          qrUrl = `${baseUrl}/dashboard/warehouse/locations/scan/${qrToken}`;
+        } else {
+          qrUrl = `${baseUrl}/qr/${qrToken}`;
+        }
+
+        return {
+          name: `${labelType === "product" ? "Produkt" : "Lokalizacja"} ${index + 1}`,
+          qr: qrUrl,
+          qrData: qrUrl,
+          qr_token: qrToken,
+          type: labelType,
+          sku: `${labelType.toUpperCase()}-${String(index + 1).padStart(3, "0")}`,
+          code: qrToken.substr(-8).toUpperCase(),
+          barcode: `590123412345${String(index).padStart(1, "0")}`, // Przykładowy EAN13
+          index: index + 1,
+          generated_at: new Date().toISOString(),
+        };
+      });
+
+      // Przygotuj payload dla API
+      const payload: GeneratePdfPayload = {
+        template: pdfTemplate,
+        data: labelsData,
+        pagePreset: PAGE_PRESETS[pagePreset],
+        fontFamily: "Inter",
+        embedFonts: true,
+        debug: false, // Można ustawić na true dla debugowania
       };
 
-      const { pdf, labelsData } = await labelGenerator.generateLabelPDF(options);
+      console.log("Generating PDF with payload:", {
+        template: pdfTemplate.name,
+        dataCount: labelsData.length,
+        pagePreset: pagePreset,
+      });
 
-      // Save QR labels to database
-      await saveLabelsToDatabase(labelsData, selectedTemplate.id);
+      // Wywołaj API do generowania PDF
+      const response = await fetch("/api/labels/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-      // Download PDF
-      const filename = `${labelType}_labels_${Date.now()}.pdf`;
-      await labelGenerator.downloadPDF(pdf, filename);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      // Pobierz PDF jako blob
+      const pdfBlob = await response.blob();
+
+      // Utwórz link do pobierania
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${labelType}_etykiety_${quantity}_${Date.now()}.pdf`;
+
+      // Automatycznie pobierz plik
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Wyczyść URL
+      window.URL.revokeObjectURL(url);
+
+      // Opcjonalnie: zapisz informacje o wygenerowanych etykietach
+      await saveLabelBatch(labelsData, selectedTemplate.id, labelType);
 
       toast.success(
-        `Wygenerowano ${quantity} etykiet typu ${labelType === "product" ? "produkty" : "lokalizacje"}`
+        `Wygenerowano ${quantity} etykiet typu "${labelType === "product" ? "produkty" : "lokalizacje"}" w formacie PDF`
       );
 
       handleClose();
     } catch (error) {
       console.error("Error generating labels:", error);
-      toast.error("Wystąpił błąd podczas generowania etykiet");
+      toast.error(
+        `Wystąpił błąd podczas generowania etykiet: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const saveLabelsToDatabase = async (
-    labelsData: {
-      qrToken: string;
-      qrUrl: string;
-      name?: string;
-      additionalData?: Record<string, string | number | boolean>;
-    }[],
-    templateId: string
-  ) => {
-    // TODO: Implement saving labels to Supabase
-    // This will be implemented in the next step
-    void labelsData; // Suppress unused warning
-    void templateId; // Suppress unused warning
+  // Funkcja do zapisywania batch'a etykiet do bazy
+  const saveLabelBatch = async (labelsData: any[], templateId: string, labelType: string) => {
+    try {
+      // TODO: Implement saving to Supabase when extended schema is ready
+      console.log("Would save label batch:", {
+        templateId,
+        labelType,
+        count: labelsData.length,
+        firstLabel: labelsData[0],
+      });
+    } catch (error) {
+      console.warn("Failed to save label batch:", error);
+      // Nie przerywamy procesu generowania z powodu błędu zapisu
+    }
   };
 
   const getTemplatesByType = () => {
@@ -275,6 +364,30 @@ export function LabelGenerationDialog({
             )}
           </div>
 
+          {/* Page Preset Selection */}
+          <div className="space-y-3">
+            <Label>Format strony</Label>
+            <Select
+              value={pagePreset}
+              onValueChange={(value) => setPagePreset(value as keyof typeof PAGE_PRESETS)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PAGE_PRESETS).map(([key, preset]) => (
+                  <SelectItem key={key} value={key}>
+                    {preset.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Wybierz format strony dla etykiet. Arkusze A4 zawierają wiele etykiet, rolki - jedną
+              na stronę.
+            </p>
+          </div>
+
           {/* Quantity Selection */}
           <div className="space-y-3">
             <Label htmlFor="quantity">Liczba etykiet</Label>
@@ -329,13 +442,17 @@ export function LabelGenerationDialog({
                   </span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Format:</span>
+                  <span>{PAGE_PRESETS[pagePreset].name}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Ilość:</span>
                   <span>{quantity} etykiet</span>
                 </div>
                 <Separator />
                 <div className="text-xs text-muted-foreground">
-                  Zostanie wygenerowany plik PDF z etykietami gotowymi do druku. Każda etykieta
-                  będzie zawierać unikalny kod QR.
+                  Zostanie wygenerowany plik PDF z etykietami w dokładnych wymiarach mm, gotowy do
+                  druku bez skalowania. Każda etykieta będzie zawierać unikalny kod QR.
                 </div>
               </CardContent>
             </Card>

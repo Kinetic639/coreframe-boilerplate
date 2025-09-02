@@ -71,7 +71,6 @@ const createDefaultTemplate = (): LabelTemplate => ({
   border_enabled: true,
   border_width: 0.5,
   border_color: "#000000",
-  field_vertical_gap: 2,
   label_padding_top: 2,
   label_padding_right: 2,
   label_padding_bottom: 2,
@@ -115,6 +114,38 @@ export const useLabelCreatorStore = create<LabelCreatorState>((set, get) => ({
     const state = get();
     const fieldCount = state.currentTemplate.fields?.length || 0;
     const newFieldCount = fieldCount + 1;
+    const template = state.currentTemplate;
+    const qrSize = template.qr_size_mm || 15;
+
+    // Calculate available space for fields based on QR position
+    let fieldX = 2;
+    let fieldY = 2;
+    let fieldWidth = template.width_mm - 4;
+
+    // Adjust position based on QR code position to avoid overlap
+    if (
+      template.qr_position === "left" ||
+      template.qr_position === "top-left" ||
+      template.qr_position === "bottom-left"
+    ) {
+      fieldX = qrSize + 4;
+      fieldWidth = template.width_mm - qrSize - 6;
+    } else if (
+      template.qr_position === "right" ||
+      template.qr_position === "top-right" ||
+      template.qr_position === "bottom-right"
+    ) {
+      fieldWidth = template.width_mm - qrSize - 6;
+    }
+
+    // Stack fields vertically with proper spacing
+    if (template.qr_position === "top-left" || template.qr_position === "top-right") {
+      fieldY = Math.max(qrSize + 4, fieldCount * 6 + 2);
+    } else if (template.qr_position === "bottom-left" || template.qr_position === "bottom-right") {
+      fieldY = fieldCount * 6 + 2;
+    } else {
+      fieldY = fieldCount * 6 + 2;
+    }
 
     const newField: LabelTemplateField = {
       id: uuidv4(),
@@ -122,9 +153,9 @@ export const useLabelCreatorStore = create<LabelCreatorState>((set, get) => ({
       field_type: fieldType,
       field_name: `Field ${newFieldCount}`,
       field_value: fieldType === "text" ? "Sample text" : null,
-      position_x: 0, // Not used in CSS layout
-      position_y: 0, // Not used in CSS layout
-      width_mm: 30, // Default width, not used in CSS layout
+      position_x: fieldX,
+      position_y: fieldY,
+      width_mm: Math.max(fieldWidth, 10),
       height_mm: 4,
       font_size: 10,
       font_weight: "normal",
