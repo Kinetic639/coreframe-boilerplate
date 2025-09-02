@@ -30,6 +30,18 @@ export class LabelGenerator {
     return `qr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  private generateQRUrl(qrToken: string, labelType: "product" | "location"): string {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    if (labelType === "product") {
+      return `${baseUrl}/dashboard/warehouse/products/scan/${qrToken}`;
+    } else if (labelType === "location") {
+      return `${baseUrl}/dashboard/warehouse/locations/scan/${qrToken}`;
+    } else {
+      return `${baseUrl}/qr/${qrToken}`;
+    }
+  }
+
   async generateLabelPDF(options: LabelGenerationOptions): Promise<{
     pdf: jsPDF;
     labelsData: GeneratedLabelData[];
@@ -37,7 +49,17 @@ export class LabelGenerator {
     const { template, quantity, labelType, labelsData } = options;
 
     // Generate labels data if not provided
-    const labels: GeneratedLabelData[] = labelsData || this.generateLabelsData(quantity, labelType);
+    let labels: GeneratedLabelData[];
+    if (labelsData) {
+      labels = labelsData.map((item) => ({
+        qrToken: item.qrToken,
+        qrUrl: item.qrUrl || this.generateQRUrl(item.qrToken, labelType),
+        name: item.name,
+        additionalData: item.additionalData,
+      }));
+    } else {
+      labels = this.generateLabelsData(quantity, labelType);
+    }
 
     // Create PDF
     const pdf = new jsPDF({
@@ -92,11 +114,10 @@ export class LabelGenerator {
     labelType: "product" | "location"
   ): GeneratedLabelData[] {
     const labels: GeneratedLabelData[] = [];
-    const labelHost = process.env.NEXT_PUBLIC_LABEL_HOST || "http://localhost:3000";
 
     for (let i = 0; i < quantity; i++) {
       const qrToken = this.generateQRToken();
-      const qrUrl = `${labelHost}/qr/${qrToken}`;
+      const qrUrl = this.generateQRUrl(qrToken, labelType);
 
       labels.push({
         qrToken,
@@ -105,6 +126,7 @@ export class LabelGenerator {
         additionalData: {
           type: labelType,
           generated_at: new Date().toISOString(),
+          index: i + 1,
         },
       });
     }
@@ -123,23 +145,23 @@ export class LabelGenerator {
     const labelHeight = this.mmToPt(template.height_mm);
 
     // Draw background
-    if (template.background_color !== "#FFFFFF") {
+    if (template.background_color && template.background_color !== "#FFFFFF") {
       pdf.setFillColor(template.background_color);
       pdf.rect(x, y, labelWidth, labelHeight, "F");
     }
 
     // Draw border
-    if (template.border_enabled) {
+    if (template.border_enabled && template.border_color && template.border_width) {
       pdf.setDrawColor(template.border_color);
       pdf.setLineWidth(template.border_width);
       pdf.rect(x, y, labelWidth, labelHeight);
     }
 
-    // Use flexbox-like layout approach
-    await this.drawLabelWithFlexLayout(pdf, template, labelData, x, y);
+    // Use simple positioning approach like the preview canvas
+    await this.drawLabelWithSimpleLayout(pdf, template, labelData, x, y);
   }
 
-  private async drawLabelWithFlexLayout(
+  private async drawLabelWithSimpleLayout(
     pdf: jsPDF,
     template: LabelTemplate,
     labelData: GeneratedLabelData,
@@ -149,144 +171,90 @@ export class LabelGenerator {
     const labelWidth = this.mmToPt(template.width_mm);
     const labelHeight = this.mmToPt(template.height_mm);
 
-    // Apply padding to content area
-    const paddingTop = this.mmToPt(template.label_padding_top || 2);
-    const paddingRight = this.mmToPt(template.label_padding_right || 2);
-    const paddingBottom = this.mmToPt(template.label_padding_bottom || 2);
-    const paddingLeft = this.mmToPt(template.label_padding_left || 2);
-
-    const contentWidth = labelWidth - paddingLeft - paddingRight;
-    const contentHeight = labelHeight - paddingTop - paddingBottom;
-    const contentX = baseX + paddingLeft;
-    const contentY = baseY + paddingTop;
-
-    // Generate and position QR code and fields based on layout direction
-    const qrSize = this.mmToPt(template.qr_size_mm);
-    const fieldVerticalGap = this.mmToPt(template.field_vertical_gap || 2);
-
-    // Calculate field heights
-    const fieldHeight = this.mmToPt(4); // Default field height
-    const totalFields = template.fields?.length || 0;
-    const totalFieldHeight =
-      totalFields > 0 ? totalFields * fieldHeight + (totalFields - 1) * fieldVerticalGap : 0;
-
-    let qrX: number, qrY: number;
-    let fieldsX: number, fieldsY: number;
-    let fieldsWidth: number, fieldsHeight: number;
-
-    const layoutDirection = template.layout_direction || "row";
-    const itemsAlignment = template.items_alignment || "center";
-
     if (!template.show_additional_info) {
       // QR-only label - center the QR code
-      qrX = contentX + (contentWidth - qrSize) / 2;
-      qrY = contentY + (contentHeight - qrSize) / 2;
+      const margin = this.mmToPt(2);
+      const availableSize = Math.min(labelWidth, labelHeight) - margin * 2;
+      const qrSize = Math.min(availableSize, this.mmToPt(template.qr_size_mm));
+
+      const qrX = baseX + (labelWidth - qrSize) / 2;
+      const qrY = baseY + (labelHeight - qrSize) / 2;
       await this.drawQRCodeAt(pdf, labelData, qrX, qrY, qrSize);
       return;
     }
 
-    // Layout with QR code and fields
-    switch (layoutDirection) {
-      case "row": // QR left, fields right
-        qrX = contentX;
-        fieldsX = qrX + qrSize + this.mmToPt(2); // 2mm gap
-        fieldsWidth = contentWidth - qrSize - this.mmToPt(2);
+    // Draw QR code using the same positioning logic as preview canvas
+    await this.drawQRCodeSimple(pdf, template, labelData, baseX, baseY);
 
-        // Vertical alignment
-        if (itemsAlignment === "start") {
-          qrY = contentY;
-          fieldsY = contentY;
-        } else if (itemsAlignment === "end") {
-          qrY = contentY + contentHeight - qrSize;
-          fieldsY = contentY + contentHeight - totalFieldHeight;
-        } else {
-          // center
-          qrY = contentY + (contentHeight - qrSize) / 2;
-          fieldsY = contentY + (contentHeight - totalFieldHeight) / 2;
-        }
-        fieldsHeight = totalFieldHeight;
+    // Draw fields using absolute positioning from template
+    if (template.fields) {
+      for (const field of template.fields) {
+        await this.drawFieldSimple(pdf, field, labelData, baseX, baseY);
+      }
+    }
+  }
+
+  private async drawQRCodeSimple(
+    pdf: jsPDF,
+    template: LabelTemplate,
+    labelData: GeneratedLabelData,
+    baseX: number,
+    baseY: number
+  ): Promise<void> {
+    const qrSize = this.mmToPt(template.qr_size_mm);
+    let qrX = baseX;
+    let qrY = baseY;
+
+    // Position QR code based on qr_position (matching preview canvas logic)
+    const position = template.qr_position || "left";
+    switch (position) {
+      case "top-left":
+        qrX = baseX + this.mmToPt(2);
+        qrY = baseY + this.mmToPt(2);
         break;
-
-      case "row-reverse": // QR right, fields left
-        fieldsX = contentX;
-        fieldsWidth = contentWidth - qrSize - this.mmToPt(2);
-        qrX = fieldsX + fieldsWidth + this.mmToPt(2);
-
-        // Vertical alignment
-        if (itemsAlignment === "start") {
-          qrY = contentY;
-          fieldsY = contentY;
-        } else if (itemsAlignment === "end") {
-          qrY = contentY + contentHeight - qrSize;
-          fieldsY = contentY + contentHeight - totalFieldHeight;
-        } else {
-          // center
-          qrY = contentY + (contentHeight - qrSize) / 2;
-          fieldsY = contentY + (contentHeight - totalFieldHeight) / 2;
-        }
-        fieldsHeight = totalFieldHeight;
+      case "top-right":
+        qrX = baseX + this.mmToPt(template.width_mm) - qrSize - this.mmToPt(2);
+        qrY = baseY + this.mmToPt(2);
         break;
-
-      case "column": // QR top, fields bottom
-        qrY = contentY;
-        fieldsY = qrY + qrSize + this.mmToPt(2); // 2mm gap
-        fieldsHeight = contentHeight - qrSize - this.mmToPt(2);
-
-        // Horizontal alignment
-        if (itemsAlignment === "start") {
-          qrX = contentX;
-          fieldsX = contentX;
-        } else if (itemsAlignment === "end") {
-          qrX = contentX + contentWidth - qrSize;
-          fieldsX = contentX;
-        } else {
-          // center
-          qrX = contentX + (contentWidth - qrSize) / 2;
-          fieldsX = contentX;
-        }
-        fieldsWidth = contentWidth;
+      case "bottom-left":
+        qrX = baseX + this.mmToPt(2);
+        qrY = baseY + this.mmToPt(template.height_mm) - qrSize - this.mmToPt(2);
         break;
-
-      case "column-reverse": // QR bottom, fields top
-        fieldsY = contentY;
-        fieldsHeight = contentHeight - qrSize - this.mmToPt(2);
-        qrY = fieldsY + fieldsHeight + this.mmToPt(2);
-
-        // Horizontal alignment
-        if (itemsAlignment === "start") {
-          qrX = contentX;
-          fieldsX = contentX;
-        } else if (itemsAlignment === "end") {
-          qrX = contentX + contentWidth - qrSize;
-          fieldsX = contentX;
-        } else {
-          // center
-          qrX = contentX + (contentWidth - qrSize) / 2;
-          fieldsX = contentX;
-        }
-        fieldsWidth = contentWidth;
+      case "bottom-right":
+        qrX = baseX + this.mmToPt(template.width_mm) - qrSize - this.mmToPt(2);
+        qrY = baseY + this.mmToPt(template.height_mm) - qrSize - this.mmToPt(2);
         break;
-
+      case "left":
+        qrX = baseX + this.mmToPt(2);
+        qrY = baseY + (this.mmToPt(template.height_mm) - qrSize) / 2;
+        break;
+      case "right":
+        qrX = baseX + this.mmToPt(template.width_mm) - qrSize - this.mmToPt(2);
+        qrY = baseY + (this.mmToPt(template.height_mm) - qrSize) / 2;
+        break;
+      case "center":
       default:
-        return;
+        qrX = baseX + (this.mmToPt(template.width_mm) - qrSize) / 2;
+        qrY = baseY + (this.mmToPt(template.height_mm) - qrSize) / 2;
+        break;
     }
 
-    // Draw QR code
     await this.drawQRCodeAt(pdf, labelData, qrX, qrY, qrSize);
+  }
 
-    // Draw fields
-    if (template.fields && template.fields.length > 0) {
-      await this.drawFieldsVertically(
-        pdf,
-        template.fields,
-        labelData,
-        fieldsX,
-        fieldsY,
-        fieldsWidth,
-        fieldsHeight,
-        fieldVerticalGap
-      );
-    }
+  private async drawFieldSimple(
+    pdf: jsPDF,
+    field: LabelTemplateField,
+    labelData: GeneratedLabelData,
+    baseX: number,
+    baseY: number
+  ): Promise<void> {
+    const fieldX = baseX + this.mmToPt(field.position_x);
+    const fieldY = baseY + this.mmToPt(field.position_y);
+    const fieldWidth = this.mmToPt(field.width_mm);
+    const fieldHeight = this.mmToPt(field.height_mm);
+
+    await this.drawFieldAt(pdf, field, labelData, fieldX, fieldY, fieldWidth, fieldHeight);
   }
 
   private async drawQRCodeAt(
@@ -359,13 +327,13 @@ export class LabelGenerator {
     fieldHeight: number
   ): Promise<void> {
     // Draw field background
-    if (field.background_color !== "transparent") {
+    if (field.background_color && field.background_color !== "transparent") {
       pdf.setFillColor(field.background_color);
       pdf.rect(fieldX, fieldY, fieldWidth, fieldHeight, "F");
     }
 
     // Draw field border
-    if (field.border_enabled) {
+    if (field.border_enabled && field.border_color && field.border_width) {
       pdf.setDrawColor(field.border_color);
       pdf.setLineWidth(field.border_width);
       pdf.rect(fieldX, fieldY, fieldWidth, fieldHeight);
@@ -373,8 +341,8 @@ export class LabelGenerator {
 
     // Draw field content
     if (field.field_type === "text" && field.field_value) {
-      pdf.setTextColor(field.text_color);
-      pdf.setFontSize(field.font_size);
+      pdf.setTextColor(field.text_color || "#000000");
+      pdf.setFontSize(field.font_size || 10);
 
       // Replace template variables
       let displayText = field.field_value;
@@ -383,8 +351,9 @@ export class LabelGenerator {
       displayText = displayText.replace("{type}", labelData.additionalData?.type || "");
 
       // Calculate text position
+      const fontSize = field.font_size || 10;
       let textX = fieldX;
-      let textY = fieldY + field.font_size;
+      let textY = fieldY + fontSize;
 
       // Adjust for alignment
       switch (field.text_align) {
@@ -401,13 +370,13 @@ export class LabelGenerator {
 
       switch (field.vertical_align) {
         case "center":
-          textY = fieldY + fieldHeight / 2 + field.font_size / 3;
+          textY = fieldY + fieldHeight / 2 + fontSize / 3;
           break;
         case "bottom":
           textY = fieldY + fieldHeight - 5;
           break;
         default:
-          textY = fieldY + field.font_size + 2;
+          textY = fieldY + fontSize + 2;
           break;
       }
 
@@ -417,7 +386,7 @@ export class LabelGenerator {
       });
     } else if (field.field_type === "blank") {
       // Draw a line for blank fields
-      pdf.setDrawColor(field.text_color);
+      pdf.setDrawColor(field.text_color || "#000000");
       pdf.setLineWidth(0.5);
       pdf.line(
         fieldX + 5,
@@ -430,7 +399,7 @@ export class LabelGenerator {
     // Draw field label if enabled
     if (field.show_label && field.label_text) {
       pdf.setTextColor("#666666");
-      pdf.setFontSize(Math.max(field.font_size - 2, 8));
+      pdf.setFontSize(Math.max((field.font_size || 10) - 2, 8));
       pdf.text(field.label_text, fieldX, fieldY - 2);
     }
   }

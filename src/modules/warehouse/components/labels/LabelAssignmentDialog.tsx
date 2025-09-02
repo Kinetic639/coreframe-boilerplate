@@ -70,32 +70,6 @@ export function LabelAssignmentDialog({
   const [isAssigning, setIsAssigning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      if (entityId) {
-        // Pre-selected entity, go directly to scan step
-        loadEntity(entityId);
-        setStep("scan");
-      } else if (initialQrToken) {
-        // Pre-scanned QR, go to select step
-        setQrToken(initialQrToken);
-        setStep("select");
-      } else {
-        // Start from scratch
-        setStep("scan");
-      }
-      loadEntities();
-    } else {
-      // Reset state when dialog closes
-      setStep("scan");
-      setQrToken(null);
-      setSelectedEntity(null);
-      setSearchQuery("");
-      setEntities([]);
-      setShowScanner(false);
-    }
-  }, [open, entityId, initialQrToken, loadEntity, loadEntities]);
-
   const loadEntity = useCallback(
     async (id: string) => {
       setLoading(true);
@@ -162,6 +136,32 @@ export function LabelAssignmentDialog({
       setLoading(false);
     }
   }, [entityType]);
+
+  useEffect(() => {
+    if (open) {
+      if (entityId) {
+        // Pre-selected entity, go directly to scan step
+        loadEntity(entityId);
+        setStep("scan");
+      } else if (initialQrToken) {
+        // Pre-scanned QR, go to select step
+        setQrToken(initialQrToken);
+        setStep("select");
+      } else {
+        // Start from scratch
+        setStep("scan");
+      }
+      loadEntities();
+    } else {
+      // Reset state when dialog closes
+      setStep("scan");
+      setQrToken(null);
+      setSelectedEntity(null);
+      setSearchQuery("");
+      setEntities([]);
+      setShowScanner(false);
+    }
+  }, [open, entityId, initialQrToken, loadEntity, loadEntities]);
 
   const handleQRScan = async (scannedToken: string) => {
     setShowScanner(false);
