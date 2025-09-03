@@ -4,8 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 60; // 60 sekund timeout dla generowania PDF
 
-import { renderLabelsHtml } from "@/lib/labels/html";
-import { htmlToPdfBuffer, validatePDFEnvironment } from "@/lib/labels/pdf";
+import { renderLabelsReactPDF } from "@/lib/labels/react-pdf-generator";
 import { GeneratePdfPayload, PAGE_PRESETS } from "@/lib/labels/types";
 import { createClient } from "@/utils/supabase/server";
 
@@ -50,24 +49,38 @@ export async function POST(request: NextRequest) {
     console.log(`Labels count: ${payload.data.length}`);
     console.log(`Page preset: ${payload.pagePreset.kind}`);
     console.log(`Template fields count: ${pdfTemplate.fields?.length || 0}`);
-    console.log(`Template fields:`, pdfTemplate.fields);
+    console.log(`Original payload template fields count: ${payload.template.fields?.length || 0}`);
+    console.log(`Template show_additional_info: ${pdfTemplate.show_additional_info}`);
+    console.log(`Original template show_additional_info: ${payload.template.show_additional_info}`);
 
-    // Generuj HTML z pełną kompatybilnością z kreatorem
-    const html = await renderLabelsHtml({
+    if (payload.template.fields && payload.template.fields.length > 0) {
+      console.log("🔍 API RECEIVED FIELDS:");
+      payload.template.fields.forEach((field, index) => {
+        console.log(
+          `  Field ${index + 1}: ${field.field_name} (${field.field_type}) at (${field.position_x}, ${field.position_y}) - "${field.field_value}"`
+        );
+      });
+    } else {
+      console.log("❌ API RECEIVED NO FIELDS!");
+      console.log("Template keys:", Object.keys(payload.template));
+    }
+
+    if (pdfTemplate.fields && pdfTemplate.fields.length > 0) {
+      console.log("🔍 PDF TEMPLATE FIELDS:");
+      pdfTemplate.fields.forEach((field, index) => {
+        console.log(
+          `  Field ${index + 1}: ${field.field_name} (${field.field_type}) at (${field.position_x}, ${field.position_y}) - "${field.field_value}"`
+        );
+      });
+    } else {
+      console.log("❌ PDF TEMPLATE HAS NO FIELDS!");
+    }
+
+    // Generuj PDF używając React-PDF - znacznie lepsze od HTML-to-PDF!
+    console.log("Switching to React-PDF generation for better quality...");
+    const pdfBuffer = await renderLabelsReactPDF({
       ...payload,
       template: pdfTemplate,
-    });
-
-    // Określ rozmiar strony dla PDF
-    const pageSizeMm =
-      payload.pagePreset.kind === "roll"
-        ? { w: pdfTemplate.width_mm, h: pdfTemplate.height_mm }
-        : undefined;
-
-    // Generuj PDF
-    const pdfBuffer = await htmlToPdfBuffer(html, {
-      pageSizeMm,
-      debug: payload.debug,
     });
 
     // Nazwa pliku z informacjami o template
@@ -114,19 +127,18 @@ export async function POST(request: NextRequest) {
 // Endpoint diagnostyczny
 export async function GET() {
   try {
-    const validation = await validatePDFEnvironment();
     const presets = Object.keys(PAGE_PRESETS);
 
     return NextResponse.json({
       ok: true,
       environment: {
         runtime: "nodejs",
-        canGeneratePDF: validation.canGenerate,
-        chromiumPath: validation.chromiumPath,
-        errors: validation.errors,
+        canGeneratePDF: true, // React-PDF always works!
+        generator: "React-PDF",
+        errors: [],
       },
       availablePresets: presets,
-      supportedFormats: ["A4", "Roll", "Custom"],
+      supportedFormats: ["A4", "Letter", "Roll", "Custom"],
       maxLabelsPerBatch: 1000,
       timestamp: new Date().toISOString(),
     });

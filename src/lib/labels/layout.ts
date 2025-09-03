@@ -263,3 +263,163 @@ export function calculateFieldsArea(
     height: Math.max(fieldsHeight, 10), // min 10mm
   };
 }
+
+// Calculate optimal label dimensions based on content
+export interface LabelField {
+  field_value: string;
+  font_size: number;
+  field_name: string;
+  text_align?: string;
+  width_mm?: number;
+  height_mm?: number;
+}
+
+export function calculateDynamicLabelSize(
+  fields: LabelField[],
+  qrSizeMm: number = 15,
+  layoutDirection: string = "row",
+  paddingMm: number = 2,
+  minWidthMm: number = 50, // Increased minimum width for better readability
+  minHeightMm: number = 30, // Increased minimum height for better readability
+  maxWidthMm: number = 90, // Reduced max to fit better on A4
+  maxHeightMm: number = 60 // Reduced max to fit better on A4
+): { width: number; height: number; fieldsNeedReflow: boolean } {
+  if (!fields || fields.length === 0) {
+    // No fields - just QR + padding
+    return {
+      width: Math.max(qrSizeMm + 2 * paddingMm, minWidthMm),
+      height: Math.max(qrSizeMm + 2 * paddingMm, minHeightMm),
+      fieldsNeedReflow: false,
+    };
+  }
+
+  // Estimate text dimensions (improved calculation for better readability)
+  const estimateTextWidth = (text: string, fontSize: number): number => {
+    // Improved estimation: 0.65 * fontSize per character for better spacing
+    const charWidth = fontSize * 0.65 * 0.352778; // Convert pt to mm
+    const textWidth = text.length * charWidth;
+    // Add some padding for readability and ensure minimum reasonable width
+    return Math.max(textWidth + 4, 20); // Minimum 20mm width for text
+  };
+
+  const estimateTextHeight = (text: string, fontSize: number, maxWidth: number): number => {
+    const charWidth = fontSize * 0.65 * 0.352778;
+    const charsPerLine = Math.floor((maxWidth - 4) / charWidth); // Account for padding
+    const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+    const lineHeight = fontSize * 1.4 * 0.352778; // More generous line height in mm
+    return lines * lineHeight + 2; // Add padding
+  };
+
+  // Calculate content dimensions
+  let maxFieldWidth = 0;
+  let totalFieldHeight = 0;
+  let fieldsNeedReflow = false;
+
+  fields.forEach((field, index) => {
+    const text = field.field_value || field.field_name || "Sample text";
+    const fontSize = field.font_size || 10;
+
+    // If field has explicit dimensions, use them
+    if (field.width_mm && field.height_mm) {
+      maxFieldWidth = Math.max(maxFieldWidth, field.width_mm);
+      totalFieldHeight += field.height_mm;
+      return;
+    }
+
+    // Otherwise calculate based on text
+    const textWidth = estimateTextWidth(text, fontSize);
+    const availableWidth = Math.min(textWidth, maxWidthMm * 0.7); // Leave room for QR
+    const textHeight = estimateTextHeight(text, fontSize, availableWidth);
+
+    maxFieldWidth = Math.max(maxFieldWidth, textWidth);
+    totalFieldHeight += textHeight;
+
+    // Add spacing between fields
+    if (index > 0) {
+      totalFieldHeight += 2; // 2mm spacing
+    }
+
+    // Check if text is too long for reasonable width
+    if (textWidth > maxWidthMm * 0.7) {
+      fieldsNeedReflow = true;
+    }
+  });
+
+  // Calculate label dimensions based on layout
+  let labelWidth: number;
+  let labelHeight: number;
+
+  const direction = layoutDirection || "row";
+
+  if (direction === "row" || direction === "row-reverse") {
+    // Horizontal layout: QR + fields side by side
+    labelWidth = qrSizeMm + maxFieldWidth + 3 * paddingMm;
+    labelHeight = Math.max(qrSizeMm, totalFieldHeight) + 2 * paddingMm;
+  } else {
+    // Vertical layout: QR and fields stacked
+    labelWidth = Math.max(qrSizeMm, maxFieldWidth) + 2 * paddingMm;
+    labelHeight = qrSizeMm + totalFieldHeight + 3 * paddingMm;
+  }
+
+  // Apply constraints
+  labelWidth = Math.max(minWidthMm, Math.min(maxWidthMm, labelWidth));
+  labelHeight = Math.max(minHeightMm, Math.min(maxHeightMm, labelHeight));
+
+  return {
+    width: Math.round(labelWidth),
+    height: Math.round(labelHeight),
+    fieldsNeedReflow,
+  };
+}
+
+// Calculate optimal grid layout for A4 paper
+export function calculateOptimalA4Grid(
+  labelWidthMm: number,
+  labelHeightMm: number,
+  marginMm: number = 8, // Increased margin for better printing
+  gutterMm: number = 3 // Increased gutter for better separation
+): { columns: number; rows: number; fits: boolean; wastedSpace: number } {
+  const A4_WIDTH_MM = 210;
+  const A4_HEIGHT_MM = 297;
+
+  const usableWidth = A4_WIDTH_MM - 2 * marginMm;
+  const usableHeight = A4_HEIGHT_MM - 2 * marginMm;
+
+  // Try different grid configurations (limited to practical ranges)
+  let bestConfig = { columns: 1, rows: 1, fits: false, wastedSpace: 100 };
+
+  for (let cols = 1; cols <= 4; cols++) {
+    // Limit to max 4 columns for readability
+    for (let rows = 1; rows <= 8; rows++) {
+      // Limit to max 8 rows
+      const totalWidthNeeded = cols * labelWidthMm + (cols - 1) * gutterMm;
+      const totalHeightNeeded = rows * labelHeightMm + (rows - 1) * gutterMm;
+
+      if (totalWidthNeeded <= usableWidth && totalHeightNeeded <= usableHeight) {
+        const usedArea = cols * rows * labelWidthMm * labelHeightMm;
+        const totalArea = usableWidth * usableHeight;
+        const wastedSpace = ((totalArea - usedArea) / totalArea) * 100;
+
+        // Prefer fewer labels per page for better readability
+        // Weight efficiency by label size (bigger labels are preferred)
+        const labelArea = labelWidthMm * labelHeightMm;
+        const efficiency = labelArea * 0.5 + cols * rows * 0.3 - wastedSpace * 0.01;
+        const currentEfficiency =
+          bestConfig.columns * bestConfig.rows * labelWidthMm * labelHeightMm * 0.5 +
+          bestConfig.columns * bestConfig.rows * 0.3 -
+          bestConfig.wastedSpace * 0.01;
+
+        if (!bestConfig.fits || efficiency > currentEfficiency) {
+          bestConfig = {
+            columns: cols,
+            rows: rows,
+            fits: true,
+            wastedSpace: Math.round(wastedSpace),
+          };
+        }
+      }
+    }
+  }
+
+  return bestConfig;
+}

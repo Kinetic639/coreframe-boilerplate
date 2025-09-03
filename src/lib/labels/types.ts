@@ -9,9 +9,15 @@ export interface PDFLabelTemplate extends LabelTemplate {
   bleedMm?: Mm; // domyślnie 0–2 mm
   safeAreaMm?: Mm; // np. 2 mm
 
+  // Label padding properties (commonly used but missing from base interface)
+  label_padding_top?: number;
+  label_padding_right?: number;
+  label_padding_bottom?: number;
+  label_padding_left?: number;
+  field_vertical_gap?: Mm; // odstęp między polami w mm
+
   // Dodatkowe opcje layoutu dla PDF
   items_alignment?: "start" | "center" | "end"; // wyrównanie elementów
-  field_vertical_gap?: Mm; // odstęp między polami w mm
 
   // Opcje czcionek dla PDF
   font_family?: string; // np. "Inter"
@@ -115,7 +121,10 @@ export const PAGE_PRESETS = {
 
 // Konwersja z istniejącego template na PDF template
 export function convertToPDFTemplate(template: LabelTemplate): PDFLabelTemplate {
-  return {
+  console.log("🔄 convertToPDFTemplate input:", template);
+  console.log("🔄 convertToPDFTemplate input fields:", template.fields?.length || 0);
+
+  const result = {
     ...template,
     // Domyślne wartości PDF
     bleedMm: 0,
@@ -126,10 +135,21 @@ export function convertToPDFTemplate(template: LabelTemplate): PDFLabelTemplate 
     items_alignment: "center",
     field_vertical_gap: template.field_vertical_gap || 2,
   };
+
+  console.log("🔄 convertToPDFTemplate result fields:", result.fields?.length || 0);
+  return result;
 }
 
 // Konwersja pól
 export function convertToPDFFields(fields?: LabelTemplateField[]): PDFLabelField[] {
+  console.log("🔄 convertToPDFFields input:", fields?.length || 0, "fields");
+  if (fields) {
+    fields.forEach((field, index) => {
+      console.log(
+        `🔄 Field ${index + 1}: ${field.field_name} (${field.field_type}) - "${field.field_value}"`
+      );
+    });
+  }
   if (!fields) return [];
 
   return fields.map((field) => ({

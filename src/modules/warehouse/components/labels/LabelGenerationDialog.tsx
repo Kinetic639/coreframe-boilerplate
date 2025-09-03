@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +81,13 @@ export function LabelGenerationDialog({
   const [quantity, setQuantity] = useState(10);
   const [pagePreset, setPagePreset] = useState<keyof typeof PAGE_PRESETS>("A4_CUSTOM_2x5");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Keep selectedTemplate synchronized with templateToUse
+  useEffect(() => {
+    if (templateToUse) {
+      setSelectedTemplate(templateToUse);
+    }
+  }, [templateToUse]);
 
   const handleGenerate = async () => {
     if (!selectedTemplate) {
