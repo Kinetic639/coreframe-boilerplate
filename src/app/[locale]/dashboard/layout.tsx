@@ -45,6 +45,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
               availableBranches: appContext.availableBranches,
               userModules: appContext.userModules,
               location: null, // Initialize as null, can be set later via setLocation
+              locations: [], // Will be loaded client-side via useLocations hook
             }}
           >
             <UserInitProvider context={userContext}>

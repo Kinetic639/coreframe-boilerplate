@@ -76,6 +76,22 @@ The application uses a modular architecture where features are organized as modu
 3. Only create custom components if shadcn/ui doesn't have a suitable component
 4. Common shadcn/ui components include: button, input, dialog, select, radio-group, checkbox, tabs, accordion, etc.
 
+**CRITICAL**: Always use `react-toastify` for toast notifications. NEVER use `sonner` or any other toast library.
+
+```typescript
+// ✅ CORRECT - Use react-toastify
+import { toast } from "react-toastify";
+
+toast.success("Operation completed successfully");
+toast.error("Something went wrong");
+toast.info("Information message");
+toast.warning("Warning message");
+
+// ❌ WRONG - Never use these
+import { useToast } from "@/hooks/use-toast"; // Sonner-based
+import { toast } from "sonner"; // Wrong library
+```
+
 ### State Management
 
 - Zustand for client-side state management

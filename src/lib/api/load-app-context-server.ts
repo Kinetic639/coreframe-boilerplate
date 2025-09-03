@@ -145,6 +145,8 @@ export async function _loadAppContextServer() {
     })
     .filter((m): m is LoadedUserModule => m !== null);
 
+  // Locations will be loaded client-side via useLocations hook
+
   console.log("🔍 Final app context state:", {
     activeOrgId,
     activeBranchId,
@@ -178,6 +180,7 @@ export async function _loadAppContextServer() {
     })),
     userModules,
     location: null,
+    locations: [], // Will be loaded client-side
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);
