@@ -38,5 +38,17 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/service",
       icon: "Server",
     },
+    {
+      id: "label-testing",
+      label: "Label Testing",
+      path: "/dashboard/development/labels",
+      icon: "QrCode",
+    },
+    {
+      id: "locations-debug",
+      label: "Locations Debug",
+      path: "/dashboard/development/locations-debug",
+      icon: "MapPin",
+    },
   ],
 };

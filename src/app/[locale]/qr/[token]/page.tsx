@@ -1,19 +1,23 @@
 import { redirect } from "@/i18n/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QrCode, Package, MapPin, AlertCircle, ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 
 interface QRPageProps {
-  params: {
+  params: Promise<{
     token: string;
     locale: string;
-  };
+  }>;
 }
 
 async function getQRLabelData(token: string) {
-  const supabase = createClient();
+  // Create a public Supabase client (no auth required for QR lookups)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   try {
     // First check if the QR token exists and get its details
@@ -95,7 +99,7 @@ async function getQRLabelData(token: string) {
 }
 
 export default async function QRPage({ params }: QRPageProps) {
-  const { token } = params;
+  const { token } = await params;
   const result = await getQRLabelData(token);
 
   // Handle different error states
