@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useLocations } from "@/lib/hooks/use-locations";
 import {
   Dialog,
   DialogContent,
@@ -70,13 +71,16 @@ export function LabelAssignmentDialog({
   const [isAssigning, setIsAssigning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
+  // Get locations from store
+  const { locations: storeLocations } = useLocations();
+
   const loadEntity = useCallback(
     async (id: string) => {
       setLoading(true);
       try {
-        // TODO: Implement loading single entity from Supabase
-        // For now, mock data
         if (entityType === "product") {
+          // TODO: Implement loading product from Supabase
+          // For now, mock data - products will be implemented later
           setSelectedEntity({
             id,
             name: `Product ${id}`,
@@ -85,13 +89,19 @@ export function LabelAssignmentDialog({
             has_qr_assigned: false,
           });
         } else {
-          setSelectedEntity({
-            id,
-            name: `Location ${id}`,
-            code: `L${id}`,
-            level: 1,
-            has_qr_assigned: false,
-          });
+          // Load real location from store
+          const location = storeLocations.find((loc) => loc.id === id);
+          if (location) {
+            setSelectedEntity({
+              id: location.id,
+              name: location.name,
+              code: location.code || undefined,
+              level: location.level,
+              has_qr_assigned: location.has_qr_assigned || false,
+            });
+          } else {
+            throw new Error("Location not found");
+          }
         }
       } catch (error) {
         console.error("Error loading entity:", error);
@@ -100,42 +110,49 @@ export function LabelAssignmentDialog({
         setLoading(false);
       }
     },
-    [entityType]
+    [entityType, storeLocations]
   );
 
   const loadEntities = useCallback(async () => {
     setLoading(true);
     try {
-      // TODO: Implement loading entities from Supabase
-      // For now, mock data
-      const mockEntities = Array.from({ length: 10 }, (_, i) => {
-        if (entityType === "product") {
-          return {
-            id: `prod-${i}`,
-            name: `Product ${i + 1}`,
-            code: `P${i + 1}`,
-            sku: `SKU${i + 1}`,
-            has_qr_assigned: Math.random() > 0.7,
-          };
-        } else {
-          return {
-            id: `loc-${i}`,
-            name: `Location ${i + 1}`,
-            code: `L${i + 1}`,
-            level: Math.floor(i / 3) + 1,
-            has_qr_assigned: Math.random() > 0.7,
-          };
-        }
-      });
+      if (entityType === "product") {
+        // TODO: Implement loading products from Supabase
+        // For now, mock data - products will be implemented later
+        const mockProducts = Array.from({ length: 5 }, (_, i) => ({
+          id: `prod-${i}`,
+          name: `Product ${i + 1}`,
+          code: `P${i + 1}`,
+          sku: `SKU${i + 1}`,
+          has_qr_assigned: Math.random() > 0.7,
+        }));
+        setEntities(mockProducts);
+      } else {
+        // Use real locations from store
+        const locationEntities = storeLocations
+          .filter(
+            (location) =>
+              searchQuery === "" ||
+              location.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (location.code && location.code.toLowerCase().includes(searchQuery.toLowerCase()))
+          )
+          .map((location) => ({
+            id: location.id,
+            name: location.name,
+            code: location.code || undefined,
+            level: location.level,
+            has_qr_assigned: location.has_qr_assigned || false,
+          }));
 
-      setEntities(mockEntities);
+        setEntities(locationEntities);
+      }
     } catch (error) {
       console.error("Error loading entities:", error);
       toast.error("Nie udało się załadować danych");
     } finally {
       setLoading(false);
     }
-  }, [entityType]);
+  }, [entityType, storeLocations, searchQuery]);
 
   useEffect(() => {
     if (open) {
@@ -162,6 +179,13 @@ export function LabelAssignmentDialog({
       setShowScanner(false);
     }
   }, [open, entityId, initialQrToken, loadEntity, loadEntities]);
+
+  // Reload entities when locations change or search query changes
+  useEffect(() => {
+    if (open && (step === "select" || step === "confirm")) {
+      loadEntities();
+    }
+  }, [storeLocations, searchQuery, open, step, loadEntities]);
 
   const handleQRScan = async (scannedToken: string) => {
     setShowScanner(false);
@@ -204,10 +228,23 @@ export function LabelAssignmentDialog({
 
     setIsAssigning(true);
     try {
-      // TODO: Implement assignment in Supabase
+      const response = await fetch("/api/labels/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          entityType,
+          entityId: selectedEntity.id,
+          qrToken,
+          generateNew: false, // We're using an existing QR token
+        }),
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Assignment failed");
+      }
 
       toast.success(
         `Kod QR został przypisany do ${entityType === "product" ? "produktu" : "lokalizacji"} ${selectedEntity.name}`
@@ -216,7 +253,9 @@ export function LabelAssignmentDialog({
       onClose();
     } catch (error) {
       console.error("Error assigning QR:", error);
-      toast.error("Nie udało się przypisać kodu QR");
+      toast.error(
+        `Nie udało się przypisać kodu QR: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     } finally {
       setIsAssigning(false);
     }

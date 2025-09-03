@@ -241,6 +241,14 @@ export const routing = defineRouting({
       en: "/dashboard/development/service",
       pl: "/dashboard/deweloperskie/serwis",
     },
+    "/dashboard/development/labels": {
+      en: "/dashboard/development/labels",
+      pl: "/dashboard/deweloperskie/etykiety",
+    },
+    "/dashboard/development/locations-debug": {
+      en: "/dashboard/development/locations-debug",
+      pl: "/dashboard/deweloperskie/lokalizacje-debug",
+    },
 
     // === Auth ===
     "/sign-in": {

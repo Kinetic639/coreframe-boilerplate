@@ -27,6 +27,7 @@ export type AppContext = {
   availableBranches: BranchData[];
   userModules: LoadedUserModule[];
   location: UserLocation | null;
+  locations: Tables<"locations">[];
 };
 
 // 🧠 Zustand store
@@ -34,6 +35,7 @@ type AppStore = AppContext & {
   isLoaded: boolean;
   setContext: (context: AppContext) => void;
   setLocation: (location: UserLocation | null) => void;
+  setLocations: (locations: Tables<"locations">[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
   setActiveBranch: (branchId: string) => void;
   clear: () => void;
@@ -48,6 +50,7 @@ export const useAppStore = create<AppStore>((set) => ({
   userModules: [],
   isLoaded: false,
   location: null,
+  locations: [],
 
   setContext: (context) =>
     set({
@@ -55,6 +58,8 @@ export const useAppStore = create<AppStore>((set) => ({
       isLoaded: true,
     }),
   setLocation: (location) => set({ location }),
+
+  setLocations: (locations) => set({ locations }),
 
   updateAvailableBranches: (branches) =>
     set((state) => ({
@@ -68,6 +73,8 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => ({
       activeBranchId: branchId,
       activeBranch: state.availableBranches.find((b) => b.branch_id === branchId) || null,
+      // Clear locations when branch changes - they will be reloaded
+      locations: [],
     })),
 
   clear: () =>
@@ -80,5 +87,6 @@ export const useAppStore = create<AppStore>((set) => ({
       userModules: [],
       isLoaded: false,
       location: null,
+      locations: [],
     }),
 }));
