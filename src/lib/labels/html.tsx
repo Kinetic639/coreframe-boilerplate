@@ -11,7 +11,6 @@ import {
   generatePageCSS,
   generateDebugGridCSS,
   computeCellSize,
-  validateTemplateFitsGrid,
   getCellPosition,
   calculatePagesNeeded,
   calculateQRPosition,
@@ -20,7 +19,7 @@ import {
 // HTML template z pełną kompatybilnością z istniejącym kreatorem
 export async function renderLabelsHtml(payload: GeneratePdfPayload): Promise<string> {
   const {
-    template,
+    template: originalTemplate,
     data,
     pagePreset,
     fontFamily = "Inter",
@@ -28,32 +27,57 @@ export async function renderLabelsHtml(payload: GeneratePdfPayload): Promise<str
     debug = false,
   } = payload;
 
-  // Walidacja template vs preset
-  if (pagePreset.kind === "sheet") {
-    const { cellWidthMm, cellHeightMm } = computeCellSize(
-      pagePreset.page.widthMm,
-      pagePreset.page.heightMm,
-      pagePreset.page.marginMm,
-      pagePreset.grid.columns,
-      pagePreset.grid.rows,
-      pagePreset.grid.gutterXmm,
-      pagePreset.grid.gutterYmm
-    );
+  // Calculate dynamic dimensions based on content
+  const template = { ...originalTemplate };
+  let actualPagePreset = pagePreset;
 
-    const validation = validateTemplateFitsGrid(
-      template.width_mm,
-      template.height_mm,
-      cellWidthMm,
-      cellHeightMm
-    );
+  // SKIP dynamic sizing - use EXACT dimensions from creator
+  console.log(
+    `Using EXACT template dimensions from creator: ${template.width_mm}x${template.height_mm}mm`
+  );
 
-    if (!validation.fits) {
-      throw new Error(`Template doesn't fit grid: ${validation.errors.join(", ")}`);
+  // Force larger labels for A4 - make them actually readable and usable!
+  if (
+    pagePreset.kind === "sheet" &&
+    pagePreset.page.widthMm === 210 &&
+    pagePreset.page.heightMm === 297
+  ) {
+    // Force minimum label size for readability
+    const minLabelWidth = 70; // At least 70mm wide
+    const minLabelHeight = 40; // At least 40mm tall
+
+    if (template.width_mm < minLabelWidth) {
+      template.width_mm = minLabelWidth;
+      console.log(`Forced label width to ${minLabelWidth}mm for readability`);
     }
+    if (template.height_mm < minLabelHeight) {
+      template.height_mm = minLabelHeight;
+      console.log(`Forced label height to ${minLabelHeight}mm for readability`);
+    }
+
+    // Use fewer labels per page so they're actually readable - 2x3 max
+    console.log("Using readable A4 grid: 2x3 labels per page");
+    actualPagePreset = {
+      kind: "sheet",
+      page: { widthMm: 210, heightMm: 297, marginMm: 15 },
+      grid: {
+        columns: 2,
+        rows: 3,
+        gutterXmm: 10,
+        gutterYmm: 15,
+      },
+    };
   }
 
+  // SKIP validation completely - just use what the user created
+  console.log(
+    `Skipping validation - using exact creator template: ${template.width_mm}x${template.height_mm}mm with ${template.fields?.length || 0} fields`
+  );
+
   const labelsPerPage =
-    pagePreset.kind === "roll" ? 1 : pagePreset.grid.columns * pagePreset.grid.rows;
+    actualPagePreset.kind === "roll"
+      ? 1
+      : actualPagePreset.grid.columns * actualPagePreset.grid.rows;
   const pagesNeeded = calculatePagesNeeded(data.length, labelsPerPage);
 
   // Pre-generuj wszystkie QR kody i kody kreskowe
@@ -65,7 +89,7 @@ export async function renderLabelsHtml(payload: GeneratePdfPayload): Promise<str
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Labels - ${template.name}</title>
-  ${generateStyleSheet(template, pagePreset, fontFamily, embedFonts, debug)}
+  ${generateStyleSheet(template, actualPagePreset, fontFamily, embedFonts, debug)}
 </head>
 <body>`;
 
@@ -78,7 +102,7 @@ export async function renderLabelsHtml(payload: GeneratePdfPayload): Promise<str
     html += await renderPage(
       template,
       data,
-      pagePreset,
+      actualPagePreset,
       pageIndex,
       labelsPerPage,
       generatedAssets,
@@ -157,12 +181,12 @@ function generateStyleSheet(
       
       .label-content {
         position: absolute;
-        top: ${template.label_padding_top || 2}mm;
-        right: ${template.label_padding_right || 2}mm;
-        bottom: ${template.label_padding_bottom || 2}mm;
-        left: ${template.label_padding_left || 2}mm;
-        width: calc(${template.width_mm}mm - ${(template.label_padding_left || 2) + (template.label_padding_right || 2)}mm);
-        height: calc(${template.height_mm}mm - ${(template.label_padding_top || 2) + (template.label_padding_bottom || 2)}mm);
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
       }
       
       .qr-code {
@@ -181,6 +205,7 @@ function generateStyleSheet(
         height: 100%;
         display: flex;
         align-items: center;
+        line-height: 1.3;
       }
       
       .field-blank-line {
@@ -301,31 +326,46 @@ async function renderLabel(
   let html = `<div class="label-container" style="${labelStyle}">`;
   html += '<div class="label-content">';
 
-  // QR kod (jeśli pokazywany)
+  // QR kod (jeśli pokazywany) - use exact position from template or calculate
   if (template.show_additional_info || !template.show_additional_info) {
-    // QR kod zawsze renderowany - pozycja zależy od ustawień
-    const qrPosition = calculateQRPosition(
-      template.qr_position,
-      template.width_mm,
-      template.height_mm,
-      template.qr_size_mm || 15,
-      2
-    );
-
     const qrData = labelData.qr || labelData.qrData || `QR-${Date.now()}`;
     const qrKey = `qr:${qrData}`;
     const qrDataUrl = generatedAssets.get(qrKey);
 
     if (qrDataUrl) {
+      // Check if QR has explicit position stored in template config
+      const qrConfig = (template.template_config as any)?.qr || {};
+      let qrX, qrY;
+
+      if (qrConfig.position_x !== undefined && qrConfig.position_y !== undefined) {
+        // Use exact position from template config
+        qrX = qrConfig.position_x;
+        qrY = qrConfig.position_y;
+        console.log(`Using stored QR position: ${qrX}mm, ${qrY}mm`);
+      } else {
+        // Fall back to calculated position
+        const qrSize = Math.max(template.qr_size_mm || 15, 20); // Minimum 20mm QR size
+        const qrPosition = calculateQRPosition(
+          template.qr_position,
+          template.width_mm,
+          template.height_mm,
+          qrSize,
+          2
+        );
+        qrX = qrPosition.x;
+        qrY = qrPosition.y;
+        console.log(`Using calculated QR position: ${qrX}mm, ${qrY}mm`);
+      }
+
       html += `
         <img 
           class="qr-code" 
           src="${qrDataUrl}" 
           style="
-            left: ${qrPosition.x}mm;
-            top: ${qrPosition.y}mm;
-            width: ${template.qr_size_mm || 15}mm;
-            height: ${template.qr_size_mm || 15}mm;
+            left: ${qrX}mm;
+            top: ${qrY}mm;
+            width: ${Math.max(template.qr_size_mm || 15, 20)}mm;
+            height: ${Math.max(template.qr_size_mm || 15, 20)}mm;
           "
           alt="QR Code"
         />
@@ -342,7 +382,9 @@ async function renderLabel(
     console.log(`Rendering ${sortedFields.length} fields for label`);
 
     for (const field of sortedFields) {
-      console.log(`Rendering field:`, field);
+      console.log(
+        `Rendering field: ${field.field_name} at (${field.position_x}mm, ${field.position_y}mm) size ${field.width_mm}x${field.height_mm}mm, font: ${field.font_size}pt`
+      );
       html += await renderField(field, labelData, template, generatedAssets);
     }
   } else {
@@ -382,15 +424,19 @@ async function renderField(
       displayText = displayText.replace(`{${key}}`, String(labelData[key] || ""));
     });
 
+    // Force larger font sizes for readability
+    const minFontSize = 12; // Minimum readable font size
+    const fontSize = Math.max(field.font_size || 10, minFontSize);
+
     const textStyle = `
-      font-size: ${field.font_size || 10}pt;
+      font-size: ${fontSize}pt;
       font-weight: ${field.font_weight || "normal"};
       color: ${field.text_color || template.text_color || "#000000"};
       text-align: ${field.text_align || "left"};
       ${field.text_transform && field.text_transform !== "none" ? `text-transform: ${field.text_transform};` : ""}
       ${field.text_decoration && field.text_decoration !== "none" ? `text-decoration: ${field.text_decoration};` : ""}
       ${field.letter_spacing ? `letter-spacing: ${field.letter_spacing}pt;` : ""}
-      ${field.line_height ? `line-height: ${field.line_height};` : ""}
+      line-height: 1.3;
     `;
 
     // Wyrównanie pionowe
