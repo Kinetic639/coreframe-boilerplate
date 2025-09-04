@@ -79,14 +79,29 @@ export async function POST(request: NextRequest) {
 
       // Check user permissions if user is logged in
       if (user && qrLabel.organization_id) {
-        const { data: userRole } = await supabase
-          .from("user_roles")
-          .select("organization_id, branch_id")
+        // First check user preferences
+        const { data: preferences } = await supabase
+          .from("user_preferences")
+          .select("organization_id")
           .eq("user_id", user.id)
-          .eq("organization_id", qrLabel.organization_id)
           .single();
 
-        if (!userRole) {
+        let hasAccess = preferences?.organization_id === qrLabel.organization_id;
+
+        // If no access through preferences, check role assignments
+        if (!hasAccess) {
+          const { data: roleAssignment } = await supabase
+            .from("user_role_assignments")
+            .select("scope, scope_id")
+            .eq("user_id", user.id)
+            .eq("scope", "org")
+            .eq("scope_id", qrLabel.organization_id)
+            .single();
+
+          hasAccess = !!roleAssignment;
+        }
+
+        if (!hasAccess) {
           scanResult = "unauthorized";
           errorMessage = "Access denied to this organization";
           entity = null; // Don't reveal entity details if unauthorized

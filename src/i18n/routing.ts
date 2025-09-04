@@ -16,6 +16,10 @@ export const routing = defineRouting({
       pl: "/cennik",
     },
 
+    "/dashboard": {
+      en: "/dashboard",
+      pl: "/dashboard",
+    },
     "/dashboard/start": {
       en: "/dashboard/start",
       pl: "/dashboard/start",
@@ -75,6 +79,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/products",
       pl: "/dashboard/magazyn/produkty",
     },
+    "/dashboard/warehouse/products/[id]": {
+      en: "/dashboard/warehouse/products/[id]",
+      pl: "/dashboard/magazyn/produkty/[id]",
+    },
     "/dashboard/warehouse/suppliers": {
       en: "/dashboard/warehouse/suppliers",
       pl: "/dashboard/magazyn/dostawcy",
@@ -96,6 +104,14 @@ export const routing = defineRouting({
     "/dashboard/warehouse/labels/assign": {
       en: "/dashboard/warehouse/labels/assign",
       pl: "/dashboard/magazyn/etykiety/przypisz",
+    },
+    "/dashboard/warehouse/labels/assign/success": {
+      en: "/dashboard/warehouse/labels/assign/success",
+      pl: "/dashboard/magazyn/etykiety/przypisz/sukces",
+    },
+    "/dashboard/warehouse/labels/assign/error": {
+      en: "/dashboard/warehouse/labels/assign/error",
+      pl: "/dashboard/magazyn/etykiety/przypisz/blad",
     },
     "/dashboard/warehouse/labels/templates": {
       en: "/dashboard/warehouse/labels/templates",
