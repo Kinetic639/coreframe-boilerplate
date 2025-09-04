@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { routing } from "@/i18n/routing";
 
 export const updateSession = async (request: NextRequest) => {
   // This `try/catch` block is only here for the interactive tutorial.
@@ -39,7 +40,23 @@ export const updateSession = async (request: NextRequest) => {
 
     // dashboard routes
     if (request.nextUrl.pathname.startsWith("/dashboard") && user.error) {
-      return NextResponse.redirect(new URL("/sign-in", request.url));
+      // Detect locale from request (fallback to default)
+      const locale = request.cookies.get("NEXT_LOCALE")?.value || routing.defaultLocale;
+
+      // Get localized sign-in path
+      const signInPaths = routing.pathnames["/sign-in"];
+      const localizedSignInPath =
+        typeof signInPaths === "string"
+          ? signInPaths
+          : signInPaths[locale as keyof typeof signInPaths];
+
+      // Build sign-in URL with locale prefix if needed
+      const signInPath =
+        locale === routing.defaultLocale ? localizedSignInPath : `/${locale}${localizedSignInPath}`;
+
+      const signInUrl = new URL(signInPath, request.url);
+      signInUrl.searchParams.set("returnUrl", request.nextUrl.pathname + request.nextUrl.search);
+      return NextResponse.redirect(signInUrl);
     }
 
     if (request.nextUrl.pathname === "/" && !user.error) {

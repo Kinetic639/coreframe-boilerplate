@@ -5,7 +5,7 @@ import { Metadata } from "next";
 
 type Props = {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<Message>;
+  searchParams: Promise<Message & { returnUrl?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -31,5 +31,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function Login(props: Props) {
   const searchParams = await props.searchParams;
-  return <SignInForm message={searchParams} />;
+  return <SignInForm message={searchParams} returnUrl={searchParams.returnUrl} />;
 }

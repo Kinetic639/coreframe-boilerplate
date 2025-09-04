@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/types/database";
+import { routing } from "@/i18n/routing";
 
 interface QRRedirectPageProps {
   params: Promise<{
@@ -51,14 +52,32 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
 
     // Determine the redirect path based on entity type
     let redirectPath: string;
+    const defaultLocale = routing.defaultLocale;
 
     if (qrLabel.entity_type === "location" && qrLabel.entity_id) {
-      redirectPath = `/dashboard/warehouse/locations/${qrLabel.entity_id}`;
+      // Use localized path for locations
+      const localizedPath = routing.pathnames["/dashboard/warehouse/locations/[id]"];
+      const pathTemplate =
+        typeof localizedPath === "string"
+          ? localizedPath
+          : localizedPath[defaultLocale as keyof typeof localizedPath];
+      redirectPath = pathTemplate.replace("[id]", qrLabel.entity_id);
     } else if (qrLabel.entity_type === "product" && qrLabel.entity_id) {
-      redirectPath = `/dashboard/warehouse/products/${qrLabel.entity_id}`;
+      // Use localized path for products
+      const localizedPath = routing.pathnames["/dashboard/warehouse/products/[id]"];
+      const pathTemplate =
+        typeof localizedPath === "string"
+          ? localizedPath
+          : localizedPath[defaultLocale as keyof typeof localizedPath];
+      redirectPath = pathTemplate.replace("[id]", qrLabel.entity_id);
     } else {
       // Unassigned QR code - redirect to assignment interface
-      redirectPath = `/dashboard/warehouse/labels/assign?token=${token}`;
+      const localizedPath = routing.pathnames["/dashboard/warehouse/labels/assign"];
+      const pathTemplate =
+        typeof localizedPath === "string"
+          ? localizedPath
+          : localizedPath[defaultLocale as keyof typeof localizedPath];
+      redirectPath = `${pathTemplate}?token=${token}`;
     }
 
     // Log the successful scan attempt
