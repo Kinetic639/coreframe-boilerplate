@@ -50,6 +50,7 @@ interface Location {
 interface LabelAssignmentDialogProps {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // Called after successful assignment
   entityType: "product" | "location";
   entityId?: string;
   qrToken?: string; // If scanning a label to assign
@@ -58,6 +59,7 @@ interface LabelAssignmentDialogProps {
 export function LabelAssignmentDialog({
   open,
   onClose,
+  onSuccess,
   entityType,
   entityId,
   qrToken: initialQrToken,
@@ -250,7 +252,12 @@ export function LabelAssignmentDialog({
         `Kod QR został przypisany do ${entityType === "product" ? "produktu" : "lokalizacji"} ${selectedEntity.name}`
       );
 
-      onClose();
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        onClose();
+      }
     } catch (error) {
       console.error("Error assigning QR:", error);
       toast.error(

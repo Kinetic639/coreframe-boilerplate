@@ -35,16 +35,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's organization and branch context
-    const { data: userRoles } = await supabase
-      .from("user_roles")
-      .select("organization_id, branch_id")
+    // First try to get from user preferences
+    const { data: preferences } = await supabase
+      .from("user_preferences")
+      .select("organization_id, default_branch_id")
       .eq("user_id", user.id)
-      .limit(1)
       .single();
 
-    if (!userRoles) {
+    let organizationId = preferences?.organization_id;
+    const branchId = preferences?.default_branch_id;
+
+    // If no preferences, try to get from user's role assignments
+    if (!organizationId) {
+      const { data: roleAssignment } = await supabase
+        .from("user_role_assignments")
+        .select("scope, scope_id")
+        .eq("user_id", user.id)
+        .eq("scope", "org")
+        .limit(1)
+        .single();
+
+      if (roleAssignment?.scope_id) {
+        organizationId = roleAssignment.scope_id;
+      }
+    }
+
+    if (!organizationId) {
       return NextResponse.json({ error: "User context not found" }, { status: 400 });
     }
+
+    const userContext = {
+      organization_id: organizationId,
+      branch_id: branchId,
+    };
 
     let qrLabel = null;
 
@@ -63,8 +86,8 @@ export async function POST(request: NextRequest) {
           assigned_at: new Date().toISOString(),
           assigned_by: user.id,
           created_by: user.id,
-          organization_id: userRoles.organization_id,
-          branch_id: userRoles.branch_id,
+          organization_id: userContext.organization_id,
+          branch_id: userContext.branch_id,
           is_active: true,
           metadata: {
             assignment_method: "generated_and_assigned",
@@ -109,7 +132,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Verify user has access to this QR
-      if (existingLabel.organization_id !== userRoles.organization_id) {
+      if (existingLabel.organization_id !== userContext.organization_id) {
         return NextResponse.json({ error: "Access denied" }, { status: 403 });
       }
 
@@ -151,7 +174,7 @@ export async function POST(request: NextRequest) {
           qr_assigned_by: user.id,
         })
         .eq("id", entityId)
-        .eq("organization_id", userRoles.organization_id); // Ensure user has access
+        .eq("organization_id", userContext.organization_id); // Ensure user has access
 
       if (locationUpdateError) {
         console.error("Location update error:", locationUpdateError);
@@ -167,7 +190,7 @@ export async function POST(request: NextRequest) {
           qr_assigned_by: user.id,
         })
         .eq("id", entityId)
-        .eq("organization_id", userRoles.organization_id); // Ensure user has access
+        .eq("organization_id", userContext.organization_id); // Ensure user has access
 
       if (productUpdateError) {
         console.error("Product update error:", productUpdateError);
@@ -189,8 +212,8 @@ export async function POST(request: NextRequest) {
           assignment_method: generateNew ? "generated_and_assigned" : "manual_assignment",
           timestamp: new Date().toISOString(),
         },
-        organization_id: userRoles.organization_id,
-        branch_id: userRoles.branch_id,
+        organization_id: userContext.organization_id,
+        branch_id: userContext.branch_id,
       });
     } catch (logError) {
       console.error("Failed to log assignment:", logError);
@@ -244,16 +267,39 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's organization context
-    const { data: userRoles } = await supabase
-      .from("user_roles")
-      .select("organization_id, branch_id")
+    // First try to get from user preferences
+    const { data: preferences } = await supabase
+      .from("user_preferences")
+      .select("organization_id, default_branch_id")
       .eq("user_id", user.id)
-      .limit(1)
       .single();
 
-    if (!userRoles) {
+    let organizationId = preferences?.organization_id;
+    const branchId = preferences?.default_branch_id;
+
+    // If no preferences, try to get from user's role assignments
+    if (!organizationId) {
+      const { data: roleAssignment } = await supabase
+        .from("user_role_assignments")
+        .select("scope, scope_id")
+        .eq("user_id", user.id)
+        .eq("scope", "org")
+        .limit(1)
+        .single();
+
+      if (roleAssignment?.scope_id) {
+        organizationId = roleAssignment.scope_id;
+      }
+    }
+
+    if (!organizationId) {
       return NextResponse.json({ error: "User context not found" }, { status: 400 });
     }
+
+    const userContext = {
+      organization_id: organizationId,
+      branch_id: branchId,
+    };
 
     // Check current QR assignment
     const { data: qrLabel } = await supabase
@@ -261,7 +307,7 @@ export async function GET(request: NextRequest) {
       .select("id, qr_token, assigned_at, assigned_by, users!assigned_by(first_name, last_name)")
       .eq("entity_type", entityType)
       .eq("entity_id", entityId)
-      .eq("organization_id", userRoles.organization_id)
+      .eq("organization_id", userContext.organization_id)
       .eq("is_active", true)
       .single();
 

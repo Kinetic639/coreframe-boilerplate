@@ -22,9 +22,9 @@ import Link from "next/link";
 import { LocationQrActions } from "@/modules/warehouse/locations/location-qr-actions";
 
 interface LocationDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // Add generateStaticParams for static export
@@ -378,10 +378,12 @@ async function LocationDetailsContent({ locationId }: { locationId: string }) {
   );
 }
 
-export default function LocationDetailsPage({ params }: LocationDetailsPageProps) {
+export default async function LocationDetailsPage({ params }: LocationDetailsPageProps) {
+  const { id } = await params;
+
   return (
     <Suspense fallback={<LoadingSkeleton />}>
-      <LocationDetailsContent locationId={params.id} />
+      <LocationDetailsContent locationId={id} />
     </Suspense>
   );
 }

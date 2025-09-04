@@ -1,4 +1,5 @@
-import { redirect } from "@/i18n/navigation";
+import { redirect } from "next/navigation";
+import { routing } from "@/i18n/routing";
 import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -99,7 +100,7 @@ async function getQRLabelData(token: string) {
 }
 
 export default async function QRPage({ params }: QRPageProps) {
-  const { token } = await params;
+  const { token, locale } = await params;
   const result = await getQRLabelData(token);
 
   // Handle different error states
@@ -175,10 +176,21 @@ export default async function QRPage({ params }: QRPageProps) {
   // Success case - redirect to appropriate page
   const { entity, entityType } = result;
 
+  // Construct localized URLs based on the routing configuration
   if (entityType === "product") {
-    redirect(`/dashboard/warehouse/products/${entity.id}`);
+    const productPath = routing.pathnames["/dashboard/warehouse/products/[id]"];
+    const localizedProductPath =
+      typeof productPath === "string"
+        ? productPath
+        : productPath[locale as keyof typeof productPath];
+    redirect(`/${locale}${localizedProductPath.replace("[id]", entity.id)}`);
   } else if (entityType === "location") {
-    redirect(`/dashboard/warehouse/locations/${entity.id}`);
+    const locationPath = routing.pathnames["/dashboard/warehouse/locations/[id]"];
+    const localizedLocationPath =
+      typeof locationPath === "string"
+        ? locationPath
+        : locationPath[locale as keyof typeof locationPath];
+    redirect(`/${locale}${localizedLocationPath.replace("[id]", entity.id)}`);
   }
 
   // Fallback - show success page with manual navigation
