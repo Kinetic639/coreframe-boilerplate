@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createServerClient } from "@/utils/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QrCode, Package, MapPin, AlertCircle, ArrowLeft } from "lucide-react";
@@ -103,6 +104,31 @@ export default async function QRPage({ params }: QRPageProps) {
   const { token, locale } = await params;
   const result = await getQRLabelData(token);
 
+  // If QR code is unassigned, check authentication before showing assignment interface
+  if (result.error === "QR_UNASSIGNED") {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      // Get localized sign-in path
+      const signInPaths = routing.pathnames["/sign-in"];
+      const localizedSignInPath =
+        typeof signInPaths === "string"
+          ? signInPaths
+          : signInPaths[locale as keyof typeof signInPaths];
+
+      // Build sign-in URL with locale prefix if needed
+      const signInPath =
+        locale === routing.defaultLocale ? localizedSignInPath : `/${locale}${localizedSignInPath}`;
+
+      // Redirect to sign-in with returnUrl pointing back to this QR page
+      const returnUrl = `/${locale}/qr/${token}`;
+      redirect(`${signInPath}?returnUrl=${encodeURIComponent(returnUrl)}`);
+    }
+  }
+
   // Handle different error states
   if (result.error) {
     return (
@@ -183,14 +209,24 @@ export default async function QRPage({ params }: QRPageProps) {
       typeof productPath === "string"
         ? productPath
         : productPath[locale as keyof typeof productPath];
-    redirect(`/${locale}${localizedProductPath.replace("[id]", entity.id)}`);
+    // Don't add locale prefix for default locale when localePrefix is "as-needed"
+    const finalPath =
+      locale === routing.defaultLocale
+        ? localizedProductPath.replace("[id]", entity.id)
+        : `/${locale}${localizedProductPath.replace("[id]", entity.id)}`;
+    redirect(finalPath);
   } else if (entityType === "location") {
     const locationPath = routing.pathnames["/dashboard/warehouse/locations/[id]"];
     const localizedLocationPath =
       typeof locationPath === "string"
         ? locationPath
         : locationPath[locale as keyof typeof locationPath];
-    redirect(`/${locale}${localizedLocationPath.replace("[id]", entity.id)}`);
+    // Don't add locale prefix for default locale when localePrefix is "as-needed"
+    const finalPath =
+      locale === routing.defaultLocale
+        ? localizedLocationPath.replace("[id]", entity.id)
+        : `/${locale}${localizedLocationPath.replace("[id]", entity.id)}`;
+    redirect(finalPath);
   }
 
   // Fallback - show success page with manual navigation

@@ -52,6 +52,10 @@ export const signUpAction = async (formData: FormData) => {
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const returnUrl = formData.get("returnUrl") as string;
+
+  console.log("[DEBUG] returnUrl received:", returnUrl);
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -60,10 +64,25 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    const redirectUrl = returnUrl
+      ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`
+      : "/sign-in";
+    return encodedRedirect("error", redirectUrl, error.message);
   }
 
   const locale = await getLocale();
+
+  // If there's a returnUrl, redirect there, otherwise go to dashboard
+  if (returnUrl && returnUrl.trim() !== "") {
+    console.log("[DEBUG] Processing returnUrl:", returnUrl);
+    console.log("[DEBUG] Locale:", locale);
+
+    // Use direct Next.js redirect to the exact returnUrl
+    const { redirect: nextRedirect } = await import("next/navigation");
+    console.log("[DEBUG] Using Next.js redirect to:", returnUrl);
+    return nextRedirect(returnUrl);
+  }
+
   return redirect({ href: "/dashboard/start", locale });
 };
 

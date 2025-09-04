@@ -21,9 +21,10 @@ type SignInFormData = z.infer<typeof signInSchema>;
 
 interface SignInFormProps {
   message?: Message;
+  returnUrl?: string;
 }
 
-export function SignInForm({ message }: SignInFormProps) {
+export function SignInForm({ message, returnUrl }: SignInFormProps) {
   const t = useTranslations("authForms.SignInForm");
 
   const {
@@ -36,6 +37,7 @@ export function SignInForm({ message }: SignInFormProps) {
   return (
     <AuthCard showImage={true} variant="signin">
       <form action={signInAction} className="mx-auto flex min-w-64 max-w-64 flex-col">
+        {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
         <h1 className="text-2xl font-medium">{t("title")}</h1>
         <p className="text-sm text-foreground">
           {t("noAccount")}{" "}
