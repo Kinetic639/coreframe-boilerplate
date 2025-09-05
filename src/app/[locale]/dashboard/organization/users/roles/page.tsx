@@ -402,7 +402,9 @@ export default function RolesPage() {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-red-600"
-                                  disabled={role.assignedUsersCount && role.assignedUsersCount > 0}
+                                  disabled={Boolean(
+                                    role.assignedUsersCount && role.assignedUsersCount > 0
+                                  )}
                                   onClick={() => setRoleToDelete(role)}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
