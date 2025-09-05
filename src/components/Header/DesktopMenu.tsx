@@ -54,7 +54,10 @@ export default function DesktopMenu() {
                 className="grid w-[700px] grid-cols-[180px_1fr] gap-8 p-6"
               >
                 <div>
-                  <Link href={menu.href} className="text-lg font-semibold hover:text-primary">
+                  <Link
+                    href={menu.href as any}
+                    className="text-lg font-semibold hover:text-primary"
+                  >
                     {menu.title} →
                   </Link>
                   <p className="text-sm text-muted-foreground">{menu.description}</p>
@@ -64,7 +67,10 @@ export default function DesktopMenu() {
                     (group.items || [group]).map((item: MenuItem) => (
                       <li key={item.title}>
                         <NavigationMenuLink asChild>
-                          <Link href={item.href} className="block rounded p-2 hover:bg-accent">
+                          <Link
+                            href={item.href as any}
+                            className="block rounded p-2 hover:bg-accent"
+                          >
                             <div className="flex items-center gap-2">
                               <item.icon className="h-5 w-5 text-primary" />
                               <span>{item.title}</span>

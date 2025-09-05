@@ -167,6 +167,10 @@ export const routing = defineRouting({
       en: "/dashboard/organization/users/invitations",
       pl: "/dashboard/organizacja/uzytkownicy/zaproszenia",
     },
+    "/dashboard/organization/users/[id]": {
+      en: "/dashboard/organization/users/[id]",
+      pl: "/dashboard/organizacja/uzytkownicy/[id]",
+    },
     "/dashboard/organization/roles/[id]": {
       en: "/dashboard/organization/roles/[id]",
       pl: "/dashboard/organizacja/role/[id]",

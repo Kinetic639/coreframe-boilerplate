@@ -111,7 +111,13 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between pt-2">
-        <Link href={`/dashboard/warehouse/products/${product.id}`} className="flex-grow">
+        <Link
+          href={{
+            pathname: "/dashboard/warehouse/products/[id]",
+            params: { id: product.id },
+          }}
+          className="flex-grow"
+        >
           <Button className="w-full" variant="themed">
             Szczegóły
           </Button>

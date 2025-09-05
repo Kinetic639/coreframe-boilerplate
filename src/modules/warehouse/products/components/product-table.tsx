@@ -43,7 +43,12 @@ export function ProductTable({ products }: { products: ProductWithVariants[] }) 
               <TableCell>{product.variants?.length || 1}</TableCell>
               <TableCell>{totalStock}</TableCell>
               <TableCell className="text-right">
-                <Link href={`/dashboard/warehouse/products/${product.id}`}>
+                <Link
+                  href={{
+                    pathname: "/dashboard/warehouse/products/[id]",
+                    params: { id: product.id },
+                  }}
+                >
                   <Button variant="outline" size="sm">
                     <Eye className="mr-2 h-4 w-4" />
                     Zobacz
