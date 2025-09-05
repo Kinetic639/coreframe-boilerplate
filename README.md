@@ -37,14 +37,12 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ### Email System
 
 - [ ] Email Infrastructure
-
   - [ ] React Email integration for beautiful email templates
   - [ ] Resend.com integration for reliable email delivery
   - [ ] Email template management system
   - [ ] Email queue system for handling high volume
 
 - [ ] Authentication Emails
-
   - [ ] Welcome email for new users
   - [ ] Email verification
   - [ ] Password reset emails
@@ -53,7 +51,6 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
   - [ ] Two-factor authentication codes
 
 - [ ] Transactional Emails
-
   - [ ] Account activity notifications
   - [ ] Security alerts
   - [ ] Profile update confirmations
@@ -62,7 +59,6 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
   - [ ] Invoice notifications
 
 - [ ] Newsletter System
-
   - [ ] Subscription management
   - [ ] Newsletter templates
   - [ ] Scheduled newsletter delivery
@@ -168,7 +164,6 @@ A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featurin
 ### GitHub Actions Workflows
 
 - [x] Build and Test
-
   - [x] Install dependencies
   - [x] Run TypeScript type checking
   - [x] Run ESLint

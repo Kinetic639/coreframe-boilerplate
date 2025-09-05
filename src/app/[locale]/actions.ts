@@ -64,10 +64,14 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    const redirectUrl = returnUrl
-      ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`
-      : "/sign-in";
-    return encodedRedirect("error", redirectUrl, error.message);
+    // If there's a returnUrl, include it in the redirect back to sign-in with the error
+    if (returnUrl) {
+      const { redirect: nextRedirect } = await import("next/navigation");
+      const locale = await getLocale();
+      const signInUrl = `/${locale}/sign-in?returnUrl=${encodeURIComponent(returnUrl)}&error=${encodeURIComponent(error.message)}`;
+      return nextRedirect(signInUrl);
+    }
+    return encodedRedirect("error", "/sign-in", error.message);
   }
 
   const locale = await getLocale();
