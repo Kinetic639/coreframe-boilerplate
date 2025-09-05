@@ -3,14 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
-
-// Typ reprezentujący jeden moduł z nadpisanymi ustawieniami użytkownika
-type LoadedUserModule = {
-  id: string;
-  slug: string;
-  label: string;
-  settings: Record<string, unknown>;
-};
+import { AppContext, BranchData } from "@/lib/stores/app-store";
 
 // Pomocnicza funkcja sprawdzająca, czy JSON to obiekt (do bezpiecznego spreadowania)
 function safeObject(obj: unknown): Record<string, unknown> {
@@ -19,7 +12,7 @@ function safeObject(obj: unknown): Record<string, unknown> {
     : {};
 }
 
-export async function _loadAppContextServer() {
+export async function _loadAppContextServer(): Promise<AppContext | null> {
   const supabase = await createClient();
 
   const {
@@ -125,7 +118,7 @@ export async function _loadAppContextServer() {
     .eq("user_id", userId)
     .is("deleted_at", null);
 
-  const userModules: LoadedUserModule[] = (userModulesRaw ?? [])
+  const userModules = (userModulesRaw ?? [])
     .map((entry) => {
       const module = Array.isArray(entry.modules)
         ? (entry.modules[0] as Tables<"modules"> | undefined)
@@ -143,7 +136,7 @@ export async function _loadAppContextServer() {
         },
       };
     })
-    .filter((m): m is LoadedUserModule => m !== null);
+    .filter((m): m is NonNullable<typeof m> => m !== null);
 
   // Locations will be loaded client-side via useLocations hook
 
@@ -155,6 +148,12 @@ export async function _loadAppContextServer() {
     branchesCount: availableBranches?.length || 0,
     modulesCount: userModules.length,
   });
+
+  const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({
+    ...branch,
+    branch_id: branch.id, // Add branch_id for compatibility
+    name: branch.name || "Unknown Branch",
+  }));
 
   return {
     activeOrgId: activeOrgId,
@@ -173,11 +172,7 @@ export async function _loadAppContextServer() {
           name: activeBranch.name || "Unknown Branch",
         }
       : null,
-    availableBranches: (availableBranches ?? []).map((branch) => ({
-      ...branch,
-      branch_id: branch.id, // Add branch_id for compatibility
-      name: branch.name || "Unknown Branch",
-    })),
+    availableBranches: mappedBranches,
     userModules,
     location: null,
     locations: [], // Will be loaded client-side
