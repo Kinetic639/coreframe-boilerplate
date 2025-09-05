@@ -42,7 +42,11 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { fetchUserRoleAssignments, fetchOrganizationUsers } from "@/lib/api/roles";
+import {
+  fetchUserRoleAssignments,
+  fetchOrganizationUsers,
+  UserRoleAssignmentWithDetails,
+} from "@/lib/api/roles";
 import { useAppStore } from "@/lib/stores/app-store";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { RoleAssignmentDialog } from "@/modules/organization-management/components/roles/RoleAssignmentDialog";
@@ -62,23 +66,6 @@ interface User {
   deleted_at: string | null;
 }
 
-interface UserRoleAssignmentWithDetails {
-  id: string;
-  user_id: string;
-  role_id: string;
-  scope: "org" | "branch";
-  scope_id: string;
-  created_at?: string;
-  deleted_at: string | null;
-  users: User | null;
-  roles: {
-    id: string;
-    name: string;
-    is_basic: boolean;
-    organization_id: string | null;
-  } | null;
-}
-
 export default function UserManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [roleAssignments, setRoleAssignments] = useState<UserRoleAssignmentWithDetails[]>([]);
@@ -91,11 +78,11 @@ export default function UserManagementPage() {
   const [showPermissionOverrideDialog, setShowPermissionOverrideDialog] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  const { activeOrg } = useAppStore();
+  const { activeOrgId } = useAppStore();
 
   // Load data
   const loadData = async () => {
-    if (!activeOrg?.id) {
+    if (!activeOrgId) {
       setError("No active organization");
       setLoading(false);
       return;
@@ -106,11 +93,11 @@ export default function UserManagementPage() {
       setError(null);
 
       const [usersData, assignmentsData] = await Promise.all([
-        fetchOrganizationUsers(activeOrg.id),
-        fetchUserRoleAssignments(activeOrg.id),
+        fetchOrganizationUsers(activeOrgId),
+        fetchUserRoleAssignments(activeOrgId),
       ]);
 
-      setUsers(usersData);
+      setUsers(usersData.map((user) => ({ ...user, avatar_url: null })));
       setRoleAssignments(assignmentsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
@@ -122,7 +109,7 @@ export default function UserManagementPage() {
 
   React.useEffect(() => {
     loadData();
-  }, [activeOrg?.id, loadData]);
+  }, [activeOrgId, loadData]);
 
   // Get user with role information
   const usersWithRoles = React.useMemo(() => {
