@@ -319,7 +319,7 @@ export default function RoleDetailsPage() {
                     {roleUsers.map((user) => (
                       <Link
                         key={user.id}
-                        href={`/dashboard/organization/users/${user.id}`}
+                        href={`/dashboard/organization/users/${user.id}` as any}
                         className="block"
                       >
                         <div className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50">

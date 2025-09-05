@@ -160,7 +160,7 @@ export async function fetchOrganizationUsersServer(
             status_id: user.status_id,
             created_at: user.created_at,
             default_branch_id: user.default_branch_id,
-            avatar_url: user.avatar_url,
+            avatar_url: null, // Avatar URL not stored in users table
             role: role ? { id: role.id, name: role.name } : null,
             branch: branch ? { id: branch.id, name: branch.name } : null,
           });
@@ -174,7 +174,7 @@ export async function fetchOrganizationUsersServer(
           status_id: user.status_id,
           created_at: user.created_at,
           default_branch_id: user.default_branch_id,
-          avatar_url: user.avatar_url,
+          avatar_url: null, // Avatar URL not stored in users table
           role: role ? { id: role.id, name: role.name } : null,
           branch: branch ? { id: branch.id, name: branch.name } : null,
         });

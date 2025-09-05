@@ -95,7 +95,7 @@ export default function UserManagementPage() {
 
   // Load data
   const loadData = async () => {
-    if (!activeOrg?.id) {
+    if (!activeOrg?.organization_id) {
       setError("No active organization");
       setLoading(false);
       return;
@@ -106,12 +106,12 @@ export default function UserManagementPage() {
       setError(null);
 
       const [usersData, assignmentsData] = await Promise.all([
-        fetchOrganizationUsers(activeOrg.id),
-        fetchUserRoleAssignments(activeOrg.id),
+        fetchOrganizationUsers(activeOrg.organization_id),
+        fetchUserRoleAssignments(activeOrg.organization_id),
       ]);
 
-      setUsers(usersData);
-      setRoleAssignments(assignmentsData);
+      setUsers(usersData.map((user) => ({ ...user, avatar_url: null })));
+      setRoleAssignments(assignmentsData as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load data");
       console.error("Error loading user management data:", err);
@@ -122,7 +122,7 @@ export default function UserManagementPage() {
 
   React.useEffect(() => {
     loadData();
-  }, [activeOrg?.id, loadData]);
+  }, [activeOrg?.organization_id, loadData]);
 
   // Get user with role information
   const usersWithRoles = React.useMemo(() => {

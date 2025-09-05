@@ -1,6 +1,7 @@
 // This file will only contain helpers if needed. User actions are now in src/app/actions/users/.
 
 import { createClient } from "../supabase/server";
+import { Tables } from "../../../supabase/types/types";
 
 export async function fetchUsers(): Promise<Tables<"users">[]> {
   try {
@@ -13,7 +14,10 @@ export async function fetchUsers(): Promise<Tables<"users">[]> {
       .select("id, username")
       .order("username", { ascending: false });
 
-    console.error("Unexpected error in fetchUsers:", error);
+    if (error) {
+      console.error("Error in fetchUsers:", error);
+      return [];
+    }
     return data || [];
   } catch (error) {
     console.error("Unexpected error in fetchUsers:", error);

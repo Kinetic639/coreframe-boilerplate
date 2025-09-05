@@ -1,11 +1,11 @@
-import { createClientServer } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { jwtDecode } from "jwt-decode";
-import { CustomJwtPayload } from "@/utils/auth/adminAuth";
+import { CustomJwtPayload } from "@/lib/api/load-user-context-server";
 
 export async function getRolesServer(): Promise<
   { role: string; org_id: string | null; branch_id: string | null; team_id: string | null }[]
 > {
-  const supabase = await createClientServer();
+  const supabase = await createClient();
 
   const {
     data: { session },
@@ -19,7 +19,12 @@ export async function getRolesServer(): Promise<
 
   try {
     const decoded = jwtDecode<CustomJwtPayload>(session.access_token);
-    return decoded.roles || [];
+    return (decoded.roles || []).map((role) => ({
+      role: role.role,
+      org_id: role.org_id,
+      branch_id: role.branch_id,
+      team_id: null, // Not used in JWT payload
+    }));
   } catch (err) {
     console.error("Error decoding JWT:", err);
     return [];
