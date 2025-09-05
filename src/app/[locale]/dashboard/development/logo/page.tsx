@@ -10,6 +10,7 @@ import Link from "next/link";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
+import { AppContext } from "@/lib/stores/app-store";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function LogoDebugPage() {
-  const appContext = await loadAppContextServer();
+  const appContext: AppContext | null = await loadAppContextServer();
   const locale = await getLocale();
 
   if (!appContext?.activeOrg) {
@@ -73,19 +74,19 @@ export default async function LogoDebugPage() {
             <CardTitle>Organization Info</CardTitle>
           </div>
           <CardDescription>
-            Current organization: <strong>{appContext.activeOrg.name}</strong>
+            Current organization: <strong>{appContext.activeOrg!.name}</strong>
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2 text-sm">
             <p>
-              <strong>Organization ID:</strong> {appContext.activeOrg.organization_id}
+              <strong>Organization ID:</strong> {appContext.activeOrg!.organization_id}
             </p>
             <p>
-              <strong>Current Logo URL:</strong> {appContext.activeOrg.logo_url || "None"}
+              <strong>Current Logo URL:</strong> {appContext.activeOrg!.logo_url || "None"}
             </p>
             <p>
-              <strong>Slug:</strong> {appContext.activeOrg.slug}
+              <strong>Slug:</strong> {appContext.activeOrg!.slug}
             </p>
           </div>
         </CardContent>
@@ -100,8 +101,8 @@ export default async function LogoDebugPage() {
         </CardHeader>
         <CardContent>
           <LogoDebug
-            organizationId={appContext.activeOrg.organization_id}
-            currentLogoUrl={appContext.activeOrg.logo_url}
+            organizationId={appContext.activeOrg!.organization_id}
+            currentLogoUrl={appContext.activeOrg!.logo_url}
           />
         </CardContent>
       </Card>

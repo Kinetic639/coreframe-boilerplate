@@ -1,8 +1,14 @@
 // lib/data/branches.ts
 
 import { createClient } from "@/utils/supabase/server";
+import { Tables } from "../../../../supabase/types/types";
 
-export async function getBranchesWithStatsFromDb(activeOrgId: string) {
+type BranchWithStats = Tables<"branches"> & {
+  userCount: number;
+  productCount: number;
+};
+
+export async function getBranchesWithStatsFromDb(activeOrgId: string): Promise<BranchWithStats[]> {
   const supabase = await createClient();
 
   // 1. Pobierz oddziały tej organizacji
@@ -37,9 +43,11 @@ export async function getBranchesWithStatsFromDb(activeOrgId: string) {
     ])
   );
 
-  return branches.map((branch) => ({
-    ...branch,
-    userCount: userCounts[branch.id] ?? 0,
-    productCount: productCounts[branch.id] ?? 0,
-  }));
+  return branches.map(
+    (branch): BranchWithStats => ({
+      ...branch,
+      userCount: userCounts[branch.id] ?? 0,
+      productCount: productCounts[branch.id] ?? 0,
+    })
+  );
 }
