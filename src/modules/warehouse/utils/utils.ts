@@ -3,7 +3,6 @@ import {
   canUserAssignQrCodes,
   assignQrCodeToLocation,
 } from "@/lib/mock/qr-codes";
-import { getCurrentUser } from "@/lib/mock/organization";
 import { branchLocationsMap } from "@/lib/mock/branches";
 
 export interface QrResolutionResult {
@@ -16,8 +15,6 @@ export interface QrResolutionResult {
 }
 
 export async function resolveQrCode(qrToken: string): Promise<QrResolutionResult> {
-  const currentUser = getCurrentUser();
-
   // Get QR code with details
   const qrCodeWithDetails = getQrCodeWithDetails(qrToken);
 
@@ -52,7 +49,7 @@ export async function resolveQrCode(qrToken: string): Promise<QrResolutionResult
   }
 
   // QR code is not assigned to any location
-  if (!canUserAssignQrCodes(currentUser.id)) {
+  if (!canUserAssignQrCodes()) {
     return {
       success: false,
       action: "unauthorized",

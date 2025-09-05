@@ -12,7 +12,8 @@ export interface RoleWithUserCount extends Role {
   users: User[];
 }
 
-export interface UserRoleAssignmentWithDetails extends UserRoleAssignment {
+export interface UserRoleAssignmentWithDetails extends Omit<UserRoleAssignment, "scope"> {
+  scope: "org" | "branch";
   users: User | null;
   roles: Role | null;
 }

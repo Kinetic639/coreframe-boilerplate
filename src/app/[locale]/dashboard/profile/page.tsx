@@ -230,7 +230,7 @@ export default function ProfilePage() {
           ...assignment,
           scope_name:
             assignment.scope === "org"
-              ? organization?.name || "Organization"
+              ? (organization as any)?.name || "Organization"
               : branchMap.get(assignment.scope_id) || "Branch",
         }));
       }

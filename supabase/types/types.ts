@@ -2957,3 +2957,24 @@ export const Constants = {
     Enums: {},
   },
 } as const;
+
+// Additional type aliases
+export type Supplier = Tables<"suppliers">;
+export type SupplierInsert = TablesInsert<"suppliers">;
+export type SupplierUpdate = TablesUpdate<"suppliers">;
+
+// Supplier contact types
+export type SupplierContact = Tables<"supplier_contacts">;
+export type SupplierContactInsert = TablesInsert<"supplier_contacts">;
+export type SupplierContactUpdate = TablesUpdate<"supplier_contacts">;
+
+// Combined supplier with contacts type
+export type SupplierWithContacts = Supplier & {
+  supplier_contacts: SupplierContact[];
+  primary_contact?: SupplierContact;
+};
+
+// User types
+export type User = Tables<"users"> & {
+  avatar_url?: string | null;
+};

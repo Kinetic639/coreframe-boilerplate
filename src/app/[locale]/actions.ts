@@ -54,7 +54,7 @@ export const signInAction = async (formData: FormData) => {
   const password = formData.get("password") as string;
   const returnUrl = formData.get("returnUrl") as string;
 
-  console.log("[DEBUG] returnUrl received:", returnUrl);
+  console.warn("[DEBUG] returnUrl received:", returnUrl);
 
   const supabase = await createClient();
 
@@ -67,20 +67,20 @@ export const signInAction = async (formData: FormData) => {
     const redirectUrl = returnUrl
       ? `/sign-in?returnUrl=${encodeURIComponent(returnUrl)}`
       : "/sign-in";
-    return encodedRedirect("error", redirectUrl, error.message);
+    return encodedRedirect("error", redirectUrl as any, error.message);
   }
 
   const locale = await getLocale();
 
   // If there's a returnUrl, redirect there, otherwise go to dashboard
   if (returnUrl && returnUrl.trim() !== "") {
-    console.log("[DEBUG] Processing returnUrl:", returnUrl);
-    console.log("[DEBUG] Locale:", locale);
+    console.warn("[DEBUG] Processing returnUrl:", returnUrl);
+    console.warn("[DEBUG] Locale:", locale);
 
     // Use direct Next.js redirect to the exact returnUrl
     const { redirect: nextRedirect } = await import("next/navigation");
-    console.log("[DEBUG] Using Next.js redirect to:", returnUrl);
-    return nextRedirect(returnUrl);
+    console.warn("[DEBUG] Using Next.js redirect to:", returnUrl);
+    return nextRedirect(returnUrl as any);
   }
 
   return redirect({ href: "/dashboard/start", locale });

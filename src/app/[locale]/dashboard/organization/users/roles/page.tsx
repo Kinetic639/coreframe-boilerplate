@@ -367,7 +367,7 @@ export default function RolesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/organization/roles/${role.id}`}>
+                              <Link href={`/dashboard/organization/roles/${role.id}` as any}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 {t("roleDetails")}
                               </Link>
@@ -384,7 +384,7 @@ export default function RolesPage() {
                             {!role.is_basic && (
                               <>
                                 <DropdownMenuItem asChild>
-                                  <Link href={`/dashboard/organization/roles/${role.id}`}>
+                                  <Link href={`/dashboard/organization/roles/${role.id}` as any}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     {t("editRole")}
                                   </Link>
@@ -392,7 +392,9 @@ export default function RolesPage() {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-red-600"
-                                  disabled={role.assignedUsersCount && role.assignedUsersCount > 0}
+                                  disabled={
+                                    !!(role.assignedUsersCount && role.assignedUsersCount > 0)
+                                  }
                                   onClick={() => setRoleToDelete(role)}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />

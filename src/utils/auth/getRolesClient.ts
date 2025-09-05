@@ -1,10 +1,11 @@
 import { jwtDecode } from "jwt-decode";
-import { CustomJwtPayload } from "@/utils/auth/adminAuth";
+import { CustomJwtPayload } from "@/lib/api/load-user-context-server";
+import { createClient } from "@/utils/supabase/client";
 
 export async function getRolesClient(): Promise<
   { role: string; org_id: string | null; branch_id: string | null; team_id: string | null }[]
 > {
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   const {
     data: { session },
@@ -18,7 +19,12 @@ export async function getRolesClient(): Promise<
 
   try {
     const decoded = jwtDecode<CustomJwtPayload>(session.access_token);
-    return decoded.roles || [];
+    return (decoded.roles || []).map((role) => ({
+      role: role.role,
+      org_id: role.org_id,
+      branch_id: role.branch_id,
+      team_id: null, // Not used in JWT payload
+    }));
   } catch (err) {
     console.error("Error decoding JWT on client:", err);
     return [];

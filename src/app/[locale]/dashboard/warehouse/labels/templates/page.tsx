@@ -65,10 +65,10 @@ export default function LabelTemplatesPage() {
         is_default: false,
       };
       // Remove fields that shouldn't be cloned
-      delete cloneData.id;
-      delete cloneData.created_at;
-      delete cloneData.updated_at;
-      delete cloneData.usage_count;
+      delete (cloneData as any).id;
+      delete (cloneData as any).created_at;
+      delete (cloneData as any).updated_at;
+      delete (cloneData as any).usage_count;
 
       const response = await fetch("/api/labels/templates", {
         method: "POST",

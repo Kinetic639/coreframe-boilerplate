@@ -90,7 +90,7 @@ export default function LocationManager({
       let totalCount = locationStockMap.get(locationId) || 0;
 
       // Add counts from all descendants
-      const descendants = locations.filter((l) => l.parent_id === locationId);
+      const descendants = locations.filter((l) => (l as any).parent_id === locationId);
       descendants.forEach((child) => {
         totalCount += calculateTotalCount(child.id, locationMap);
       });
@@ -159,7 +159,8 @@ export default function LocationManager({
       } else if (sortKey === "code") {
         compareValue = (a.code || "").localeCompare(b.code || "");
       } else if (sortKey === "created_at") {
-        compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        compareValue =
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       } else if (sortKey === "sort_order") {
         compareValue = (a.sort_order || 0) - (b.sort_order || 0);
       }
@@ -167,7 +168,7 @@ export default function LocationManager({
       return sortOrder === "asc" ? compareValue : -compareValue;
     });
 
-    return buildLocationTree(sorted);
+    return buildLocationTree(sorted as any);
   }, [branchLocations, searchQuery, sortKey, sortOrder, activeBranchId]);
 
   const handleAddLocation = () => {
