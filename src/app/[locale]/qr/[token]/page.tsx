@@ -165,13 +165,23 @@ export default async function QRPage({ params }: QRPageProps) {
                   </p>
                   <div className="space-y-2">
                     <Button asChild variant="outline" size="sm" className="w-full">
-                      <Link href={`/dashboard/warehouse/labels/assign?qr=${token}&type=product`}>
+                      <Link
+                        href={{
+                          pathname: "/dashboard/warehouse/labels/assign",
+                          query: { qr: token, type: "product" },
+                        }}
+                      >
                         <Package className="mr-2 h-4 w-4" />
                         Przypisz do produktu
                       </Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="w-full">
-                      <Link href={`/dashboard/warehouse/labels/assign?qr=${token}&type=location`}>
+                      <Link
+                        href={{
+                          pathname: "/dashboard/warehouse/labels/assign",
+                          query: { qr: token, type: "location" },
+                        }}
+                      >
                         <MapPin className="mr-2 h-4 w-4" />
                         Przypisz do lokalizacji
                       </Link>
@@ -258,7 +268,13 @@ export default async function QRPage({ params }: QRPageProps) {
 
             <Button asChild className="w-full">
               <Link
-                href={`/dashboard/warehouse/${entityType === "product" ? "products" : "locations"}/${entity.id}`}
+                href={{
+                  pathname:
+                    entityType === "product"
+                      ? "/dashboard/warehouse/products/[id]"
+                      : "/dashboard/warehouse/locations/[id]",
+                  params: { id: entity.id },
+                }}
               >
                 Przejdź do szczegółów
               </Link>

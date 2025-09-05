@@ -33,7 +33,12 @@ export function ProductList({ product }: { product: ProductWithVariants }) {
           <Badge variant={totalStock > 0 ? "secondary" : "destructive"}>
             {totalStock > 0 ? `${totalStock} w magazynie` : "Brak w magazynie"}
           </Badge>
-          <Link href={`/dashboard/warehouse/products/${product.id}`}>
+          <Link
+            href={{
+              pathname: "/dashboard/warehouse/products/[id]",
+              params: { id: product.id },
+            }}
+          >
             <Button variant="outline" size="sm">
               <Eye className="mr-2 h-4 w-4" />
               Zobacz

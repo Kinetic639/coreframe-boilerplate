@@ -367,7 +367,12 @@ export default function RolesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/organization/roles/${role.id}`}>
+                              <Link
+                                href={{
+                                  pathname: "/dashboard/organization/roles/[id]",
+                                  params: { id: role.id },
+                                }}
+                              >
                                 <Eye className="mr-2 h-4 w-4" />
                                 {t("roleDetails")}
                               </Link>
@@ -384,7 +389,12 @@ export default function RolesPage() {
                             {!role.is_basic && (
                               <>
                                 <DropdownMenuItem asChild>
-                                  <Link href={`/dashboard/organization/roles/${role.id}`}>
+                                  <Link
+                                    href={{
+                                      pathname: "/dashboard/organization/roles/[id]",
+                                      params: { id: role.id },
+                                    }}
+                                  >
                                     <Edit className="mr-2 h-4 w-4" />
                                     {t("editRole")}
                                   </Link>
