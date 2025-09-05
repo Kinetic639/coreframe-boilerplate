@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
+import { AppContext } from "@/lib/stores/app-store";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ContextDebugPage() {
-  const appContext = await loadAppContextServer();
+  const appContext: AppContext | null = await loadAppContextServer();
   const userContext = await loadUserContextServer();
 
   return (
@@ -115,15 +116,15 @@ export default async function ContextDebugPage() {
               <div className="space-y-1">
                 <p className="text-sm font-medium text-gray-600">Organization</p>
                 <p className="text-lg font-semibold">
-                  {appContext.activeOrg?.name || "No Active Org"}
+                  {appContext?.activeOrg?.name || "No Active Org"}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {appContext.availableBranches.length} branches
+                  {appContext?.availableBranches?.length || 0} branches
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-medium text-gray-600">Modules</p>
-                <p className="text-lg font-semibold">{appContext.userModules.length}</p>
+                <p className="text-lg font-semibold">{appContext?.userModules?.length || 0}</p>
                 <p className="text-sm text-gray-500">
                   {userContext.permissions.length} permissions
                 </p>

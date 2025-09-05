@@ -1,6 +1,7 @@
 // app/dashboard/organization/profile/page.tsx
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
+import { AppContext } from "@/lib/stores/app-store";
 import OrganizationPreview from "@/modules/organization-managment/OrganizationPreview";
 import OrganizationForm from "@/modules/organization-managment/OrganizationProfileForm";
 import LogoDebug from "@/components/debug/LogoDebug";
@@ -10,7 +11,7 @@ import { getLocale } from "next-intl/server";
 
 export default async function OrganizationProfilePage() {
   const userContext = await loadUserContextServer();
-  const appContext = await loadAppContextServer();
+  const appContext: AppContext | null = await loadAppContextServer();
 
   // Check if user is authenticated and has context
   if (!userContext || !appContext?.activeOrg) {
@@ -32,14 +33,14 @@ export default async function OrganizationProfilePage() {
         Zarządzaj podstawowymi informacjami o organizacji, logo i kolorami motywu
       </p>
       <div className="grid grid-cols-1 gap-6 px-4 lg:grid-cols-[3fr_2fr]">
-        <OrganizationForm defaultValues={appContext.activeOrg} />
-        <OrganizationPreview values={appContext.activeOrg} />
+        <OrganizationForm defaultValues={appContext.activeOrg!} />
+        <OrganizationPreview values={appContext.activeOrg!} />
       </div>
 
       <div className="px-4">
         <LogoDebug
-          organizationId={appContext.activeOrg.organization_id}
-          currentLogoUrl={appContext.activeOrg.logo_url}
+          organizationId={appContext.activeOrg!.organization_id}
+          currentLogoUrl={appContext.activeOrg!.logo_url}
         />
       </div>
     </div>

@@ -159,18 +159,18 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     activeOrgId: activeOrgId,
     activeBranchId: activeBranchId,
     activeOrg: activeOrg
-      ? {
+      ? ({
           ...activeOrg,
           id: activeOrg.organization_id,
           name: activeOrg.name || "Unknown Organization",
-        }
+        } as Tables<"organization_profiles">)
       : null,
     activeBranch: activeBranch
-      ? {
+      ? ({
           ...activeBranch,
           branch_id: activeBranch.id, // Add branch_id for compatibility
           name: activeBranch.name || "Unknown Branch",
-        }
+        } as BranchData)
       : null,
     availableBranches: mappedBranches,
     userModules,
