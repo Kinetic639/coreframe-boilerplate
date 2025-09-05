@@ -1,10 +1,11 @@
 import { jwtDecode } from "jwt-decode";
 import { CustomJwtPayload } from "@/utils/auth/adminAuth";
+import { createClient } from "@/utils/supabase/client";
 
 export async function getRolesClient(): Promise<
   { role: string; org_id: string | null; branch_id: string | null; team_id: string | null }[]
 > {
-  const supabase = createBrowserClient();
+  const supabase = createClient();
 
   const {
     data: { session },

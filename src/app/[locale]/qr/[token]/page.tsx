@@ -212,6 +212,27 @@ export default async function QRPage({ params }: QRPageProps) {
   // Success case - redirect to appropriate page
   const { entity, entityType } = result;
 
+  // Type guard to ensure entity exists
+  if (!entity) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="flex items-center justify-center gap-2 text-red-600">
+              <AlertCircle className="h-6 w-6" />
+              Entity Not Found
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-muted-foreground">
+              The linked entity could not be found.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Construct localized URLs based on the routing configuration
   if (entityType === "product") {
     const productPath = routing.pathnames["/dashboard/warehouse/products/[id]"];

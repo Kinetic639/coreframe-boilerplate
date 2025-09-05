@@ -11,11 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Plus, Trash2, Star, StarOff, Phone, Mail, User, Building2, Loader2 } from "lucide-react";
-import {
-  SupplierContact,
-  SupplierContactInsert,
-  SupplierContactUpdate,
-} from "../../../../../supabase/types/types";
+import { SupplierContact, SupplierContactInsert, SupplierContactUpdate } from "../api";
 
 interface ContactFormData {
   id?: string;

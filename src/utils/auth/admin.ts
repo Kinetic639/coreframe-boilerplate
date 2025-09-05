@@ -2,7 +2,13 @@
 
 import { createClient } from "../supabase/server";
 
-export async function fetchUsers(): Promise<Tables<"users">[]> {
+// Local type definition since Tables is not available
+type User = {
+  id: string;
+  username?: string | null;
+};
+
+export async function fetchUsers(): Promise<User[]> {
   try {
     // Use admin client for fetching users
     const supabase = await createClient();

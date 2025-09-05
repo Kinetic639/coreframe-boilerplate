@@ -23,7 +23,7 @@ import {
   SupplierContactInsert,
   SupplierContactUpdate,
   SupplierWithContacts,
-} from "../../../../../supabase/types/types";
+} from "../api";
 import { Loader2, Building2, MapPin, Tag } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
