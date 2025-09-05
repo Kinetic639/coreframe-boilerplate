@@ -509,7 +509,13 @@ export default function LabelTestingPage() {
                         URL
                       </Button>
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/qr/${label.qr_token}`} target="_blank">
+                        <Link
+                          href={{
+                            pathname: "/qr/[token]",
+                            params: { token: label.qr_token },
+                          }}
+                          target="_blank"
+                        >
                           <ExternalLink className="mr-1 h-3 w-3" />
                           Test
                         </Link>
