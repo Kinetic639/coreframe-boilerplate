@@ -1,11 +1,11 @@
-import { createClientServer } from "@/utils/supabase/server";
+import { createClient } from "@/utils/supabase/server";
 import { jwtDecode } from "jwt-decode";
 import { CustomJwtPayload } from "@/utils/auth/adminAuth";
 
 export async function getRolesServer(): Promise<
   { role: string; org_id: string | null; branch_id: string | null; team_id: string | null }[]
 > {
-  const supabase = await createClientServer();
+  const supabase = await createClient();
 
   const {
     data: { session },

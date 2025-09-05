@@ -90,7 +90,7 @@ export default function LocationManager({
       let totalCount = locationStockMap.get(locationId) || 0;
 
       // Add counts from all descendants
-      const descendants = locations.filter((l) => l.parent_id === locationId);
+      const descendants = locations.filter((l) => l.raw && l.raw.parent_id === locationId);
       descendants.forEach((child) => {
         totalCount += calculateTotalCount(child.id, locationMap);
       });
@@ -125,9 +125,23 @@ export default function LocationManager({
         toast.error("Błąd podczas ładowania lokalizacji.");
         setLocations([]);
       } else {
-        const locationsWithCounts = await calculateLocationProductCounts(
-          data as LocationTreeItem[]
-        );
+        // Transform raw database rows into LocationTreeItem format
+        const locationTreeItems: LocationTreeItem[] = (data || []).map((location) => ({
+          id: location.id,
+          name: location.name,
+          icon_name: location.icon_name,
+          code: location.code,
+          color: location.color,
+          description: location.description,
+          level: location.level,
+          sort_order: location.sort_order,
+          created_at: location.created_at,
+          children: [],
+          raw: location,
+          productCount: 0,
+        }));
+
+        const locationsWithCounts = await calculateLocationProductCounts(locationTreeItems);
         setLocations(locationsWithCounts);
       }
       setLoading(false);
@@ -159,7 +173,8 @@ export default function LocationManager({
       } else if (sortKey === "code") {
         compareValue = (a.code || "").localeCompare(b.code || "");
       } else if (sortKey === "created_at") {
-        compareValue = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        compareValue =
+          new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       } else if (sortKey === "sort_order") {
         compareValue = (a.sort_order || 0) - (b.sort_order || 0);
       }
@@ -167,7 +182,7 @@ export default function LocationManager({
       return sortOrder === "asc" ? compareValue : -compareValue;
     });
 
-    return buildLocationTree(sorted);
+    return buildLocationTree(sorted.map((item) => item.raw));
   }, [branchLocations, searchQuery, sortKey, sortOrder, activeBranchId]);
 
   const handleAddLocation = () => {
@@ -241,9 +256,23 @@ export default function LocationManager({
     if (error) {
       console.error("Error re-fetching locations:", error);
     } else {
-      const locationsWithCounts = await calculateLocationProductCounts(
-        newLocations as LocationTreeItem[]
-      );
+      // Transform raw database rows into LocationTreeItem format
+      const locationTreeItems: LocationTreeItem[] = (newLocations || []).map((location) => ({
+        id: location.id,
+        name: location.name,
+        icon_name: location.icon_name,
+        code: location.code,
+        color: location.color,
+        description: location.description,
+        level: location.level,
+        sort_order: location.sort_order,
+        created_at: location.created_at,
+        children: [],
+        raw: location,
+        productCount: 0,
+      }));
+
+      const locationsWithCounts = await calculateLocationProductCounts(locationTreeItems);
       setLocations(locationsWithCounts);
     }
   };

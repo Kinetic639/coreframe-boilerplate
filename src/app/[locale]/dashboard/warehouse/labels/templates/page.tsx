@@ -58,17 +58,13 @@ export default function LabelTemplatesPage() {
 
   const handleCloneTemplate = async (template: TemplateWithPreview) => {
     try {
+      const { ...templateData } = template;
       const cloneData = {
-        ...template,
+        ...templateData,
         name: `${template.name} (kopia)`,
         is_system: false,
         is_default: false,
       };
-      // Remove fields that shouldn't be cloned
-      delete cloneData.id;
-      delete cloneData.created_at;
-      delete cloneData.updated_at;
-      delete cloneData.usage_count;
 
       const response = await fetch("/api/labels/templates", {
         method: "POST",

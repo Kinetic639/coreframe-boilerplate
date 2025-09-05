@@ -194,7 +194,7 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Tagi</label>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {supplier.tags.map((tag, index) => (
+                    {supplier.tags.map((tag: string, index: number) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
@@ -284,7 +284,7 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {supplier.supplier_contacts.map((contact) => (
+              {supplier.supplier_contacts.map((contact: any) => (
                 <div
                   key={contact.id}
                   className={`rounded-lg border p-4 ${contact.is_primary ? "border-primary bg-primary/5" : "border-muted"}`}

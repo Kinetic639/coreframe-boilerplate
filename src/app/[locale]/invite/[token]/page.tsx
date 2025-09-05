@@ -281,7 +281,7 @@ export default function InvitationPage() {
   }
 
   // Check if invitation is expired
-  const expired = isExpired(invitation.expires_at);
+  const expired = invitation.expires_at ? isExpired(invitation.expires_at) : false;
   const canAccept = invitation.status === "pending" && !expired && user;
 
   return (
@@ -355,14 +355,18 @@ export default function InvitationPage() {
                     <span className="text-sm font-medium">Wygasa:</span>
                     <div className="text-right">
                       <div className={`text-sm ${expired ? "font-medium text-red-500" : ""}`}>
-                        {new Date(invitation.expires_at).toLocaleDateString("pl-PL")}
+                        {invitation.expires_at
+                          ? new Date(invitation.expires_at).toLocaleDateString("pl-PL")
+                          : "No expiration"}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         <Calendar className="mr-1 inline h-3 w-3" />
-                        {formatDistanceToNow(new Date(invitation.expires_at), {
-                          addSuffix: true,
-                          locale: pl,
-                        })}
+                        {invitation.expires_at
+                          ? formatDistanceToNow(new Date(invitation.expires_at), {
+                              addSuffix: true,
+                              locale: pl,
+                            })
+                          : "Never"}
                       </div>
                     </div>
                   </div>
