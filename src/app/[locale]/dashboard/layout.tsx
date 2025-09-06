@@ -30,7 +30,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
     return redirect({ href: "/sign-in", locale });
   }
 
-  const themeColor = appContext?.activeOrg?.theme_color;
+  const themeColor = appContext?.activeOrg?.theme_color ?? null;
 
   return (
     <Suspense fallback={<p>Loading</p>}>
