@@ -26,7 +26,7 @@ export default function ModuleSectionClient({ module }: ModuleSectionClientProps
           id: module.slug,
           label: module.title,
           icon: module.icon,
-          submenu: module.items,
+          submenu: module.items as any,
         }}
       />
     </Accordion>

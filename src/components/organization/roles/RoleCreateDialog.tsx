@@ -171,7 +171,7 @@ export function RoleCreateDialog({
                               checked={allSelected}
                               ref={(ref) => {
                                 if (ref) {
-                                  ref.indeterminate = someSelected && !allSelected;
+                                  (ref as any).indeterminate = someSelected && !allSelected;
                                 }
                               }}
                               onCheckedChange={() =>

@@ -32,7 +32,7 @@ export function useRoles() {
     try {
       setLoading(true);
       setError(null);
-      const rolesData = await fetchRolesWithUserCountsServer(activeOrg.id);
+      const rolesData = await fetchRolesWithUserCountsServer(activeOrg.organization_id);
       setRoles(rolesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch roles");
@@ -75,7 +75,7 @@ export function useRoleStatistics() {
     try {
       setLoading(true);
       setError(null);
-      const stats = await fetchRoleStatisticsServer(activeOrg.id);
+      const stats = await fetchRoleStatisticsServer(activeOrg.organization_id);
       setStatistics(stats);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch statistics");

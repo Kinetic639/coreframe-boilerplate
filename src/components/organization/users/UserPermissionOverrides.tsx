@@ -96,7 +96,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
   }, []);
 
   const handleAddOverride = async () => {
-    if (!newOverrideData.permissionId || !activeOrg?.id) return;
+    if (!newOverrideData.permissionId || !(activeOrg as any)?.organization_id) return;
 
     try {
       setIsLoading(true);
@@ -104,7 +104,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
 
       await upsertPermissionOverride(
         user.id,
-        activeOrg.id,
+        activeOrg.organization_id,
         newOverrideData.permissionId,
         newOverrideData.isGranted,
         newOverrideData.branchId
@@ -148,7 +148,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
   };
 
   const handleToggleOverride = async (override: UserPermissionOverrideWithDetails) => {
-    if (!activeOrg?.id) return;
+    if (!activeOrg?.organization_id) return;
 
     try {
       setIsLoading(true);
@@ -156,7 +156,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
 
       await upsertPermissionOverride(
         user.id,
-        activeOrg.id,
+        activeOrg.organization_id,
         override.permission_id,
         !override.allowed,
         override.scope === "branch" ? override.scope_id : null

@@ -112,7 +112,7 @@ export default function BranchFormDialog({
         result = await createBranchAction({
           name: data.name,
           slug: data.slug || undefined,
-          organization_id: activeOrg.id,
+          organization_id: activeOrg.organization_id,
         });
       }
 

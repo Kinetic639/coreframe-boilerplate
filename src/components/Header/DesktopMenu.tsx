@@ -63,7 +63,7 @@ export default function DesktopMenu() {
                   <p className="text-sm text-muted-foreground">{menu.description}</p>
                 </div>
                 <ul className="grid grid-cols-2 gap-3">
-                  {menu.items.flatMap((group: MenuItem) =>
+                  {menu.items.flatMap((group: any) =>
                     (group.items || [group]).map((item: MenuItem) => (
                       <li key={item.title}>
                         <NavigationMenuLink asChild>

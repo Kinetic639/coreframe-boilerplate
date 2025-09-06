@@ -21,7 +21,7 @@ export function useUserDetail(userId: string) {
     try {
       setLoading(true);
       setError(null);
-      const userData = await fetchUserDetailServer(userId, activeOrg.id);
+      const userData = await fetchUserDetailServer(userId, activeOrg.organization_id);
       setUser(userData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch user details");

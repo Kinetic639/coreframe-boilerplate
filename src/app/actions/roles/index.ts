@@ -390,7 +390,7 @@ export async function getUserPermissionOverrides(userId: string, organizationId:
   const { createServiceClient } = await import("@/utils/supabase/service");
   const serviceSupabase = createServiceClient();
 
-  const { data: overrides, error } = await serviceSupabase
+  const { data: overrides, error } = await (serviceSupabase as any)
     .from("user_permission_overrides")
     .select(
       `

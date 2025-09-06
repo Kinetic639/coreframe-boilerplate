@@ -80,7 +80,7 @@ export function RoleAssignmentDialog({ open, onOpenChange, onSuccess }: RoleAssi
   useEffect(() => {
     if (open && activeOrg?.id) {
       setLoadingUsers(true);
-      fetchOrganizationUsers(activeOrg.id)
+      fetchOrganizationUsers(activeOrg.organization_id)
         .then(setUsers)
         .catch((error) => {
           console.error("Failed to fetch users:", error);
@@ -94,7 +94,7 @@ export function RoleAssignmentDialog({ open, onOpenChange, onSuccess }: RoleAssi
   const watchScope = form.watch("scope");
   useEffect(() => {
     if (watchScope === "org" && activeOrg?.id) {
-      form.setValue("scope_id", activeOrg.id);
+      form.setValue("scope_id", activeOrg.organization_id);
     } else if (watchScope === "branch" && activeBranch?.id) {
       form.setValue("scope_id", activeBranch.id);
     }

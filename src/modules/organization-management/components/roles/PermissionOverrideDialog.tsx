@@ -88,7 +88,7 @@ export function PermissionOverrideDialog({
   useEffect(() => {
     if (open && activeOrg?.id) {
       setLoadingUsers(true);
-      fetchOrganizationUsers(activeOrg.id)
+      fetchOrganizationUsers(activeOrg.organization_id)
         .then(setUsers)
         .catch((error) => {
           console.error("Failed to fetch users:", error);

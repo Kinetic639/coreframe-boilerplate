@@ -79,8 +79,8 @@ export default function ModuleSectionWrapper({
       }
 
       // If the item has submenu, filter it too
-      if (item.submenu) {
-        const visibleSubmenu = item.submenu.filter((subitem) => {
+      if ((item as any).submenu) {
+        const visibleSubmenu = (item as any).submenu.filter((subitem) => {
           // Check permission-based access first (preferred)
           if (subitem.requiredPermissions) {
             return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
@@ -112,8 +112,8 @@ export default function ModuleSectionWrapper({
     .map((item) => ({
       ...item,
       // Ensure submenu is properly filtered
-      submenu: item.submenu
-        ? item.submenu.filter((subitem) => {
+      submenu: (item as any).submenu
+        ? (item as any).submenu.filter((subitem) => {
             if (subitem.requiredPermissions) {
               return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
             }

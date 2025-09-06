@@ -20,6 +20,7 @@ import { LabelTemplateField } from "@/lib/types/qr-system";
 import { LabelFieldEditor } from "./LabelFieldEditor";
 import { LabelPreviewCanvas } from "./LabelPreviewCanvas";
 import { LabelGenerationDialog } from "./LabelGenerationDialog";
+import { useLabelCreatorStore } from "@/lib/stores/label-creator-store";
 
 const LABEL_SIZES = [
   { name: "Mała (25×15mm)", width: 25, height: 15 },

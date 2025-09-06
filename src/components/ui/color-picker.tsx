@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useController, Control, FieldValues } from "react-hook-form";
+import { useController, Control, FieldValues, Path } from "react-hook-form";
 
 interface ColorPickerProps<T extends FieldValues = Record<string, unknown>> {
-  name: string;
+  name: Path<T>;
   control: Control<T>;
   label?: string;
   className?: string;
