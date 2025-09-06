@@ -37,7 +37,7 @@ export function useOrganizationUsers() {
     try {
       setLoading(true);
       setError(null);
-      const usersData = await fetchOrganizationUsersWithRpc(activeOrg.id);
+      const usersData = await fetchOrganizationUsersWithRpc(activeOrg.organization_id);
       setUsers(usersData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch users");

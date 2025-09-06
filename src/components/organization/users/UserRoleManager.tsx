@@ -76,7 +76,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
       if (!activeOrg?.id) return;
 
       try {
-        const roles = await fetchAvailableRoles(activeOrg.id);
+        const roles = await fetchAvailableRoles(activeOrg.organization_id);
         setAvailableRoles(roles);
       } catch (err) {
         console.error("Failed to load roles:", err);

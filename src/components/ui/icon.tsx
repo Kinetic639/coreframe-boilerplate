@@ -6,7 +6,7 @@ interface IconProps extends React.SVGProps<SVGSVGElement> {
 }
 
 const Icon = ({ name, className, ...props }: IconProps) => {
-  const LucideIcon = Icons[name];
+  const LucideIcon = Icons[name] as any;
 
   if (!LucideIcon) {
     // Fallback to a default icon if the specified icon is not found

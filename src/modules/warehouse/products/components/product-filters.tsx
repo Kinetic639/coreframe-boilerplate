@@ -133,6 +133,17 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
 
   const handleApplyAdvancedFilters = (appliedCriteria: FilterState) => {
     setFilters(appliedCriteria);
+    // Convert FilterState to the expected format
+    const convertedFilters = {
+      search: appliedCriteria.search || undefined,
+      minPrice: typeof appliedCriteria.minPrice === "number" ? appliedCriteria.minPrice : undefined,
+      maxPrice: typeof appliedCriteria.maxPrice === "number" ? appliedCriteria.maxPrice : undefined,
+      supplierId: appliedCriteria.supplierId !== "all" ? appliedCriteria.supplierId : undefined,
+      locationId: appliedCriteria.locationId !== "all" ? appliedCriteria.locationId : undefined,
+      tags: appliedCriteria.tags.length > 0 ? appliedCriteria.tags : undefined,
+      showLowStock: appliedCriteria.showLowStock,
+    };
+    onFilterChange(convertedFilters);
   };
 
   const [isAdvancedFilterDialogOpen, setIsAdvancedFilterDialogOpen] = React.useState(false);
@@ -279,7 +290,15 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
           open={isAdvancedFilterDialogOpen}
           onOpenChange={setIsAdvancedFilterDialogOpen}
           onApplyFilter={handleApplyAdvancedFilters}
-          currentFilters={filters}
+          currentFilters={{
+            search: filters.search || undefined,
+            minPrice: typeof filters.minPrice === "number" ? filters.minPrice : undefined,
+            maxPrice: typeof filters.maxPrice === "number" ? filters.maxPrice : undefined,
+            supplierId: filters.supplierId !== "all" ? filters.supplierId : undefined,
+            locationId: filters.locationId !== "all" ? filters.locationId : undefined,
+            tags: filters.tags.length > 0 ? filters.tags : undefined,
+            showLowStock: filters.showLowStock,
+          }}
         />
       </div>
     </div>

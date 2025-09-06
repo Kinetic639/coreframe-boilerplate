@@ -106,8 +106,8 @@ export function ActivityFilters({
                 actions={actions}
                 statusOptions={statusOptions}
                 dateLocale={dateLocale}
-                updateFilter={updateFilter}
-                toggleMultiSelect={toggleMultiSelect}
+                updateFilter={updateFilter as any}
+                toggleMultiSelect={toggleMultiSelect as any}
                 clearAllFilters={clearAllFilters}
                 activeFiltersCount={activeFiltersCount}
               />
@@ -161,7 +161,7 @@ interface FilterContentProps {
   actions: Array<{ id: string; slug: string; description?: string }>;
   statusOptions: { value: ActivityStatus; label: string }[];
   dateLocale: Locale;
-  updateFilter: (key: keyof typeof filters, value: unknown) => void;
+  updateFilter: (key: any, value: unknown) => void;
   toggleMultiSelect: (currentValues: string[], value: string) => string[];
   clearAllFilters: () => void;
   activeFiltersCount: number;

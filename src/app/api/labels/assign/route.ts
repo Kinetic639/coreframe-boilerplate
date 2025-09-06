@@ -322,8 +322,8 @@ export async function GET(request: NextRequest) {
           qr_url: generateQRCodeURL(qrLabel.qr_token),
           assigned_at: qrLabel.assigned_at,
           assigned_by: qrLabel.assigned_by,
-          assigned_by_name: qrLabel.users
-            ? `${qrLabel.users.first_name || ""} ${qrLabel.users.last_name || ""}`.trim()
+          assigned_by_name: (qrLabel.users as any)
+            ? `${(qrLabel.users as any).first_name || ""} ${(qrLabel.users as any).last_name || ""}`.trim()
             : "Unknown",
         },
       });

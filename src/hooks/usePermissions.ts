@@ -4,7 +4,7 @@ import {
   fetchUserPermissionOverrides,
   PermissionOverride,
 } from "@/lib/api/roles";
-import { Database } from "../../../supabase/types/types";
+import { Database } from "@/supabase/types/types";
 import { useAppStore } from "@/lib/stores/app-store";
 
 type Permission = Database["public"]["Tables"]["permissions"]["Row"];
@@ -56,7 +56,7 @@ export function useUserPermissionOverrides(userId: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const overridesData = await fetchUserPermissionOverrides(userId, activeOrg.id);
+      const overridesData = await fetchUserPermissionOverrides(userId, activeOrg.organization_id);
       setOverrides(overridesData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch permission overrides");

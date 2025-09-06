@@ -65,7 +65,7 @@ export function RecursiveMenuItem({ item, nested = false }: { item: MenuItem; ne
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
 
-  const Icon = (Icons as { [key: string]: React.ElementType })[item.icon || "Dot"] || Icons.Dot;
+  const Icon = (Icons as any)[item.icon || "Dot"] || Icons.Dot;
   const isActive = isPathActive(item, pathname);
   const hasChildren = !!item.submenu?.length;
   const isAction = item.type === "action";
