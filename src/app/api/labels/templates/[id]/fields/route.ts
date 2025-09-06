@@ -107,7 +107,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .eq("label_template_id", templateId)
         .select();
 
-      updates.push(updatePromise);
+      updates.push(updatePromise as any);
     }
 
     const results = await Promise.all(updates);

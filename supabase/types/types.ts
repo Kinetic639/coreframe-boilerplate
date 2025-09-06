@@ -2957,3 +2957,18 @@ export const Constants = {
     Enums: {},
   },
 } as const;
+
+// Type aliases for convenient importing
+export type Supplier = Tables<"suppliers">;
+export type SupplierContact = Tables<"supplier_contacts">;
+export type SupplierInsert = TablesInsert<"suppliers">;
+export type SupplierUpdate = TablesUpdate<"suppliers">;
+export type SupplierContactInsert = TablesInsert<"supplier_contacts">;
+export type SupplierContactUpdate = TablesUpdate<"supplier_contacts">;
+
+export interface SupplierWithContacts extends Supplier {
+  supplier_contacts: SupplierContact[];
+  primary_contact?: SupplierContact;
+}
+
+export type User = Tables<"users">;

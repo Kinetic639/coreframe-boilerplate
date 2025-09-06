@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { Database } from "@/lib/types/database";
+import { Database } from "@/../supabase/types/types";
 import { routing } from "@/i18n/routing";
 
 interface QRRedirectPageProps {

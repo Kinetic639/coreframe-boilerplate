@@ -172,7 +172,7 @@ async function saveLabelBatch(template: any, payload: GeneratePdfPayload, filena
       updated_at: new Date().toISOString(),
     };
 
-    const { error } = await supabase.from("label_batches_extended").insert(batchData);
+    const { error } = await (supabase as any).from("label_batches_extended").insert(batchData);
 
     if (error) {
       console.warn("Failed to save label batch:", error);
@@ -210,6 +210,7 @@ export async function PUT(request: NextRequest) {
         label_padding_bottom: 2,
         label_padding_left: 2,
         label_type: "product",
+        template_config: {},
         fields: [
           {
             id: "field1",

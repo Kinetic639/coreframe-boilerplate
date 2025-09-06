@@ -25,8 +25,8 @@ const AppSidebar = async () => {
   const name = appContext?.activeOrg?.name;
   const name2 = appContext?.activeOrg?.name_2;
   const themeColor = appContext?.activeOrg?.theme_color;
-  const activeOrgId = appContext?.active_org_id ?? null;
-  const activeBranchId = appContext?.active_branch_id ?? null;
+  const activeOrgId = appContext?.activeOrgId ?? null;
+  const activeBranchId = appContext?.activeBranchId ?? null;
   const userPermissions = userContext?.permissions ?? [];
 
   // 🔄 Dynamiczne ładowanie modułów (np. z Supabase)
@@ -47,7 +47,11 @@ const AppSidebar = async () => {
         } as React.CSSProperties
       }
     >
-      <AppSidebarHeader logo={logo} name={name} name2={name2} />
+      <AppSidebarHeader
+        logo={logo || undefined}
+        name={name || undefined}
+        name2={name2 || undefined}
+      />
 
       <SidebarContent className="flex h-full flex-col justify-between">
         <ScrollArea className="min-h-full">

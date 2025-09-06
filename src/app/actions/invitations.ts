@@ -270,7 +270,7 @@ export async function acceptInvitationAction(token: string): Promise<InvitationA
     const invitation = await acceptInvitationAPI(token);
 
     // Refresh branch context for the user
-    await refreshBranchContext(invitation.organization_id);
+    await refreshBranchContext(invitation.organization_id!);
 
     // Revalidate relevant paths
     revalidatePath("/dashboard");
