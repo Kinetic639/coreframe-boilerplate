@@ -73,7 +73,7 @@ export async function fetchRolesWithUserCounts(
       throw new Error(`Failed to fetch users: ${usersError.message}`);
     }
 
-    users = userData || [];
+    users = (userData as any) || [];
   }
 
   // Create user map for quick lookup
@@ -212,7 +212,7 @@ export async function fetchOrganizationUsers(organizationId: string): Promise<Us
     throw new Error(`Failed to fetch users: ${usersError.message}`);
   }
 
-  return (users || []).sort(
+  return ((users as any) || []).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 }

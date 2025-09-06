@@ -135,7 +135,7 @@ export function useActivitySummary(
     queryKey: ["activity-summary", activeOrgId, filters],
     queryFn: () => {
       if (!activeOrgId) throw new Error("No active organization");
-      return ActivityService.getActivitySummary({
+      return (ActivityService as any).getActivitySummary({
         ...filters,
         organizationId: activeOrgId,
       });

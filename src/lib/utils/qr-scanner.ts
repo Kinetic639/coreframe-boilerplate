@@ -80,9 +80,9 @@ export async function createCameraStream(deviceId?: string): Promise<MediaStream
       height: { ideal: 720 },
       facingMode: deviceId ? undefined : "environment",
       deviceId: deviceId ? { exact: deviceId } : undefined,
-      focusMode: "continuous",
-      exposureMode: "continuous",
-      whiteBalanceMode: "continuous",
+      // focusMode: "continuous",
+      // exposureMode: "continuous",
+      // whiteBalanceMode: "continuous",
     },
   };
 
@@ -101,7 +101,7 @@ export async function scanFromImageData(
   try {
     const results = await readBarcodes(imageData, {
       tryHarder: scanConfig.tryHarder,
-      formats: scanConfig.enabledFormats,
+      formats: scanConfig.enabledFormats as any,
       maxNumberOfSymbols: scanConfig.maxNumberOfSymbols,
     });
 
@@ -110,7 +110,7 @@ export async function scanFromImageData(
       type: determineCodeType(result.format),
       format: result.format,
       rawBytes: result.bytes,
-      quality: result.quality || 0,
+      quality: (result as any).quality || 0,
     }));
   } catch (error) {
     console.error("Error scanning image:", error);

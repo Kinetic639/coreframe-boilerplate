@@ -76,6 +76,7 @@ export default [
       'public/**',
       '*.config.js',
       '*.config.ts',
+      'supabase/functions/**',
     ],
   },
 ]; 

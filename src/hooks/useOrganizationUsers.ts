@@ -28,7 +28,7 @@ export function useOrganizationUsers() {
   const { activeOrg } = useAppStore();
 
   const fetchUsers = React.useCallback(async () => {
-    if (!activeOrg?.id) {
+    if (!activeOrg?.organization_id) {
       setError("No active organization");
       setLoading(false);
       return;
@@ -45,7 +45,7 @@ export function useOrganizationUsers() {
     } finally {
       setLoading(false);
     }
-  }, [activeOrg?.id]);
+  }, [activeOrg?.organization_id]);
 
   useEffect(() => {
     fetchUsers();

@@ -150,7 +150,10 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
       });
     } else {
       // When hiding additional info, make it a square
-      const squareSize = Math.min(labelTemplate.width_mm, labelTemplate.height_mm);
+      const squareSize = Math.min(
+        (labelTemplate as any).width_mm,
+        (labelTemplate as any).height_mm
+      );
       updateTemplate({
         show_additional_info: showAdditionalInfo,
         width_mm: squareSize,
@@ -161,7 +164,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
 
   const generateLabels = () => {
     // Check if template has a name
-    if (!labelTemplate.name.trim()) {
+    if (!(labelTemplate as any).name.trim()) {
       toast.error("Najpierw nadaj nazwę etykiecie!");
       return;
     }
@@ -170,7 +173,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
   };
 
   const saveAsTemplate = async (saveAsNew = false) => {
-    if (!labelTemplate.name.trim()) {
+    if (!(labelTemplate as any).name.trim()) {
       toast.error("Nazwa szablonu jest wymagana. Wprowadź nazwę szablonu przed zapisaniem.");
       return;
     }
@@ -231,7 +234,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
   const currentSize = isCustomSize
     ? "Niestandardowa"
     : LABEL_SIZES.find(
-        (s) => s.width === labelTemplate.width_mm && s.height === labelTemplate.height_mm
+        (s) =>
+          s.width === (labelTemplate as any).width_mm &&
+          s.height === (labelTemplate as any).height_mm
       )?.name || "Niestandardowa";
 
   if (isLoadingTemplate || localIsLoadingTemplate) {
@@ -354,7 +359,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                       </Label>
                       <Input
                         id="name"
-                        value={labelTemplate.name}
+                        value={(labelTemplate as any).name}
                         onChange={(e) => updateTemplate({ name: e.target.value })}
                         placeholder="np. Etykiety produktów"
                         className="h-8"
@@ -386,7 +391,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                           <Input
                             id="width"
                             type="number"
-                            value={labelTemplate.width_mm}
+                            value={(labelTemplate as any).width_mm}
                             onChange={(e) =>
                               updateTemplate({
                                 width_mm: parseFloat(e.target.value) || 25,
@@ -402,7 +407,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                           <Input
                             id="height"
                             type="number"
-                            value={labelTemplate.height_mm}
+                            value={(labelTemplate as any).height_mm}
                             onChange={(e) =>
                               updateTemplate({
                                 height_mm: parseFloat(e.target.value) || 25,
@@ -420,18 +425,18 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                       </Label>
                       <Switch
                         id="additional-info"
-                        checked={labelTemplate.show_additional_info}
+                        checked={(labelTemplate as any).show_additional_info}
                         onCheckedChange={handleAdditionalInfoToggle}
                       />
                     </div>
 
-                    {!labelTemplate.show_additional_info && (
+                    {!(labelTemplate as any).show_additional_info && (
                       <div className="rounded bg-muted p-2 text-xs text-muted-foreground">
                         Tylko kod QR (kwadrat)
                       </div>
                     )}
 
-                    {labelTemplate.show_additional_info && (
+                    {(labelTemplate as any).show_additional_info && (
                       <>
                         <div className="space-y-2">
                           <Label htmlFor="field-gap" className="text-sm">
@@ -440,11 +445,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                           <Input
                             id="field-gap"
                             type="number"
-                            value={labelTemplate.field_vertical_gap || 2}
+                            value={(labelTemplate as any).field_vertical_gap || 2}
                             onChange={(e) =>
                               updateTemplate({
                                 field_vertical_gap: parseFloat(e.target.value) || 2,
-                              })
+                              } as any)
                             }
                             min="0"
                             max="10"
@@ -458,7 +463,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             Układ elementów
                           </Label>
                           <Select
-                            value={labelTemplate.layout_direction || "row"}
+                            value={(labelTemplate as any).layout_direction || "row"}
                             onValueChange={(
                               value: "row" | "column" | "row-reverse" | "column-reverse"
                             ) => updateTemplate({ layout_direction: value })}
@@ -484,9 +489,9 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             Wyrównanie elementów
                           </Label>
                           <Select
-                            value={labelTemplate.items_alignment || "center"}
+                            value={(labelTemplate as any).items_alignment || "center"}
                             onValueChange={(value: "start" | "center" | "end") =>
-                              updateTemplate({ items_alignment: value })
+                              updateTemplate({ items_alignment: value } as any)
                             }
                           >
                             <SelectTrigger className="h-8">
@@ -509,12 +514,12 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                         </Label>
                         <Switch
                           id="label-border"
-                          checked={labelTemplate.border_enabled}
+                          checked={(labelTemplate as any).border_enabled}
                           onCheckedChange={(checked) => updateTemplate({ border_enabled: checked })}
                         />
                       </div>
 
-                      {labelTemplate.border_enabled && (
+                      {(labelTemplate as any).border_enabled && (
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-1">
                             <Label htmlFor="border-width" className="text-xs">
@@ -523,7 +528,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Input
                               id="border-width"
                               type="number"
-                              value={labelTemplate.border_width}
+                              value={(labelTemplate as any).border_width}
                               onChange={(e) =>
                                 updateTemplate({
                                   border_width: parseFloat(e.target.value) || 0.5,
@@ -542,7 +547,7 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Input
                               id="border-color"
                               type="color"
-                              value={labelTemplate.border_color}
+                              value={(labelTemplate as any).border_color}
                               onChange={(e) =>
                                 updateTemplate({
                                   border_color: e.target.value,
@@ -561,11 +566,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Label className="text-xs">Góra</Label>
                             <Input
                               type="number"
-                              value={labelTemplate.label_padding_top || 2}
+                              value={(labelTemplate as any).label_padding_top || 2}
                               onChange={(e) =>
                                 updateTemplate({
                                   label_padding_top: parseFloat(e.target.value) || 2,
-                                })
+                                } as any)
                               }
                               min="0"
                               max="10"
@@ -577,11 +582,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Label className="text-xs">Dół</Label>
                             <Input
                               type="number"
-                              value={labelTemplate.label_padding_bottom || 2}
+                              value={(labelTemplate as any).label_padding_bottom || 2}
                               onChange={(e) =>
                                 updateTemplate({
                                   label_padding_bottom: parseFloat(e.target.value) || 2,
-                                })
+                                } as any)
                               }
                               min="0"
                               max="10"
@@ -593,11 +598,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Label className="text-xs">Lewo</Label>
                             <Input
                               type="number"
-                              value={labelTemplate.label_padding_left || 2}
+                              value={(labelTemplate as any).label_padding_left || 2}
                               onChange={(e) =>
                                 updateTemplate({
                                   label_padding_left: parseFloat(e.target.value) || 2,
-                                })
+                                } as any)
                               }
                               min="0"
                               max="10"
@@ -609,11 +614,11 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                             <Label className="text-xs">Prawo</Label>
                             <Input
                               type="number"
-                              value={labelTemplate.label_padding_right || 2}
+                              value={(labelTemplate as any).label_padding_right || 2}
                               onChange={(e) =>
                                 updateTemplate({
                                   label_padding_right: parseFloat(e.target.value) || 2,
-                                })
+                                } as any)
                               }
                               min="0"
                               max="10"
@@ -628,13 +633,13 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                 </Card>
 
                 {/* Fields Section - only show when additional info is enabled */}
-                {labelTemplate.show_additional_info && (
+                {(labelTemplate as any).show_additional_info && (
                   <Card>
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-sm">Pola</CardTitle>
                         <Badge variant="secondary" className="text-xs">
-                          {labelTemplate.fields?.length || 0}
+                          {(labelTemplate as any).fields?.length || 0}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -660,99 +665,106 @@ export function WYSIWYGLabelCreator({ templateId, onSaved }: WYSIWYGLabelCreator
                         </Button>
                       </div>
 
-                      {labelTemplate.fields && labelTemplate.fields.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Dodane pola:</Label>
-                          <div className="max-h-32 space-y-1 overflow-y-auto">
-                            {labelTemplate.fields
-                              .sort((a, b) => a.sort_order - b.sort_order)
-                              .map((field, index) => (
-                                <div
-                                  key={field.id}
-                                  className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-xs transition-colors ${
-                                    selectedField?.id === field.id
-                                      ? "border-primary bg-primary/5"
-                                      : "border-border hover:border-primary/50"
-                                  }`}
-                                  onClick={() => setSelectedField(field)}
-                                >
-                                  {/* Drag handle */}
-                                  <div className="flex flex-col gap-0.5">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        moveField(field.id, "up");
-                                      }}
-                                      disabled={index === 0}
-                                      className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
-                                    >
-                                      ↑
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        moveField(field.id, "down");
-                                      }}
-                                      disabled={index === labelTemplate.fields.length - 1}
-                                      className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
-                                    >
-                                      ↓
-                                    </Button>
-                                  </div>
-
-                                  {/* Field info */}
-                                  <div className="flex min-w-0 flex-1 items-center gap-2">
-                                    <Badge
-                                      variant={field.field_type === "text" ? "default" : "outline"}
-                                      className="flex-shrink-0 text-xs"
-                                    >
-                                      {field.field_type === "text" ? "T" : "B"}
-                                    </Badge>
-                                    <span className="truncate">{field.field_name}</span>
-                                  </div>
-
-                                  {/* Required toggle */}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      updateField(field.id, { is_required: !field.is_required });
-                                    }}
-                                    className={`h-5 w-5 p-0 ${
-                                      field.is_required
-                                        ? "text-amber-600 hover:text-amber-700"
-                                        : "text-muted-foreground hover:text-amber-600"
+                      {(labelTemplate as any).fields &&
+                        (labelTemplate as any).fields.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Dodane pola:</Label>
+                            <div className="max-h-32 space-y-1 overflow-y-auto">
+                              {(labelTemplate as any).fields
+                                .sort((a, b) => a.sort_order - b.sort_order)
+                                .map((field, index) => (
+                                  <div
+                                    key={field.id}
+                                    className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-xs transition-colors ${
+                                      selectedField?.id === field.id
+                                        ? "border-primary bg-primary/5"
+                                        : "border-border hover:border-primary/50"
                                     }`}
-                                    title={field.is_required ? "Pole wymagane" : "Pole opcjonalne"}
+                                    onClick={() => setSelectedField(field)}
                                   >
-                                    <Star
-                                      className={`h-3 w-3 ${field.is_required ? "fill-current" : ""}`}
-                                    />
-                                  </Button>
+                                    {/* Drag handle */}
+                                    <div className="flex flex-col gap-0.5">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          moveField(field.id, "up");
+                                        }}
+                                        disabled={index === 0}
+                                        className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
+                                      >
+                                        ↑
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          moveField(field.id, "down");
+                                        }}
+                                        disabled={
+                                          index === (labelTemplate as any).fields.length - 1
+                                        }
+                                        className="h-3 w-4 p-0 text-muted-foreground hover:text-foreground"
+                                      >
+                                        ↓
+                                      </Button>
+                                    </div>
 
-                                  {/* Delete button */}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeField(field.id);
-                                    }}
-                                    className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                                    title="Usuń pole"
-                                  >
-                                    ×
-                                  </Button>
-                                </div>
-                              ))}
+                                    {/* Field info */}
+                                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                                      <Badge
+                                        variant={
+                                          field.field_type === "text" ? "default" : "outline"
+                                        }
+                                        className="flex-shrink-0 text-xs"
+                                      >
+                                        {field.field_type === "text" ? "T" : "B"}
+                                      </Badge>
+                                      <span className="truncate">{field.field_name}</span>
+                                    </div>
+
+                                    {/* Required toggle */}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateField(field.id, { is_required: !field.is_required });
+                                      }}
+                                      className={`h-5 w-5 p-0 ${
+                                        field.is_required
+                                          ? "text-amber-600 hover:text-amber-700"
+                                          : "text-muted-foreground hover:text-amber-600"
+                                      }`}
+                                      title={
+                                        field.is_required ? "Pole wymagane" : "Pole opcjonalne"
+                                      }
+                                    >
+                                      <Star
+                                        className={`h-3 w-3 ${field.is_required ? "fill-current" : ""}`}
+                                      />
+                                    </Button>
+
+                                    {/* Delete button */}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeField(field.id);
+                                      }}
+                                      className="h-5 w-5 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                                      title="Usuń pole"
+                                    >
+                                      ×
+                                    </Button>
+                                  </div>
+                                ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </CardContent>
                   </Card>
                 )}

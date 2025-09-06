@@ -12,7 +12,7 @@ export function useUserDetail(userId: string) {
   const { activeOrg } = useAppStore();
 
   const fetchUser = React.useCallback(async () => {
-    if (!activeOrg?.id || !userId) {
+    if (!activeOrg?.organization_id || !userId) {
       setError("No active organization or user ID");
       setLoading(false);
       return;
@@ -29,7 +29,7 @@ export function useUserDetail(userId: string) {
     } finally {
       setLoading(false);
     }
-  }, [activeOrg?.id, userId]);
+  }, [activeOrg?.organization_id, userId]);
 
   useEffect(() => {
     fetchUser();

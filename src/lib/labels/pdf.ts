@@ -18,10 +18,10 @@ export async function htmlToPdfBuffer(html: string, options: PDFOptions = {}): P
     // Configure browser launch based on environment
     if (isProduction && chromium) {
       // Production/serverless environment
-      const execPath = await chromium.executablePath();
+      const execPath = await (chromium as any).executablePath();
       browser = await puppeteer.default.launch({
         args: [
-          ...chromium.args,
+          ...(chromium as any).args,
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
@@ -32,17 +32,17 @@ export async function htmlToPdfBuffer(html: string, options: PDFOptions = {}): P
           "--disable-backgrounding-occluded-windows",
           "--disable-renderer-backgrounding",
         ],
-        defaultViewport: chromium.defaultViewport,
+        defaultViewport: (chromium as any).defaultViewport,
         executablePath: execPath,
-        headless: chromium.headless,
-        ignoreHTTPSErrors: true,
+        headless: (chromium as any).headless,
+        // ignoreHTTPSErrors: true,
       });
     } else {
       // Development environment - use full puppeteer
       browser = await puppeteer.default.launch({
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
         headless: true,
-        ignoreHTTPSErrors: true,
+        // ignoreHTTPSErrors: true,
       });
     }
 
@@ -208,11 +208,11 @@ export async function validatePDFEnvironment(): Promise<{
     if (isProduction) {
       // Production validation
       const chromium = await import("@sparticuz/chromium");
-      chromiumPath = await chromium.executablePath();
+      chromiumPath = await (chromium as any).executablePath();
 
       const puppeteer = await import("puppeteer-core");
       const browser = await puppeteer.default.launch({
-        args: chromium.args,
+        args: (chromium as any).args,
         executablePath: chromiumPath,
         headless: true,
       });

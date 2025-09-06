@@ -72,33 +72,33 @@ export function RoleAssignmentDialog({ open, onOpenChange, onSuccess }: RoleAssi
     resolver: zodResolver(assignRoleSchema),
     defaultValues: {
       scope: "org",
-      scope_id: activeOrg?.id || "",
+      scope_id: (activeOrg as any)?.id || (activeOrg as any)?.organization_id || "",
     },
   });
 
   // Load users when dialog opens
   useEffect(() => {
-    if (open && activeOrg?.id) {
+    if (open && ((activeOrg as any)?.id || (activeOrg as any)?.organization_id)) {
       setLoadingUsers(true);
-      fetchOrganizationUsers(activeOrg.organization_id)
-        .then(setUsers)
+      fetchOrganizationUsers((activeOrg as any).organization_id)
+        .then(setUsers as any)
         .catch((error) => {
           console.error("Failed to fetch users:", error);
           toast.error("Failed to load users");
         })
         .finally(() => setLoadingUsers(false));
     }
-  }, [open, activeOrg?.id]);
+  }, [open, (activeOrg as any)?.id]);
 
   // Update scope_id when scope changes
   const watchScope = form.watch("scope");
   useEffect(() => {
-    if (watchScope === "org" && activeOrg?.id) {
-      form.setValue("scope_id", activeOrg.organization_id);
+    if (watchScope === "org" && (activeOrg as any)?.id) {
+      form.setValue("scope_id", (activeOrg as any).organization_id);
     } else if (watchScope === "branch" && activeBranch?.id) {
       form.setValue("scope_id", activeBranch.id);
     }
-  }, [watchScope, activeOrg?.id, activeBranch?.id, form]);
+  }, [watchScope, (activeOrg as any)?.id, activeBranch?.id, form]);
 
   async function onSubmit(data: AssignRoleFormData) {
     startTransition(async () => {

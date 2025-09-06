@@ -12,21 +12,33 @@ interface TemplatePreviewProps {
 
 export function TemplatePreview({ template, className = "" }: TemplatePreviewProps) {
   // Add sample data to template for preview
-  const previewTemplate: LabelTemplate = {
+  const previewTemplate: any = {
     ...template,
     // Ensure all required properties are present
     field_vertical_gap:
-      template.field_vertical_gap || (template.template_config as any)?.field_vertical_gap || 2,
+      (template as any).field_vertical_gap ||
+      (template.template_config as any)?.field_vertical_gap ||
+      2,
     label_padding_top:
-      template.label_padding_top || (template.template_config as any)?.label_padding_top || 2,
+      (template as any).label_padding_top ||
+      (template.template_config as any)?.label_padding_top ||
+      2,
     label_padding_right:
-      template.label_padding_right || (template.template_config as any)?.label_padding_right || 2,
+      (template as any).label_padding_right ||
+      (template.template_config as any)?.label_padding_right ||
+      2,
     label_padding_bottom:
-      template.label_padding_bottom || (template.template_config as any)?.label_padding_bottom || 2,
+      (template as any).label_padding_bottom ||
+      (template.template_config as any)?.label_padding_bottom ||
+      2,
     label_padding_left:
-      template.label_padding_left || (template.template_config as any)?.label_padding_left || 2,
+      (template as any).label_padding_left ||
+      (template.template_config as any)?.label_padding_left ||
+      2,
     items_alignment:
-      template.items_alignment || (template.template_config as any)?.items_alignment || "center",
+      (template as any).items_alignment ||
+      (template.template_config as any)?.items_alignment ||
+      "center",
     fields:
       template.fields?.map((field, index) => ({
         ...field,

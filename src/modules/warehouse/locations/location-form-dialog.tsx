@@ -246,10 +246,7 @@ export function LocationFormDialog({
                             <SelectValue placeholder="Wybierz ikonę">
                               {field.value && (
                                 <div className="flex items-center gap-2">
-                                  <Icon
-                                    name={field.value as keyof typeof Icons}
-                                    className="h-4 w-4"
-                                  />
+                                  <Icon name={field.value as any} className="h-4 w-4" />
                                   {field.value}
                                 </div>
                               )}
@@ -260,7 +257,7 @@ export function LocationFormDialog({
                           {iconOptions.map((icon) => (
                             <SelectItem key={icon} value={icon}>
                               <div className="flex items-center gap-2">
-                                <Icon name={icon as keyof typeof Icons} className="h-4 w-4" />
+                                <Icon name={icon as any} className="h-4 w-4" />
                                 {icon}
                               </div>
                             </SelectItem>
@@ -401,7 +398,7 @@ export function LocationFormDialog({
                         selectedColor === "default" ? defaultThemeColor : selectedColor,
                     }}
                   >
-                    <Icon name={selectedIcon as keyof typeof Icons} className="h-5 w-5" />
+                    <Icon name={selectedIcon as any} className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">

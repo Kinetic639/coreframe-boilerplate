@@ -16,7 +16,7 @@ import { deleteBranchAction } from "@/app/actions/branches";
 import { toast } from "react-toastify";
 import { Tables } from "../../../../../supabase/types/types";
 
-type Branch = Tables["branches"]["Row"];
+type Branch = Tables<"branches">;
 
 interface BranchDeleteDialogProps {
   open: boolean;

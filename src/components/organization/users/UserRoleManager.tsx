@@ -67,13 +67,13 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
   const [newRoleData, setNewRoleData] = useState({
     roleId: "",
     scope: "org" as "org" | "branch",
-    scopeId: activeOrg?.id || "",
+    scopeId: activeOrg?.organization_id || "",
   });
 
   // Load available roles
   useEffect(() => {
     const loadRoles = async () => {
-      if (!activeOrg?.id) return;
+      if (!activeOrg?.organization_id) return;
 
       try {
         const roles = await fetchAvailableRoles(activeOrg.organization_id);
@@ -84,7 +84,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
     };
 
     loadRoles();
-  }, [activeOrg?.id]);
+  }, [activeOrg?.organization_id]);
 
   const handleAddRole = async () => {
     if (!newRoleData.roleId || !newRoleData.scopeId) return;
@@ -100,7 +100,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
       setNewRoleData({
         roleId: "",
         scope: "org",
-        scopeId: activeOrg?.id || "",
+        scopeId: activeOrg?.organization_id || "",
       });
       onUpdate();
 
@@ -219,7 +219,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
                           setNewRoleData((prev) => ({
                             ...prev,
                             scope: value,
-                            scopeId: value === "org" ? activeOrg?.id || "" : "",
+                            scopeId: value === "org" ? activeOrg?.organization_id || "" : "",
                           }));
                         }}
                       >

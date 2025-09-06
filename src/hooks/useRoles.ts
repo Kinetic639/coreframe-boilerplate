@@ -23,7 +23,7 @@ export function useRoles() {
   const { activeOrg } = useAppStore();
 
   const fetchRoles = React.useCallback(async () => {
-    if (!activeOrg?.id) {
+    if (!activeOrg?.organization_id) {
       setError("No active organization");
       setLoading(false);
       return;
@@ -40,7 +40,7 @@ export function useRoles() {
     } finally {
       setLoading(false);
     }
-  }, [activeOrg?.id]);
+  }, [activeOrg?.organization_id]);
 
   useEffect(() => {
     fetchRoles();
@@ -66,7 +66,7 @@ export function useRoleStatistics() {
   const { activeOrg } = useAppStore();
 
   const fetchStatistics = React.useCallback(async () => {
-    if (!activeOrg?.id) {
+    if (!activeOrg?.organization_id) {
       setError("No active organization");
       setLoading(false);
       return;
@@ -83,7 +83,7 @@ export function useRoleStatistics() {
     } finally {
       setLoading(false);
     }
-  }, [activeOrg?.id]);
+  }, [activeOrg?.organization_id]);
 
   useEffect(() => {
     fetchStatistics();

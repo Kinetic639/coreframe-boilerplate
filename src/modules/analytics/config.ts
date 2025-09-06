@@ -21,12 +21,7 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
       config: {
         type: "bar",
         responsive: true,
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
-      },
+      } as any,
     },
     {
       id: "activity-trends",
@@ -40,24 +35,13 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
             data: [12, 19, 15, 25, 22, 8, 6],
             backgroundColor: "rgba(6, 182, 212, 0.1)",
             borderColor: "rgba(6, 182, 212, 1)",
-            fill: true,
-          },
+          } as any,
         ],
       },
       config: {
         type: "line",
         responsive: true,
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
-      },
+      } as any,
     },
   ];
 
@@ -111,8 +95,8 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
             path: "/dashboard/analytics/reports/security",
             icon: "Shield",
             allowedUsers: [
-              { role: "org_admin", scope: "organization" },
-              { role: "security_admin", scope: "organization" },
+              { role: "org_admin", scope: "organization" as any },
+              { role: "security_admin", scope: "organization" as any },
             ],
           },
         ],
@@ -143,8 +127,8 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
         icon: "Settings",
         path: "/dashboard/analytics/settings",
         allowedUsers: [
-          { role: "org_admin", scope: "organization" },
-          { role: "branch_admin", scope: "branch" },
+          { role: "org_admin", scope: "organization" as any },
+          { role: "branch_admin", scope: "branch" as any },
         ],
         submenu: [
           {
@@ -152,7 +136,7 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
             label: "Data Retention",
             path: "/dashboard/analytics/settings/retention",
             icon: "Archive",
-            allowedUsers: [{ role: "org_admin", scope: "organization" }],
+            allowedUsers: [{ role: "org_admin", scope: "organization" as any }],
           },
           {
             id: "notification-settings",

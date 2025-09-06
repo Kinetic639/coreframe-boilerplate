@@ -132,8 +132,8 @@ export function convertToPDFTemplate(template: LabelTemplate): PDFLabelTemplate 
     font_family: "Inter",
     embed_fonts: true,
     debug_grid: false,
-    items_alignment: "center",
-    field_vertical_gap: template.field_vertical_gap || 2,
+    items_alignment: "center" as "start" | "center" | "end",
+    field_vertical_gap: (template as any).field_vertical_gap || 2,
   };
 
   console.log("🔄 convertToPDFTemplate result fields:", result.fields?.length || 0);

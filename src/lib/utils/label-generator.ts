@@ -53,7 +53,7 @@ export class LabelGenerator {
     if (labelsData) {
       labels = labelsData.map((item) => ({
         qrToken: item.qrToken,
-        qrUrl: item.qrUrl || this.generateQRUrl(item.qrToken, labelType),
+        qrUrl: (item as any).qrUrl || this.generateQRUrl(item.qrToken, labelType as any),
         name: item.name,
         additionalData: item.additionalData,
       }));
@@ -348,7 +348,7 @@ export class LabelGenerator {
       let displayText = field.field_value;
       displayText = displayText.replace("{name}", labelData.name || "");
       displayText = displayText.replace("{qr_token}", labelData.qrToken);
-      displayText = displayText.replace("{type}", labelData.additionalData?.type || "");
+      displayText = displayText.replace("{type}", String(labelData.additionalData?.type || ""));
 
       // Calculate text position
       const fontSize = field.font_size || 10;

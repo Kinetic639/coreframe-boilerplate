@@ -38,7 +38,7 @@ export function MoveLocationDialog({
   // Reset selection when dialog opens
   React.useEffect(() => {
     if (open && location) {
-      setSelectedParentId(location.parent_id);
+      setSelectedParentId((location as any).parent_id);
     }
   }, [open, location]);
 
@@ -69,7 +69,7 @@ export function MoveLocationDialog({
     parentId: string | null = null,
     level: number = 0
   ): React.ReactNode[] => {
-    const children = locations.filter((loc) => loc.parent_id === parentId);
+    const children = locations.filter((loc) => (loc as any).parent_id === parentId);
 
     return children.map((loc) => (
       <div key={loc.id} className="space-y-1">
@@ -86,7 +86,7 @@ export function MoveLocationDialog({
               className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-xs text-white"
               style={{ backgroundColor: loc.color || "#6b7280" }}
             >
-              <Icon name={loc.icon_name || "MapPin"} className="h-3 w-3" />
+              <Icon name={(loc.icon_name || "MapPin") as any} className="h-3 w-3" />
             </div>
             <span className="font-medium">{loc.name}</span>
             {loc.code && (
@@ -108,7 +108,7 @@ export function MoveLocationDialog({
     }
   };
 
-  const isParentChanged = selectedParentId !== location?.parent_id;
+  const isParentChanged = selectedParentId !== (location as any)?.parent_id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -132,7 +132,7 @@ export function MoveLocationDialog({
                     className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-white"
                     style={{ backgroundColor: location.color || "#6b7280" }}
                   >
-                    <Icon name={location.icon_name || "MapPin"} className="h-4 w-4" />
+                    <Icon name={(location.icon_name || "MapPin") as any} className="h-4 w-4" />
                   </div>
                   <span className="font-medium">{location.name}</span>
                   {location.code && (

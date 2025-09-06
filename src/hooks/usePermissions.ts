@@ -4,7 +4,7 @@ import {
   fetchUserPermissionOverrides,
   PermissionOverride,
 } from "@/lib/api/roles";
-import { Database } from "@/supabase/types/types";
+import { Database } from "../../supabase/types/types";
 import { useAppStore } from "@/lib/stores/app-store";
 
 type Permission = Database["public"]["Tables"]["permissions"]["Row"];
@@ -47,7 +47,7 @@ export function useUserPermissionOverrides(userId: string | null) {
   const { activeOrg } = useAppStore();
 
   const fetchOverrides = async () => {
-    if (!userId || !activeOrg?.id) {
+    if (!userId || !activeOrg?.organization_id) {
       setOverrides([]);
       setLoading(false);
       return;
@@ -68,7 +68,7 @@ export function useUserPermissionOverrides(userId: string | null) {
 
   useEffect(() => {
     fetchOverrides();
-  }, [userId, activeOrg?.id, fetchOverrides]);
+  }, [userId, activeOrg?.organization_id, fetchOverrides]);
 
   return {
     overrides,
