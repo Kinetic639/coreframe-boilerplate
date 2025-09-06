@@ -33,8 +33,20 @@ export default async function OrganizationProfilePage() {
         Zarządzaj podstawowymi informacjami o organizacji, logo i kolorami motywu
       </p>
       <div className="grid grid-cols-1 gap-6 px-4 lg:grid-cols-[3fr_2fr]">
-        <OrganizationForm defaultValues={appContext.activeOrg!} />
-        <OrganizationPreview values={appContext.activeOrg!} />
+        <OrganizationForm
+          defaultValues={{
+            ...appContext.activeOrg!,
+            name: appContext.activeOrg!.name || "",
+            slug: appContext.activeOrg!.slug || "",
+          }}
+        />
+        <OrganizationPreview
+          values={{
+            ...appContext.activeOrg!,
+            name: appContext.activeOrg!.name || "",
+            slug: appContext.activeOrg!.slug || "",
+          }}
+        />
       </div>
 
       <div className="px-4">

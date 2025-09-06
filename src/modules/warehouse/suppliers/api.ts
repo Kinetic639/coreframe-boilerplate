@@ -1,64 +1,16 @@
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
+import {
+  Supplier,
+  SupplierContact,
+  SupplierInsert,
+  SupplierUpdate,
+  SupplierContactInsert,
+  SupplierContactUpdate,
+  SupplierWithContacts,
+} from "@/supabase/types/types";
 
-// Local type definitions for suppliers
-export interface Supplier {
-  id: string;
-  name: string;
-  description?: string | null;
-  tags?: string[] | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  organization_id?: string | null;
-  deleted_at?: string | null;
-}
-
-export interface SupplierInsert {
-  name: string;
-  description?: string | null;
-  tags?: string[] | null;
-  organization_id?: string | null;
-}
-
-export interface SupplierUpdate {
-  name?: string;
-  description?: string | null;
-  tags?: string[] | null;
-}
-
-export interface SupplierContact {
-  id: string;
-  supplier_id: string;
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  is_primary?: boolean | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  deleted_at?: string | null;
-}
-
-export interface SupplierContactInsert {
-  supplier_id: string;
-  name: string;
-  email?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  is_primary?: boolean | null;
-}
-
-export interface SupplierContactUpdate {
-  name?: string;
-  email?: string | null;
-  phone?: string | null;
-  position?: string | null;
-  is_primary?: boolean | null;
-}
-
-export interface SupplierWithContacts extends Supplier {
-  supplier_contacts: SupplierContact[];
-}
+// Use Supabase generated types as source of truth
 
 export interface SupplierFilters {
   search?: string;

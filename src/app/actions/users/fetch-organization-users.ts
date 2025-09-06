@@ -117,7 +117,7 @@ export async function fetchOrganizationUsersServer(
     const { data: branchData, error: branchError } = await serviceSupabase
       .from("branches")
       .select("*")
-      .in("id", branchIds)
+      .in("id", branchIds.filter((id) => id !== null) as string[])
       .is("deleted_at", null);
 
     if (branchError) {

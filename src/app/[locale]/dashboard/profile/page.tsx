@@ -171,7 +171,7 @@ export default function ProfilePage() {
       }
 
       const organizationId = userPrefs.organization_id;
-      const organization = userPrefs.organization as { id: string; name: string } | null;
+      const organization = userPrefs.organization as any as { id: string; name: string } | null;
 
       // Fetch available branches for this organization
       const { data: branches, error: branchesError } = await supabase

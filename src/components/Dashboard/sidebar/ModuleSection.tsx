@@ -53,7 +53,7 @@ export default function ModuleSection({ module, activeBranchId, activeOrgId }: M
               activeOrgId,
               activeBranchId
             ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-          })),
+          })) as any,
         }}
       />
     </Accordion>

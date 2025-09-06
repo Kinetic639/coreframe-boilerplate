@@ -1,5 +1,5 @@
 import { jwtDecode } from "jwt-decode";
-import { CustomJwtPayload } from "@/utils/auth/adminAuth";
+import { CustomJwtPayload } from "@/lib/api/load-user-context-server";
 import { createClient } from "@/utils/supabase/client";
 
 export async function getRolesClient(): Promise<

@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { jwtDecode } from "jwt-decode";
-import { CustomJwtPayload } from "@/utils/auth/adminAuth";
+import { CustomJwtPayload } from "@/lib/api/load-user-context-server";
 
 export async function getRolesServer(): Promise<
   { role: string; org_id: string | null; branch_id: string | null; team_id: string | null }[]
