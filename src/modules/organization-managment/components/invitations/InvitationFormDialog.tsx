@@ -25,7 +25,7 @@ import { Loader2, Mail, Shield, Building2, Calendar, AlertCircle } from "lucide-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createInvitationAction, type CreateInvitationFormData } from "@/app/actions/invitations";
+import { createInvitationAction } from "@/app/actions/invitations";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useRoles } from "@/hooks/useRoles";
 
@@ -99,7 +99,7 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
 
     try {
       // Convert date to ISO string if provided
-      const formattedData: CreateInvitationFormData = {
+      const formattedData: any = {
         ...data,
         expires_at: data.expires_at
           ? new Date(data.expires_at + "T23:59:59").toISOString()
@@ -189,7 +189,7 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
                   <SelectItem key={role.id} value={role.id}>
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
-                      <span>{role.display_name || role.name}</span>
+                      <span>{(role as any).display_name || role.name}</span>
                     </div>
                   </SelectItem>
                 ))}

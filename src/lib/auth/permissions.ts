@@ -67,7 +67,9 @@ export async function hasPermission(
     // Check if any of the user's roles have the required permission
     const hasRolePermission =
       roleAssignments?.some((assignment) =>
-        assignment.roles?.role_permissions?.some((rp) => rp.permissions?.slug === permissionSlug)
+        (assignment.roles as any)?.role_permissions?.some(
+          (rp) => (rp.permissions as any)?.slug === permissionSlug
+        )
       ) || false;
 
     // Check for permission overrides
@@ -92,7 +94,7 @@ export async function hasPermission(
     }
 
     // If there's an override for this permission, use it
-    if (override && override.permissions?.slug === permissionSlug) {
+    if (override && (override.permissions as any)?.slug === permissionSlug) {
       return override.allowed;
     }
 
@@ -146,7 +148,7 @@ export async function getUserEffectivePermissions(
     // Flatten all permissions from roles
     const allRolePermissions = new Map<string, Permission>();
     rolePermissions?.forEach((assignment) => {
-      assignment.roles?.role_permissions?.forEach((rp) => {
+      (assignment.roles as any)?.role_permissions?.forEach((rp) => {
         if (rp.permissions) {
           allRolePermissions.set(rp.permissions.id, rp.permissions);
         }
@@ -183,18 +185,18 @@ export async function getUserEffectivePermissions(
     // Process overrides first
     overrides?.forEach((override) => {
       if (override.permissions) {
-        processedPermissions.add(override.permissions.id);
+        processedPermissions.add((override.permissions as any).id);
         if (override.allowed) {
-          granted.push(override.permissions);
+          granted.push(override.permissions as any);
         } else {
-          denied.push(override.permissions);
+          denied.push(override.permissions as any);
         }
       }
     });
 
     // Add remaining role permissions that don't have overrides
     Array.from(allRolePermissions.values()).forEach((permission) => {
-      if (!processedPermissions.has(permission.id)) {
+      if (!processedPermissions.has((permission as any).id)) {
         granted.push(permission);
       }
     });
@@ -265,7 +267,7 @@ export async function validateRoleAssignment(
     // Check if assigner is org_owner in the target organization
     const isOrgOwner = assignerRoles?.some(
       (assignment) =>
-        assignment.roles?.name === "org_owner" &&
+        (assignment.roles as any)?.name === "org_owner" &&
         assignment.scope === "org" &&
         assignment.scope_id === (scope === "org" ? scopeId : scopeId) // For branch assignments, still need org-level permission
     );
@@ -368,8 +370,9 @@ export async function hasAnyRole(
     }
 
     return (
-      roleAssignments?.some((assignment) => roleNames.includes(assignment.roles?.name || "")) ||
-      false
+      roleAssignments?.some((assignment) =>
+        roleNames.includes((assignment.roles as any)?.name || "")
+      ) || false
     );
   } catch (error) {
     console.error("Error in hasAnyRole:", error);

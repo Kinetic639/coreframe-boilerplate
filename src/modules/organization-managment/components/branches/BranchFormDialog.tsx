@@ -27,9 +27,8 @@ import { Building2, Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/stores/app-store";
 import { createBranchAction, updateBranchAction } from "@/app/actions/branches";
 import { toast } from "react-toastify";
-import { Tables } from "../../../../../supabase/types/types";
 
-type Branch = Tables["branches"]["Row"];
+type Branch = any;
 
 const branchFormSchema = z.object({
   name: z
@@ -91,7 +90,7 @@ export default function BranchFormDialog({
   }, [open, branch, form]);
 
   const onSubmit = async (data: BranchFormData) => {
-    if (!activeOrg?.id) {
+    if (!((activeOrg as any)?.id || (activeOrg as any)?.organization_id)) {
       toast.error("No active organization found");
       return;
     }

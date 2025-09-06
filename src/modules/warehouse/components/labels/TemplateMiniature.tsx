@@ -57,8 +57,10 @@ export function TemplateMiniature({
 
   // Extract properties from template_config if needed
   const config = template.template_config || {};
-  const itemsAlignment = config.items_alignment || template.items_alignment || "center";
-  const fieldVerticalGap = config.field_vertical_gap || template.field_vertical_gap || 2;
+  const itemsAlignment =
+    (config as any).items_alignment || (template as any).items_alignment || "center";
+  const fieldVerticalGap =
+    (config as any).field_vertical_gap || (template as any).field_vertical_gap || 2;
 
   const isQROnly = template.qr_position === "center" && !template.show_additional_info;
 
@@ -107,8 +109,8 @@ export function TemplateMiniature({
       : "1px solid #e2e8f0",
     display: "flex",
     flexDirection: isQROnly ? "row" : getFlexDirection(layoutDirection),
-    alignItems: isQROnly ? "center" : getAlignItems(itemsAlignment, layoutDirection),
-    justifyContent: isQROnly ? "center" : getJustifyContent(itemsAlignment, layoutDirection),
+    alignItems: isQROnly ? "center" : getAlignItems(itemsAlignment),
+    justifyContent: isQROnly ? "center" : getJustifyContent(itemsAlignment),
     padding: `${Math.max(mmToPx(1), 1)}px`,
     fontSize: `${Math.max(8 * scale, 8)}px`,
     color: template.text_color || "#000000",

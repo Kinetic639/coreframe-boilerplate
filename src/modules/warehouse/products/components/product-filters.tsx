@@ -289,7 +289,7 @@ export function ProductFilters({ onFilterChange }: ProductFiltersProps) {
         <ProductAdvancedFiltersDialog
           open={isAdvancedFilterDialogOpen}
           onOpenChange={setIsAdvancedFilterDialogOpen}
-          onApplyFilter={handleApplyAdvancedFilters}
+          onApplyFilter={handleApplyAdvancedFilters as any}
           currentFilters={{
             search: filters.search || undefined,
             minPrice: typeof filters.minPrice === "number" ? filters.minPrice : undefined,

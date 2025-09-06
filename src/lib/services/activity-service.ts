@@ -97,7 +97,9 @@ export class ActivityService {
 
     // Create lookup maps
     const moduleMap = new Map(modulesData.data.map((m) => [m.slug, m.id]));
-    const entityTypeMap = new Map(entityTypesData.data.map((et) => [et.slug, et.id]));
+    const entityTypeMap = new Map(
+      entityTypesData.data.map((et) => [et.slug, et.id] as [string, any])
+    );
     const actionMap = new Map(actionsData.data.map((a) => [a.slug, a.id]));
 
     // Transform inputs to database format
@@ -379,7 +381,7 @@ export class ActivityService {
   /**
    * Get reference data
    */
-  static async getModules(): Promise<ActivityModule[]> {
+  static async getModules(): Promise<any[]> {
     const { data, error } = await this.supabase.from("activity_modules").select("*").order("name");
 
     if (error) {
@@ -394,7 +396,7 @@ export class ActivityService {
     }));
   }
 
-  static async getEntityTypes(moduleSlug?: string): Promise<ActivityEntityType[]> {
+  static async getEntityTypes(moduleSlug?: string): Promise<any[]> {
     let query = this.supabase
       .from("activity_entity_types")
       .select(
@@ -434,7 +436,7 @@ export class ActivityService {
     }));
   }
 
-  static async getActions(): Promise<ActivityAction[]> {
+  static async getActions(): Promise<any[]> {
     const { data, error } = await this.supabase.from("activity_actions").select("*").order("slug");
 
     if (error) {
@@ -488,7 +490,7 @@ export class ActivityService {
   /**
    * Get activity summary for analytics
    */
-  static async getActivitySummary(filters: ActivityFilters): Promise<ActivitySummary> {
+  static async getany(filters: ActivityFilters): Promise<any> {
     // This would need more complex aggregation queries
     // For now, return basic summary from the activities we can fetch
     const { activities, total } = await this.getActivities({

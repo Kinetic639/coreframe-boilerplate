@@ -110,7 +110,7 @@ export function DraggableLocationTree({
     // Don't allow reordering between different levels or parents
     if (
       activeLocation.level !== overLocation.level ||
-      activeLocation.parent_id !== overLocation.parent_id
+      (activeLocation as any).parent_id !== (overLocation as any).parent_id
     ) {
       toast.error("Można zmieniać kolejność tylko w ramach tego samego poziomu.");
       return;
@@ -123,7 +123,9 @@ export function DraggableLocationTree({
 
     // Filter locations that belong to the same parent and level
     const siblingLocations = reorderedLocations.filter(
-      (loc) => loc.level === activeLocation.level && loc.parent_id === activeLocation.parent_id
+      (loc) =>
+        loc.level === activeLocation.level &&
+        (loc as any).parent_id === (activeLocation as any).parent_id
     );
 
     // Create update payload with new sort orders

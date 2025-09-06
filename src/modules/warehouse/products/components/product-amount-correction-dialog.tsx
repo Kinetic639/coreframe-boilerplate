@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProductWithDetails } from "@/lib/mock/products-extended";
-import { Tables } from "@/supabase/types/types";
+import { Tables } from "../../../../../supabase/types/types";
 import { useProductFilters } from "@/modules/warehouse/products/hooks/use-product-filters";
 import {
   Command,
@@ -96,7 +96,7 @@ export function ProductAmountCorrectionDialog({
                           key={location.id}
                           value={location.name}
                           onSelect={() => {
-                            setSelectedLocation(location);
+                            setSelectedLocation(location as any);
                             setLocationSearchOpen(false);
                           }}
                         >

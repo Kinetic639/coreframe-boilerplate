@@ -1,4 +1,4 @@
-import { renderToBuffer } from "@react-pdf/renderer";
+import { pdf } from "@react-pdf/renderer";
 import { createElement } from "react";
 import { PDFLabelDocument } from "./PDFLabelComponent";
 import { GeneratePdfPayload, PDFLabelTemplate, LabelDataRecord } from "./types";
@@ -59,7 +59,8 @@ export async function generatePDFFromReactComponents(
     });
 
     // Render to buffer
-    const pdfBuffer = await renderToBuffer(pdfElement);
+    const pdfBlob = pdf(pdfElement as any);
+    const pdfBuffer = Buffer.from(await pdfBlob.toBlob().then((blob) => blob.arrayBuffer()));
 
     console.log(`Successfully generated PDF buffer: ${pdfBuffer.length} bytes`);
     return pdfBuffer;

@@ -8,7 +8,7 @@ import {
   SupplierContactInsert,
   SupplierContactUpdate,
   SupplierWithContacts,
-} from "@/supabase/types/types";
+} from "../../../../supabase/types/types";
 
 // Use Supabase generated types as source of truth
 

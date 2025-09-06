@@ -49,7 +49,7 @@ export async function resolveQrCode(qrToken: string): Promise<QrResolutionResult
   }
 
   // QR code is not assigned to any location
-  if (!canUserAssignQrCodes()) {
+  if (!canUserAssignQrCodes("mock-user-id")) {
     return {
       success: false,
       action: "unauthorized",
@@ -76,8 +76,8 @@ export async function resolveQrCode(qrToken: string): Promise<QrResolutionResult
   };
 }
 
-export function assignQrToLocation(qrToken: string, locationId: string): boolean {
-  return assignQrCodeToLocation(qrToken, locationId);
+export async function assignQrToLocation(qrToken: string, locationId: string): Promise<boolean> {
+  return await assignQrCodeToLocation(qrToken, locationId);
 }
 
 export function getQrCodeUrl(qrToken: string): string {

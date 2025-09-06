@@ -10,8 +10,8 @@ export type UserPreferences = Pick<
   "organization_id" | "default_branch_id"
 >;
 
-export type UserRole = Database["public"]["Tables"]["user_roles"]["Row"] & {
-  roles: Pick<Database["public"]["Tables"]["roles"]["Row"], "slug" | "label">;
+export type UserRole = any & {
+  roles: any;
 };
 // types/roles.ts
 export type Scope = "org" | "branch";

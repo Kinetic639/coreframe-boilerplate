@@ -11,8 +11,8 @@ import { Widget } from "@/lib/types/widgets";
 /**
  * Ładuje wszystkie dostępne moduły, biorąc pod uwagę dynamiczne dane jak typy produktów itp.
  */
-export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]> {
-  const warehouseModule = await getWarehouseModule(activeOrgId);
+export async function getAllModules(): Promise<ModuleConfig[]> {
+  const warehouseModule = await getWarehouseModule();
   const analyticsModule = await getAnalyticsModule();
 
   return [
@@ -25,7 +25,7 @@ export async function getAllModules(activeOrgId: string): Promise<ModuleConfig[]
     supportModule,
   ];
 }
-export async function getAllWidgets(activeOrgId: string): Promise<Widget[]> {
-  const modules = await getAllModules(activeOrgId);
+export async function getAllWidgets(): Promise<Widget[]> {
+  const modules = await getAllModules();
   return modules.flatMap((module) => module.widgets || []);
 }

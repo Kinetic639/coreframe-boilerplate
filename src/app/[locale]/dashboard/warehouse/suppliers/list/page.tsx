@@ -54,7 +54,7 @@ export default function SuppliersListPage() {
   const [isDeleting, setIsDeleting] = React.useState(false);
 
   // Supplier data state
-  const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
+  const [suppliers, setSuppliers] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -258,7 +258,7 @@ export default function SuppliersListPage() {
                       {suppliers.map((supplier) => (
                         <SupplierCard
                           key={supplier.id}
-                          supplier={supplier}
+                          supplier={supplier as any}
                           onEdit={handleEdit}
                           onDelete={handleDelete}
                         />
@@ -270,7 +270,7 @@ export default function SuppliersListPage() {
                       {suppliers.map((supplier) => (
                         <SupplierList
                           key={supplier.id}
-                          supplier={supplier}
+                          supplier={supplier as any}
                           onEdit={handleEdit}
                           onDelete={handleDelete}
                         />
@@ -279,7 +279,7 @@ export default function SuppliersListPage() {
                   )}
                   {displayMode === "table" && (
                     <SupplierTable
-                      suppliers={suppliers}
+                      suppliers={suppliers as any}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                     />
@@ -302,7 +302,7 @@ export default function SuppliersListPage() {
       <NewSupplierFormDialog
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
-        supplier={selectedSupplier}
+        supplier={selectedSupplier as any}
         onSuccess={handleSupplierSuccess}
       />
 

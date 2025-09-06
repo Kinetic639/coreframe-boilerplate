@@ -134,7 +134,7 @@ export function LabelGenerationDialog({
           sku: `${labelType.toUpperCase()}-${String(index + 1).padStart(3, "0")}`,
           code: qrToken.substr(-8).toUpperCase(),
           barcode: `590123412345${String(index).padStart(1, "0")}`, // Przykładowy EAN13
-          index: index + 1,
+          index: (index + 1).toString(),
           generated_at: new Date().toISOString(),
         };
       });

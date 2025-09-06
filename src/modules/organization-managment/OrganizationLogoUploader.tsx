@@ -84,7 +84,7 @@ export default function OrganizationLogoUploader({ logoUrl, organizationId }: Pr
         console.error("❌ Upload error details:", {
           message: uploadError.message,
           cause: uploadError.cause,
-          statusCode: uploadError.statusCode,
+          statusCode: (uploadError as any).statusCode,
           filePath: filePath,
         });
         toast.error(`❌ Błąd podczas wgrywania logo: ${uploadError.message}`);

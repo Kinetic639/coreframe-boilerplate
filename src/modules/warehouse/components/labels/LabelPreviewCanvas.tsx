@@ -298,7 +298,7 @@ export function LabelPreviewCanvas({
             ? height - 5
             : field.font_size + 2);
 
-      ctx.textAlign = field.text_align;
+      ctx.textAlign = (field.text_align as CanvasTextAlign) || "left";
       ctx.textBaseline =
         field.vertical_align === "top"
           ? "top"

@@ -78,7 +78,7 @@ export function PermissionOverrideDialog({
   const form = useForm<PermissionOverrideFormData>({
     resolver: zodResolver(permissionOverrideSchema),
     defaultValues: {
-      organization_id: activeOrg?.id || "",
+      organization_id: (activeOrg as any)?.id || (activeOrg as any)?.organization_id || "",
       is_granted: true,
       user_id: selectedUserId || "",
     },
@@ -86,17 +86,17 @@ export function PermissionOverrideDialog({
 
   // Load users when dialog opens
   useEffect(() => {
-    if (open && activeOrg?.id) {
+    if ((open && (activeOrg as any)?.id) || (activeOrg as any)?.organization_id) {
       setLoadingUsers(true);
       fetchOrganizationUsers(activeOrg.organization_id)
-        .then(setUsers)
+        .then(setUsers as any)
         .catch((error) => {
           console.error("Failed to fetch users:", error);
           toast.error("Failed to load users");
         })
         .finally(() => setLoadingUsers(false));
     }
-  }, [open, activeOrg?.id]);
+  }, [open, (activeOrg as any)?.id || (activeOrg as any)?.organization_id]);
 
   // Set selected user if provided
   useEffect(() => {
@@ -118,7 +118,7 @@ export function PermissionOverrideDialog({
         if (result.success) {
           toast.success("Permission override created successfully");
           form.reset({
-            organization_id: activeOrg?.id || "",
+            organization_id: (activeOrg as any)?.id || (activeOrg as any)?.organization_id || "",
             is_granted: true,
             user_id: selectedUserId || "",
           });

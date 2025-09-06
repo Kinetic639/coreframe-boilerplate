@@ -267,7 +267,11 @@ const PDFLabelDocument: React.FC<PDFLabelProps> = ({
         const pageData = data.slice(startIndex, endIndex);
 
         return (
-          <Page key={pageIndex} size={pageSize} style={pageStyles.page}>
+          <Page
+            key={pageIndex}
+            size={pageSize === "Letter" ? "LETTER" : "A4"}
+            style={pageStyles.page}
+          >
             {pageData.map((labelData, labelIndex) => {
               const qrData = labelData.qr || labelData.qrData || `QR-${Date.now()}-${labelIndex}`;
               const qrDataUrl = getQRDataUrl(qrData);

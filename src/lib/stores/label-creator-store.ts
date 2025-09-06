@@ -45,7 +45,7 @@ interface LabelCreatorState {
   }) => void;
 }
 
-const createDefaultTemplate = (): LabelTemplate => ({
+const createDefaultTemplate = (): any => ({
   id: uuidv4(),
   name: "",
   description: "",

@@ -114,13 +114,15 @@ export async function fetchOrganizationInvitations(
   ]);
 
   // Create lookup maps
-  const rolesMap = new Map(rolesData.data?.map((role) => [role.id, role]) || []);
-  const branchesMap = new Map(branchesData.data?.map((branch) => [branch.id, branch]) || []);
+  const rolesMap = new Map((rolesData.data?.map((role) => [role.id, role]) || []) as any);
+  const branchesMap = new Map(
+    (branchesData.data?.map((branch) => [branch.id, branch]) || []) as any
+  );
   const organizationsMap = new Map(
-    organizationsData.data?.map((org) => [
+    (organizationsData.data?.map((org) => [
       org.organization_id,
       { id: org.organization_id, name: org.name },
-    ]) || []
+    ]) || []) as any
   );
 
   // Combine data

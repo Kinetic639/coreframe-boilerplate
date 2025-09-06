@@ -257,7 +257,7 @@ export function ImprovedDraggableLocationNode({
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-white"
             style={{ backgroundColor: location.color || "#6b7280" }}
           >
-            <Icon name={location.icon_name || "MapPin"} className="h-5 w-5" />
+            <Icon name={(location.icon_name || "MapPin") as any} className="h-5 w-5" />
           </div>
 
           {/* Location Image */}

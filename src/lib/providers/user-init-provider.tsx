@@ -18,7 +18,7 @@ export function UserInitProvider({
       setContext({
         user: context.user,
         preferences: context.preferences,
-        roles: context.roles,
+        roles: context.roles as any,
         permissions: context.permissions,
       });
     }

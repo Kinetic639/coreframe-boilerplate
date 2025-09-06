@@ -104,7 +104,7 @@ export class ProductService {
           purchase_price,
           vat_rate,
           weight,
-          dimensions,
+          dimensions: dimensions as any,
           packaging_type,
         };
 
@@ -123,7 +123,7 @@ export class ProductService {
         product_id: product.id,
         name: variant_name || name,
         sku: variant_sku || sku,
-        attributes: variant_attributes,
+        attributes: variant_attributes as any,
       };
 
       const { data: variant, error: variantError } = await this.supabase
@@ -222,7 +222,7 @@ export class ProductService {
           purchase_price,
           vat_rate,
           weight,
-          dimensions,
+          dimensions: dimensions as any,
           packaging_type,
         };
 

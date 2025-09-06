@@ -30,7 +30,7 @@ export function InteractiveLabelCanvas({
   // Calculate dimensions and layout
   const isQROnly = template.qr_position === "center" && !template.show_additional_info;
   const layoutDirection = template.layout_direction || "row";
-  const itemsAlignment = template.items_alignment || "center";
+  const itemsAlignment = (template as any).items_alignment || "center";
 
   const labelWidth = isQROnly
     ? mmToPx(
@@ -122,7 +122,7 @@ export function InteractiveLabelCanvas({
   const fieldsContainerStyle = {
     display: "flex",
     flexDirection: "column" as const,
-    gap: `${mmToPx(template.field_vertical_gap || 2)}px`,
+    gap: `${mmToPx((template as any).field_vertical_gap || 2)}px`,
     flex: layoutDirection.includes("column") ? 0 : 1, // Don't flex in column layouts
     justifyContent: "center",
     minHeight: "fit-content",
@@ -171,8 +171,8 @@ export function InteractiveLabelCanvas({
     const qrToken = `QR${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
 
     // Calculate proper QR size that fits within the allocated space
-    const qrWidth = qrStyle.width as number;
-    const qrHeight = qrStyle.height as number;
+    const qrWidth = parseInt(qrStyle.width as string) || 0;
+    const qrHeight = parseInt(qrStyle.height as string) || 0;
     const qrSize = Math.min(qrWidth, qrHeight, (template.qr_size_mm || 15) * zoomLevel);
 
     // Ensure qrSize is a valid number
@@ -215,9 +215,9 @@ export function InteractiveLabelCanvas({
       // Adjust layout based on label position - don't modify padding, just set flex direction
       if (hasLabel) {
         if (labelPosition.includes("top")) {
-          containerStyle.flexDirection = "column";
+          containerStyle.flexDirection = "column" as any;
         } else if (labelPosition.includes("bottom")) {
-          containerStyle.flexDirection = "column-reverse";
+          containerStyle.flexDirection = "column-reverse" as any;
         } else if (labelPosition.includes("center")) {
           // For center positions, we'll overlay the label but ensure content doesn't interfere
           containerStyle.minHeight = `${Math.max(mmToPx(field.height_mm), labelSpace * 1.5)}px`;
@@ -349,7 +349,7 @@ export function InteractiveLabelCanvas({
             padding: "20px",
           }}
         >
-          <div style={labelStyle}>
+          <div style={labelStyle as any}>
             {isQROnly ? (
               renderQRCode()
             ) : (

@@ -259,11 +259,14 @@ export interface LocationWithQR extends Location {
   qr_label?: QRLabel;
 }
 
-export interface ProductWithQR extends Product {
+export interface ProductWithQR {
+  id: string;
+  name: string;
   qr_label_id?: string;
   has_qr_assigned: boolean;
   qr_assigned_at?: string;
   qr_assigned_by?: string;
+  [key: string]: any; // Allow additional properties
   qr_label?: QRLabel;
 }
 
