@@ -39,7 +39,7 @@ export default async function StartPage() {
   const { activeOrgId } = appContext;
 
   // Pobierz widgety
-  const widgets = activeOrgId ? await getAllWidgets(activeOrgId) : [];
+  const widgets = activeOrgId ? await getAllWidgets() : [];
 
   return (
     <div className="space-y-6">
