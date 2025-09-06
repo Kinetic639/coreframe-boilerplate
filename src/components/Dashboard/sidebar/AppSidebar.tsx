@@ -30,7 +30,7 @@ const AppSidebar = async () => {
   const userPermissions = userContext?.permissions ?? [];
 
   // 🔄 Dynamiczne ładowanie modułów (np. z Supabase)
-  const modules = await getAllModules(activeOrgId);
+  const modules = await getAllModules();
 
   return (
     <Sidebar
