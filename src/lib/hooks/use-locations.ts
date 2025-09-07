@@ -35,7 +35,6 @@ export function useLocations() {
           return [];
         } else {
           setLocations(data || []);
-          console.log("🔍 Locations loaded into store:", data?.length || 0);
           return data || [];
         }
       } catch (error) {
@@ -59,7 +58,6 @@ export function useLocations() {
 
   // Auto-load locations when branch changes (like LocationManager)
   useEffect(() => {
-    console.log("🔍 useLocations effect triggered, activeBranchId:", activeBranchId);
     if (activeBranchId) {
       loadLocationsForBranch(activeBranchId);
     } else {

@@ -2,6 +2,14 @@
   "HomePage": {
     "title": "Siema siema"
   },
+  "PreferencesPage": {
+    "title": "Preferencje",
+    "description": "Zarządzaj preferencjami konta i ustawieniami",
+    "theme": "Motyw",
+    "themeDescription": "Wybierz preferowany wygląd motywu",
+    "language": "Język",
+    "languageDescription": "Wybierz preferowany język"
+  },
   "authForms": {
     "AuthButton": {
       "greeting": "Cześć, {email}!",

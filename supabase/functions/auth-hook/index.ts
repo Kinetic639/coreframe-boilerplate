@@ -13,8 +13,6 @@ serve(async (req) => {
   try {
     const { user_id, claims } = await req.json();
 
-    // console.log("Hook called for user:", user_id);
-
     if (!user_id || !claims) {
       return new Response(JSON.stringify({ claims }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -39,7 +37,6 @@ serve(async (req) => {
     let roles = [];
     if (response.ok) {
       roles = await response.json();
-      // console.log("Roles found:", roles);
     } else {
       console.error("Error fetching roles:", response.statusText);
     }
@@ -49,8 +46,6 @@ serve(async (req) => {
       ...claims,
       roles: roles || [],
     };
-
-    // console.log("Returning claims with roles:", updatedClaims.roles);
 
     return new Response(JSON.stringify({ claims: updatedClaims }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

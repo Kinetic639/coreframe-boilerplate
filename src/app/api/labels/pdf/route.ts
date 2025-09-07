@@ -45,39 +45,6 @@ export async function POST(request: NextRequest) {
     };
 
     // Logowanie dla debugowania
-    console.log(`Generating PDF for template: ${pdfTemplate.name}`);
-    console.log(`Labels count: ${payload.data.length}`);
-    console.log(`Page preset: ${payload.pagePreset.kind}`);
-    console.log(`Template fields count: ${pdfTemplate.fields?.length || 0}`);
-    console.log(`Original payload template fields count: ${payload.template.fields?.length || 0}`);
-    console.log(`Template show_additional_info: ${pdfTemplate.show_additional_info}`);
-    console.log(`Original template show_additional_info: ${payload.template.show_additional_info}`);
-
-    if (payload.template.fields && payload.template.fields.length > 0) {
-      console.log("🔍 API RECEIVED FIELDS:");
-      payload.template.fields.forEach((field, index) => {
-        console.log(
-          `  Field ${index + 1}: ${field.field_name} (${field.field_type}) at (${field.position_x}, ${field.position_y}) - "${field.field_value}"`
-        );
-      });
-    } else {
-      console.log("❌ API RECEIVED NO FIELDS!");
-      console.log("Template keys:", Object.keys(payload.template));
-    }
-
-    if (pdfTemplate.fields && pdfTemplate.fields.length > 0) {
-      console.log("🔍 PDF TEMPLATE FIELDS:");
-      pdfTemplate.fields.forEach((field, index) => {
-        console.log(
-          `  Field ${index + 1}: ${field.field_name} (${field.field_type}) at (${field.position_x}, ${field.position_y}) - "${field.field_value}"`
-        );
-      });
-    } else {
-      console.log("❌ PDF TEMPLATE HAS NO FIELDS!");
-    }
-
-    // Generuj PDF używając React-PDF - znacznie lepsze od HTML-to-PDF!
-    console.log("Switching to React-PDF generation for better quality...");
     const pdfBuffer = await renderLabelsReactPDF({
       ...payload,
       template: pdfTemplate,

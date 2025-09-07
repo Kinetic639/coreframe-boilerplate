@@ -1,14 +1,20 @@
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
-import {
-  Supplier,
-  SupplierContact,
-  SupplierInsert,
-  SupplierUpdate,
-  SupplierContactInsert,
-  SupplierContactUpdate,
-  SupplierWithContacts,
-} from "../../../../supabase/types/types";
+import { Database } from "../../../../supabase/types/types";
+
+// Type aliases for cleaner usage
+export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
+export type SupplierInsert = Database["public"]["Tables"]["suppliers"]["Insert"];
+export type SupplierUpdate = Database["public"]["Tables"]["suppliers"]["Update"];
+export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
+export type SupplierContactInsert = Database["public"]["Tables"]["supplier_contacts"]["Insert"];
+export type SupplierContactUpdate = Database["public"]["Tables"]["supplier_contacts"]["Update"];
+
+// Custom type for supplier with contacts
+export type SupplierWithContacts = Supplier & {
+  supplier_contacts: SupplierContact[];
+  primary_contact?: SupplierContact | null;
+};
 
 // Use Supabase generated types as source of truth
 
@@ -385,14 +391,3 @@ class SupplierService {
 }
 
 export const supplierService = new SupplierService();
-
-// Re-export types for backward compatibility
-export type {
-  Supplier,
-  SupplierInsert,
-  SupplierUpdate,
-  SupplierContact,
-  SupplierContactInsert,
-  SupplierContactUpdate,
-  SupplierWithContacts,
-};

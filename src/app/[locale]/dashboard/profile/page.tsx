@@ -129,8 +129,6 @@ export default function ProfilePage() {
         throw new Error("User not authenticated");
       }
 
-      // console.log("Auth user:", authUser.id);
-
       // Fetch user basic info
       const { data: userData, error: userError } = await supabase
         .from("users")
@@ -142,8 +140,6 @@ export default function ProfilePage() {
         console.error("User data error:", userError);
         throw new Error(`Failed to fetch user data: ${userError.message}`);
       }
-
-      // console.log("User data:", userData);
 
       // Fetch user's organization from user_preferences
       const { data: userPrefs, error: prefsError } = await supabase

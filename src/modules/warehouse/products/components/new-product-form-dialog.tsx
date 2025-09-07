@@ -159,9 +159,6 @@ export function NewProductFormDialog({
       onOpenChange(false);
       form.reset();
       onSuccess?.();
-
-      // Show success message (you can customize this)
-      // console.log(`Product ${isEditing ? "updated" : "created"} successfully`);
     } catch (error) {
       console.error(`Error ${isEditing ? "updating" : "creating"} product:`, error);
       // You can add a toast notification here

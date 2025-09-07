@@ -51,10 +51,6 @@ export function ProductAmountCorrectionDialog({
 
   const handleSave = () => {
     if (selectedLocation && amount !== "") {
-      // console.log(
-      //   `Correcting amount for product ${product.name} at ${selectedLocation.name}: ${amount}`
-      // );
-      // Here you would typically call an API to update the stock
       onOpenChange(false);
     }
   };

@@ -52,11 +52,7 @@ export function LabelGenerationDialog({
 }: LabelGenerationDialogProps) {
   // Get the current template from the store if no currentTemplate is provided
   const { currentTemplate: storeTemplate } = useLabelCreatorStore();
-  console.log("DEBUG: Store template:", storeTemplate);
-  console.log("DEBUG: Store template fields:", storeTemplate?.fields);
   const templateToUse = currentTemplate || storeTemplate;
-  console.log("DEBUG: Final templateToUse:", templateToUse);
-  console.log("DEBUG: Final templateToUse fields:", templateToUse?.fields);
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const handleClose = () => {
@@ -148,13 +144,6 @@ export function LabelGenerationDialog({
         embedFonts: true,
         debug: false, // Można ustawić na true dla debugowania
       };
-
-      console.log("Generating PDF with payload:", {
-        template: pdfTemplate.name,
-        dataCount: labelsData.length,
-        pagePreset: pagePreset,
-      });
-
       // Wywołaj API do generowania PDF
       const response = await fetch("/api/labels/pdf", {
         method: "POST",
@@ -186,9 +175,6 @@ export function LabelGenerationDialog({
       // Wyczyść URL
       window.URL.revokeObjectURL(url);
 
-      // Opcjonalnie: zapisz informacje o wygenerowanych etykietach
-      await saveLabelBatch(labelsData, selectedTemplate.id, labelType);
-
       toast.success(
         `Wygenerowano ${quantity} etykiet typu "${labelType === "product" ? "produkty" : "lokalizacje"}" w formacie PDF`
       );
@@ -201,22 +187,6 @@ export function LabelGenerationDialog({
       );
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  // Funkcja do zapisywania batch'a etykiet do bazy
-  const saveLabelBatch = async (labelsData: any[], templateId: string, labelType: string) => {
-    try {
-      // TODO: Implement saving to Supabase when extended schema is ready
-      console.log("Would save label batch:", {
-        templateId,
-        labelType,
-        count: labelsData.length,
-        firstLabel: labelsData[0],
-      });
-    } catch (error) {
-      console.warn("Failed to save label batch:", error);
-      // Nie przerywamy procesu generowania z powodu błędu zapisu
     }
   };
 
