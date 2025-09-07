@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,22 +21,14 @@ interface RecentNewsWidgetProps {
 export function RecentNewsWidget({
   limit = 5,
   showActions = true,
-  compact = true,
+  compact = false,
 }: RecentNewsWidgetProps) {
   const t = useTranslations("news");
   const { activeOrgId, isLoaded: appLoaded } = useAppStore();
   const [news, setNews] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (appLoaded && activeOrgId) {
-      loadRecentNews();
-    } else if (appLoaded && !activeOrgId) {
-      setLoading(false);
-    }
-  }, [appLoaded, activeOrgId, limit]);
-
-  const loadRecentNews = async () => {
+  const loadRecentNews = useCallback(async () => {
     if (!activeOrgId) {
       console.error("No active organization available");
       setLoading(false);
@@ -56,7 +48,15 @@ export function RecentNewsWidget({
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId, limit]);
+
+  useEffect(() => {
+    if (appLoaded && activeOrgId) {
+      loadRecentNews();
+    } else if (appLoaded && !activeOrgId) {
+      setLoading(false);
+    }
+  }, [appLoaded, activeOrgId, loadRecentNews]);
 
   const handleNewsAdded = () => {
     loadRecentNews();
@@ -145,6 +145,7 @@ export function RecentNewsWidget({
                 key={post.id}
                 news={post}
                 compact={compact}
+                showViewDetails={true}
                 className="border-0 border-l-2 shadow-none"
               />
             ))}

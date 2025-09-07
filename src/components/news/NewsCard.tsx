@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, pl } from "date-fns/locale";
@@ -9,7 +10,15 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MoreVertical, Edit, Trash2, User } from "lucide-react";
+import {
+  MoreVertical,
+  Edit,
+  Trash2,
+  User,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +26,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { LexicalContentRenderer } from "./LexicalContentRenderer";
+
+// System badges that should be translated
+const SYSTEM_BADGES = new Set([
+  "announcement",
+  "update",
+  "maintenance",
+  "feature",
+  "bugfix",
+  "security",
+  "important",
+  "urgent",
+  "info",
+]);
 
 export interface NewsPost {
   id: string;
@@ -41,6 +64,7 @@ interface NewsCardProps {
   canDelete?: boolean;
   compact?: boolean;
   className?: string;
+  showViewDetails?: boolean;
 }
 
 const priorityColors = {
@@ -65,10 +89,12 @@ export function NewsCard({
   canDelete = false,
   compact = false,
   className,
+  showViewDetails = true,
 }: NewsCardProps) {
   const t = useTranslations("news");
   const locale = useLocale();
   const dateLocale = locale === "pl" ? pl : enUS;
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -80,21 +106,65 @@ export function NewsCard({
 
   const renderContent = () => {
     if (compact) {
-      return (
+      // For compact mode, just show the excerpt or truncated content
+      const shortContent =
         news.excerpt ||
         (typeof news.content === "string"
           ? news.content.slice(0, 150) + "..."
-          : "No preview available")
-      );
+          : "Click to view full message...");
+      return <span className="text-sm leading-relaxed text-foreground">{shortContent}</span>;
     }
 
-    // For full view, we'd need to render the Lexical content
-    // This is a simplified version - you might want to create a dedicated renderer
-    if (news.excerpt) {
-      return news.excerpt;
-    }
+    // For non-compact mode, show full accordion functionality
+    const hasContent =
+      news.content && (typeof news.content === "string" ? news.content.length > 0 : true);
 
-    return "Content available in editor format";
+    const shortContent =
+      news.excerpt ||
+      (typeof news.content === "string"
+        ? news.content.slice(0, 200) + (news.content.length > 200 ? "..." : "")
+        : "Click to expand full message...");
+
+    // Always show accordion for non-compact if we have content
+    const showAccordion =
+      hasContent &&
+      (!news.excerpt ||
+        (typeof news.content === "string" && news.content.length > 200) ||
+        typeof news.content !== "string");
+
+    return (
+      <div className="space-y-3">
+        <div className="text-sm leading-relaxed text-foreground">
+          {isExpanded ? (
+            <LexicalContentRenderer content={news.content} />
+          ) : (
+            <div className="whitespace-pre-wrap">{shortContent}</div>
+          )}
+        </div>
+
+        {/* Show expand/collapse button */}
+        {showAccordion && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="h-auto p-0 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="mr-1 h-3 w-3" />
+                {t("form.showLess")}
+              </>
+            ) : (
+              <>
+                <ChevronDown className="mr-1 h-3 w-3" />
+                {t("form.showMore")}
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    );
   };
 
   const handleEdit = () => {
@@ -128,35 +198,6 @@ export function NewsCard({
             >
               {news.title}
             </h3>
-
-            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-              <Avatar className="h-5 w-5">
-                {news.author_avatar && (
-                  <AvatarImage src={news.author_avatar} alt={news.author_name} />
-                )}
-                <AvatarFallback className="text-xs">
-                  {news.author_name ? (
-                    news.author_name.charAt(0).toUpperCase()
-                  ) : (
-                    <User className="h-3 w-3" />
-                  )}
-                </AvatarFallback>
-              </Avatar>
-
-              <span className="text-xs">
-                {t("widget.publishedBy", {
-                  author: news.author_name || "Unknown",
-                })}
-              </span>
-
-              <span className="text-xs">•</span>
-
-              <time className="text-xs" dateTime={news.published_at}>
-                {t("widget.timeAgo", {
-                  time: formatDate(news.published_at),
-                })}
-              </time>
-            </div>
           </div>
 
           {(canEdit || canDelete) && (
@@ -194,28 +235,55 @@ export function NewsCard({
 
           {news.badges.map((badge) => (
             <Badge key={badge} variant="outline" className="text-xs">
-              {t(`badges.${badge}` as any, { default: badge })}
+              {SYSTEM_BADGES.has(badge) ? t(`badges.${badge}` as any) : badge}
             </Badge>
           ))}
         </div>
       </CardHeader>
 
       <CardContent className={cn("pt-0", compact && "pb-3")}>
-        <p className={cn("leading-relaxed text-muted-foreground", compact ? "text-sm" : "text-sm")}>
-          {renderContent()}
-        </p>
+        {compact ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">{renderContent()}</p>
+        ) : (
+          renderContent()
+        )}
+
+        {/* View Details button for compact mode */}
+        {compact && showViewDetails && (
+          <div className="mt-3 flex justify-end">
+            <Link href={`/dashboard/news/${news.id}`}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs">
+                <ExternalLink className="mr-1 h-3 w-3" />
+                {t("form.viewDetails")}
+              </Button>
+            </Link>
+          </div>
+        )}
       </CardContent>
 
-      {!compact && (
-        <CardFooter className="border-t pt-3">
-          <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-            <span>Created {formatDate(news.created_at)}</span>
-            {news.updated_at !== news.created_at && (
-              <span>Updated {formatDate(news.updated_at)}</span>
-            )}
+      <CardFooter className="border-t pt-3">
+        <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
+          {/* Left side - Author */}
+          <div className="flex items-center gap-2">
+            <Avatar className="h-4 w-4">
+              {news.author_avatar && (
+                <AvatarImage src={news.author_avatar} alt={news.author_name} />
+              )}
+              <AvatarFallback className="text-[10px]">
+                {news.author_name ? (
+                  news.author_name.charAt(0).toUpperCase()
+                ) : (
+                  <User className="h-2 w-2" />
+                )}
+              </AvatarFallback>
+            </Avatar>
+            <span>{news.author_name || "Unknown"}</span>
           </div>
-        </CardFooter>
-      )}
+
+          {/* Right side - Publication date */}
+          <time dateTime={news.published_at}>{formatDate(news.published_at)}</time>
+        </div>
+      </CardFooter>
     </Card>
   );
 }

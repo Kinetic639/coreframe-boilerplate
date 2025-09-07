@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { NewsCard, NewsPost } from "./NewsCard";
 import { EditNewsDialog } from "./EditNewsDialog";
 import { DeleteNewsDialog } from "./DeleteNewsDialog";
@@ -35,16 +35,7 @@ export function NewsHistoryList() {
   const canEdit = permissions?.includes("news.update");
   const canDelete = permissions?.includes("news.delete");
 
-  useEffect(() => {
-    if (appLoaded && activeOrgId) {
-      loadNews();
-    } else if (appLoaded && !activeOrgId) {
-      // App is loaded but no active org - set loading false and show error state
-      setLoading(false);
-    }
-  }, [appLoaded, activeOrgId]);
-
-  const loadNews = async () => {
+  const loadNews = useCallback(async () => {
     if (!activeOrgId) {
       console.error("No active organization available");
       setLoading(false);
@@ -67,7 +58,16 @@ export function NewsHistoryList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId, t]);
+
+  useEffect(() => {
+    if (appLoaded && activeOrgId) {
+      loadNews();
+    } else if (appLoaded && !activeOrgId) {
+      // App is loaded but no active org - set loading false and show error state
+      setLoading(false);
+    }
+  }, [appLoaded, activeOrgId, loadNews]);
 
   // Filter news based on search term and priority
   const filteredNews = news.filter((post) => {

@@ -4,14 +4,14 @@ import { Widget } from "@/lib/types/widgets";
 const widgets: Widget[] = [
   {
     id: "recent-news",
-    title: "Recent News",
+    title: "Recent Announcements",
     type: "custom",
     componentName: "RecentNewsWidget",
     config: {
       limit: 5,
       showActions: true,
-      compact: true,
-      className: "col-span-2",
+      compact: false,
+      className: "col-span-full", // Full width
     },
   },
   {
@@ -23,7 +23,7 @@ const widgets: Widget[] = [
       limit: 8,
       autoRefresh: true,
       showViewAll: true,
-      className: "col-span-2",
+      className: "col-span-full", // Full width as well
     },
   },
 ];

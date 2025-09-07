@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Tables } from "../../../supabase/types/types";
 import { UserLocation } from "../types";
+import { createClient } from "@/utils/supabase/client";
 
 // 🔸 Typ jednego modułu użytkownika
 export type LoadedUserModule = {
@@ -28,20 +29,27 @@ export type AppContext = {
   userModules: LoadedUserModule[];
   location: UserLocation | null;
   locations: Tables<"locations">[];
+  suppliers: Tables<"suppliers">[];
+  productTypes: Tables<"product_types">[];
 };
 
 // 🧠 Zustand store
 type AppStore = AppContext & {
   isLoaded: boolean;
+  isLoadingLocations: boolean;
+  isLoadingSuppliers: boolean;
   setContext: (context: AppContext) => void;
   setLocation: (location: UserLocation | null) => void;
   setLocations: (locations: Tables<"locations">[]) => void;
+  setSuppliers: (suppliers: Tables<"suppliers">[]) => void;
+  setProductTypes: (productTypes: Tables<"product_types">[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
   setActiveBranch: (branchId: string) => void;
+  loadBranchData: (branchId: string) => Promise<void>;
   clear: () => void;
 };
 
-export const useAppStore = create<AppStore>((set) => ({
+export const useAppStore = create<AppStore>((set, get) => ({
   activeOrg: null,
   activeBranch: null,
   activeOrgId: null,
@@ -49,8 +57,12 @@ export const useAppStore = create<AppStore>((set) => ({
   availableBranches: [],
   userModules: [],
   isLoaded: false,
+  isLoadingLocations: false,
+  isLoadingSuppliers: false,
   location: null,
   locations: [],
+  suppliers: [],
+  productTypes: [],
 
   setContext: (context) =>
     set({
@@ -61,6 +73,10 @@ export const useAppStore = create<AppStore>((set) => ({
 
   setLocations: (locations) => set({ locations }),
 
+  setSuppliers: (suppliers) => set({ suppliers }),
+
+  setProductTypes: (productTypes) => set({ productTypes }),
+
   updateAvailableBranches: (branches) =>
     set((state) => ({
       availableBranches: branches,
@@ -69,13 +85,87 @@ export const useAppStore = create<AppStore>((set) => ({
         branches.find((b) => b.branch_id === state.activeBranchId) || state.activeBranch,
     })),
 
-  setActiveBranch: (branchId) =>
-    set((state) => ({
+  setActiveBranch: async (branchId) => {
+    const state = get();
+    const branch = state.availableBranches.find((b) => b.branch_id === branchId);
+
+    set({
       activeBranchId: branchId,
-      activeBranch: state.availableBranches.find((b) => b.branch_id === branchId) || null,
-      // Clear locations when branch changes - they will be reloaded
+      activeBranch: branch || null,
+      // Clear branch-specific data when branch changes
       locations: [],
-    })),
+    });
+
+    // Auto-load branch-specific data
+    if (branchId) {
+      const store = get();
+      store.loadBranchData(branchId);
+    }
+  },
+
+  loadBranchData: async (branchId: string) => {
+    if (!branchId) return;
+
+    const supabase = createClient();
+
+    // Load locations for the branch
+    set({ isLoadingLocations: true });
+    try {
+      const { data: locations, error: locationsError } = await supabase
+        .from("locations")
+        .select("*")
+        .eq("branch_id", branchId)
+        .is("deleted_at", null)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (locationsError) {
+        console.error("Error loading locations:", locationsError);
+      } else {
+        set({ locations: locations || [] });
+      }
+    } catch (error) {
+      console.error("Error loading locations:", error);
+    } finally {
+      set({ isLoadingLocations: false });
+    }
+
+    // Load suppliers for the organization (suppliers are org-level, not branch-level)
+    const state = get();
+    if (state.activeOrgId) {
+      set({ isLoadingSuppliers: true });
+      try {
+        const { data: suppliers, error: suppliersError } = await supabase
+          .from("suppliers")
+          .select("*")
+          .eq("organization_id", state.activeOrgId)
+          .is("deleted_at", null)
+          .order("name", { ascending: true });
+
+        const { data: productTypes, error: productTypesError } = await supabase
+          .from("product_types")
+          .select("*")
+          .eq("organization_id", state.activeOrgId)
+          .order("name", { ascending: true });
+
+        if (suppliersError) {
+          console.error("Error loading suppliers:", suppliersError);
+        } else {
+          set({ suppliers: suppliers || [] });
+        }
+
+        if (productTypesError) {
+          console.error("Error loading product types:", productTypesError);
+        } else {
+          set({ productTypes: productTypes || [] });
+        }
+      } catch (error) {
+        console.error("Error loading org data:", error);
+      } finally {
+        set({ isLoadingSuppliers: false });
+      }
+    }
+  },
 
   clear: () =>
     set({
@@ -86,7 +176,11 @@ export const useAppStore = create<AppStore>((set) => ({
       availableBranches: [],
       userModules: [],
       isLoaded: false,
+      isLoadingLocations: false,
+      isLoadingSuppliers: false,
       location: null,
       locations: [],
+      suppliers: [],
+      productTypes: [],
     }),
 }));

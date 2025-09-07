@@ -37,7 +37,7 @@ export function BranchSelector() {
     startTransition(async () => {
       try {
         await changeBranch(branchId);
-        setActiveBranch(branchId);
+        await setActiveBranch(branchId); // This will now auto-load locations and other branch data
         setOpen(false);
       } catch (error) {
         console.error("Failed to change branch:", error);
