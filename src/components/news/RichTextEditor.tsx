@@ -370,12 +370,12 @@ export function RichTextEditor({
                   className="min-h-[200px] resize-none px-4 py-3 text-sm outline-none [&_*]:max-w-full"
                   style={{ userSelect: "text" }}
                   aria-placeholder={placeholder}
+                  placeholder={
+                    <div className="pointer-events-none absolute left-4 top-3 text-sm text-muted-foreground">
+                      {placeholder}
+                    </div>
+                  }
                 />
-              }
-              placeholder={
-                <div className="pointer-events-none absolute left-4 top-3 text-sm text-muted-foreground">
-                  {placeholder}
-                </div>
               }
               ErrorBoundary={LexicalErrorBoundary}
             />

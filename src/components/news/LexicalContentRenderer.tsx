@@ -36,18 +36,21 @@ export function LexicalContentRenderer({ content, className = "" }: LexicalConte
             );
 
           case "heading":
-            const HeadingTag = `h${node.tag}` as keyof JSX.IntrinsicElements;
+            const tag = node.tag || "h2";
             const headingClasses =
               {
                 h1: "text-2xl font-bold mb-4 mt-2",
                 h2: "text-xl font-bold mb-3 mt-2",
                 h3: "text-lg font-bold mb-2 mt-2",
-              }[node.tag] || "text-lg font-bold mb-2 mt-2";
+              }[tag] || "text-lg font-bold mb-2 mt-2";
 
-            return (
-              <HeadingTag key={node.key || Math.random()} className={headingClasses}>
-                {node.children?.map((child: any) => renderLexicalNode(child))}
-              </HeadingTag>
+            return React.createElement(
+              tag,
+              {
+                key: node.key || Math.random(),
+                className: headingClasses,
+              },
+              node.children?.map((child: any) => renderLexicalNode(child))
             );
 
           case "list":
