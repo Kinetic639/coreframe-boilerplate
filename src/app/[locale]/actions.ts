@@ -54,8 +54,6 @@ export const signInAction = async (formData: FormData) => {
   const password = formData.get("password") as string;
   const returnUrl = formData.get("returnUrl") as string;
 
-  console.log("[DEBUG] returnUrl received:", returnUrl);
-
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({

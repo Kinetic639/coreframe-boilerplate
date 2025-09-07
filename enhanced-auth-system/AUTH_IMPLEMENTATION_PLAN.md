@@ -2421,8 +2421,6 @@ const deployToProduction = async () => {
       intervalMinutes: 15,
       rollbackOnError: true,
     });
-
-    console.log("✅ Production deployment completed successfully");
   } catch (error) {
     console.error("❌ Production deployment failed:", error);
 

@@ -2,6 +2,14 @@
   "HomePage": {
     "title": "Hello there"
   },
+  "PreferencesPage": {
+    "title": "Preferences",
+    "description": "Manage your account preferences and settings",
+    "theme": "Theme",
+    "themeDescription": "Choose your preferred theme appearance",
+    "language": "Language",
+    "languageDescription": "Select your preferred language"
+  },
   "authForms": {
     "AuthButton": {
       "greeting": "Hi, {email}!",

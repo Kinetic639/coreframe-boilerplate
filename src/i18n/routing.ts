@@ -278,6 +278,16 @@ export const routing = defineRouting({
       pl: "/dashboard/deweloperskie/lokalizacje-debug",
     },
 
+    // === User Account module ===
+    "/dashboard/account/profile": {
+      en: "/dashboard/account/profile",
+      pl: "/dashboard/konto/profil",
+    },
+    "/dashboard/account/preferences": {
+      en: "/dashboard/account/preferences",
+      pl: "/dashboard/konto/ustawienia",
+    },
+
     // === Auth ===
     "/sign-in": {
       en: "/sign-in",

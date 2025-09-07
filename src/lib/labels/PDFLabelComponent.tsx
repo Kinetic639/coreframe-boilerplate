@@ -111,9 +111,6 @@ const SingleLabel: React.FC<SingleLabelProps> = ({ template, data, qrDataUrl }) 
         {template.fields &&
           template.fields.length > 0 &&
           template.fields.map((field, index) => {
-            console.log(
-              `Rendering field in React-PDF: ${field.field_name} at (${field.position_x}, ${field.position_y})`
-            );
             return (
               <LabelField key={field.id || index} field={field} data={data} template={template} />
             );
@@ -129,10 +126,6 @@ const LabelField: React.FC<{
   data: LabelDataRecord;
   template: PDFLabelTemplate;
 }> = ({ field, data, template }) => {
-  console.log(
-    `LabelField rendering: ${field.field_name}, type: ${field.field_type}, value: ${field.field_value}`
-  );
-
   // Handle different field types
   if (field.field_type === "blank") {
     // Render blank line

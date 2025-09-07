@@ -29,6 +29,7 @@ export type UserContext = {
     email: string;
     first_name: string | null;
     last_name: string | null;
+    avatar_url: string | null;
   };
   preferences: {
     organization_id: string | null;
@@ -49,6 +50,22 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
   if (!session) return null;
 
   const userId = session.user.id;
+
+  // 👤 Fetch user data from public.users table (fallback to auth data if not found)
+  const { data: userData } = await supabase
+    .from("public.users")
+    .select("id, email, first_name, last_name, avatar_url")
+    .eq("id", userId)
+    .single();
+
+  // If user doesn't exist in public.users, create basic user object from auth data
+  const userInfo = userData || {
+    id: userId,
+    email: session.user.email!,
+    first_name: session.user.user_metadata?.first_name ?? null,
+    last_name: session.user.user_metadata?.last_name ?? null,
+    avatar_url: null,
+  };
 
   // 🔐 First try to get roles from JWT claims (if hook is configured)
   let roles: UserRoleFromToken[] = [];
@@ -246,10 +263,11 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
   // ✅ Zbuduj kontekst
   const userContext = {
     user: {
-      id: userId,
-      email: session.user.email!,
-      first_name: session.user.user_metadata?.first_name ?? null,
-      last_name: session.user.user_metadata?.last_name ?? null,
+      id: userInfo.id,
+      email: userInfo.email,
+      first_name: userInfo.first_name,
+      last_name: userInfo.last_name,
+      avatar_url: userInfo.avatar_url,
     },
     preferences,
     roles,

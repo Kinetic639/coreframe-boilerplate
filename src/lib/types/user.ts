@@ -2,7 +2,7 @@ import { Database } from "../../../supabase/types/types";
 
 export type User = Pick<
   Database["public"]["Tables"]["users"]["Row"],
-  "id" | "email" | "first_name" | "last_name"
+  "id" | "email" | "first_name" | "last_name" | "avatar_url"
 >;
 
 export type UserPreferences = Pick<

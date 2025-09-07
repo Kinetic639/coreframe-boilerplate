@@ -1,6 +1,6 @@
+"use client";
+
 import React from "react";
-import LocaleSwitcher from "../../LocaleSwitcher";
-import { ThemeSwitcher } from "../../theme-switcher";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
 import { Bell, LogOut, MessagesSquare, Settings, User } from "lucide-react";
@@ -15,45 +15,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { BranchSelector } from "./BranchSelector";
 import { Link } from "@/i18n/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { signOutAction } from "@/app/actions/auth/sign-out";
+import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
+import { useUserStore } from "@/lib/stores/user-store";
 
-const DashboardHeader = async () => {
-  // Get current user info
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const DashboardHeader = () => {
+  const { user } = useUserStore();
 
-  // Fetch user profile data if user exists
-  let userData = null;
-  if (user) {
-    const { data } = await supabase
-      .from("users")
-      .select("first_name, last_name, email")
-      .eq("id", user.id)
-      .single();
-    userData = data;
+  if (!user) {
+    return null; // or loading state
   }
 
-  const displayName =
-    userData?.first_name && userData?.last_name
-      ? `${userData.first_name} ${userData.last_name}`
-      : userData?.first_name || userData?.last_name || "User";
-
-  const displayEmail = userData?.email || user?.email || "No email";
-
-  const getUserInitials = (firstName: string | null, lastName: string | null, email: string) => {
-    if (firstName && lastName) {
-      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-    }
-    if (firstName) {
-      return firstName.charAt(0).toUpperCase();
-    }
-    if (lastName) {
-      return lastName.charAt(0).toUpperCase();
-    }
-    return email.charAt(0).toUpperCase();
-  };
+  const displayName = getUserDisplayName(user.first_name, user.last_name);
+  const displayEmail = user.email || "No email";
+  const userInitials = getUserInitials(user.first_name, user.last_name, displayEmail);
 
   return (
     <header className="sticky top-0 z-20 flex flex-col bg-background">
@@ -78,14 +53,11 @@ const DashboardHeader = async () => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost-themed" className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-8 w-8 ">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
-                  <AvatarFallback>
-                    {getUserInitials(
-                      userData?.first_name || null,
-                      userData?.last_name || null,
-                      displayEmail
-                    )}
-                  </AvatarFallback>
+                  <AvatarImage
+                    src={user.avatar_url ? String(user.avatar_url) : undefined}
+                    alt="User"
+                  />
+                  <AvatarFallback className="bg-muted">{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
@@ -98,24 +70,25 @@ const DashboardHeader = async () => {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/dashboard/organization/profile" className="flex items-center">
+                <Link href="/dashboard/account/profile" className="flex items-center">
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Ustawienia</span>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/account/preferences" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Preferences</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <LocaleSwitcher />
-                <ThemeSwitcher />
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Wyloguj</span>
+              <DropdownMenuItem asChild>
+                <form action={signOutAction} className="w-full">
+                  <button type="submit" className="flex w-full items-center text-left">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </form>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

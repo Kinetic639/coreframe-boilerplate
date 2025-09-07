@@ -335,14 +335,7 @@ export function BatchLabelCreator({
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                // Preview functionality would go here
-                // console.log('Preview batch')
-              }}
-              disabled={isLoading}
-            >
+            <Button variant="outline" onClick={() => {}} disabled={isLoading}>
               <Square className="mr-2 h-4 w-4" />
               Podgląd
             </Button>
