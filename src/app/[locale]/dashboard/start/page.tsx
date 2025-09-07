@@ -49,7 +49,10 @@ export default async function StartPage() {
       {widgets.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {widgets.map((widget) => (
-            <div key={widget.id} className={widget.config?.className || ""}>
+            <div
+              key={widget.id}
+              className={((widget.config as Record<string, unknown>)?.className as string) || ""}
+            >
               <WidgetRenderer widget={widget} />
             </div>
           ))}

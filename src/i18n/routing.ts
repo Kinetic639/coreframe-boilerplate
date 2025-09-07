@@ -24,6 +24,14 @@ export const routing = defineRouting({
       en: "/dashboard/start",
       pl: "/dashboard/start",
     },
+    "/dashboard/news": {
+      en: "/dashboard/news",
+      pl: "/dashboard/wiadomosci",
+    },
+    "/dashboard/news/[id]": {
+      en: "/dashboard/news/[id]",
+      pl: "/dashboard/wiadomosci/[id]",
+    },
 
     "/dashboard/branch": {
       en: "/dashboard/branch",
