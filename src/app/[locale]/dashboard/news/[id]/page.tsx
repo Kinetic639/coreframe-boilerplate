@@ -65,10 +65,10 @@ const priorityBorderColors = {
 };
 
 interface MessageDetailsPageProps {
-  params: {
+  params: Promise<{
     id: string;
     locale: string;
-  };
+  }>;
 }
 
 async function getNewsPost(id: string): Promise<NewsPost | null> {
@@ -113,12 +113,13 @@ async function getNewsPost(id: string): Promise<NewsPost | null> {
 }
 
 export default async function MessageDetailsPage({ params }: MessageDetailsPageProps) {
+  const { id } = await params;
   const t = await getTranslations("news");
   const locale = await getLocale();
   const dateLocale = locale === "pl" ? pl : enUS;
   const appContext = await loadAppContextServer();
 
-  const post = await getNewsPost(params.id);
+  const post = await getNewsPost(id);
 
   if (!post) {
     notFound();
