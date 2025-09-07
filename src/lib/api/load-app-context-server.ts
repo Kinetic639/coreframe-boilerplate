@@ -29,12 +29,9 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     .eq("user_id", userId)
     .single();
 
-  console.log("🔍 User preferences query:", {
-    userId,
-    preferences,
-    prefError,
-    query: `user_preferences WHERE user_id = ${userId}`,
-  });
+  if (prefError) {
+    console.error("Error fetching user preferences:", prefError);
+  }
 
   let activeOrgId = preferences?.organization_id ?? null;
   const activeBranchId = preferences?.default_branch_id ?? null;
@@ -89,14 +86,9 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     activeOrg = result.data;
     orgError = result.error;
 
-    console.log("🔍 Organization query:", {
-      activeOrgId,
-      activeOrg,
-      orgError,
-      query: `organization_profiles WHERE organization_id = ${activeOrgId}`,
-    });
-  } else {
-    console.log("🔍 No activeOrgId, skipping organization profile query");
+    if (orgError) {
+      console.error("Error fetching organization profile:", orgError);
+    }
   }
 
   // 3. Branches - Load directly from branches table
@@ -138,16 +130,41 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     })
     .filter((m): m is NonNullable<typeof m> => m !== null);
 
-  // Locations will be loaded client-side via useLocations hook
+  // 5. Load locations for the active branch
+  let locations: Tables<"locations">[] = [];
+  if (activeBranchId) {
+    const { data: locationData } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("branch_id", activeBranchId)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
-  console.log("🔍 Final app context state:", {
-    activeOrgId,
-    activeBranchId,
-    hasActiveOrg: !!activeOrg,
-    activeOrgName: activeOrg?.name,
-    branchesCount: availableBranches?.length || 0,
-    modulesCount: userModules.length,
-  });
+    locations = locationData || [];
+  }
+
+  // 6. Load suppliers for the organization
+  let suppliers: Tables<"suppliers">[] = [];
+  let productTypes: Tables<"product_types">[] = [];
+  if (activeOrgId) {
+    const [suppliersResult, productTypesResult] = await Promise.all([
+      supabase
+        .from("suppliers")
+        .select("*")
+        .eq("organization_id", activeOrgId)
+        .is("deleted_at", null)
+        .order("name", { ascending: true }),
+      supabase
+        .from("product_types")
+        .select("*")
+        .eq("organization_id", activeOrgId)
+        .order("name", { ascending: true }),
+    ]);
+
+    suppliers = suppliersResult.data || [];
+    productTypes = productTypesResult.data || [];
+  }
 
   const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({
     ...branch,
@@ -175,7 +192,9 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     availableBranches: mappedBranches,
     userModules,
     location: null,
-    locations: [], // Will be loaded client-side
+    locations,
+    suppliers,
+    productTypes,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);

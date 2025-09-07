@@ -114,6 +114,7 @@ function ToolbarPlugin() {
     <div className="flex flex-wrap items-center gap-1 border-b border-border p-2">
       {/* Text formatting */}
       <Button
+        type="button"
         size="sm"
         variant={activeStates.bold ? "default" : "ghost"}
         onClick={() => formatText("bold")}
@@ -122,6 +123,7 @@ function ToolbarPlugin() {
         <Bold className="h-4 w-4" />
       </Button>
       <Button
+        type="button"
         size="sm"
         variant={activeStates.italic ? "default" : "ghost"}
         onClick={() => formatText("italic")}
@@ -130,6 +132,7 @@ function ToolbarPlugin() {
         <Italic className="h-4 w-4" />
       </Button>
       <Button
+        type="button"
         size="sm"
         variant={activeStates.underline ? "default" : "ghost"}
         onClick={() => formatText("underline")}
@@ -138,6 +141,7 @@ function ToolbarPlugin() {
         <Underline className="h-4 w-4" />
       </Button>
       <Button
+        type="button"
         size="sm"
         variant={activeStates.strikethrough ? "default" : "ghost"}
         onClick={() => formatText("strikethrough")}
@@ -149,13 +153,31 @@ function ToolbarPlugin() {
       <Separator orientation="vertical" className="h-6" />
 
       {/* Headings */}
-      <Button size="sm" variant="ghost" onClick={() => formatHeading("h1")} title={t("heading")}>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => formatHeading("h1")}
+        title={t("heading")}
+      >
         <Heading1 className="h-4 w-4" />
       </Button>
-      <Button size="sm" variant="ghost" onClick={() => formatHeading("h2")} title={t("heading")}>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => formatHeading("h2")}
+        title={t("heading")}
+      >
         <Heading2 className="h-4 w-4" />
       </Button>
-      <Button size="sm" variant="ghost" onClick={() => formatHeading("h3")} title={t("heading")}>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={() => formatHeading("h3")}
+        title={t("heading")}
+      >
         <Heading3 className="h-4 w-4" />
       </Button>
 
@@ -163,6 +185,7 @@ function ToolbarPlugin() {
 
       {/* Lists */}
       <Button
+        type="button"
         size="sm"
         variant="ghost"
         onClick={() => formatList("bullet")}
@@ -171,6 +194,7 @@ function ToolbarPlugin() {
         <List className="h-4 w-4" />
       </Button>
       <Button
+        type="button"
         size="sm"
         variant="ghost"
         onClick={() => formatList("number")}
@@ -182,12 +206,13 @@ function ToolbarPlugin() {
       <Separator orientation="vertical" className="h-6" />
 
       {/* Quote */}
-      <Button size="sm" variant="ghost" onClick={formatQuote} title={t("quote")}>
+      <Button type="button" size="sm" variant="ghost" onClick={formatQuote} title={t("quote")}>
         <Quote className="h-4 w-4" />
       </Button>
 
       {/* Code */}
       <Button
+        type="button"
         size="sm"
         variant={activeStates.code ? "default" : "ghost"}
         onClick={() => formatText("code")}
@@ -345,11 +370,6 @@ export function RichTextEditor({
                   className="min-h-[200px] resize-none px-4 py-3 text-sm outline-none [&_*]:max-w-full"
                   style={{ userSelect: "text" }}
                   aria-placeholder={placeholder}
-                  placeholder={
-                    <div className="pointer-events-none absolute left-4 top-3 select-none text-muted-foreground">
-                      {placeholder}
-                    </div>
-                  }
                 />
               }
               placeholder={

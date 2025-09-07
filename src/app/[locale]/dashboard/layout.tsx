@@ -38,14 +38,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
         <QueryClientProvider>
           <AppInitProvider
             context={{
-              activeOrg: appContext.activeOrg,
-              activeBranch: appContext.activeBranch,
-              activeOrgId: appContext.activeOrgId,
-              activeBranchId: appContext.activeBranchId,
-              availableBranches: appContext.availableBranches,
-              userModules: appContext.userModules,
+              ...appContext,
               location: null, // Initialize as null, can be set later via setLocation
-              locations: [], // Will be loaded client-side via useLocations hook
             }}
           >
             <UserInitProvider context={userContext}>

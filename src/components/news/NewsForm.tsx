@@ -58,6 +58,23 @@ const defaultBadgeOptions = [
   "info",
 ];
 
+const SYSTEM_BADGES = new Set(defaultBadgeOptions);
+
+// Priority colors for preview (matching NewsCard)
+const priorityColors = {
+  normal: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+  important: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  urgent: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+  critical: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+};
+
+const priorityBorderColors = {
+  normal: "border-l-gray-300 dark:border-l-gray-700",
+  important: "border-l-blue-500 dark:border-l-blue-400",
+  urgent: "border-l-orange-500 dark:border-l-orange-400",
+  critical: "border-l-red-500 dark:border-l-red-400",
+};
+
 export function NewsForm({
   initialData,
   onSubmit,
@@ -179,17 +196,52 @@ export function NewsForm({
                   disabled={isLoading}
                 >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="normal">{t("priority.normal")}</SelectItem>
-                    <SelectItem value="important">{t("priority.important")}</SelectItem>
-                    <SelectItem value="urgent">{t("priority.urgent")}</SelectItem>
-                    <SelectItem value="critical">{t("priority.critical")}</SelectItem>
+                    <SelectItem value="normal">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-3 w-3 rounded border-2 ${priorityBorderColors.normal}`}
+                        ></div>
+                        {t("priority.normal")}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="important">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-3 w-3 rounded border-2 ${priorityBorderColors.important}`}
+                        ></div>
+                        {t("priority.important")}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-3 w-3 rounded border-2 ${priorityBorderColors.urgent}`}
+                        ></div>
+                        {t("priority.urgent")}
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="critical">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-3 w-3 rounded border-2 ${priorityBorderColors.critical}`}
+                        ></div>
+                        {t("priority.critical")}
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
+                <div className="mt-2">
+                  <div
+                    className={`rounded-md border-l-4 p-3 text-sm ${priorityBorderColors[field.value as keyof typeof priorityBorderColors]} ${priorityColors[field.value as keyof typeof priorityColors]}`}
+                  >
+                    {t("form.priorityPreview")}: {t(`priority.${field.value}`)}
+                  </div>
+                </div>
                 <FormMessage />
               </FormItem>
             )}
@@ -220,7 +272,7 @@ export function NewsForm({
                         disabled={isLoading}
                         className="h-6 text-xs"
                       >
-                        {t(`badges.${badge}` as any)}
+                        {SYSTEM_BADGES.has(badge) ? t(`badges.${badge}` as any) : badge}
                       </Button>
                     )
                 )}
@@ -231,7 +283,7 @@ export function NewsForm({
                 <div className="flex flex-wrap gap-1">
                   {badges.map((badge) => (
                     <Badge key={badge} variant="secondary" className="flex items-center gap-1">
-                      {t(`badges.${badge}` as any, { default: badge })}
+                      {SYSTEM_BADGES.has(badge) ? t(`badges.${badge}` as any) : badge}
                       <button
                         type="button"
                         onClick={() => removeBadge(badge)}
