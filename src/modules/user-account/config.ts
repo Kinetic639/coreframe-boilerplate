@@ -18,20 +18,20 @@ const widgets: Widget[] = [
 export const userAccountModule: ModuleConfig = {
   id: "user-account",
   slug: "account",
-  title: "Account",
+  title: "modules.userAccount.title",
   icon: "User",
-  description: "User account settings and profile management",
+  description: "modules.userAccount.description",
   color: "#6366f1",
   items: [
     {
       id: "profile",
-      label: "Profile",
+      label: "modules.userAccount.items.profile",
       path: "/dashboard/account/profile",
       icon: "User",
     },
     {
       id: "preferences",
-      label: "Preferences",
+      label: "modules.userAccount.items.preferences",
       path: "/dashboard/account/preferences",
       icon: "Settings",
     },

@@ -731,6 +731,14 @@
         }
       }
     },
+    "userAccount": {
+      "title": "Account",
+      "description": "User account settings and profile management",
+      "items": {
+        "profile": "Profile",
+        "preferences": "Preferences"
+      }
+    },
     "analytics": {
       "title": "Analytics & Reports",
       "description": "Activity analytics, reports, and audit trails",
