@@ -3,32 +3,32 @@ import { ModuleConfig } from "@/lib/types/module";
 export const teamsModule: ModuleConfig = {
   id: "teams",
   slug: "teams",
-  title: "Zespoły",
+  title: "modules.teams.title",
   icon: "Users",
-  description: "Zarządzanie zespołami i komunikacją",
+  description: "modules.teams.description",
   color: "#8b5cf6",
   items: [
     {
       id: "members",
-      label: "Członkowie zespołu",
+      label: "modules.teams.items.members",
       path: "/dashboard/teams/members",
       icon: "Users",
     },
     {
       id: "communication",
-      label: "Komunikacja",
+      label: "modules.teams.items.communication.title",
       path: "/dashboard/teams/communication",
       icon: "MessageSquare",
       submenu: [
         {
           id: "chat",
-          label: "Chat zespołu",
+          label: "modules.teams.items.communication.chat",
           path: "/dashboard/teams/communication/chat",
           icon: "MessageCircle",
         },
         {
           id: "announcements",
-          label: "Ogłoszenia",
+          label: "modules.teams.items.communication.announcements",
           path: "/dashboard/teams/communication/announcements",
           icon: "Megaphone",
         },
@@ -36,13 +36,13 @@ export const teamsModule: ModuleConfig = {
     },
     {
       id: "kanban",
-      label: "Tablica Kanban",
+      label: "modules.teams.items.kanban",
       path: "/dashboard/teams/kanban",
       icon: "Columns",
     },
     {
       id: "calendar",
-      label: "Kalendarz zespołu",
+      label: "modules.teams.items.calendar",
       path: "/dashboard/teams/calendar",
       icon: "Calendar",
     },

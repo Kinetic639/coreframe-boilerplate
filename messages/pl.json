@@ -601,5 +601,130 @@
       "titleRequired": "Tytuł jest wymagany",
       "contentRequired": "Treść jest wymagana"
     }
+  },
+  "modules": {
+    "home": {
+      "title": "Start",
+      "items": {
+        "dashboard": "Panel główny",
+        "newsHistory": "Historia aktualności"
+      }
+    },
+    "warehouse": {
+      "title": "Magazyn",
+      "description": "Zarządzanie magazynem i zapasami",
+      "items": {
+        "products": "Produkty",
+        "locations": "Lokalizacje",
+        "audits": {
+          "title": "Audyty",
+          "overview": "Audyty magazynowe",
+          "schedule": "Grafik audytów",
+          "history": "Historia audytów"
+        },
+        "labels": {
+          "title": "Etykiety i kody QR",
+          "overview": "Przegląd etykiet",
+          "creator": "Kreator etykiet",
+          "templates": "Szablony etykiet",
+          "batches": "Partie etykiet",
+          "history": "Historia przypisań"
+        },
+        "scanning": {
+          "title": "Skanowanie kodów",
+          "delivery": "Skanowanie dostaw",
+          "inventory": "Skanowanie inwentarza",
+          "assignment": "Przypisanie lokalizacji",
+          "verification": "Weryfikacja produktów",
+          "operations": "Operacje skanowania"
+        },
+        "suppliers": {
+          "title": "Dostawcy",
+          "list": "Lista dostawców",
+          "deliveries": "Dostawy"
+        }
+      }
+    },
+    "teams": {
+      "title": "Zespoły",
+      "description": "Zarządzanie zespołami i komunikacją",
+      "items": {
+        "members": "Członkowie zespołu",
+        "communication": {
+          "title": "Komunikacja",
+          "chat": "Chat zespołu",
+          "announcements": "Ogłoszenia"
+        },
+        "kanban": "Tablica Kanban",
+        "calendar": "Kalendarz zespołu"
+      }
+    },
+    "organizationManagement": {
+      "title": "Zarządzanie organizacją",
+      "description": "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
+      "items": {
+        "profile": "Profil organizacji",
+        "branches": "Oddziały",
+        "users": {
+          "title": "Użytkownicy",
+          "list": "Lista użytkowników",
+          "invitations": "Zaproszenia",
+          "roles": "Role i uprawnienia"
+        }
+      }
+    },
+    "support": {
+      "title": "Wsparcie",
+      "description": "Panel pomocy, nowości i kontaktu z zespołem wsparcia",
+      "items": {
+        "help": "Pomoc",
+        "contact": "Kontakt ze wsparciem",
+        "announcements": {
+          "title": "Nowości i ogłoszenia",
+          "changelog": "Changelog",
+          "systemStatus": "Status systemu",
+          "roadmap": "Roadmapa"
+        }
+      }
+    },
+    "analytics": {
+      "title": "Analityka i Raporty",
+      "description": "Analityka aktywności, raporty i ślady audytu",
+      "items": {
+        "overview": "Panel aktywności",
+        "activities": "Dziennik aktywności",
+        "timeline": "Widok osi czasu",
+        "reports": {
+          "title": "Raporty",
+          "userActivity": "Raporty aktywności użytkowników",
+          "modules": "Raporty modułów",
+          "security": "Raporty bezpieczeństwa"
+        },
+        "exports": {
+          "title": "Eksport danych",
+          "activities": "Eksportuj aktywności",
+          "reports": "Eksportuj raporty"
+        },
+        "settings": {
+          "title": "Ustawienia analityki",
+          "retention": "Przechowywanie danych",
+          "notifications": "Powiadomienia o aktywności",
+          "presets": "Predefiniowane filtry"
+        }
+      }
+    },
+    "development": {
+      "title": "Rozwój",
+      "description": "Narzędzia deweloperskie i użytki debugowania",
+      "items": {
+        "dashboard": "Panel debugowania",
+        "permissions": "Debug uprawnień",
+        "context": "Debug kontekstu",
+        "logo": "Debug logo",
+        "service": "Debug usług",
+        "labels": "Testowanie etykiet",
+        "locations": "Debug lokalizacji"
+      }
+    }
   }
 }

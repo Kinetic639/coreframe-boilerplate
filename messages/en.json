@@ -645,5 +645,130 @@
       "titleRequired": "Title is required",
       "contentRequired": "Content is required"
     }
+  },
+  "modules": {
+    "home": {
+      "title": "Home",
+      "items": {
+        "dashboard": "Dashboard",
+        "newsHistory": "News History"
+      }
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "description": "Warehouse and inventory management",
+      "items": {
+        "products": "Products",
+        "locations": "Locations",
+        "audits": {
+          "title": "Audits",
+          "overview": "Warehouse Audits",
+          "schedule": "Audit Schedule",
+          "history": "Audit History"
+        },
+        "labels": {
+          "title": "Labels & QR Codes",
+          "overview": "Labels Overview",
+          "creator": "Label Creator",
+          "templates": "Label Templates",
+          "batches": "Label Batches",
+          "history": "Assignment History"
+        },
+        "scanning": {
+          "title": "Code Scanning",
+          "delivery": "Delivery Scanning",
+          "inventory": "Inventory Scanning",
+          "assignment": "Location Assignment",
+          "verification": "Product Verification",
+          "operations": "Scanning Operations"
+        },
+        "suppliers": {
+          "title": "Suppliers",
+          "list": "Supplier List",
+          "deliveries": "Deliveries"
+        }
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "description": "Team management and communication",
+      "items": {
+        "members": "Team Members",
+        "communication": {
+          "title": "Communication",
+          "chat": "Team Chat",
+          "announcements": "Announcements"
+        },
+        "kanban": "Kanban Board",
+        "calendar": "Team Calendar"
+      }
+    },
+    "organizationManagement": {
+      "title": "Organization Management",
+      "description": "Administrative panel for managing organization, users and permissions",
+      "items": {
+        "profile": "Organization Profile",
+        "branches": "Branches",
+        "users": {
+          "title": "Users",
+          "list": "User List",
+          "invitations": "Invitations",
+          "roles": "Roles & Permissions"
+        }
+      }
+    },
+    "support": {
+      "title": "Support",
+      "description": "Help panel, news and support team contact",
+      "items": {
+        "help": "Help",
+        "contact": "Contact Support",
+        "announcements": {
+          "title": "News & Announcements",
+          "changelog": "Changelog",
+          "systemStatus": "System Status",
+          "roadmap": "Roadmap"
+        }
+      }
+    },
+    "analytics": {
+      "title": "Analytics & Reports",
+      "description": "Activity analytics, reports, and audit trails",
+      "items": {
+        "overview": "Activity Dashboard",
+        "activities": "Activity Log",
+        "timeline": "Timeline View",
+        "reports": {
+          "title": "Reports",
+          "userActivity": "User Activity Reports",
+          "modules": "Module Reports",
+          "security": "Security Reports"
+        },
+        "exports": {
+          "title": "Data Export",
+          "activities": "Export Activities",
+          "reports": "Export Reports"
+        },
+        "settings": {
+          "title": "Analytics Settings",
+          "retention": "Data Retention",
+          "notifications": "Activity Notifications",
+          "presets": "Filter Presets"
+        }
+      }
+    },
+    "development": {
+      "title": "Development",
+      "description": "Development tools and debugging utilities",
+      "items": {
+        "dashboard": "Debug Dashboard",
+        "permissions": "Permissions Debug",
+        "context": "Context Debug",
+        "logo": "Logo Debug",
+        "service": "Service Debug",
+        "labels": "Label Testing",
+        "locations": "Locations Debug"
+      }
+    }
   }
 }

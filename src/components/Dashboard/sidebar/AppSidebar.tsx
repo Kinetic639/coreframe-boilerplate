@@ -9,6 +9,7 @@ import { appVersion } from "@/lib/version";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
 import { createClient } from "@/utils/supabase/server";
 import { getAllModules } from "@/modules";
+import { getTranslations } from "next-intl/server";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
@@ -31,6 +32,9 @@ const AppSidebar = async () => {
 
   // 🔄 Dynamiczne ładowanie modułów (np. z Supabase)
   const modules = await getAllModules();
+
+  // Get translations for modules
+  const t = await getTranslations("modules");
 
   return (
     <Sidebar
@@ -64,9 +68,10 @@ const AppSidebar = async () => {
                 <ModuleSectionWrapper
                   module={module}
                   accessToken={accessToken}
-                  activeOrgId={activeOrgId}
-                  activeBranchId={activeBranchId}
+                  activeOrgId={activeOrgId ?? undefined}
+                  activeBranchId={activeBranchId ?? undefined}
                   userPermissions={userPermissions}
+                  translations={t}
                 />
               </React.Fragment>
             ))}

@@ -3,43 +3,43 @@ import { ModuleConfig } from "@/lib/types/module";
 export const supportModule: ModuleConfig = {
   id: "support",
   slug: "support",
-  title: "Wsparcie",
+  title: "modules.support.title",
   icon: "LifeBuoy",
-  description: "Panel pomocy, nowości i kontaktu z zespołem wsparcia",
+  description: "modules.support.description",
   items: [
     {
       id: "help-center",
-      label: "Pomoc",
+      label: "modules.support.items.help",
       path: "/dashboard/support/help",
       icon: "LifeBuoy",
     },
     {
       id: "contact-support",
-      label: "Kontakt ze wsparciem",
+      label: "modules.support.items.contact",
       path: "/dashboard/support/contact",
       icon: "MessageSquare",
     },
     {
       id: "announcements",
-      label: "Nowości i ogłoszenia",
+      label: "modules.support.items.announcements.title",
       path: "/dashboard/support/announcements",
       icon: "Megaphone",
       submenu: [
         {
           id: "changelog",
-          label: "Changelog",
+          label: "modules.support.items.announcements.changelog",
           path: "/dashboard/support/announcements/changelog",
           icon: "History",
         },
         {
           id: "system-status",
-          label: "Status systemu",
+          label: "modules.support.items.announcements.systemStatus",
           path: "/dashboard/support/announcements/status",
           icon: "BarChart",
         },
         {
           id: "roadmap",
-          label: "Roadmapa",
+          label: "modules.support.items.announcements.roadmap",
           path: "/dashboard/support/announcements/roadmap",
           icon: "Map",
         },
