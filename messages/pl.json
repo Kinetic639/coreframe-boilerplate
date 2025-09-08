@@ -687,6 +687,14 @@
         }
       }
     },
+    "userAccount": {
+      "title": "Konto",
+      "description": "Ustawienia konta użytkownika i zarządzanie profilem",
+      "items": {
+        "profile": "Profil",
+        "preferences": "Preferencje"
+      }
+    },
     "analytics": {
       "title": "Analityka i Raporty",
       "description": "Analityka aktywności, raporty i ślady audytu",
