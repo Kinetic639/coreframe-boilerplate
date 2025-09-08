@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 
 export type CustomJwtPayload = {
   user_role?: string;
+  roles?: {
+    role: string;
+    org_id: string | null;
+    branch_id: string | null;
+    team_id: string | null;
+  }[];
 } & Record<string, unknown>;
 
 export async function checkAdminRole() {

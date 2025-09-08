@@ -31,19 +31,19 @@ const widgets: Widget[] = [
 export const homeModule: ModuleConfig = {
   id: "home",
   slug: "home",
-  title: "Start",
+  title: "modules.home.title",
   icon: "Home",
   color: "#3b82f6",
   items: [
     {
       id: "dashboard",
-      label: "Dashboard",
+      label: "modules.home.items.dashboard",
       path: "/dashboard/start",
       icon: "Home",
     },
     {
       id: "news-history",
-      label: "News History",
+      label: "modules.home.items.newsHistory",
       path: "/dashboard/news",
       icon: "Newspaper",
     },

@@ -48,50 +48,50 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
   return {
     id: "analytics",
     slug: "analytics",
-    title: "Analytics & Reports",
+    title: "modules.analytics.title",
     icon: "BarChart3",
-    description: "Activity analytics, reports, and audit trails",
+    description: "modules.analytics.description",
     color: "#06b6d4",
     items: [
       {
         id: "activities-overview",
-        label: "Activity Dashboard",
+        label: "modules.analytics.items.overview",
         path: "/dashboard/analytics",
         icon: "Activity",
       },
       {
         id: "activities-list",
-        label: "Activity Log",
+        label: "modules.analytics.items.activities",
         path: "/dashboard/analytics/activities",
         icon: "List",
       },
       {
         id: "activity-timeline",
-        label: "Timeline View",
+        label: "modules.analytics.items.timeline",
         path: "/dashboard/analytics/timeline",
         icon: "Clock",
       },
       {
         id: "reports",
-        label: "Reports",
+        label: "modules.analytics.items.reports.title",
         icon: "FileText",
         path: "/dashboard/analytics/reports",
         submenu: [
           {
             id: "user-activity-reports",
-            label: "User Activity Reports",
+            label: "modules.analytics.items.reports.userActivity",
             path: "/dashboard/analytics/reports/user-activity",
             icon: "Users",
           },
           {
             id: "module-reports",
-            label: "Module Reports",
+            label: "modules.analytics.items.reports.modules",
             path: "/dashboard/analytics/reports/modules",
             icon: "Package",
           },
           {
             id: "security-reports",
-            label: "Security Reports",
+            label: "modules.analytics.items.reports.security",
             path: "/dashboard/analytics/reports/security",
             icon: "Shield",
             allowedUsers: [
@@ -103,19 +103,19 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
       },
       {
         id: "exports",
-        label: "Data Export",
+        label: "modules.analytics.items.exports.title",
         icon: "Download",
         path: "/dashboard/analytics/export",
         submenu: [
           {
             id: "activity-export",
-            label: "Export Activities",
+            label: "modules.analytics.items.exports.activities",
             path: "/dashboard/analytics/export/activities",
             icon: "FileDown",
           },
           {
             id: "report-export",
-            label: "Export Reports",
+            label: "modules.analytics.items.exports.reports",
             path: "/dashboard/analytics/export/reports",
             icon: "FileSpreadsheet",
           },
@@ -123,7 +123,7 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
       },
       {
         id: "settings",
-        label: "Analytics Settings",
+        label: "modules.analytics.items.settings.title",
         icon: "Settings",
         path: "/dashboard/analytics/settings",
         allowedUsers: [
@@ -133,20 +133,20 @@ export async function getAnalyticsModule(): Promise<ModuleConfig> {
         submenu: [
           {
             id: "retention-settings",
-            label: "Data Retention",
+            label: "modules.analytics.items.settings.retention",
             path: "/dashboard/analytics/settings/retention",
             icon: "Archive",
             allowedUsers: [{ role: "org_admin", scope: "organization" as any }],
           },
           {
             id: "notification-settings",
-            label: "Activity Notifications",
+            label: "modules.analytics.items.settings.notifications",
             path: "/dashboard/analytics/settings/notifications",
             icon: "Bell",
           },
           {
             id: "filter-presets",
-            label: "Filter Presets",
+            label: "modules.analytics.items.settings.presets",
             path: "/dashboard/analytics/settings/presets",
             icon: "Filter",
           },

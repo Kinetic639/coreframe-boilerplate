@@ -48,7 +48,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
                 style={
                   {
                     "--theme-color": themeColor,
-                    "--theme-color-rgb": hexToRgb(themeColor),
+                    "--theme-color-rgb": hexToRgb(themeColor || null),
                     "--font-color": appContext?.activeOrg?.font_color,
                   } as React.CSSProperties
                 }

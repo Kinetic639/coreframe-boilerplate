@@ -1,15 +1,17 @@
 // components/ModuleSectionWrapper.tsx
-import { MenuItem, ModuleConfig } from "@/lib/types/module";
+import { MenuItem, ModuleConfig, LinkMenuItem } from "@/lib/types/module";
 import { RoleCheck, Scope, UserRoleFromToken } from "@/lib/types/user";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
 import ModuleSectionClient from "./ModuleSectionClient";
+import { translateModuleLabel } from "@/utils/i18n/translateModuleLabel";
 
 type Props = {
   module: ModuleConfig;
   accessToken: string;
   activeOrgId: string | null;
   activeBranchId: string | null;
-  userPermissions: string[]; // Add user permissions
+  userPermissions: string[];
+  translations: (key: string) => string;
 };
 
 function mapAllowedUsersToChecks(
@@ -55,12 +57,17 @@ function hasRequiredPermissions(userPermissions: string[], requiredPermissions: 
   return requiredPermissions.every((permission) => userPermissions.includes(permission));
 }
 
+function isLinkMenuItem(item: MenuItem): item is LinkMenuItem {
+  return (item as LinkMenuItem).path !== undefined;
+}
+
 export default function ModuleSectionWrapper({
   module,
   accessToken,
   activeOrgId,
   activeBranchId,
   userPermissions,
+  translations,
 }: Props) {
   const roles = getUserRolesFromJWT(accessToken);
 
@@ -79,8 +86,8 @@ export default function ModuleSectionWrapper({
       }
 
       // If the item has submenu, filter it too
-      if ((item as any).submenu) {
-        const visibleSubmenu = (item as any).submenu.filter((subitem) => {
+      if (isLinkMenuItem(item) && item.submenu) {
+        const visibleSubmenu = item.submenu.filter((subitem) => {
           // Check permission-based access first (preferred)
           if (subitem.requiredPermissions) {
             return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
@@ -101,7 +108,7 @@ export default function ModuleSectionWrapper({
         });
 
         // Update the item's submenu to only show visible items
-        (item as any).submenu = visibleSubmenu;
+        item.submenu = visibleSubmenu;
 
         // Hide the parent item if no submenu items are visible
         if (visibleSubmenu.length === 0) return false;
@@ -111,23 +118,31 @@ export default function ModuleSectionWrapper({
     })
     .map((item) => ({
       ...item,
-      // Ensure submenu is properly filtered
-      submenu: (item as any).submenu
-        ? (item as any).submenu.filter((subitem) => {
-            if (subitem.requiredPermissions) {
-              return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
-            }
-            if (subitem.allowedUsers) {
-              const checks = mapAllowedUsersToChecks(
-                subitem.allowedUsers,
-                activeOrgId,
-                activeBranchId
-              );
-              return checks.length === 0 || hasMatchingRole(roles, checks);
-            }
-            return true;
-          })
-        : undefined,
+      label: translateModuleLabel(item.label, translations),
+      // Ensure submenu is properly filtered and translated
+      ...(isLinkMenuItem(item) && item.submenu
+        ? {
+            submenu: item.submenu
+              .filter((subitem) => {
+                if (subitem.requiredPermissions) {
+                  return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
+                }
+                if (subitem.allowedUsers) {
+                  const checks = mapAllowedUsersToChecks(
+                    subitem.allowedUsers,
+                    activeOrgId,
+                    activeBranchId
+                  );
+                  return checks.length === 0 || hasMatchingRole(roles, checks);
+                }
+                return true;
+              })
+              .map((subitem) => ({
+                ...subitem,
+                label: translateModuleLabel(subitem.label, translations),
+              })),
+          }
+        : {}),
     }));
 
   if (visibleItems.length === 0) {
@@ -138,7 +153,7 @@ export default function ModuleSectionWrapper({
     <ModuleSectionClient
       module={{
         slug: module.slug,
-        title: module.title,
+        title: translateModuleLabel(module.title, translations),
         icon: module.icon,
         items: visibleItems,
       }}
