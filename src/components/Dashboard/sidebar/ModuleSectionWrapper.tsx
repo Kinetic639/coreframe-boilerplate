@@ -2,7 +2,7 @@
 import { MenuItem, ModuleConfig, LinkMenuItem } from "@/lib/types/module";
 import { RoleCheck, Scope, UserRoleFromToken } from "@/lib/types/user";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
-import ModuleSectionClient from "./ModuleSectionClient";
+import { ModuleSection } from "./ModuleSection";
 import { translateModuleLabel } from "@/utils/i18n/translateModuleLabel";
 
 type Props = {
@@ -61,6 +61,60 @@ function isLinkMenuItem(item: MenuItem): item is LinkMenuItem {
   return (item as LinkMenuItem).path !== undefined;
 }
 
+function filterAndTranslateMenuItems(
+  items: MenuItem[],
+  userRoles: UserRoleFromToken[],
+  userPermissions: string[],
+  activeOrgId: string | null,
+  activeBranchId: string | null,
+  translations: (key: string) => string
+): MenuItem[] {
+  return items
+    .map((item) => {
+      // Check permissions first
+      if (item.requiredPermissions) {
+        if (!hasRequiredPermissions(userPermissions, item.requiredPermissions)) {
+          return null; // Filter out this item
+        }
+      } else if (item.allowedUsers) {
+        const checks = mapAllowedUsersToChecks(item.allowedUsers, activeOrgId, activeBranchId);
+        if (checks.length > 0 && !hasMatchingRole(userRoles, checks)) {
+          return null; // Filter out this item
+        }
+      }
+
+      // Process submenu if it exists
+      let processedItem: MenuItem = {
+        ...item,
+        label: translateModuleLabel(item.label, translations),
+      };
+
+      if (isLinkMenuItem(item) && item.submenu) {
+        const filteredSubmenu = filterAndTranslateMenuItems(
+          item.submenu,
+          userRoles,
+          userPermissions,
+          activeOrgId,
+          activeBranchId,
+          translations
+        );
+
+        // If no submenu items are visible, hide the parent
+        if (filteredSubmenu.length === 0) {
+          return null;
+        }
+
+        processedItem = {
+          ...processedItem,
+          submenu: filteredSubmenu,
+        } as LinkMenuItem;
+      }
+
+      return processedItem;
+    })
+    .filter((item): item is MenuItem => item !== null);
+}
+
 export default function ModuleSectionWrapper({
   module,
   accessToken,
@@ -71,94 +125,27 @@ export default function ModuleSectionWrapper({
 }: Props) {
   const roles = getUserRolesFromJWT(accessToken);
 
-  const visibleItems = module.items
-    .filter((item) => {
-      // Check permission-based access first (preferred)
-      if (item.requiredPermissions) {
-        const hasAccess = hasRequiredPermissions(userPermissions, item.requiredPermissions);
-        if (!hasAccess) return false;
-      }
-      // Fallback to role-based access for backward compatibility
-      else if (item.allowedUsers) {
-        const checks = mapAllowedUsersToChecks(item.allowedUsers, activeOrgId, activeBranchId);
-        const hasAccess = checks.length === 0 || hasMatchingRole(roles, checks);
-        if (!hasAccess) return false;
-      }
-
-      // If the item has submenu, filter it too
-      if (isLinkMenuItem(item) && item.submenu) {
-        const visibleSubmenu = item.submenu.filter((subitem) => {
-          // Check permission-based access first (preferred)
-          if (subitem.requiredPermissions) {
-            return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
-          }
-
-          // Fallback to role-based access for backward compatibility
-          if (subitem.allowedUsers) {
-            const checks = mapAllowedUsersToChecks(
-              subitem.allowedUsers,
-              activeOrgId,
-              activeBranchId
-            );
-            return checks.length === 0 || hasMatchingRole(roles, checks);
-          }
-
-          // If no restrictions, show the subitem
-          return true;
-        });
-
-        // Update the item's submenu to only show visible items
-        item.submenu = visibleSubmenu;
-
-        // Hide the parent item if no submenu items are visible
-        if (visibleSubmenu.length === 0) return false;
-      }
-
-      return true;
-    })
-    .map((item) => ({
-      ...item,
-      label: translateModuleLabel(item.label, translations),
-      // Ensure submenu is properly filtered and translated
-      ...(isLinkMenuItem(item) && item.submenu
-        ? {
-            submenu: item.submenu
-              .filter((subitem) => {
-                if (subitem.requiredPermissions) {
-                  return hasRequiredPermissions(userPermissions, subitem.requiredPermissions);
-                }
-                if (subitem.allowedUsers) {
-                  const checks = mapAllowedUsersToChecks(
-                    subitem.allowedUsers,
-                    activeOrgId,
-                    activeBranchId
-                  );
-                  return checks.length === 0 || hasMatchingRole(roles, checks);
-                }
-                return true;
-              })
-              .map((subitem) => ({
-                ...subitem,
-                label: translateModuleLabel(subitem.label, translations),
-              })),
-          }
-        : {}),
-    }));
+  const visibleItems = filterAndTranslateMenuItems(
+    module.items,
+    roles,
+    userPermissions,
+    activeOrgId,
+    activeBranchId,
+    translations
+  );
 
   if (visibleItems.length === 0) {
     return null;
   }
 
   return (
-    <ModuleSectionClient
+    <ModuleSection
       module={{
         slug: module.slug,
         title: translateModuleLabel(module.title, translations),
         icon: module.icon,
         items: visibleItems,
       }}
-      activeBranchId={activeBranchId}
-      activeOrgId={activeOrgId}
     />
   );
 }
