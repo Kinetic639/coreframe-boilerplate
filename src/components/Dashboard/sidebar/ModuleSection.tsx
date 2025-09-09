@@ -1,61 +1,99 @@
-import { Accordion } from "@/components/ui/accordion";
+"use client";
 
-import { usePersistentAccordionList } from "@/lib/hooks/usePersistentAccordionList";
+import * as Icons from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "@/components/ui/sidebar";
+import { useSidebarStore } from "@/lib/stores/sidebarStore";
+import { MenuItem as MenuItemType } from "@/lib/types/module";
+import { TreeMenuItem } from "./TreeMenuItem";
 
-import { MenuItem } from "@/lib/types/module";
-import { RecursiveMenuItem } from "./RecursiveMnuItem";
-import { RoleCheck, Scope } from "@/lib/types/user";
-
-type ModuleSectionProps = {
+interface ModuleSectionProps {
   module: {
     slug: string;
     title: string;
     icon?: string;
-    items: MenuItem[];
+    items: MenuItemType[];
   };
-  activeOrgId: string | null;
-  activeBranchId: string | null;
-};
-
-function mapAllowedUsersToChecks(
-  allowedUsers: MenuItem["allowedUsers"],
-  activeOrgId: string | null,
-  activeBranchId: string | null
-): RoleCheck[] {
-  if (!allowedUsers) return [];
-
-  return allowedUsers.map((u) => ({
-    role: u.role,
-    scope: u.scope as Scope,
-    id: u.scope === "org" ? (activeOrgId ?? undefined) : (activeBranchId ?? undefined),
-  }));
 }
 
-export default function ModuleSection({ module, activeBranchId, activeOrgId }: ModuleSectionProps) {
-  const [openItems, setOpenItems] = usePersistentAccordionList(module.slug);
+export function ModuleSection({ module }: ModuleSectionProps) {
+  const { state } = useSidebar();
+  const isExpanded = state === "expanded";
+  const { openSections, toggleSection } = useSidebarStore();
+
+  // Module section ID for state persistence
+  const sectionId = `module-${module.slug}`;
+  const isOpen = openSections.includes(sectionId);
+
+  // Get module icon
+  const ModuleIcon = (Icons as any)[module.icon || "Folder"] || Icons.Folder;
+
+  if (module.items.length === 0) {
+    return null;
+  }
 
   return (
-    <Accordion
-      type="multiple"
-      value={openItems}
-      onValueChange={(v) => setOpenItems(v)}
-      className="space-y-1"
-    >
-      <RecursiveMenuItem
-        item={{
-          id: module.slug,
-          label: module.title,
-          icon: module.icon,
-          submenu: module.items.map((item) => ({
-            ...item,
-            allowedUsers: mapAllowedUsersToChecks(
-              item.allowedUsers,
-              activeOrgId,
-              activeBranchId
-            ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-          })) as any,
-        }}
-      />
-    </Accordion>
+    <div className="mb-4">
+      {/* Module Header */}
+      <div
+        onClick={() => toggleSection(sectionId)}
+        className={cn(
+          "mb-1 flex cursor-pointer items-center rounded-md px-2 py-1.5 font-medium transition-colors hover:bg-accent/50"
+        )}
+      >
+        <ModuleIcon className="h-4 w-4 shrink-0 text-primary" />
+
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+              animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
+              exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex w-full items-center justify-between overflow-hidden"
+            >
+              <span className="overflow-hidden whitespace-nowrap text-sm">{module.title}</span>
+              <ChevronRight
+                className={cn(
+                  "ml-auto h-3 w-3 shrink-0 transition-transform duration-200",
+                  isOpen && "rotate-90"
+                )}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Chevron for collapsed state */}
+        {!isExpanded && (
+          <ChevronRight
+            className={cn(
+              "ml-1 h-3 w-3 shrink-0 transition-transform duration-200",
+              isOpen && "rotate-90"
+            )}
+          />
+        )}
+      </div>
+
+      {/* Module Menu Items */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-0.5 px-1">
+              {module.items.map((item) => (
+                <TreeMenuItem key={item.id} item={item} level={0} moduleSlug={module.slug} />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
