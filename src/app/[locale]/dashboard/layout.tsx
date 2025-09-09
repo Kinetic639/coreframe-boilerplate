@@ -1,6 +1,5 @@
 import AppSidebar from "@/components/Dashboard/sidebar/AppSidebar";
 import Loader from "@/components/ui/Loader";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "@/i18n/navigation";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
@@ -11,6 +10,7 @@ import { QueryClientProvider } from "@/lib/providers/query-client-provider";
 import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 function hexToRgb(hex: string | null): string {
   if (!hex) return "0,0,0";
@@ -53,21 +53,16 @@ export default async function Layout({ children }: { children: React.ReactNode }
                   } as React.CSSProperties
                 }
               >
-                <div className="flex w-full flex-1">
-                  {/* Sidebar */}
-                  <div className="relative z-50">
-                    <AppSidebar />
-                  </div>
-
-                  {/* Main content */}
-                  <div className="flex flex-1 flex-col overflow-hidden">
-                    <DashboardHeader />
-                    <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
-                      <Suspense fallback={<Loader />}>
-                        <div>{children}</div>
-                      </Suspense>
-                    </main>
-                  </div>
+                <div className="flex min-w-fit flex-shrink-0">
+                  <AppSidebar />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-grow flex-col">
+                  <DashboardHeader />
+                  <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+                    <Suspense fallback={<Loader />}>
+                      <div>{children}</div>
+                    </Suspense>
+                  </main>
                 </div>
               </div>
             </UserInitProvider>
