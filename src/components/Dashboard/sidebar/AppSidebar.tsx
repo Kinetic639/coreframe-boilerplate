@@ -1,11 +1,10 @@
 import React from "react";
-import { Sidebar, SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 import AppSidebarHeader from "./AppSidebarHeader";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { SidebarContent, SidebarFooter } from "@/components/ui/sidebar";
 import { appVersion } from "@/lib/version";
+import { AppSidebarWrapper } from "./AppSidebarWrapper";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
 import { createClient } from "@/utils/supabase/server";
 import { getAllModules } from "@/modules";
@@ -30,59 +29,41 @@ const AppSidebar = async () => {
   const activeBranchId = appContext?.activeBranchId ?? null;
   const userPermissions = userContext?.permissions ?? [];
 
-  // 🔄 Dynamiczne ładowanie modułów (np. z Supabase)
+  // Load modules and translations
   const modules = await getAllModules();
-
-  // Get translations for modules
   const t = await getTranslations("modules");
 
   return (
-    <Sidebar
-      variant="sidebar"
-      collapsible="icon"
-      className={cn(
-        "border-none bg-sidebar",
-        themeColor ? "bg-[color:var(--theme-color)]" : "bg-sidebar"
-      )}
-      style={
-        {
-          "--sidebar-width": "16rem",
-          "--sidebar-width-icon": "3.5rem",
-        } as React.CSSProperties
-      }
-    >
+    <AppSidebarWrapper themeColor={themeColor}>
       <AppSidebarHeader
         logo={logo || undefined}
         name={name || undefined}
         name2={name2 || undefined}
       />
 
-      <SidebarContent className="flex h-full flex-col justify-between">
-        <ScrollArea className="min-h-full">
-          <div className="flex flex-col gap-4 px-3 py-0">
-            {modules.map((module) => (
-              <React.Fragment key={module.id}>
-                {/* {index > 0 && (
-                  <Separator className="my-4 bg-[color:var(--font-color)] opacity-20" />
-                )} */}
-                <ModuleSectionWrapper
-                  module={module}
-                  accessToken={accessToken}
-                  activeOrgId={activeOrgId ?? undefined}
-                  activeBranchId={activeBranchId ?? undefined}
-                  userPermissions={userPermissions}
-                  translations={t}
-                />
-              </React.Fragment>
-            ))}
-          </div>
-        </ScrollArea>
+      <SidebarContent className="p-2">
+        {modules.map((module) => (
+          <ModuleSectionWrapper
+            key={module.id}
+            module={module}
+            accessToken={accessToken}
+            activeOrgId={activeOrgId ?? undefined}
+            activeBranchId={activeBranchId ?? undefined}
+            userPermissions={userPermissions}
+            translations={t}
+          />
+        ))}
       </SidebarContent>
 
-      <SidebarFooter className="flex items-center justify-center border-t border-white/10 px-3 py-1 text-xs text-[color:var(--font-color)] opacity-50">
-        Besio version: {appVersion}
+      <SidebarFooter className="border-t border-sidebar-border">
+        <div className="flex items-center justify-center px-2 py-1 text-xs text-sidebar-foreground/50">
+          <span className="group-data-[collapsible=icon]:hidden">Besio version: {appVersion}</span>
+          <span className="hidden text-[10px] group-data-[collapsible=icon]:block">
+            v{appVersion}
+          </span>
+        </div>
       </SidebarFooter>
-    </Sidebar>
+    </AppSidebarWrapper>
   );
 };
 
