@@ -54,7 +54,8 @@ export function ModuleSection({ module }: ModuleSectionProps) {
               animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
               exit={{ opacity: 0, width: 0, marginLeft: 0 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="flex w-full items-center justify-between overflow-hidden"
+              className="flex w-full items-center overflow-hidden"
+              style={{ paddingRight: "8px" }}
             >
               <span className="overflow-hidden whitespace-nowrap text-sm">{module.title}</span>
               <ChevronRight
@@ -71,7 +72,7 @@ export function ModuleSection({ module }: ModuleSectionProps) {
         {!isExpanded && (
           <ChevronRight
             className={cn(
-              "ml-1 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+              "ml-2 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
               isOpen && "rotate-90"
             )}
           />
