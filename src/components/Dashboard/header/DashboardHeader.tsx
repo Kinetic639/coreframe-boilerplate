@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
 import {
   Bell,
@@ -30,6 +29,7 @@ import { signOutAction } from "@/app/actions/auth/sign-out";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useUserStore } from "@/lib/stores/user-store";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
+import { SidebarToggleButton } from "./SidebarToggleButton";
 
 const DashboardHeader = () => {
   const { user } = useUserStore();
@@ -48,7 +48,10 @@ const DashboardHeader = () => {
       <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            {/* Sidebar Options Dropdown - Always first */}
+            {/* Sidebar Toggle - FIRST position, attached to sidebar */}
+            <SidebarToggleButton />
+
+            {/* Sidebar Options Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
@@ -93,9 +96,6 @@ const DashboardHeader = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Hide SidebarTrigger in auto mode - Second position */}
-            {mode !== "auto" && <SidebarTrigger variant="themed" />}
           </div>
 
           <BranchSelector />

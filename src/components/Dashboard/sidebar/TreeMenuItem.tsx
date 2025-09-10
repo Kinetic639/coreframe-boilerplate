@@ -16,6 +16,8 @@ interface TreeMenuItemProps {
   level?: number;
   isLast?: boolean;
   parentLevels?: boolean[];
+  hasActiveItemInModule?: boolean;
+  hasActiveItemInAnyModule?: boolean;
 }
 
 export function TreeMenuItem({
@@ -24,6 +26,8 @@ export function TreeMenuItem({
   level = 0,
   isLast = false,
   parentLevels = [],
+  hasActiveItemInModule = false,
+  hasActiveItemInAnyModule = false,
 }: TreeMenuItemProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
@@ -44,6 +48,16 @@ export function TreeMenuItem({
   const hasActiveChild =
     "submenu" in item &&
     item.submenu?.some((subItem: MenuItemType) => "path" in subItem && pathname === subItem.path);
+
+  // Check if this item or any descendant is active (for the active path)
+  const isInActivePath = isActive || hasActiveChild;
+
+  // Should this item be grayed out?
+  // Gray out if there's an active item somewhere AND this module doesn't have active items
+  // OR if there's an active item in this module but this specific item is not in the active path
+  const shouldGrayOut =
+    hasActiveItemInAnyModule &&
+    (!hasActiveItemInModule || (hasActiveItemInModule && !isInActivePath));
 
   // Calculate responsive indentation
   const indent = isExpanded ? 16 : 12;
@@ -115,9 +129,9 @@ export function TreeMenuItem({
 
         <div
           className={cn(
-            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-colors",
+            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
             "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-            isActive && "bg-[color-mix(in_srgb,var(--font-color)_15%,transparent)] font-medium"
+            shouldGrayOut && "brightness-75 filter"
           )}
           style={{
             paddingLeft: `${paddingLeft}px`,
@@ -156,9 +170,9 @@ export function TreeMenuItem({
         <Link href={item.path as any} className="block">
           <div
             className={cn(
-              "relative flex items-center rounded-md py-1.5 text-sm transition-colors",
+              "relative flex items-center rounded-md py-1.5 text-sm transition-all duration-200",
               "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-              isActive && "bg-[color-mix(in_srgb,var(--font-color)_15%,transparent)] font-medium"
+              shouldGrayOut && "brightness-75 filter"
             )}
             style={{
               paddingLeft: `${paddingLeft}px`,
@@ -198,10 +212,9 @@ export function TreeMenuItem({
         <div
           onClick={() => toggleSection(sectionId)}
           className={cn(
-            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-colors",
+            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
             "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-            (isActive || hasActiveChild) &&
-              "bg-[color-mix(in_srgb,var(--font-color)_15%,transparent)] font-medium"
+            shouldGrayOut && "brightness-75 filter"
           )}
           style={{
             paddingLeft: `${paddingLeft}px`,
@@ -220,10 +233,10 @@ export function TreeMenuItem({
                 transition={{ duration: 0.15, ease: "easeOut" }}
                 className="flex w-full items-center justify-between overflow-hidden"
               >
-                <span className="overflow-hidden whitespace-nowrap">{item.label}</span>
+                <span className="flex-1 overflow-hidden whitespace-nowrap">{item.label}</span>
                 <ChevronRight
                   className={cn(
-                    "ml-auto h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+                    "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
                     isOpen && "rotate-90"
                   )}
                 />
@@ -235,7 +248,7 @@ export function TreeMenuItem({
           {!isExpanded && (
             <ChevronRight
               className={cn(
-                "ml-1 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+                "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
                 isOpen && "rotate-90"
               )}
             />
@@ -266,6 +279,8 @@ export function TreeMenuItem({
                     level={level + 1}
                     isLast={isLastChild}
                     parentLevels={newParentLevels}
+                    hasActiveItemInModule={hasActiveItemInModule}
+                    hasActiveItemInAnyModule={hasActiveItemInAnyModule}
                   />
                 );
               })}

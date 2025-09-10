@@ -35,13 +35,9 @@ function findActiveSectionId(
   pathname: string
 ): string | null {
   for (const item of items) {
-    // Check if this item or any of its children match the current path
+    // Check if this item matches the current path
     if ("path" in item && item.path === pathname) {
-      // If this item has a parent section, return that section ID
-      if ("submenu" in item && item.submenu) {
-        return `${moduleSlug}-${item.id}`;
-      }
-      // If this is a top-level item, return the module section
+      // This item is active - return the module section
       return `module-${moduleSlug}`;
     }
 
@@ -49,8 +45,8 @@ function findActiveSectionId(
     if ("submenu" in item && item.submenu) {
       const childResult = findActiveSectionId(item.submenu, moduleSlug, pathname);
       if (childResult) {
-        // Found in submenu, so this parent section should also be active
-        return `${moduleSlug}-${item.id}`;
+        // Found active item in submenu - return the module section
+        return `module-${moduleSlug}`;
       }
     }
   }

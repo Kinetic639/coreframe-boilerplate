@@ -42,7 +42,12 @@ export const useSidebarStore = create<SidebarState>()(
         set({ sectionMode: mode });
         // When switching to single mode, auto-collapse all sections except active
         if (mode === "single") {
-          get().collapseAllSections();
+          const { activeSectionId } = get();
+          if (activeSectionId) {
+            set({ openSections: [activeSectionId] });
+          } else {
+            set({ openSections: [] });
+          }
         }
       },
       toggleSection: (sectionId: string) => {
@@ -51,46 +56,20 @@ export const useSidebarStore = create<SidebarState>()(
 
         if (sectionMode === "single") {
           if (isOpen) {
-            // Close the section and all its children
-            const childSections = openSections.filter((id) => id.startsWith(sectionId + "-"));
+            // Close the section
             set({
-              openSections: openSections.filter(
-                (id) => id !== sectionId && !childSections.includes(id)
-              ),
+              openSections: openSections.filter((id) => id !== sectionId),
             });
           } else {
-            // Find the level of this section by counting dashes
-            const sectionLevel = (sectionId.match(/-/g) || []).length;
-
-            // Close siblings at the same level, but keep parents and unrelated sections
-            const newOpenSections = openSections.filter((id) => {
-              const idLevel = (id.match(/-/g) || []).length;
-
-              // Keep if it's a parent (less dashes and this section starts with it)
-              if (
-                idLevel < sectionLevel &&
-                sectionId.startsWith(
-                  id
-                    .split("-")
-                    .slice(0, idLevel + 1)
-                    .join("-")
-                )
-              ) {
-                return true;
-              }
-
-              // Keep if it's not a sibling (different path at same level)
-              if (idLevel === sectionLevel) {
-                const currentPath = sectionId.split("-").slice(0, -1).join("-");
-                const idPath = id.split("-").slice(0, -1).join("-");
-                return currentPath !== idPath;
-              }
-
-              // Keep if it's at a different level entirely
-              return idLevel !== sectionLevel;
-            });
-
-            set({ openSections: [...newOpenSections, sectionId] });
+            // In single mode, only allow one main module section to be open
+            if (sectionId.startsWith("module-")) {
+              // This is a module section - close all other module sections
+              const newOpenSections = openSections.filter((id) => !id.startsWith("module-"));
+              set({ openSections: [...newOpenSections, sectionId] });
+            } else {
+              // This is a nested section - just open it (parent module should already be open)
+              set({ openSections: [...openSections, sectionId] });
+            }
           }
         } else {
           // Multi mode - traditional toggle behavior
@@ -112,21 +91,11 @@ export const useSidebarStore = create<SidebarState>()(
       setActiveSectionId: (sectionId: string | null) => set({ activeSectionId: sectionId }),
       collapseAllSections: () => {
         const { activeSectionId } = get();
-        if (!activeSectionId) {
+        if (activeSectionId) {
+          set({ openSections: [activeSectionId] });
+        } else {
           set({ openSections: [] });
-          return;
         }
-
-        // Keep the active section and all its parent sections open
-        const activePathSections: string[] = [];
-        const parts = activeSectionId.split("-");
-
-        // Build the path: module-warehouse, module-warehouse-products, etc.
-        for (let i = 1; i <= parts.length; i++) {
-          activePathSections.push(parts.slice(0, i).join("-"));
-        }
-
-        set({ openSections: activePathSections });
       },
       expandAllSections: () => {
         const { availableSections } = get();
