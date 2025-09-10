@@ -65,7 +65,7 @@ const AppSidebarHeader = ({
             className="relative flex shrink-0 items-center justify-center overflow-hidden rounded bg-muted"
           >
             {showPlaceholder ? (
-              <ImageOff className="h-6 w-6 text-muted-foreground" />
+              <ImageOff className="text-[color:var(--font-color)]/50 h-6 w-6" />
             ) : (
               <Image
                 src={logo}

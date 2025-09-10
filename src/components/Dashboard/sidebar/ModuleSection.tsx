@@ -40,24 +40,26 @@ export function ModuleSection({ module }: ModuleSectionProps) {
       <div
         onClick={() => toggleSection(sectionId)}
         className={cn(
-          "mb-1 flex cursor-pointer items-center rounded-md px-2 py-1.5 font-medium transition-colors hover:bg-accent/50"
+          "mb-1 flex cursor-pointer items-center rounded-md px-2 py-1.5 font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+          "text-[color:var(--font-color)] hover:text-[color:var(--font-color)]"
         )}
       >
-        <ModuleIcon className="h-4 w-4 shrink-0 text-primary" />
+        <ModuleIcon className="h-4 w-4 shrink-0 text-[color:var(--font-color)]" />
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {isExpanded && (
             <motion.div
+              key="expanded-module"
               initial={{ opacity: 0, width: 0, marginLeft: 0 }}
               animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
               exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
               className="flex w-full items-center justify-between overflow-hidden"
             >
               <span className="overflow-hidden whitespace-nowrap text-sm">{module.title}</span>
               <ChevronRight
                 className={cn(
-                  "ml-auto h-3 w-3 shrink-0 transition-transform duration-200",
+                  "ml-auto h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
                   isOpen && "rotate-90"
                 )}
               />
@@ -69,7 +71,7 @@ export function ModuleSection({ module }: ModuleSectionProps) {
         {!isExpanded && (
           <ChevronRight
             className={cn(
-              "ml-1 h-3 w-3 shrink-0 transition-transform duration-200",
+              "ml-1 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
               isOpen && "rotate-90"
             )}
           />
@@ -86,10 +88,20 @@ export function ModuleSection({ module }: ModuleSectionProps) {
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="space-y-0.5 px-1">
-              {module.items.map((item) => (
-                <TreeMenuItem key={item.id} item={item} level={0} moduleSlug={module.slug} />
-              ))}
+            <div className="space-y-0.5">
+              {module.items.map((item, index) => {
+                const isLastItem = index === module.items.length - 1;
+                return (
+                  <TreeMenuItem
+                    key={item.id}
+                    item={item}
+                    moduleSlug={module.slug}
+                    level={1}
+                    isLast={isLastItem}
+                    parentLevels={[!isLastItem]}
+                  />
+                );
+              })}
             </div>
           </motion.div>
         )}
