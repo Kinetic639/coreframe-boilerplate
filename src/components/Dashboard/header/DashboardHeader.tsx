@@ -3,7 +3,18 @@
 import React from "react";
 import { SidebarTrigger } from "../../ui/sidebar";
 import { Button } from "../../ui/button";
-import { Bell, LogOut, MessagesSquare, Settings, User } from "lucide-react";
+import {
+  Bell,
+  LogOut,
+  MessagesSquare,
+  Settings,
+  User,
+  MoreVertical,
+  MousePointer2,
+  Hand,
+  Layers,
+  Minus,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +29,11 @@ import { Link } from "@/i18n/navigation";
 import { signOutAction } from "@/app/actions/auth/sign-out";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useUserStore } from "@/lib/stores/user-store";
+import { useSidebarStore } from "@/lib/stores/sidebarStore";
 
 const DashboardHeader = () => {
   const { user } = useUserStore();
+  const { mode, setMode, sectionMode, setSectionMode } = useSidebarStore();
 
   if (!user) {
     return null; // or loading state
@@ -35,7 +48,54 @@ const DashboardHeader = () => {
       <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <SidebarTrigger variant="themed" />
+            {/* Sidebar Options Dropdown - Always first */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[180px]">
+                <DropdownMenuLabel>Sidebar Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setMode(mode === "auto" ? "manual" : "auto")}
+                  className="flex items-center"
+                >
+                  {mode === "auto" ? (
+                    <>
+                      <Hand className="mr-2 h-4 w-4" />
+                      Switch to Manual Mode
+                    </>
+                  ) : (
+                    <>
+                      <MousePointer2 className="mr-2 h-4 w-4" />
+                      Switch to Auto Mode (Hover)
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setSectionMode(sectionMode === "single" ? "multi" : "single")}
+                  className="flex items-center"
+                >
+                  {sectionMode === "single" ? (
+                    <>
+                      <Layers className="mr-2 h-4 w-4" />
+                      Switch to Multi-Section Mode
+                    </>
+                  ) : (
+                    <>
+                      <Minus className="mr-2 h-4 w-4" />
+                      Switch to Single Section Mode
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Hide SidebarTrigger in auto mode - Second position */}
+            {mode !== "auto" && <SidebarTrigger variant="themed" />}
           </div>
 
           <BranchSelector />
