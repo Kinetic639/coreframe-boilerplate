@@ -64,9 +64,9 @@ export function TreeMenuItem({
           left: `${8 + i * indent + 6}px`,
           top: "-2px", // Extend above element
           bottom: "-2px", // Extend below element
-          width: "1px",
+          width: "2px",
           backgroundColor: "var(--font-color)",
-          opacity: 0.2,
+          filter: "brightness(0.4)",
           zIndex: 1, // Behind hover effects
         });
       }
@@ -79,9 +79,9 @@ export function TreeMenuItem({
         left: `${8 + (level - 1) * indent + 6}px`,
         top: isLast ? "-2px" : "-2px", // Always start from top
         bottom: isLast ? "50%" : "-2px", // Stop at middle if last, otherwise continue
-        width: "1px",
+        width: "2px",
         backgroundColor: "var(--font-color)",
-        opacity: 0.2,
+        filter: "brightness(0.4)",
         zIndex: 1, // Behind hover effects
       });
     }
@@ -92,9 +92,9 @@ export function TreeMenuItem({
       left: `${8 + (level - 1) * indent + 6}px`,
       top: "50%",
       width: `${indent - 6}px`,
-      height: "1px",
+      height: "2px",
       backgroundColor: "var(--font-color)",
-      opacity: 0.2,
+      filter: "brightness(0.4)",
       transform: "translateY(-50%)",
       zIndex: 1, // Behind hover effects
     });

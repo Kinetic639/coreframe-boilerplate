@@ -49,7 +49,7 @@ const AppSidebar = async () => {
 
       <SidebarContent className="overflow-hidden p-0">
         <ScrollArea className="h-full w-full">
-          <div className="p-2">
+          <div className="p-2 pr-3">
             {modules.map((module) => (
               <ModuleSectionWrapper
                 key={module.id}
@@ -66,7 +66,7 @@ const AppSidebar = async () => {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-[color-mix(in_srgb,var(--font-color)_20%,transparent)]">
-        <div className="text-[color:var(--font-color)]/50 flex items-center justify-center px-2 py-1 text-xs">
+        <div className="flex items-center justify-center px-2 py-1 text-xs text-[color:var(--font-color)]">
           <span className="group-data-[collapsible=icon]:hidden">Besio version: {appVersion}</span>
           <span className="hidden text-[10px] group-data-[collapsible=icon]:block">
             v{appVersion}
