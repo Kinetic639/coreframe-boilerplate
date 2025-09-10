@@ -1,16 +1,16 @@
 "use client";
 
-import { ChevronsUp, Expand } from "lucide-react";
+import { ChevronsUp, ChevronsDown } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
-import { SidebarQuickActionButton } from "./SidebarQuickActionButton";
+import { SidebarDropdownButton } from "./SidebarDropdownButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const SidebarQuickActions = () => {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
-  const { setSections } = useSidebarStore();
+  const { expandAllSections, collapseAllSections } = useSidebarStore();
 
   return (
     <TooltipProvider>
@@ -26,19 +26,18 @@ const SidebarQuickActions = () => {
             isExpanded ? "justify-end" : "justify-center"
           )}
         >
-          <SidebarQuickActionButton
+          {/* Expand All Sections Button */}
+          <SidebarDropdownButton
+            icon={ChevronsDown}
+            title="Expand all sections"
+            onClick={() => expandAllSections()}
+          />
+
+          {/* Collapse All Sections Button */}
+          <SidebarDropdownButton
             icon={ChevronsUp}
             title="Collapse all sections"
-            onClick={() => {
-              setSections([]);
-            }}
-          />
-          <SidebarQuickActionButton
-            icon={Expand}
-            title="Toggle multi-open mode"
-            onClick={() => {
-              console.warn("Toggle Multi-Open Mode");
-            }}
+            onClick={() => collapseAllSections()}
           />
         </div>
       </div>
