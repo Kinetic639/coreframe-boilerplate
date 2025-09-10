@@ -9,6 +9,9 @@ export async function middleware(request: NextRequest) {
   // Run next-intl middleware first
   const intlResponse = intlMiddleware(request);
 
+  // Set pathname header for server components
+  intlResponse.headers.set("x-pathname", request.nextUrl.pathname);
+
   // Run Supabase session middleware on the updated request
   const response = await updateSession(request);
 

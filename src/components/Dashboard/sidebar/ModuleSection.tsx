@@ -8,6 +8,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { MenuItem as MenuItemType } from "@/lib/types/module";
 import { TreeMenuItem } from "./TreeMenuItem";
+import { usePathname } from "@/i18n/navigation";
 
 interface ModuleSectionProps {
   module: {
@@ -16,16 +17,39 @@ interface ModuleSectionProps {
     icon?: string;
     items: MenuItemType[];
   };
+  hasActiveItemInAnyModule?: boolean;
 }
 
-export function ModuleSection({ module }: ModuleSectionProps) {
+// Helper function to check if any menu item is active
+const checkIsActive = (items: MenuItemType[], pathname: string): boolean => {
+  for (const item of items) {
+    // Check if current item is active
+    if ("path" in item && pathname === item.path) {
+      return true;
+    }
+    // Check submenu recursively
+    if ("submenu" in item && item.submenu && checkIsActive(item.submenu, pathname)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export function ModuleSection({ module, hasActiveItemInAnyModule = false }: ModuleSectionProps) {
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
   const { openSections, toggleSection } = useSidebarStore();
+  const pathname = usePathname();
 
   // Module section ID for state persistence
   const sectionId = `module-${module.slug}`;
   const isOpen = openSections.includes(sectionId);
+
+  // Check if this module has any active items
+  const hasActiveItem = checkIsActive(module.items, pathname);
+
+  // Should this module header be grayed out?
+  const shouldGrayOutModule = hasActiveItemInAnyModule && !hasActiveItem;
 
   // Get module icon
   const ModuleIcon = (Icons as any)[module.icon || "Folder"] || Icons.Folder;
@@ -40,8 +64,9 @@ export function ModuleSection({ module }: ModuleSectionProps) {
       <div
         onClick={() => toggleSection(sectionId)}
         className={cn(
-          "mb-1 flex cursor-pointer items-center rounded-md px-2 py-1.5 font-medium transition-colors hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
-          "text-[color:var(--font-color)] hover:text-[color:var(--font-color)]"
+          "mb-1 flex cursor-pointer items-center rounded-md px-2 py-1.5 font-medium transition-all duration-200 hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+          "text-[color:var(--font-color)] hover:text-[color:var(--font-color)]",
+          shouldGrayOutModule && "brightness-75 filter"
         )}
       >
         <ModuleIcon className="h-4 w-4 shrink-0 text-[color:var(--font-color)]" />
@@ -57,10 +82,12 @@ export function ModuleSection({ module }: ModuleSectionProps) {
               className="flex w-full items-center overflow-hidden"
               style={{ paddingRight: "8px" }}
             >
-              <span className="overflow-hidden whitespace-nowrap text-sm">{module.title}</span>
+              <span className="flex-1 overflow-hidden whitespace-nowrap text-sm">
+                {module.title}
+              </span>
               <ChevronRight
                 className={cn(
-                  "ml-auto h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+                  "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
                   isOpen && "rotate-90"
                 )}
               />
@@ -72,7 +99,7 @@ export function ModuleSection({ module }: ModuleSectionProps) {
         {!isExpanded && (
           <ChevronRight
             className={cn(
-              "ml-2 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+              "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
               isOpen && "rotate-90"
             )}
           />
@@ -100,6 +127,8 @@ export function ModuleSection({ module }: ModuleSectionProps) {
                     level={1}
                     isLast={isLastItem}
                     parentLevels={[!isLastItem]}
+                    hasActiveItemInModule={hasActiveItem}
+                    hasActiveItemInAnyModule={hasActiveItemInAnyModule}
                   />
                 );
               })}

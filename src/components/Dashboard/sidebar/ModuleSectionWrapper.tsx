@@ -12,6 +12,7 @@ type Props = {
   activeBranchId: string | null;
   userPermissions: string[];
   translations: (key: string) => string;
+  hasActiveItemInAnyModule?: boolean;
 };
 
 function mapAllowedUsersToChecks(
@@ -122,6 +123,7 @@ export default function ModuleSectionWrapper({
   activeBranchId,
   userPermissions,
   translations,
+  hasActiveItemInAnyModule = false,
 }: Props) {
   const roles = getUserRolesFromJWT(accessToken);
 
@@ -146,6 +148,7 @@ export default function ModuleSectionWrapper({
         icon: module.icon,
         items: visibleItems,
       }}
+      hasActiveItemInAnyModule={hasActiveItemInAnyModule}
     />
   );
 }
