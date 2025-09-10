@@ -89,8 +89,8 @@ const AppSidebarHeader = ({
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col gap-0.5 overflow-hidden whitespace-nowrap font-medium leading-tight text-[color:var(--font-color)]"
           >
-            {name && <span className="text-sm font-semibold">{name}</span>}
-            {name2 && <span className="text-[color:var(--font-color)]/70 text-xs">{name2}</span>}
+            {name && <span className="text-base font-semibold">{name}</span>}
+            {name2 && <span className="text-[color:var(--font-color)]/70 text-sm">{name2}</span>}
           </motion.div>
         </motion.div>
       </Link>

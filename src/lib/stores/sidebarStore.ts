@@ -38,7 +38,13 @@ export const useSidebarStore = create<SidebarState>()(
       toggleSidebar: () => set((state) => ({ isOpen: !state.isOpen })),
       setOpen: (open: boolean) => set({ isOpen: open }),
       setMode: (mode: SidebarMode) => set({ mode }),
-      setSectionMode: (mode: SectionMode) => set({ sectionMode: mode }),
+      setSectionMode: (mode: SectionMode) => {
+        set({ sectionMode: mode });
+        // When switching to single mode, auto-collapse all sections except active
+        if (mode === "single") {
+          get().collapseAllSections();
+        }
+      },
       toggleSection: (sectionId: string) => {
         const { openSections, sectionMode } = get();
         const isOpen = openSections.includes(sectionId);
