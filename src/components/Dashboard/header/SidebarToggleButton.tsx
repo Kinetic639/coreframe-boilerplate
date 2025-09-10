@@ -1,14 +1,13 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { cn } from "@/lib/utils";
 
 export function SidebarToggleButton() {
-  const { open, setOpen } = useSidebar();
+  const { open, toggleSidebar } = useSidebar();
   const { mode } = useSidebarStore();
 
   // Don't show in auto mode
@@ -17,34 +16,21 @@ export function SidebarToggleButton() {
   }
 
   return (
-    <motion.button
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -20 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      onClick={() => setOpen(!open)}
+    <button
+      onClick={toggleSidebar}
       className={cn(
-        "group flex h-9 w-10 items-center justify-center transition-all duration-200",
-        // Match sidebar background and styling
-        "bg-[color:var(--sidebar-background)] text-[color:var(--font-color)]",
-        "border-b border-r border-t border-[color-mix(in_srgb,var(--font-color)_20%,transparent)]",
-        "rounded-r-md hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
-        // Make it look attached to sidebar - no left border, negative margin
-        "-ml-px border-l-0",
-        "shadow-md hover:shadow-lg"
+        "flex h-10 w-6 items-center justify-center pr-1",
+        // Use themed colors to match organization profile
+        "bg-[var(--theme-color)] text-[color:var(--font-color)]",
+        // Position to touch the sidebar without gap, centered vertically
+        "absolute -left-1 top-1/2 z-10 -translate-y-1/2",
+        // Rounded corners only on right side
+        "rounded-r-2xl",
+        // Remove all hover animations and effects
+        "focus:outline-none focus-visible:ring-0"
       )}
     >
-      <motion.div
-        animate={{ rotate: open ? 0 : 180 }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="flex items-center justify-center"
-      >
-        {open ? (
-          <ChevronLeft className="h-4 w-4 transition-transform group-hover:scale-110" />
-        ) : (
-          <ChevronRight className="h-4 w-4 transition-transform group-hover:scale-110" />
-        )}
-      </motion.div>
-    </motion.button>
+      {open ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+    </button>
   );
 }
