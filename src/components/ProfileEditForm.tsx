@@ -43,7 +43,6 @@ export default function ProfileEditForm({
 
       if (error) {
         toast.error("❌ Failed to update profile");
-        console.error("Profile update error:", error);
         return;
       }
 
@@ -54,8 +53,7 @@ export default function ProfileEditForm({
         onProfileUpdate(firstName.trim(), lastName.trim());
       }
     } catch (error) {
-      console.error("Unexpected error:", error);
-      toast.error("❌ An unexpected error occurred");
+      toast.error(`❌ An unexpected error occurred: ${error}`);
     } finally {
       setSaving(false);
     }

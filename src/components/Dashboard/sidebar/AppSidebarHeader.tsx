@@ -40,7 +40,7 @@ const AppSidebarHeader = ({
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     setHasError(true);
-    console.error("Failed to load logo image:", e);
+    console.error("Image error:", e);
   };
 
   return (

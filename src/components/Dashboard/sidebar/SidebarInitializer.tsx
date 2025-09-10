@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { MenuItem } from "@/lib/types/module";
-import { usePathname } from "@/i18n/navigation";
+import { useCurrentPath } from "@/hooks/useCurrentPath";
+import { checkIsActive } from "@/utils/sidebar/active-detection";
 
 interface SidebarInitializerProps {
   modules: Array<{ slug: string; items: MenuItem[] }>;
@@ -34,28 +35,15 @@ function findActiveSectionId(
   moduleSlug: string,
   pathname: string
 ): string | null {
-  for (const item of items) {
-    // Check if this item matches the current path
-    if ("path" in item && item.path === pathname) {
-      // This item is active - return the module section
-      return `module-${moduleSlug}`;
-    }
-
-    // Check submenu recursively
-    if ("submenu" in item && item.submenu) {
-      const childResult = findActiveSectionId(item.submenu, moduleSlug, pathname);
-      if (childResult) {
-        // Found active item in submenu - return the module section
-        return `module-${moduleSlug}`;
-      }
-    }
+  if (checkIsActive(items, pathname)) {
+    return `module-${moduleSlug}`;
   }
   return null;
 }
 
 export function SidebarInitializer({ modules }: SidebarInitializerProps) {
-  const pathname = usePathname();
-  const { setAvailableSections, setActiveSectionId } = useSidebarStore();
+  const pathname = useCurrentPath();
+  const { setAvailableSections, setActiveSectionId, initializeSidebar } = useSidebarStore();
 
   useEffect(() => {
     const allSectionIds: string[] = [];
@@ -77,7 +65,10 @@ export function SidebarInitializer({ modules }: SidebarInitializerProps) {
 
     setAvailableSections(allSectionIds);
     setActiveSectionId(activeSection);
-  }, [modules, pathname, setAvailableSections, setActiveSectionId]);
+
+    // Initialize the sidebar with current pathname
+    initializeSidebar(pathname);
+  }, [modules, pathname, setAvailableSections, setActiveSectionId, initializeSidebar]);
 
   return null; // This component doesn't render anything
 }
