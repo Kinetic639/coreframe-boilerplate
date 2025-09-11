@@ -197,10 +197,7 @@ export const routing = defineRouting({
     },
 
     // === Teams module ===
-    "/dashboard/teams/members": {
-      en: "/dashboard/teams/members",
-      pl: "/dashboard/zespoly/czlonkowie",
-    },
+
     "/dashboard/teams/communication": {
       en: "/dashboard/teams/communication",
       pl: "/dashboard/zespoly/komunikacja",
