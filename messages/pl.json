@@ -241,6 +241,20 @@
       "testActivity": {
         "title": "Test Aktywności",
         "description": "Testuj i monitoruj aktywności systemowe w celu zapewnienia jakości"
+      },
+      "teams": {
+        "contacts": {
+          "title": "Kontakty",
+          "description": "Zarządzaj kontaktami zespołu i członkami organizacji",
+          "custom": {
+            "title": "Moje kontakty",
+            "description": "Zarządzaj swoją osobistą listą kontaktów"
+          },
+          "profile": {
+            "title": "Profil użytkownika",
+            "description": "Zobacz szczegółowe informacje o użytkowniku"
+          }
+        }
       }
     },
     "warehouse": {
@@ -656,7 +670,58 @@
           "announcements": "Ogłoszenia"
         },
         "kanban": "Tablica Kanban",
-        "calendar": "Kalendarz zespołu"
+        "calendar": "Kalendarz zespołu",
+        "contacts": {
+          "title": "Kontakty",
+          "organization": "Członkowie organizacji",
+          "custom": "Moje kontakty",
+          "pages": {
+            "organization": {
+              "title": "Członkowie organizacji",
+              "description": "Przeglądaj i nawiązuj kontakt z współpracownikami w organizacji",
+              "searchPlaceholder": "Szukaj po imieniu, e-mailu lub dziale...",
+              "noResults": "Nie znaleziono członków",
+              "loading": "Ładowanie członków...",
+              "viewProfile": "Zobacz profil",
+              "sendMessage": "Wyślij wiadomość"
+            },
+            "custom": {
+              "title": "Moje kontakty",
+              "description": "Zarządzaj swoją listą kontaktów",
+              "addContact": "Dodaj kontakt",
+              "editContact": "Edytuj kontakt",
+              "deleteContact": "Usuń kontakt",
+              "searchPlaceholder": "Szukaj kontaktów...",
+              "noContacts": "Brak kontaktów",
+              "confirmDelete": "Czy na pewno chcesz usunąć ten kontakt?"
+            },
+            "profile": {
+              "title": "Profil użytkownika",
+              "contact": "Informacje kontaktowe",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "branch": "Oddział",
+              "joinedDate": "Dołączył",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "sendMessage": "Wyślij wiadomość",
+              "addToContacts": "Dodaj do moich kontaktów"
+            },
+            "form": {
+              "firstName": "Imię",
+              "lastName": "Nazwisko",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "notes": "Notatki",
+              "save": "Zapisz kontakt",
+              "cancel": "Anuluj",
+              "required": "Wymagane",
+              "invalidEmail": "Nieprawidłowy format e-mail"
+            }
+          }
+        }
       }
     },
     "organizationManagement": {
