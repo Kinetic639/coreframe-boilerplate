@@ -45,11 +45,14 @@ const DashboardHeader = () => {
 
   return (
     <header className="sticky top-0 z-20 flex flex-col bg-background">
-      <div className="flex h-14 w-full items-center justify-between border-b border-border px-4">
+      <div className="relative flex h-14 w-full items-center justify-between border-b border-border px-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            {/* Sidebar Toggle - FIRST position, attached to sidebar */}
+            {/* Sidebar Toggle - Absolutely positioned to touch sidebar */}
             <SidebarToggleButton />
+
+            {/* Spacer to account for absolutely positioned button - smaller in auto mode */}
+            <div className={mode === "auto" ? "w-0" : "w-4"} />
 
             {/* Sidebar Options Dropdown */}
             <DropdownMenu>
