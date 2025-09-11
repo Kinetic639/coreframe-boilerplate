@@ -12,7 +12,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getAllModules } from "@/modules";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
-import { MenuItem } from "@/lib/types/module";
+import { checkIsActive } from "@/utils/sidebar/active-detection";
 
 const AppSidebar = async () => {
   const appContext = await loadAppContextServer();
@@ -41,19 +41,6 @@ const AppSidebar = async () => {
   // Get current pathname to check for active items
   const headersList = await headers();
   const pathname = headersList.get("x-pathname") || "";
-
-  // Helper function to check if any menu item is active
-  const checkIsActive = (items: MenuItem[], pathname: string): boolean => {
-    for (const item of items) {
-      if ("path" in item && pathname === item.path) {
-        return true;
-      }
-      if ("submenu" in item && item.submenu && checkIsActive(item.submenu, pathname)) {
-        return true;
-      }
-    }
-    return false;
-  };
 
   // Check if any module has active items
   const hasActiveItemInAnyModule = modules.some((module) => checkIsActive(module.items, pathname));

@@ -9,7 +9,6 @@ export function translateModuleLabel(key: string, translations: (key: string) =>
     return translations(translationKey);
   } catch {
     // Fallback to the key itself if translation fails
-    console.warn(`Translation missing for key: ${translationKey}`);
     return key;
   }
 }

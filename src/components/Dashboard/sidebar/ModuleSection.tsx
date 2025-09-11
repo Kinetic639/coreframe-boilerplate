@@ -8,7 +8,8 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { MenuItem as MenuItemType } from "@/lib/types/module";
 import { TreeMenuItem } from "./TreeMenuItem";
-import { usePathname } from "@/i18n/navigation";
+import { useCurrentPath } from "@/hooks/useCurrentPath";
+import { checkIsActive } from "@/utils/sidebar/active-detection";
 
 interface ModuleSectionProps {
   module: {
@@ -20,26 +21,11 @@ interface ModuleSectionProps {
   hasActiveItemInAnyModule?: boolean;
 }
 
-// Helper function to check if any menu item is active
-const checkIsActive = (items: MenuItemType[], pathname: string): boolean => {
-  for (const item of items) {
-    // Check if current item is active
-    if ("path" in item && pathname === item.path) {
-      return true;
-    }
-    // Check submenu recursively
-    if ("submenu" in item && item.submenu && checkIsActive(item.submenu, pathname)) {
-      return true;
-    }
-  }
-  return false;
-};
-
 export function ModuleSection({ module, hasActiveItemInAnyModule = false }: ModuleSectionProps) {
   const { state } = useSidebar();
-  const isExpanded = state === "expanded";
   const { openSections, toggleSection } = useSidebarStore();
-  const pathname = usePathname();
+  const isExpanded = state === "expanded";
+  const pathname = useCurrentPath();
 
   // Module section ID for state persistence
   const sectionId = `module-${module.slug}`;

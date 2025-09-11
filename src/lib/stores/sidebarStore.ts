@@ -4,39 +4,49 @@ import { persist, createJSONStorage } from "zustand/middleware";
 type SidebarMode = "manual" | "auto";
 type SectionMode = "single" | "multi";
 
-interface SidebarState {
-  isOpen: boolean;
+interface SidebarStoreState {
+  // Sidebar behavior modes
   mode: SidebarMode;
   sectionMode: SectionMode;
+
+  // Section management
   openSections: string[];
   availableSections: string[]; // All available section IDs for expand all
   activeSectionId: string | null; // Section containing the current page
-  toggleSidebar: () => void;
-  setOpen: (open: boolean) => void;
+  activeItemPath: string | null; // Currently active menu item path
+
+  // Actions
   setMode: (mode: SidebarMode) => void;
   setSectionMode: (mode: SectionMode) => void;
   toggleSection: (sectionId: string) => void;
   setSections: (sections: string[]) => void;
   setAvailableSections: (sections: string[]) => void;
   setActiveSectionId: (sectionId: string | null) => void;
+  setActiveItemPath: (path: string | null) => void;
   collapseAllSections: () => void;
   expandAllSections: () => void;
   toggleExpandCollapseAll: () => void;
+
+  // Initialize state on app load
+  initializeSidebar: (pathname: string) => void;
 }
 
 const SIDEBAR_STORAGE_KEY = "sidebar_state";
 
-export const useSidebarStore = create<SidebarState>()(
+export const useSidebarStore = create<SidebarStoreState>()(
   persist(
     (set, get) => ({
-      isOpen: true, // Default state
+      // Sidebar behavior modes
       mode: "manual" as SidebarMode, // Default to manual mode
       sectionMode: "single" as SectionMode, // Default to single-open mode
+
+      // Section management
       openSections: [], // Track which accordion sections are open
       availableSections: [], // All available section IDs
       activeSectionId: null, // Section containing the current page
-      toggleSidebar: () => set((state) => ({ isOpen: !state.isOpen })),
-      setOpen: (open: boolean) => set({ isOpen: open }),
+      activeItemPath: null, // Currently active menu item path
+
+      // Actions
       setMode: (mode: SidebarMode) => set({ mode }),
       setSectionMode: (mode: SectionMode) => {
         set({ sectionMode: mode });
@@ -50,6 +60,7 @@ export const useSidebarStore = create<SidebarState>()(
           }
         }
       },
+      setActiveItemPath: (path: string | null) => set({ activeItemPath: path }),
       toggleSection: (sectionId: string) => {
         const { openSections, sectionMode } = get();
         const isOpen = openSections.includes(sectionId);
@@ -115,10 +126,42 @@ export const useSidebarStore = create<SidebarState>()(
           expandAllSections();
         }
       },
+
+      // Initialize sidebar state based on current path and modules
+      initializeSidebar: (pathname: string) => {
+        const state = get();
+
+        // Update active item path
+        set({ activeItemPath: pathname });
+
+        // Auto-expand the section containing the active item if in single mode
+        if (state.sectionMode === "single" && state.activeSectionId) {
+          const currentOpenSections = state.openSections;
+          if (!currentOpenSections.includes(state.activeSectionId)) {
+            set({ openSections: [state.activeSectionId] });
+          }
+        }
+      },
     }),
     {
       name: SIDEBAR_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
+      // Persist all relevant state except activeItemPath (which should be updated on navigation)
+      partialize: (state) => ({
+        mode: state.mode,
+        sectionMode: state.sectionMode,
+        openSections: state.openSections,
+        availableSections: state.availableSections,
+        activeSectionId: state.activeSectionId,
+        // Don't persist activeItemPath as it should be set on navigation
+      }),
+      // Merge persisted state with defaults for any missing properties
+      merge: (persistedState: any, currentState: SidebarStoreState) => ({
+        ...currentState,
+        ...persistedState,
+        // Always start with null activeItemPath on hydration
+        activeItemPath: null,
+      }),
     }
   )
 );

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { MenuItem as MenuItemType } from "@/lib/types/module";
+import { checkIsActive } from "@/utils/sidebar/active-detection";
 
 interface TreeMenuItemProps {
   item: MenuItemType;
@@ -46,8 +47,7 @@ export function TreeMenuItem({
 
   // Check if any child is active (for highlighting parent)
   const hasActiveChild =
-    "submenu" in item &&
-    item.submenu?.some((subItem: MenuItemType) => "path" in subItem && pathname === subItem.path);
+    "submenu" in item && item.submenu ? checkIsActive(item.submenu, pathname) : false;
 
   // Check if this item or any descendant is active (for the active path)
   const isInActivePath = isActive || hasActiveChild;
@@ -130,15 +130,24 @@ export function TreeMenuItem({
         <div
           className={cn(
             "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
-            "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-            shouldGrayOut && "brightness-75 filter"
+            "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+            shouldGrayOut
+              ? "text-[color:var(--font-color)] opacity-40"
+              : "text-[color:var(--font-color)]"
           )}
           style={{
             paddingLeft: `${paddingLeft}px`,
             zIndex: 2, // Above tree lines
           }}
         >
-          <IconComponent className="h-4 w-4 shrink-0 text-[color:var(--font-color)]" />
+          <IconComponent
+            className={cn(
+              "h-4 w-4 shrink-0",
+              shouldGrayOut
+                ? "text-[color:var(--font-color)] opacity-40"
+                : "text-[color:var(--font-color)]"
+            )}
+          />
           <AnimatePresence mode="wait">
             {isExpanded && (
               <motion.span
@@ -171,15 +180,24 @@ export function TreeMenuItem({
           <div
             className={cn(
               "relative flex items-center rounded-md py-1.5 text-sm transition-all duration-200",
-              "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-              shouldGrayOut && "brightness-75 filter"
+              "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+              shouldGrayOut
+                ? "text-[color:var(--font-color)] opacity-40"
+                : "text-[color:var(--font-color)]"
             )}
             style={{
               paddingLeft: `${paddingLeft}px`,
               zIndex: 2, // Above tree lines
             }}
           >
-            <IconComponent className="h-4 w-4 shrink-0 text-[color:var(--font-color)]" />
+            <IconComponent
+              className={cn(
+                "h-4 w-4 shrink-0",
+                shouldGrayOut
+                  ? "text-[color:var(--font-color)] opacity-40"
+                  : "text-[color:var(--font-color)]"
+              )}
+            />
             <AnimatePresence mode="wait">
               {isExpanded && (
                 <motion.span
@@ -213,15 +231,24 @@ export function TreeMenuItem({
           onClick={() => toggleSection(sectionId)}
           className={cn(
             "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
-            "text-[color:var(--font-color)] hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)] hover:text-[color:var(--font-color)]",
-            shouldGrayOut && "brightness-75 filter"
+            "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+            shouldGrayOut
+              ? "text-[color:var(--font-color)] opacity-40"
+              : "text-[color:var(--font-color)]"
           )}
           style={{
             paddingLeft: `${paddingLeft}px`,
             zIndex: 2, // Above tree lines
           }}
         >
-          <IconComponent className="h-4 w-4 shrink-0 text-[color:var(--font-color)]" />
+          <IconComponent
+            className={cn(
+              "h-4 w-4 shrink-0",
+              shouldGrayOut
+                ? "text-[color:var(--font-color)] opacity-40"
+                : "text-[color:var(--font-color)]"
+            )}
+          />
 
           <AnimatePresence mode="wait">
             {isExpanded && (
