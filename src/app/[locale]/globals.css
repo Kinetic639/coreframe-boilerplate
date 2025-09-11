@@ -218,20 +218,20 @@
   [data-sidebar="sidebar"] * {
     transition: none !important;
   }
-  
+
   /* Override the group wrapper animation */
   .group\/sidebar-wrapper,
   .group\/sidebar-wrapper * {
     transition: none !important;
   }
-  
+
   /* Kill any built-in sidebar content transitions */
   [data-sidebar="content"],
   [data-sidebar="header"],
   [data-sidebar="footer"] {
     transition: none !important;
   }
-  
+
   /* Only allow our custom width animation on the main sidebar element */
   .peer[data-sidebar="sidebar"] {
     transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1) !important;
