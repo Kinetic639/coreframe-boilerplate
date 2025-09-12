@@ -7,7 +7,7 @@ import * as LucideIcons from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Bar, Line, Pie, Doughnut } from "react-chartjs-2";
 import { RecentActivitiesWidget } from "@/components/Dashboard/widgets/RecentActivitiesWidget";
-import { RecentNewsWidget } from "@/components/news/RecentNewsWidget";
+import { RecentAnnouncementsWidget } from "@/components/announcements/RecentAnnouncementsWidget";
 import {
   Chart as ChartJS,
   BarElement,
@@ -50,7 +50,7 @@ const chartComponentMap: {
 // Registry of custom widget components
 const customWidgetRegistry: Record<string, React.ComponentType<Record<string, unknown>>> = {
   RecentActivitiesWidget,
-  RecentNewsWidget,
+  RecentAnnouncementsWidget,
 };
 
 export function WidgetRenderer({ widget }: { widget: Widget }) {

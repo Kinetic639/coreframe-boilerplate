@@ -6,7 +6,7 @@ const widgets: Widget[] = [
     id: "recent-news",
     title: "Recent Announcements",
     type: "custom",
-    componentName: "RecentNewsWidget",
+    componentName: "RecentAnnouncementsWidget",
     config: {
       limit: 5,
       showActions: true,
