@@ -60,7 +60,7 @@ export async function fetchOrganizationUsersWithRpc(
   const supabase = await createClient();
 
   // Instead of directly querying tables, use an RPC function that can bypass RLS internally
-  const { data: users, error } = await supabase.rpc("get_organization_users", {
+  const { data: users, error } = await supabase.rpc("get_organization_users_mvp", {
     org_id: organizationId,
   });
 

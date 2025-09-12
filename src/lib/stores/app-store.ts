@@ -19,6 +19,35 @@ export type BranchData = Tables<"branches"> & {
   website?: string | null;
 };
 
+// 🔸 Type for organization user with role and branch info
+export type OrganizationUser = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  default_branch_id: string | null;
+  role: {
+    name: string;
+    color: string | null;
+  } | null;
+  branch: {
+    name: string;
+    id: string;
+  } | null;
+};
+
+// 🔸 Type for private contacts (could be external users or saved contacts)
+export type PrivateContact = {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
+  organization?: string | null;
+  notes?: string | null;
+};
+
 // 🔹 Typ contextu aplikacji (dane z loadAppContextServer)
 export type AppContext = {
   activeOrg: Tables<"organization_profiles"> | null;
@@ -31,6 +60,8 @@ export type AppContext = {
   locations: Tables<"locations">[];
   suppliers: Tables<"suppliers">[];
   productTypes: Tables<"product_types">[];
+  organizationUsers: OrganizationUser[];
+  privateContacts: PrivateContact[];
 };
 
 // 🧠 Zustand store
@@ -38,14 +69,18 @@ type AppStore = AppContext & {
   isLoaded: boolean;
   isLoadingLocations: boolean;
   isLoadingSuppliers: boolean;
+  isLoadingUsers: boolean;
   setContext: (context: AppContext) => void;
   setLocation: (location: UserLocation | null) => void;
   setLocations: (locations: Tables<"locations">[]) => void;
   setSuppliers: (suppliers: Tables<"suppliers">[]) => void;
   setProductTypes: (productTypes: Tables<"product_types">[]) => void;
+  setOrganizationUsers: (users: OrganizationUser[]) => void;
+  setPrivateContacts: (contacts: PrivateContact[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
   setActiveBranch: (branchId: string) => void;
   loadBranchData: (branchId: string) => Promise<void>;
+  loadOrganizationUsers: () => Promise<void>;
   clear: () => void;
 };
 
@@ -59,10 +94,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isLoaded: false,
   isLoadingLocations: false,
   isLoadingSuppliers: false,
+  isLoadingUsers: false,
   location: null,
   locations: [],
   suppliers: [],
   productTypes: [],
+  organizationUsers: [],
+  privateContacts: [],
 
   setContext: (context) =>
     set({
@@ -76,6 +114,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setSuppliers: (suppliers) => set({ suppliers }),
 
   setProductTypes: (productTypes) => set({ productTypes }),
+
+  setOrganizationUsers: (users) => set({ organizationUsers: users }),
+
+  setPrivateContacts: (contacts) => set({ privateContacts: contacts }),
 
   updateAvailableBranches: (branches) =>
     set((state) => ({
@@ -167,6 +209,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  loadOrganizationUsers: async () => {
+    const state = get();
+    if (!state.activeOrgId) return;
+
+    set({ isLoadingUsers: true });
+    try {
+      const supabase = createClient();
+
+      const { data, error } = await supabase.rpc("get_organization_users_mvp", {
+        org_id: state.activeOrgId,
+      });
+
+      if (error) {
+        console.error("Error fetching organization users:", error);
+        set({ organizationUsers: [] });
+      } else {
+        set({ organizationUsers: data || [] });
+      }
+    } catch (error) {
+      console.error("Error loading organization users:", error);
+      set({ organizationUsers: [] });
+    } finally {
+      set({ isLoadingUsers: false });
+    }
+  },
+
   clear: () =>
     set({
       activeOrg: null,
@@ -178,9 +246,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       isLoaded: false,
       isLoadingLocations: false,
       isLoadingSuppliers: false,
+      isLoadingUsers: false,
       location: null,
       locations: [],
       suppliers: [],
       productTypes: [],
+      organizationUsers: [],
+      privateContacts: [],
     }),
 }));
