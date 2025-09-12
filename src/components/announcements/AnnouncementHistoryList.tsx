@@ -21,7 +21,7 @@ import { useUserStore } from "@/lib/stores/user-store";
 import { useAppStore } from "@/lib/stores/app-store";
 
 export function AnnouncementHistoryList() {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const permissions = useUserStore((s) => s.permissions);
   const { activeOrgId, isLoaded: appLoaded } = useAppStore();
   const [news, setNews] = useState<AnnouncementPost[]>([]);
@@ -159,9 +159,9 @@ export function AnnouncementHistoryList() {
         <div className="py-12 text-center">
           <div className="mb-2 text-muted-foreground">
             {searchTerm || priorityFilter !== "all" ? (
-              <span>No news found matching your filters.</span>
+              <span>No announcements found matching your filters.</span>
             ) : (
-              <span>{t("noNewsDescription")}</span>
+              <span>{t("noAnnouncementsDescription")}</span>
             )}
           </div>
           {searchTerm && (

@@ -82,7 +82,7 @@ export function AnnouncementForm({
   isLoading = false,
   submitLabel,
 }: NewsFormProps) {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const [badgeInput, setBadgeInput] = useState("");
 
   const form = useForm<AnnouncementFormData>({

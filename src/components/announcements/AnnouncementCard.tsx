@@ -91,7 +91,7 @@ export function AnnouncementCard({
   className,
   showViewDetails = true,
 }: NewsCardProps) {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const locale = useLocale();
   const dateLocale = locale === "pl" ? pl : enUS;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -251,7 +251,7 @@ export function AnnouncementCard({
         {/* View Details button for compact mode */}
         {compact && showViewDetails && (
           <div className="mt-3 flex justify-end">
-            <Link href={`/dashboard/news/${news.id}`}>
+            <Link href={`/dashboard/announcements/${news.id}`}>
               <Button variant="ghost" size="sm" className="h-8 text-xs">
                 <ExternalLink className="mr-1 h-3 w-3" />
                 {t("form.viewDetails")}
@@ -265,15 +265,15 @@ export function AnnouncementCard({
         <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
           {/* Left side - Author */}
           <div className="flex items-center gap-2">
-            <Avatar className="h-4 w-4">
+            <Avatar className="h-6 w-6">
               {news.author_avatar && (
                 <AvatarImage src={news.author_avatar} alt={news.author_name} />
               )}
-              <AvatarFallback className="text-[10px]">
+              <AvatarFallback className="text-xs">
                 {news.author_name ? (
                   news.author_name.charAt(0).toUpperCase()
                 ) : (
-                  <User className="h-2 w-2" />
+                  <User className="h-3 w-3" />
                 )}
               </AvatarFallback>
             </Avatar>

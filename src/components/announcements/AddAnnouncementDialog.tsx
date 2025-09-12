@@ -19,7 +19,7 @@ interface AddNewsDialogProps {
 }
 
 export function AddAnnouncementDialog({ children, onSuccess }: AddNewsDialogProps) {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -56,7 +56,7 @@ export function AddAnnouncementDialog({ children, onSuccess }: AddNewsDialogProp
 
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("addNews")}</DialogTitle>
+          <DialogTitle>{t("addAnnouncement")}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">

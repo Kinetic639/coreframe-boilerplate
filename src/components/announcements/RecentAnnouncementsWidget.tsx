@@ -23,7 +23,7 @@ export function RecentNewsWidget({
   showActions = true,
   compact = false,
 }: RecentNewsWidgetProps) {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const { activeOrgId, isLoaded: appLoaded } = useAppStore();
   const [news, setNews] = useState<AnnouncementPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,12 +128,14 @@ export function RecentNewsWidget({
       <CardContent>
         {news.length === 0 ? (
           <div className="py-6 text-center">
-            <div className="mb-3 text-sm text-muted-foreground">{t("noNewsDescription")}</div>
+            <div className="mb-3 text-sm text-muted-foreground">
+              {t("noAnnouncementsDescription")}
+            </div>
             <HasAnyRoleClient allowedUsers={[{ role: "org_owner", scope: "org" }]}>
               <AddAnnouncementDialog onSuccess={handleNewsAdded}>
                 <Button variant="outline" size="sm">
                   <Plus className="mr-2 h-4 w-4" />
-                  {t("addNews")}
+                  {t("addAnnouncement")}
                 </Button>
               </AddAnnouncementDialog>
             </HasAnyRoleClient>
