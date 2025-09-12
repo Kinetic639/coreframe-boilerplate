@@ -282,6 +282,10 @@ export const routing = defineRouting({
       en: "/dashboard/development/locations-debug",
       pl: "/dashboard/deweloperskie/lokalizacje-debug",
     },
+    "/dashboard/development/rich-text-editor": {
+      en: "/dashboard/development/rich-text-editor",
+      pl: "/dashboard/deweloperskie/rich-text-editor",
+    },
 
     // === User Account module ===
     "/dashboard/account/profile": {
