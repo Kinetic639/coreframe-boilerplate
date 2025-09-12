@@ -15,6 +15,7 @@ import { useUserStore } from "@/lib/stores/user-store";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 
 interface MessagesDrawerProps {
@@ -23,6 +24,7 @@ interface MessagesDrawerProps {
 
 export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
   const t = useTranslations();
+  const router = useRouter();
   const { activeOrgId, activeBranchId } = useAppStore();
   const { user } = useUserStore();
 
@@ -121,7 +123,10 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
         className="block cursor-pointer"
         onClick={() => {
           setMessagesDrawerOpen(false);
-          window.location.href = `/dashboard/teams/communication/chat/${chat.id}`;
+          router.push({
+            pathname: "/dashboard/teams/communication/chat/[chatId]",
+            params: { chatId: chat.id },
+          });
         }}
       >
         <div className="group flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors hover:bg-muted/50">

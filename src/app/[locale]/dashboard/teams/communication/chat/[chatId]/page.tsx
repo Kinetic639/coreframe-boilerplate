@@ -6,10 +6,12 @@ import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/componen
 import ChatList from "@/components/chat/ChatList";
 import ChatInterface from "@/components/chat/ChatInterface";
 import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useChatUI } from "@/lib/stores/chat-store";
 
 export default function ChatDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const chatId = params.chatId as string;
   const { setCurrentView } = useChatUI();
 
@@ -21,7 +23,10 @@ export default function ChatDetailPage() {
   const handleChatSelect = (newChatId: string) => {
     // This will be handled by navigation
     if (newChatId !== chatId) {
-      window.location.href = `/dashboard/teams/communication/chat/${newChatId}`;
+      router.push({
+        pathname: "/dashboard/teams/communication/chat/[chatId]",
+        params: { chatId: newChatId },
+      });
     }
   };
 

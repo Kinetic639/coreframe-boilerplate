@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ interface SupplierFiltersProps {
 
 export function SupplierFilters({ onFilterChange }: SupplierFiltersProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [search, setSearch] = React.useState(searchParams.get("search") || "");
@@ -41,7 +43,13 @@ export function SupplierFilters({ onFilterChange }: SupplierFiltersProps) {
         }
       });
 
-      router.push(`?${params.toString()}`, { scroll: false });
+      router.push(
+        {
+          pathname: pathname as any,
+          query: Object.fromEntries(params),
+        },
+        { scroll: false }
+      );
     },
     [router, searchParams]
   );
@@ -62,7 +70,7 @@ export function SupplierFilters({ onFilterChange }: SupplierFiltersProps) {
     setSearch("");
     setActive(false);
     setPreferred(false);
-    router.push(window.location.pathname);
+    router.push(pathname as any);
   };
 
   const hasActiveFilters = search || active || preferred;

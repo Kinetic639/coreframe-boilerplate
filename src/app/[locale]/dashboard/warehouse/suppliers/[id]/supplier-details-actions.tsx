@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Package, Edit } from "lucide-react";
 import { SupplierWithContacts } from "@/modules/warehouse/suppliers/api";
 import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 
 interface SupplierDetailsActionsProps {
   supplier: SupplierWithContacts;

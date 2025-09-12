@@ -18,7 +18,8 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { fetchInvitationByToken, type InvitationWithDetails } from "@/lib/api/invitations";
 import { acceptInvitationAction, rejectInvitationAction } from "@/app/actions/invitations";
@@ -197,7 +198,7 @@ export default function InvitationPage() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
-              <Button className="mt-4" variant="outline" onClick={() => router.push("/login")}>
+              <Button className="mt-4" variant="outline" onClick={() => router.push("/sign-in")}>
                 Przejdź do logowania
               </Button>
             </CardContent>
@@ -224,7 +225,7 @@ export default function InvitationPage() {
               <p className="text-muted-foreground">
                 Nie udało się znaleźć zaproszenia o podanym tokenie.
               </p>
-              <Button className="mt-4" variant="outline" onClick={() => router.push("/login")}>
+              <Button className="mt-4" variant="outline" onClick={() => router.push("/sign-in")}>
                 Przejdź do logowania
               </Button>
             </CardContent>
@@ -260,14 +261,16 @@ export default function InvitationPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Button className="w-full" onClick={() => router.push("/login")}>
+                <Button className="w-full" onClick={() => router.push("/sign-in")}>
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Mam już konto - Zaloguj się
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full"
-                  onClick={() => router.push(`/sign-up?invitation=${token}`)}
+                  onClick={() =>
+                    router.push({ pathname: "/sign-up", query: { invitation: token } })
+                  }
                 >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Nie mam konta - Zarejestruj się
