@@ -925,7 +925,8 @@
         "logo": "Logo Debug",
         "service": "Service Debug",
         "labels": "Label Testing",
-        "locations": "Locations Debug"
+        "locations": "Locations Debug",
+        "richTextEditor": "Rich Text Editor"
       }
     }
   }

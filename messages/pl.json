@@ -879,7 +879,8 @@
         "logo": "Debug logo",
         "service": "Debug usług",
         "labels": "Testowanie etykiet",
-        "locations": "Debug lokalizacji"
+        "locations": "Debug lokalizacji",
+        "richTextEditor": "Edytor Tekstu"
       }
     }
   }

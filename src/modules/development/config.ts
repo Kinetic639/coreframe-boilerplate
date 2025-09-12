@@ -50,5 +50,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/locations-debug",
       icon: "MapPin",
     },
+    {
+      id: "rich-text-editor",
+      label: "modules.development.items.richTextEditor",
+      path: "/dashboard/development/rich-text-editor",
+      icon: "FileText",
+    },
   ],
 };
