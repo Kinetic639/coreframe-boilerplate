@@ -147,20 +147,6 @@ export default function ChatMessage({
           )}
         </div>
 
-        {/* Reply Reference */}
-        {message.reply_to_message && (
-          <div className="mb-2 rounded-r border-l-2 border-muted bg-muted/30 px-2 py-1 pl-2">
-            <div className="mb-1 text-xs text-muted-foreground">
-              {t("teams.communication.replyingTo")}{" "}
-              {getUserDisplayName(
-                message.reply_to_message.sender?.first_name || "",
-                message.reply_to_message.sender?.last_name || ""
-              )}
-            </div>
-            <div className="truncate text-xs">{message.reply_to_message.content}</div>
-          </div>
-        )}
-
         {/* Message Content */}
         <div className="text-sm leading-relaxed">
           {message.deleted_at ? (

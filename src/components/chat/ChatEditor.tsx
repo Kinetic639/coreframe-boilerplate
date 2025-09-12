@@ -91,7 +91,7 @@ export default function ChatEditor({
               {replyToMessage && (
                 <div>
                   <div className="mb-1 text-xs text-muted-foreground">
-                    {t("replyingTo")}{" "}
+                    {t("teams.communication.replyingTo")}{" "}
                     {getUserDisplayName(
                       replyToMessage.sender.first_name,
                       replyToMessage.sender.last_name

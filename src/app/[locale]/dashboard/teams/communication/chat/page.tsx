@@ -1,30 +1,30 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Card } from "@/components/ui/card";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import ChatList from "@/components/chat/ChatList";
-import ChatInterface from "@/components/chat/ChatInterface";
 import { MessageCircle, Hash } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useChatUI } from "@/lib/stores/chat-store";
+import { useRouter } from "@/i18n/navigation";
 
 export default function ChatPage() {
   const t = useTranslations();
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const router = useRouter();
   const { setCurrentView } = useChatUI();
 
-  // Set view based on selection
+  // Set view to list since no chat is selected
   React.useEffect(() => {
-    if (selectedChatId) {
-      setCurrentView("chat");
-    } else {
-      setCurrentView("list");
-    }
-  }, [selectedChatId, setCurrentView]);
+    setCurrentView("list");
+  }, [setCurrentView]);
 
   const handleChatSelect = (chatId: string) => {
-    setSelectedChatId(chatId);
+    // Navigate to the chat-specific URL
+    router.push({
+      pathname: "/dashboard/teams/communication/chat/[chatId]",
+      params: { chatId },
+    });
   };
 
   const EmptyState = () => (
@@ -54,7 +54,7 @@ export default function ChatPage() {
           {/* Chat List Panel */}
           <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
             <ChatList
-              selectedChatId={selectedChatId}
+              selectedChatId={null}
               onChatSelect={handleChatSelect}
               className="h-full border-r"
             />
@@ -64,11 +64,7 @@ export default function ChatPage() {
 
           {/* Chat Interface Panel */}
           <ResizablePanel defaultSize={70}>
-            {selectedChatId ? (
-              <ChatInterface chatId={selectedChatId} className="h-full" />
-            ) : (
-              <EmptyState />
-            )}
+            <EmptyState />
           </ResizablePanel>
         </ResizablePanelGroup>
       </Card>

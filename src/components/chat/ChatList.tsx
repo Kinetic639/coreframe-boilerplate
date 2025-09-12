@@ -26,6 +26,7 @@ import { useChatList } from "@/lib/stores/chat-store";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { formatDistanceToNow } from "date-fns";
+import { pl } from "date-fns/locale";
 import { useTranslations } from "next-intl";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useChatUsers } from "@/hooks/use-chat-users";
@@ -153,7 +154,7 @@ export default function ChatList({ onChatSelect, selectedChatId, className }: Ch
     if (!timestamp) return "";
 
     try {
-      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: pl });
     } catch {
       return "";
     }

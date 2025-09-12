@@ -13,6 +13,7 @@ import { useChatUI, useChatList } from "@/lib/stores/chat-store";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { formatDistanceToNow } from "date-fns";
+import { pl } from "date-fns/locale";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "@/i18n/navigation";
@@ -106,7 +107,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
     if (!timestamp) return "";
 
     try {
-      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: pl });
     } catch {
       return "";
     }
