@@ -18,7 +18,7 @@ interface RecentNewsWidgetProps {
   compact?: boolean;
 }
 
-export function RecentNewsWidget({
+export function RecentAnnouncementsWidget({
   limit = 5,
   showActions = true,
   compact = false,
