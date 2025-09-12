@@ -43,7 +43,7 @@ export const teamsModule: ModuleConfig = {
         {
           id: "announcements",
           label: "modules.teams.items.communication.announcements",
-          path: "/dashboard/teams/communication/announcements",
+          path: "/dashboard/announcements",
           icon: "Megaphone",
         },
       ],

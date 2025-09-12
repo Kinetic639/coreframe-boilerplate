@@ -22,7 +22,7 @@ import { getLocale } from "next-intl/server";
 import { cn } from "@/lib/utils";
 
 // Types (same as NewsCard)
-interface NewsPost {
+interface AnnouncementPost {
   id: string;
   title: string;
   content: any;
@@ -71,11 +71,11 @@ interface MessageDetailsPageProps {
   }>;
 }
 
-async function getNewsPost(id: string): Promise<NewsPost | null> {
+async function getAnnouncementPost(id: string): Promise<AnnouncementPost | null> {
   const supabase = await createClient();
 
   const { data: post, error } = await supabase
-    .from("news")
+    .from("announcements")
     .select(
       `
       *,
@@ -112,14 +112,14 @@ async function getNewsPost(id: string): Promise<NewsPost | null> {
   };
 }
 
-export default async function MessageDetailsPage({ params }: MessageDetailsPageProps) {
+export default async function AnnouncementDetailsPage({ params }: MessageDetailsPageProps) {
   const { id } = await params;
-  const t = await getTranslations("news");
+  const t = await getTranslations("announcements");
   const locale = await getLocale();
   const dateLocale = locale === "pl" ? pl : enUS;
   const appContext = await loadAppContextServer();
 
-  const post = await getNewsPost(id);
+  const post = await getAnnouncementPost(id);
 
   if (!post) {
     notFound();
