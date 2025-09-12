@@ -166,6 +166,34 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     productTypes = productTypesResult.data || [];
   }
 
+  // 7. Load organization users for chat functionality
+  let organizationUsers: any[] = [];
+  if (activeOrgId) {
+    try {
+      const { data: usersData, error: usersError } = await supabase.rpc(
+        "get_organization_users_mvp",
+        {
+          org_id: activeOrgId,
+        }
+      );
+
+      if (usersError) {
+        console.error("Error fetching organization users:", usersError);
+        organizationUsers = [];
+      } else {
+        organizationUsers = usersData || [];
+      }
+    } catch (error) {
+      console.error("Error loading organization users:", error);
+      organizationUsers = [];
+    }
+  }
+
+  // 8. Load private contacts for the user (placeholder for future implementation)
+  const privateContacts: any[] = [];
+  // TODO: Implement private contacts loading if needed
+  // This could be from a separate contacts table or external sources
+
   const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({
     ...branch,
     branch_id: branch.id, // Add branch_id for compatibility
@@ -195,6 +223,8 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     locations,
     suppliers,
     productTypes,
+    organizationUsers,
+    privateContacts,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);

@@ -5,7 +5,6 @@ import { Button } from "../../ui/button";
 import {
   Bell,
   LogOut,
-  MessagesSquare,
   Settings,
   User,
   MoreVertical,
@@ -30,6 +29,7 @@ import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useUserStore } from "@/lib/stores/user-store";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { SidebarToggleButton } from "./SidebarToggleButton";
+import MessagesDrawer from "@/components/chat/MessagesDrawer";
 
 const DashboardHeader = () => {
   const { user } = useUserStore();
@@ -105,9 +105,7 @@ const DashboardHeader = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
-            <MessagesSquare className="h-4 w-4" />
-          </Button>
+          <MessagesDrawer />
           <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />
           </Button>

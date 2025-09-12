@@ -8,8 +8,9 @@ import { generateDashboardMetadata, MetadataProps } from "@/lib/metadata";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { Building2, Mail, MessageSquare, Search, Users2 } from "lucide-react";
+import { Building2, Mail, Search, Users2 } from "lucide-react";
 import Link from "next/link";
+import { SendMessageButton } from "@/components/contacts/SendMessageButton";
 
 export async function generateMetadata({ params }: MetadataProps): Promise<Metadata> {
   return generateDashboardMetadata(params, "metadata.dashboard.teams.contacts");
@@ -148,9 +149,13 @@ export default async function OrganizationContactsPage() {
                           {t("viewProfile")}
                         </Link>
                       </Button>
-                      <Button variant="outline" size="sm" className="px-3" title={t("sendMessage")}>
-                        <MessageSquare className="h-4 w-4" />
-                      </Button>
+                      <SendMessageButton
+                        userId={user.id}
+                        userName={fullName}
+                        variant="outline"
+                        size="sm"
+                        className="px-3"
+                      />
                     </div>
                   </div>
                 </CardContent>
