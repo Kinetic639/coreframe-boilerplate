@@ -609,31 +609,31 @@
     },
     "backToSignIn": "Wróć do logowania"
   },
-  "news": {
-    "title": "Wiadomości",
-    "addNews": "Dodaj Wiadomość",
-    "newsHistory": "Historia Wiadomości",
-    "recentNews": "Najnowsze Ogłoszenia",
-    "noNews": "Brak wiadomości",
-    "noNewsDescription": "Nie ma obecnie żadnych wiadomości do wyświetlenia.",
+  "announcements": {
+    "title": "Ogłoszenia",
+    "addAnnouncement": "Dodaj Ogłoszenie",
+    "announcementsHistory": "Historia Ogłoszeń",
+    "recentAnnouncements": "Najnowsze Ogłoszenia",
+    "noAnnouncements": "Brak ogłoszeń",
+    "noAnnouncementsDescription": "Nie ma obecnie żadnych ogłoszeń do wyświetlenia.",
     "form": {
       "title": "Tytuł",
-      "titlePlaceholder": "Wprowadź tytuł wiadomości...",
+      "titlePlaceholder": "Wprowadź tytuł ogłoszenia...",
       "content": "Treść",
-      "contentPlaceholder": "Wprowadź treść wiadomości...",
+      "contentPlaceholder": "Wprowadź treść ogłoszenia...",
       "excerpt": "Krótki Opis",
       "excerptPlaceholder": "Krótkie streszczenie (opcjonalne)...",
       "priority": "Priorytet",
-      "priorityPreview": "Wiadomość będzie wyświetlana jako",
+      "priorityPreview": "Ogłoszenie będzie wyświetlane jako",
       "badges": "Oznaczenia",
       "badgePlaceholder": "Dodaj oznaczenie (naciśnij Enter)",
       "badgeColor": "Kolor Oznaczenia",
       "publishDate": "Data Publikacji",
-      "save": "Zapisz Wiadomość",
+      "save": "Zapisz Ogłoszenie",
       "cancel": "Anuluj",
-      "edit": "Edytuj Wiadomość",
-      "delete": "Usuń Wiadomość",
-      "confirmDelete": "Czy na pewno chcesz usunąć tę wiadomość?",
+      "edit": "Edytuj Ogłoszenie",
+      "delete": "Usuń Ogłoszenie",
+      "confirmDelete": "Czy na pewno chcesz usunąć to ogłoszenie?",
       "saving": "Zapisywanie...",
       "updating": "Aktualizowanie...",
       "deleting": "Usuwanie...",
@@ -660,12 +660,12 @@
     },
     "widget": {
       "title": "Najnowsze Ogłoszenia",
-      "viewAll": "Zobacz Wszystkie Wiadomości",
+      "viewAll": "Zobacz Wszystkie Ogłoszenia",
       "publishedBy": "Opublikowane przez {author}",
       "timeAgo": "{time} temu"
     },
     "editor": {
-      "placeholder": "Wprowadź treść aktualności tutaj...",
+      "placeholder": "Wprowadź treść ogłoszenia tutaj...",
       "toolbar": {
         "bold": "Pogrubienie",
         "italic": "Kursywa",
@@ -686,15 +686,15 @@
       "dateRange": "Zakres Dat"
     },
     "success": {
-      "created": "Aktualność utworzona pomyślnie",
-      "updated": "Aktualność zaktualizowana pomyślnie",
-      "deleted": "Aktualność usunięta pomyślnie"
+      "created": "Ogłoszenie utworzone pomyślnie",
+      "updated": "Ogłoszenie zaktualizowane pomyślnie",
+      "deleted": "Ogłoszenie usunięte pomyślnie"
     },
     "errors": {
-      "loadFailed": "Nie udało się załadować aktualności",
-      "createFailed": "Nie udało się utworzyć aktualności",
-      "updateFailed": "Nie udało się zaktualizować aktualności",
-      "deleteFailed": "Nie udało się usunąć aktualności",
+      "loadFailed": "Nie udało się załadować ogłoszeń",
+      "createFailed": "Nie udało się utworzyć ogłoszenia",
+      "updateFailed": "Nie udało się zaktualizować ogłoszenia",
+      "deleteFailed": "Nie udało się usunąć ogłoszenia",
       "titleRequired": "Tytuł jest wymagany",
       "contentRequired": "Treść jest wymagana"
     }

@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils";
 
 // Toolbar Plugin
 function ToolbarPlugin() {
-  const t = useTranslations("news.editor.toolbar");
+  const t = useTranslations("announcements.editor.toolbar");
   const [editor] = useLexicalComposerContext();
   const [activeStates, setActiveStates] = useState({
     bold: false,

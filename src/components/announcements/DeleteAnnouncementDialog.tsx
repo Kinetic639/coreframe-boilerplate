@@ -22,7 +22,7 @@ interface DeleteNewsDialogProps {
 }
 
 export function DeleteAnnouncementDialog({ newsId, onClose, onComplete }: DeleteNewsDialogProps) {
-  const t = useTranslations("news");
+  const t = useTranslations("announcements");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleDelete = async () => {
