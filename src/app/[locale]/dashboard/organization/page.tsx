@@ -1,6 +1,15 @@
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
 
-export default function OrganizationPage() {
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export default async function OrganizationPage({ params }: Props) {
+  const { locale } = await params;
+
   // Redirect to the organization profile page as the default
-  redirect("/dashboard/organization/profile");
+  redirect({
+    href: "/dashboard/organization/profile",
+    locale,
+  });
 }

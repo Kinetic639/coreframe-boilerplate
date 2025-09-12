@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Edit, Trash2, Copy, Eye, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
 import type { LabelTemplate } from "@/lib/types/qr-system";
 import { TemplateMiniature } from "@/modules/warehouse/components/labels/TemplateMiniature";
@@ -53,7 +53,10 @@ export default function LabelTemplatesPage() {
 
   const handleUseTemplate = (template: TemplateWithPreview) => {
     // Navigate to creator with template ID to load the template
-    router.push(`/dashboard/warehouse/labels/create?templateId=${template.id}`);
+    router.push({
+      pathname: "/dashboard/warehouse/labels/create",
+      query: { templateId: template.id },
+    });
   };
 
   const handleCloneTemplate = async (template: TemplateWithPreview) => {

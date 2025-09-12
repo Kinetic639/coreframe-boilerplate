@@ -95,6 +95,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/suppliers",
       pl: "/dashboard/magazyn/dostawcy",
     },
+    "/dashboard/warehouse/suppliers/list": {
+      en: "/dashboard/warehouse/suppliers/list",
+      pl: "/dashboard/magazyn/dostawcy/lista",
+    },
     "/dashboard/warehouse/deliveries": {
       en: "/dashboard/warehouse/deliveries",
       pl: "/dashboard/magazyn/dostawy",
@@ -205,6 +209,10 @@ export const routing = defineRouting({
     "/dashboard/teams/communication/chat": {
       en: "/dashboard/teams/communication/chat",
       pl: "/dashboard/zespoly/komunikacja/chat",
+    },
+    "/dashboard/teams/communication/chat/[chatId]": {
+      en: "/dashboard/teams/communication/chat/[chatId]",
+      pl: "/dashboard/zespoly/komunikacja/chat/[chatId]",
     },
     "/dashboard/teams/communication/announcements": {
       en: "/dashboard/teams/communication/announcements",

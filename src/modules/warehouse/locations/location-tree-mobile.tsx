@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Icons from "lucide-react";
 import { LocationTreeItem } from "@/lib/types/location-tree";
@@ -64,7 +64,10 @@ function LocationItemMobile({
   const ValidIcon = typeof IconComponent === "function" ? IconComponent : Icons.MapPin;
 
   const handleViewDetails = () => {
-    router.push(`/dashboard/warehouse/locations/${location.id}`);
+    router.push({
+      pathname: "/dashboard/warehouse/locations/[id]",
+      params: { id: location.id },
+    });
   };
 
   const handleEdit = (e: React.MouseEvent) => {

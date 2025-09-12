@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
 import { useChatList } from "@/lib/stores/chat-store";
 import { useAppStore } from "@/lib/stores/app-store";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { useState } from "react";
 import { toast } from "react-toastify";
 import { useTranslations } from "next-intl";
@@ -43,7 +43,10 @@ export function SendMessageButton({
       const chat = await createDirectChat(userId, activeOrgId, activeBranchId);
 
       // Navigate to the chat
-      router.push(`/dashboard/teams/communication/chat/${chat.id}`);
+      router.push({
+        pathname: "/dashboard/teams/communication/chat/[chatId]",
+        params: { chatId: chat.id },
+      });
 
       toast.success(t("success.conversationStarted", { userName }));
     } catch (error) {

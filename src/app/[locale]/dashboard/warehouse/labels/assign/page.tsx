@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { QRScanner } from "@/components/ui/qr-scanner";
 import { Link } from "@/i18n/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
 import { createClient } from "@/utils/supabase/client";
 
@@ -359,14 +359,18 @@ export default function LabelAssignPage() {
       }
 
       // Redirect to success page
-      const successUrl = `/dashboard/warehouse/labels/assign/success?entity=${selectedEntity.id}&type=${entityType}`;
-      router.push(successUrl);
+      router.push({
+        pathname: "/dashboard/warehouse/labels/assign/success",
+        query: { entity: selectedEntity.id, type: entityType },
+      });
     } catch (error) {
       console.error("Error assigning QR:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       // Redirect to error page
-      const errorUrl = `/dashboard/warehouse/labels/assign/error?message=${encodeURIComponent(errorMessage)}`;
-      router.push(errorUrl);
+      router.push({
+        pathname: "/dashboard/warehouse/labels/assign/error",
+        query: { message: errorMessage },
+      });
     } finally {
       setIsAssigning(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { WYSIWYGLabelCreator } from "@/modules/warehouse/components/labels/WYSIWYGLabelCreator";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
