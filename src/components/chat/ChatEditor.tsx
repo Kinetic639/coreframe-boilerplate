@@ -118,38 +118,34 @@ export default function ChatEditor({
 
       {/* Editor */}
       <div className="p-3">
-        <Textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder || t("typeMessage")}
-          disabled={disabled || isSubmitting}
-          className="max-h-[200px] min-h-[60px] resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-        />
-      </div>
+        <div className="relative flex items-end gap-2">
+          <div className="flex-1">
+            <Textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholder || t("typeMessage")}
+              disabled={disabled || isSubmitting}
+              className="max-h-[200px] min-h-[40px] resize-none border border-input bg-background px-3 py-2 focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between border-t border-border p-3">
-        <div className="text-xs text-muted-foreground">{t("pressEnterToSend")}</div>
-
-        <div className="flex items-center gap-2">
-          {(replyToMessage || editingMessage) && (
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSubmitting}>
-              {tCommon("cancel")}
-            </Button>
-          )}
-
-          <Button size="sm" onClick={handleSend} disabled={!canSend} className="min-w-[70px]">
-            {isSubmitting ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-            ) : (
-              <>
-                <Send className="mr-1 h-3 w-3" />
-                {editingMessage ? t("update") : t("send")}
-              </>
+          <div className="flex items-center gap-2">
+            {(replyToMessage || editingMessage) && (
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSubmitting}>
+                {tCommon("cancel")}
+              </Button>
             )}
-          </Button>
+
+            <Button size="sm" onClick={handleSend} disabled={!canSend} className="min-w-[60px]">
+              {isSubmitting ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -41,12 +41,6 @@ export const homeModule: ModuleConfig = {
       path: "/dashboard/start",
       icon: "Home",
     },
-    {
-      id: "news-history",
-      label: "modules.home.items.newsHistory",
-      path: "/dashboard/news",
-      icon: "Newspaper",
-    },
   ],
   widgets,
 };
