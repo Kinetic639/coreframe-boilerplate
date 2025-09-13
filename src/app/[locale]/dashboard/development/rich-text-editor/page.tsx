@@ -107,11 +107,11 @@ export default function RichTextEditorTestPage() {
   };
 
   const handleFocus = () => {
-    toast.info("Editor focused!");
+    // Focus handler - no notification
   };
 
   const handleBlur = () => {
-    toast.info("Editor blurred!");
+    // Blur handler - no notification
   };
 
   const copyToClipboard = (text: string, type: string) => {
@@ -156,7 +156,6 @@ export default function RichTextEditorTestPage() {
     if (!editorRef.current) return;
     editorRef.current.focus();
     setTestResults((prev) => ({ ...prev, focus: true }));
-    toast.info("Focus method called");
   };
 
   const testClear = () => {
@@ -210,8 +209,6 @@ export default function RichTextEditorTestPage() {
     testContentMethods();
     setTimeout(() => testFocus(), 200);
     setTimeout(() => testClear(), 400);
-
-    toast.info("Running comprehensive tests...");
   };
 
   return (

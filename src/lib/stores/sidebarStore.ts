@@ -67,19 +67,53 @@ export const useSidebarStore = create<SidebarStoreState>()(
 
         if (sectionMode === "single") {
           if (isOpen) {
-            // Close the section
+            // Close the section and all its children
+            const childSections = openSections.filter((id) => id.startsWith(sectionId + "-"));
             set({
-              openSections: openSections.filter((id) => id !== sectionId),
+              openSections: openSections.filter(
+                (id) => id !== sectionId && !childSections.includes(id)
+              ),
             });
           } else {
-            // In single mode, only allow one main module section to be open
             if (sectionId.startsWith("module-")) {
-              // This is a module section - close all other module sections
-              const newOpenSections = openSections.filter((id) => !id.startsWith("module-"));
-              set({ openSections: [...newOpenSections, sectionId] });
+              // This is a module section - close ALL other sections (modules and their children)
+              set({ openSections: [sectionId] });
             } else {
-              // This is a nested section - just open it (parent module should already be open)
-              set({ openSections: [...openSections, sectionId] });
+              // This is a nested section - close siblings at the same hierarchy level
+              const parts = sectionId.split("-");
+              const hierarchyLevel = parts.length;
+
+              // Keep only sections that are:
+              // 1. Parents of this section (shorter hierarchy)
+              // 2. Not siblings at the same level
+              const filteredSections = openSections.filter((id) => {
+                const otherParts = id.split("-");
+                const otherLevel = otherParts.length;
+
+                // Keep if it's a parent (shorter hierarchy and this section starts with it)
+                if (otherLevel < hierarchyLevel && sectionId.startsWith(id)) {
+                  return true;
+                }
+
+                // Remove if it's a sibling at the same level
+                if (otherLevel === hierarchyLevel) {
+                  // Check if they have the same parent by comparing all parts except the last one
+                  const thisParent = parts.slice(0, -1).join("-");
+                  const otherParent = otherParts.slice(0, -1).join("-");
+                  if (thisParent === otherParent) {
+                    return false; // Remove sibling
+                  }
+                }
+
+                // Remove if it's a child of a sibling (longer hierarchy that doesn't start with this section)
+                if (otherLevel > hierarchyLevel && !id.startsWith(sectionId)) {
+                  return false;
+                }
+
+                return true;
+              });
+
+              set({ openSections: [...filteredSections, sectionId] });
             }
           }
         } else {
