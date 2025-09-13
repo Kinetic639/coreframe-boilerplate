@@ -9,6 +9,8 @@ import {
   REDO_COMMAND,
   CAN_UNDO_COMMAND,
   CAN_REDO_COMMAND,
+  $getSelection,
+  $isRangeSelection,
 } from "lexical";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
@@ -23,7 +25,13 @@ import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { TabIndentationPlugin } from "@lexical/react/LexicalTabIndentationPlugin";
 
-import { HeadingNode, QuoteNode, $createQuoteNode } from "@lexical/rich-text";
+import {
+  HeadingNode,
+  QuoteNode,
+  $createQuoteNode,
+  $createHeadingNode,
+  HeadingTagType,
+} from "@lexical/rich-text";
 import {
   ListItemNode,
   ListNode,
@@ -34,7 +42,7 @@ import { CodeHighlightNode, CodeNode, $createCodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
 import { TableCellNode, TableNode, TableRowNode } from "@lexical/table";
 import { $setBlocksType } from "@lexical/selection";
-import { $getSelection, $isRangeSelection } from "lexical";
+import { $createParagraphNode } from "lexical";
 
 import {
   $convertFromMarkdownString,
@@ -44,6 +52,13 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Bold, Italic, Underline, List, ListOrdered, Quote, Code, Undo, Redo } from "lucide-react";
 
 export interface RichTextEditorRef {
@@ -75,15 +90,15 @@ export interface RichTextEditorProps {
 }
 
 const editorTheme = {
-  paragraph: "mb-2",
+  paragraph: "mb-2 text-base",
   quote: "border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4",
   heading: {
-    h1: "text-2xl font-bold mb-4",
-    h2: "text-xl font-bold mb-3",
-    h3: "text-lg font-bold mb-2",
-    h4: "text-base font-bold mb-2",
-    h5: "text-sm font-bold mb-1",
-    h6: "text-xs font-bold mb-1",
+    h1: "text-3xl font-bold mb-4",
+    h2: "text-2xl font-bold mb-3",
+    h3: "text-xl font-bold mb-3",
+    h4: "text-lg font-bold mb-2",
+    h5: "text-base font-bold mb-2",
+    h6: "text-sm font-bold mb-1",
   },
   list: {
     nested: {
@@ -111,10 +126,21 @@ const editorTheme = {
   tableRow: "",
 };
 
+const FONT_SIZE_OPTIONS = [
+  { label: "Heading 1", value: "h1", tag: "h1" },
+  { label: "Heading 2", value: "h2", tag: "h2" },
+  { label: "Heading 3", value: "h3", tag: "h3" },
+  { label: "Heading 4", value: "h4", tag: "h4" },
+  { label: "Heading 5", value: "h5", tag: "h5" },
+  { label: "Heading 6", value: "h6", tag: "h6" },
+  { label: "Normal", value: "paragraph", tag: "p" },
+];
+
 function ToolbarPlugin({ className, disabled }: { className?: string; disabled?: boolean }) {
   const [editor] = useLexicalComposerContext();
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [currentFontSize, setCurrentFontSize] = useState("paragraph");
 
   useEffect(() => {
     const removeUndoListener = editor.registerCommand(
@@ -179,6 +205,54 @@ function ToolbarPlugin({ className, disabled }: { className?: string; disabled?:
     editor.dispatchCommand(REDO_COMMAND, undefined);
   };
 
+  const changeFontSize = (value: string) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        if (value === "paragraph") {
+          $setBlocksType(selection, () => $createParagraphNode());
+        } else if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(value)) {
+          $setBlocksType(selection, () => $createHeadingNode(value as HeadingTagType));
+        }
+      }
+    });
+    setCurrentFontSize(value);
+  };
+
+  // Update current font size based on selection
+  useEffect(() => {
+    const updateFontSize = () => {
+      editor.getEditorState().read(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          const anchorNode = selection.anchor.getNode();
+          const parent = anchorNode.getParent();
+
+          if (parent) {
+            const nodeType = parent.getType();
+            if (nodeType === "heading") {
+              const headingNode = parent as HeadingNode;
+              setCurrentFontSize(headingNode.getTag());
+            } else if (nodeType === "paragraph") {
+              setCurrentFontSize("paragraph");
+            }
+          }
+        }
+      });
+    };
+
+    const removeUpdateListener = editor.registerUpdateListener(() => {
+      updateFontSize();
+    });
+
+    // Initial update
+    updateFontSize();
+
+    return () => {
+      removeUpdateListener();
+    };
+  }, [editor]);
+
   return (
     <div
       className={cn(
@@ -207,6 +281,23 @@ function ToolbarPlugin({ className, disabled }: { className?: string; disabled?:
         >
           <Redo className="h-4 w-4" />
         </Button>
+      </div>
+
+      <div className="mx-1 h-6 w-px bg-gray-300" />
+
+      <div className="flex items-center gap-2">
+        <Select value={currentFontSize} onValueChange={changeFontSize} disabled={disabled}>
+          <SelectTrigger className="h-8 w-[140px] text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FONT_SIZE_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="mx-1 h-6 w-px bg-gray-300" />
