@@ -31,36 +31,32 @@ export class TemplateService {
       return (data || []).map((template: any) => ({
         template: {
           ...template,
-          category: template.metadata?.category || "general",
-          supported_contexts: Array.isArray(template.metadata?.contexts)
-            ? template.metadata.contexts
-            : ["warehouse"],
-          settings: template.metadata || {},
+          category: template.category || "general",
+          supported_contexts: template.metadata?.contexts || ["warehouse"],
+          settings: template.metadata?.settings || {},
           is_active: true,
         },
         attributes: (template.template_attribute_definitions || []).map((attr: any) => ({
           id: attr.id,
           template_id: attr.template_id,
-          slug: attr.attribute_key,
-          label: {
-            pl: attr.display_name || attr.attribute_key,
-            en: attr.display_name || attr.attribute_key,
+          slug: attr.slug,
+          label: attr.label || {
+            pl: attr.display_name || attr.slug,
+            en: attr.display_name || attr.slug,
           },
-          description: attr.description ? { pl: attr.description, en: attr.description } : null,
+          description: attr.description,
           data_type: attr.data_type,
           is_required: attr.is_required || false,
           is_unique: attr.is_unique || false,
           default_value: attr.default_value,
           validation_rules: attr.validation_rules || {},
-          context_scope: Array.isArray(attr.context_scope)
-            ? attr.context_scope[0] || "warehouse"
-            : "warehouse",
+          context_scope: attr.context_scope || "warehouse",
           display_order: attr.display_order || 0,
-          is_searchable: attr.is_searchable !== false, // Default to true
+          is_searchable: attr.is_searchable !== false,
           is_filterable: false,
-          input_type: "text",
-          placeholder: null,
-          help_text: null,
+          input_type: attr.input_type || "text",
+          placeholder: attr.placeholder,
+          help_text: attr.help_text,
           created_at: attr.created_at,
           updated_at: attr.updated_at || attr.created_at,
         })),
@@ -94,36 +90,32 @@ export class TemplateService {
       return (data || []).map((template: any) => ({
         template: {
           ...template,
-          category: template.metadata?.category || "custom",
-          supported_contexts: Array.isArray(template.metadata?.contexts)
-            ? template.metadata.contexts
-            : ["warehouse"],
-          settings: template.metadata || {},
+          category: template.category || "custom",
+          supported_contexts: template.metadata?.contexts || ["warehouse"],
+          settings: template.metadata?.settings || {},
           is_active: true,
         },
         attributes: (template.template_attribute_definitions || []).map((attr: any) => ({
           id: attr.id,
           template_id: attr.template_id,
-          slug: attr.attribute_key,
-          label: {
-            pl: attr.display_name || attr.attribute_key,
-            en: attr.display_name || attr.attribute_key,
+          slug: attr.slug,
+          label: attr.label || {
+            pl: attr.display_name || attr.slug,
+            en: attr.display_name || attr.slug,
           },
-          description: attr.description ? { pl: attr.description, en: attr.description } : null,
+          description: attr.description,
           data_type: attr.data_type,
           is_required: attr.is_required || false,
           is_unique: attr.is_unique || false,
           default_value: attr.default_value,
           validation_rules: attr.validation_rules || {},
-          context_scope: Array.isArray(attr.context_scope)
-            ? attr.context_scope[0] || "warehouse"
-            : "warehouse",
+          context_scope: attr.context_scope || "warehouse",
           display_order: attr.display_order || 0,
-          is_searchable: attr.is_searchable !== false, // Default to true
+          is_searchable: attr.is_searchable !== false,
           is_filterable: false,
-          input_type: "text",
-          placeholder: null,
-          help_text: null,
+          input_type: attr.input_type || "text",
+          placeholder: attr.placeholder,
+          help_text: attr.help_text,
           created_at: attr.created_at,
           updated_at: attr.updated_at || attr.created_at,
         })),
@@ -185,41 +177,36 @@ export class TemplateService {
           description: data.description || null,
           icon: data.icon || null,
           color: data.color || "#10b981",
-          metadata: data.metadata || {},
           organization_id: data.organization_id || null,
           parent_template_id: data.parent_template_id || null,
           is_system: Boolean(data.is_system),
           is_active: true,
-          category: data.metadata?.category || (data.is_system ? "general" : "custom"),
-          supported_contexts: Array.isArray(data.metadata?.contexts)
-            ? data.metadata.contexts
-            : ["warehouse"],
-          settings: data.metadata || {},
+          category: data.category || (data.is_system ? "general" : "custom"),
+          supported_contexts: data.metadata?.contexts || ["warehouse"],
+          settings: data.metadata?.settings || {},
           created_by: data.created_by || null,
         },
         attributes: (data.template_attribute_definitions || []).map((attr: any) => ({
           id: attr.id,
           template_id: attr.template_id,
-          slug: attr.attribute_key,
-          label: {
-            pl: attr.display_name || attr.attribute_key,
-            en: attr.display_name || attr.attribute_key,
+          slug: attr.slug,
+          label: attr.label || {
+            pl: attr.display_name || attr.slug,
+            en: attr.display_name || attr.slug,
           },
-          description: attr.description ? { pl: attr.description, en: attr.description } : null,
+          description: attr.description,
           data_type: attr.data_type,
           is_required: attr.is_required || false,
           is_unique: attr.is_unique || false,
           default_value: attr.default_value,
           validation_rules: attr.validation_rules || {},
-          context_scope: Array.isArray(attr.context_scope)
-            ? attr.context_scope[0] || "warehouse"
-            : "warehouse",
+          context_scope: attr.context_scope || "warehouse",
           display_order: attr.display_order || 0,
-          is_searchable: attr.is_searchable !== false, // Default to true
+          is_searchable: attr.is_searchable !== false,
           is_filterable: false,
-          input_type: "text",
-          placeholder: null,
-          help_text: null,
+          input_type: attr.input_type || "text",
+          placeholder: attr.placeholder,
+          help_text: attr.help_text,
           created_at: attr.created_at,
           updated_at: attr.updated_at || attr.created_at,
         })),
@@ -236,48 +223,17 @@ export class TemplateService {
    */
   async createTemplate(templateData: CreateTemplateRequest): Promise<ProductTemplate> {
     try {
-      // For now, we'll create the template manually since we can't use the stored procedure
       const { attributes, supported_contexts, settings, category, ...templateFields } =
         templateData;
 
       // Create metadata object with supported_contexts and settings
-      const metadata = {
-        ...settings,
-        contexts: supported_contexts || ["warehouse"],
-        category: category || "custom",
-      };
-
-      // Generate unique slug from name
-      const baseSlug = templateFields.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-
-      // Check for existing slug and append number if needed
-      let slug = baseSlug;
-      let counter = 1;
-
-      while (true) {
-        const { data: existingTemplate } = await this.supabase
-          .from("product_templates")
-          .select("id")
-          .eq("organization_id", templateFields.organization_id)
-          .eq("slug", slug)
-          .is("deleted_at", null)
-          .single();
-
-        if (!existingTemplate) {
-          break; // Slug is unique
-        }
-
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-
       const insertData = {
         ...templateFields,
-        slug,
-        metadata,
+        category: category || "custom",
+        metadata: {
+          contexts: supported_contexts || ["warehouse"],
+          settings: settings || {},
+        },
         is_system: false,
       };
 
@@ -296,33 +252,26 @@ export class TemplateService {
 
       // Insert attributes
       if (attributes && attributes.length > 0) {
-        const attributeInserts = attributes.map((attr, index) => {
-          // Handle the mapping between frontend types and database schema
-          const insert = {
-            template_id: template.id,
-            attribute_key: attr.slug || `attr_${index}`,
-            display_name:
-              typeof attr.label === "object"
-                ? attr.label.en || attr.label.pl || Object.values(attr.label)[0] || attr.slug
-                : attr.label || attr.slug || `Attribute ${index + 1}`,
-            description:
-              typeof attr.description === "object"
-                ? attr.description.en || attr.description.pl || Object.values(attr.description)[0]
-                : attr.description || null,
-            data_type: attr.data_type || "text",
-            is_required: attr.is_required || false,
-            is_unique: attr.is_unique || false,
-            is_searchable: attr.is_searchable !== false, // Default to true
-            default_value: attr.default_value || null,
-            validation_rules: attr.validation_rules || {},
-            context_scope: Array.isArray(attr.context_scope)
-              ? [attr.context_scope[0] || "warehouse"]
-              : [attr.context_scope || "warehouse"],
-            display_order: attr.display_order || index,
-          };
-
-          return insert;
-        });
+        const attributeInserts = attributes.map((attr, index) => ({
+          template_id: template.id,
+          slug: attr.slug || `attr_${index}`,
+          label: attr.label || {
+            pl: `Attribute ${index + 1}`,
+            en: `Attribute ${index + 1}`,
+          },
+          description: attr.description || null,
+          data_type: attr.data_type || "text",
+          is_required: attr.is_required || false,
+          is_unique: attr.is_unique || false,
+          is_searchable: attr.is_searchable !== false,
+          default_value: attr.default_value || null,
+          validation_rules: attr.validation_rules || {},
+          context_scope: attr.context_scope || "warehouse",
+          display_order: attr.display_order || index,
+          input_type: attr.input_type || "text",
+          placeholder: attr.placeholder || null,
+          help_text: attr.help_text || null,
+        }));
 
         const { error: attributeError } = await this.supabase
           .from("template_attribute_definitions")
@@ -384,29 +333,27 @@ export class TemplateService {
         if (attributes.length > 0) {
           const attributeInserts = attributes.map((attr, index) => ({
             template_id: templateId,
-            attribute_key: attr.slug || `attr_${index}`,
-            display_name:
-              typeof attr.label === "object"
-                ? attr.label.en || attr.label.pl || Object.values(attr.label)[0] || attr.slug
-                : attr.label || attr.slug || `Attribute ${index + 1}`,
-            description:
-              typeof attr.description === "object"
-                ? attr.description.en || attr.description.pl || Object.values(attr.description)[0]
-                : attr.description || null,
+            slug: attr.slug || `attr_${index}`,
+            label: attr.label || {
+              pl: `Attribute ${index + 1}`,
+              en: `Attribute ${index + 1}`,
+            },
+            description: attr.description || null,
             data_type: attr.data_type || "text",
             is_required: attr.is_required || false,
             is_unique: attr.is_unique || false,
             is_searchable: attr.is_searchable !== false,
             default_value: attr.default_value || null,
             validation_rules: attr.validation_rules || {},
-            context_scope: Array.isArray(attr.context_scope)
-              ? [attr.context_scope[0] || "warehouse"]
-              : [attr.context_scope || "warehouse"],
+            context_scope: attr.context_scope || "warehouse",
             display_order: attr.display_order || index,
+            input_type: attr.input_type || "text",
+            placeholder: attr.placeholder || null,
+            help_text: attr.help_text || null,
           }));
 
           const { error: attributeError } = await this.supabase
-            .from("template_attribute_definitions")
+            .from("product_attribute_definitions")
             .insert(attributeInserts);
 
           if (attributeError) throw attributeError;
@@ -430,12 +377,6 @@ export class TemplateService {
       if (!sourceTemplate) {
         throw new Error("Source template not found");
       }
-
-      // Generate unique slug from new name
-      // const baseSlug = (request.new_name || "Cloned Template")
-      //   .toLowerCase()
-      //   .replace(/[^a-z0-9]+/g, "-")
-      //   .replace(/^-+|-+$/g, "");
 
       // Create new template data
       const newTemplateData: CreateTemplateRequest = {
@@ -475,13 +416,7 @@ export class TemplateService {
    */
   async deleteTemplate(templateId: string): Promise<void> {
     try {
-      const { error } = await this.supabase
-        .from("product_templates")
-        .update({
-          deleted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", templateId);
+      const { error } = await this.supabase.from("product_templates").delete().eq("id", templateId);
 
       if (error) throw error;
     } catch (error) {

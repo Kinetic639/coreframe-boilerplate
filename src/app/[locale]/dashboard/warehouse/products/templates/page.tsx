@@ -2,10 +2,12 @@
 "use client";
 
 import * as React from "react";
+import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, File, Settings, Copy, Trash2, Loader2 } from "lucide-react";
+import { Plus, File, Settings, Copy, Trash2, Loader2, Edit } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/stores/app-store";
 import { templateService } from "@/modules/warehouse/api/template-service";
@@ -13,6 +15,7 @@ import type { TemplateWithAttributes } from "@/modules/warehouse/types/template"
 import { toast } from "react-toastify";
 
 export default function ProductTemplatesPage() {
+  const router = useRouter();
   const { activeOrgId } = useAppStore();
   const [loading, setLoading] = React.useState(true);
   const [systemTemplates, setSystemTemplates] = React.useState<TemplateWithAttributes[]>([]);
@@ -20,11 +23,7 @@ export default function ProductTemplatesPage() {
     TemplateWithAttributes[]
   >([]);
 
-  React.useEffect(() => {
-    loadTemplates();
-  }, [activeOrgId]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const templates = await templateService.getAllTemplates(activeOrgId || undefined);
@@ -36,27 +35,31 @@ export default function ProductTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId]);
 
-  const handleCloneTemplate = async (templateId: string, templateName: string) => {
-    if (!activeOrgId) {
-      toast.error("Brak aktywnej organizacji");
-      return;
-    }
+  React.useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
-    try {
-      await templateService.cloneTemplate({
-        source_template_id: templateId,
-        target_organization_id: activeOrgId,
-        new_name: `${templateName} (kopia)`,
-      });
-      toast.success("Szablon został sklonowany");
-      loadTemplates(); // Reload templates
-    } catch (error) {
-      console.error("Error cloning template:", error);
-      toast.error("Błąd podczas klonowania szablonu");
-    }
-  };
+  // const _handleCloneTemplate = async (templateId: string, templateName: string) => {
+  //   if (!activeOrgId) {
+  //     toast.error("Brak aktywnej organizacji");
+  //     return;
+  //   }
+
+  //   try {
+  //     await templateService.cloneTemplate({
+  //       source_template_id: templateId,
+  //       target_organization_id: activeOrgId,
+  //       new_name: `${templateName} (kopia)`,
+  //     });
+  //     toast.success("Szablon został sklonowany");
+  //     loadTemplates(); // Reload templates
+  //   } catch (error) {
+  //     console.error("Error cloning template:", error);
+  //     toast.error("Błąd podczas klonowania szablonu");
+  //   }
+  // };
 
   const handleDeleteTemplate = async (templateId: string) => {
     try {
@@ -92,7 +95,7 @@ export default function ProductTemplatesPage() {
             Zarządzaj szablonami do tworzenia produktów z predefiniowanymi atrybutami
           </p>
         </div>
-        <Button>
+        <Button onClick={() => router.push("/dashboard/warehouse/products/templates/create")}>
           <Plus className="mr-2 h-4 w-4" />
           Utwórz szablon
         </Button>
@@ -143,7 +146,9 @@ export default function ProductTemplatesPage() {
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      onClick={() => handleCloneTemplate(template.id, template.name)}
+                      onClick={() =>
+                        router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
+                      }
                       disabled={!activeOrgId}
                     >
                       <Copy className="mr-2 h-3 w-3" />
@@ -202,14 +207,24 @@ export default function ProductTemplatesPage() {
                       </div>
                     </div>
                     <div className="mt-4 flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <Settings className="mr-2 h-3 w-3" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          router.push(`/dashboard/warehouse/products/templates/edit/${template.id}`)
+                        }
+                      >
+                        <Edit className="mr-2 h-3 w-3" />
                         Edytuj
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleCloneTemplate(template.id, template.name)}
+                        onClick={() =>
+                          router.push(
+                            `/dashboard/warehouse/products/templates/clone/${template.id}`
+                          )
+                        }
                       >
                         <Copy className="mr-2 h-3 w-3" />
                         Klonuj
@@ -237,7 +252,7 @@ export default function ProductTemplatesPage() {
                 Utwórz własny szablon lub sklonuj szablon systemowy aby dostosować go do swoich
                 potrzeb.
               </p>
-              <Button>
+              <Button onClick={() => router.push("/dashboard/warehouse/products/templates/create")}>
                 <Plus className="mr-2 h-4 w-4" />
                 Utwórz pierwszy szablon
               </Button>
