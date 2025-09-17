@@ -10,6 +10,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { MenuItem as MenuItemType } from "@/lib/types/module";
 import { checkIsActive } from "@/utils/sidebar/active-detection";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TreeMenuItemProps {
   item: MenuItemType;
@@ -127,42 +128,56 @@ export function TreeMenuItem({
           <div key={index} style={lineStyle} />
         ))}
 
-        <div
-          className={cn(
-            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
-            "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
-            shouldGrayOut
-              ? "text-[color:var(--font-color)] opacity-40"
-              : "text-[color:var(--font-color)]"
-          )}
-          style={{
-            paddingLeft: `${paddingLeft}px`,
-            zIndex: 2, // Above tree lines
-          }}
-        >
-          <IconComponent
-            className={cn(
-              "h-4 w-4 shrink-0",
-              shouldGrayOut
-                ? "text-[color:var(--font-color)] opacity-40"
-                : "text-[color:var(--font-color)]"
-            )}
-          />
-          <AnimatePresence mode="wait">
-            {isExpanded && (
-              <motion.span
-                key="expanded-text"
-                initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
-                exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                className="overflow-hidden whitespace-nowrap"
+        <TooltipProvider>
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <div
+                className={cn(
+                  "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
+                  "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+                  shouldGrayOut
+                    ? "text-[color:var(--font-color)] opacity-40"
+                    : "text-[color:var(--font-color)]"
+                )}
+                style={{
+                  paddingLeft: `${paddingLeft}px`,
+                  zIndex: 2, // Above tree lines
+                }}
+              >
+                <IconComponent
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    shouldGrayOut
+                      ? "text-[color:var(--font-color)] opacity-40"
+                      : "text-[color:var(--font-color)]"
+                  )}
+                />
+                <AnimatePresence mode="wait">
+                  {isExpanded && (
+                    <motion.span
+                      key="expanded-text"
+                      initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                      animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
+                      exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="overflow-hidden whitespace-nowrap"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </TooltipTrigger>
+            {!isExpanded && (
+              <TooltipContent
+                side="right"
+                className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
               >
                 {item.label}
-              </motion.span>
+              </TooltipContent>
             )}
-          </AnimatePresence>
-        </div>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     );
   }
@@ -176,44 +191,58 @@ export function TreeMenuItem({
           <div key={index} style={lineStyle} />
         ))}
 
-        <Link href={item.path as any} className="block">
-          <div
-            className={cn(
-              "relative flex items-center rounded-md py-1.5 text-sm transition-all duration-200",
-              "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
-              shouldGrayOut
-                ? "text-[color:var(--font-color)] opacity-40"
-                : "text-[color:var(--font-color)]"
-            )}
-            style={{
-              paddingLeft: `${paddingLeft}px`,
-              zIndex: 2, // Above tree lines
-            }}
-          >
-            <IconComponent
-              className={cn(
-                "h-4 w-4 shrink-0",
-                shouldGrayOut
-                  ? "text-[color:var(--font-color)] opacity-40"
-                  : "text-[color:var(--font-color)]"
-              )}
-            />
-            <AnimatePresence mode="wait">
-              {isExpanded && (
-                <motion.span
-                  key="expanded-text"
-                  initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                  animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
-                  exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="overflow-hidden whitespace-nowrap"
+        <TooltipProvider>
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <Link href={item.path as any} className="block">
+                <div
+                  className={cn(
+                    "relative flex items-center rounded-md py-1.5 text-sm transition-all duration-200",
+                    "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+                    shouldGrayOut
+                      ? "text-[color:var(--font-color)] opacity-40"
+                      : "text-[color:var(--font-color)]"
+                  )}
+                  style={{
+                    paddingLeft: `${paddingLeft}px`,
+                    zIndex: 2, // Above tree lines
+                  }}
                 >
-                  {item.label}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </div>
-        </Link>
+                  <IconComponent
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      shouldGrayOut
+                        ? "text-[color:var(--font-color)] opacity-40"
+                        : "text-[color:var(--font-color)]"
+                    )}
+                  />
+                  <AnimatePresence mode="wait">
+                    {isExpanded && (
+                      <motion.span
+                        key="expanded-text"
+                        initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                        animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
+                        exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="overflow-hidden whitespace-nowrap"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </Link>
+            </TooltipTrigger>
+            {!isExpanded && (
+              <TooltipContent
+                side="right"
+                className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
+              >
+                {item.label}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
     );
   }
@@ -227,60 +256,68 @@ export function TreeMenuItem({
           <div key={index} style={lineStyle} />
         ))}
 
-        <div
-          onClick={() => toggleSection(sectionId)}
-          className={cn(
-            "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
-            "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
-            shouldGrayOut
-              ? "text-[color:var(--font-color)] opacity-40"
-              : "text-[color:var(--font-color)]"
-          )}
-          style={{
-            paddingLeft: `${paddingLeft}px`,
-            zIndex: 2, // Above tree lines
-          }}
-        >
-          <IconComponent
-            className={cn(
-              "h-4 w-4 shrink-0",
-              shouldGrayOut
-                ? "text-[color:var(--font-color)] opacity-40"
-                : "text-[color:var(--font-color)]"
-            )}
-          />
-
-          <AnimatePresence mode="wait">
-            {isExpanded && (
-              <motion.div
-                key="expanded-div"
-                initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-                animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
-                exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                className="flex w-full items-center justify-between overflow-hidden"
+        <TooltipProvider>
+          <Tooltip delayDuration={500}>
+            <TooltipTrigger asChild>
+              <div
+                onClick={() => toggleSection(sectionId)}
+                className={cn(
+                  "relative flex cursor-pointer items-center rounded-md py-1.5 text-sm transition-all duration-200",
+                  "hover:bg-[color-mix(in_srgb,var(--font-color)_10%,transparent)]",
+                  shouldGrayOut
+                    ? "text-[color:var(--font-color)] opacity-40"
+                    : "text-[color:var(--font-color)]"
+                )}
+                style={{
+                  paddingLeft: `${paddingLeft}px`,
+                  paddingRight: isExpanded ? "32px" : "8px", // Reserve space for chevron when expanded
+                  zIndex: 2, // Above tree lines
+                }}
               >
-                <span className="flex-1 overflow-hidden whitespace-nowrap">{item.label}</span>
-                <ChevronRight
+                <IconComponent
                   className={cn(
-                    "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
-                    isOpen && "rotate-90"
+                    "h-4 w-4 shrink-0",
+                    shouldGrayOut
+                      ? "text-[color:var(--font-color)] opacity-40"
+                      : "text-[color:var(--font-color)]"
                   )}
                 />
-              </motion.div>
-            )}
-          </AnimatePresence>
 
-          {/* Chevron for collapsed state */}
-          {!isExpanded && (
-            <ChevronRight
-              className={cn(
-                "ml-3 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
-                isOpen && "rotate-90"
-              )}
-            />
-          )}
-        </div>
+                <AnimatePresence mode="wait">
+                  {isExpanded && (
+                    <motion.div
+                      key="expanded-div"
+                      initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                      animate={{ opacity: 1, width: "auto", marginLeft: 8 }}
+                      exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="flex w-full flex-1 items-center overflow-hidden"
+                    >
+                      <span className="flex-1 overflow-hidden whitespace-nowrap">{item.label}</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Chevron positioned absolutely to align with all other chevrons */}
+                <ChevronRight
+                  className={cn(
+                    "absolute right-2 h-3 w-3 shrink-0 text-[color:var(--font-color)] transition-transform duration-200",
+                    isExpanded ? isOpen && "rotate-90" : isOpen && "rotate-90",
+                    !isExpanded && "relative right-auto ml-3"
+                  )}
+                />
+              </div>
+            </TooltipTrigger>
+            {!isExpanded && (
+              <TooltipContent
+                side="right"
+                className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
+              >
+                {item.label}
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Submenu */}
