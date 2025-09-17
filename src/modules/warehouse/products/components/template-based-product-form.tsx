@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -181,23 +182,7 @@ export function TemplateBasedProductForm({
     }
   }, [selectedTemplate, defaultValues, form]);
 
-  // Load templates when dialog opens
-  React.useEffect(() => {
-    if (open && activeOrgId) {
-      loadTemplates();
-    }
-  }, [open, activeOrgId]);
-
-  // Reset when dialog closes
-  React.useEffect(() => {
-    if (!open) {
-      setCurrentStep("template");
-      setSelectedTemplate(null);
-      form.reset({});
-    }
-  }, [open, form]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const templates = await templateService.getAllTemplates(activeOrgId || undefined);
@@ -209,7 +194,23 @@ export function TemplateBasedProductForm({
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeOrgId]);
+
+  // Load templates when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      loadTemplates();
+    }
+  }, [open, activeOrgId, loadTemplates]);
+
+  // Reset when dialog closes
+  React.useEffect(() => {
+    if (!open) {
+      setCurrentStep("template");
+      setSelectedTemplate(null);
+      form.reset({});
+    }
+  }, [open, form]);
 
   const handleTemplateSelect = (templateData: TemplateWithAttributes) => {
     setSelectedTemplate(templateData);
@@ -486,7 +487,9 @@ export function TemplateBasedProductForm({
 
                   <ScrollArea className="h-[400px] pr-4">
                     <div className="space-y-6">
-                      {selectedTemplate.attributes.map((attr) => renderAttributeField(attr))}
+                      {selectedTemplate.attributes.map((attr) => (
+                        <div key={attr.slug || attr.id}>{renderAttributeField(attr)}</div>
+                      ))}
                     </div>
                   </ScrollArea>
                 </form>
