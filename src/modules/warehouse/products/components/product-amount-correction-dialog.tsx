@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ProductWithDetails } from "@/lib/mock/products-extended";
+import { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import { Tables } from "../../../../../supabase/types/types";
 import { useProductFilters } from "@/modules/warehouse/products/hooks/use-product-filters";
 import {

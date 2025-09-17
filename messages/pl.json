@@ -711,7 +711,21 @@
       "title": "Magazyn",
       "description": "Zarządzanie magazynem i zapasami",
       "items": {
-        "products": "Produkty",
+        "products": {
+          "title": "Produkty",
+          "overview": "Przegląd produktów",
+          "templates": "Szablony produktów",
+          "create": "Utwórz produkt",
+          "import": "Importuj produkty"
+        },
+        "inventory": {
+          "title": "Inwentarz",
+          "overview": "Przegląd inwentarza",
+          "movements": "Ruchy magazynowe",
+          "adjustments": "Korekty stanów",
+          "reservations": "Rezerwacje",
+          "transfers": "Transfery międzyoddziałowe"
+        },
         "locations": "Lokalizacje",
         "audits": {
           "title": "Audyty",

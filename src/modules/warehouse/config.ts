@@ -34,10 +34,74 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
     color: "#10b981",
     items: [
       {
-        id: "products-list",
-        label: "modules.warehouse.items.products",
+        id: "products",
+        label: "modules.warehouse.items.products.title",
         path: "/dashboard/warehouse/products",
         icon: "Package",
+        submenu: [
+          {
+            id: "products-overview",
+            label: "modules.warehouse.items.products.overview",
+            path: "/dashboard/warehouse/products",
+            icon: "Package",
+          },
+          {
+            id: "products-templates",
+            label: "modules.warehouse.items.products.templates",
+            path: "/dashboard/warehouse/products/templates",
+            icon: "FileTemplate",
+          },
+          {
+            id: "products-create",
+            label: "modules.warehouse.items.products.create",
+            path: "/dashboard/warehouse/products/create",
+            icon: "Plus",
+          },
+          {
+            id: "products-import",
+            label: "modules.warehouse.items.products.import",
+            path: "/dashboard/warehouse/products/import",
+            icon: "Upload",
+          },
+        ],
+      },
+      {
+        id: "inventory",
+        label: "modules.warehouse.items.inventory.title",
+        path: "/dashboard/warehouse/inventory",
+        icon: "Archive",
+        submenu: [
+          {
+            id: "inventory-overview",
+            label: "modules.warehouse.items.inventory.overview",
+            path: "/dashboard/warehouse/inventory",
+            icon: "Archive",
+          },
+          {
+            id: "inventory-movements",
+            label: "modules.warehouse.items.inventory.movements",
+            path: "/dashboard/warehouse/inventory/movements",
+            icon: "ArrowRightLeft",
+          },
+          {
+            id: "inventory-adjustments",
+            label: "modules.warehouse.items.inventory.adjustments",
+            path: "/dashboard/warehouse/inventory/adjustments",
+            icon: "Settings",
+          },
+          {
+            id: "inventory-reservations",
+            label: "modules.warehouse.items.inventory.reservations",
+            path: "/dashboard/warehouse/inventory/reservations",
+            icon: "Lock",
+          },
+          {
+            id: "inventory-transfers",
+            label: "modules.warehouse.items.inventory.transfers",
+            path: "/dashboard/warehouse/inventory/transfers",
+            icon: "Shuffle",
+          },
+        ],
       },
       {
         id: "locations",

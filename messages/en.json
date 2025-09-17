@@ -757,7 +757,21 @@
       "title": "Warehouse",
       "description": "Warehouse and inventory management",
       "items": {
-        "products": "Products",
+        "products": {
+          "title": "Products",
+          "overview": "Product Overview",
+          "templates": "Product Templates",
+          "create": "Create Product",
+          "import": "Import Products"
+        },
+        "inventory": {
+          "title": "Inventory",
+          "overview": "Inventory Overview",
+          "movements": "Stock Movements",
+          "adjustments": "Stock Adjustments",
+          "reservations": "Stock Reservations",
+          "transfers": "Inter-branch Transfers"
+        },
         "locations": "Locations",
         "audits": {
           "title": "Audits",

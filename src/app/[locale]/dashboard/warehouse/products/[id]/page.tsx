@@ -19,54 +19,8 @@ import { ArrowLeft, Edit } from "lucide-react";
 import { motion } from "framer-motion";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
-import { createClient } from "@/utils/supabase/client";
-
-interface ProductWithDetails {
-  id: string;
-  name: string;
-  description?: string;
-  sku?: string;
-  barcode?: string;
-  default_unit?: string;
-  suppliers: Array<{
-    id: string;
-    name: string;
-  }>;
-  variants: Array<{
-    id: string;
-    name: string;
-    sku?: string;
-    attributes?: Record<string, unknown>;
-    inventory_data?: {
-      purchase_price?: number;
-    };
-    stock_locations: Array<{
-      quantity: number;
-      location_id: string;
-    }>;
-  }>;
-  inventory_data?: {
-    purchase_price?: number;
-    vat_rate?: number;
-    packaging_type?: string;
-    weight?: number;
-    dimensions?: Record<string, unknown>;
-  };
-  ecommerce_data?: {
-    price?: number;
-    discounted_price?: number;
-    tags?: string[];
-    category?: string;
-    visibility?: boolean;
-  };
-  stock_locations: Array<{
-    quantity: number;
-    location_id: string;
-    location?: {
-      name: string;
-    };
-  }>;
-}
+import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
+import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -83,54 +37,47 @@ export default function ProductDetailPage() {
 
   const fetchProduct = async (productId: string) => {
     try {
-      const supabase = createClient();
+      const productData = await flexibleProductService.getProductById(productId);
 
-      // Fetch product with all related data (filtered by current branch)
-      const { data: productData, error } = await supabase
-        .from("products")
-        .select(
-          `
-          *,
-          variants:product_variants(*),
-          stock_locations:product_stock_locations(
-            *,
-            location:locations!inner(name, branch_id)
-          ),
-          inventory_data:product_inventory_data(*),
-          ecommerce_data:product_ecommerce_data(*),
-          suppliers:product_suppliers(
-            supplier:suppliers(id, name)
-          )
-        `
-        )
-        .eq("id", productId)
-        .eq("stock_locations.location.branch_id", activeBranchId)
-        .is("deleted_at", null)
-        .single();
-
-      if (error || !productData) {
-        console.error("Error fetching product:", error);
-        notFound();
-        return;
+      // Filter stock snapshots by current branch
+      if (productData.variants) {
+        productData.variants = productData.variants.map((variant) => ({
+          ...variant,
+          stock_snapshots:
+            variant.stock_snapshots?.filter((snapshot) => snapshot.branch_id === activeBranchId) ||
+            [],
+        }));
       }
 
-      // Transform data to match our interface
-      const transformedProduct: ProductWithDetails = {
-        ...productData,
-        suppliers: productData.suppliers?.map((s: any) => s.supplier) || [],
-        variants: productData.variants || [],
-        stock_locations: productData.stock_locations || [],
-        inventory_data: productData.inventory_data?.[0] || null,
-        ecommerce_data: productData.ecommerce_data?.[0] || null,
-      };
-
-      setProduct(transformedProduct);
+      setProduct(productData);
     } catch (error) {
       console.error("Error fetching product:", error);
       notFound();
     } finally {
       setLoading(false);
     }
+  };
+
+  const getAttributeValue = (key: string, context = "warehouse", locale = "en") => {
+    const attr = product?.attributes.find(
+      (a) => a.attribute_key === key && a.context_scope === context && a.locale === locale
+    );
+    if (!attr) return null;
+
+    if (attr.value_text) return attr.value_text;
+    if (attr.value_number !== undefined) return attr.value_number;
+    if (attr.value_boolean !== undefined) return attr.value_boolean;
+    if (attr.value_date) return attr.value_date;
+    if (attr.value_json) return attr.value_json;
+
+    return null;
+  };
+
+  const formatAttributeValue = (value: any) => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "boolean") return value ? "Tak" : "Nie";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
   };
 
   if (loading) {
@@ -140,6 +87,16 @@ export default function ProductDetailPage() {
   if (!product) {
     return <div>Product not found</div>;
   }
+
+  const sku = getAttributeValue("sku");
+  const barcode = getAttributeValue("barcode");
+  const manufacturer = getAttributeValue("manufacturer");
+  const brand = getAttributeValue("brand");
+  const category = getAttributeValue("category");
+  const purchasePrice = getAttributeValue("purchase_price");
+  const sellPrice = getAttributeValue("sell_price");
+  const weight = getAttributeValue("weight");
+  const currency = getAttributeValue("currency") || "PLN";
 
   return (
     <motion.div
@@ -158,6 +115,20 @@ export default function ProductDetailPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{product.name}</h1>
             <p className="text-muted-foreground">Szczegóły produktu i zarządzanie wariantami</p>
+            {product.template && (
+              <div className="mt-1 flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  style={{
+                    borderColor: product.template.color,
+                    color: product.template.color,
+                  }}
+                >
+                  {product.template.name}
+                </Badge>
+                <Badge variant="secondary">{product.status}</Badge>
+              </div>
+            )}
           </div>
         </div>
         <Button>
@@ -174,25 +145,27 @@ export default function ProductDetailPage() {
         <CardContent className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-sm font-medium text-muted-foreground">SKU</p>
-            <p>{product.sku || "-"}</p>
+            <p>{formatAttributeValue(sku)}</p>
           </div>
           <div>
             <p className="text-sm font-medium text-muted-foreground">Kod kreskowy (EAN)</p>
-            <p>{product.barcode || "-"}</p>
+            <p>{formatAttributeValue(barcode)}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Jednostka domyślna</p>
-            <p>{product.default_unit || "-"}</p>
+            <p className="text-sm font-medium text-muted-foreground">Producent</p>
+            <p>{formatAttributeValue(manufacturer)}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Dostawcy</p>
-            <div className="flex flex-wrap gap-2">
-              {product.suppliers.map((s) => (
-                <Badge key={s.id} variant="secondary">
-                  {s.name}
-                </Badge>
-              ))}
-            </div>
+            <p className="text-sm font-medium text-muted-foreground">Marka</p>
+            <p>{formatAttributeValue(brand)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Kategoria</p>
+            <p>{formatAttributeValue(category)}</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Waga</p>
+            <p>{weight ? `${weight} g` : "-"}</p>
           </div>
           <div className="col-span-2">
             <p className="text-sm font-medium text-muted-foreground">Opis</p>
@@ -201,8 +174,35 @@ export default function ProductDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Variants Table or Product Stock */}
-      {product.variants && product.variants.length > 0 ? (
+      {/* Pricing Information */}
+      {(purchasePrice || sellPrice) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Informacje cenowe</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-4">
+            {purchasePrice && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Cena zakupu</p>
+                <p className="text-lg font-semibold">
+                  {formatAttributeValue(purchasePrice)} {formatAttributeValue(currency)}
+                </p>
+              </div>
+            )}
+            {sellPrice && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Cena sprzedaży</p>
+                <p className="text-lg font-semibold">
+                  {formatAttributeValue(sellPrice)} {formatAttributeValue(currency)}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Variants Table */}
+      {product.variants && product.variants.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Warianty produktu ({product.variants.length})</CardTitle>
@@ -213,23 +213,24 @@ export default function ProductDetailPage() {
                 <TableRow>
                   <TableHead>Nazwa wariantu</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Atrybuty</TableHead>
+                  <TableHead>Kod kreskowy</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Domyślny</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {product.variants.map((variant) => (
                   <TableRow key={variant.id}>
-                    <TableCell>{variant.name}</TableCell>
+                    <TableCell className="font-medium">{variant.name}</TableCell>
                     <TableCell>{variant.sku || "-"}</TableCell>
+                    <TableCell>{variant.barcode || "-"}</TableCell>
                     <TableCell>
-                      {variant.attributes
-                        ? Object.entries(variant.attributes).map(([key, value]) => (
-                            <span key={key} className="mr-2">
-                              <span className="font-semibold">{key}:</span>{" "}
-                              {Array.isArray(value) ? value.join(", ") : String(value)}
-                            </span>
-                          ))
-                        : "-"}
+                      <Badge variant={variant.status === "active" ? "default" : "secondary"}>
+                        {variant.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {variant.is_default && <Badge variant="outline">Domyślny</Badge>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -237,19 +238,10 @@ export default function ProductDetailPage() {
             </Table>
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Informacje o produkcie</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Ten produkt nie ma wariantów.</p>
-          </CardContent>
-        </Card>
       )}
 
       {/* Stock Information */}
-      {product.stock_locations && product.stock_locations.length > 0 && (
+      {product.variants && product.variants.some((v) => v.stock_snapshots?.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle>Stan magazynowy</CardTitle>
@@ -258,111 +250,72 @@ export default function ProductDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Wariant</TableHead>
                   <TableHead>Lokalizacja</TableHead>
-                  <TableHead>Ilość</TableHead>
+                  <TableHead>Na stanie</TableHead>
+                  <TableHead>Zarezerwowane</TableHead>
+                  <TableHead>Dostępne</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {product.stock_locations.map((stock, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      {stock.location?.name || `Lokalizacja ${stock.location_id}`}
-                    </TableCell>
-                    <TableCell>{stock.quantity}</TableCell>
-                  </TableRow>
-                ))}
+                {product.variants.map((variant) =>
+                  variant.stock_snapshots?.map((stock, index) => (
+                    <TableRow key={`${variant.id}-${index}`}>
+                      <TableCell className="font-medium">{variant.name}</TableCell>
+                      <TableCell>{`Lokalizacja ${stock.location_id}`}</TableCell>
+                      <TableCell className="font-medium">{stock.quantity_on_hand}</TableCell>
+                      <TableCell className="text-yellow-600">{stock.quantity_reserved}</TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        {stock.quantity_available}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
       )}
 
-      {/* Additional Product Information */}
-      {(product.inventory_data || product.ecommerce_data) && (
-        <div className="grid gap-6 md:grid-cols-2">
-          {product.inventory_data && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Dane magazynowe</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {product.inventory_data.purchase_price && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Cena zakupu</p>
-                    <p>{product.inventory_data.purchase_price.toFixed(2)} PLN</p>
-                  </div>
-                )}
-                {product.inventory_data.vat_rate && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Stawka VAT</p>
-                    <p>{(product.inventory_data.vat_rate * 100).toFixed(0)}%</p>
-                  </div>
-                )}
-                {product.inventory_data.packaging_type && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Typ opakowania</p>
-                    <p>{product.inventory_data.packaging_type}</p>
-                  </div>
-                )}
-                {product.inventory_data.weight && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Waga</p>
-                    <p>{product.inventory_data.weight} kg</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {product.ecommerce_data && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Dane e-commerce</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {product.ecommerce_data.price && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Cena sprzedaży</p>
-                    <p className="text-lg font-semibold">
-                      {product.ecommerce_data.discounted_price
-                        ? `${product.ecommerce_data.discounted_price.toFixed(2)} PLN`
-                        : `${product.ecommerce_data.price.toFixed(2)} PLN`}
-                      {product.ecommerce_data.discounted_price && (
-                        <span className="ml-2 text-sm text-muted-foreground line-through">
-                          {product.ecommerce_data.price.toFixed(2)} PLN
-                        </span>
+      {/* All Attributes */}
+      {product.attributes && product.attributes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Wszystkie atrybuty</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Atrybut</TableHead>
+                  <TableHead>Wartość</TableHead>
+                  <TableHead>Kontekst</TableHead>
+                  <TableHead>Język</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {product.attributes.map((attr) => (
+                  <TableRow key={attr.id}>
+                    <TableCell className="font-medium">{attr.attribute_key}</TableCell>
+                    <TableCell>
+                      {formatAttributeValue(
+                        attr.value_text ||
+                          attr.value_number ||
+                          attr.value_boolean ||
+                          attr.value_date ||
+                          attr.value_json
                       )}
-                    </p>
-                  </div>
-                )}
-                {product.ecommerce_data.category && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Kategoria</p>
-                    <p>{product.ecommerce_data.category}</p>
-                  </div>
-                )}
-                {product.ecommerce_data.tags && product.ecommerce_data.tags.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Tagi</p>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {product.ecommerce_data.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Widoczność</p>
-                  <Badge variant={product.ecommerce_data.visibility ? "default" : "secondary"}>
-                    {product.ecommerce_data.visibility ? "Widoczny" : "Ukryty"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{attr.context_scope}</Badge>
+                    </TableCell>
+                    <TableCell>{attr.locale}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </motion.div>
   );

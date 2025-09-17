@@ -1,46 +1,19 @@
 import { createClient } from "@/utils/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
+import type {
+  ProductWithDetails,
+  CreateProductData as FlexibleCreateProductData,
+  UpdateProductData as FlexibleUpdateProductData,
+} from "../types/flexible-products";
 
-export type ProductWithVariants = Tables<"products"> & {
-  variants: (Tables<"product_variants"> & {
-    stock_locations: Tables<"product_stock_locations">[];
-  })[];
-  stock_locations?: Tables<"product_stock_locations">[];
-  inventory_data: Tables<"product_inventory_data"> | null;
-  ecommerce_data: Tables<"product_ecommerce_data"> | null;
-  suppliers: Tables<"suppliers">[];
+export type ProductWithVariants = ProductWithDetails;
+export type { ProductWithDetails };
+
+export type CreateProductData = FlexibleCreateProductData & {
+  organization_id: string;
 };
 
-export type CreateProductData = {
-  // Basic product data
-  name: string;
-  description?: string;
-  sku?: string;
-  barcode?: string;
-  code?: string;
-  default_unit?: string;
-  main_image_id?: string;
-
-  // Inventory data
-  purchase_price?: number;
-  vat_rate?: number;
-  weight?: number;
-  dimensions?: Record<string, unknown>;
-  packaging_type?: string;
-
-  // Initial stock location (branch context)
-  initial_quantity?: number;
-  location_id?: string;
-
-  // Variant data (default variant will be created)
-  variant_name?: string;
-  variant_sku?: string;
-  variant_attributes?: Record<string, unknown>;
-};
-
-export type UpdateProductData = Partial<CreateProductData> & {
-  id: string;
-};
+export type UpdateProductData = FlexibleUpdateProductData;
 
 export class ProductService {
   private supabase: ReturnType<typeof createClient>;
@@ -51,35 +24,28 @@ export class ProductService {
 
   async createProduct(productData: CreateProductData): Promise<ProductWithVariants> {
     const {
+      organization_id,
+      template_id,
       name,
       description,
-      sku,
-      barcode,
-      code,
-      default_unit,
-      main_image_id,
-      purchase_price,
-      vat_rate,
-      weight,
-      dimensions,
-      packaging_type,
-      initial_quantity = 0,
-      location_id,
+      status = "active",
       variant_name,
       variant_sku,
-      variant_attributes,
+      variant_barcode,
+      attributes = {},
+      // images = [], // Not yet implemented
+      // initial_stock // Not yet implemented
     } = productData;
 
     try {
       // 1. Create the main product
       const productInsert: TablesInsert<"products"> = {
+        organization_id,
+        template_id,
         name,
+        slug: name.toLowerCase().replace(/\s+/g, "-"),
         description,
-        sku,
-        barcode,
-        code,
-        default_unit,
-        main_image_id,
+        status,
       };
 
       const { data: product, error: productError } = await this.supabase
@@ -90,40 +56,14 @@ export class ProductService {
 
       if (productError) throw productError;
 
-      // 2. Create inventory data if provided
-      let inventoryData = null;
-      if (
-        purchase_price !== undefined ||
-        vat_rate !== undefined ||
-        weight !== undefined ||
-        dimensions ||
-        packaging_type
-      ) {
-        const inventoryInsert: TablesInsert<"product_inventory_data"> = {
-          product_id: product.id,
-          purchase_price,
-          vat_rate,
-          weight,
-          dimensions: dimensions as any,
-          packaging_type,
-        };
-
-        const { data: inventory, error: inventoryError } = await this.supabase
-          .from("product_inventory_data")
-          .insert(inventoryInsert)
-          .select()
-          .single();
-
-        if (inventoryError) throw inventoryError;
-        inventoryData = inventory;
-      }
-
-      // 3. Create default variant
+      // 2. Create default variant
       const variantInsert: TablesInsert<"product_variants"> = {
         product_id: product.id,
         name: variant_name || name,
-        sku: variant_sku || sku,
-        attributes: variant_attributes as any,
+        slug: (variant_name || name).toLowerCase().replace(/\s+/g, "-"),
+        sku: variant_sku,
+        barcode: variant_barcode,
+        is_default: true,
       };
 
       const { data: variant, error: variantError } = await this.supabase
@@ -134,38 +74,29 @@ export class ProductService {
 
       if (variantError) throw variantError;
 
-      // 4. Create initial stock location if provided
-      let stockLocations: Tables<"product_stock_locations">[] = [];
-      if (location_id && initial_quantity > 0) {
-        const stockInsert: TablesInsert<"product_stock_locations"> = {
+      // 3. Create product attributes
+      if (Object.keys(attributes).length > 0) {
+        const attributeInserts = Object.entries(attributes).map(([key, attributeValue]) => ({
           product_id: product.id,
-          location_id,
-          quantity: initial_quantity,
-        };
+          variant_id: variant.id,
+          attribute_key: key,
+          value_text: attributeValue.type === "text" ? attributeValue.value : null,
+          value_number: attributeValue.type === "number" ? attributeValue.value : null,
+          value_boolean: attributeValue.type === "boolean" ? attributeValue.value : null,
+          value_date: attributeValue.type === "date" ? attributeValue.value : null,
+          value_json: attributeValue.type === "json" ? attributeValue.value : null,
+          context_scope: "warehouse",
+        }));
 
-        const { data: stock, error: stockError } = await this.supabase
-          .from("product_stock_locations")
-          .insert(stockInsert)
-          .select()
-          .single();
+        const { error: attributeError } = await this.supabase
+          .from("product_attributes")
+          .insert(attributeInserts);
 
-        if (stockError) throw stockError;
-        stockLocations = [stock];
+        if (attributeError) throw attributeError;
       }
 
-      // 5. Return the complete product with relations
-      return {
-        ...product,
-        variants: [
-          {
-            ...variant,
-            stock_locations: stockLocations,
-          },
-        ],
-        inventory_data: inventoryData,
-        ecommerce_data: null,
-        suppliers: [],
-      };
+      // 4. Return the created product
+      return await this.getProductById(product.id);
     } catch (error) {
       console.error("Error creating product:", error);
       throw error;
@@ -173,65 +104,45 @@ export class ProductService {
   }
 
   async updateProduct(productData: UpdateProductData): Promise<ProductWithVariants> {
-    const {
-      id,
-      name,
-      description,
-      sku,
-      barcode,
-      code,
-      default_unit,
-      main_image_id,
-      purchase_price,
-      vat_rate,
-      weight,
-      dimensions,
-      packaging_type,
-    } = productData;
+    const { id, name, description, status, attributes = {} } = productData;
 
     try {
       // 1. Update the main product
       const productUpdate: TablesUpdate<"products"> = {
         name,
         description,
-        sku,
-        barcode,
-        code,
-        default_unit,
-        main_image_id,
+        status,
       };
 
       const { error: productError } = await this.supabase
         .from("products")
         .update(productUpdate)
-        .eq("id", id)
-        .select()
-        .single();
+        .eq("id", id);
 
       if (productError) throw productError;
 
-      // 2. Update inventory data if provided
-      if (
-        purchase_price !== undefined ||
-        vat_rate !== undefined ||
-        weight !== undefined ||
-        dimensions ||
-        packaging_type
-      ) {
-        const inventoryUpdate: TablesUpdate<"product_inventory_data"> = {
-          purchase_price,
-          vat_rate,
-          weight,
-          dimensions: dimensions as any,
-          packaging_type,
-        };
+      // 2. Update attributes if provided
+      if (Object.keys(attributes).length > 0) {
+        // First delete existing attributes
+        await this.supabase.from("product_attributes").delete().eq("product_id", id);
 
-        const { error: inventoryError } = await this.supabase
-          .from("product_inventory_data")
-          .upsert({ product_id: id, ...inventoryUpdate })
-          .eq("product_id", id);
+        // Then insert new attributes
+        const attributeInserts = Object.entries(attributes).map(([key, attributeValue]) => ({
+          product_id: id,
+          attribute_key: key,
+          value_text: attributeValue.type === "text" ? attributeValue.value : null,
+          value_number: attributeValue.type === "number" ? attributeValue.value : null,
+          value_boolean: attributeValue.type === "boolean" ? attributeValue.value : null,
+          value_date: attributeValue.type === "date" ? attributeValue.value : null,
+          value_json: attributeValue.type === "json" ? attributeValue.value : null,
+          context_scope: "warehouse",
+        }));
 
-        if (inventoryError) throw inventoryError;
+        const { error: attributeError } = await this.supabase
+          .from("product_attributes")
+          .insert(attributeInserts);
+
+        if (attributeError) throw attributeError;
       }
 
       // 3. Fetch and return the updated product with relations
@@ -263,36 +174,25 @@ export class ProductService {
         .from("products")
         .select(
           `
-  *,
-  variants:product_variants(
-    *,
-    stock_locations:product_stock_locations(
-      *,
-      location:locations!inner(branch_id)
-    )
-  ),
-  inventory_data:product_inventory_data(*),
-  ecommerce_data:product_ecommerce_data(*),
-  suppliers:product_suppliers(
-    supplier:suppliers(*)
-  )
-`,
-          { count: "exact" }
+          *,
+          template:product_templates(*),
+          variants:product_variants(
+            *,
+            attributes:product_attributes(*),
+            images:product_images(*),
+            stock_snapshots:stock_snapshots(*)
+          ),
+          attributes:product_attributes(*),
+          images:product_images(*)
+        `
         )
-
         .eq("id", productId)
         .is("deleted_at", null)
         .single();
 
       if (productError) throw productError;
 
-      // Transform the suppliers data structure
-      const suppliers = product.suppliers?.map((ps: any) => ps.supplier) || [];
-
-      return {
-        ...product,
-        suppliers,
-      } as ProductWithVariants;
+      return product as ProductWithVariants;
     } catch (error) {
       console.error("Error getting product by ID:", error);
       throw error;
@@ -305,7 +205,7 @@ export class ProductService {
       search?: string;
       minPrice?: number;
       maxPrice?: number;
-      supplierId?: string;
+      templateId?: string;
       locationId?: string;
       showLowStock?: boolean;
       limit?: number;
@@ -313,49 +213,39 @@ export class ProductService {
     }
   ): Promise<{ products: ProductWithVariants[]; total: number }> {
     try {
-      // Build the base query with proper supplier filtering
-      let selectQuery = `
-        *,
-        variants:product_variants(*),
-        stock_locations:product_stock_locations(
-          *,
-          location:locations!inner(branch_id)
-        ),
-        inventory_data:product_inventory_data(*),
-        ecommerce_data:product_ecommerce_data(*)`;
-
-      // If filtering by supplier, only include products that have that supplier relationship
-      if (filters?.supplierId) {
-        selectQuery += `,
-        suppliers:product_suppliers!inner(
-          supplier:suppliers!inner(*)
-        )`;
-      } else {
-        selectQuery += `,
-        suppliers:product_suppliers(
-          supplier:suppliers(*)
-        )`;
-      }
-
       let query = this.supabase
         .from("products")
-        .select(selectQuery, { count: "exact" })
-        .eq("stock_locations.location.branch_id", branchId)
+        .select(
+          `
+          *,
+          template:product_templates(*),
+          variants:product_variants(
+            *,
+            attributes:product_attributes(*),
+            images:product_images(*),
+            stock_snapshots:stock_snapshots!inner(
+              *,
+              location:locations!inner(branch_id)
+            )
+          ),
+          attributes:product_attributes(*),
+          images:product_images(*)
+        `,
+          { count: "exact" }
+        )
+        .eq("variants.stock_snapshots.location.branch_id", branchId)
         .is("deleted_at", null);
 
-      // Apply supplier filter with inner join
-      if (filters?.supplierId) {
-        query = query.eq("suppliers.supplier_id", filters.supplierId);
+      if (filters?.templateId) {
+        query = query.eq("template_id", filters.templateId);
       }
 
       if (filters?.search) {
-        query = query.or(
-          `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sku.ilike.%${filters.search}%`
-        );
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
       }
 
       if (filters?.locationId) {
-        query = query.eq("stock_locations.location_id", filters.locationId);
+        query = query.eq("variants.stock_snapshots.location_id", filters.locationId);
       }
 
       if (filters?.limit) {
@@ -365,33 +255,9 @@ export class ProductService {
       const { data: products, error, count } = await query;
       if (error) throw error;
 
-      const transformedProducts = (products || []).map((product: any) => ({
-        ...product,
-        suppliers: product.suppliers?.map((ps: any) => ps.supplier) || [],
-      })) as ProductWithVariants[];
-
-      let filteredProducts = transformedProducts;
-
-      if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
-        filteredProducts = filteredProducts.filter((product) => {
-          const price = product.inventory_data?.purchase_price || 0;
-          if (filters.minPrice !== undefined && price < filters.minPrice) return false;
-          if (filters.maxPrice !== undefined && price > filters.maxPrice) return false;
-          return true;
-        });
-      }
-
-      if (filters?.showLowStock) {
-        filteredProducts = filteredProducts.filter((product) => {
-          const totalStock =
-            product.stock_locations?.reduce((sum, sl) => sum + (sl.quantity || 0), 0) || 0;
-          return totalStock < 10;
-        });
-      }
-
       return {
-        products: filteredProducts,
-        total: count || filteredProducts.length,
+        products: (products || []) as ProductWithVariants[],
+        total: count || 0,
       };
     } catch (error) {
       console.error("Error getting products by branch:", error);
@@ -399,33 +265,35 @@ export class ProductService {
     }
   }
 
-  async updateProductStock(productId: string, locationId: string, quantity: number): Promise<void> {
+  async updateProductStock(
+    _productId: string,
+    _variantId: string,
+    _locationId: string,
+    _quantity: number
+  ): Promise<void> {
     try {
-      const { error } = await this.supabase.from("product_stock_locations").upsert({
-        product_id: productId,
-        location_id: locationId,
-        quantity,
-      });
-
-      if (error) throw error;
+      // This would typically create a stock movement and update stock snapshots
+      // For now, just a placeholder that would integrate with the movement system
+      console.log("Stock update would be handled by the movement system");
     } catch (error) {
       console.error("Error updating product stock:", error);
       throw error;
     }
   }
 
-  async getProductTypes(organizationId: string): Promise<Tables<"product_types">[]> {
+  async getProductTemplates(organizationId: string): Promise<Tables<"product_templates">[]> {
     try {
       const { data, error } = await this.supabase
-        .from("product_types")
+        .from("product_templates")
         .select("*")
-        .eq("organization_id", organizationId)
+        .or(`organization_id.eq.${organizationId},is_system.eq.true`)
+        .is("deleted_at", null)
         .order("name");
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error("Error getting product types:", error);
+      console.error("Error getting product templates:", error);
       throw error;
     }
   }
