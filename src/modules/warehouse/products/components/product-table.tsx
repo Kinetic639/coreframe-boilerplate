@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ProductWithVariants } from "@/modules/warehouse/api/products";
+import { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import {
   Table,
   TableBody,
@@ -15,7 +15,7 @@ import { Eye } from "lucide-react";
 
 import { Link } from "@/i18n/navigation";
 
-export function ProductTable({ products }: { products: ProductWithVariants[] }) {
+export function ProductTable({ products }: { products: ProductWithDetails[] }) {
   return (
     <Table>
       <TableHeader>
@@ -33,13 +33,16 @@ export function ProductTable({ products }: { products: ProductWithVariants[] }) 
             product.variants?.reduce(
               (acc, v) =>
                 acc +
-                (v.stock_locations?.reduce((accSL, sl) => accSL + (sl.quantity || 0), 0) || 0),
+                (v.stock_snapshots?.reduce(
+                  (accSL, snapshot) => accSL + (snapshot.quantity_available || 0),
+                  0
+                ) || 0),
               0
             ) || 0;
           return (
             <TableRow key={product.id}>
               <TableCell className="font-medium">{product.name}</TableCell>
-              <TableCell>{product.sku}</TableCell>
+              <TableCell>{product.variants?.[0]?.sku || "N/A"}</TableCell>
               <TableCell>{product.variants?.length || 1}</TableCell>
               <TableCell>{totalStock}</TableCell>
               <TableCell className="text-right">

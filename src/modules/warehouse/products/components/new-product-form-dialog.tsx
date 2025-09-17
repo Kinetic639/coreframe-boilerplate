@@ -70,7 +70,7 @@ export function NewProductFormDialog({
   product,
   onSuccess,
 }: NewProductFormDialogProps) {
-  const { activeBranchId, isLoaded } = useAppStore();
+  const { activeBranchId, activeOrgId, isLoaded } = useAppStore();
   const [availableLocations, setAvailableLocations] = React.useState<Tables<"locations">[]>([]);
   const [isLoadingData, setIsLoadingData] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -127,30 +127,20 @@ export function NewProductFormDialog({
           id: product.id,
           name: data.name,
           description: data.description,
-          sku: data.sku,
-          barcode: data.barcode,
-          default_unit: data.default_unit,
-          purchase_price: data.purchase_price,
-          vat_rate: data.vat_rate,
-          weight: data.weight,
-          packaging_type: data.packaging_type,
+          variant_sku: data.sku,
+          variant_barcode: data.barcode,
         };
         await productService.updateProduct(updateData);
       } else {
-        // Create new product
+        // Create new product - needs a template_id
         const createData: CreateProductData = {
+          template_id: "", // TODO: Need to implement template selection
           name: data.name,
           description: data.description,
-          sku: data.sku,
-          barcode: data.barcode,
-          default_unit: data.default_unit,
-          purchase_price: data.purchase_price,
-          vat_rate: data.vat_rate,
-          weight: data.weight,
-          packaging_type: data.packaging_type,
-          initial_quantity: data.initial_quantity,
-          location_id: data.location_id,
+          variant_sku: data.sku,
+          variant_barcode: data.barcode,
           variant_name: data.name, // Use product name as default variant name
+          organization_id: activeOrgId!, // Required field
         };
         await productService.createProduct(createData);
       }
