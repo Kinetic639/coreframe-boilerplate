@@ -113,7 +113,28 @@ export default function ProductTemplatesPage() {
             <Plus className="mr-2 h-4 w-4" />
             Utwórz szablon
           </Button>
-          <Button onClick={() => router.push("/dashboard/warehouse/products")}>
+          <Button
+            onClick={() =>
+              handleCreateProductWithTemplate({
+                template: {
+                  id: "",
+                  name: "",
+                  description: "",
+                  color: "",
+                  organization_id: "",
+                  is_system: false,
+                  is_active: true,
+                  category: "",
+                  supported_contexts: ["warehouse"],
+                  settings: {},
+                  created_by: null,
+                  parent_template_id: null,
+                },
+                attributes: [],
+                attribute_count: 0,
+              })
+            }
+          >
             <Plus className="mr-2 h-4 w-4" />
             Dodaj produkt
           </Button>
