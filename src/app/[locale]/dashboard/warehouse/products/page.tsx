@@ -13,7 +13,6 @@ import { ProductCard } from "@/modules/warehouse/products/components/product-car
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
 import { NewProductFormDialog } from "@/modules/warehouse/products/components/new-product-form-dialog";
-import { TemplateBasedProductForm } from "@/modules/warehouse/products/components/template-based-product-form";
 import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
 import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -26,7 +25,6 @@ export default function ProductsPage() {
   const { activeBranchId, isLoaded } = useAppStore();
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
   const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [isTemplateFormOpen, setIsTemplateFormOpen] = React.useState(false);
   const [selectedProduct, setSelectedProduct] = React.useState<ProductWithDetails | undefined>(
     undefined
   );
@@ -47,7 +45,7 @@ export default function ProductsPage() {
 
   const handleAddNew = () => {
     setSelectedProduct(undefined);
-    setIsTemplateFormOpen(true);
+    setIsFormOpen(true);
   };
 
   // const handleAddNewOld = () => {
@@ -260,11 +258,6 @@ export default function ProductsPage() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         product={selectedProduct}
-        onSuccess={handleProductSuccess}
-      />
-      <TemplateBasedProductForm
-        open={isTemplateFormOpen}
-        onOpenChange={setIsTemplateFormOpen}
         onSuccess={handleProductSuccess}
       />
     </div>

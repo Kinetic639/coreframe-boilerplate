@@ -36,12 +36,14 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
 import { templateService } from "../../api/template-service";
+import { flexibleProductService } from "../../api/flexible-products";
 import type { CreateTemplateRequest, TemplateWithAttributes } from "../../types/template";
+import type { CreateProductData, AttributeValue } from "../../types/flexible-products";
 import { useAppStore } from "@/lib/stores/app-store";
 
-// Schema for template builder form
-const templateBuilderSchema = z.object({
-  name: z.string().min(1, "Template name is required"),
+// Base schema for both templates and products
+const baseBuilderSchema = z.object({
+  name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   category: z.string().default("custom"),
   icon: z.string().optional(),
@@ -85,18 +87,37 @@ const templateBuilderSchema = z.object({
           })
           .optional(),
         display_order: z.number().default(0),
+        // For products: the actual field values
+        value: z.any().optional(),
       })
     )
     .default([]),
 });
 
+// Extended schema for products
+const productBuilderSchema = baseBuilderSchema.extend({
+  // Product-specific fields
+  product_name: z.string().min(1, "Product name is required"),
+  product_description: z.string().optional(),
+  variant_name: z.string().optional(),
+  variant_sku: z.string().optional(),
+  variant_barcode: z.string().optional(),
+});
+
+// Use base schema for templates (backward compatibility)
+const templateBuilderSchema = baseBuilderSchema;
+
 type TemplateBuilderFormData = z.infer<typeof templateBuilderSchema>;
+type ProductBuilderFormData = z.infer<typeof productBuilderSchema>;
 
 interface TemplateBuilderProps {
   baseTemplate?: TemplateWithAttributes;
-  onSave?: (template: any) => void;
+  onSave?: (result: any) => void;
   onCancel?: () => void;
   mode?: "create" | "clone" | "edit";
+  // New props for product creation
+  builderType?: "template" | "product";
+  productMode?: "create" | "edit";
 }
 
 const DATA_TYPE_ICONS = {
@@ -138,9 +159,14 @@ export function TemplateBuilder({
   onSave,
   onCancel,
   mode = "create",
+  builderType = "template",
+  productMode = "create",
 }: TemplateBuilderProps) {
   const { activeOrgId } = useAppStore();
   const [isLoading, setIsLoading] = useState(false);
+
+  const isProductBuilder = builderType === "product";
+  const schema = isProductBuilder ? productBuilderSchema : templateBuilderSchema;
 
   const {
     register,
@@ -149,33 +175,68 @@ export function TemplateBuilder({
     watch,
     setValue,
     formState: { errors, isDirty },
-  } = useForm<TemplateBuilderFormData>({
-    resolver: zodResolver(templateBuilderSchema),
-    defaultValues: {
-      name: baseTemplate ? `${baseTemplate.template.name} (Copy)` : "",
-      description: baseTemplate?.template.description || "",
-      category: baseTemplate?.template.category || "custom",
-      icon: baseTemplate?.template.icon || "",
-      color: baseTemplate?.template.color || "#10b981",
-      supported_contexts: baseTemplate?.template.supported_contexts || ["warehouse"],
-      attributes:
-        baseTemplate?.attributes.map((attr, index) => ({
-          slug: attr.slug,
-          label: attr.label,
-          description: attr.description,
-          data_type: attr.data_type,
-          is_required: attr.is_required,
-          is_unique: attr.is_unique,
-          is_searchable: attr.is_searchable,
-          context_scope: attr.context_scope,
-          input_type: attr.input_type,
-          validation_rules: attr.validation_rules || {},
-          default_value: attr.default_value,
-          placeholder: attr.placeholder,
-          help_text: attr.help_text,
-          display_order: index,
-        })) || [],
-    },
+  } = useForm<any>({
+    resolver: zodResolver(schema),
+    defaultValues: isProductBuilder
+      ? {
+          // Product-specific defaults
+          product_name: "",
+          product_description: "",
+          variant_name: "Default Variant",
+          variant_sku: "",
+          variant_barcode: "",
+          // Base fields for product
+          name: baseTemplate ? baseTemplate.template.name : "",
+          description: baseTemplate?.template.description || "",
+          category: baseTemplate?.template.category || "custom",
+          icon: baseTemplate?.template.icon || "",
+          color: baseTemplate?.template.color || "#10b981",
+          supported_contexts: baseTemplate?.template.supported_contexts || ["warehouse"],
+          attributes:
+            baseTemplate?.attributes.map((attr, index) => ({
+              slug: attr.slug,
+              label: attr.label,
+              description: attr.description,
+              data_type: attr.data_type,
+              is_required: attr.is_required,
+              is_unique: attr.is_unique,
+              is_searchable: attr.is_searchable,
+              context_scope: attr.context_scope,
+              input_type: attr.input_type,
+              validation_rules: attr.validation_rules || {},
+              default_value: attr.default_value,
+              placeholder: attr.placeholder,
+              help_text: attr.help_text,
+              display_order: index,
+              value: "", // Initialize empty value for product attributes
+            })) || [],
+        }
+      : {
+          // Template defaults (existing behavior)
+          name: baseTemplate ? `${baseTemplate.template.name} (Copy)` : "",
+          description: baseTemplate?.template.description || "",
+          category: baseTemplate?.template.category || "custom",
+          icon: baseTemplate?.template.icon || "",
+          color: baseTemplate?.template.color || "#10b981",
+          supported_contexts: baseTemplate?.template.supported_contexts || ["warehouse"],
+          attributes:
+            baseTemplate?.attributes.map((attr, index) => ({
+              slug: attr.slug,
+              label: attr.label,
+              description: attr.description,
+              data_type: attr.data_type,
+              is_required: attr.is_required,
+              is_unique: attr.is_unique,
+              is_searchable: attr.is_searchable,
+              context_scope: attr.context_scope,
+              input_type: attr.input_type,
+              validation_rules: attr.validation_rules || {},
+              default_value: attr.default_value,
+              placeholder: attr.placeholder,
+              help_text: attr.help_text,
+              display_order: index,
+            })) || [],
+        },
   });
 
   const { fields, append, remove, move } = useFieldArray({
@@ -187,7 +248,7 @@ export function TemplateBuilder({
   const watchedSupportedContexts = watch("supported_contexts");
 
   const addField = () => {
-    append({
+    const newField = {
       slug: `field_${fields.length + 1}`,
       label: {
         en: `Field ${fields.length + 1}`,
@@ -201,7 +262,10 @@ export function TemplateBuilder({
       input_type: "text",
       validation_rules: {},
       display_order: fields.length,
-    });
+      ...(isProductBuilder && { value: "" }), // Add value field for products
+    } as any;
+
+    append(newField);
   };
 
   const removeField = (index: number) => {
@@ -224,7 +288,7 @@ export function TemplateBuilder({
     setValue("supported_contexts", updated);
   };
 
-  const onSubmit = async (data: TemplateBuilderFormData) => {
+  const onSubmit = async (data: TemplateBuilderFormData | ProductBuilderFormData) => {
     if (!activeOrgId) {
       toast.error("No active organization");
       return;
@@ -232,40 +296,89 @@ export function TemplateBuilder({
 
     setIsLoading(true);
     try {
-      const templateData: CreateTemplateRequest = {
-        name: data.name,
-        description: data.description,
-        organization_id: activeOrgId,
-        category: data.category,
-        icon: data.icon,
-        color: data.color,
-        supported_contexts: data.supported_contexts,
-        settings: {},
-        attributes: data.attributes.map((attr, index) => ({
-          slug: attr.slug || `field_${index}`,
-          label: attr.label || { en: `Field ${index + 1}`, pl: `Pole ${index + 1}` },
-          description: attr.description,
-          data_type: attr.data_type || "text",
-          is_required: attr.is_required || false,
-          is_unique: attr.is_unique || false,
-          default_value: attr.default_value,
-          validation_rules: attr.validation_rules || {},
-          context_scope: attr.context_scope || "warehouse",
-          display_order: index,
-          is_searchable: attr.is_searchable !== false,
-          is_filterable: false,
-          input_type: attr.input_type || "text",
-          placeholder: attr.placeholder,
-          help_text: attr.help_text,
-        })),
-      };
+      if (isProductBuilder) {
+        // Product creation logic
+        const productData = data as ProductBuilderFormData;
 
-      const result = await templateService.createTemplate(templateData);
-      toast.success("Template created successfully!");
-      onSave?.(result);
+        // Prepare attribute values from form data
+        const attributeValues: Record<string, AttributeValue> = {};
+        productData.attributes.forEach((attr) => {
+          if ("value" in attr && attr.value !== undefined && attr.value !== "") {
+            // Convert value to proper AttributeValue format based on data type
+            let attributeValue: AttributeValue;
+            switch (attr.data_type) {
+              case "number":
+                attributeValue = { type: "number", value: Number(attr.value) };
+                break;
+              case "boolean":
+                attributeValue = { type: "boolean", value: Boolean(attr.value) };
+                break;
+              case "date":
+                attributeValue = { type: "date", value: String(attr.value) };
+                break;
+              case "json":
+                attributeValue = { type: "json", value: attr.value };
+                break;
+              default:
+                attributeValue = { type: "text", value: String(attr.value) };
+            }
+            attributeValues[attr.slug] = attributeValue;
+          }
+        });
+
+        const createProductData: CreateProductData = {
+          name: productData.product_name,
+          description: productData.product_description || undefined,
+          template_id: baseTemplate?.template.id || "",
+          organization_id: activeOrgId,
+          variant_name: productData.variant_name || "Default Variant",
+          variant_sku: productData.variant_sku || undefined,
+          variant_barcode: productData.variant_barcode || undefined,
+          attributes: attributeValues,
+        };
+
+        const result = await flexibleProductService.createProduct(createProductData);
+        toast.success("Product created successfully!");
+        onSave?.(result);
+      } else {
+        // Template creation logic (existing)
+        const templateData = data as TemplateBuilderFormData;
+
+        const createTemplateData: CreateTemplateRequest = {
+          name: templateData.name,
+          description: templateData.description,
+          organization_id: activeOrgId,
+          category: templateData.category,
+          icon: templateData.icon,
+          color: templateData.color,
+          supported_contexts: templateData.supported_contexts,
+          settings: {},
+          attributes: templateData.attributes.map((attr, index) => ({
+            slug: attr.slug || `field_${index}`,
+            label: attr.label || { en: `Field ${index + 1}`, pl: `Pole ${index + 1}` },
+            description: attr.description,
+            data_type: attr.data_type || "text",
+            is_required: attr.is_required || false,
+            is_unique: attr.is_unique || false,
+            default_value: attr.default_value,
+            validation_rules: attr.validation_rules || {},
+            context_scope: attr.context_scope || "warehouse",
+            display_order: index,
+            is_searchable: attr.is_searchable !== false,
+            is_filterable: false,
+            input_type: attr.input_type || "text",
+            placeholder: attr.placeholder,
+            help_text: attr.help_text,
+          })),
+        };
+
+        const result = await templateService.createTemplate(createTemplateData);
+        toast.success("Template created successfully!");
+        onSave?.(result);
+      }
     } catch (error) {
-      console.error("Error creating template:", error);
-      toast.error("Failed to create template");
+      console.error(`Error creating ${isProductBuilder ? "product" : "template"}:`, error);
+      toast.error(`Failed to create ${isProductBuilder ? "product" : "template"}`);
     } finally {
       setIsLoading(false);
     }
@@ -276,14 +389,20 @@ export function TemplateBuilder({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">
-            {mode === "create"
-              ? "Create Template"
-              : mode === "clone"
-                ? "Clone Template"
-                : "Edit Template"}
+            {isProductBuilder
+              ? productMode === "create"
+                ? "Create Product"
+                : "Edit Product"
+              : mode === "create"
+                ? "Create Template"
+                : mode === "clone"
+                  ? "Clone Template"
+                  : "Edit Template"}
           </h2>
           <p className="text-muted-foreground">
-            Define custom fields and properties for your products
+            {isProductBuilder
+              ? "Create a new product using template fields and custom attributes"
+              : "Define custom fields and properties for your products"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -293,12 +412,91 @@ export function TemplateBuilder({
           </Button>
           <Button onClick={handleSubmit(onSubmit)} disabled={isLoading || !isDirty}>
             <Save className="mr-2 h-4 w-4" />
-            {isLoading ? "Saving..." : "Save Template"}
+            {isLoading ? "Saving..." : isProductBuilder ? "Save Product" : "Save Template"}
           </Button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Product-specific fields (only shown in product mode) */}
+        {isProductBuilder && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Product Information</CardTitle>
+              <CardDescription>Basic details about your product</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="product_name">Product Name *</Label>
+                  <Input
+                    id="product_name"
+                    {...register("product_name" as keyof typeof register)}
+                    placeholder="e.g., iPhone 15 Pro"
+                  />
+                  {errors.product_name && (
+                    <p className="text-sm text-destructive">
+                      {String(
+                        typeof errors.product_name === "string"
+                          ? errors.product_name
+                          : errors.product_name?.message || ""
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="variant_name">Variant Name</Label>
+                  <Input
+                    id="variant_name"
+                    {...register("variant_name" as keyof typeof register)}
+                    placeholder="e.g., 128GB Black"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product_description">Product Description</Label>
+                <Textarea
+                  id="product_description"
+                  {...register("product_description" as keyof typeof register)}
+                  placeholder="Describe your product..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="variant_sku">SKU</Label>
+                  <Input
+                    id="variant_sku"
+                    {...register("variant_sku" as keyof typeof register)}
+                    placeholder="e.g., IP15P-128-BLK"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="variant_barcode">Barcode</Label>
+                  <Input
+                    id="variant_barcode"
+                    {...register("variant_barcode" as keyof typeof register)}
+                    placeholder="e.g., 1234567890123"
+                  />
+                </div>
+              </div>
+
+              {baseTemplate && (
+                <div className="rounded-md bg-muted/50 p-3">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Template:</strong> {baseTemplate.template.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This product will use the fields and structure defined in the selected template.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Basic Template Info */}
         <Card>
           <CardHeader>
@@ -310,7 +508,13 @@ export function TemplateBuilder({
               <div className="space-y-2">
                 <Label htmlFor="name">Template Name *</Label>
                 <Input id="name" {...register("name")} placeholder="e.g., Electronics Inventory" />
-                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                {errors.name && (
+                  <p className="text-sm text-destructive">
+                    {String(
+                      typeof errors.name === "string" ? errors.name : errors.name?.message || ""
+                    )}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
@@ -517,6 +721,22 @@ export function TemplateBuilder({
                                 />
                               </div>
                             </div>
+
+                            {/* Value field for product mode */}
+                            {isProductBuilder && (
+                              <div className="space-y-2">
+                                <Label>Value</Label>
+                                <Input
+                                  {...register(
+                                    `attributes.${index}.value` as keyof typeof register
+                                  )}
+                                  placeholder={`Enter value for ${watchedAttributes[index]?.label?.en || "this field"}...`}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  The actual value for this attribute in your product
+                                </p>
+                              </div>
+                            )}
                           </TabsContent>
 
                           <TabsContent value="validation" className="space-y-4">

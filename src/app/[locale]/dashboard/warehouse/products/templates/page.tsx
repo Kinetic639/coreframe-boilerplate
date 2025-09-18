@@ -12,7 +12,8 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/stores/app-store";
 import { templateService } from "@/modules/warehouse/api/template-service";
 import type { TemplateWithAttributes } from "@/modules/warehouse/types/template";
-import { TemplateBasedProductForm } from "@/modules/warehouse/products/components/template-based-product-form";
+import { TemplateBuilder } from "@/modules/warehouse/components/templates/TemplateBuilder";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 
 export default function ProductTemplatesPage() {
@@ -289,7 +290,7 @@ export default function ProductTemplatesPage() {
       </div>
 
       {/* Product Creation Dialog */}
-      <TemplateBasedProductForm
+      <Dialog
         open={showCreateProductDialog}
         onOpenChange={(open) => {
           setShowCreateProductDialog(open);
@@ -297,14 +298,27 @@ export default function ProductTemplatesPage() {
             setSelectedTemplateForProduct(null);
           }
         }}
-        preSelectedTemplate={selectedTemplateForProduct}
-        onSuccess={() => {
-          setShowCreateProductDialog(false);
-          setSelectedTemplateForProduct(null);
-          // Optionally navigate to products page or refresh
-          toast.success("Produkt został utworzony pomyślnie");
-        }}
-      />
+      >
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          {selectedTemplateForProduct && (
+            <TemplateBuilder
+              builderType="product"
+              productMode="create"
+              baseTemplate={selectedTemplateForProduct}
+              onSave={() => {
+                setShowCreateProductDialog(false);
+                setSelectedTemplateForProduct(null);
+                toast.success("Produkt został utworzony pomyślnie");
+                // Optionally navigate to products page or refresh
+              }}
+              onCancel={() => {
+                setShowCreateProductDialog(false);
+                setSelectedTemplateForProduct(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
