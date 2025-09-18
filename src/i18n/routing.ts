@@ -107,6 +107,18 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/products/templates",
       pl: "/dashboard/magazyn/produkty/szablony",
     },
+    "/dashboard/warehouse/products/templates/create": {
+      en: "/dashboard/warehouse/products/templates/create",
+      pl: "/dashboard/magazyn/produkty/szablony/utworz",
+    },
+    "/dashboard/warehouse/products/templates/edit/[id]": {
+      en: "/dashboard/warehouse/products/templates/edit/[id]",
+      pl: "/dashboard/magazyn/produkty/szablony/edytuj/[id]",
+    },
+    "/dashboard/warehouse/products/templates/clone/[id]": {
+      en: "/dashboard/warehouse/products/templates/clone/[id]",
+      pl: "/dashboard/magazyn/produkty/szablony/klonuj/[id]",
+    },
     "/dashboard/warehouse/products/create": {
       en: "/dashboard/warehouse/products/create",
       pl: "/dashboard/magazyn/produkty/utworz",
