@@ -118,12 +118,7 @@ export class FlexibleProductService {
 
       if (variantError) throw variantError;
 
-      // Create product attributes
-      if (Object.keys(attributes).length > 0) {
-        await this.createProductAttributes(product.id, null, attributes, "warehouse");
-      }
-
-      // Create variant attributes if different from product attributes
+      // Create variant attributes (attributes are associated with variants, not products directly)
       if (Object.keys(attributes).length > 0) {
         await this.createProductAttributes(product.id, variant.id, attributes, "warehouse");
       }

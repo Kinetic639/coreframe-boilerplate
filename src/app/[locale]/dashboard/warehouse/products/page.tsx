@@ -12,22 +12,18 @@ import { ProductFilters } from "@/modules/warehouse/products/components/product-
 import { ProductCard } from "@/modules/warehouse/products/components/product-card";
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
-import { NewProductFormDialog } from "@/modules/warehouse/products/components/new-product-form-dialog";
 import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
 import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type DisplayMode = "grid" | "list" | "table";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const { activeBranchId, isLoaded } = useAppStore();
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [selectedProduct, setSelectedProduct] = React.useState<ProductWithDetails | undefined>(
-    undefined
-  );
 
   // Product data state
   const [products, setProducts] = React.useState<ProductWithDetails[]>([]);
@@ -44,20 +40,14 @@ export default function ProductsPage() {
   const [currentFilters, setCurrentFilters] = React.useState<any>({});
 
   const handleAddNew = () => {
-    setSelectedProduct(undefined);
-    setIsFormOpen(true);
+    // Redirect to templates page for template-based product creation
+    router.push("/dashboard/warehouse/products/templates");
   };
 
   // const handleAddNewOld = () => {
   //   setSelectedProduct(undefined);
   //   setIsFormOpen(true);
   // };
-
-  const handleProductSuccess = () => {
-    // Refresh the product list
-    loadProducts();
-    // console.log("Product operation completed successfully");
-  };
 
   // Load products from Supabase
   const loadProducts = React.useCallback(async () => {
@@ -254,12 +244,6 @@ export default function ProductsPage() {
           </Card>
         </Suspense>
       </motion.div>
-      <NewProductFormDialog
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        product={selectedProduct}
-        onSuccess={handleProductSuccess}
-      />
     </div>
   );
 }
