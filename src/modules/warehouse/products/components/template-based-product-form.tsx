@@ -31,7 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -53,7 +53,12 @@ type FormStep = "template" | "product";
 
 // Create form schema based on template attributes
 function createFormSchema(attributes: ProductAttributeDefinition[]) {
-  const schemaFields: Record<string, z.ZodTypeAny> = {};
+  const schemaFields: Record<string, z.ZodTypeAny> = {
+    // Always include basic product fields
+    product_name: z.string().min(1, "Product name is required"),
+    product_description: z.string().optional(),
+    variant_name: z.string().optional(),
+  };
 
   attributes.forEach((attr) => {
     let fieldSchema: z.ZodTypeAny;
@@ -103,7 +108,12 @@ function createFormSchema(attributes: ProductAttributeDefinition[]) {
 
 // Create default values based on template attributes
 function createDefaultValues(attributes: ProductAttributeDefinition[]): Record<string, any> {
-  const defaultValues: Record<string, any> = {};
+  const defaultValues: Record<string, any> = {
+    // Default values for basic product fields
+    product_name: "",
+    product_description: "",
+    variant_name: "",
+  };
 
   attributes.forEach((attr) => {
     if (attr.default_value !== undefined && attr.default_value !== null) {
@@ -212,8 +222,35 @@ export function TemplateBasedProductForm({
     }
   }, [open, form]);
 
-  const handleTemplateSelect = (templateData: TemplateWithAttributes) => {
-    setSelectedTemplate(templateData);
+  const handleTemplateSelect = (templateData: TemplateWithAttributes | null) => {
+    if (templateData === null) {
+      // Create a minimal template for basic product creation
+      const basicTemplate: TemplateWithAttributes = {
+        template: {
+          id: "no-template",
+          name: "Basic Product",
+          slug: "basic-product",
+          description: "Basic product without template",
+          organization_id: activeOrgId,
+          parent_template_id: null,
+          is_system: false,
+          is_active: true,
+          category: "basic",
+          icon: "Package",
+          color: "#6366f1",
+          supported_contexts: ["warehouse"],
+          settings: {},
+          created_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        attributes: [], // No template attributes
+        attribute_count: 0,
+      };
+      setSelectedTemplate(basicTemplate);
+    } else {
+      setSelectedTemplate(templateData);
+    }
     setCurrentStep("product");
   };
 
@@ -267,12 +304,15 @@ export function TemplateBasedProductForm({
 
       // Create the product
       const createData = {
-        template_id: selectedTemplate.template.id,
+        template_id:
+          selectedTemplate.template.id === "no-template" ? undefined : selectedTemplate.template.id,
         organization_id: activeOrgId,
-        name: `Product from ${selectedTemplate.template.name}`,
-        description: `Product created using ${selectedTemplate.template.name} template`,
+        name: data.product_name || `Product from ${selectedTemplate.template.name}`,
+        description:
+          data.product_description ||
+          `Product created using ${selectedTemplate.template.name} template`,
         status: "active" as const,
-        variant_name: `Default Variant`,
+        variant_name: data.variant_name || "Default Variant",
         attributes: attributesObject,
       };
 
@@ -471,11 +511,25 @@ export function TemplateBasedProductForm({
                       </div>
                     </div>
                   )}
+
+                  {/* Option to skip template selection */}
+                  <div className="rounded-lg border border-dashed p-6 text-center">
+                    <h3 className="mb-2 font-medium">Create Product Without Template</h3>
+                    <p className="mb-4 text-sm text-muted-foreground">
+                      Create a basic product with just name and description, no predefined
+                      attributes
+                    </p>
+                    <Button variant="outline" onClick={() => handleTemplateSelect(null)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Basic Product
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
           ) : (
-            selectedTemplate && (
+            selectedTemplate &&
+            currentStep === "product" && (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="flex items-center gap-2 rounded-lg bg-muted p-4">
@@ -487,9 +541,72 @@ export function TemplateBasedProductForm({
 
                   <ScrollArea className="h-[400px] pr-4">
                     <div className="space-y-6">
-                      {selectedTemplate.attributes.map((attr) => (
-                        <div key={attr.slug || attr.id}>{renderAttributeField(attr)}</div>
-                      ))}
+                      {/* Basic Product Fields */}
+                      <div className="space-y-4 rounded-lg border p-4">
+                        <h4 className="text-sm font-medium text-muted-foreground">
+                          Basic Product Information
+                        </h4>
+
+                        <FormField
+                          control={form.control}
+                          name="product_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Product Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter product name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="product_description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Product Description</FormLabel>
+                              <FormControl>
+                                <Textarea
+                                  placeholder="Enter product description (optional)"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="variant_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Variant Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Default Variant" {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Name for the default product variant
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Template Attributes */}
+                      {selectedTemplate.attributes.length > 0 && (
+                        <div className="space-y-4 rounded-lg border p-4">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Template Attributes
+                          </h4>
+                          {selectedTemplate.attributes.map((attr) => (
+                            <div key={attr.slug || attr.id}>{renderAttributeField(attr)}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </ScrollArea>
                 </form>

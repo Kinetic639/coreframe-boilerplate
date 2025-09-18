@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/stores/app-store";
 import { templateService } from "@/modules/warehouse/api/template-service";
 import type { TemplateWithAttributes } from "@/modules/warehouse/types/template";
+import { TemplateBasedProductForm } from "@/modules/warehouse/products/components/template-based-product-form";
 import { toast } from "react-toastify";
 
 export default function ProductTemplatesPage() {
@@ -22,6 +23,7 @@ export default function ProductTemplatesPage() {
   const [organizationTemplates, setOrganizationTemplates] = React.useState<
     TemplateWithAttributes[]
   >([]);
+  const [showCreateProductDialog, setShowCreateProductDialog] = React.useState(false);
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -143,6 +145,16 @@ export default function ProductTemplatesPage() {
                   </div>
                   <div className="mt-4 flex gap-2">
                     <Button
+                      variant="default"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setShowCreateProductDialog(true)}
+                      disabled={!activeOrgId}
+                    >
+                      <Plus className="mr-2 h-3 w-3" />
+                      Utwórz produkt
+                    </Button>
+                    <Button
                       variant="outline"
                       size="sm"
                       className="flex-1"
@@ -208,6 +220,14 @@ export default function ProductTemplatesPage() {
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowCreateProductDialog(true)}
+                      >
+                        <Plus className="mr-2 h-3 w-3" />
+                        Utwórz produkt
+                      </Button>
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() =>
@@ -260,6 +280,17 @@ export default function ProductTemplatesPage() {
           </Card>
         )}
       </div>
+
+      {/* Product Creation Dialog */}
+      <TemplateBasedProductForm
+        open={showCreateProductDialog}
+        onOpenChange={setShowCreateProductDialog}
+        onSuccess={() => {
+          setShowCreateProductDialog(false);
+          // Optionally navigate to products page or refresh
+          toast.success("Produkt został utworzony pomyślnie");
+        }}
+      />
     </motion.div>
   );
 }
