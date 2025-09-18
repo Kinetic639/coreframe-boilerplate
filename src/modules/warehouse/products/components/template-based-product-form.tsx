@@ -13,27 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { ArrowLeft, ArrowRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { DynamicFormFields } from "@/components/ui/dynamic-form-field";
 import { useAppStore } from "@/lib/stores/app-store";
 import { templateService } from "@/modules/warehouse/api/template-service";
 import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
@@ -41,24 +28,21 @@ import type {
   TemplateWithAttributes,
   ProductAttributeDefinition,
 } from "@/modules/warehouse/types/template";
+import type { AttributeValue } from "@/modules/warehouse/types/flexible-products";
 import { toast } from "react-toastify";
 
 interface TemplateBasedProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  preSelectedTemplate?: TemplateWithAttributes | null;
 }
 
 type FormStep = "template" | "product";
 
 // Create form schema based on template attributes
 function createFormSchema(attributes: ProductAttributeDefinition[]) {
-  const schemaFields: Record<string, z.ZodTypeAny> = {
-    // Always include basic product fields
-    product_name: z.string().min(1, "Product name is required"),
-    product_description: z.string().optional(),
-    variant_name: z.string().optional(),
-  };
+  const schemaFields: Record<string, z.ZodTypeAny> = {};
 
   attributes.forEach((attr) => {
     let fieldSchema: z.ZodTypeAny;
@@ -107,13 +91,8 @@ function createFormSchema(attributes: ProductAttributeDefinition[]) {
 }
 
 // Create default values based on template attributes
-function createDefaultValues(attributes: ProductAttributeDefinition[]): Record<string, any> {
-  const defaultValues: Record<string, any> = {
-    // Default values for basic product fields
-    product_name: "",
-    product_description: "",
-    variant_name: "",
-  };
+function createDefaultValues(attributes: ProductAttributeDefinition[]): Record<string, unknown> {
+  const defaultValues: Record<string, unknown> = {};
 
   attributes.forEach((attr) => {
     if (attr.default_value !== undefined && attr.default_value !== null) {
@@ -148,6 +127,7 @@ export function TemplateBasedProductForm({
   open,
   onOpenChange,
   onSuccess,
+  preSelectedTemplate,
 }: TemplateBasedProductFormProps) {
   const { activeOrgId } = useAppStore();
   const [currentStep, setCurrentStep] = React.useState<FormStep>("template");
@@ -162,35 +142,122 @@ export function TemplateBasedProductForm({
   const [selectedTemplate, setSelectedTemplate] = React.useState<TemplateWithAttributes | null>(
     null
   );
+  const [customFields, setCustomFields] = React.useState<ProductAttributeDefinition[]>([]);
 
-  // Create schema and default values based on selected template
+  // Create combined attributes (basic fields + template + custom)
+  const allAttributes = React.useMemo(() => {
+    if (!selectedTemplate) return [];
+
+    // Always include basic product fields as the first attributes
+    const basicAttributes: ProductAttributeDefinition[] = [
+      {
+        id: "product_name",
+        template_id: selectedTemplate.template.id,
+        slug: "product_name",
+        label: { en: "Product Name" },
+        data_type: "text",
+        is_required: true,
+        is_unique: false,
+        context_scope: "warehouse",
+        display_order: 1,
+        is_searchable: true,
+        is_filterable: true,
+        input_type: "text",
+        validation_rules: { min_length: 1 },
+        default_value: null,
+        placeholder: { en: "Enter product name" },
+        description: null,
+        help_text: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: "product_description",
+        template_id: selectedTemplate.template.id,
+        slug: "product_description",
+        label: { en: "Product Description" },
+        data_type: "text",
+        is_required: false,
+        is_unique: false,
+        context_scope: "warehouse",
+        display_order: 2,
+        is_searchable: true,
+        is_filterable: false,
+        input_type: "textarea",
+        validation_rules: null,
+        default_value: null,
+        placeholder: { en: "Enter product description (optional)" },
+        description: null,
+        help_text: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: "variant_name",
+        template_id: selectedTemplate.template.id,
+        slug: "variant_name",
+        label: { en: "Variant Name" },
+        data_type: "text",
+        is_required: false,
+        is_unique: false,
+        context_scope: "warehouse",
+        display_order: 3,
+        is_searchable: true,
+        is_filterable: true,
+        input_type: "text",
+        validation_rules: null,
+        default_value: "Default Variant",
+        placeholder: { en: "Default Variant" },
+        description: { en: "Name for the default product variant" },
+        help_text: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+
+    // Combine basic fields with template attributes and custom fields
+    // Adjust display_order for template and custom fields to come after basic fields
+    const templateAttributes = selectedTemplate.attributes.map((attr) => ({
+      ...attr,
+      display_order: attr.display_order + 10,
+    }));
+
+    const adjustedCustomFields = customFields.map((field, index) => ({
+      ...field,
+      display_order: 20 + templateAttributes.length + index,
+    }));
+
+    return [...basicAttributes, ...templateAttributes, ...adjustedCustomFields];
+  }, [selectedTemplate, customFields]);
+
+  // Create schema and default values based on all attributes
   const formSchema = React.useMemo(() => {
     if (!selectedTemplate) {
       return z.object({});
     }
-    return createFormSchema(selectedTemplate.attributes);
-  }, [selectedTemplate]);
+    return createFormSchema(allAttributes);
+  }, [selectedTemplate, allAttributes]);
 
   const defaultValues = React.useMemo(() => {
     if (!selectedTemplate) {
       return {};
     }
-    return createDefaultValues(selectedTemplate.attributes);
-  }, [selectedTemplate]);
+    return createDefaultValues(allAttributes);
+  }, [selectedTemplate, allAttributes]);
 
   // Initialize form with proper default values
-  const form = useForm<Record<string, any>>({
+  const form = useForm<Record<string, unknown>>({
     resolver: zodResolver(formSchema),
     defaultValues,
     mode: "onChange",
   });
 
-  // Reset form when template changes
+  // Reset form when attributes change
   React.useEffect(() => {
     if (selectedTemplate) {
       form.reset(defaultValues);
     }
-  }, [selectedTemplate, defaultValues, form]);
+  }, [selectedTemplate, defaultValues, form, allAttributes]);
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -210,17 +277,23 @@ export function TemplateBasedProductForm({
   React.useEffect(() => {
     if (open && activeOrgId) {
       loadTemplates();
+      // If a template is pre-selected, skip template selection
+      if (preSelectedTemplate) {
+        setSelectedTemplate(preSelectedTemplate);
+        setCurrentStep("product");
+      }
     }
-  }, [open, activeOrgId, loadTemplates]);
+  }, [open, activeOrgId, loadTemplates, preSelectedTemplate]);
 
   // Reset when dialog closes
   React.useEffect(() => {
     if (!open) {
-      setCurrentStep("template");
-      setSelectedTemplate(null);
+      setCurrentStep(preSelectedTemplate ? "product" : "template");
+      setSelectedTemplate(preSelectedTemplate || null);
+      setCustomFields([]);
       form.reset({});
     }
-  }, [open, form]);
+  }, [open, form, preSelectedTemplate]);
 
   const handleTemplateSelect = (templateData: TemplateWithAttributes | null) => {
     if (templateData === null) {
@@ -228,8 +301,8 @@ export function TemplateBasedProductForm({
       const basicTemplate: TemplateWithAttributes = {
         template: {
           id: "no-template",
-          name: "Basic Product",
-          slug: "basic-product",
+          name: "Blank Product",
+          slug: "blank-product",
           description: "Basic product without template",
           organization_id: activeOrgId,
           parent_template_id: null,
@@ -248,8 +321,10 @@ export function TemplateBasedProductForm({
         attribute_count: 0,
       };
       setSelectedTemplate(basicTemplate);
+      setCustomFields([]); // Reset custom fields for blank template
     } else {
       setSelectedTemplate(templateData);
+      setCustomFields([]); // Reset custom fields for any template
     }
     setCurrentStep("product");
   };
@@ -257,49 +332,56 @@ export function TemplateBasedProductForm({
   const handleBack = () => {
     setCurrentStep("template");
     setSelectedTemplate(null);
+    setCustomFields([]);
     form.reset({});
   };
 
-  const onSubmit = async (data: Record<string, any>) => {
+  const onSubmit = async (data: Record<string, unknown>) => {
     if (!selectedTemplate || !activeOrgId) return;
 
     try {
       setSubmitting(true);
 
       // Transform form data into product attributes
-      const attributesObject: Record<string, any> = {};
+      const attributesObject: Record<string, AttributeValue> = {};
 
       Object.entries(data).forEach(([key, value]) => {
-        const attrDef = selectedTemplate.attributes.find((attr) => attr.slug === key);
+        const attrDef = allAttributes.find((attr) => attr.slug === key);
         if (!attrDef || value === undefined || value === null) return;
 
-        let processedValue: any = value;
-
-        // Handle different data types
+        // Handle different data types and create proper AttributeValue
         switch (attrDef.data_type) {
           case "date":
-            processedValue = value instanceof Date ? value.toISOString() : value;
+            attributesObject[key] = {
+              type: "date",
+              value: value instanceof Date ? value.toISOString() : String(value),
+            };
             break;
           case "json":
-            processedValue = typeof value === "object" ? value : {};
+            attributesObject[key] = {
+              type: "json",
+              value: typeof value === "object" ? value : {},
+            };
             break;
           case "boolean":
-            processedValue = Boolean(value);
+            attributesObject[key] = {
+              type: "boolean",
+              value: Boolean(value),
+            };
             break;
           case "number":
-            processedValue = Number(value);
+            attributesObject[key] = {
+              type: "number",
+              value: Number(value),
+            };
             break;
           case "text":
           default:
-            processedValue = String(value);
+            attributesObject[key] = {
+              type: "text",
+              value: String(value),
+            };
         }
-
-        attributesObject[key] = {
-          type: attrDef.data_type,
-          value: processedValue,
-          context: attrDef.context_scope || "warehouse",
-          locale: "en",
-        };
       });
 
       // Create the product
@@ -307,12 +389,13 @@ export function TemplateBasedProductForm({
         template_id:
           selectedTemplate.template.id === "no-template" ? undefined : selectedTemplate.template.id,
         organization_id: activeOrgId,
-        name: data.product_name || `Product from ${selectedTemplate.template.name}`,
-        description:
+        name: String(data.product_name || `Product from ${selectedTemplate.template.name}`),
+        description: String(
           data.product_description ||
-          `Product created using ${selectedTemplate.template.name} template`,
+            `Product created using ${selectedTemplate.template.name} template`
+        ),
         status: "active" as const,
-        variant_name: data.variant_name || "Default Variant",
+        variant_name: String(data.variant_name || "Default Variant"),
         attributes: attributesObject,
       };
 
@@ -329,101 +412,52 @@ export function TemplateBasedProductForm({
     }
   };
 
-  const renderAttributeField = (attr: ProductAttributeDefinition) => {
-    const currentLocale = "en"; // Get from context if needed
+  const addCustomField = () => {
+    const newFieldIndex = customFields.length + 1;
+    const newField: ProductAttributeDefinition = {
+      id: `custom-${Date.now()}`,
+      template_id: selectedTemplate?.template.id || "no-template",
+      slug: `custom_field_${newFieldIndex}`,
+      label: { en: `Custom Field ${newFieldIndex}` },
+      data_type: "text",
+      is_required: false,
+      is_unique: false,
+      context_scope: "warehouse",
+      display_order: selectedTemplate
+        ? selectedTemplate.attributes.length + customFields.length + 1
+        : customFields.length + 1,
+      is_searchable: false,
+      is_filterable: false,
+      input_type: "text",
+      validation_rules: null,
+      default_value: null,
+      placeholder: null,
+      description: null,
+      help_text: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setCustomFields([...customFields, newField]);
+  };
 
-    const label =
-      attr.label && typeof attr.label === "object"
-        ? attr.label[currentLocale] || attr.label["en"] || attr.slug
-        : attr.slug;
+  const removeCustomField = (fieldId: string) => {
+    setCustomFields(customFields.filter((field) => field.id !== fieldId));
+    // Also remove the field value from the form
+    const fieldToRemove = customFields.find((field) => field.id === fieldId);
+    if (fieldToRemove) {
+      const currentValues = form.getValues();
+      delete currentValues[fieldToRemove.slug];
+      form.reset(currentValues);
+    }
+  };
 
-    const description =
-      attr.description && typeof attr.description === "object"
-        ? attr.description[currentLocale] || attr.description["en"] || ""
-        : "";
-
-    const placeholder =
-      attr.placeholder && typeof attr.placeholder === "object"
-        ? attr.placeholder[currentLocale] || attr.placeholder["en"] || ""
-        : "";
-
-    return (
-      <FormField
-        key={attr.slug}
-        control={form.control}
-        name={attr.slug}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="flex items-center gap-2">
-              {label}
-              {attr.is_required && <span className="text-red-500">*</span>}
-              <Badge variant="outline" className="text-xs">
-                {attr.context_scope}
-              </Badge>
-            </FormLabel>
-            <FormControl>
-              {attr.data_type === "text" ? (
-                <Input
-                  placeholder={placeholder}
-                  {...field}
-                  value={field.value || ""} // Ensure controlled input
-                />
-              ) : attr.data_type === "number" ? (
-                <Input
-                  type="number"
-                  placeholder={placeholder}
-                  {...field}
-                  value={field.value || ""} // Ensure controlled input
-                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
-                />
-              ) : attr.data_type === "boolean" ? (
-                <div className="flex items-center space-x-2">
-                  <Checkbox checked={field.value || false} onCheckedChange={field.onChange} />
-                  <span className="text-sm">{placeholder || label}</span>
-                </div>
-              ) : attr.data_type === "date" ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? (
-                        format(field.value, "PPP")
-                      ) : (
-                        <span>{placeholder || "Pick a date"}</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <Textarea
-                  placeholder={placeholder}
-                  className="min-h-[80px]"
-                  {...field}
-                  value={field.value || ""} // Ensure controlled input
-                />
-              )}
-            </FormControl>
-            {description && <FormDescription>{description}</FormDescription>}
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+  const updateCustomField = (fieldId: string, updates: Partial<ProductAttributeDefinition>) => {
+    setCustomFields(
+      customFields.map((field) => (field.id === fieldId ? { ...field, ...updates } : field))
     );
   };
+
+  const isBlankTemplate = selectedTemplate?.template.id === "no-template";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -448,37 +482,83 @@ export function TemplateBasedProductForm({
                 </div>
               ) : (
                 <>
-                  {systemTemplates.length > 0 && (
-                    <div>
-                      <h3 className="mb-3 text-lg font-semibold">System Templates</h3>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        {systemTemplates.map((template) => (
-                          <Card
-                            key={template.template.id}
-                            className="cursor-pointer transition-colors hover:bg-accent"
-                            onClick={() => handleTemplateSelect(template)}
-                          >
-                            <CardHeader className="pb-3">
-                              <CardTitle className="flex items-center gap-2 text-base">
-                                {template.template.icon && (
-                                  <span className="text-lg">{template.template.icon}</span>
-                                )}
-                                {template.template.name}
-                                <Badge variant="secondary" className="ml-auto">
-                                  {template.attribute_count} fields
-                                </Badge>
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <p className="text-sm text-muted-foreground">
-                                {template.template.description || "No description available"}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                  <div>
+                    <h3 className="mb-3 text-lg font-semibold">Templates</h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {/* Blank template as first option */}
+                      <Card
+                        className="cursor-pointer transition-colors hover:bg-accent"
+                        onClick={() => handleTemplateSelect(null)}
+                      >
+                        <CardHeader className="pb-3">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Plus className="h-4 w-4" />
+                            Blank Product
+                            <Badge variant="secondary" className="ml-auto">
+                              0 fields
+                            </Badge>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-muted-foreground">
+                            Create a basic product with just name and description
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      {/* System templates */}
+                      {systemTemplates.map((template) => (
+                        <Card
+                          key={template.template.id}
+                          className="cursor-pointer transition-colors hover:bg-accent"
+                          onClick={() => handleTemplateSelect(template)}
+                        >
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              {template.template.icon && (
+                                <span className="text-lg">{template.template.icon}</span>
+                              )}
+                              {template.template.name}
+                              <Badge variant="secondary" className="ml-auto">
+                                {template.attribute_count} fields
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {template.template.description || "No description available"}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
+
+                      {/* Organization templates */}
+                      {organizationTemplates.map((template) => (
+                        <Card
+                          key={template.template.id}
+                          className="cursor-pointer transition-colors hover:bg-accent"
+                          onClick={() => handleTemplateSelect(template)}
+                        >
+                          <CardHeader className="pb-3">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              {template.template.icon && (
+                                <span className="text-lg">{template.template.icon}</span>
+                              )}
+                              {template.template.name}
+                              <Badge variant="secondary" className="ml-auto">
+                                {template.attribute_count} fields
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                              {template.template.description || "No description available"}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   {organizationTemplates.length > 0 && (
                     <div>
@@ -511,19 +591,6 @@ export function TemplateBasedProductForm({
                       </div>
                     </div>
                   )}
-
-                  {/* Option to skip template selection */}
-                  <div className="rounded-lg border border-dashed p-6 text-center">
-                    <h3 className="mb-2 font-medium">Create Product Without Template</h3>
-                    <p className="mb-4 text-sm text-muted-foreground">
-                      Create a basic product with just name and description, no predefined
-                      attributes
-                    </p>
-                    <Button variant="outline" onClick={() => handleTemplateSelect(null)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Basic Product
-                    </Button>
-                  </div>
                 </>
               )}
             </div>
@@ -541,72 +608,115 @@ export function TemplateBasedProductForm({
 
                   <ScrollArea className="h-[400px] pr-4">
                     <div className="space-y-6">
-                      {/* Basic Product Fields */}
+                      {/* Dynamic Form Fields */}
                       <div className="space-y-4 rounded-lg border p-4">
-                        <h4 className="text-sm font-medium text-muted-foreground">
-                          Basic Product Information
-                        </h4>
-
-                        <FormField
-                          control={form.control}
-                          name="product_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Product Name *</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Enter product name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="product_description"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Product Description</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Enter product description (optional)"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="variant_name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Variant Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Default Variant" {...field} />
-                              </FormControl>
-                              <FormDescription>
-                                Name for the default product variant
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Template Attributes */}
-                      {selectedTemplate.attributes.length > 0 && (
-                        <div className="space-y-4 rounded-lg border p-4">
+                        <div className="flex items-center justify-between">
                           <h4 className="text-sm font-medium text-muted-foreground">
-                            Template Attributes
+                            Product Information
                           </h4>
-                          {selectedTemplate.attributes.map((attr) => (
-                            <div key={attr.slug || attr.id}>{renderAttributeField(attr)}</div>
-                          ))}
+                          {isBlankTemplate && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addCustomField}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Field
+                            </Button>
+                          )}
                         </div>
-                      )}
+
+                        {allAttributes.length > 0 ? (
+                          <div className="space-y-4">
+                            <DynamicFormFields
+                              attributes={allAttributes}
+                              values={Object.keys(form.getValues()).reduce(
+                                (acc, key) => {
+                                  acc[key] = form.getValues(key);
+                                  return acc;
+                                },
+                                {} as Record<string, unknown>
+                              )}
+                              errors={Object.keys(form.formState.errors).reduce(
+                                (acc, key) => {
+                                  const error = form.formState.errors[key];
+                                  if (error && typeof error === "object" && "message" in error) {
+                                    acc[key] = (error.message as string) || null;
+                                  } else {
+                                    acc[key] = null;
+                                  }
+                                  return acc;
+                                },
+                                {} as Record<string, string | null>
+                              )}
+                              onChange={(fieldKey, value) => form.setValue(fieldKey, value)}
+                              locale="en"
+                            />
+
+                            {/* Custom field management for blank template */}
+                            {isBlankTemplate && customFields.length > 0 && (
+                              <div className="space-y-2">
+                                <h5 className="text-sm font-medium text-muted-foreground">
+                                  Custom Fields Management
+                                </h5>
+                                {customFields.map((field) => (
+                                  <div
+                                    key={field.id}
+                                    className="flex items-center gap-2 rounded border p-2"
+                                  >
+                                    <div className="flex-1">
+                                      <Input
+                                        placeholder="Field label"
+                                        value={
+                                          typeof field.label === "object"
+                                            ? field.label.en
+                                            : field.label
+                                        }
+                                        onChange={(e) =>
+                                          updateCustomField(field.id, {
+                                            label: { en: e.target.value },
+                                            slug: e.target.value
+                                              .toLowerCase()
+                                              .replace(/\s+/g, "_")
+                                              .replace(/[^a-z0-9_]/g, ""),
+                                          })
+                                        }
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeCustomField(field.id)}
+                                      className="text-red-600 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          isBlankTemplate && (
+                            <div className="py-8 text-center text-muted-foreground">
+                              <p className="text-sm">No attributes added yet.</p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addCustomField}
+                                className="mt-2"
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Your First Field
+                              </Button>
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
                   </ScrollArea>
                 </form>
