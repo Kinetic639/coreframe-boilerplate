@@ -107,61 +107,18 @@ export default function ProductTemplatesPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => router.push("/dashboard/warehouse/products/templates/create")}
           >
             <Plus className="mr-2 h-4 w-4" />
-            Pusty szablon
-          </Button>
-          <Button onClick={() => router.push("/dashboard/warehouse/products/templates/create")}>
-            <Plus className="mr-2 h-4 w-4" />
             Utwórz szablon
+          </Button>
+          <Button onClick={() => router.push("/dashboard/warehouse/products")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Dodaj produkt
           </Button>
         </div>
       </div>
-
-      {/* Quick Start */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div
-              className="flex cursor-pointer items-center gap-4 rounded-lg border-2 border-dashed p-4 transition-colors hover:border-primary hover:bg-muted/50"
-              onClick={() => router.push("/dashboard/warehouse/products/templates/create")}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Plus className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium">Pusty szablon</h3>
-                <p className="text-sm text-muted-foreground">
-                  Zacznij od zera i stwórz własny szablon
-                </p>
-              </div>
-            </div>
-            <div
-              className="flex cursor-pointer items-center gap-4 rounded-lg border-2 border-dashed p-4 transition-colors hover:border-primary hover:bg-muted/50"
-              onClick={() => {
-                const firstTemplate = systemTemplates[0];
-                if (firstTemplate) {
-                  router.push(
-                    `/dashboard/warehouse/products/templates/clone/${firstTemplate.template.id}`
-                  );
-                }
-              }}
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary/50">
-                <Copy className="h-6 w-6 text-secondary-foreground" />
-              </div>
-              <div>
-                <h3 className="font-medium">Sklonuj szablon</h3>
-                <p className="text-sm text-muted-foreground">
-                  Dostosuj gotowy szablon do swoich potrzeb
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* System Templates */}
       <div>
@@ -170,7 +127,10 @@ export default function ProductTemplatesPage() {
           {systemTemplates.map((templateData) => {
             const template = templateData.template;
             return (
-              <Card key={template.id} className="transition-shadow hover:shadow-md">
+              <Card
+                key={template.id}
+                className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -245,7 +205,10 @@ export default function ProductTemplatesPage() {
             {organizationTemplates.map((templateData) => {
               const template = templateData.template;
               return (
-                <Card key={template.id} className="transition-shadow hover:shadow-md">
+                <Card
+                  key={template.id}
+                  className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
+                >
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
