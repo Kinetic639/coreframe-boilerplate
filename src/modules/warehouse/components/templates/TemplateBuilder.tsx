@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
@@ -32,6 +33,10 @@ import {
   FileText,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
+  Maximize2,
+  Minimize2,
+  Package,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
@@ -165,6 +170,10 @@ export function TemplateBuilder({
   const { activeOrgId } = useAppStore();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Accordion and batch operation state
+  const [collapsedFields, setCollapsedFields] = useState<Set<string>>(new Set());
+  const [selectedFields, setSelectedFields] = useState<Set<number>>(new Set());
+
   const isProductBuilder = builderType === "product";
   const schema = isProductBuilder ? productBuilderSchema : templateBuilderSchema;
 
@@ -287,6 +296,54 @@ export function TemplateBuilder({
       : [...current, context];
     setValue("supported_contexts", updated);
   };
+
+  // Accordion and batch operation handlers
+  const toggleFieldCollapse = (fieldId: string) => {
+    const newCollapsed = new Set(collapsedFields);
+    if (newCollapsed.has(fieldId)) {
+      newCollapsed.delete(fieldId);
+    } else {
+      newCollapsed.add(fieldId);
+    }
+    setCollapsedFields(newCollapsed);
+  };
+
+  const collapseAllFields = () => {
+    const allFieldIds = new Set(fields.map((field) => field.id));
+    setCollapsedFields(allFieldIds);
+  };
+
+  const expandAllFields = () => {
+    setCollapsedFields(new Set());
+  };
+
+  const toggleFieldSelection = (index: number) => {
+    const newSelected = new Set(selectedFields);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedFields(newSelected);
+  };
+
+  const selectAllFields = () => {
+    const allIndices = new Set(fields.map((_, index) => index));
+    setSelectedFields(allIndices);
+  };
+
+  const deselectAllFields = () => {
+    setSelectedFields(new Set());
+  };
+
+  const removeSelectedFields = () => {
+    const indicesToRemove = Array.from(selectedFields).sort((a, b) => b - a);
+    indicesToRemove.forEach((index) => remove(index));
+    setSelectedFields(new Set());
+  };
+
+  const isAllSelected = fields.length > 0 && selectedFields.size === fields.length;
+  const isPartiallySelected = selectedFields.size > 0 && selectedFields.size < fields.length;
 
   const onSubmit = async (data: TemplateBuilderFormData | ProductBuilderFormData) => {
     if (!activeOrgId) {
@@ -604,6 +661,68 @@ export function TemplateBuilder({
             </div>
           </CardHeader>
           <CardContent>
+            {/* Toolbar for batch operations (only in template mode) */}
+            {!isProductBuilder && fields.length > 0 && (
+              <div className="mb-4 flex items-center justify-between rounded-md border bg-muted/20 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={isAllSelected}
+                      ref={(el: any) => {
+                        if (el) el.indeterminate = isPartiallySelected;
+                      }}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          selectAllFields();
+                        } else {
+                          deselectAllFields();
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      {selectedFields.size > 0 ? `${selectedFields.size} selected` : "Select all"}
+                    </span>
+                  </div>
+
+                  {selectedFields.size > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeSelectedFields}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        Remove ({selectedFields.size})
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={expandAllFields}
+                    title="Expand all fields"
+                  >
+                    <Maximize2 className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={collapseAllFields}
+                    title="Collapse all fields"
+                  >
+                    <Minimize2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <AnimatePresence>
                 {fields.map((field, index) => (
@@ -612,18 +731,28 @@ export function TemplateBuilder({
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className="rounded-lg border p-4"
+                    className="rounded-lg border"
                   >
-                    <div className="flex items-start gap-4">
+                    {/* Accordion Header */}
+                    <div className="flex items-center gap-3 p-4">
+                      {/* Selection checkbox (only in template mode) */}
                       {!isProductBuilder && (
-                        <div className="mt-2 flex flex-col gap-1">
+                        <Checkbox
+                          checked={selectedFields.has(index)}
+                          onCheckedChange={() => toggleFieldSelection(index)}
+                        />
+                      )}
+
+                      {/* Reorder controls (only in template mode) */}
+                      {!isProductBuilder && (
+                        <div className="flex flex-col gap-1">
                           <button
                             type="button"
                             onClick={() => index > 0 && moveField(index, index - 1)}
                             disabled={index === 0}
                             className="text-muted-foreground hover:text-foreground disabled:opacity-50"
                           >
-                            <ChevronUp className="h-4 w-4" />
+                            <ChevronUp className="h-3 w-3" />
                           </button>
                           <button
                             type="button"
@@ -631,37 +760,63 @@ export function TemplateBuilder({
                             disabled={index === fields.length - 1}
                             className="text-muted-foreground hover:text-foreground disabled:opacity-50"
                           >
-                            <ChevronDown className="h-4 w-4" />
+                            <ChevronDown className="h-3 w-3" />
                           </button>
                         </div>
                       )}
 
-                      <div className="flex-1 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {React.createElement(
-                              DATA_TYPE_ICONS[watchedAttributes[index]?.data_type] || Type,
-                              { className: "h-4 w-4" }
-                            )}
-                            <span className="font-medium">
-                              {watchedAttributes[index]?.label?.en || `Field ${index + 1}`}
-                            </span>
-                            <Badge variant="secondary" className="text-xs">
-                              {watchedAttributes[index]?.data_type}
+                      {/* Field header - clickable to toggle collapse */}
+                      <div
+                        className="flex flex-1 cursor-pointer items-center justify-between"
+                        onClick={() => toggleFieldCollapse(field.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          {React.createElement(
+                            DATA_TYPE_ICONS[watchedAttributes[index]?.data_type] || Type,
+                            { className: "h-4 w-4" }
+                          )}
+                          <span className="font-medium">
+                            {watchedAttributes[index]?.label?.en || `Field ${index + 1}`}
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {watchedAttributes[index]?.data_type}
+                          </Badge>
+                          {isProductBuilder && watchedAttributes[index]?.is_required && (
+                            <Badge variant="destructive" className="text-xs">
+                              Required
                             </Badge>
-                          </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Individual remove button (only in template mode) */}
                           {!isProductBuilder && (
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => removeField(index)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeField(index);
+                              }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
-                        </div>
 
+                          {/* Collapse indicator */}
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${
+                              !collapsedFields.has(field.id) ? "rotate-90" : ""
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Accordion Content */}
+                    {!collapsedFields.has(field.id) && (
+                      <div className="border-t px-4 pb-4 pt-4">
                         {isProductBuilder ? (
                           // Product mode: Only show the value input
                           <div className="space-y-2">
@@ -847,13 +1002,13 @@ export function TemplateBuilder({
                           </Tabs>
                         )}
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
 
-            {fields.length === 0 && (
+            {fields.length === 0 && !isProductBuilder && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Settings className="mb-4 h-12 w-12 text-muted-foreground" />
                 <h3 className="mb-2 text-lg font-medium">No fields defined</h3>
@@ -864,6 +1019,16 @@ export function TemplateBuilder({
                   <Plus className="mr-2 h-4 w-4" />
                   Add Your First Field
                 </Button>
+              </div>
+            )}
+
+            {fields.length === 0 && isProductBuilder && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Package className="mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2 text-lg font-medium">No attributes in template</h3>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  This template doesn't have any attributes defined yet.
+                </p>
               </div>
             )}
           </CardContent>
