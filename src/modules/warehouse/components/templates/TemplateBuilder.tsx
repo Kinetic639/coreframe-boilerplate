@@ -497,100 +497,110 @@ export function TemplateBuilder({
           </Card>
         )}
 
-        {/* Basic Template Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Template Information</CardTitle>
-            <CardDescription>Basic details about your template</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Template Name *</Label>
-                <Input id="name" {...register("name")} placeholder="e.g., Electronics Inventory" />
-                {errors.name && (
-                  <p className="text-sm text-destructive">
-                    {String(
-                      typeof errors.name === "string" ? errors.name : errors.name?.message || ""
-                    )}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select onValueChange={(value) => setValue("category", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEMPLATE_CATEGORIES.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                {...register("description")}
-                placeholder="Describe what this template is used for..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="color">Color</Label>
-                <div className="flex gap-2">
-                  <Input id="color" type="color" {...register("color")} className="w-20" />
-                  <Input {...register("color")} placeholder="#10b981" className="flex-1" />
+        {/* Basic Template Info - Only show in template mode */}
+        {!isProductBuilder && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Template Information</CardTitle>
+              <CardDescription>Basic details about your template</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Template Name *</Label>
+                  <Input
+                    id="name"
+                    {...register("name")}
+                    placeholder="e.g., Electronics Inventory"
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">
+                      {String(
+                        typeof errors.name === "string" ? errors.name : errors.name?.message || ""
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select onValueChange={(value) => setValue("category", value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEMPLATE_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="icon">Icon Name</Label>
-                <Input id="icon" {...register("icon")} placeholder="e.g., Package, Laptop, Car" />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Supported Contexts</Label>
-              <div className="flex flex-wrap gap-2">
-                {AVAILABLE_CONTEXTS.map((context) => (
-                  <Badge
-                    key={context.value}
-                    variant={
-                      watchedSupportedContexts?.includes(context.value) ? "default" : "outline"
-                    }
-                    className="cursor-pointer"
-                    onClick={() => toggleContext(context.value)}
-                  >
-                    {context.label}
-                  </Badge>
-                ))}
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  {...register("description")}
+                  placeholder="Describe what this template is used for..."
+                  rows={3}
+                />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="color">Color</Label>
+                  <div className="flex gap-2">
+                    <Input id="color" type="color" {...register("color")} className="w-20" />
+                    <Input {...register("color")} placeholder="#10b981" className="flex-1" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="icon">Icon Name</Label>
+                  <Input id="icon" {...register("icon")} placeholder="e.g., Package, Laptop, Car" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Supported Contexts</Label>
+                <div className="flex flex-wrap gap-2">
+                  {AVAILABLE_CONTEXTS.map((context) => (
+                    <Badge
+                      key={context.value}
+                      variant={
+                        watchedSupportedContexts?.includes(context.value) ? "default" : "outline"
+                      }
+                      className="cursor-pointer"
+                      onClick={() => toggleContext(context.value)}
+                    >
+                      {context.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Fields Builder */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Custom Fields</CardTitle>
+                <CardTitle>{isProductBuilder ? "Product Attributes" : "Custom Fields"}</CardTitle>
                 <CardDescription>
-                  Define the attributes that products using this template will have
+                  {isProductBuilder
+                    ? "Fill in the values for each attribute defined in the template"
+                    : "Define the attributes that products using this template will have"}
                 </CardDescription>
               </div>
-              <Button type="button" onClick={addField} variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Field
-              </Button>
+              {!isProductBuilder && (
+                <Button type="button" onClick={addField} variant="outline">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Field
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -605,24 +615,26 @@ export function TemplateBuilder({
                     className="rounded-lg border p-4"
                   >
                     <div className="flex items-start gap-4">
-                      <div className="mt-2 flex flex-col gap-1">
-                        <button
-                          type="button"
-                          onClick={() => index > 0 && moveField(index, index - 1)}
-                          disabled={index === 0}
-                          className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => index < fields.length - 1 && moveField(index, index + 1)}
-                          disabled={index === fields.length - 1}
-                          className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                      </div>
+                      {!isProductBuilder && (
+                        <div className="mt-2 flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => index > 0 && moveField(index, index - 1)}
+                            disabled={index === 0}
+                            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => index < fields.length - 1 && moveField(index, index + 1)}
+                            disabled={index === fields.length - 1}
+                            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
 
                       <div className="flex-1 space-y-4">
                         <div className="flex items-center justify-between">
@@ -638,201 +650,202 @@ export function TemplateBuilder({
                               {watchedAttributes[index]?.data_type}
                             </Badge>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeField(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!isProductBuilder && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeField(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
 
-                        <Tabs defaultValue="basic" className="w-full">
-                          <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="basic">Basic</TabsTrigger>
-                            <TabsTrigger value="validation">Validation</TabsTrigger>
-                            <TabsTrigger value="display">Display</TabsTrigger>
-                          </TabsList>
+                        {isProductBuilder ? (
+                          // Product mode: Only show the value input
+                          <div className="space-y-2">
+                            <Label>Value</Label>
+                            <Input
+                              {...register(`attributes.${index}.value` as keyof typeof register)}
+                              placeholder={`Enter value for ${watchedAttributes[index]?.label?.en || "this field"}...`}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              The actual value for this attribute in your product
+                            </p>
+                          </div>
+                        ) : (
+                          // Template mode: Show full configuration tabs
+                          <Tabs defaultValue="basic" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
+                              <TabsTrigger value="basic">Basic</TabsTrigger>
+                              <TabsTrigger value="validation">Validation</TabsTrigger>
+                              <TabsTrigger value="display">Display</TabsTrigger>
+                            </TabsList>
 
-                          <TabsContent value="basic" className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label>Field Slug *</Label>
-                                <Input
-                                  {...register(`attributes.${index}.slug`)}
-                                  placeholder="field_name"
-                                />
+                            <TabsContent value="basic" className="space-y-4">
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Field Slug *</Label>
+                                  <Input
+                                    {...register(`attributes.${index}.slug`)}
+                                    placeholder="field_name"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Data Type *</Label>
+                                  <Select
+                                    onValueChange={(value) =>
+                                      setValue(`attributes.${index}.data_type`, value as any)
+                                    }
+                                    value={watchedAttributes[index]?.data_type || "text"}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="text">Text</SelectItem>
+                                      <SelectItem value="number">Number</SelectItem>
+                                      <SelectItem value="boolean">Boolean</SelectItem>
+                                      <SelectItem value="date">Date</SelectItem>
+                                      <SelectItem value="json">JSON</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label>Data Type *</Label>
-                                <Select
-                                  onValueChange={(value) =>
-                                    setValue(`attributes.${index}.data_type`, value as any)
-                                  }
-                                  value={watchedAttributes[index]?.data_type || "text"}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="text">Text</SelectItem>
-                                    <SelectItem value="number">Number</SelectItem>
-                                    <SelectItem value="boolean">Boolean</SelectItem>
-                                    <SelectItem value="date">Date</SelectItem>
-                                    <SelectItem value="json">JSON</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label>English Label *</Label>
-                                <Input
-                                  {...register(`attributes.${index}.label.en`)}
-                                  placeholder="Field Name"
-                                />
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>English Label *</Label>
+                                  <Input
+                                    {...register(`attributes.${index}.label.en`)}
+                                    placeholder="Field Name"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Polish Label *</Label>
+                                  <Input
+                                    {...register(`attributes.${index}.label.pl`)}
+                                    placeholder="Nazwa Pola"
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label>Polish Label *</Label>
-                                <Input
-                                  {...register(`attributes.${index}.label.pl`)}
-                                  placeholder="Nazwa Pola"
-                                />
-                              </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label>English Description</Label>
-                                <Textarea
-                                  {...register(`attributes.${index}.description.en`)}
-                                  placeholder="Field description..."
-                                  rows={2}
-                                />
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>English Description</Label>
+                                  <Textarea
+                                    {...register(`attributes.${index}.description.en`)}
+                                    placeholder="Field description..."
+                                    rows={2}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Polish Description</Label>
+                                  <Textarea
+                                    {...register(`attributes.${index}.description.pl`)}
+                                    placeholder="Opis pola..."
+                                    rows={2}
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label>Polish Description</Label>
-                                <Textarea
-                                  {...register(`attributes.${index}.description.pl`)}
-                                  placeholder="Opis pola..."
-                                  rows={2}
-                                />
-                              </div>
-                            </div>
+                            </TabsContent>
 
-                            {/* Value field for product mode */}
-                            {isProductBuilder && (
-                              <div className="space-y-2">
-                                <Label>Value</Label>
-                                <Input
-                                  {...register(
-                                    `attributes.${index}.value` as keyof typeof register
-                                  )}
-                                  placeholder={`Enter value for ${watchedAttributes[index]?.label?.en || "this field"}...`}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  The actual value for this attribute in your product
-                                </p>
+                            <TabsContent value="validation" className="space-y-4">
+                              <div className="flex flex-wrap gap-4">
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={watchedAttributes[index]?.is_required || false}
+                                    onCheckedChange={(checked) =>
+                                      setValue(`attributes.${index}.is_required`, checked)
+                                    }
+                                  />
+                                  <Label>Required</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={watchedAttributes[index]?.is_unique || false}
+                                    onCheckedChange={(checked) =>
+                                      setValue(`attributes.${index}.is_unique`, checked)
+                                    }
+                                  />
+                                  <Label>Unique</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={watchedAttributes[index]?.is_searchable !== false}
+                                    onCheckedChange={(checked) =>
+                                      setValue(`attributes.${index}.is_searchable`, checked)
+                                    }
+                                  />
+                                  <Label>Searchable</Label>
+                                </div>
                               </div>
-                            )}
-                          </TabsContent>
+                            </TabsContent>
 
-                          <TabsContent value="validation" className="space-y-4">
-                            <div className="flex flex-wrap gap-4">
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={watchedAttributes[index]?.is_required || false}
-                                  onCheckedChange={(checked) =>
-                                    setValue(`attributes.${index}.is_required`, checked)
-                                  }
-                                />
-                                <Label>Required</Label>
+                            <TabsContent value="display" className="space-y-4">
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>Input Type</Label>
+                                  <Select
+                                    onValueChange={(value) =>
+                                      setValue(`attributes.${index}.input_type`, value)
+                                    }
+                                    value={watchedAttributes[index]?.input_type || "text"}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {FIELD_INPUT_TYPES.map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          {type.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Context</Label>
+                                  <Select
+                                    onValueChange={(value) =>
+                                      setValue(`attributes.${index}.context_scope`, value)
+                                    }
+                                    value={watchedAttributes[index]?.context_scope || "warehouse"}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {AVAILABLE_CONTEXTS.map((context) => (
+                                        <SelectItem key={context.value} value={context.value}>
+                                          {context.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={watchedAttributes[index]?.is_unique || false}
-                                  onCheckedChange={(checked) =>
-                                    setValue(`attributes.${index}.is_unique`, checked)
-                                  }
-                                />
-                                <Label>Unique</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Switch
-                                  checked={watchedAttributes[index]?.is_searchable !== false}
-                                  onCheckedChange={(checked) =>
-                                    setValue(`attributes.${index}.is_searchable`, checked)
-                                  }
-                                />
-                                <Label>Searchable</Label>
-                              </div>
-                            </div>
-                          </TabsContent>
 
-                          <TabsContent value="display" className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label>Input Type</Label>
-                                <Select
-                                  onValueChange={(value) =>
-                                    setValue(`attributes.${index}.input_type`, value)
-                                  }
-                                  value={watchedAttributes[index]?.input_type || "text"}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {FIELD_INPUT_TYPES.map((type) => (
-                                      <SelectItem key={type.value} value={type.value}>
-                                        {type.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                  <Label>English Placeholder</Label>
+                                  <Input
+                                    {...register(`attributes.${index}.placeholder.en`)}
+                                    placeholder="Enter value..."
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>Polish Placeholder</Label>
+                                  <Input
+                                    {...register(`attributes.${index}.placeholder.pl`)}
+                                    placeholder="Wprowadź wartość..."
+                                  />
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label>Context</Label>
-                                <Select
-                                  onValueChange={(value) =>
-                                    setValue(`attributes.${index}.context_scope`, value)
-                                  }
-                                  value={watchedAttributes[index]?.context_scope || "warehouse"}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {AVAILABLE_CONTEXTS.map((context) => (
-                                      <SelectItem key={context.value} value={context.value}>
-                                        {context.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label>English Placeholder</Label>
-                                <Input
-                                  {...register(`attributes.${index}.placeholder.en`)}
-                                  placeholder="Enter value..."
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Polish Placeholder</Label>
-                                <Input
-                                  {...register(`attributes.${index}.placeholder.pl`)}
-                                  placeholder="Wprowadź wartość..."
-                                />
-                              </div>
-                            </div>
-                          </TabsContent>
-                        </Tabs>
+                            </TabsContent>
+                          </Tabs>
+                        )}
                       </div>
                     </div>
                   </motion.div>
