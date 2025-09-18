@@ -7,7 +7,19 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, File, Settings, Copy, Trash2, Loader2, Edit } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Plus,
+  File,
+  Settings,
+  Copy,
+  Trash2,
+  Loader2,
+  Edit,
+  LayoutGrid,
+  List,
+  Table as TableIcon,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/stores/app-store";
 import { templateService } from "@/modules/warehouse/api/template-service";
@@ -15,6 +27,297 @@ import type { TemplateWithAttributes } from "@/modules/warehouse/types/template"
 import { TemplateBuilder } from "@/modules/warehouse/components/templates/TemplateBuilder";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
+
+type DisplayMode = "grid" | "list" | "table";
+
+// Template rendering helpers
+const renderTemplateCard = (
+  templateData: TemplateWithAttributes,
+  onCreateProduct: (template: TemplateWithAttributes) => void,
+  router: any,
+  onEdit?: (templateId: string) => void,
+  onDelete?: (templateId: string) => void
+) => {
+  const template = templateData.template;
+  const isSystemTemplate = template.is_system;
+
+  return (
+    <Card
+      key={template.id}
+      className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${template.color}20`, color: template.color }}
+            >
+              <File className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{template.name}</CardTitle>
+            </div>
+          </div>
+          <Badge variant={isSystemTemplate ? "secondary" : "default"} className="text-xs">
+            {isSystemTemplate ? "System" : "Własny"}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{template.description}</p>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">{templateData.attribute_count} atrybutów</span>
+          <div className="flex gap-1">
+            {template.supported_contexts.map((context) => (
+              <Badge key={context} variant="outline" className="text-xs">
+                {context}
+              </Badge>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            className="flex-1"
+            onClick={() => onCreateProduct(templateData)}
+          >
+            <Plus className="mr-2 h-3 w-3" />
+            Utwórz produkt
+          </Button>
+          {!isSystemTemplate && onEdit && (
+            <Button variant="outline" size="sm" onClick={() => onEdit(template.id)}>
+              <Edit className="mr-2 h-3 w-3" />
+              Edytuj
+            </Button>
+          )}
+          {!isSystemTemplate ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
+                }
+              >
+                <Copy className="mr-2 h-3 w-3" />
+                Klonuj
+              </Button>
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => onDelete(template.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
+                }
+              >
+                <Copy className="mr-2 h-3 w-3" />
+                Klonuj
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Settings className="h-3 w-3" />
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const renderTemplateList = (
+  templateData: TemplateWithAttributes,
+  onCreateProduct: (template: TemplateWithAttributes) => void,
+  router: any,
+  onEdit?: (templateId: string) => void,
+  onDelete?: (templateId: string) => void
+) => {
+  const template = templateData.template;
+  const isSystemTemplate = template.is_system;
+
+  return (
+    <Card
+      key={template.id}
+      className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${template.color}20`, color: template.color }}
+            >
+              <File className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <div className="mb-1 flex items-center gap-2">
+                <h3 className="font-semibold">{template.name}</h3>
+                <Badge variant={isSystemTemplate ? "secondary" : "default"} className="text-xs">
+                  {isSystemTemplate ? "System" : "Własny"}
+                </Badge>
+              </div>
+              <p className="mb-2 text-sm text-muted-foreground">{template.description}</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{templateData.attribute_count} atrybutów</span>
+                <div className="flex gap-1">
+                  {template.supported_contexts.map((context) => (
+                    <Badge key={context} variant="outline" className="text-xs">
+                      {context}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="default" size="sm" onClick={() => onCreateProduct(templateData)}>
+              <Plus className="mr-2 h-3 w-3" />
+              Utwórz produkt
+            </Button>
+            {!isSystemTemplate && onEdit && (
+              <Button variant="outline" size="sm" onClick={() => onEdit(template.id)}>
+                <Edit className="mr-2 h-3 w-3" />
+                Edytuj
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
+              }
+            >
+              <Copy className="mr-2 h-3 w-3" />
+              Klonuj
+            </Button>
+            {!isSystemTemplate && onDelete && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive"
+                onClick={() => onDelete(template.id)}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const renderTemplateTable = (
+  templates: TemplateWithAttributes[],
+  onCreateProduct: (template: TemplateWithAttributes) => void,
+  router: any,
+  onEdit?: (templateId: string) => void,
+  onDelete?: (templateId: string) => void
+) => {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b">
+            <th className="p-3 text-left font-semibold">Szablon</th>
+            <th className="p-3 text-left font-semibold">Typ</th>
+            <th className="p-3 text-left font-semibold">Atrybuty</th>
+            <th className="p-3 text-left font-semibold">Konteksty</th>
+            <th className="p-3 text-right font-semibold">Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {templates.map((templateData) => {
+            const template = templateData.template;
+            const isSystemTemplate = template.is_system;
+
+            return (
+              <tr key={template.id} className="border-b transition-colors hover:bg-muted/20">
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: `${template.color}20`, color: template.color }}
+                    >
+                      <File className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="font-medium">{template.name}</div>
+                      <div className="text-sm text-muted-foreground">{template.description}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="p-3">
+                  <Badge variant={isSystemTemplate ? "secondary" : "default"} className="text-xs">
+                    {isSystemTemplate ? "System" : "Własny"}
+                  </Badge>
+                </td>
+                <td className="p-3 text-muted-foreground">{templateData.attribute_count}</td>
+                <td className="p-3">
+                  <div className="flex gap-1">
+                    {template.supported_contexts.map((context) => (
+                      <Badge key={context} variant="outline" className="text-xs">
+                        {context}
+                      </Badge>
+                    ))}
+                  </div>
+                </td>
+                <td className="p-3">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => onCreateProduct(templateData)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                    {!isSystemTemplate && onEdit && (
+                      <Button variant="outline" size="sm" onClick={() => onEdit(template.id)}>
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
+                      }
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    {!isSystemTemplate && onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => onDelete(template.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export default function ProductTemplatesPage() {
   const router = useRouter();
@@ -27,6 +330,7 @@ export default function ProductTemplatesPage() {
   const [showCreateProductDialog, setShowCreateProductDialog] = React.useState(false);
   const [selectedTemplateForProduct, setSelectedTemplateForProduct] =
     React.useState<TemplateWithAttributes | null>(null);
+  const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -75,6 +379,10 @@ export default function ProductTemplatesPage() {
       console.error("Error deleting template:", error);
       toast.error("Błąd podczas usuwania szablonu");
     }
+  };
+
+  const handleEditTemplate = (templateId: string) => {
+    router.push(`/dashboard/warehouse/products/templates/edit/${templateId}`);
   };
 
   const handleCreateProductWithTemplate = (template: TemplateWithAttributes) => {
@@ -144,172 +452,116 @@ export default function ProductTemplatesPage() {
         </div>
       </div>
 
+      {/* View Controls */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Widok szablonów</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-end">
+            <ToggleGroup
+              type="single"
+              value={displayMode}
+              onValueChange={(value: DisplayMode) => value && setDisplayMode(value)}
+              aria-label="Wybierz tryb wyświetlania"
+            >
+              <ToggleGroupItem value="grid" aria-label="Widok siatki" className="rounded-l-[6px]">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="Widok listy">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="table" aria-label="Widok tabeli" className="rounded-r-[6px]">
+                <TableIcon className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* System Templates */}
       <div>
         <h2 className="mb-4 text-xl font-semibold">Szablony systemowe</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {systemTemplates.map((templateData) => {
-            const template = templateData.template;
-            return (
-              <Card
-                key={template.id}
-                className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="flex h-8 w-8 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${template.color}20`, color: template.color }}
-                      >
-                        <File className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base">{template.name}</CardTitle>
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      System
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{template.description}</p>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {templateData.attribute_count} atrybutów
-                    </span>
-                    <div className="flex gap-1">
-                      {template.supported_contexts.map((context) => (
-                        <Badge key={context} variant="outline" className="text-xs">
-                          {context}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleCreateProductWithTemplate(templateData)}
-                      disabled={!activeOrgId}
-                    >
-                      <Plus className="mr-2 h-3 w-3" />
-                      Utwórz produkt
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() =>
-                        router.push(`/dashboard/warehouse/products/templates/clone/${template.id}`)
-                      }
-                      disabled={!activeOrgId}
-                    >
-                      <Copy className="mr-2 h-3 w-3" />
-                      Klonuj
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Settings className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        {displayMode === "grid" && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {systemTemplates.map((templateData) =>
+              renderTemplateCard(
+                templateData,
+                handleCreateProductWithTemplate,
+                router,
+                handleEditTemplate,
+                handleDeleteTemplate
+              )
+            )}
+          </div>
+        )}
+        {displayMode === "list" && (
+          <div className="space-y-4">
+            {systemTemplates.map((templateData) =>
+              renderTemplateList(
+                templateData,
+                handleCreateProductWithTemplate,
+                router,
+                handleEditTemplate,
+                handleDeleteTemplate
+              )
+            )}
+          </div>
+        )}
+        {displayMode === "table" &&
+          renderTemplateTable(
+            systemTemplates,
+            handleCreateProductWithTemplate,
+            router,
+            handleEditTemplate,
+            handleDeleteTemplate
+          )}
       </div>
 
       {/* Organization Templates */}
       <div>
         <h2 className="mb-4 text-xl font-semibold">Szablony organizacji</h2>
         {organizationTemplates.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {organizationTemplates.map((templateData) => {
-              const template = templateData.template;
-              return (
-                <Card
-                  key={template.id}
-                  className="cursor-pointer transition-all hover:border-primary hover:bg-muted/20 hover:shadow-md"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="flex h-8 w-8 items-center justify-center rounded-lg"
-                          style={{ backgroundColor: `${template.color}20`, color: template.color }}
-                        >
-                          <File className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{template.name}</CardTitle>
-                        </div>
-                      </div>
-                      <Badge variant="default" className="text-xs">
-                        Własny
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{template.description}</p>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {templateData.attribute_count} atrybutów
-                      </span>
-                      <div className="flex gap-1">
-                        {template.supported_contexts.map((context) => (
-                          <Badge key={context} variant="outline" className="text-xs">
-                            {context}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="mt-4 flex gap-2">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handleCreateProductWithTemplate(templateData)}
-                      >
-                        <Plus className="mr-2 h-3 w-3" />
-                        Utwórz produkt
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          router.push(`/dashboard/warehouse/products/templates/edit/${template.id}`)
-                        }
-                      >
-                        <Edit className="mr-2 h-3 w-3" />
-                        Edytuj
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          router.push(
-                            `/dashboard/warehouse/products/templates/clone/${template.id}`
-                          )
-                        }
-                      >
-                        <Copy className="mr-2 h-3 w-3" />
-                        Klonuj
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() => handleDeleteTemplate(template.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <>
+            {displayMode === "grid" && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {organizationTemplates.map((templateData) =>
+                  renderTemplateCard(
+                    templateData,
+                    handleCreateProductWithTemplate,
+                    router,
+                    handleEditTemplate,
+                    handleDeleteTemplate
+                  )
+                )}
+              </div>
+            )}
+            {displayMode === "list" && (
+              <div className="space-y-4">
+                {organizationTemplates.map((templateData) =>
+                  renderTemplateList(
+                    templateData,
+                    handleCreateProductWithTemplate,
+                    router,
+                    handleEditTemplate,
+                    handleDeleteTemplate
+                  )
+                )}
+              </div>
+            )}
+            {displayMode === "table" &&
+              renderTemplateTable(
+                organizationTemplates,
+                handleCreateProductWithTemplate,
+                router,
+                handleEditTemplate,
+                handleDeleteTemplate
+              )}
+          </>
         ) : (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
