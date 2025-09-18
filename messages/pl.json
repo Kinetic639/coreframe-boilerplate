@@ -715,7 +715,6 @@
           "title": "Produkty",
           "overview": "Przegląd produktów",
           "templates": "Szablony produktów",
-          "create": "Utwórz produkt",
           "import": "Importuj produkty"
         },
         "inventory": {

@@ -52,12 +52,6 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             icon: "FileTemplate",
           },
           {
-            id: "products-create",
-            label: "modules.warehouse.items.products.create",
-            path: "/dashboard/warehouse/products/create",
-            icon: "Plus",
-          },
-          {
             id: "products-import",
             label: "modules.warehouse.items.products.import",
             path: "/dashboard/warehouse/products/import",

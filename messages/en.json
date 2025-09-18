@@ -761,7 +761,6 @@
           "title": "Products",
           "overview": "Product Overview",
           "templates": "Product Templates",
-          "create": "Create Product",
           "import": "Import Products"
         },
         "inventory": {
