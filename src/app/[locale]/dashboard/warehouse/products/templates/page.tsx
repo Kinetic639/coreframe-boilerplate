@@ -24,6 +24,8 @@ export default function ProductTemplatesPage() {
     TemplateWithAttributes[]
   >([]);
   const [showCreateProductDialog, setShowCreateProductDialog] = React.useState(false);
+  const [selectedTemplateForProduct, setSelectedTemplateForProduct] =
+    React.useState<TemplateWithAttributes | null>(null);
 
   const loadTemplates = useCallback(async () => {
     try {
@@ -72,6 +74,11 @@ export default function ProductTemplatesPage() {
       console.error("Error deleting template:", error);
       toast.error("Błąd podczas usuwania szablonu");
     }
+  };
+
+  const handleCreateProductWithTemplate = (template: TemplateWithAttributes) => {
+    setSelectedTemplateForProduct(template);
+    setShowCreateProductDialog(true);
   };
 
   if (loading) {
@@ -148,7 +155,7 @@ export default function ProductTemplatesPage() {
                       variant="default"
                       size="sm"
                       className="flex-1"
-                      onClick={() => setShowCreateProductDialog(true)}
+                      onClick={() => handleCreateProductWithTemplate(templateData)}
                       disabled={!activeOrgId}
                     >
                       <Plus className="mr-2 h-3 w-3" />
@@ -222,7 +229,7 @@ export default function ProductTemplatesPage() {
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={() => setShowCreateProductDialog(true)}
+                        onClick={() => handleCreateProductWithTemplate(templateData)}
                       >
                         <Plus className="mr-2 h-3 w-3" />
                         Utwórz produkt
@@ -284,9 +291,16 @@ export default function ProductTemplatesPage() {
       {/* Product Creation Dialog */}
       <TemplateBasedProductForm
         open={showCreateProductDialog}
-        onOpenChange={setShowCreateProductDialog}
+        onOpenChange={(open) => {
+          setShowCreateProductDialog(open);
+          if (!open) {
+            setSelectedTemplateForProduct(null);
+          }
+        }}
+        preSelectedTemplate={selectedTemplateForProduct}
         onSuccess={() => {
           setShowCreateProductDialog(false);
+          setSelectedTemplateForProduct(null);
           // Optionally navigate to products page or refresh
           toast.success("Produkt został utworzony pomyślnie");
         }}
