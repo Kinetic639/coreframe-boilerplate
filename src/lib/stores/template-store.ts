@@ -213,6 +213,7 @@ export const useTemplateStore = create<TemplateStore>()(
             template: {
               id: row.template_id,
               name: row.template_name,
+              slug: row.template_slug || "",
               description: row.description,
               organization_id: row.organization_id,
               parent_template_id: row.parent_template_id,
