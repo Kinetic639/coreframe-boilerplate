@@ -71,6 +71,7 @@ export class FlexibleProductService {
   async createProduct(productData: CreateProductData): Promise<ProductWithDetails> {
     const {
       template_id,
+      organization_id,
       name,
       slug,
       description,
@@ -88,6 +89,7 @@ export class FlexibleProductService {
       const { data: product, error: productError } = await this.supabase
         .from("products")
         .insert({
+          organization_id,
           template_id,
           name,
           slug: slug || this.generateSlug(name),

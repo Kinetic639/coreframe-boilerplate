@@ -1,6 +1,7 @@
 export interface ProductTemplate {
   id: string;
   name: string;
+  slug: string;
   description?: string;
   organization_id?: string;
   parent_template_id?: string;
@@ -47,6 +48,7 @@ export interface TemplateWithAttributes {
 
 export interface CreateTemplateRequest {
   name: string;
+  slug?: string; // Optional - will be auto-generated from name if not provided
   description?: string;
   organization_id?: string;
   parent_template_id?: string;
