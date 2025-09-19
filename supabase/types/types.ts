@@ -1653,6 +1653,7 @@ export type Database = {
       };
       product_templates: {
         Row: {
+          category: string | null;
           color: string | null;
           created_at: string | null;
           deleted_at: string | null;
@@ -1668,6 +1669,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          category?: string | null;
           color?: string | null;
           created_at?: string | null;
           deleted_at?: string | null;
@@ -1683,6 +1685,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          category?: string | null;
           color?: string | null;
           created_at?: string | null;
           deleted_at?: string | null;
@@ -1721,6 +1724,7 @@ export type Database = {
           deleted_at: string | null;
           id: string;
           is_default: boolean | null;
+          metadata: Json | null;
           name: string;
           product_id: string;
           sku: string | null;
@@ -1734,6 +1738,7 @@ export type Database = {
           deleted_at?: string | null;
           id?: string;
           is_default?: boolean | null;
+          metadata?: Json | null;
           name: string;
           product_id: string;
           sku?: string | null;
@@ -1747,6 +1752,7 @@ export type Database = {
           deleted_at?: string | null;
           id?: string;
           is_default?: boolean | null;
+          metadata?: Json | null;
           name?: string;
           product_id?: string;
           sku?: string | null;
@@ -3195,9 +3201,17 @@ export type Database = {
         };
         Returns: number;
       };
+      compare_variants: {
+        Args: { p_variant_ids: string[] };
+        Returns: Json;
+      };
       create_direct_chat: {
         Args: { br_id: string; org_id: string; other_user_id: string };
         Returns: string;
+      };
+      create_variant_batch: {
+        Args: { p_product_id: string; p_variants: Json };
+        Returns: Json;
       };
       custom_access_token_hook: {
         Args: { event: Json };
@@ -3206,6 +3220,17 @@ export type Database = {
       debug_roles: {
         Args: { uid: string };
         Returns: Json;
+      };
+      generate_variant_combinations: {
+        Args: { p_matrix: Json; p_options?: Json; p_product_id: string };
+        Returns: Json;
+      };
+      generate_variant_skus: {
+        Args: { p_pattern?: string; p_product_id: string };
+        Returns: {
+          generated_sku: string;
+          variant_id: string;
+        }[];
       };
       get_all_templates_for_org: {
         Args: { p_organization_id?: string };
@@ -3372,6 +3397,38 @@ export type Database = {
         Args: { user_uuid: string };
         Returns: Json;
       };
+      get_variant_performance: {
+        Args: { p_date_from?: string; p_date_to?: string; p_product_id: string };
+        Returns: {
+          current_stock: number;
+          last_sale_date: string;
+          performance_score: number;
+          stock_value: number;
+          total_quantity_sold: number;
+          total_sales: number;
+          variant_id: string;
+          variant_name: string;
+          variant_sku: string;
+        }[];
+      };
+      get_variant_stock_summary: {
+        Args: {
+          p_branch_id?: string;
+          p_organization_id?: string;
+          p_variant_ids?: string[];
+        };
+        Returns: {
+          last_movement_date: string;
+          location_count: number;
+          total_available: number;
+          total_on_hand: number;
+          total_reserved: number;
+          total_value: number;
+          variant_id: string;
+          variant_name: string;
+          variant_sku: string;
+        }[];
+      };
       handle_user_signup_hook: {
         Args: { event: Json };
         Returns: Json;
@@ -3406,6 +3463,10 @@ export type Database = {
       };
       test_jwt_claims: {
         Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      update_variant_pricing: {
+        Args: { p_pricing_updates: Json };
         Returns: Json;
       };
       user_has_permission: {

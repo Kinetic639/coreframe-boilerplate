@@ -92,6 +92,7 @@ export type CreateVariantData = {
   sku?: string;
   barcode?: string;
   is_default?: boolean;
+  status?: string;
   attributes?: Record<string, AttributeValue>;
   images?: {
     storage_path: string;
