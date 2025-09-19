@@ -21,6 +21,8 @@ import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
 import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
+import { EnhancedProductForm } from "@/modules/warehouse/products/components/enhanced-product-form";
+import { VariantManagementCard } from "@/modules/warehouse/products/components/variant-management-card";
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -28,6 +30,7 @@ export default function ProductDetailPage() {
   const { activeBranchId } = useAppStore();
   const [product, setProduct] = React.useState<ProductWithDetails | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (id && activeBranchId) {
@@ -131,7 +134,7 @@ export default function ProductDetailPage() {
             )}
           </div>
         </div>
-        <Button>
+        <Button onClick={() => setEditDialogOpen(true)}>
           <Edit className="mr-2 h-4 w-4" />
           Edytuj produkt
         </Button>
@@ -240,42 +243,15 @@ export default function ProductDetailPage() {
         </Card>
       )}
 
-      {/* Stock Information */}
-      {product.variants && product.variants.some((v) => v.stock_snapshots?.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Stan magazynowy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Wariant</TableHead>
-                  <TableHead>Lokalizacja</TableHead>
-                  <TableHead>Na stanie</TableHead>
-                  <TableHead>Zarezerwowane</TableHead>
-                  <TableHead>Dostępne</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {product.variants.map((variant) =>
-                  variant.stock_snapshots?.map((stock, index) => (
-                    <TableRow key={`${variant.id}-${index}`}>
-                      <TableCell className="font-medium">{variant.name}</TableCell>
-                      <TableCell>{`Lokalizacja ${stock.location_id}`}</TableCell>
-                      <TableCell className="font-medium">{stock.quantity_on_hand}</TableCell>
-                      <TableCell className="text-yellow-600">{stock.quantity_reserved}</TableCell>
-                      <TableCell className="font-semibold text-green-600">
-                        {stock.quantity_available}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      {/* Variant Management */}
+      <VariantManagementCard
+        product={product}
+        onProductUpdate={() => {
+          if (id) {
+            fetchProduct(id);
+          }
+        }}
+      />
 
       {/* All Attributes */}
       {product.attributes && product.attributes.length > 0 && (
@@ -317,6 +293,19 @@ export default function ProductDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Product Dialog */}
+      <EnhancedProductForm
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        product={product}
+        onSuccess={() => {
+          setEditDialogOpen(false);
+          if (id) {
+            fetchProduct(id); // Refresh product data
+          }
+        }}
+      />
     </motion.div>
   );
 }
