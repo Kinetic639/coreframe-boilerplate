@@ -100,12 +100,18 @@ const posSchema = z.object({
 
 interface ProductContextViewsProps {
   productId: string;
+  activeContext?: string;
   onDataChange?: (context: string, data: any) => void;
 }
 
-export function ProductContextViews({ productId, onDataChange }: ProductContextViewsProps) {
+export function ProductContextViews({
+  productId,
+  activeContext,
+  onDataChange,
+}: ProductContextViewsProps) {
   const { currentContext, availableContexts } = useContextStore();
-  const [activeTab, setActiveTab] = React.useState(currentContext);
+  const effectiveContext = activeContext || currentContext;
+  const [activeTab, setActiveTab] = React.useState(effectiveContext);
   const [productData, setProductData] = React.useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
@@ -189,12 +195,12 @@ export function ProductContextViews({ productId, onDataChange }: ProductContextV
     loadProductData();
   }, [loadProductData]);
 
-  // Update active tab when current context changes
+  // Update active tab when effective context changes
   React.useEffect(() => {
-    if (availableContexts.some((ctx) => ctx.context_name === currentContext)) {
-      setActiveTab(currentContext);
+    if (availableContexts.some((ctx) => ctx.context_name === effectiveContext)) {
+      setActiveTab(effectiveContext);
     }
-  }, [currentContext, availableContexts]);
+  }, [effectiveContext, availableContexts]);
 
   // Track form changes
   const handleFormChange = (contextName: string) => {

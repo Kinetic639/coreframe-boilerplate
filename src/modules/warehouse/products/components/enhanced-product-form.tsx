@@ -24,7 +24,6 @@ import {
 } from "@/modules/warehouse/components/context/context-switcher";
 import { ProductContextViews } from "./product-context-views";
 import { VariantCreationInterface } from "./variant-creation-interface";
-import { FieldContextConfig } from "./field-context-config";
 import { DynamicFormFields } from "@/components/ui/dynamic-form-field";
 import { useFormStateStore } from "@/lib/stores/form-state-store";
 import { useTemplateStore } from "@/lib/stores/template-store";
@@ -66,7 +65,6 @@ export function EnhancedProductForm({
   const [createdProduct, setCreatedProduct] = React.useState<any>(null);
   const [showContextDialog, setShowContextDialog] = React.useState(false);
   const [showVariantDialog, setShowVariantDialog] = React.useState(false);
-  const [showFieldConfig, setShowFieldConfig] = React.useState(false);
 
   const { activeOrgId } = useAppStore();
   const { currentContext } = useContextStore();
@@ -499,10 +497,7 @@ export function EnhancedProductForm({
                 </CardContent>
               </Card>
 
-              <Card
-                className="cursor-pointer hover:shadow-md"
-                onClick={() => setShowFieldConfig(true)}
-              >
+              <Card className="hover:shadow-md">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
@@ -731,15 +726,6 @@ export function EnhancedProductForm({
       {/* Nested Dialogs */}
       {showContextDialog && createdProduct && (
         <ProductContextViews productId={createdProduct.id} onDataChange={() => {}} />
-      )}
-
-      {showFieldConfig && (
-        <FieldContextConfig
-          open={showFieldConfig}
-          onOpenChange={setShowFieldConfig}
-          templateId={selectedTemplateId}
-          onConfigSaved={() => setShowFieldConfig(false)}
-        />
       )}
 
       {showVariantDialog && createdProduct && (

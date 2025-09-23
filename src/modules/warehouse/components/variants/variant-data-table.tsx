@@ -12,7 +12,7 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@/lib/stubs/react-table";
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
