@@ -18,16 +18,29 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  BusinessContextSwitcher,
-  BusinessContextIndicator,
-} from "@/components/ui/business-context-switcher";
+  ContextSwitcher,
+  ContextIndicator,
+  useContextStore,
+} from "@/modules/warehouse/components/context/context-switcher";
+import { ProductContextViews } from "./product-context-views";
+import { VariantCreationInterface } from "./variant-creation-interface";
+import { FieldContextConfig } from "./field-context-config";
 import { DynamicFormFields } from "@/components/ui/dynamic-form-field";
-import { useBusinessContextStore } from "@/lib/stores/business-context-store";
 import { useFormStateStore } from "@/lib/stores/form-state-store";
 import { useTemplateStore } from "@/lib/stores/template-store";
 import { useProductStore } from "@/lib/stores/product-store";
 import { useAppStore } from "@/lib/stores/app-store";
-import { Loader2, Save, X, ArrowLeft, Package } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  X,
+  ArrowLeft,
+  Package,
+  Layers,
+  Settings,
+  List,
+  Grid3X3,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 
@@ -38,7 +51,7 @@ interface EnhancedProductFormProps {
   onSuccess?: () => void;
 }
 
-type FormStep = "template" | "basic" | "attributes" | "variants" | "review";
+type FormStep = "template" | "basic" | "attributes" | "context" | "variants" | "review";
 
 export function EnhancedProductForm({
   open,
@@ -50,9 +63,13 @@ export function EnhancedProductForm({
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<string>("");
   const [productName, setProductName] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
+  const [createdProduct, setCreatedProduct] = React.useState<any>(null);
+  const [showContextDialog, setShowContextDialog] = React.useState(false);
+  const [showVariantDialog, setShowVariantDialog] = React.useState(false);
+  const [showFieldConfig, setShowFieldConfig] = React.useState(false);
 
   const { activeOrgId } = useAppStore();
-  const { currentContext } = useBusinessContextStore();
+  const { currentContext } = useContextStore();
   const {
     systemTemplates,
     organizationTemplates,
@@ -119,7 +136,7 @@ export function EnhancedProductForm({
           settings: {},
           attribute_definitions: [],
         };
-        initializeForm(templateForForm, currentContext, "edit", attributeValues, product.id);
+        initializeForm(templateForForm, currentContext as any, "edit", attributeValues, product.id);
       }
     } else if (!isEditing && open) {
       // Reset for new product creation
@@ -140,7 +157,11 @@ export function EnhancedProductForm({
     const selectedTemplate = allTemplates.find((t) => t.template.id === templateId);
 
     if (selectedTemplate) {
-      initializeForm(selectedTemplate.template, currentContext, isEditing ? "edit" : "create");
+      initializeForm(
+        selectedTemplate.template,
+        currentContext as any,
+        isEditing ? "edit" : "create"
+      );
       setCurrentStep("basic");
     }
   };
@@ -167,7 +188,10 @@ export function EnhancedProductForm({
           toast.error("Please fix validation errors");
           return;
         }
-        setCurrentStep("review");
+        setCurrentStep("context");
+        break;
+      case "context":
+        setCurrentStep("variants");
         break;
       case "variants":
         setCurrentStep("review");
@@ -186,11 +210,14 @@ export function EnhancedProductForm({
       case "attributes":
         setCurrentStep("basic");
         break;
-      case "variants":
+      case "context":
         setCurrentStep("attributes");
         break;
+      case "variants":
+        setCurrentStep("context");
+        break;
       case "review":
-        setCurrentStep("attributes");
+        setCurrentStep("variants");
         break;
     }
   };
@@ -219,7 +246,7 @@ export function EnhancedProductForm({
         });
         toast.success("Product updated successfully");
       } else {
-        await createProduct({
+        const result = await createProduct({
           template_id: selectedTemplateId,
           name: productName,
           description: productDescription,
@@ -228,6 +255,7 @@ export function EnhancedProductForm({
           attributes,
           variant_name: productName, // Use product name as default variant name
         });
+        setCreatedProduct(result);
         toast.success("Product created successfully");
       }
 
@@ -260,7 +288,7 @@ export function EnhancedProductForm({
               </p>
             </div>
 
-            <BusinessContextIndicator className="mb-4" />
+            <ContextIndicator className="mb-4" />
 
             {isLoadingSystem || isLoadingOrganization ? (
               <div className="flex items-center justify-center py-8">
@@ -368,7 +396,7 @@ export function EnhancedProductForm({
               </p>
             </div>
 
-            <BusinessContextIndicator className="mb-4" />
+            <ContextIndicator className="mb-4" />
 
             <div className="space-y-4">
               <div>
@@ -403,11 +431,11 @@ export function EnhancedProductForm({
               <h3 className="text-lg font-medium">Product Attributes</h3>
               <p className="text-sm text-muted-foreground">
                 Configure attributes specific to the{" "}
-                <BusinessContextIndicator showName={false} className="inline" /> context.
+                <ContextIndicator showName={false} className="inline" /> context.
               </p>
             </div>
 
-            <BusinessContextSwitcher variant="badges" />
+            <ContextSwitcher variant="badges" />
 
             {template && template.attribute_definitions && (
               <ScrollArea className="h-96">
@@ -437,6 +465,142 @@ export function EnhancedProductForm({
             {submitError && (
               <div className="rounded border bg-red-50 p-3 text-sm text-red-600">{submitError}</div>
             )}
+          </div>
+        );
+
+      case "context":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium">Context Configuration</h3>
+              <p className="text-sm text-muted-foreground">
+                Configure how your product appears in different business contexts.
+              </p>
+            </div>
+
+            {/* Context Configuration Options */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Card
+                className="cursor-pointer hover:shadow-md"
+                onClick={() => setShowContextDialog(true)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100">
+                      <Layers className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Context-Specific Data</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Set different prices, descriptions for each context
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer hover:shadow-md"
+                onClick={() => setShowFieldConfig(true)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
+                      <Settings className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Field Configuration</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Configure field behavior and API visibility
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">
+                This step is optional. You can configure context-specific data later from the
+                product detail page.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "variants":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium">Product Variants</h3>
+              <p className="text-sm text-muted-foreground">
+                Create variants like different sizes, colors, or configurations.
+              </p>
+            </div>
+
+            {/* Variant Creation Options */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Card
+                className="cursor-pointer hover:shadow-md"
+                onClick={() => setShowVariantDialog(true)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100">
+                      <Package className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Single Variant</h4>
+                      <p className="text-sm text-muted-foreground">Add one variant manually</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer hover:shadow-md"
+                onClick={() => setShowVariantDialog(true)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100">
+                      <List className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Bulk Creation</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Create multiple variants at once
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card
+                className="cursor-pointer hover:shadow-md"
+                onClick={() => setShowVariantDialog(true)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100">
+                      <Grid3X3 className="h-5 w-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">Attribute Matrix</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Generate all size/color combinations
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">
+                This step is optional. You can create variants later from the product detail page.
+              </p>
+            </div>
           </div>
         );
 
@@ -563,6 +727,33 @@ export function EnhancedProductForm({
           </div>
         </div>
       </DialogContent>
+
+      {/* Nested Dialogs */}
+      {showContextDialog && createdProduct && (
+        <ProductContextViews productId={createdProduct.id} onDataChange={() => {}} />
+      )}
+
+      {showFieldConfig && (
+        <FieldContextConfig
+          open={showFieldConfig}
+          onOpenChange={setShowFieldConfig}
+          templateId={selectedTemplateId}
+          onConfigSaved={() => setShowFieldConfig(false)}
+        />
+      )}
+
+      {showVariantDialog && createdProduct && (
+        <VariantCreationInterface
+          open={showVariantDialog}
+          onOpenChange={setShowVariantDialog}
+          productId={createdProduct.id}
+          existingVariants={[]}
+          onVariantsCreated={() => {
+            setShowVariantDialog(false);
+          }}
+          defaultMode="single"
+        />
+      )}
     </Dialog>
   );
 }
