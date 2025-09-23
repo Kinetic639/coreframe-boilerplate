@@ -1,5 +1,6 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -60,6 +61,7 @@
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@tanstack/react-query": "^5.84.1",
+    "@tanstack/react-table": "^8.21.3",
     "autoprefixer": "10.4.20",
     "bwip-js": "^4.7.0",
     "chart.js": "^4.5.0",

@@ -10,10 +10,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ProductWithVariants } from "@/modules/warehouse/api/products";
-import { Package, Warehouse, DollarSign, EllipsisVertical, ImageIcon } from "lucide-react";
+import {
+  Package,
+  Warehouse,
+  DollarSign,
+  EllipsisVertical,
+  ImageIcon,
+  Layers,
+  Settings,
+} from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ProductAmountCorrectionDialog } from "./product-amount-correction-dialog";
+import { ProductContextViews } from "./product-context-views";
+import { VariantCreationInterface } from "./variant-creation-interface";
+import { ContextIndicator } from "@/modules/warehouse/components/context/context-switcher";
 
 interface ProductCardProps {
   product: ProductWithVariants;
@@ -23,6 +35,8 @@ import { Link } from "@/i18n/navigation";
 
 export function ProductCard({ product }: ProductCardProps) {
   const [isCorrectionDialogOpen, setIsCorrectionDialogOpen] = React.useState(false);
+  const [showContextViews, setShowContextViews] = React.useState(false);
+  const [showVariantCreation, setShowVariantCreation] = React.useState(false);
 
   const totalStock =
     product.variants?.reduce((sum, variant) => {
@@ -77,6 +91,12 @@ export function ProductCard({ product }: ProductCardProps) {
         <CardDescription className="line-clamp-2">
           {product.description || "Brak opisu"}
         </CardDescription>
+        <div className="mt-2 flex items-center gap-2">
+          <ContextIndicator showIcon={true} showName={false} />
+          <Badge variant="outline" className="text-xs">
+            Phase 3 Ready
+          </Badge>
+        </div>
         <div className="mt-2 flex items-center justify-between">
           <div
             className={`text-2xl font-bold ${totalStock > 0 && totalStock < 10 ? "text-red-500" : totalStock === 0 ? "text-red-500" : "text-foreground"}`}
@@ -109,6 +129,28 @@ export function ProductCard({ product }: ProductCardProps) {
             }
           </span>
         </div>
+
+        {/* Quick Actions */}
+        <div className="mt-3 flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowContextViews(true)}
+            className="flex-1"
+          >
+            <Layers className="mr-1 h-3 w-3" />
+            Contexts
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowVariantCreation(true)}
+            className="flex-1"
+          >
+            <Settings className="mr-1 h-3 w-3" />
+            Variants
+          </Button>
+        </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between pt-2">
         <Link
@@ -136,6 +178,22 @@ export function ProductCard({ product }: ProductCardProps) {
           product={product}
         />
       </CardFooter>
+
+      {/* Context and Variant Management Dialogs */}
+      {showContextViews && <ProductContextViews productId={product.id} onDataChange={() => {}} />}
+
+      {showVariantCreation && (
+        <VariantCreationInterface
+          open={showVariantCreation}
+          onOpenChange={setShowVariantCreation}
+          productId={product.id}
+          existingVariants={product.variants || []}
+          onVariantsCreated={() => {
+            setShowVariantCreation(false);
+          }}
+          defaultMode="single"
+        />
+      )}
     </Card>
   );
 }

@@ -1,562 +1,687 @@
 import { createClient } from "@/utils/supabase/client";
-import { generateSlug, generateUniqueSlug } from "@/lib/utils/slug";
-import type {
-  ProductWithDetails,
-  AttributeValue,
-  TemplateContext,
-} from "../types/flexible-products";
+import type { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
+import type { ProductAttribute, AttributeValue } from "../types/flexible-products";
 
-// Extended types for variant management
-export interface VariantMatrix {
-  attributes: string[]; // e.g., ['size', 'color']
-  combinations: Record<string, string[]>; // e.g., { size: ['S', 'M', 'L'], color: ['Red', 'Blue'] }
-}
+// Variant management types
+export type Variant = Tables<"product_variants">;
+export type CreateVariantRequest = TablesInsert<"product_variants"> & {
+  attributes?: Record<string, AttributeValue>;
+  images?: {
+    storage_path: string;
+    file_name: string;
+    alt_text?: string;
+    context_scope?: string;
+    is_primary?: boolean;
+  }[];
+};
 
-export interface VariantCombination {
-  name: string;
-  attributes: Record<string, AttributeValue>;
-  sku?: string;
-  barcode?: string;
-  pricing?: {
-    cost?: number;
-    price?: number;
-    currency?: string;
-  };
-}
+export type UpdateVariantRequest = TablesUpdate<"product_variants"> & {
+  attributes?: Record<string, AttributeValue>;
+  images?: {
+    storage_path: string;
+    file_name: string;
+    alt_text?: string;
+    context_scope?: string;
+    is_primary?: boolean;
+  }[];
+};
 
-export interface VariantPricing {
-  variant_id: string;
-  cost?: number;
-  price?: number;
-  currency?: string;
-  effective_date?: string;
-  context?: TemplateContext;
-}
-
-export interface VariantPerformance {
-  variant_id: string;
-  total_sales: number;
-  total_quantity_sold: number;
-  current_stock: number;
-  stock_value: number;
-  last_sale_date?: string;
-  performance_score: number;
-}
-
-export interface BulkVariantOperation {
-  operation: "create" | "update" | "delete" | "price_update";
-  variants: VariantCombination[] | VariantPricing[];
-  options?: {
-    // For create operations
-    product_id?: string;
-    skip_validation?: boolean;
-    skip_existing?: boolean;
-    validate_unique_sku?: boolean;
-    auto_generate_sku?: boolean;
-    default_pricing?: VariantPricing;
-  };
-}
+export type VariantWithAttributes = Variant & {
+  attributes: ProductAttribute[];
+  images: Tables<"product_images">[];
+  stock_snapshots: Tables<"stock_snapshots">[];
+};
 
 export class VariantService {
   private supabase = createClient();
 
   /**
-   * Generate variant combinations from a matrix
+   * Create a new variant for a product
    */
-  generateVariantCombinations(
-    matrix: VariantMatrix,
-    baseProduct: { id: string; name: string },
-    options?: {
-      sku_pattern?: string; // e.g., "{{product_sku}}-{{size}}-{{color}}"
-      name_pattern?: string; // e.g., "{{product_name}} - {{size}} {{color}}"
-      auto_pricing?: boolean;
+  async createVariant(
+    productId: string,
+    variantData: CreateVariantRequest
+  ): Promise<VariantWithAttributes> {
+    try {
+      const { attributes, images, ...variantFields } = variantData;
+
+      // 1. Create the variant
+      const variantInsert: TablesInsert<"product_variants"> = {
+        product_id: productId,
+        name: variantFields.name || "Default Variant",
+        slug:
+          variantFields.slug || variantFields.name?.toLowerCase().replace(/\s+/g, "-") || "default",
+        sku: variantFields.sku,
+        barcode: variantFields.barcode,
+        is_default: variantFields.is_default || false,
+        status: variantFields.status || "active",
+      };
+
+      const { data: variant, error: variantError } = await this.supabase
+        .from("product_variants")
+        .insert(variantInsert)
+        .select()
+        .single();
+
+      if (variantError) throw variantError;
+
+      // 2. Add attributes if provided
+      if (attributes && Object.keys(attributes).length > 0) {
+        await this.updateVariantAttributes(variant.id, attributes);
+      }
+
+      // 3. Add images if provided
+      if (images && images.length > 0) {
+        await this.updateVariantImages(variant.id, images);
+      }
+
+      // 4. Return the created variant with relations
+      return await this.getVariantById(variant.id);
+    } catch (error) {
+      console.error("Error creating variant:", error);
+      throw error;
     }
-  ): VariantCombination[] {
-    const { attributes, combinations } = matrix;
-    const allCombinations: VariantCombination[] = [];
-
-    // Generate all possible combinations
-    const generateCombinations = (
-      attrs: string[],
-      current: Record<string, unknown> = {},
-      index: number = 0
-    ): void => {
-      if (index === attrs.length) {
-        // Create variant combination
-        const name = this.generateVariantName(baseProduct.name, current, options?.name_pattern);
-        const sku = this.generateVariantSku(baseProduct.id, current, options?.sku_pattern);
-
-        allCombinations.push({
-          name,
-          sku,
-          attributes: this.convertToAttributeValues(current),
-          pricing: options?.auto_pricing ? this.generateDefaultPricing() : undefined,
-        });
-        return;
-      }
-
-      const attr = attrs[index];
-      const values = combinations[attr] || [];
-
-      for (const value of values) {
-        generateCombinations(attrs, { ...current, [attr]: value }, index + 1);
-      }
-    };
-
-    generateCombinations(attributes);
-    return allCombinations;
   }
 
   /**
-   * Create multiple variants in batch
+   * Update an existing variant
    */
-  async createVariantBatch(
-    productId: string,
-    variants: VariantCombination[],
-    options?: {
-      skip_existing?: boolean;
-      validate_unique_sku?: boolean;
-    }
-  ): Promise<ProductWithDetails> {
+  async updateVariant(
+    variantId: string,
+    variantData: UpdateVariantRequest
+  ): Promise<VariantWithAttributes> {
     try {
-      // Validate SKUs are unique if required
-      if (options?.validate_unique_sku) {
-        const skus = variants.map((v) => v.sku).filter(Boolean);
-        if (skus.length !== new Set(skus).size) {
-          throw new Error("Duplicate SKUs found in variant batch");
-        }
-      }
+      const { attributes, images, ...variantFields } = variantData;
 
-      // Check existing variants if skip_existing is enabled
-      let variantsToCreate = variants;
-      if (options?.skip_existing) {
-        const { data: existingVariants } = await this.supabase
+      // 1. Update the variant
+      if (Object.keys(variantFields).length > 0) {
+        const { error: variantError } = await this.supabase
           .from("product_variants")
-          .select("sku, name")
-          .eq("product_id", productId)
-          .is("deleted_at", null);
+          .update(variantFields)
+          .eq("id", variantId);
 
-        const existingSkus = new Set(existingVariants?.map((v) => v.sku) || []);
-        const existingNames = new Set(existingVariants?.map((v) => v.name) || []);
-
-        variantsToCreate = variants.filter(
-          (v) => !existingSkus.has(v.sku) && !existingNames.has(v.name)
-        );
+        if (variantError) throw variantError;
       }
 
-      // Create variants
-      for (const variant of variantsToCreate) {
-        await this.createSingleVariant(productId, variant);
+      // 2. Update attributes if provided
+      if (attributes && Object.keys(attributes).length > 0) {
+        await this.updateVariantAttributes(variantId, attributes);
       }
 
-      // Return updated product
-      const { flexibleProductService } = await import("./flexible-products");
-      return await flexibleProductService.getProductById(productId);
+      // 3. Update images if provided
+      if (images && images.length > 0) {
+        await this.updateVariantImages(variantId, images);
+      }
+
+      // 4. Return the updated variant with relations
+      return await this.getVariantById(variantId);
     } catch (error) {
-      console.error("Error creating variant batch:", error);
+      console.error("Error updating variant:", error);
       throw error;
     }
   }
 
   /**
-   * Update variant pricing in batch
+   * Delete a variant (soft delete)
    */
-  async updateVariantPricing(pricingUpdates: VariantPricing[]): Promise<void> {
+  async deleteVariant(variantId: string): Promise<void> {
     try {
-      // Group by context for batch processing
-      const contextGroups = pricingUpdates.reduce(
-        (groups, pricing) => {
-          const context = pricing.context || "warehouse";
-          if (!groups[context]) groups[context] = [];
-          groups[context].push(pricing);
-          return groups;
-        },
-        {} as Record<string, VariantPricing[]>
-      );
-
-      // Process each context group
-      for (const [context, pricings] of Object.entries(contextGroups)) {
-        await this.updatePricingForContext(pricings, context as TemplateContext);
-      }
-    } catch (error) {
-      console.error("Error updating variant pricing:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get variant performance analytics
-   */
-  async getVariantPerformance(
-    productId: string,
-    _dateRange?: { from: string; to: string }
-  ): Promise<VariantPerformance[]> {
-    try {
-      // This would use a database function in production
-      // For now, return basic data from existing tables
-      const { data: variants } = await this.supabase
+      const { error } = await this.supabase
         .from("product_variants")
-        .select(
-          `
-          id,
-          name,
-          sku,
-          stock_snapshots(quantity_on_hand, total_value)
-        `
-        )
-        .eq("product_id", productId)
-        .is("deleted_at", null);
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", variantId);
 
-      return (variants || []).map((variant) => ({
-        variant_id: variant.id,
-        total_sales: 0, // Would come from sales data
-        total_quantity_sold: 0, // Would come from sales data
-        current_stock: variant.stock_snapshots?.[0]?.quantity_on_hand || 0,
-        stock_value: variant.stock_snapshots?.[0]?.total_value || 0,
-        performance_score: this.calculatePerformanceScore(variant),
-      }));
+      if (error) throw error;
     } catch (error) {
-      console.error("Error getting variant performance:", error);
+      console.error("Error deleting variant:", error);
       throw error;
     }
   }
 
   /**
-   * Auto-generate SKUs for variants
+   * Get variant by ID with all relations
    */
-  async generateVariantSkus(
-    productId: string,
-    pattern?: string
-  ): Promise<{ variant_id: string; generated_sku: string }[]> {
+  async getVariantById(variantId: string): Promise<VariantWithAttributes> {
     try {
-      const { data: variants } = await this.supabase
-        .from("product_variants")
-        .select(
-          `
-          id,
-          name,
-          sku,
-          product_id,
-          products(name, slug)
-        `
-        )
-        .eq("product_id", productId)
-        .is("deleted_at", null);
-
-      const results: { variant_id: string; generated_sku: string }[] = [];
-
-      for (const variant of variants || []) {
-        if (!variant.sku) {
-          const product = variant.products as { name?: string; slug?: string } | null;
-          const generatedSku = await this.generateUniqueVariantSku(
-            product?.slug || product?.name || "unknown",
-            variant.name,
-            pattern
-          );
-
-          // Update the variant with the generated SKU
-          await this.supabase
-            .from("product_variants")
-            .update({ sku: generatedSku })
-            .eq("id", variant.id);
-
-          results.push({
-            variant_id: variant.id,
-            generated_sku: generatedSku,
-          });
-        }
-      }
-
-      return results;
-    } catch (error) {
-      console.error("Error generating variant SKUs:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Compare variants side by side
-   */
-  async compareVariants(variantIds: string[]): Promise<{
-    variants: Array<{
-      id: string;
-      name: string;
-      sku: string;
-      barcode?: string;
-      status: string;
-      attributes?: Array<{ attribute_key: string }>;
-      stock_snapshots?: Array<{
-        quantity_on_hand?: number;
-        quantity_reserved?: number;
-        total_value?: number;
-      }>;
-      images?: unknown[];
-    }>;
-    comparison_matrix: Record<string, unknown[]>;
-  }> {
-    try {
-      const { data: variants } = await this.supabase
+      const { data: variant, error } = await this.supabase
         .from("product_variants")
         .select(
           `
           *,
           attributes:product_attributes(*),
-          stock_snapshots(quantity_on_hand, quantity_reserved, total_value),
-          images:product_images(*)
+          images:product_images(*),
+          stock_snapshots:stock_snapshots(*)
         `
         )
-        .in("id", variantIds)
-        .is("deleted_at", null);
+        .eq("id", variantId)
+        .is("deleted_at", null)
+        .single();
 
-      // Extract all unique attribute keys
-      const allAttributes = new Set<string>();
-      variants?.forEach((variant) => {
-        variant.attributes?.forEach((attr) => {
-          allAttributes.add(attr.attribute_key);
-        });
-      });
-
-      // Build comparison matrix
-      const comparison_matrix: Record<string, unknown[]> = {};
-      Array.from(allAttributes).forEach((attrKey) => {
-        comparison_matrix[attrKey] =
-          variants?.map((variant) => {
-            const attr = variant.attributes?.find((a) => a.attribute_key === attrKey);
-            return attr ? this.getAttributeDisplayValue(attr) : null;
-          }) || [];
-      });
-
-      return {
-        variants: variants || [],
-        comparison_matrix,
-      };
+      if (error) throw error;
+      return variant as VariantWithAttributes;
     } catch (error) {
-      console.error("Error comparing variants:", error);
+      console.error("Error getting variant by ID:", error);
       throw error;
     }
   }
 
-  // Private helper methods
-
-  private async createSingleVariant(productId: string, variant: VariantCombination): Promise<void> {
-    // Create the variant record
-    const { data: newVariant, error: variantError } = await this.supabase
-      .from("product_variants")
-      .insert({
-        product_id: productId,
-        name: variant.name,
-        slug: this.generateSlug(variant.name),
-        sku: variant.sku,
-        barcode: variant.barcode,
-        is_default: false,
-      })
-      .select()
-      .single();
-
-    if (variantError) throw variantError;
-
-    // Create variant attributes
-    if (Object.keys(variant.attributes).length > 0) {
-      await this.createVariantAttributes(productId, newVariant.id, variant.attributes);
-    }
-
-    // Create pricing records if provided
-    if (variant.pricing) {
-      const pricingData: VariantPricing = {
-        variant_id: newVariant.id,
-        ...variant.pricing,
-      };
-      await this.createVariantPricing(newVariant.id, pricingData);
-    }
-  }
-
-  private async createVariantAttributes(
-    productId: string,
-    variantId: string,
-    attributes: Record<string, AttributeValue>
-  ): Promise<void> {
-    const attributeInserts = Object.entries(attributes).map(([key, value]) => ({
-      product_id: productId,
-      variant_id: variantId,
-      attribute_key: key,
-      context_scope: "warehouse" as TemplateContext,
-      locale: "en",
-      ...this.getAttributeValueColumns(value),
-    }));
-
-    const { error } = await this.supabase.from("product_attributes").insert(attributeInserts);
-
-    if (error) throw error;
-  }
-
-  private async createVariantPricing(variantId: string, pricing: VariantPricing): Promise<void> {
-    // This would create records in a variant_pricing table
-    // For now, we'll store in metadata or handle differently
-    console.warn("Variant pricing creation not yet implemented:", { variantId, pricing });
-  }
-
-  private async updatePricingForContext(
-    pricings: VariantPricing[],
-    context: TemplateContext
-  ): Promise<void> {
-    // Batch update pricing for a specific context
-    for (const pricing of pricings) {
-      // Update pricing logic here
-      console.warn("Updating pricing for context:", context, pricing);
-    }
-  }
-
-  private generateVariantName(
-    productName: string,
-    attributes: Record<string, unknown>,
-    pattern?: string
-  ): string {
-    if (pattern) {
-      let name = pattern.replace("{{product_name}}", productName);
-      Object.entries(attributes).forEach(([key, value]) => {
-        name = name.replace(`{{${key}}}`, String(value));
-      });
-      return name;
-    }
-
-    const attrString = Object.entries(attributes)
-      .map(([_key, value]) => `${value}`)
-      .join(" ");
-
-    return `${productName} - ${attrString}`;
-  }
-
-  private generateVariantSku(
-    productId: string,
-    attributes: Record<string, unknown>,
-    pattern?: string
-  ): string {
-    if (pattern) {
-      let sku = pattern.replace("{{product_sku}}", productId.slice(0, 8));
-      Object.entries(attributes).forEach(([key, value]) => {
-        sku = sku.replace(`{{${key}}}`, String(value).slice(0, 3).toUpperCase());
-      });
-      return sku;
-    }
-
-    const attrCode = Object.entries(attributes)
-      .map(([_key, value]) => String(value).slice(0, 2).toUpperCase())
-      .join("");
-
-    return `${productId.slice(0, 8)}-${attrCode}`;
-  }
-
-  private async generateUniqueVariantSku(
-    productSlug: string,
-    variantName: string,
-    _pattern?: string
-  ): Promise<string> {
-    const baseSlug = `${productSlug}-${generateSlug(variantName)}`;
-
-    return await generateUniqueSlug(baseSlug, async (sku) => {
-      const { data } = await this.supabase
+  /**
+   * Get all variants for a product
+   */
+  async getVariantsByProduct(productId: string): Promise<VariantWithAttributes[]> {
+    try {
+      const { data: variants, error } = await this.supabase
         .from("product_variants")
-        .select("id")
+        .select(
+          `
+          *,
+          attributes:product_attributes(*),
+          images:product_images(*),
+          stock_snapshots:stock_snapshots(*)
+        `
+        )
+        .eq("product_id", productId)
+        .is("deleted_at", null)
+        .order("created_at");
+
+      if (error) throw error;
+      return (variants || []) as VariantWithAttributes[];
+    } catch (error) {
+      console.error("Error getting variants by product:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk create variants from attribute combinations
+   */
+  async bulkCreateVariants(
+    productId: string,
+    variants: CreateVariantRequest[]
+  ): Promise<VariantWithAttributes[]> {
+    try {
+      const createdVariants: VariantWithAttributes[] = [];
+
+      for (const variantData of variants) {
+        const variant = await this.createVariant(productId, variantData);
+        createdVariants.push(variant);
+      }
+
+      return createdVariants;
+    } catch (error) {
+      console.error("Error bulk creating variants:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate variants from attribute matrix
+   */
+  async generateVariantsFromMatrix(
+    productId: string,
+    attributeMatrix: Record<string, string[]>,
+    baseVariant?: Partial<CreateVariantRequest>
+  ): Promise<VariantWithAttributes[]> {
+    try {
+      // Generate all combinations of attributes
+      const combinations = this.generateAttributeCombinations(attributeMatrix);
+
+      const variantRequests: CreateVariantRequest[] = combinations.map((combination, index) => {
+        // Create variant name from combination
+        const variantName = Object.values(combination).join(" - ");
+
+        // Create SKU from combination (if base SKU provided)
+        const variantSku = baseVariant?.sku
+          ? `${baseVariant.sku}-${Object.values(combination).join("-").toUpperCase()}`
+          : undefined;
+
+        return {
+          ...baseVariant,
+          product_id: productId,
+          name: variantName,
+          slug: variantName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          sku: variantSku,
+          is_default: index === 0, // First variant is default
+          attributes: this.convertToAttributeValues(combination),
+        };
+      });
+
+      return await this.bulkCreateVariants(productId, variantRequests);
+    } catch (error) {
+      console.error("Error generating variants from matrix:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update variant attributes
+   */
+  private async updateVariantAttributes(
+    variantId: string,
+    attributes: Record<string, AttributeValue>,
+    context: string = "warehouse"
+  ): Promise<void> {
+    try {
+      // Delete existing attributes for this variant and context
+      await this.supabase
+        .from("product_attributes")
+        .delete()
+        .eq("variant_id", variantId)
+        .eq("context_scope", context);
+
+      // Insert new attributes
+      const attributeInserts = Object.entries(attributes).map(([key, attributeValue]) => ({
+        product_id: null, // Variant-specific attributes don't need product_id
+        variant_id: variantId,
+        attribute_key: key,
+        value_text: attributeValue.type === "text" ? attributeValue.value : null,
+        value_number: attributeValue.type === "number" ? attributeValue.value : null,
+        value_boolean: attributeValue.type === "boolean" ? attributeValue.value : null,
+        value_date: attributeValue.type === "date" ? attributeValue.value : null,
+        value_json: attributeValue.type === "json" ? attributeValue.value : null,
+        context_scope: context,
+      }));
+
+      const { error } = await this.supabase.from("product_attributes").insert(attributeInserts);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating variant attributes:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update variant images
+   */
+  private async updateVariantImages(
+    variantId: string,
+    images: {
+      storage_path: string;
+      file_name: string;
+      alt_text?: string;
+      context_scope?: string;
+      is_primary?: boolean;
+    }[],
+    context: string = "warehouse"
+  ): Promise<void> {
+    try {
+      // Delete existing images for this variant and context
+      await this.supabase
+        .from("product_images")
+        .delete()
+        .eq("variant_id", variantId)
+        .eq("context_scope", context);
+
+      // Insert new images
+      const imageInserts = images.map((image, index) => ({
+        product_id: null, // Variant-specific images don't need product_id
+        variant_id: variantId,
+        storage_path: image.storage_path,
+        file_name: image.file_name,
+        alt_text: image.alt_text,
+        display_order: index,
+        context_scope: image.context_scope || context,
+        is_primary: image.is_primary || false,
+        metadata: {},
+      }));
+
+      const { error } = await this.supabase.from("product_images").insert(imageInserts);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error updating variant images:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate all combinations of attributes
+   */
+  private generateAttributeCombinations(
+    attributeMatrix: Record<string, string[]>
+  ): Record<string, string>[] {
+    const keys = Object.keys(attributeMatrix);
+    const values = keys.map((key) => attributeMatrix[key]);
+
+    if (keys.length === 0) return [];
+    if (keys.length === 1) {
+      return values[0].map((value) => ({ [keys[0]]: value }));
+    }
+
+    const combinations: Record<string, string>[] = [];
+
+    function generateCombinations(index: number, current: Record<string, string>) {
+      if (index === keys.length) {
+        combinations.push({ ...current });
+        return;
+      }
+
+      const currentKey = keys[index];
+      const currentValues = values[index];
+
+      for (const value of currentValues) {
+        current[currentKey] = value;
+        generateCombinations(index + 1, current);
+      }
+    }
+
+    generateCombinations(0, {});
+    return combinations;
+  }
+
+  /**
+   * Convert string combinations to AttributeValue format
+   */
+  private convertToAttributeValues(
+    combination: Record<string, string>
+  ): Record<string, AttributeValue> {
+    const attributeValues: Record<string, AttributeValue> = {};
+
+    for (const [key, value] of Object.entries(combination)) {
+      // Try to infer type from value
+      if (!isNaN(Number(value))) {
+        attributeValues[key] = { type: "number", value: Number(value) };
+      } else if (value.toLowerCase() === "true" || value.toLowerCase() === "false") {
+        attributeValues[key] = { type: "boolean", value: value.toLowerCase() === "true" };
+      } else {
+        attributeValues[key] = { type: "text", value };
+      }
+    }
+
+    return attributeValues;
+  }
+
+  /**
+   * Set default variant for a product
+   */
+  async setDefaultVariant(productId: string, variantId: string): Promise<void> {
+    try {
+      // First, remove default status from all variants of this product
+      await this.supabase
+        .from("product_variants")
+        .update({ is_default: false })
+        .eq("product_id", productId);
+
+      // Then set the specified variant as default
+      const { error } = await this.supabase
+        .from("product_variants")
+        .update({ is_default: true })
+        .eq("id", variantId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error setting default variant:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Find variant by SKU
+   */
+  async findVariantBySku(sku: string): Promise<VariantWithAttributes | null> {
+    try {
+      const { data: variant, error } = await this.supabase
+        .from("product_variants")
+        .select(
+          `
+          *,
+          attributes:product_attributes(*),
+          images:product_images(*),
+          stock_snapshots:stock_snapshots(*)
+        `
+        )
         .eq("sku", sku)
         .is("deleted_at", null)
         .single();
-      return !!data;
-    });
-  }
 
-  private convertToAttributeValues(
-    attributes: Record<string, unknown>
-  ): Record<string, AttributeValue> {
-    const result: Record<string, AttributeValue> = {};
-
-    Object.entries(attributes).forEach(([key, value]) => {
-      if (typeof value === "string") {
-        result[key] = { type: "text", value };
-      } else if (typeof value === "number") {
-        result[key] = { type: "number", value };
-      } else if (typeof value === "boolean") {
-        result[key] = { type: "boolean", value };
-      } else {
-        result[key] = { type: "text", value: String(value) };
+      if (error) {
+        if (error.code === "PGRST116") return null; // Not found
+        throw error;
       }
-    });
 
-    return result;
-  }
-
-  private generateDefaultPricing(): VariantPricing {
-    return {
-      variant_id: "", // Will be set later
-      cost: 0,
-      price: 0,
-      currency: "USD",
-      effective_date: new Date().toISOString(),
-      context: "warehouse",
-    };
-  }
-
-  private calculatePerformanceScore(variant: {
-    stock_snapshots?: Array<{ quantity_on_hand?: number; total_value?: number }>;
-  }): number {
-    // Simple performance scoring algorithm
-    const stockLevel = variant.stock_snapshots?.[0]?.quantity_on_hand || 0;
-    const stockValue = variant.stock_snapshots?.[0]?.total_value || 0;
-
-    // Base score on stock turnover and value
-    let score = 50; // Base score
-
-    if (stockLevel > 0) score += 20;
-    if (stockValue > 100) score += 20;
-    if (stockLevel > 10) score += 10;
-
-    return Math.min(100, score);
-  }
-
-  private getAttributeValueColumns(value: AttributeValue) {
-    switch (value.type) {
-      case "text":
-        return { value_text: value.value };
-      case "number":
-        return { value_number: value.value };
-      case "boolean":
-        return { value_boolean: value.value };
-      case "date":
-        return { value_date: value.value };
-      case "json":
-        return { value_json: value.value };
-      default:
-        throw new Error(`Unknown attribute value type: ${(value as { type?: string }).type}`);
+      return variant as VariantWithAttributes;
+    } catch (error) {
+      console.error("Error finding variant by SKU:", error);
+      throw error;
     }
   }
 
-  private getAttributeDisplayValue(attr: {
-    value_text?: string;
-    value_number?: number;
-    value_boolean?: boolean;
-    value_date?: string;
-    value_json?: unknown;
-  }): unknown {
-    if (attr.value_text) return attr.value_text;
-    if (attr.value_number !== null) return attr.value_number;
-    if (attr.value_boolean !== null) return attr.value_boolean;
-    if (attr.value_date) return attr.value_date;
-    if (attr.value_json) return attr.value_json;
-    return null;
+  /**
+   * Find variant by barcode
+   */
+  async findVariantByBarcode(barcode: string): Promise<VariantWithAttributes | null> {
+    try {
+      const { data: variant, error } = await this.supabase
+        .from("product_variants")
+        .select(
+          `
+          *,
+          attributes:product_attributes(*),
+          images:product_images(*),
+          stock_snapshots:stock_snapshots(*)
+        `
+        )
+        .eq("barcode", barcode)
+        .is("deleted_at", null)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") return null; // Not found
+        throw error;
+      }
+
+      return variant as VariantWithAttributes;
+    } catch (error) {
+      console.error("Error finding variant by barcode:", error);
+      throw error;
+    }
   }
 
-  private generateSlug(name: string): string {
-    return (
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/[\s_-]+/g, "-")
-        .replace(/^-+|-+$/g, "") +
-      "-" +
-      Date.now().toString(36)
-    );
+  /**
+   * Get variant data for a specific context
+   */
+  async getVariantByContext(
+    variantId: string,
+    context: string = "warehouse"
+  ): Promise<VariantWithAttributes> {
+    try {
+      const { data: variant, error } = await this.supabase
+        .from("product_variants")
+        .select(
+          `
+          *,
+          attributes:product_attributes!inner(*),
+          images:product_images!inner(*),
+          stock_snapshots:stock_snapshots(*)
+        `
+        )
+        .eq("id", variantId)
+        .eq("attributes.context_scope", context)
+        .eq("images.context_scope", context)
+        .is("deleted_at", null)
+        .single();
+
+      if (error) throw error;
+      return variant as VariantWithAttributes;
+    } catch (error) {
+      console.error("Error getting variant by context:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update variant in a specific context
+   */
+  async updateVariantInContext(
+    variantId: string,
+    context: string,
+    data: {
+      attributes?: Record<string, AttributeValue>;
+      images?: {
+        storage_path: string;
+        file_name: string;
+        alt_text?: string;
+        is_primary?: boolean;
+      }[];
+    }
+  ): Promise<VariantWithAttributes> {
+    try {
+      // Update context-specific attributes
+      if (data.attributes) {
+        await this.updateVariantAttributes(variantId, data.attributes, context);
+      }
+
+      // Update context-specific images
+      if (data.images) {
+        await this.updateVariantImages(variantId, data.images, context);
+      }
+
+      return await this.getVariantByContext(variantId, context);
+    } catch (error) {
+      console.error("Error updating variant in context:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Copy variant data from one context to another
+   */
+  async copyVariantToContext(
+    variantId: string,
+    sourceContext: string,
+    targetContext: string,
+    overrides?: {
+      attributes?: Record<string, AttributeValue>;
+      images?: {
+        storage_path: string;
+        file_name: string;
+        alt_text?: string;
+        is_primary?: boolean;
+      }[];
+    }
+  ): Promise<VariantWithAttributes> {
+    try {
+      // Get source context data
+      const sourceVariant = await this.getVariantByContext(variantId, sourceContext);
+
+      // Prepare target context data
+      const targetAttributes = overrides?.attributes || {};
+      const targetImages = overrides?.images || [];
+
+      // Copy attributes from source if not overridden
+      sourceVariant.attributes.forEach((attr) => {
+        if (!targetAttributes[attr.attribute_key]) {
+          targetAttributes[attr.attribute_key] = this.getAttributeValue(attr);
+        }
+      });
+
+      // Copy images from source if not overridden
+      if (targetImages.length === 0) {
+        sourceVariant.images.forEach((image) => {
+          targetImages.push({
+            storage_path: image.storage_path,
+            file_name: image.file_name,
+            alt_text: image.alt_text,
+            is_primary: image.is_primary,
+          });
+        });
+      }
+
+      // Update target context
+      return await this.updateVariantInContext(variantId, targetContext, {
+        attributes: targetAttributes,
+        images: targetImages,
+      });
+    } catch (error) {
+      console.error("Error copying variant to context:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get variants for a product in a specific context
+   */
+  async getVariantsByProductAndContext(
+    productId: string,
+    context: string = "warehouse"
+  ): Promise<VariantWithAttributes[]> {
+    try {
+      const { data: variants, error } = await this.supabase
+        .from("product_variants")
+        .select(
+          `
+          *,
+          attributes:product_attributes!inner(*),
+          images:product_images(*),
+          stock_snapshots:stock_snapshots(*)
+        `
+        )
+        .eq("product_id", productId)
+        .eq("attributes.context_scope", context)
+        .is("deleted_at", null)
+        .order("created_at");
+
+      if (error) throw error;
+      return (variants || []) as VariantWithAttributes[];
+    } catch (error) {
+      console.error("Error getting variants by product and context:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to get attribute value from ProductAttribute
+   */
+  private getAttributeValue(attr: ProductAttribute): AttributeValue {
+    if (attr.value_text !== null) return { type: "text", value: attr.value_text };
+    if (attr.value_number !== null) return { type: "number", value: attr.value_number };
+    if (attr.value_boolean !== null) return { type: "boolean", value: attr.value_boolean };
+    if (attr.value_date !== null) return { type: "date", value: attr.value_date };
+    if (attr.value_json !== null) return { type: "json", value: attr.value_json };
+    return { type: "text", value: "" }; // fallback
+  }
+
+  /**
+   * Check if variant has data in a specific context
+   */
+  async hasVariantDataInContext(variantId: string, context: string): Promise<boolean> {
+    try {
+      const { data, error } = await this.supabase
+        .from("product_attributes")
+        .select("id")
+        .eq("variant_id", variantId)
+        .eq("context_scope", context)
+        .limit(1);
+
+      if (error) throw error;
+      return (data?.length || 0) > 0;
+    } catch (error) {
+      console.error("Error checking variant data in context:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all contexts that have data for a variant
+   */
+  async getVariantContexts(variantId: string): Promise<string[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from("product_attributes")
+        .select("context_scope")
+        .eq("variant_id", variantId);
+
+      if (error) throw error;
+
+      // Get unique contexts
+      const contexts = [...new Set((data || []).map((attr) => attr.context_scope))];
+      return contexts;
+    } catch (error) {
+      console.error("Error getting variant contexts:", error);
+      throw error;
+    }
   }
 }
 
-// Export singleton instance
 export const variantService = new VariantService();
