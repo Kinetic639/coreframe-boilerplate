@@ -14,12 +14,16 @@ import { Link } from "@/i18n/navigation";
 import { useProduct } from "@/modules/warehouse/hooks/use-product-variants";
 import { VariantManager } from "@/modules/warehouse/components/variants/variant-manager";
 import { EnhancedProductForm } from "@/modules/warehouse/products/components/enhanced-product-form";
+import { ContextSwitcher } from "@/modules/warehouse/components/context/context-switcher";
+import { ProductContextViews } from "@/modules/warehouse/products/components/product-context-views";
+import { FieldContextConfig } from "@/modules/warehouse/products/components/field-context-config";
 // ProductWithVariants type removed - not used in this simplified version
 
 export default function ProductDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [currentContext, setCurrentContext] = React.useState("warehouse");
 
   // Use the new simplified hooks
   const { data: product, isLoading, error } = useProduct(id);
@@ -98,6 +102,37 @@ export default function ProductDetailPage() {
           Edytuj produkt
         </Button>
       </div>
+
+      {/* Context Management Interface - Phase 3 Implementation */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Context Management</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Switch between different contexts to view and edit context-specific product data
+          </p>
+        </CardHeader>
+        <CardContent>
+          <ContextSwitcher
+            variant="badges"
+            onContextChange={setCurrentContext}
+            showManagement={true}
+            className="mb-4"
+          />
+
+          {/* Context-specific Product Views */}
+          <ProductContextViews
+            productId={id}
+            activeContext={currentContext}
+            onDataChange={() => {
+              // Refresh product data when context data changes
+              // TanStack Query will handle cache invalidation
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Field Context Configuration UI - Phase 3 Implementation */}
+      <FieldContextConfig productId={id} activeContext={currentContext} />
 
       {/* Product Details Card */}
       <Card>

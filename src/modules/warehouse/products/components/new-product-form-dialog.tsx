@@ -60,7 +60,6 @@ import { Tables } from "../../../../../supabase/types/types";
 import type { TemplateWithAttributes } from "@/modules/warehouse/types/template";
 import { TemplateBuilder } from "@/modules/warehouse/components/templates/TemplateBuilder";
 import { ProductContextViews } from "./product-context-views";
-import { FieldContextConfig } from "./field-context-config";
 import { VariantCreationInterface } from "./variant-creation-interface";
 import { toast } from "react-toastify";
 
@@ -111,7 +110,6 @@ export function NewProductFormDialog({
   const [showSaveAsTemplate, setShowSaveAsTemplate] = React.useState(false);
   const [createdProduct, setCreatedProduct] = React.useState<any>(null);
   const [showContextViews, setShowContextViews] = React.useState(false);
-  const [showFieldConfig, setShowFieldConfig] = React.useState(false);
   const [showVariantCreation, setShowVariantCreation] = React.useState(false);
   const [currentStep, setCurrentStep] = React.useState<"create" | "context" | "variants">("create");
 
@@ -221,7 +219,6 @@ export function NewProductFormDialog({
     setShowSaveAsTemplate(false);
     setCreatedProduct(null);
     setShowContextViews(false);
-    setShowFieldConfig(false);
     setShowVariantCreation(false);
     setCurrentStep("create");
   };
@@ -364,10 +361,7 @@ export function NewProductFormDialog({
                 </CardContent>
               </Card>
 
-              <Card
-                className="cursor-pointer hover:shadow-md"
-                onClick={() => setShowFieldConfig(true)}
-              >
+              <Card className="hover:shadow-md">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100">
@@ -756,15 +750,6 @@ export function NewProductFormDialog({
       {/* Nested Dialogs */}
       {showContextViews && createdProduct && (
         <ProductContextViews productId={createdProduct.id} onDataChange={() => {}} />
-      )}
-
-      {showFieldConfig && (
-        <FieldContextConfig
-          open={showFieldConfig}
-          onOpenChange={setShowFieldConfig}
-          templateId={undefined}
-          onConfigSaved={() => setShowFieldConfig(false)}
-        />
       )}
 
       {showVariantCreation && createdProduct && (
