@@ -9,6 +9,15 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: (await import(`../../messages/${locale}.json`)).default,
+    messages: {
+      // Load main messages
+      ...(await import(`../../messages/${locale}.json`)).default,
+      // Load organization module messages
+      organization: {
+        ...(await import(`../../messages/${locale}/organization/general.json`)).default,
+        roleManagement: (await import(`../../messages/${locale}/organization/roleManagement.json`))
+          .default,
+      },
+    },
   };
 });

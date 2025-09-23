@@ -1,340 +1,188 @@
-# 🚀 Coreframe – Modern SaaS Boilerplate
+# Supabase CLI
 
-A production-ready SaaS boilerplate built with Next.js 15 and Supabase. Featuring server-side rendering, role-based access control, and beautiful UI components.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)
+](https://gitlab.com/sweatybridge/setup-cli/-/pipelines)
 
-![Next.js](https://img.shields.io/badge/Next.js-15.0.0-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.7.2-blue?style=for-the-badge&logo=typescript)
-![Supabase](https://img.shields.io/badge/Supabase-2.49.4-green?style=for-the-badge&logo=supabase)
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-## 🗺️ Roadmap
+This repository contains all the functionality for Supabase CLI.
 
-### Core Infrastructure
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-- [x] Next.js 15 with App Router setup
-- [x] TypeScript configuration
-- [x] Supabase integration
-- [x] Tailwind CSS + shadcn/ui setup
-- [x] ESLint + Prettier configuration
-- [x] pnpm package manager
-- [x] Git hooks with Husky
-- [x] Pre-commit linting with lint-staged
-- [x] Automated code formatting
-- [ ] Type checking on commit
+## Getting started
 
-### Authentication & Authorization
+### Install the CLI
 
-- [x] Email/password authentication
-- [x] Session management
-- [x] Registration flow
-- [x] Password reset flow
-- [x] Password remind flow
-- [x] Email verification
-- [ ] OAuth providers (Google, GitHub)
-- [x] Role-based access control (RBAC)
-- [x] Permission management
-- [ ] Two-factor authentication
-
-### Email System
-
-- [ ] Email Infrastructure
-
-  - [ ] React Email integration for beautiful email templates
-  - [ ] Resend.com integration for reliable email delivery
-  - [ ] Email template management system
-  - [ ] Email queue system for handling high volume
-
-- [ ] Authentication Emails
-
-  - [ ] Welcome email for new users
-  - [ ] Email verification
-  - [ ] Password reset emails
-  - [ ] Password change confirmation
-  - [ ] Account deletion confirmation
-  - [ ] Two-factor authentication codes
-
-- [ ] Transactional Emails
-
-  - [ ] Account activity notifications
-  - [ ] Security alerts
-  - [ ] Profile update confirmations
-  - [ ] Subscription status changes
-  - [ ] Payment receipts
-  - [ ] Invoice notifications
-
-- [ ] Newsletter System
-
-  - [ ] Subscription management
-  - [ ] Newsletter templates
-  - [ ] Scheduled newsletter delivery
-  - [ ] Newsletter analytics
-  - [ ] Unsubscribe handling
-  - [ ] Newsletter preferences
-
-- [ ] Email Preferences
-  - [ ] User email preference management
-  - [ ] Email frequency settings
-  - [ ] Category-based email preferences
-  - [ ] Global email settings
-
-### User Dashboard
-
-- [ ] User profile management
-- [ ] Profile picture upload
-- [ ] Account settings
-- [ ] Notification preferences
-- [ ] Activity history
-- [ ] API key management
-- [ ] Billing information
-- [ ] Usage statistics
-
-### Admin Dashboard
-
-- [ ] User management
-- [ ] Role management
-- [ ] System settings
-- [ ] Audit logs
-- [ ] Analytics dashboard
-- [ ] Email templates
-- [ ] System health monitoring
-- [ ] Backup management
-
-### API & Backend
-
-- [x] Supabase database setup
-- [ ] API rate limiting
-- [ ] Webhook support
-- [ ] File storage integration
-- [ ] Caching layer
-- [ ] Background jobs
-- [ ] API documentation
-- [ ] API versioning
-
-### UI/UX
-
-- [x] Responsive design
-- [x] Dark/Light mode
-- [x] Loading states
-- [ ] Error handling
-- [ ] Animations
-- [ ] Accessibility improvements
-- [x] Internationalization
-
-### Security
-
-- [x] Basic security headers
-- [ ] Rate limiting
-- [ ] IP blocking
-- [ ] Security audit logging
-- [ ] Vulnerability scanning
-- [ ] Data encryption
-- [ ] GDPR compliance
-- [ ] Privacy policy
-
-### Testing
-
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] E2E tests
-- [ ] Performance testing
-- [ ] Security testing
-- [ ] Load testing
-- [ ] Test coverage reports
-- [ ] Automated testing pipeline
-
-### Documentation
-
-- [x] Basic README
-- [ ] API documentation
-- [ ] User guides
-- [ ] Admin guides
-- [ ] Development setup guide
-- [ ] Contributing guidelines
-- [ ] Architecture documentation
-- [ ] Security documentation
-
-### Deployment
-
-- [ ] Vercel deployment
-- [ ] Supabase deployment
-- [ ] Database migrations
-- [ ] Environment management
-- [ ] Monitoring setup
-- [ ] Backup strategy
-- [ ] Disaster recovery
-- [ ] Scaling configuration
-
-## 🚀 CI/CD Pipeline
-
-### GitHub Actions Workflows
-
-- [x] Build and Test
-
-  - [x] Install dependencies
-  - [x] Run TypeScript type checking
-  - [x] Run ESLint
-  - [x] Run Prettier formatting check
-  - [x] Run tests (if any)
-
-- [x] Deployment
-  - [x] Deploy to Vercel (production)
-  - [x] Deploy to Vercel (preview)
-  - [x] Environment variable validation
-
-### Quality Gates
-
-- [x] TypeScript compilation must pass
-- [x] ESLint must pass with no errors
-- [x] Prettier formatting must be consistent
-- [x] All tests must pass (if any)
-- [x] Build must succeed
-
-### Environment Variables
-
-- [x] Production environment variables
-- [x] Preview environment variables
-- [x] Development environment variables
-- [x] Required variables validation
-
-### Deployment Strategy
-
-- [x] Automatic deployment to Vercel
-- [x] Preview deployments for pull requests
-- [x] Production deployments from main branch
-- [x] Manual deployment option
-
-### Monitoring
-
-- [x] Build status notifications
-- [x] Deployment status notifications
-- [x] Error tracking integration
-- [x] Performance monitoring
-
-## ✨ Features
-
-### 🛠 Core Stack
-
-- **Next.js 15** with App Router
-- **TypeScript** for type safety
-- **Supabase** for backend and auth
-- **Tailwind CSS** for styling
-- **shadcn/ui** for beautiful components
-
-### 🔐 Authentication
-
-- Email/password authentication
-- Role-based access control
-- Protected routes
-- Session management
-- Password reset flow
-
-### 📱 UI Components
-
-- Responsive design
-- Dark/Light mode
-- Beautiful form components
-- Toast notifications
-- Loading states
-- Error handling
-
-### 🚀 Development Experience
-
-- Server-side rendering
-- Hot reloading
-- ESLint + Prettier
-- pnpm for package management
-- Git hooks
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- pnpm
-- Supabase account
-
-### Installation
-
-1. Clone the repository:
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
 ```bash
-git clone https://github.com/yourusername/coreframe-boilerplate.git
-cd coreframe-boilerplate
+npm i supabase --save-dev
 ```
 
-2. Install dependencies:
+To install the beta release channel:
 
 ```bash
-pnpm install
+npm i supabase@beta --save-dev
 ```
 
-3. Set up environment variables:
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
+
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
+```
+
+> **Note**
+> For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+Available via [Homebrew](https://brew.sh). To install:
+
+```sh
+brew install supabase/tap/supabase
+```
+
+To install the beta release channel:
+
+```sh
+brew install supabase/tap/supabase-beta
+brew link --overwrite supabase-beta
+```
+
+To upgrade:
+
+```sh
+brew upgrade supabase
+```
+
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+Available via [Scoop](https://scoop.sh). To install:
+
+```powershell
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
+```
+
+To upgrade:
+
+```powershell
+scoop update supabase
+```
+
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+Available via [Homebrew](https://brew.sh) and Linux packages.
+
+#### via Homebrew
+
+To install:
+
+```sh
+brew install supabase/tap/supabase
+```
+
+To upgrade:
+
+```sh
+brew upgrade supabase
+```
+
+#### via Linux packages
+
+Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+```sh
+sudo apk add --allow-untrusted <...>.apk
+```
+
+```sh
+sudo dpkg -i <...>.deb
+```
+
+```sh
+sudo rpm -i <...>.rpm
+```
+
+```sh
+sudo pacman -U <...>.pkg.tar.zst
+```
+
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+```sh
+go install github.com/supabase/cli@latest
+```
+
+Add a symlink to the binary in `$PATH` for easier access:
+
+```sh
+ln -s "$(go env GOPATH)/bin/cli" /usr/bin/supabase
+```
+
+This works on other non-standard Linux distros.
+
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+To install in your working directory:
 
 ```bash
-cp .env.example .env.local
+pkgx install supabase
 ```
 
-Fill in your Supabase credentials in `.env.local`
+Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
 
-4. Start the development server:
+</details>
+
+### Run the CLI
 
 ```bash
-pnpm dev
+supabase bootstrap
 ```
 
-## 📁 Project Structure
+Or using npx:
 
-```
-coreframe-boilerplate/
-├── app/                    # Next.js app directory
-│   ├── (auth-pages)/      # Authentication pages
-│   ├── protected/         # Protected routes
-│   └── api/               # API routes
-├── components/            # React components
-│   ├── ui/               # shadcn/ui components
-│   └── auth/             # Auth components
-├── lib/                  # Utility functions
-│   └── utils/           # Helper functions
-└── public/              # Static assets
+```bash
+npx supabase bootstrap
 ```
 
-## 🔧 Configuration
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
-### Environment Variables
+## Docs
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
+
+## Breaking changes
+
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
+
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
+
+## Developing
+
+To run from source:
+
+```sh
+# Go >= 1.22
+go run . help
 ```
-
-### Supabase Setup
-
-1. Create a new Supabase project
-2. Set up the following tables:
-   - `profiles`
-   - `roles`
-   - `permissions`
-3. Enable Row Level Security (RLS)
-4. Configure email templates
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Next.js](https://nextjs.org/)
-- [Supabase](https://supabase.com/)
-- [shadcn/ui](https://ui.shadcn.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-
----
-
-Made with ❤️ by [Your Name](https://github.com/yourusername)

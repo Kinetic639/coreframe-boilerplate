@@ -1,15 +1,24 @@
 import AppSidebar from "@/components/Dashboard/sidebar/AppSidebar";
 import Loader from "@/components/ui/Loader";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "@/i18n/navigation";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { loadUserContextServer } from "@/lib/api/load-user-context-server";
 import { getSidebarStateServer } from "@/lib/cookies/get-sidebar-state-server";
 import { UserInitProvider } from "@/lib/providers/user-init-provider";
 import { AppInitProvider } from "@/lib/providers/app-init-provider";
+import { QueryClientProvider } from "@/lib/providers/query-client-provider";
 import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
-import DashboardHeader from "@/components/Dashboard/DashboardHeader";
+import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
+import { SidebarProvider } from "@/components/ui/sidebar";
+
+function hexToRgb(hex: string | null): string {
+  if (!hex) return "0,0,0";
+  const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return "0,0,0";
+  const [, r, g, b] = match;
+  return `${parseInt(r, 16)}, ${parseInt(g, 16)}, ${parseInt(b, 16)}`;
+}
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
   const userContext = await loadUserContextServer();
@@ -21,52 +30,44 @@ export default async function Layout({ children }: { children: React.ReactNode }
     return redirect({ href: "/sign-in", locale });
   }
 
-  const themeColor = appContext?.activeOrg?.theme_color;
+  const themeColor = appContext?.activeOrg?.theme_color ?? null;
 
   return (
     <Suspense fallback={<p>Loading</p>}>
       <SidebarProvider defaultOpen={sidebarState === "expanded"}>
-        <AppInitProvider
-          context={{
-            activeOrg: appContext.activeOrg,
-            activeBranch: appContext.activeBranch,
-            activeOrgId: appContext.active_org_id,
-            activeBranchId: appContext.active_branch_id,
-            availableBranches: appContext.availableBranches,
-            userModules: appContext.userModules,
-          }}
-        >
-          <UserInitProvider context={userContext}>
-            <div
-              className="flex h-screen w-full"
-              style={{ "--theme-color": themeColor } as React.CSSProperties}
-            >
-              <div className="flex w-full flex-1">
-                {/* Sidebar */}
-                <div className="relative z-50">
+        <QueryClientProvider>
+          <AppInitProvider
+            context={{
+              ...appContext,
+              location: null, // Initialize as null, can be set later via setLocation
+            }}
+          >
+            <UserInitProvider context={userContext}>
+              <div
+                className="flex h-screen w-full"
+                style={
+                  {
+                    "--theme-color": themeColor,
+                    "--theme-color-rgb": hexToRgb(themeColor || null),
+                    "--font-color": appContext?.activeOrg?.font_color,
+                  } as React.CSSProperties
+                }
+              >
+                <div className="flex min-w-fit flex-shrink-0">
                   <AppSidebar />
                 </div>
-
-                {/* Main content */}
-                <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex min-w-0 flex-1 flex-grow flex-col">
                   <DashboardHeader />
-
                   <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
-                    {/* 👇 Debug info (do usunięcia w prod) */}
-                    <div className="mb-12">
-                      <pre className="text-xs">
-                        {/* {JSON.stringify({ appContext, userContext }, null, 2)} */}
-                      </pre>
-                    </div>
                     <Suspense fallback={<Loader />}>
                       <div>{children}</div>
                     </Suspense>
                   </main>
                 </div>
               </div>
-            </div>
-          </UserInitProvider>
-        </AppInitProvider>
+            </UserInitProvider>
+          </AppInitProvider>
+        </QueryClientProvider>
       </SidebarProvider>
     </Suspense>
   );

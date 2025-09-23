@@ -9,6 +9,7 @@ export default async function Loading() {
 
   let logoUrl: string | null = null;
   let orgName: string | null = null;
+  let orgName2: string | null = null;
 
   if (session) {
     const userId = session.user.id;
@@ -24,14 +25,15 @@ export default async function Loading() {
     if (orgId) {
       const { data: org } = await supabase
         .from("organization_profiles")
-        .select("logo_url, name")
+        .select("logo_url, name, name_2")
         .eq("organization_id", orgId)
         .single();
 
       logoUrl = org?.logo_url ?? null;
       orgName = org?.name ?? null;
+      orgName2 = org?.name_2 ?? null;
     }
   }
 
-  return <Loader logoUrl={logoUrl} orgName={orgName} />;
+  return <Loader logoUrl={logoUrl} orgName={orgName} orgName2={orgName2} />;
 }

@@ -85,10 +85,10 @@ const PublicHeader = () => {
               </>
             ) : (
               <>
-                <Button variant="outline" asChild className="card-hover">
+                <Button variant="outline" asChild>
                   <Link href="/sign-in">Zaloguj się</Link>
                 </Button>
-                <Button asChild className="card-hover">
+                <Button asChild>
                   <Link href="/sign-up">Rozpocznij za darmo</Link>
                 </Button>
               </>

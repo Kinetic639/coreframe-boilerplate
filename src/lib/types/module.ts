@@ -1,28 +1,39 @@
-import { Pathnames } from "@/i18n/routing";
+import { Scope } from "./user";
+import { Widget } from "./widgets";
 
-export interface MenuItem {
+export type MenuItem = LinkMenuItem | ActionMenuItem;
+export interface AllowedUser {
+  role: string;
+  scope: Scope;
+}
+
+export interface BaseMenuItem {
   id: string;
   label: string;
-  path: Pathnames;
   icon: string;
+  allowedUsers?: AllowedUser[];
+  requiredPermissions?: string[]; // New permission-based access control
+}
+
+export interface LinkMenuItem extends BaseMenuItem {
+  type?: "link";
+  path: string;
   submenu?: MenuItem[];
+}
+
+export interface ActionMenuItem extends BaseMenuItem {
+  type: "action";
+  actionId?: string;
 }
 
 export interface ModuleConfig {
   id: string;
   slug: string;
   title: string;
+  icon?: string;
   description?: string;
   color?: string;
   items: MenuItem[];
-}
-
-export interface OrganizationSettings {
-  name: string;
-  subtitle?: string;
-  logo?: string;
-  primaryColor: string;
-  backgroundColor: string;
-  textColor: string;
-  fontFamily: string;
+  actions?: Record<string, () => void>;
+  widgets?: Widget[]; // 👈 tutaj
 }

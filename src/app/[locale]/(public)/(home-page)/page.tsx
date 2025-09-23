@@ -12,6 +12,49 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import { getTranslations } from "next-intl/server";
+import { Metadata } from "next";
+
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "metadata.public.home" });
+  const common = await getTranslations({ locale, namespace: "metadata.common" });
+
+  return {
+    title: `${t("title")}${common("separator")}${common("appName")}`,
+    description: t("description"),
+    keywords: [
+      "SaaS platform",
+      "warehouse management",
+      "inventory tracking",
+      "business management",
+      "enterprise software",
+      "Next.js",
+      "Supabase",
+      "zarządzanie magazynem",
+      "platforma SaaS",
+    ],
+    openGraph: {
+      title: `${t("title")}${common("separator")}${common("appName")}`,
+      description: t("description"),
+      type: "website",
+      siteName: common("appName"),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${t("title")}${common("separator")}${common("appName")}`,
+      description: t("description"),
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
 
 export default async function Home() {
   return (

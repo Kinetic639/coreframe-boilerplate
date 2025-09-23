@@ -1,0 +1,30 @@
+{
+  "profile": {
+    "title": "Profil Organizacji",
+    "description": "Zarządzaj ustawieniami organizacji, brandingiem i opcjami konfiguracji"
+  },
+  "branches": {
+    "title": "Zarządzanie Oddziałami",
+    "description": "Zarządzaj oddziałami organizacyjnymi, lokalizacjami i strukturą hierarchiczną"
+  },
+  "users": {
+    "title": "Zarządzanie Użytkownikami",
+    "description": "Kompleksowa administracja użytkowników z kontrolą dostępu opartą na rolach"
+  },
+  "usersList": {
+    "title": "Lista Użytkowników",
+    "description": "Kompletna lista użytkowników organizacji z narzędziami zarządzania i administracyjnymi"
+  },
+  "userDetail": {
+    "title": "Szczegóły Użytkownika",
+    "description": "Szczegółowy profil użytkownika z zarządzaniem rolami i nadpisywaniem uprawnień"
+  },
+  "userRoles": {
+    "title": "Role Użytkowników",
+    "description": "System kontroli dostępu oparty na rolach z szczegółowym zarządzaniem uprawnieniami"
+  },
+  "userManage": {
+    "title": "Administracja Użytkowników",
+    "description": "Zaawansowane narzędzia zarządzania użytkownikami dla administracji enterprise"
+  }
+}

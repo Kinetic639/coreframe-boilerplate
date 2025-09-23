@@ -2,6 +2,14 @@
   "HomePage": {
     "title": "Siema siema"
   },
+  "PreferencesPage": {
+    "title": "Preferencje",
+    "description": "Zarządzaj preferencjami konta i ustawieniami",
+    "theme": "Motyw",
+    "themeDescription": "Wybierz preferowany wygląd motywu",
+    "language": "Język",
+    "languageDescription": "Wybierz preferowany język"
+  },
   "authForms": {
     "AuthButton": {
       "greeting": "Cześć, {email}!",
@@ -53,7 +61,90 @@
       "pending": "Resetuję hasło..."
     }
   },
-
+  "teams": {
+    "communication": {
+      "messages": "Wiadomości",
+      "chat": "Czat",
+      "searchChats": "Szukaj czatów...",
+      "searchUsers": "Szukaj użytkowników...",
+      "noChatsFound": "Nie znaleziono czatów",
+      "noChats": "Brak czatów",
+      "tryDifferentSearch": "Spróbuj innego wyszukiwania",
+      "startFirstChat": "Rozpocznij pierwszą rozmowę",
+      "newChat": "Nowy czat",
+      "viewAllChats": "Zobacz wszystkie czaty",
+      "startNewChat": "Rozpocznij nowy czat",
+      "availableUsers": "Dostępni użytkownicy",
+      "noUsersFound": "Nie znaleziono użytkowników",
+      "typeToSearch": "Wpisz aby wyszukać użytkowników",
+      "unknownChat": "Nieznany czat",
+      "welcomeToChat": "Witaj w czacie",
+      "selectChatToStart": "Wybierz czat z paska bocznego aby rozpocząć rozmowę",
+      "instantMessaging": "Natychmiastowe wiadomości z zespołem",
+      "directMessages": "Wiadomości bezpośrednie i czaty grupowe",
+      "chatNotFound": "Czat nie został znaleziony",
+      "chatNotFoundDescription": "Szukany czat nie istnieje lub nie masz do niego dostępu.",
+      "loadingMessages": "Ładowanie wiadomości...",
+      "noMessages": "Brak wiadomości",
+      "startConversation": "Rozpocznij rozmowę wysyłając wiadomość poniżej",
+      "typeMessage": "Napisz wiadomość...",
+      "sendMessage": "Wyślij wiadomość",
+      "startingConversation": "Rozpoczynanie rozmowy...",
+      "errors": {
+        "loadChatsFailed": "Nie udało się załadować czatów",
+        "createChatFailed": "Nie udało się utworzyć czatu",
+        "loadMessagesFailed": "Nie udało się załadować wiadomości",
+        "sendMessageFailed": "Nie udało się wysłać wiadomości",
+        "markMessageReadFailed": "Nie udało się oznaczyć wiadomości jako przeczytana",
+        "chatNotFound": "Nie znaleziono czatu po utworzeniu",
+        "selectOrgBranch": "Najpierw wybierz organizację i oddział",
+        "conversationFailed": "Nie udało się rozpocząć rozmowy. Spróbuj ponownie.",
+        "conversationFailedContact": "Nie udało się rozpocząć rozmowy",
+        "systemNotAvailable": "System czatu nie jest jeszcze dostępny. Skontaktuj się z administratorem.",
+        "genericError": "Coś poszło nie tak. Spróbuj ponownie."
+      },
+      "success": {
+        "conversationStarted": "Rozpoczęto rozmowę z {userName}",
+        "messageSent": "Wiadomość wysłana",
+        "messageRead": "Wiadomość oznaczona jako przeczytana"
+      },
+      "bold": "Pogrubienie",
+      "italic": "Kursywa",
+      "underline": "Podkreślenie",
+      "code": "Kod",
+      "replyingTo": "Odpowiadanie na",
+      "editingMessage": "Edytowanie wiadomości",
+      "pressEnterToSend": "Naciśnij Enter aby wysłać, Shift + Enter dla nowej linii",
+      "messageUser": "Napisz do {name}...",
+      "messageChannel": "Napisz na #{name}...",
+      "send": "Wyślij",
+      "update": "Aktualizuj",
+      "reply": "Odpowiedz",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "copy": "Kopiuj",
+      "messageDeleted": "Ta wiadomość została usunięta",
+      "edited": "edytowane",
+      "sent": "Wysłane",
+      "delivered": "Dostarczone",
+      "read": "Przeczytane",
+      "sending": "Wysyłanie...",
+      "yesterday": "Wczoraj",
+      "bold": "Pogrubienie",
+      "italic": "Kursywa",
+      "underline": "Podkreślenie",
+      "code": "Kod"
+    }
+  },
+  "common": {
+    "loading": "Ładowanie...",
+    "retry": "Ponów",
+    "cancel": "Anuluj",
+    "searching": "Wyszukiwanie...",
+    "you": "Ty",
+    "image": "Obraz",
+    "message": "Wiadomość"
+  },
   "Error": {
     "description": "<p>Niestety wystąpił błąd.</p><p>Możesz spróbować <retry>odświeżyć stronę</retry>, którą próbowałeś odwiedzić.</p>",
     "title": "Coś poszło nie tak!"
@@ -175,9 +266,126 @@
     }
   },
   "LocaleLayout": {
-    "title": "next-intl przykład",
-    "brand": "TherapyConnect",
-    "description": "Bezpieczna platforma zgodna z HIPAA, zaprojektowana aby usprawnić prowadzenie praktyki terapeutycznej i poprawić opiekę nad pacjentami."
+    "title": "CoreFrame - Platforma SaaS dla Przedsiębiorstw",
+    "brand": "CoreFrame",
+    "description": "Kompleksowa platforma SaaS dla przedsiębiorstw z zaawansowanym zarządzaniem magazynem, administracją użytkowników i możliwościami analitycznymi."
+  },
+  "metadata": {
+    "common": {
+      "appName": "CoreFrame",
+      "separator": " | ",
+      "defaultDescription": "Platforma SaaS klassy enterprise dla nowoczesnych firm"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Logowanie",
+        "description": "Uzyskaj dostęp do swojego konta CoreFrame z bezpieczną uwierzytelnianiem enterprise"
+      },
+      "signUp": {
+        "title": "Rejestracja",
+        "description": "Utwórz konto organizacji CoreFrame i zacznij zarządzać swoim biznesem"
+      },
+      "forgotPassword": {
+        "title": "Resetuj Hasło",
+        "description": "Bezpiecznie zresetuj hasło do swojego konta CoreFrame"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Platforma SaaS dla Przedsiębiorstw",
+        "description": "CoreFrame zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
+      },
+      "features": {
+        "title": "Funkcje",
+        "description": "Odkryj potężne funkcje obejmujące zarządzanie magazynem, role użytkowników, śledzenie zapasów i analitykę enterprise"
+      },
+      "pricing": {
+        "title": "Cennik",
+        "description": "Wybierz idealny plan dla swojej organizacji z elastycznymi opcjami cenowymi i funkcjami klasy enterprise"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Panel Główny",
+        "description": "Przegląd kluczowych wskaźników organizacji, aktywności i szybki dostęp do ważnych funkcji"
+      },
+      "analytics": {
+        "title": "Analityka",
+        "description": "Kompleksowa analityka biznesowa i raportowanie dla podejmowania decyzji opartych na danych"
+      },
+      "reports": {
+        "title": "Raporty",
+        "description": "Generuj szczegółowe raporty i analizuj wskaźniki wydajności swojego biznesu"
+      },
+      "activities": {
+        "title": "Oś Czasu Aktywności",
+        "description": "Śledź wszystkie aktywności organizacyjne i zdarzenia systemowe w czasie rzeczywistym"
+      },
+      "testActivity": {
+        "title": "Test Aktywności",
+        "description": "Testuj i monitoruj aktywności systemowe w celu zapewnienia jakości"
+      },
+      "teams": {
+        "contacts": {
+          "title": "Kontakty",
+          "description": "Zarządzaj kontaktami zespołu i członkami organizacji",
+          "custom": {
+            "title": "Moje kontakty",
+            "description": "Zarządzaj swoją osobistą listą kontaktów"
+          },
+          "profile": {
+            "title": "Profil użytkownika",
+            "description": "Zobacz szczegółowe informacje o użytkowniku"
+          }
+        }
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Produkty",
+        "description": "Kompleksowe zarządzanie katalogiem produktów ze śledzeniem zapasów i kontrolą stanu"
+      },
+      "productDetail": {
+        "title": "Szczegóły Produktu",
+        "description": "Szczegółowe informacje o produkcie, poziomy zapasów i opcje zarządzania"
+      },
+      "locations": {
+        "title": "Lokalizacje",
+        "description": "Zarządzanie lokalizacjami magazynowymi z hierarchiczną organizacją i kodami QR"
+      },
+      "locationDetail": {
+        "title": "Szczegóły Lokalizacji",
+        "description": "Szczegółowe informacje o lokalizacji, poziomy zapasów i opcje zarządzania"
+      },
+      "suppliers": {
+        "title": "Dostawcy",
+        "description": "Zarządzanie relacjami z dostawcami i administracja katalogiem dostawców"
+      },
+      "supplierDetail": {
+        "title": "Szczegóły Dostawcy",
+        "description": "Kompleksowe informacje o dostawcy i zarządzanie relacjami"
+      },
+      "suppliersList": {
+        "title": "Lista Dostawców",
+        "description": "Kompletna lista dostawców z informacjami kontaktowymi i narzędziami zarządzania"
+      },
+      "deliveries": {
+        "title": "Dostawy",
+        "description": "Śledź i zarządzaj przychodzącymi dostawami i przetwarzaniem przesyłek"
+      },
+      "audits": {
+        "title": "Audyty Magazynowe",
+        "description": "Planuj i zarządzaj audytami magazynowymi dla dokładnej kontroli zapasów"
+      },
+      "auditHistory": {
+        "title": "Historia Audytów",
+        "description": "Historyczny zapis wszystkich audytów magazynowych i raportów rozbieżności"
+      },
+      "auditSchedule": {
+        "title": "Harmonogram Audytów",
+        "description": "Planuj i zarządzaj nadchodzącymi audytami magazynowymi i zadaniami cyklicznymi"
+      }
+    }
   },
   "LocaleSwitcher": {
     "label": "Zmień język",
@@ -400,5 +608,293 @@
       "secondary": "Jeśli nie widzisz wiadomości, sprawdź folder spam."
     },
     "backToSignIn": "Wróć do logowania"
+  },
+  "announcements": {
+    "title": "Ogłoszenia",
+    "addAnnouncement": "Dodaj Ogłoszenie",
+    "announcementsHistory": "Historia Ogłoszeń",
+    "recentAnnouncements": "Najnowsze Ogłoszenia",
+    "noAnnouncements": "Brak ogłoszeń",
+    "noAnnouncementsDescription": "Nie ma obecnie żadnych ogłoszeń do wyświetlenia.",
+    "form": {
+      "title": "Tytuł",
+      "titlePlaceholder": "Wprowadź tytuł ogłoszenia...",
+      "content": "Treść",
+      "contentPlaceholder": "Wprowadź treść ogłoszenia...",
+      "excerpt": "Krótki Opis",
+      "excerptPlaceholder": "Krótkie streszczenie (opcjonalne)...",
+      "priority": "Priorytet",
+      "priorityPreview": "Ogłoszenie będzie wyświetlane jako",
+      "badges": "Oznaczenia",
+      "badgePlaceholder": "Dodaj oznaczenie (naciśnij Enter)",
+      "badgeColor": "Kolor Oznaczenia",
+      "publishDate": "Data Publikacji",
+      "save": "Zapisz Ogłoszenie",
+      "cancel": "Anuluj",
+      "edit": "Edytuj Ogłoszenie",
+      "delete": "Usuń Ogłoszenie",
+      "confirmDelete": "Czy na pewno chcesz usunąć to ogłoszenie?",
+      "saving": "Zapisywanie...",
+      "updating": "Aktualizowanie...",
+      "deleting": "Usuwanie...",
+      "viewDetails": "Zobacz Szczegóły",
+      "showMore": "Pokaż Więcej",
+      "showLess": "Pokaż Mniej"
+    },
+    "priority": {
+      "normal": "Normalny",
+      "important": "Ważny",
+      "urgent": "Pilny",
+      "critical": "Krytyczny"
+    },
+    "badges": {
+      "announcement": "Ogłoszenie",
+      "update": "Aktualizacja",
+      "maintenance": "Konserwacja",
+      "feature": "Nowa Funkcja",
+      "bugfix": "Poprawka Błędu",
+      "security": "Bezpieczeństwo",
+      "important": "Ważne",
+      "urgent": "Pilne",
+      "info": "Informacja"
+    },
+    "widget": {
+      "title": "Najnowsze Ogłoszenia",
+      "viewAll": "Zobacz Wszystkie Ogłoszenia",
+      "publishedBy": "Opublikowane przez {author}",
+      "timeAgo": "{time} temu"
+    },
+    "editor": {
+      "placeholder": "Wprowadź treść ogłoszenia tutaj...",
+      "toolbar": {
+        "bold": "Pogrubienie",
+        "italic": "Kursywa",
+        "underline": "Podkreślenie",
+        "strikethrough": "Przekreślenie",
+        "link": "Dodaj Link",
+        "heading": "Nagłówek",
+        "bulletList": "Lista Punktowa",
+        "numberedList": "Lista Numerowana",
+        "quote": "Cytat",
+        "code": "Blok Kodu"
+      }
+    },
+    "filters": {
+      "all": "Wszystkie",
+      "priority": "Filtruj po Priorytecie",
+      "author": "Filtruj po Autorze",
+      "dateRange": "Zakres Dat"
+    },
+    "success": {
+      "created": "Ogłoszenie utworzone pomyślnie",
+      "updated": "Ogłoszenie zaktualizowane pomyślnie",
+      "deleted": "Ogłoszenie usunięte pomyślnie"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ogłoszeń",
+      "createFailed": "Nie udało się utworzyć ogłoszenia",
+      "updateFailed": "Nie udało się zaktualizować ogłoszenia",
+      "deleteFailed": "Nie udało się usunąć ogłoszenia",
+      "titleRequired": "Tytuł jest wymagany",
+      "contentRequired": "Treść jest wymagana"
+    }
+  },
+  "modules": {
+    "home": {
+      "title": "Start",
+      "items": {
+        "dashboard": "Panel główny",
+        "newsHistory": "Historia aktualności"
+      }
+    },
+    "warehouse": {
+      "title": "Magazyn",
+      "description": "Zarządzanie magazynem i zapasami",
+      "items": {
+        "products": {
+          "title": "Produkty",
+          "overview": "Przegląd produktów",
+          "templates": "Szablony produktów",
+          "import": "Importuj produkty"
+        },
+        "inventory": {
+          "title": "Inwentarz",
+          "overview": "Przegląd inwentarza",
+          "movements": "Ruchy magazynowe",
+          "adjustments": "Korekty stanów",
+          "reservations": "Rezerwacje",
+          "transfers": "Transfery międzyoddziałowe"
+        },
+        "locations": "Lokalizacje",
+        "audits": {
+          "title": "Audyty",
+          "overview": "Audyty magazynowe",
+          "schedule": "Grafik audytów",
+          "history": "Historia audytów"
+        },
+        "labels": {
+          "title": "Etykiety i kody QR",
+          "overview": "Przegląd etykiet",
+          "creator": "Kreator etykiet",
+          "templates": "Szablony etykiet",
+          "batches": "Partie etykiet",
+          "history": "Historia przypisań"
+        },
+        "scanning": {
+          "title": "Skanowanie kodów",
+          "delivery": "Skanowanie dostaw",
+          "inventory": "Skanowanie inwentarza",
+          "assignment": "Przypisanie lokalizacji",
+          "verification": "Weryfikacja produktów",
+          "operations": "Operacje skanowania"
+        },
+        "suppliers": {
+          "title": "Dostawcy",
+          "list": "Lista dostawców",
+          "deliveries": "Dostawy"
+        }
+      }
+    },
+    "teams": {
+      "title": "Zespoły",
+      "description": "Zarządzanie zespołami i komunikacją",
+      "items": {
+        "members": "Członkowie zespołu",
+        "communication": {
+          "title": "Komunikacja",
+          "chat": "Chat zespołu",
+          "announcements": "Ogłoszenia"
+        },
+        "kanban": "Tablica Kanban",
+        "calendar": "Kalendarz zespołu",
+        "contacts": {
+          "title": "Kontakty",
+          "organization": "Członkowie organizacji",
+          "custom": "Moje kontakty",
+          "pages": {
+            "organization": {
+              "title": "Członkowie organizacji",
+              "description": "Przeglądaj i nawiązuj kontakt z współpracownikami w organizacji",
+              "searchPlaceholder": "Szukaj po imieniu, e-mailu lub dziale...",
+              "noResults": "Nie znaleziono członków",
+              "loading": "Ładowanie członków...",
+              "viewProfile": "Zobacz profil",
+              "sendMessage": "Wyślij wiadomość"
+            },
+            "custom": {
+              "title": "Moje kontakty",
+              "description": "Zarządzaj swoją listą kontaktów",
+              "addContact": "Dodaj kontakt",
+              "editContact": "Edytuj kontakt",
+              "deleteContact": "Usuń kontakt",
+              "searchPlaceholder": "Szukaj kontaktów...",
+              "noContacts": "Brak kontaktów",
+              "confirmDelete": "Czy na pewno chcesz usunąć ten kontakt?"
+            },
+            "profile": {
+              "title": "Profil użytkownika",
+              "contact": "Informacje kontaktowe",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "branch": "Oddział",
+              "joinedDate": "Dołączył",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "sendMessage": "Wyślij wiadomość",
+              "addToContacts": "Dodaj do moich kontaktów"
+            },
+            "form": {
+              "firstName": "Imię",
+              "lastName": "Nazwisko",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "notes": "Notatki",
+              "save": "Zapisz kontakt",
+              "cancel": "Anuluj",
+              "required": "Wymagane",
+              "invalidEmail": "Nieprawidłowy format e-mail"
+            }
+          }
+        }
+      }
+    },
+    "organizationManagement": {
+      "title": "Zarządzanie organizacją",
+      "description": "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
+      "items": {
+        "profile": "Profil organizacji",
+        "branches": "Oddziały",
+        "users": {
+          "title": "Użytkownicy",
+          "list": "Lista użytkowników",
+          "invitations": "Zaproszenia",
+          "roles": "Role i uprawnienia"
+        }
+      }
+    },
+    "support": {
+      "title": "Wsparcie",
+      "description": "Panel pomocy, nowości i kontaktu z zespołem wsparcia",
+      "items": {
+        "help": "Pomoc",
+        "contact": "Kontakt ze wsparciem",
+        "announcements": {
+          "title": "Nowości i ogłoszenia",
+          "changelog": "Changelog",
+          "systemStatus": "Status systemu",
+          "roadmap": "Roadmapa"
+        }
+      }
+    },
+    "userAccount": {
+      "title": "Konto",
+      "description": "Ustawienia konta użytkownika i zarządzanie profilem",
+      "items": {
+        "profile": "Profil",
+        "preferences": "Preferencje"
+      }
+    },
+    "analytics": {
+      "title": "Analityka i Raporty",
+      "description": "Analityka aktywności, raporty i ślady audytu",
+      "items": {
+        "overview": "Panel aktywności",
+        "activities": "Dziennik aktywności",
+        "timeline": "Widok osi czasu",
+        "reports": {
+          "title": "Raporty",
+          "userActivity": "Raporty aktywności użytkowników",
+          "modules": "Raporty modułów",
+          "security": "Raporty bezpieczeństwa"
+        },
+        "exports": {
+          "title": "Eksport danych",
+          "activities": "Eksportuj aktywności",
+          "reports": "Eksportuj raporty"
+        },
+        "settings": {
+          "title": "Ustawienia analityki",
+          "retention": "Przechowywanie danych",
+          "notifications": "Powiadomienia o aktywności",
+          "presets": "Predefiniowane filtry"
+        }
+      }
+    },
+    "development": {
+      "title": "Rozwój",
+      "description": "Narzędzia deweloperskie i użytki debugowania",
+      "items": {
+        "dashboard": "Panel debugowania",
+        "permissions": "Debug uprawnień",
+        "context": "Debug kontekstu",
+        "logo": "Debug logo",
+        "service": "Debug usług",
+        "labels": "Testowanie etykiet",
+        "locations": "Debug lokalizacji",
+        "richTextEditor": "Edytor Tekstu"
+      }
+    }
   }
 }

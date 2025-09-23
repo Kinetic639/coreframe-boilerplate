@@ -2,13 +2,15 @@
 
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
 
 export const signInAction = async (formData: FormData) => {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const email = formData.get("email")?.toString();
+  const password = formData.get("password")?.toString();
   const supabase = await createClient();
+
+  if (!email || !password) {
+    return encodedRedirect("error", "/sign-in", "Email and password are required");
+  }
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -16,9 +18,9 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
+    console.error(error.code + " " + error.message);
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  const locale = await getLocale();
-  return redirect({ href: "/dashboard/start", locale });
+  return encodedRedirect("success", "/dashboard", "Successfully signed in");
 };

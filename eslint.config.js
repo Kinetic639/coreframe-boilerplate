@@ -8,6 +8,7 @@ import tailwindPlugin from 'eslint-plugin-tailwindcss';
 export default [
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
+    ignores: ['backup/**/*'],
     plugins: {
       '@next/next': nextPlugin,
       'react': reactPlugin,
@@ -76,6 +77,7 @@ export default [
       'public/**',
       '*.config.js',
       '*.config.ts',
+      'supabase/functions/**',
     ],
   },
 ]; 

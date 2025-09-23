@@ -4,8 +4,10 @@ import "./globals.css";
 import { hasLocale, Locale, NextIntlClientProvider } from "next-intl";
 import { ReactNode } from "react";
 import { routing } from "@/i18n/routing";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale, getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type Props = {
   children: ReactNode;
@@ -41,10 +43,25 @@ export default async function RootLayout({ children, params }: Props) {
   // Enable static rendering
   setRequestLocale(locale);
 
+  // Load messages on the server within request scope
+  const messages = await getMessages();
+
   return (
     <html lang={locale} className={geistSans.className} suppressHydrationWarning>
       <body className="bg-background text-foreground">
-        <NextIntlClientProvider>
+        <NextIntlClientProvider messages={messages}>
+          <ToastContainer
+            position="top-right"
+            autoClose={4000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

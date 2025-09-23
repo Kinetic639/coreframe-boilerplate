@@ -3,13 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
-// Typ reprezentujący jeden moduł z nadpisanymi ustawieniami użytkownika
-type LoadedUserModule = {
-  id: string;
-  slug: string;
-  label: string;
-  settings: Record<string, unknown>;
-};
+import { AppContext, BranchData } from "@/lib/stores/app-store";
 
 // Pomocnicza funkcja sprawdzająca, czy JSON to obiekt (do bezpiecznego spreadowania)
 function safeObject(obj: unknown): Record<string, unknown> {
@@ -18,7 +12,7 @@ function safeObject(obj: unknown): Record<string, unknown> {
     : {};
 }
 
-export async function _loadAppContextServer() {
+export async function _loadAppContextServer(): Promise<AppContext | null> {
   const supabase = await createClient();
 
   const {
@@ -28,38 +22,86 @@ export async function _loadAppContextServer() {
   if (!session) return null;
   const userId = session.user.id;
 
-  // 1. Preferences
-  const { data: preferences } = await supabase
+  // 1. Get user preferences
+  const { data: preferences, error: prefError } = await supabase
     .from("user_preferences")
     .select("organization_id, default_branch_id")
     .eq("user_id", userId)
     .single();
 
-  const activeOrgId = preferences?.organization_id ?? null;
+  if (prefError) {
+    console.error("Error fetching user preferences:", prefError);
+  }
+
+  let activeOrgId = preferences?.organization_id ?? null;
   const activeBranchId = preferences?.default_branch_id ?? null;
 
+  // FALLBACK: If preferences fail, try to get org_id from JWT roles
+  if (!activeOrgId) {
+    try {
+      const { jwtDecode } = await import("jwt-decode");
+      const jwt = jwtDecode<{ roles?: Array<{ org_id?: string }> }>(session.access_token);
+      const orgFromJWT = jwt.roles?.find((r) => r.org_id)?.org_id;
+      if (orgFromJWT) {
+        activeOrgId = orgFromJWT;
+        console.log("🔍 Using organization from JWT roles:", orgFromJWT);
+      }
+    } catch (err) {
+      console.warn("Failed to decode JWT for org fallback:", err);
+    }
+  }
+
+  // 🔄 Fallback: If no preferences, find user's owned organization
+  if (!activeOrgId) {
+    const { data: ownedOrg } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("created_by", userId)
+      .limit(1)
+      .single();
+
+    if (ownedOrg) {
+      activeOrgId = ownedOrg.id;
+
+      // Create default preferences for this user
+      await supabase.from("user_preferences").upsert({
+        user_id: userId,
+        organization_id: activeOrgId,
+        default_branch_id: null, // Will be set later when branches are available
+      });
+    }
+  }
+
   // 2. Organization profile
-  const { data: activeOrg } = await supabase
-    .from("organization_profiles")
-    .select("*")
-    .eq("organization_id", activeOrgId)
-    .single();
+  let activeOrg = null;
+  let orgError = null;
 
-  // 3. Branches
-  const { data: branchesRaw } = await supabase
-    .from("branches")
-    .select("id")
-    .eq("organization_id", activeOrgId)
-    .is("deleted_at", null);
+  if (activeOrgId) {
+    const result = await supabase
+      .from("organization_profiles")
+      .select("*")
+      .eq("organization_id", activeOrgId)
+      .single();
 
-  const branchIds = branchesRaw?.map((b) => b.id) ?? [];
+    activeOrg = result.data;
+    orgError = result.error;
 
-  const { data: availableBranches } = await supabase
-    .from("branch_profiles")
-    .select("*")
-    .in("branch_id", branchIds);
+    if (orgError) {
+      console.error("Error fetching organization profile:", orgError);
+    }
+  }
 
-  const activeBranch = availableBranches?.find((b) => b.branch_id === activeBranchId) ?? null;
+  // 3. Branches - Load directly from branches table
+  const { data: availableBranches } = activeOrgId
+    ? await supabase
+        .from("branches")
+        .select("*")
+        .eq("organization_id", activeOrgId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
+  const activeBranch = availableBranches?.find((b) => b.id === activeBranchId) ?? null;
 
   // 4. User modules
   const { data: userModulesRaw } = await supabase
@@ -68,7 +110,7 @@ export async function _loadAppContextServer() {
     .eq("user_id", userId)
     .is("deleted_at", null);
 
-  const userModules: LoadedUserModule[] = (userModulesRaw ?? [])
+  const userModules = (userModulesRaw ?? [])
     .map((entry) => {
       const module = Array.isArray(entry.modules)
         ? (entry.modules[0] as Tables<"modules"> | undefined)
@@ -86,15 +128,104 @@ export async function _loadAppContextServer() {
         },
       };
     })
-    .filter((m): m is LoadedUserModule => m !== null);
+    .filter((m): m is NonNullable<typeof m> => m !== null);
+
+  // 5. Load locations for the active branch
+  let locations: Tables<"locations">[] = [];
+  if (activeBranchId) {
+    const { data: locationData } = await supabase
+      .from("locations")
+      .select("*")
+      .eq("branch_id", activeBranchId)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+
+    locations = locationData || [];
+  }
+
+  // 6. Load suppliers for the organization
+  let suppliers: Tables<"suppliers">[] = [];
+  let productTemplates: Tables<"product_templates">[] = [];
+  if (activeOrgId) {
+    const [suppliersResult, productTemplatesResult] = await Promise.all([
+      supabase
+        .from("suppliers")
+        .select("*")
+        .eq("organization_id", activeOrgId)
+        .is("deleted_at", null)
+        .order("name", { ascending: true }),
+      supabase
+        .from("product_templates")
+        .select("*")
+        .or(`organization_id.eq.${activeOrgId},is_system.eq.true`)
+        .is("deleted_at", null)
+        .order("name", { ascending: true }),
+    ]);
+
+    suppliers = suppliersResult.data || [];
+    productTemplates = productTemplatesResult.data || [];
+  }
+
+  // 7. Load organization users for chat functionality
+  let organizationUsers: any[] = [];
+  if (activeOrgId) {
+    try {
+      const { data: usersData, error: usersError } = await supabase.rpc(
+        "get_organization_users_mvp",
+        {
+          org_id: activeOrgId,
+        }
+      );
+
+      if (usersError) {
+        console.error("Error fetching organization users:", usersError);
+        organizationUsers = [];
+      } else {
+        organizationUsers = usersData || [];
+      }
+    } catch (error) {
+      console.error("Error loading organization users:", error);
+      organizationUsers = [];
+    }
+  }
+
+  // 8. Load private contacts for the user (placeholder for future implementation)
+  const privateContacts: any[] = [];
+  // TODO: Implement private contacts loading if needed
+  // This could be from a separate contacts table or external sources
+
+  const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({
+    ...branch,
+    branch_id: branch.id, // Add branch_id for compatibility
+    name: branch.name || "Unknown Branch",
+  }));
 
   return {
-    active_org_id: activeOrgId,
-    active_branch_id: activeBranchId,
-    activeOrg: activeOrg,
-    activeBranch,
-    availableBranches: availableBranches ?? [],
+    activeOrgId: activeOrgId,
+    activeBranchId: activeBranchId,
+    activeOrg: activeOrg
+      ? ({
+          ...activeOrg,
+          id: activeOrg.organization_id,
+          name: activeOrg.name || "Unknown Organization",
+        } as Tables<"organization_profiles">)
+      : null,
+    activeBranch: activeBranch
+      ? ({
+          ...activeBranch,
+          branch_id: activeBranch.id, // Add branch_id for compatibility
+          name: activeBranch.name || "Unknown Branch",
+        } as BranchData)
+      : null,
+    availableBranches: mappedBranches,
     userModules,
+    location: null,
+    locations,
+    suppliers,
+    productTemplates,
+    organizationUsers,
+    privateContacts,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);

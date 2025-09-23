@@ -9,6 +9,8 @@ import { getLocale } from "next-intl/server";
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
+  const firstName = formData.get("firstName")?.toString();
+  const lastName = formData.get("lastName")?.toString();
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
 
@@ -16,29 +18,42 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", "Email and password are required");
   }
 
-  const { error } = await supabase.auth.signUp({
+  // Register user with metadata for names
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       emailRedirectTo: `${origin}/auth/callback`,
+      data: {
+        first_name: firstName || "",
+        last_name: lastName || "",
+      },
     },
   });
 
-  if (error) {
-    console.error(error.code + " " + error.message);
-    return encodedRedirect("error", "/sign-up", error.message);
+  if (error || !data.user) {
+    console.error(error?.code + " " + error?.message);
+    return encodedRedirect("error", "/sign-up", error?.message || "Registration failed");
   }
+
+  // The database trigger will automatically:
+  // 1. Insert the user into public.users table
+  // 2. Create a new organization based on email domain
+  // 3. Create organization profile
+  // 4. Assign org_owner role to the user
 
   return encodedRedirect(
     "success",
     "/sign-up",
-    "Thanks for signing up! Please check your email for a verification link."
+    "Thanks for signing up! Please check your email for a verification link. Your organization has been created automatically."
   );
 };
 
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
+  const returnUrl = formData.get("returnUrl") as string;
+
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -47,10 +62,29 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
+    // If there's a returnUrl, include it in the redirect back to sign-in with the error
+    if (returnUrl) {
+      const { redirect: nextRedirect } = await import("next/navigation");
+      const locale = await getLocale();
+      const signInUrl = `/${locale}/sign-in?returnUrl=${encodeURIComponent(returnUrl)}&error=${encodeURIComponent(error.message)}`;
+      return nextRedirect(signInUrl);
+    }
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
   const locale = await getLocale();
+
+  // If there's a returnUrl, redirect there, otherwise go to dashboard
+  if (returnUrl && returnUrl.trim() !== "") {
+    console.log("[DEBUG] Processing returnUrl:", returnUrl);
+    console.log("[DEBUG] Locale:", locale);
+
+    // Use direct Next.js redirect to the exact returnUrl
+    const { redirect: nextRedirect } = await import("next/navigation");
+    console.log("[DEBUG] Using Next.js redirect to:", returnUrl);
+    return nextRedirect(returnUrl);
+  }
+
   return redirect({ href: "/dashboard/start", locale });
 };
 

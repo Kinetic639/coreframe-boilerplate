@@ -1,91 +1,231 @@
 import { ModuleConfig } from "@/lib/types/module";
+import { Widget } from "@/lib/types/widgets";
 
-export const warehouseModule: ModuleConfig = {
-  id: "warehouse",
-  slug: "warehouse",
-  title: "Magazyn",
-  description: "Zarządzanie magazynem i zapasami",
-  color: "#10b981",
-  items: [
+export async function getWarehouseModule(): Promise<ModuleConfig> {
+  const widgets: Widget[] = [
     {
-      id: "products",
-      label: "Produkty",
-      path: "/dashboard/warehouse/products", // kanoniczna baza
-      icon: "Package",
-      submenu: [
-        {
-          id: "products-list",
-          label: "Lista produktów",
-          path: "/dashboard/warehouse/products/list", // jeszcze nie dodane do routingu
-          icon: "List",
-          submenu: [
-            {
-              id: "materials",
-              label: "Materiały",
-              path: "/dashboard/warehouse/products/materials",
-              icon: "Package",
-            },
-            {
-              id: "parts",
-              label: "Części",
-              path: "/dashboard/warehouse/products/parts",
-              icon: "Cog",
-            },
-            {
-              id: "accessories",
-              label: "Akcesoria",
-              path: "/dashboard/warehouse/products/accessories", // nowa
-              icon: "Archive",
-            },
-          ],
-        },
-        {
-          id: "categories",
-          label: "Kategorie",
-          path: "/dashboard/warehouse/categories", // nowa
-          icon: "FolderOpen",
-        },
-      ],
+      id: "warehouse-summary",
+      title: "Podsumowanie produktów",
+      type: "chart",
+      data: {
+        labels: ["Lakiery", "Narzędzia", "Materiały ścierne", "Chemia"],
+        datasets: [
+          {
+            label: "Ilość",
+            data: [10, 5, 2, 7],
+            backgroundColor: "rgba(34, 197, 94, 0.2)",
+            borderColor: "rgba(34, 197, 94, 1)",
+          },
+        ],
+      },
+      config: {
+        type: "bar",
+        responsive: true,
+      },
     },
-    {
-      id: "inventory",
-      label: "Zapasy",
-      path: "/dashboard/warehouse/inventory", // nowa
-      icon: "BarChart3",
-      submenu: [
-        {
-          id: "stock-levels",
-          label: "Poziomy zapasów",
-          path: "/dashboard/warehouse/inventory/levels", // nowa
-          icon: "TrendingUp",
-        },
-        {
-          id: "stock-movements",
-          label: "Ruchy magazynowe",
-          path: "/dashboard/warehouse/inventory/movements", // nowa
-          icon: "ArrowUpDown",
-        },
-      ],
-    },
-    {
-      id: "suppliers",
-      label: "Dostawcy",
-      path: "/dashboard/warehouse/suppliers",
-      icon: "Users",
-      submenu: [
-        {
-          id: "supplier-list",
-          label: "Lista dostawców",
-          path: "/dashboard/warehouse/suppliers", // już istnieje
-          icon: "Users",
-        },
-        {
-          id: "deliveries",
-          label: "Dostawy",
-          path: "/dashboard/warehouse/deliveries",
-          icon: "Truck",
-        },
-      ],
-    },
-  ],
-};
+  ];
+
+  return {
+    id: "warehouse",
+    slug: "warehouse",
+    title: "modules.warehouse.title",
+    icon: "Warehouse",
+    description: "modules.warehouse.description",
+    color: "#10b981",
+    items: [
+      {
+        id: "products",
+        label: "modules.warehouse.items.products.title",
+        path: "/dashboard/warehouse/products",
+        icon: "Package",
+        submenu: [
+          {
+            id: "products-overview",
+            label: "modules.warehouse.items.products.overview",
+            path: "/dashboard/warehouse/products",
+            icon: "Package",
+          },
+          {
+            id: "products-templates",
+            label: "modules.warehouse.items.products.templates",
+            path: "/dashboard/warehouse/products/templates",
+            icon: "FileTemplate",
+          },
+          {
+            id: "products-import",
+            label: "modules.warehouse.items.products.import",
+            path: "/dashboard/warehouse/products/import",
+            icon: "Upload",
+          },
+        ],
+      },
+      {
+        id: "inventory",
+        label: "modules.warehouse.items.inventory.title",
+        path: "/dashboard/warehouse/inventory",
+        icon: "Archive",
+        submenu: [
+          {
+            id: "inventory-overview",
+            label: "modules.warehouse.items.inventory.overview",
+            path: "/dashboard/warehouse/inventory",
+            icon: "Archive",
+          },
+          {
+            id: "inventory-movements",
+            label: "modules.warehouse.items.inventory.movements",
+            path: "/dashboard/warehouse/inventory/movements",
+            icon: "ArrowRightLeft",
+          },
+          {
+            id: "inventory-adjustments",
+            label: "modules.warehouse.items.inventory.adjustments",
+            path: "/dashboard/warehouse/inventory/adjustments",
+            icon: "Settings",
+          },
+          {
+            id: "inventory-reservations",
+            label: "modules.warehouse.items.inventory.reservations",
+            path: "/dashboard/warehouse/inventory/reservations",
+            icon: "Lock",
+          },
+          {
+            id: "inventory-transfers",
+            label: "modules.warehouse.items.inventory.transfers",
+            path: "/dashboard/warehouse/inventory/transfers",
+            icon: "Shuffle",
+          },
+        ],
+      },
+      {
+        id: "locations",
+        label: "modules.warehouse.items.locations",
+        path: "/dashboard/warehouse/locations",
+        icon: "MapPin",
+      },
+      {
+        id: "audits",
+        label: "modules.warehouse.items.audits.title",
+        icon: "ClipboardCheck",
+        path: "/dashboard/warehouse/audits",
+        submenu: [
+          {
+            id: "audit-overview",
+            label: "modules.warehouse.items.audits.overview",
+            path: "/dashboard/warehouse/audits",
+            icon: "ClipboardCheck",
+          },
+          {
+            id: "audit-schedule",
+            label: "modules.warehouse.items.audits.schedule",
+            path: "/dashboard/warehouse/audits/schedule",
+            icon: "CalendarDays",
+          },
+          {
+            id: "audit-history",
+            label: "modules.warehouse.items.audits.history",
+            path: "/dashboard/warehouse/audits/history",
+            icon: "History",
+          },
+        ],
+      },
+      {
+        id: "labels",
+        label: "modules.warehouse.items.labels.title",
+        icon: "QrCode",
+        path: "/dashboard/warehouse/labels",
+        submenu: [
+          {
+            id: "labels-overview",
+            label: "modules.warehouse.items.labels.overview",
+            path: "/dashboard/warehouse/labels",
+            icon: "List",
+          },
+          {
+            id: "label-creator",
+            label: "modules.warehouse.items.labels.creator",
+            path: "/dashboard/warehouse/labels/create",
+            icon: "Plus",
+          },
+          {
+            id: "label-templates",
+            label: "modules.warehouse.items.labels.templates",
+            path: "/dashboard/warehouse/labels/templates",
+            icon: "FileText",
+          },
+          {
+            id: "label-batches",
+            label: "modules.warehouse.items.labels.batches",
+            path: "/dashboard/warehouse/labels/batches",
+            icon: "Layers",
+          },
+          {
+            id: "label-history",
+            label: "modules.warehouse.items.labels.history",
+            path: "/dashboard/warehouse/labels/history",
+            icon: "History",
+          },
+        ],
+      },
+      {
+        id: "scanning",
+        label: "modules.warehouse.items.scanning.title",
+        icon: "ScanLine",
+        path: "/dashboard/warehouse/scanning",
+        submenu: [
+          {
+            id: "scan-delivery",
+            label: "modules.warehouse.items.scanning.delivery",
+            path: "/dashboard/warehouse/scanning/delivery",
+            icon: "Truck",
+          },
+          {
+            id: "scan-inventory",
+            label: "modules.warehouse.items.scanning.inventory",
+            path: "/dashboard/warehouse/scanning/inventory",
+            icon: "Package",
+          },
+          {
+            id: "scan-assignment",
+            label: "modules.warehouse.items.scanning.assignment",
+            path: "/dashboard/warehouse/scanning/assignment",
+            icon: "MapPin",
+          },
+          {
+            id: "scan-verification",
+            label: "modules.warehouse.items.scanning.verification",
+            path: "/dashboard/warehouse/scanning/verification",
+            icon: "CheckCircle",
+          },
+          {
+            id: "scan-operations",
+            label: "modules.warehouse.items.scanning.operations",
+            path: "/dashboard/warehouse/scanning/operations",
+            icon: "Activity",
+          },
+        ],
+      },
+      {
+        id: "suppliers",
+        label: "modules.warehouse.items.suppliers.title",
+        icon: "Truck",
+        path: "/dashboard/warehouse/suppliers",
+        submenu: [
+          {
+            id: "supplier-list",
+            label: "modules.warehouse.items.suppliers.list",
+            path: "/dashboard/warehouse/suppliers/list",
+            icon: "List",
+          },
+          {
+            id: "deliveries",
+            label: "modules.warehouse.items.suppliers.deliveries",
+            path: "/dashboard/warehouse/suppliers/deliveries",
+            icon: "Inbox",
+          },
+        ],
+      },
+    ],
+    widgets,
+  };
+}

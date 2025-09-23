@@ -2,6 +2,14 @@
   "HomePage": {
     "title": "Hello there"
   },
+  "PreferencesPage": {
+    "title": "Preferences",
+    "description": "Manage your account preferences and settings",
+    "theme": "Theme",
+    "themeDescription": "Choose your preferred theme appearance",
+    "language": "Language",
+    "languageDescription": "Select your preferred language"
+  },
   "authForms": {
     "AuthButton": {
       "greeting": "Hi, {email}!",
@@ -52,6 +60,91 @@
       "submit": "Reset password",
       "pending": "Resetting password..."
     }
+  },
+  "teams": {
+    "communication": {
+      "messages": "Messages",
+      "chat": "Chat",
+      "searchChats": "Search chats...",
+      "searchUsers": "Search users...",
+      "noChatsFound": "No chats found",
+      "noChats": "No chats yet",
+      "tryDifferentSearch": "Try a different search term",
+      "startFirstChat": "Start your first conversation",
+      "newChat": "New Chat",
+      "viewAllChats": "View All Chats",
+      "sendMessage": "Send Message",
+      "startingConversation": "Starting conversation...",
+      "typeMessage": "Type a message...",
+      "errors": {
+        "loadChatsFailed": "Failed to load chats",
+        "createChatFailed": "Failed to create chat",
+        "loadMessagesFailed": "Failed to load messages",
+        "sendMessageFailed": "Failed to send message",
+        "markMessageReadFailed": "Failed to mark message as read",
+        "chatNotFound": "Chat not found after creation",
+        "selectOrgBranch": "Please select an organization and branch first",
+        "conversationFailed": "Failed to start conversation. Please try again.",
+        "conversationFailedContact": "Failed to start conversation",
+        "systemNotAvailable": "Chat system is not available yet. Please contact your administrator.",
+        "genericError": "Something went wrong. Please try again."
+      },
+      "success": {
+        "conversationStarted": "Started conversation with {userName}",
+        "messageSent": "Message sent",
+        "messageRead": "Message marked as read"
+      },
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "code": "Code",
+      "replyingTo": "Replying to",
+      "editingMessage": "Editing message",
+      "startNewChat": "Start New Chat",
+      "availableUsers": "Available Users",
+      "noUsersFound": "No users found",
+      "typeToSearch": "Type to search for users",
+      "unknownChat": "Unknown Chat",
+      "welcomeToChat": "Welcome to Chat",
+      "selectChatToStart": "Select a chat from the sidebar to start messaging",
+      "instantMessaging": "Instant messaging with your team",
+      "directMessages": "Direct messages and group chats",
+      "chatNotFound": "Chat not found",
+      "chatNotFoundDescription": "The chat you're looking for doesn't exist or you don't have access to it.",
+      "loadingMessages": "Loading messages...",
+      "noMessages": "No messages yet",
+      "startConversation": "Start the conversation by sending a message below",
+      "typeMessage": "Type a message...",
+      "pressEnterToSend": "Press Enter to send, Shift + Enter for new line",
+      "messageUser": "Message {name}...",
+      "messageChannel": "Message #{name}...",
+      "send": "Send",
+      "update": "Update",
+      "reply": "Reply",
+      "edit": "Edit",
+      "delete": "Delete",
+      "copy": "Copy",
+      "messageDeleted": "This message was deleted",
+      "edited": "edited",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "sending": "Sending...",
+      "yesterday": "Yesterday",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "code": "Code"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "searching": "Searching...",
+    "you": "You",
+    "image": "Image",
+    "message": "Message"
   },
   "Error": {
     "description": "<p>We've unfortunately encountered an error.</p><p>You can try to <retry>reload the page</retry> you were visiting.</p>",
@@ -125,9 +218,126 @@
     }
   },
   "LocaleLayout": {
-    "title": "next-intl example",
-    "brand": "TherapyConnect",
-    "description": "A secure, HIPAA-compliant platform designed to streamline your therapy practice and enhance patient care."
+    "title": "CoreFrame - Enterprise SaaS Platform",
+    "brand": "CoreFrame",
+    "description": "A comprehensive enterprise SaaS platform with advanced warehouse management, user administration, and analytics capabilities."
+  },
+  "metadata": {
+    "common": {
+      "appName": "CoreFrame",
+      "separator": " | ",
+      "defaultDescription": "Enterprise-grade SaaS platform for modern businesses"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Sign In",
+        "description": "Access your CoreFrame account with secure enterprise authentication"
+      },
+      "signUp": {
+        "title": "Sign Up",
+        "description": "Create your CoreFrame organization account and start managing your business"
+      },
+      "forgotPassword": {
+        "title": "Reset Password",
+        "description": "Reset your CoreFrame account password securely"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Enterprise SaaS Platform",
+        "description": "CoreFrame provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
+      },
+      "features": {
+        "title": "Features",
+        "description": "Discover powerful features including warehouse management, user roles, inventory tracking, and enterprise analytics"
+      },
+      "pricing": {
+        "title": "Pricing",
+        "description": "Choose the perfect plan for your organization with flexible pricing options and enterprise-grade features"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Dashboard",
+        "description": "Overview of your organization's key metrics, activities, and quick access to important features"
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Comprehensive business analytics and reporting for data-driven decision making"
+      },
+      "reports": {
+        "title": "Reports",
+        "description": "Generate detailed reports and analyze your business performance metrics"
+      },
+      "activities": {
+        "title": "Activity Timeline",
+        "description": "Track all organizational activities and system events in real-time"
+      },
+      "testActivity": {
+        "title": "Test Activity",
+        "description": "Test and monitor system activities for quality assurance"
+      },
+      "teams": {
+        "contacts": {
+          "title": "Contacts",
+          "description": "Manage team contacts and organization members",
+          "custom": {
+            "title": "My Contacts",
+            "description": "Manage your personal contact list"
+          },
+          "profile": {
+            "title": "User Profile",
+            "description": "View detailed user information"
+          }
+        }
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Products",
+        "description": "Comprehensive product catalog management with inventory tracking and stock control"
+      },
+      "productDetail": {
+        "title": "Product Details",
+        "description": "Detailed product information, inventory levels, and management options"
+      },
+      "locations": {
+        "title": "Locations",
+        "description": "Warehouse location management with hierarchical organization and QR codes"
+      },
+      "locationDetail": {
+        "title": "Location Details",
+        "description": "Detailed location information, stock levels, and management options"
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "description": "Supplier relationship management and vendor catalog administration"
+      },
+      "supplierDetail": {
+        "title": "Supplier Details",
+        "description": "Comprehensive supplier information and relationship management"
+      },
+      "suppliersList": {
+        "title": "Suppliers List",
+        "description": "Complete list of suppliers with contact information and management tools"
+      },
+      "deliveries": {
+        "title": "Deliveries",
+        "description": "Track and manage incoming deliveries and shipment processing"
+      },
+      "audits": {
+        "title": "Inventory Audits",
+        "description": "Schedule and manage inventory audits for accurate stock control"
+      },
+      "auditHistory": {
+        "title": "Audit History",
+        "description": "Historical record of all inventory audits and discrepancy reports"
+      },
+      "auditSchedule": {
+        "title": "Audit Schedule",
+        "description": "Schedule and manage upcoming inventory audits and recurring tasks"
+      }
+    }
   },
   "LocaleSwitcher": {
     "label": "Change language",
@@ -444,5 +654,293 @@
       "secondary": "If you don't see the email, please check your spam folder."
     },
     "backToSignIn": "Return to sign in"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "addAnnouncement": "Add Announcement",
+    "announcementsHistory": "Announcements History",
+    "recentAnnouncements": "Recent Announcements",
+    "noAnnouncements": "No announcements available",
+    "noAnnouncementsDescription": "There are currently no announcements to display.",
+    "form": {
+      "title": "Title",
+      "titlePlaceholder": "Enter announcement title...",
+      "content": "Content",
+      "contentPlaceholder": "Enter announcement content...",
+      "excerpt": "Short Description",
+      "excerptPlaceholder": "Brief summary (optional)...",
+      "priority": "Priority",
+      "priorityPreview": "Announcement will appear as",
+      "badges": "Badges",
+      "badgePlaceholder": "Add badge (press Enter)",
+      "badgeColor": "Badge Color",
+      "publishDate": "Publish Date",
+      "save": "Save Announcement",
+      "cancel": "Cancel",
+      "edit": "Edit Announcement",
+      "delete": "Delete Announcement",
+      "confirmDelete": "Are you sure you want to delete this announcement?",
+      "saving": "Saving...",
+      "updating": "Updating...",
+      "deleting": "Deleting...",
+      "viewDetails": "View Details",
+      "showMore": "Show More",
+      "showLess": "Show Less"
+    },
+    "priority": {
+      "normal": "Normal",
+      "important": "Important",
+      "urgent": "Urgent",
+      "critical": "Critical"
+    },
+    "badges": {
+      "announcement": "Announcement",
+      "update": "Update",
+      "maintenance": "Maintenance",
+      "feature": "New Feature",
+      "bugfix": "Bug Fix",
+      "security": "Security",
+      "important": "Important",
+      "urgent": "Urgent",
+      "info": "Info"
+    },
+    "widget": {
+      "title": "Recent Announcements",
+      "viewAll": "View All Announcements",
+      "publishedBy": "Published by {author}",
+      "timeAgo": "{time} ago"
+    },
+    "editor": {
+      "placeholder": "Enter your announcement content here...",
+      "toolbar": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "strikethrough": "Strikethrough",
+        "link": "Add Link",
+        "heading": "Heading",
+        "bulletList": "Bullet List",
+        "numberedList": "Numbered List",
+        "quote": "Quote",
+        "code": "Code Block"
+      }
+    },
+    "filters": {
+      "all": "All",
+      "priority": "Filter by Priority",
+      "author": "Filter by Author",
+      "dateRange": "Date Range"
+    },
+    "success": {
+      "created": "Announcement created successfully",
+      "updated": "Announcement updated successfully",
+      "deleted": "Announcement deleted successfully"
+    },
+    "errors": {
+      "loadFailed": "Failed to load announcements",
+      "createFailed": "Failed to create announcement",
+      "updateFailed": "Failed to update announcement",
+      "deleteFailed": "Failed to delete announcement",
+      "titleRequired": "Title is required",
+      "contentRequired": "Content is required"
+    }
+  },
+  "modules": {
+    "home": {
+      "title": "Home",
+      "items": {
+        "dashboard": "Dashboard",
+        "newsHistory": "News History"
+      }
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "description": "Warehouse and inventory management",
+      "items": {
+        "products": {
+          "title": "Products",
+          "overview": "Product Overview",
+          "templates": "Product Templates",
+          "import": "Import Products"
+        },
+        "inventory": {
+          "title": "Inventory",
+          "overview": "Inventory Overview",
+          "movements": "Stock Movements",
+          "adjustments": "Stock Adjustments",
+          "reservations": "Stock Reservations",
+          "transfers": "Inter-branch Transfers"
+        },
+        "locations": "Locations",
+        "audits": {
+          "title": "Audits",
+          "overview": "Warehouse Audits",
+          "schedule": "Audit Schedule",
+          "history": "Audit History"
+        },
+        "labels": {
+          "title": "Labels & QR Codes",
+          "overview": "Labels Overview",
+          "creator": "Label Creator",
+          "templates": "Label Templates",
+          "batches": "Label Batches",
+          "history": "Assignment History"
+        },
+        "scanning": {
+          "title": "Code Scanning",
+          "delivery": "Delivery Scanning",
+          "inventory": "Inventory Scanning",
+          "assignment": "Location Assignment",
+          "verification": "Product Verification",
+          "operations": "Scanning Operations"
+        },
+        "suppliers": {
+          "title": "Suppliers",
+          "list": "Supplier List",
+          "deliveries": "Deliveries"
+        }
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "description": "Team management and communication",
+      "items": {
+        "members": "Team Members",
+        "communication": {
+          "title": "Communication",
+          "chat": "Team Chat",
+          "announcements": "Announcements"
+        },
+        "kanban": "Kanban Board",
+        "calendar": "Team Calendar",
+        "contacts": {
+          "title": "Contacts",
+          "organization": "Organization Members",
+          "custom": "My Contacts",
+          "pages": {
+            "organization": {
+              "title": "Organization Members",
+              "description": "Browse and connect with colleagues in your organization",
+              "searchPlaceholder": "Search by name, email, or department...",
+              "noResults": "No members found",
+              "loading": "Loading members...",
+              "viewProfile": "View Profile",
+              "sendMessage": "Send Message"
+            },
+            "custom": {
+              "title": "My Contacts",
+              "description": "Manage your personal contact list",
+              "addContact": "Add Contact",
+              "editContact": "Edit Contact",
+              "deleteContact": "Delete Contact",
+              "searchPlaceholder": "Search contacts...",
+              "noContacts": "No contacts yet",
+              "confirmDelete": "Are you sure you want to delete this contact?"
+            },
+            "profile": {
+              "title": "User Profile",
+              "contact": "Contact Information",
+              "position": "Position",
+              "department": "Department",
+              "branch": "Branch",
+              "joinedDate": "Joined",
+              "email": "Email",
+              "phone": "Phone",
+              "sendMessage": "Send Message",
+              "addToContacts": "Add to My Contacts"
+            },
+            "form": {
+              "firstName": "First Name",
+              "lastName": "Last Name",
+              "email": "Email",
+              "phone": "Phone",
+              "position": "Position",
+              "department": "Department",
+              "notes": "Notes",
+              "save": "Save Contact",
+              "cancel": "Cancel",
+              "required": "Required",
+              "invalidEmail": "Invalid email format"
+            }
+          }
+        }
+      }
+    },
+    "organizationManagement": {
+      "title": "Organization Management",
+      "description": "Administrative panel for managing organization, users and permissions",
+      "items": {
+        "profile": "Organization Profile",
+        "branches": "Branches",
+        "users": {
+          "title": "Users",
+          "list": "User List",
+          "invitations": "Invitations",
+          "roles": "Roles & Permissions"
+        }
+      }
+    },
+    "support": {
+      "title": "Support",
+      "description": "Help panel, news and support team contact",
+      "items": {
+        "help": "Help",
+        "contact": "Contact Support",
+        "announcements": {
+          "title": "News & Announcements",
+          "changelog": "Changelog",
+          "systemStatus": "System Status",
+          "roadmap": "Roadmap"
+        }
+      }
+    },
+    "userAccount": {
+      "title": "Account",
+      "description": "User account settings and profile management",
+      "items": {
+        "profile": "Profile",
+        "preferences": "Preferences"
+      }
+    },
+    "analytics": {
+      "title": "Analytics & Reports",
+      "description": "Activity analytics, reports, and audit trails",
+      "items": {
+        "overview": "Activity Dashboard",
+        "activities": "Activity Log",
+        "timeline": "Timeline View",
+        "reports": {
+          "title": "Reports",
+          "userActivity": "User Activity Reports",
+          "modules": "Module Reports",
+          "security": "Security Reports"
+        },
+        "exports": {
+          "title": "Data Export",
+          "activities": "Export Activities",
+          "reports": "Export Reports"
+        },
+        "settings": {
+          "title": "Analytics Settings",
+          "retention": "Data Retention",
+          "notifications": "Activity Notifications",
+          "presets": "Filter Presets"
+        }
+      }
+    },
+    "development": {
+      "title": "Development",
+      "description": "Development tools and debugging utilities",
+      "items": {
+        "dashboard": "Debug Dashboard",
+        "permissions": "Permissions Debug",
+        "context": "Context Debug",
+        "logo": "Logo Debug",
+        "service": "Service Debug",
+        "labels": "Label Testing",
+        "locations": "Locations Debug",
+        "richTextEditor": "Rich Text Editor"
+      }
+    }
   }
 }

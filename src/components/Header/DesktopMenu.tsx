@@ -11,6 +11,14 @@ import { motion } from "framer-motion";
 import { educationalMenuItems, features, solutionsMenuItems } from "./menuData";
 import { Link } from "@/i18n/navigation";
 
+interface MenuItem {
+  title: string;
+  href: string;
+  description: string;
+  icon: React.ElementType;
+  items?: MenuItem[];
+}
+
 export default function DesktopMenu() {
   return (
     <NavigationMenu>
@@ -46,17 +54,23 @@ export default function DesktopMenu() {
                 className="grid w-[700px] grid-cols-[180px_1fr] gap-8 p-6"
               >
                 <div>
-                  <Link href={menu.href} className="text-lg font-semibold hover:text-primary">
+                  <Link
+                    href={menu.href as any}
+                    className="text-lg font-semibold hover:text-primary"
+                  >
                     {menu.title} →
                   </Link>
                   <p className="text-sm text-muted-foreground">{menu.description}</p>
                 </div>
                 <ul className="grid grid-cols-2 gap-3">
                   {menu.items.flatMap((group: any) =>
-                    (group.items || [group]).map((item: any) => (
+                    (group.items || [group]).map((item: MenuItem) => (
                       <li key={item.title}>
                         <NavigationMenuLink asChild>
-                          <Link href={item.href} className="block rounded p-2 hover:bg-accent">
+                          <Link
+                            href={item.href as any}
+                            className="block rounded p-2 hover:bg-accent"
+                          >
                             <div className="flex items-center gap-2">
                               <item.icon className="h-5 w-5 text-primary" />
                               <span>{item.title}</span>
