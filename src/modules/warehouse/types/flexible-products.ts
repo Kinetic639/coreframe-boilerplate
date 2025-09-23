@@ -18,7 +18,7 @@ export type TransferRequestItem = Tables<"transfer_request_items">;
 
 // Extended types for UI
 export type ProductWithDetails = FlexibleProduct & {
-  template: ProductTemplate;
+  template: ProductTemplate | null; // Can be null for template-optional products
   variants: (ProductVariant & {
     attributes: ProductAttribute[];
     images: ProductImage[];
@@ -48,7 +48,7 @@ export type AttributeValue =
 
 // Form types for creating/updating
 export type CreateProductData = {
-  template_id: string;
+  template_id?: string | null; // Optional for template-optional product creation
   name: string;
   slug?: string;
   description?: string;

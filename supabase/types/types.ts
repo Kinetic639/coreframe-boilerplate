@@ -388,6 +388,68 @@ export type Database = {
           },
         ];
       };
+      context_configurations: {
+        Row: {
+          access_level: string | null;
+          api_enabled: boolean | null;
+          color: string | null;
+          context_name: string;
+          context_type: string | null;
+          cors_origins: string[] | null;
+          created_at: string | null;
+          display_label: Json;
+          icon: string | null;
+          id: string;
+          is_active: boolean | null;
+          metadata: Json | null;
+          organization_id: string | null;
+          rate_limits: Json | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          access_level?: string | null;
+          api_enabled?: boolean | null;
+          color?: string | null;
+          context_name: string;
+          context_type?: string | null;
+          cors_origins?: string[] | null;
+          created_at?: string | null;
+          display_label: Json;
+          icon?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          metadata?: Json | null;
+          organization_id?: string | null;
+          rate_limits?: Json | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          access_level?: string | null;
+          api_enabled?: boolean | null;
+          color?: string | null;
+          context_name?: string;
+          context_type?: string | null;
+          cors_origins?: string[] | null;
+          created_at?: string | null;
+          display_label?: Json;
+          icon?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          metadata?: Json | null;
+          organization_id?: string | null;
+          rate_limits?: Json | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "context_configurations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       debug_logs: {
         Row: {
           created_at: string | null;
@@ -405,6 +467,41 @@ export type Database = {
           id?: string;
         };
         Relationships: [];
+      };
+      field_visibility_rules: {
+        Row: {
+          context_config_id: string | null;
+          created_at: string | null;
+          field_name: string;
+          field_transformations: Json | null;
+          id: string;
+          visibility_level: string | null;
+        };
+        Insert: {
+          context_config_id?: string | null;
+          created_at?: string | null;
+          field_name: string;
+          field_transformations?: Json | null;
+          id?: string;
+          visibility_level?: string | null;
+        };
+        Update: {
+          context_config_id?: string | null;
+          created_at?: string | null;
+          field_name?: string;
+          field_transformations?: Json | null;
+          id?: string;
+          visibility_level?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "field_visibility_rules_context_config_id_fkey";
+            columns: ["context_config_id"];
+            isOneToOne: false;
+            referencedRelation: "context_configurations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       hook_execution_log: {
         Row: {
@@ -1781,7 +1878,7 @@ export type Database = {
           organization_id: string;
           slug: string;
           status: string;
-          template_id: string;
+          template_id: string | null;
           updated_at: string | null;
         };
         Insert: {
@@ -1794,7 +1891,7 @@ export type Database = {
           organization_id: string;
           slug: string;
           status?: string;
-          template_id: string;
+          template_id?: string | null;
           updated_at?: string | null;
         };
         Update: {
@@ -1807,7 +1904,7 @@ export type Database = {
           organization_id?: string;
           slug?: string;
           status?: string;
-          template_id?: string;
+          template_id?: string | null;
           updated_at?: string | null;
         };
         Relationships: [
@@ -2752,7 +2849,9 @@ export type Database = {
       };
       template_attribute_definitions: {
         Row: {
+          api_visibility: Json | null;
           attribute_key: string;
+          context_behavior: string | null;
           context_scope: string[] | null;
           created_at: string | null;
           data_type: string;
@@ -2761,6 +2860,7 @@ export type Database = {
           display_name: string;
           display_order: number | null;
           id: string;
+          inheritance_rules: Json | null;
           is_required: boolean | null;
           is_searchable: boolean | null;
           is_unique: boolean | null;
@@ -2768,7 +2868,9 @@ export type Database = {
           validation_rules: Json | null;
         };
         Insert: {
+          api_visibility?: Json | null;
           attribute_key: string;
+          context_behavior?: string | null;
           context_scope?: string[] | null;
           created_at?: string | null;
           data_type: string;
@@ -2777,6 +2879,7 @@ export type Database = {
           display_name: string;
           display_order?: number | null;
           id?: string;
+          inheritance_rules?: Json | null;
           is_required?: boolean | null;
           is_searchable?: boolean | null;
           is_unique?: boolean | null;
@@ -2784,7 +2887,9 @@ export type Database = {
           validation_rules?: Json | null;
         };
         Update: {
+          api_visibility?: Json | null;
           attribute_key?: string;
+          context_behavior?: string | null;
           context_scope?: string[] | null;
           created_at?: string | null;
           data_type?: string;
@@ -2793,6 +2898,7 @@ export type Database = {
           display_name?: string;
           display_order?: number | null;
           id?: string;
+          inheritance_rules?: Json | null;
           is_required?: boolean | null;
           is_searchable?: boolean | null;
           is_unique?: boolean | null;
