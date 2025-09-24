@@ -353,15 +353,22 @@ export class TemplateService {
     templateData: Partial<CreateTemplateRequest>
   ): Promise<ProductTemplate> {
     try {
-      const { attributes, ...templateFields } = templateData;
+      const { attributes, supported_contexts, settings, ...templateFields } = templateData;
+
+      // Prepare the update data - only include valid database columns
+      const updateData = {
+        ...templateFields,
+        metadata: {
+          contexts: supported_contexts || ["warehouse"],
+          settings: settings || {},
+        },
+        updated_at: new Date().toISOString(),
+      };
 
       // Update template
       const { data: template, error: templateError } = await this.supabase
         .from("product_templates")
-        .update({
-          ...templateFields,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", templateId)
         .select()
         .single();
