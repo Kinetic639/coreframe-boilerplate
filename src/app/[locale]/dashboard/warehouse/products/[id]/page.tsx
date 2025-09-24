@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { useProduct } from "@/modules/warehouse/hooks/use-product-variants";
-import { VariantManager } from "@/modules/warehouse/components/variants/variant-manager";
+import { VariantManager } from "@/modules/warehouse/components/variants/VariantManager";
 import { EnhancedProductForm } from "@/modules/warehouse/products/components/enhanced-product-form";
 import { ContextSwitcher } from "@/modules/warehouse/components/context/context-switcher";
 import { ProductContextViews } from "@/modules/warehouse/products/components/product-context-views";
@@ -199,7 +199,7 @@ export default function ProductDetailPage() {
       )}
 
       {/* Modern Variant Management */}
-      <VariantManager productId={id} />
+      <VariantManager productId={id} productName={product.name} />
 
       {/* Edit Product Dialog */}
       <EnhancedProductForm
