@@ -1,6 +1,10 @@
 import { createClient } from "@/utils/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
 import type { ProductAttribute, AttributeValue } from "../types/flexible-products";
+import {
+  templateInheritanceService,
+  type TemplateInheritanceData,
+} from "./template-inheritance-service";
 
 // Variant management types
 export type Variant = Tables<"product_variants">;
@@ -36,7 +40,7 @@ export class VariantService {
   private supabase = createClient();
 
   /**
-   * Create a new variant for a product
+   * Create a new variant for a product with template inheritance
    */
   async createVariant(
     productId: string,
@@ -45,7 +49,21 @@ export class VariantService {
     try {
       const { attributes, images, ...variantFields } = variantData;
 
-      // 1. Create the variant
+      // 1. Get template inheritance data
+      const inheritanceData =
+        await templateInheritanceService.getTemplateInheritanceData(productId);
+
+      // 2. Generate inherited attributes (merge with provided attributes)
+      let finalAttributes = attributes || {};
+      if (inheritanceData) {
+        const inheritedAttributes = templateInheritanceService.generateInheritedAttributes(
+          inheritanceData,
+          attributes || {}
+        );
+        finalAttributes = { ...inheritedAttributes, ...finalAttributes };
+      }
+
+      // 3. Create the variant
       const variantInsert: TablesInsert<"product_variants"> = {
         product_id: productId,
         name: variantFields.name || "Default Variant",
@@ -65,17 +83,17 @@ export class VariantService {
 
       if (variantError) throw variantError;
 
-      // 2. Add attributes if provided
-      if (attributes && Object.keys(attributes).length > 0) {
-        await this.updateVariantAttributes(variant.id, attributes);
+      // 4. Add inherited + custom attributes
+      if (Object.keys(finalAttributes).length > 0) {
+        await this.updateVariantAttributes(variant.id, finalAttributes);
       }
 
-      // 3. Add images if provided
+      // 5. Add images if provided
       if (images && images.length > 0) {
         await this.updateVariantImages(variant.id, images);
       }
 
-      // 4. Return the created variant with relations
+      // 6. Return the created variant with relations
       return await this.getVariantById(variant.id);
     } catch (error) {
       console.error("Error creating variant:", error);
@@ -640,6 +658,20 @@ export class VariantService {
     if (attr.value_date !== null) return { type: "date", value: attr.value_date };
     if (attr.value_json !== null) return { type: "json", value: attr.value_json };
     return { type: "text", value: "" }; // fallback
+  }
+
+  /**
+   * Get template inheritance data for variant creation UI
+   */
+  async getTemplateInheritanceForProduct(
+    productId: string
+  ): Promise<TemplateInheritanceData | null> {
+    try {
+      return await templateInheritanceService.getTemplateInheritanceData(productId);
+    } catch (error) {
+      console.error("Error getting template inheritance data:", error);
+      return null;
+    }
   }
 
   /**

@@ -19,7 +19,22 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, Package, ShoppingCart, Users, Monitor, Settings } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Trash2,
+  Plus,
+  Package,
+  ShoppingCart,
+  Users,
+  Monitor,
+  Settings,
+  GitBranch,
+  Eye,
+  EyeOff,
+  FileText,
+  Info,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import {
   variantService,
@@ -27,6 +42,10 @@ import {
   type UpdateVariantRequest,
   type VariantWithAttributes,
 } from "../../api/variant-service";
+import {
+  templateInheritanceService,
+  type TemplateInheritanceData,
+} from "../../api/template-inheritance-service";
 import type { AttributeDefinition } from "../../types/variant";
 import type { AttributeValue } from "../../types/flexible-products";
 
@@ -80,6 +99,8 @@ const attributeSchema = z.object({
   placeholder: z.record(z.string()).optional(),
   help_text: z.record(z.string()).optional(),
   value: z.any().optional(),
+  _inherited: z.boolean().default(false),
+  _inheritance_source: z.string().optional(),
 });
 
 const variantSchema = z.object({
@@ -110,6 +131,14 @@ export function VariantBuilder({
   onCancel,
 }: VariantBuilderProps) {
   const [loading, setLoading] = React.useState(false);
+  const [inheritanceData, setInheritanceData] = React.useState<TemplateInheritanceData | null>(
+    null
+  );
+  const [showInheritancePreview, setShowInheritancePreview] = React.useState(mode === "create");
+  const [inheritanceOverrides, setInheritanceOverrides] = React.useState<Record<string, boolean>>(
+    {}
+  );
+  const [loadingInheritance, setLoadingInheritance] = React.useState(false);
 
   const form = useForm<VariantFormData>({
     resolver: zodResolver(variantSchema),
@@ -124,10 +153,94 @@ export function VariantBuilder({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const loadTemplateInheritanceData = React.useCallback(async () => {
+    try {
+      setLoadingInheritance(true);
+      const data = await templateInheritanceService.getTemplateInheritanceData(productId);
+      setInheritanceData(data);
+
+      if (data) {
+        // Pre-populate form with inherited attributes
+        const inheritedAttributes = data.inheritable_attributes
+          .filter((attr) => attr.should_inherit)
+          .map((attr) => ({
+            key: attr.slug,
+            label: attr.label,
+            data_type: attr.data_type,
+            is_required: attr.is_required,
+            is_unique: attr.is_unique,
+            validation_rules: attr.validation_rules || {},
+            context_scope: attr.context_scope,
+            display_order: attr.display_order,
+            is_searchable: attr.is_searchable,
+            is_filterable: attr.is_filterable,
+            input_type: attr.input_type,
+            value: attr.current_product_value?.value || attr.default_value,
+            _inherited: true,
+            _inheritance_source: attr.inheritance_source,
+          }));
+
+        form.setValue("attributes", inheritedAttributes);
+      }
+    } catch (error) {
+      console.error("Error loading template inheritance data:", error);
+      toast.error("Failed to load template inheritance data");
+    } finally {
+      setLoadingInheritance(false);
+    }
+  }, [productId]);
+
+  // Load template inheritance data when creating a new variant
+  React.useEffect(() => {
+    if (mode === "create" && !inheritanceData && !loadingInheritance) {
+      loadTemplateInheritanceData();
+    }
+  }, [mode, inheritanceData, loadingInheritance, loadTemplateInheritanceData]);
+
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "attributes",
   });
+
+  // Toggle inheritance for a specific attribute
+  const toggleInheritance = (fieldIndex: number, attributeKey: string) => {
+    const field = fields[fieldIndex];
+    const isCurrentlyInherited = inheritanceOverrides[attributeKey] !== false && field._inherited;
+
+    setInheritanceOverrides((prev) => ({
+      ...prev,
+      [attributeKey]: !isCurrentlyInherited,
+    }));
+
+    if (isCurrentlyInherited) {
+      // Switching to manual mode - clear inherited value
+      update(fieldIndex, {
+        ...field,
+        value: "",
+        _inherited: false,
+      });
+    } else {
+      // Switching to inherited mode - restore inherited value
+      const inheritedAttr = inheritanceData?.inheritable_attributes.find(
+        (attr) => attr.slug === attributeKey
+      );
+      if (inheritedAttr) {
+        const inheritedValue =
+          inheritedAttr.current_product_value?.value || inheritedAttr.default_value;
+        update(fieldIndex, {
+          ...field,
+          value: inheritedValue,
+          _inherited: true,
+          _inheritance_source: inheritedAttr.inheritance_source,
+        });
+      }
+    }
+  };
+
+  const isAttributeInherited = (fieldIndex: number, attributeKey: string) => {
+    const field = fields[fieldIndex];
+    return inheritanceOverrides[attributeKey] !== false && field._inherited;
+  };
 
   // Group attributes by context
   const fieldsByContext = React.useMemo(() => {
@@ -143,6 +256,24 @@ export function VariantBuilder({
 
     return grouped;
   }, [fields]);
+
+  // Get inheritance stats for display
+  const inheritanceStats = React.useMemo(() => {
+    if (!inheritanceData) return null;
+
+    const inheritedCount = fields.filter((field) => field._inherited).length;
+    const totalInheritableCount = inheritanceData.inheritable_attributes.filter(
+      (attr) => attr.should_inherit
+    ).length;
+    const variantSpecificCount = inheritanceData.variant_specific_attributes.length;
+
+    return {
+      inherited: inheritedCount,
+      totalInheritable: totalInheritableCount,
+      variantSpecific: variantSpecificCount,
+      template: inheritanceData.template.template.name,
+    };
+  }, [fields, inheritanceData]);
 
   const handleAddAttribute = (contextId: string) => {
     const newAttribute: AttributeDefinition = {
@@ -174,6 +305,7 @@ export function VariantBuilder({
       is_searchable: newAttribute.is_searchable,
       is_filterable: newAttribute.is_filterable,
       input_type: newAttribute.input_type,
+      _inherited: false,
     });
   };
 
@@ -326,11 +458,93 @@ export function VariantBuilder({
         </Card>
 
         {/* Context-specific Attributes */}
+        {/* Template Inheritance Preview */}
+        {mode === "create" && inheritanceData && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <CardTitle>Template Inheritance</CardTitle>
+                    <CardDescription>
+                      Using template: <strong>{inheritanceData.template.template.name}</strong>
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInheritancePreview(!showInheritancePreview)}
+                >
+                  {showInheritancePreview ? (
+                    <>
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      Hide Preview
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Show Preview
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            {showInheritancePreview && (
+              <CardContent className="space-y-4">
+                {inheritanceStats && (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="flex items-center gap-2 rounded-lg border bg-green-50 p-3 text-green-700">
+                      <GitBranch className="h-4 w-4" />
+                      <div>
+                        <div className="font-medium">{inheritanceStats.inherited} Inherited</div>
+                        <div className="text-xs text-green-600">From product/template defaults</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg border bg-blue-50 p-3 text-blue-700">
+                      <Settings className="h-4 w-4" />
+                      <div>
+                        <div className="font-medium">
+                          {inheritanceStats.variantSpecific} Variant-Specific
+                        </div>
+                        <div className="text-xs text-blue-600">Available for customization</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 rounded-lg border bg-gray-50 p-3 text-gray-700">
+                      <Package className="h-4 w-4" />
+                      <div>
+                        <div className="font-medium">{fields.length} Total Attributes</div>
+                        <div className="text-xs text-gray-600">Ready for variant creation</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Template Inheritance Active</AlertTitle>
+                  <AlertDescription>
+                    This variant will inherit attributes from the product template. Inherited
+                    attributes are marked with <GitBranch className="inline h-3 w-3" /> and can be
+                    toggled to manual mode.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            )}
+          </Card>
+        )}
+
+        {/* Context-specific Attributes */}
         <Card>
           <CardHeader>
             <CardTitle>Context-Specific Attributes</CardTitle>
             <CardDescription>
               Configure attributes that apply to specific business contexts.
+              {mode === "create" &&
+                inheritanceData &&
+                " Inherited attributes are pre-populated from your template."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -390,15 +604,61 @@ export function VariantBuilder({
                         {contextFields.map((field) => {
                           const fieldIndex = field._index;
                           return (
-                            <Card key={field.id} className="p-4">
+                            <Card
+                              key={field.id}
+                              className={`p-4 ${field._inherited ? "border-green-200 bg-green-50/30" : ""}`}
+                            >
                               <div className="mb-4 flex items-start justify-between">
                                 <div className="flex-1">
+                                  <div className="mb-3 flex items-center gap-2">
+                                    {field._inherited && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <Badge
+                                              variant="secondary"
+                                              className="bg-green-100 text-green-700"
+                                            >
+                                              <GitBranch className="mr-1 h-3 w-3" />
+                                              Inherited (
+                                              {field._inheritance_source?.replace("_", " ")})
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>
+                                              This attribute is inherited from{" "}
+                                              {field._inheritance_source === "product_current"
+                                                ? "current product values"
+                                                : "template defaults"}
+                                            </p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                    {mode === "create" && inheritanceData && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => toggleInheritance(fieldIndex, field.key)}
+                                        className="h-6 px-2 text-xs"
+                                      >
+                                        {isAttributeInherited(fieldIndex, field.key) ? (
+                                          <>Switch to Manual</>
+                                        ) : (
+                                          <>Switch to Inherited</>
+                                        )}
+                                      </Button>
+                                    )}
+                                  </div>
                                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     <div className="space-y-2">
                                       <Label>Attribute Key *</Label>
                                       <Input
                                         {...form.register(`attributes.${fieldIndex}.key`)}
                                         placeholder="e.g., color, size, material"
+                                        disabled={field._inherited}
+                                        className={field._inherited ? "bg-gray-50" : ""}
                                       />
                                     </div>
 
@@ -411,8 +671,11 @@ export function VariantBuilder({
                                           <Select
                                             value={dataTypeField.value}
                                             onValueChange={dataTypeField.onChange}
+                                            disabled={field._inherited}
                                           >
-                                            <SelectTrigger>
+                                            <SelectTrigger
+                                              className={field._inherited ? "bg-gray-50" : ""}
+                                            >
                                               <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -429,7 +692,12 @@ export function VariantBuilder({
 
                                     <div className="space-y-2 md:col-span-2">
                                       <Label>Attribute Value</Label>
-                                      {renderAttributeValueInput(form, fieldIndex, field.data_type)}
+                                      {renderAttributeValueInput(
+                                        form,
+                                        fieldIndex,
+                                        field.data_type,
+                                        field._inherited
+                                      )}
                                     </div>
 
                                     <div className="flex items-center space-x-4">
@@ -441,10 +709,13 @@ export function VariantBuilder({
                                             <Switch
                                               checked={requiredField.value}
                                               onCheckedChange={requiredField.onChange}
+                                              disabled={field._inherited}
                                             />
                                           )}
                                         />
-                                        <Label>Required</Label>
+                                        <Label className={field._inherited ? "text-gray-500" : ""}>
+                                          Required
+                                        </Label>
                                       </div>
 
                                       <div className="flex items-center space-x-2">
@@ -455,23 +726,28 @@ export function VariantBuilder({
                                             <Switch
                                               checked={searchableField.value}
                                               onCheckedChange={searchableField.onChange}
+                                              disabled={field._inherited}
                                             />
                                           )}
                                         />
-                                        <Label>Searchable</Label>
+                                        <Label className={field._inherited ? "text-gray-500" : ""}>
+                                          Searchable
+                                        </Label>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => remove(fieldIndex)}
-                                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {!field._inherited && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => remove(fieldIndex)}
+                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </Card>
                           );
@@ -510,7 +786,8 @@ export function VariantBuilder({
 function renderAttributeValueInput(
   form: ReturnType<typeof useForm<VariantFormData>>,
   fieldIndex: number,
-  dataType: string
+  dataType: string,
+  isInherited = false
 ) {
   switch (dataType) {
     case "boolean":
@@ -519,7 +796,11 @@ function renderAttributeValueInput(
           control={form.control}
           name={`attributes.${fieldIndex}.value`}
           render={({ field }) => (
-            <Switch checked={field.value || false} onCheckedChange={field.onChange} />
+            <Switch
+              checked={field.value || false}
+              onCheckedChange={field.onChange}
+              disabled={isInherited}
+            />
           )}
         />
       );
@@ -530,16 +811,26 @@ function renderAttributeValueInput(
           {...form.register(`attributes.${fieldIndex}.value`, {
             valueAsNumber: true,
           })}
+          disabled={isInherited}
+          className={isInherited ? "bg-gray-50" : ""}
         />
       );
     case "date":
-      return <Input type="date" {...form.register(`attributes.${fieldIndex}.value`)} />;
+      return (
+        <Input
+          type="date"
+          {...form.register(`attributes.${fieldIndex}.value`)}
+          disabled={isInherited}
+          className={isInherited ? "bg-gray-50" : ""}
+        />
+      );
     case "json":
       return (
         <Textarea
           {...form.register(`attributes.${fieldIndex}.value`)}
           placeholder='{"key": "value"}'
-          className="font-mono text-sm"
+          className={`font-mono text-sm ${isInherited ? "bg-gray-50" : ""}`}
+          disabled={isInherited}
         />
       );
     default:
@@ -547,6 +838,8 @@ function renderAttributeValueInput(
         <Input
           {...form.register(`attributes.${fieldIndex}.value`)}
           placeholder="Enter attribute value"
+          disabled={isInherited}
+          className={isInherited ? "bg-gray-50" : ""}
         />
       );
   }
@@ -600,7 +893,13 @@ function getDataTypeFromAttribute(attr: {
 }
 
 // Helper function to get attribute value from database attribute
-function getAttributeValue(attr: any): any {
+function getAttributeValue(attr: {
+  value_text?: string | null;
+  value_number?: number | null;
+  value_boolean?: boolean | null;
+  value_date?: string | null;
+  value_json?: unknown | null;
+}): unknown {
   if (attr.value_text !== null) return attr.value_text;
   if (attr.value_number !== null) return attr.value_number;
   if (attr.value_boolean !== null) return attr.value_boolean;
@@ -610,19 +909,19 @@ function getAttributeValue(attr: any): any {
 }
 
 // Helper function to convert form value to AttributeValue
-function convertToAttributeValue(value: any, dataType: string): AttributeValue {
+function convertToAttributeValue(value: unknown, dataType: string): AttributeValue {
   switch (dataType) {
     case "number":
       return { type: "number", value: Number(value) };
     case "boolean":
       return { type: "boolean", value: Boolean(value) };
     case "date":
-      return { type: "date", value: value };
+      return { type: "date", value: String(value) };
     case "json":
       try {
-        return { type: "json", value: JSON.parse(value) };
+        return { type: "json", value: JSON.parse(String(value)) };
       } catch {
-        return { type: "json", value: value };
+        return { type: "json", value: String(value) };
       }
     default:
       return { type: "text", value: String(value) };
