@@ -16,7 +16,7 @@ export default function CreateTemplatePage() {
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="space-y-6">
       <TemplateBuilder mode="create" onSave={handleSave} onCancel={handleCancel} />
     </div>
   );

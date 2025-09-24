@@ -68,7 +68,7 @@ export default function CloneTemplatePage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="space-y-6">
       <TemplateBuilder
         mode="clone"
         baseTemplate={baseTemplate}

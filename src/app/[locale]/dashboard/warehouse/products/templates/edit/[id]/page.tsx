@@ -78,7 +78,7 @@ export default function EditTemplatePage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="space-y-6">
       <TemplateBuilder
         mode="edit"
         baseTemplate={template}
