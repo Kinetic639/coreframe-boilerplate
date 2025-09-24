@@ -19,6 +19,9 @@ import {
   LayoutGrid,
   List,
   Table as TableIcon,
+  ArrowDown,
+  Shuffle,
+  GitBranch,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -29,6 +32,22 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "react-toastify";
 
 type DisplayMode = "grid" | "list" | "table";
+
+// Helper function to calculate inheritance statistics
+const getInheritanceStats = (templateData: TemplateWithAttributes) => {
+  const attributes = templateData.attributes || [];
+  const total = attributes.length;
+  const inheritable = attributes.filter((attr) => attr.is_inheritable !== false).length;
+  const variantSpecific = attributes.filter((attr) => attr.is_variant_specific === true).length;
+  const inheritByDefault = attributes.filter((attr) => attr.inherit_by_default === true).length;
+
+  return {
+    total,
+    inheritable,
+    variantSpecific,
+    inheritByDefault,
+  };
+};
 
 // Template rendering helpers
 const renderTemplateCard = (
@@ -66,15 +85,45 @@ const renderTemplateCard = (
         <p className="text-sm text-muted-foreground">{template.description}</p>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{templateData.attribute_count} atrybutów</span>
-          <div className="flex gap-1">
-            {template.supported_contexts.map((context) => (
-              <Badge key={context} variant="outline" className="text-xs">
-                {context}
-              </Badge>
-            ))}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{templateData.attribute_count} atrybutów</span>
+            <div className="flex gap-1">
+              {template.supported_contexts.map((context) => (
+                <Badge key={context} variant="outline" className="text-xs">
+                  {context}
+                </Badge>
+              ))}
+            </div>
           </div>
+
+          {/* Inheritance Indicators */}
+          {templateData.attributes && templateData.attributes.length > 0 && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {(() => {
+                const stats = getInheritanceStats(templateData);
+                return (
+                  <>
+                    <div className="flex items-center gap-1" title="Dziedziczalne atrybuty">
+                      <ArrowDown className="h-3 w-3 text-green-600" />
+                      <span>{stats.inheritable}</span>
+                    </div>
+                    <div
+                      className="flex items-center gap-1"
+                      title="Atrybuty specyficzne dla wariantów"
+                    >
+                      <GitBranch className="h-3 w-3 text-blue-600" />
+                      <span>{stats.variantSpecific}</span>
+                    </div>
+                    <div className="flex items-center gap-1" title="Dziedziczone domyślnie">
+                      <Shuffle className="h-3 w-3 text-purple-600" />
+                      <span>{stats.inheritByDefault}</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </div>
         <div className="mt-4 flex gap-2">
           <Button
@@ -170,15 +219,45 @@ const renderTemplateList = (
                 </Badge>
               </div>
               <p className="mb-2 text-sm text-muted-foreground">{template.description}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>{templateData.attribute_count} atrybutów</span>
-                <div className="flex gap-1">
-                  {template.supported_contexts.map((context) => (
-                    <Badge key={context} variant="outline" className="text-xs">
-                      {context}
-                    </Badge>
-                  ))}
+              <div className="space-y-1">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>{templateData.attribute_count} atrybutów</span>
+                  <div className="flex gap-1">
+                    {template.supported_contexts.map((context) => (
+                      <Badge key={context} variant="outline" className="text-xs">
+                        {context}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Inheritance Indicators for List View */}
+                {templateData.attributes && templateData.attributes.length > 0 && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    {(() => {
+                      const stats = getInheritanceStats(templateData);
+                      return (
+                        <>
+                          <div className="flex items-center gap-1" title="Dziedziczalne atrybuty">
+                            <ArrowDown className="h-3 w-3 text-green-600" />
+                            <span>{stats.inheritable} dziedziczalne</span>
+                          </div>
+                          <div
+                            className="flex items-center gap-1"
+                            title="Atrybuty specyficzne dla wariantów"
+                          >
+                            <GitBranch className="h-3 w-3 text-blue-600" />
+                            <span>{stats.variantSpecific} wariantowe</span>
+                          </div>
+                          <div className="flex items-center gap-1" title="Dziedziczone domyślnie">
+                            <Shuffle className="h-3 w-3 text-purple-600" />
+                            <span>{stats.inheritByDefault} domyślne</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -265,7 +344,39 @@ const renderTemplateTable = (
                     {isSystemTemplate ? "System" : "Własny"}
                   </Badge>
                 </td>
-                <td className="p-3 text-muted-foreground">{templateData.attribute_count}</td>
+                <td className="p-3">
+                  <div className="space-y-1">
+                    <div className="text-muted-foreground">
+                      {templateData.attribute_count} total
+                    </div>
+                    {/* Inheritance Indicators for Table View */}
+                    {templateData.attributes && templateData.attributes.length > 0 && (
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {(() => {
+                          const stats = getInheritanceStats(templateData);
+                          return (
+                            <>
+                              <div
+                                className="flex items-center gap-1"
+                                title="Dziedziczalne atrybuty"
+                              >
+                                <ArrowDown className="h-3 w-3 text-green-600" />
+                                <span>{stats.inheritable}</span>
+                              </div>
+                              <div
+                                className="flex items-center gap-1"
+                                title="Atrybuty specyficzne dla wariantów"
+                              >
+                                <GitBranch className="h-3 w-3 text-blue-600" />
+                                <span>{stats.variantSpecific}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </td>
                 <td className="p-3">
                   <div className="flex gap-1">
                     {template.supported_contexts.map((context) => (
