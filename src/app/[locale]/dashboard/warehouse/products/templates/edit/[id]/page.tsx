@@ -42,15 +42,9 @@ export default function EditTemplatePage() {
     }
   }, [templateId]);
 
-  const handleSave = async (updatedTemplate: any) => {
-    try {
-      await templateService.updateTemplate(templateId, updatedTemplate);
-      toast.success("Szablon został zaktualizowany");
-      router.push("/dashboard/warehouse/products/templates");
-    } catch (err) {
-      console.error("Error updating template:", err);
-      toast.error("Błąd podczas aktualizacji szablonu");
-    }
+  const handleSave = async () => {
+    // TemplateBuilder handles the success/error toasts, so we just navigate on success
+    router.push("/dashboard/warehouse/products/templates");
   };
 
   const handleCancel = () => {
