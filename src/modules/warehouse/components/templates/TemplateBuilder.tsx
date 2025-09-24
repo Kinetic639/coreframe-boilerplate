@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +23,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus,
   Trash2,
-  Settings,
   Save,
   X,
   Type,
@@ -36,7 +35,10 @@ import {
   ChevronRight,
   Maximize2,
   Minimize2,
-  Package,
+  Warehouse,
+  ShoppingCart,
+  Building2,
+  CreditCard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
@@ -134,10 +136,34 @@ const DATA_TYPE_ICONS = {
 } as const;
 
 const AVAILABLE_CONTEXTS = [
-  { value: "warehouse", label: "Warehouse" },
-  { value: "ecommerce", label: "E-commerce" },
-  { value: "b2b", label: "B2B" },
-  { value: "pos", label: "Point of Sale" },
+  {
+    value: "warehouse",
+    label: "Warehouse",
+    icon: Warehouse,
+    color: "#10b981",
+    description: "Internal inventory management and stock tracking",
+  },
+  {
+    value: "ecommerce",
+    label: "E-commerce",
+    icon: ShoppingCart,
+    color: "#3b82f6",
+    description: "Online store product management and pricing",
+  },
+  {
+    value: "b2b",
+    label: "B2B",
+    icon: Building2,
+    color: "#8b5cf6",
+    description: "Business-to-business catalog and wholesale",
+  },
+  {
+    value: "pos",
+    label: "Point of Sale",
+    icon: CreditCard,
+    color: "#f59e0b",
+    description: "Point of sale system integration",
+  },
 ];
 
 const TEMPLATE_CATEGORIES = [
@@ -169,6 +195,7 @@ export function TemplateBuilder({
 }: TemplateBuilderProps) {
   const { activeOrgId } = useAppStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeContextTab, setActiveContextTab] = useState("warehouse");
 
   // Accordion and batch operation state
   const [collapsedFields, setCollapsedFields] = useState<Set<string>>(new Set());
@@ -256,7 +283,31 @@ export function TemplateBuilder({
   const watchedAttributes = watch("attributes");
   const watchedSupportedContexts = watch("supported_contexts");
 
-  const addField = () => {
+  // Group fields by context for tab display
+  const fieldsByContext = useMemo(() => {
+    const grouped: Record<string, { field: any; index: number }[]> = {};
+    AVAILABLE_CONTEXTS.forEach((context) => {
+      grouped[context.value] = [];
+    });
+
+    fields.forEach((field, index) => {
+      const contextScope = watchedAttributes[index]?.context_scope || "warehouse";
+      if (grouped[contextScope]) {
+        grouped[contextScope].push({ field, index });
+      }
+    });
+
+    return grouped;
+  }, [fields, watchedAttributes]);
+
+  // Get enabled contexts based on supported_contexts
+  const enabledContexts = useMemo(() => {
+    return AVAILABLE_CONTEXTS.filter((context) =>
+      watchedSupportedContexts?.includes(context.value)
+    );
+  }, [watchedSupportedContexts]);
+
+  const addField = (contextScope = activeContextTab) => {
     const newField = {
       slug: `field_${fields.length + 1}`,
       label: {
@@ -267,7 +318,7 @@ export function TemplateBuilder({
       is_required: false,
       is_unique: false,
       is_searchable: true,
-      context_scope: "warehouse",
+      context_scope: contextScope,
       input_type: "text",
       validation_rules: {},
       display_order: fields.length,
@@ -327,14 +378,14 @@ export function TemplateBuilder({
     setSelectedFields(newSelected);
   };
 
-  const selectAllFields = () => {
-    const allIndices = new Set(fields.map((_, index) => index));
-    setSelectedFields(allIndices);
-  };
+  // const selectAllFields = () => {
+  //   const allIndices = new Set(fields.map((_, index) => index));
+  //   setSelectedFields(allIndices);
+  // };
 
-  const deselectAllFields = () => {
-    setSelectedFields(new Set());
-  };
+  // const deselectAllFields = () => {
+  //   setSelectedFields(new Set());
+  // };
 
   const removeSelectedFields = () => {
     const indicesToRemove = Array.from(selectedFields).sort((a, b) => b - a);
@@ -342,8 +393,8 @@ export function TemplateBuilder({
     setSelectedFields(new Set());
   };
 
-  const isAllSelected = fields.length > 0 && selectedFields.size === fields.length;
-  const isPartiallySelected = selectedFields.size > 0 && selectedFields.size < fields.length;
+  // const isAllSelected = fields.length > 0 && selectedFields.size === fields.length;
+  // const isPartiallySelected = selectedFields.size > 0 && selectedFields.size < fields.length;
 
   const onSubmit = async (data: TemplateBuilderFormData | ProductBuilderFormData) => {
     if (!activeOrgId) {
@@ -640,397 +691,481 @@ export function TemplateBuilder({
           </Card>
         )}
 
-        {/* Fields Builder */}
+        {/* Context-Based Fields Builder */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>{isProductBuilder ? "Product Attributes" : "Custom Fields"}</CardTitle>
+                <CardTitle>{isProductBuilder ? "Product Attributes" : "Template Fields"}</CardTitle>
                 <CardDescription>
                   {isProductBuilder
-                    ? "Fill in the values for each attribute defined in the template"
-                    : "Define the attributes that products using this template will have"}
+                    ? "Fill in the values for each attribute organized by business context"
+                    : "Define template fields organized by business contexts"}
                 </CardDescription>
               </div>
-              {!isProductBuilder && (
-                <Button type="button" onClick={addField} variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Field
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent>
-            {/* Toolbar for batch operations (only in template mode) */}
-            {!isProductBuilder && fields.length > 0 && (
-              <div className="mb-4 flex items-center justify-between rounded-md border bg-muted/20 p-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={isAllSelected}
-                      ref={(el: any) => {
-                        if (el) el.indeterminate = isPartiallySelected;
-                      }}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          selectAllFields();
-                        } else {
-                          deselectAllFields();
-                        }
-                      }}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {selectedFields.size > 0 ? `${selectedFields.size} selected` : "Select all"}
-                    </span>
-                  </div>
+            <Tabs value={activeContextTab} onValueChange={setActiveContextTab} className="w-full">
+              <TabsList
+                className="grid w-full"
+                style={{ gridTemplateColumns: `repeat(${enabledContexts.length}, 1fr)` }}
+              >
+                {enabledContexts.map((context) => {
+                  const fieldsCount = fieldsByContext[context.value]?.length || 0;
+                  const ContextIcon = context.icon;
 
-                  {selectedFields.size > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={removeSelectedFields}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="mr-1 h-3 w-3" />
-                        Remove ({selectedFields.size})
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={expandAllFields}
-                    title="Expand all fields"
-                  >
-                    <Maximize2 className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={collapseAllFields}
-                    title="Collapse all fields"
-                  >
-                    <Minimize2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <AnimatePresence>
-                {fields.map((field, index) => (
-                  <motion.div
-                    key={field.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="rounded-lg border"
-                  >
-                    {/* Accordion Header */}
-                    <div className="flex items-center gap-3 p-4">
-                      {/* Selection checkbox (only in template mode) */}
-                      {!isProductBuilder && (
-                        <Checkbox
-                          checked={selectedFields.has(index)}
-                          onCheckedChange={() => toggleFieldSelection(index)}
-                        />
+                  return (
+                    <TabsTrigger
+                      key={context.value}
+                      value={context.value}
+                      className="flex items-center gap-2"
+                    >
+                      <ContextIcon className="h-4 w-4" style={{ color: context.color }} />
+                      <span>{context.label}</span>
+                      {fieldsCount > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                          {fieldsCount}
+                        </Badge>
                       )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
 
-                      {/* Reorder controls (only in template mode) */}
-                      {!isProductBuilder && (
-                        <div className="flex flex-col gap-1">
-                          <button
-                            type="button"
-                            onClick={() => index > 0 && moveField(index, index - 1)}
-                            disabled={index === 0}
-                            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+              {enabledContexts.map((context) => {
+                const contextFields = fieldsByContext[context.value] || [];
+                const ContextIcon = context.icon;
+
+                return (
+                  <TabsContent key={context.value} value={context.value} className="space-y-6">
+                    {/* Context Header */}
+                    <div
+                      className="rounded-lg border p-4"
+                      style={{ backgroundColor: context.color + "10" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex h-10 w-10 items-center justify-center rounded-lg"
+                            style={{ backgroundColor: context.color + "20" }}
                           >
-                            <ChevronUp className="h-3 w-3" />
-                          </button>
-                          <button
+                            <ContextIcon className="h-5 w-5" style={{ color: context.color }} />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">{context.label} Context</h3>
+                            <p className="text-sm text-muted-foreground">{context.description}</p>
+                          </div>
+                        </div>
+                        {!isProductBuilder && (
+                          <Button
                             type="button"
-                            onClick={() => index < fields.length - 1 && moveField(index, index + 1)}
-                            disabled={index === fields.length - 1}
-                            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                            onClick={() => addField(context.value)}
+                            variant="outline"
+                            size="sm"
                           >
-                            <ChevronDown className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Field header - clickable to toggle collapse */}
-                      <div
-                        className="flex flex-1 cursor-pointer items-center justify-between"
-                        onClick={() => toggleFieldCollapse(field.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          {React.createElement(
-                            DATA_TYPE_ICONS[watchedAttributes[index]?.data_type] || Type,
-                            { className: "h-4 w-4" }
-                          )}
-                          <span className="font-medium">
-                            {watchedAttributes[index]?.label?.en || `Field ${index + 1}`}
-                          </span>
-                          <Badge variant="secondary" className="text-xs">
-                            {watchedAttributes[index]?.data_type}
-                          </Badge>
-                          {isProductBuilder && watchedAttributes[index]?.is_required && (
-                            <Badge variant="destructive" className="text-xs">
-                              Required
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {/* Individual remove button (only in template mode) */}
-                          {!isProductBuilder && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeField(index);
-                              }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-
-                          {/* Collapse indicator */}
-                          <ChevronRight
-                            className={`h-4 w-4 transition-transform ${
-                              !collapsedFields.has(field.id) ? "rotate-90" : ""
-                            }`}
-                          />
-                        </div>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Field
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Accordion Content */}
-                    {!collapsedFields.has(field.id) && (
-                      <div className="border-t px-4 pb-4 pt-4">
-                        {isProductBuilder ? (
-                          // Product mode: Only show the value input
-                          <div className="space-y-2">
-                            <Label>Value</Label>
-                            <Input
-                              {...register(`attributes.${index}.value` as keyof typeof register)}
-                              placeholder={`Enter value for ${watchedAttributes[index]?.label?.en || "this field"}...`}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              The actual value for this attribute in your product
-                            </p>
+                    {/* Context Fields */}
+                    {contextFields.length > 0 ? (
+                      <div className="space-y-4">
+                        {/* Toolbar for batch operations (only in template mode) */}
+                        {!isProductBuilder && (
+                          <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={contextFields.every(({ index }) =>
+                                    selectedFields.has(index)
+                                  )}
+                                  ref={(el: any) => {
+                                    if (el) {
+                                      const someSelected = contextFields.some(({ index }) =>
+                                        selectedFields.has(index)
+                                      );
+                                      const allSelected = contextFields.every(({ index }) =>
+                                        selectedFields.has(index)
+                                      );
+                                      el.indeterminate = someSelected && !allSelected;
+                                    }
+                                  }}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      const newSelected = new Set(selectedFields);
+                                      contextFields.forEach(({ index }) => newSelected.add(index));
+                                      setSelectedFields(newSelected);
+                                    } else {
+                                      const newSelected = new Set(selectedFields);
+                                      contextFields.forEach(({ index }) =>
+                                        newSelected.delete(index)
+                                      );
+                                      setSelectedFields(newSelected);
+                                    }
+                                  }}
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                  {contextFields.filter(({ index }) => selectedFields.has(index))
+                                    .length > 0
+                                    ? `${contextFields.filter(({ index }) => selectedFields.has(index)).length} selected`
+                                    : "Select all"}
+                                </span>
+                              </div>
+
+                              {contextFields.some(({ index }) => selectedFields.has(index)) && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={removeSelectedFields}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <Trash2 className="mr-1 h-3 w-3" />
+                                  Remove Selected
+                                </Button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={expandAllFields}
+                                title="Expand all fields"
+                              >
+                                <Maximize2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={collapseAllFields}
+                                title="Collapse all fields"
+                              >
+                                <Minimize2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                        ) : (
-                          // Template mode: Show full configuration tabs
-                          <Tabs defaultValue="basic" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
-                              <TabsTrigger value="basic">Basic</TabsTrigger>
-                              <TabsTrigger value="validation">Validation</TabsTrigger>
-                              <TabsTrigger value="display">Display</TabsTrigger>
-                            </TabsList>
+                        )}
 
-                            <TabsContent value="basic" className="space-y-4">
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                  <Label>Field Slug *</Label>
-                                  <Input
-                                    {...register(`attributes.${index}.slug`)}
-                                    placeholder="field_name"
+                        <AnimatePresence>
+                          {contextFields.map(({ field, index }) => (
+                            <motion.div
+                              key={field.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              className="rounded-lg border"
+                            >
+                              {/* Field Header */}
+                              <div className="flex items-center gap-3 p-4">
+                                {!isProductBuilder && (
+                                  <Checkbox
+                                    checked={selectedFields.has(index)}
+                                    onCheckedChange={() => toggleFieldSelection(index)}
                                   />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Data Type *</Label>
-                                  <Select
-                                    onValueChange={(value) =>
-                                      setValue(`attributes.${index}.data_type`, value as any)
-                                    }
-                                    value={watchedAttributes[index]?.data_type || "text"}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="text">Text</SelectItem>
-                                      <SelectItem value="number">Number</SelectItem>
-                                      <SelectItem value="boolean">Boolean</SelectItem>
-                                      <SelectItem value="date">Date</SelectItem>
-                                      <SelectItem value="json">JSON</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                )}
+
+                                {!isProductBuilder && (
+                                  <div className="flex flex-col gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const contextIndices = contextFields.map((f) => f.index);
+                                        const currentPos = contextIndices.indexOf(index);
+                                        if (currentPos > 0) {
+                                          moveField(index, contextIndices[currentPos - 1]);
+                                        }
+                                      }}
+                                      disabled={
+                                        contextFields.findIndex((f) => f.index === index) === 0
+                                      }
+                                      className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                    >
+                                      <ChevronUp className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const contextIndices = contextFields.map((f) => f.index);
+                                        const currentPos = contextIndices.indexOf(index);
+                                        if (currentPos < contextIndices.length - 1) {
+                                          moveField(index, contextIndices[currentPos + 1]);
+                                        }
+                                      }}
+                                      disabled={
+                                        contextFields.findIndex((f) => f.index === index) ===
+                                        contextFields.length - 1
+                                      }
+                                      className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                    >
+                                      <ChevronDown className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                <div
+                                  className="flex flex-1 cursor-pointer items-center justify-between"
+                                  onClick={() => toggleFieldCollapse(field.id)}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {React.createElement(
+                                      DATA_TYPE_ICONS[watchedAttributes[index]?.data_type] || Type,
+                                      { className: "h-4 w-4" }
+                                    )}
+                                    <span className="font-medium">
+                                      {watchedAttributes[index]?.label?.en || `Field ${index + 1}`}
+                                    </span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {watchedAttributes[index]?.data_type}
+                                    </Badge>
+                                    {isProductBuilder && watchedAttributes[index]?.is_required && (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Required
+                                      </Badge>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {!isProductBuilder && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeField(index);
+                                        }}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    <ChevronRight
+                                      className={`h-4 w-4 transition-transform ${
+                                        !collapsedFields.has(field.id) ? "rotate-90" : ""
+                                      }`}
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                  <Label>English Label *</Label>
-                                  <Input
-                                    {...register(`attributes.${index}.label.en`)}
-                                    placeholder="Field Name"
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Polish Label *</Label>
-                                  <Input
-                                    {...register(`attributes.${index}.label.pl`)}
-                                    placeholder="Nazwa Pola"
-                                  />
-                                </div>
-                              </div>
+                              {/* Field Content */}
+                              {!collapsedFields.has(field.id) && (
+                                <div className="border-t px-4 pb-4 pt-4">
+                                  {isProductBuilder ? (
+                                    <div className="space-y-2">
+                                      <Label>Value</Label>
+                                      <Input
+                                        {...register(
+                                          `attributes.${index}.value` as keyof typeof register
+                                        )}
+                                        placeholder={`Enter value for ${watchedAttributes[index]?.label?.en || "this field"}...`}
+                                      />
+                                      <p className="text-xs text-muted-foreground">
+                                        The actual value for this attribute in your product
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <Tabs defaultValue="basic" className="w-full">
+                                      <TabsList className="grid w-full grid-cols-3">
+                                        <TabsTrigger value="basic">Basic</TabsTrigger>
+                                        <TabsTrigger value="validation">Validation</TabsTrigger>
+                                        <TabsTrigger value="display">Display</TabsTrigger>
+                                      </TabsList>
 
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                  <Label>English Description</Label>
-                                  <Textarea
-                                    {...register(`attributes.${index}.description.en`)}
-                                    placeholder="Field description..."
-                                    rows={2}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Polish Description</Label>
-                                  <Textarea
-                                    {...register(`attributes.${index}.description.pl`)}
-                                    placeholder="Opis pola..."
-                                    rows={2}
-                                  />
-                                </div>
-                              </div>
-                            </TabsContent>
+                                      <TabsContent value="basic" className="space-y-4">
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <Label>Field Slug *</Label>
+                                            <Input
+                                              {...register(`attributes.${index}.slug`)}
+                                              placeholder="field_name"
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Data Type *</Label>
+                                            <Select
+                                              onValueChange={(value) =>
+                                                setValue(
+                                                  `attributes.${index}.data_type`,
+                                                  value as any
+                                                )
+                                              }
+                                              value={watchedAttributes[index]?.data_type || "text"}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="text">Text</SelectItem>
+                                                <SelectItem value="number">Number</SelectItem>
+                                                <SelectItem value="boolean">Boolean</SelectItem>
+                                                <SelectItem value="date">Date</SelectItem>
+                                                <SelectItem value="json">JSON</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                        </div>
 
-                            <TabsContent value="validation" className="space-y-4">
-                              <div className="flex flex-wrap gap-4">
-                                <div className="flex items-center space-x-2">
-                                  <Switch
-                                    checked={watchedAttributes[index]?.is_required || false}
-                                    onCheckedChange={(checked) =>
-                                      setValue(`attributes.${index}.is_required`, checked)
-                                    }
-                                  />
-                                  <Label>Required</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Switch
-                                    checked={watchedAttributes[index]?.is_unique || false}
-                                    onCheckedChange={(checked) =>
-                                      setValue(`attributes.${index}.is_unique`, checked)
-                                    }
-                                  />
-                                  <Label>Unique</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Switch
-                                    checked={watchedAttributes[index]?.is_searchable !== false}
-                                    onCheckedChange={(checked) =>
-                                      setValue(`attributes.${index}.is_searchable`, checked)
-                                    }
-                                  />
-                                  <Label>Searchable</Label>
-                                </div>
-                              </div>
-                            </TabsContent>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <Label>English Label *</Label>
+                                            <Input
+                                              {...register(`attributes.${index}.label.en`)}
+                                              placeholder="Field Name"
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Polish Label *</Label>
+                                            <Input
+                                              {...register(`attributes.${index}.label.pl`)}
+                                              placeholder="Nazwa Pola"
+                                            />
+                                          </div>
+                                        </div>
 
-                            <TabsContent value="display" className="space-y-4">
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                  <Label>Input Type</Label>
-                                  <Select
-                                    onValueChange={(value) =>
-                                      setValue(`attributes.${index}.input_type`, value)
-                                    }
-                                    value={watchedAttributes[index]?.input_type || "text"}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {FIELD_INPUT_TYPES.map((type) => (
-                                        <SelectItem key={type.value} value={type.value}>
-                                          {type.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div className="space-y-2">
-                                  <Label>Context</Label>
-                                  <Select
-                                    onValueChange={(value) =>
-                                      setValue(`attributes.${index}.context_scope`, value)
-                                    }
-                                    value={watchedAttributes[index]?.context_scope || "warehouse"}
-                                  >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {AVAILABLE_CONTEXTS.map((context) => (
-                                        <SelectItem key={context.value} value={context.value}>
-                                          {context.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <Label>English Description</Label>
+                                            <Textarea
+                                              {...register(`attributes.${index}.description.en`)}
+                                              placeholder="Field description..."
+                                              rows={2}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Polish Description</Label>
+                                            <Textarea
+                                              {...register(`attributes.${index}.description.pl`)}
+                                              placeholder="Opis pola..."
+                                              rows={2}
+                                            />
+                                          </div>
+                                        </div>
+                                      </TabsContent>
 
-                              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                  <Label>English Placeholder</Label>
-                                  <Input
-                                    {...register(`attributes.${index}.placeholder.en`)}
-                                    placeholder="Enter value..."
-                                  />
+                                      <TabsContent value="validation" className="space-y-4">
+                                        <div className="flex flex-wrap gap-4">
+                                          <div className="flex items-center space-x-2">
+                                            <Switch
+                                              checked={
+                                                watchedAttributes[index]?.is_required || false
+                                              }
+                                              onCheckedChange={(checked) =>
+                                                setValue(`attributes.${index}.is_required`, checked)
+                                              }
+                                            />
+                                            <Label>Required</Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Switch
+                                              checked={watchedAttributes[index]?.is_unique || false}
+                                              onCheckedChange={(checked) =>
+                                                setValue(`attributes.${index}.is_unique`, checked)
+                                              }
+                                            />
+                                            <Label>Unique</Label>
+                                          </div>
+                                          <div className="flex items-center space-x-2">
+                                            <Switch
+                                              checked={
+                                                watchedAttributes[index]?.is_searchable !== false
+                                              }
+                                              onCheckedChange={(checked) =>
+                                                setValue(
+                                                  `attributes.${index}.is_searchable`,
+                                                  checked
+                                                )
+                                              }
+                                            />
+                                            <Label>Searchable</Label>
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+
+                                      <TabsContent value="display" className="space-y-4">
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <Label>Input Type</Label>
+                                            <Select
+                                              onValueChange={(value) =>
+                                                setValue(`attributes.${index}.input_type`, value)
+                                              }
+                                              value={watchedAttributes[index]?.input_type || "text"}
+                                            >
+                                              <SelectTrigger>
+                                                <SelectValue />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {FIELD_INPUT_TYPES.map((type) => (
+                                                  <SelectItem key={type.value} value={type.value}>
+                                                    {type.label}
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Context (Read Only)</Label>
+                                            <Input
+                                              value={context.label}
+                                              disabled
+                                              className="opacity-60"
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                          <div className="space-y-2">
+                                            <Label>English Placeholder</Label>
+                                            <Input
+                                              {...register(`attributes.${index}.placeholder.en`)}
+                                              placeholder="Enter value..."
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Label>Polish Placeholder</Label>
+                                            <Input
+                                              {...register(`attributes.${index}.placeholder.pl`)}
+                                              placeholder="Wprowadź wartość..."
+                                            />
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+                                    </Tabs>
+                                  )}
                                 </div>
-                                <div className="space-y-2">
-                                  <Label>Polish Placeholder</Label>
-                                  <Input
-                                    {...register(`attributes.${index}.placeholder.pl`)}
-                                    placeholder="Wprowadź wartość..."
-                                  />
-                                </div>
-                              </div>
-                            </TabsContent>
-                          </Tabs>
+                              )}
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <ContextIcon className="mb-4 h-12 w-12 text-muted-foreground" />
+                        <h3 className="mb-2 text-lg font-medium">No {context.label} Fields</h3>
+                        <p className="mb-4 text-sm text-muted-foreground">
+                          {isProductBuilder
+                            ? `This template doesn't have any ${context.label.toLowerCase()} attributes defined yet.`
+                            : `Start by adding fields specific to the ${context.label.toLowerCase()} context.`}
+                        </p>
+                        {!isProductBuilder && (
+                          <Button onClick={() => addField(context.value)} variant="outline">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add {context.label} Field
+                          </Button>
                         )}
                       </div>
                     )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            {fields.length === 0 && !isProductBuilder && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Settings className="mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 className="mb-2 text-lg font-medium">No fields defined</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Start building your template by adding custom fields
-                </p>
-                <Button onClick={addField} variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Your First Field
-                </Button>
-              </div>
-            )}
-
-            {fields.length === 0 && isProductBuilder && (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Package className="mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 className="mb-2 text-lg font-medium">No attributes in template</h3>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  This template doesn't have any attributes defined yet.
-                </p>
-              </div>
-            )}
+                  </TabsContent>
+                );
+              })}
+            </Tabs>
           </CardContent>
         </Card>
       </form>
