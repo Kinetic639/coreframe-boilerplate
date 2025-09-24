@@ -480,13 +480,29 @@ export function TemplateBuilder({
           })),
         };
 
-        const result = await templateService.createTemplate(createTemplateData);
-        toast.success("Template created successfully!");
+        let result;
+        if (mode === "edit" && baseTemplate?.template.id) {
+          result = await templateService.updateTemplate(
+            baseTemplate.template.id,
+            createTemplateData
+          );
+          toast.success("Template updated successfully!");
+        } else {
+          result = await templateService.createTemplate(createTemplateData);
+          toast.success(
+            mode === "clone" ? "Template cloned successfully!" : "Template created successfully!"
+          );
+        }
         onSave?.(result);
       }
     } catch (error) {
-      console.error(`Error creating ${isProductBuilder ? "product" : "template"}:`, error);
-      toast.error(`Failed to create ${isProductBuilder ? "product" : "template"}`);
+      console.error(
+        `Error ${mode === "edit" ? "updating" : "creating"} ${isProductBuilder ? "product" : "template"}:`,
+        error
+      );
+      toast.error(
+        `Failed to ${mode === "edit" ? "update" : "create"} ${isProductBuilder ? "product" : "template"}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -520,7 +536,17 @@ export function TemplateBuilder({
           </Button>
           <Button onClick={handleSubmit(onSubmit)} disabled={isLoading || !isDirty}>
             <Save className="mr-2 h-4 w-4" />
-            {isLoading ? "Saving..." : isProductBuilder ? "Save Product" : "Save Template"}
+            {isLoading
+              ? "Saving..."
+              : isProductBuilder
+                ? productMode === "edit"
+                  ? "Save Changes"
+                  : "Save Product"
+                : mode === "edit"
+                  ? "Save Changes"
+                  : mode === "clone"
+                    ? "Clone Template"
+                    : "Create Template"}
           </Button>
         </div>
       </div>
