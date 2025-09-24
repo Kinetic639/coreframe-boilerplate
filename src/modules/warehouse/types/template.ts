@@ -36,6 +36,10 @@ export interface ProductAttributeDefinition {
   input_type: string;
   placeholder?: Record<string, string>;
   help_text?: Record<string, string>;
+  // New inheritance properties
+  is_inheritable?: boolean; // Whether variants inherit this attribute by default
+  is_variant_specific?: boolean; // Whether this attribute commonly differs between variants
+  inherit_by_default?: boolean; // Whether new variants should inherit the current product value
   created_at: string;
   updated_at: string;
 }

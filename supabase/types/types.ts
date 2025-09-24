@@ -1760,7 +1760,7 @@ export type Database = {
           is_system: boolean | null;
           metadata: Json | null;
           name: string;
-          organization_id: string;
+          organization_id: string | null;
           parent_template_id: string | null;
           slug: string;
           updated_at: string | null;
@@ -1776,7 +1776,7 @@ export type Database = {
           is_system?: boolean | null;
           metadata?: Json | null;
           name: string;
-          organization_id: string;
+          organization_id?: string | null;
           parent_template_id?: string | null;
           slug: string;
           updated_at?: string | null;
@@ -1792,7 +1792,7 @@ export type Database = {
           is_system?: boolean | null;
           metadata?: Json | null;
           name?: string;
-          organization_id?: string;
+          organization_id?: string | null;
           parent_template_id?: string | null;
           slug?: string;
           updated_at?: string | null;
@@ -2860,10 +2860,13 @@ export type Database = {
           display_name: string;
           display_order: number | null;
           id: string;
+          inherit_by_default: boolean | null;
           inheritance_rules: Json | null;
+          is_inheritable: boolean | null;
           is_required: boolean | null;
           is_searchable: boolean | null;
           is_unique: boolean | null;
+          is_variant_specific: boolean | null;
           template_id: string;
           validation_rules: Json | null;
         };
@@ -2879,10 +2882,13 @@ export type Database = {
           display_name: string;
           display_order?: number | null;
           id?: string;
+          inherit_by_default?: boolean | null;
           inheritance_rules?: Json | null;
+          is_inheritable?: boolean | null;
           is_required?: boolean | null;
           is_searchable?: boolean | null;
           is_unique?: boolean | null;
+          is_variant_specific?: boolean | null;
           template_id: string;
           validation_rules?: Json | null;
         };
@@ -2898,10 +2904,13 @@ export type Database = {
           display_name?: string;
           display_order?: number | null;
           id?: string;
+          inherit_by_default?: boolean | null;
           inheritance_rules?: Json | null;
+          is_inheritable?: boolean | null;
           is_required?: boolean | null;
           is_searchable?: boolean | null;
           is_unique?: boolean | null;
+          is_variant_specific?: boolean | null;
           template_id?: string;
           validation_rules?: Json | null;
         };
