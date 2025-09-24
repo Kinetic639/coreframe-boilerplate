@@ -39,6 +39,7 @@ import {
   ShoppingCart,
   Building2,
   CreditCard,
+  CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
@@ -94,6 +95,10 @@ const baseBuilderSchema = z.object({
           })
           .optional(),
         display_order: z.number().default(0),
+        // Inheritance configuration
+        is_inheritable: z.boolean().default(true),
+        is_variant_specific: z.boolean().default(false),
+        inherit_by_default: z.boolean().default(true),
         // For products: the actual field values
         value: z.any().optional(),
       })
@@ -106,6 +111,30 @@ const productBuilderSchema = baseBuilderSchema.extend({
   // Product-specific fields
   product_name: z.string().min(1, "Product name is required"),
   product_description: z.string().optional(),
+  // Variant creation configuration
+  create_variants_immediately: z.boolean().default(false),
+  initial_variants: z
+    .array(
+      z.object({
+        name: z.string().min(1, "Variant name is required"),
+        sku: z.string().optional(),
+        barcode: z.string().optional(),
+        is_default: z.boolean().default(false),
+        status: z.enum(["active", "inactive", "discontinued"]).default("active"),
+        attribute_overrides: z.record(z.any()).default({}),
+      })
+    )
+    .default([
+      {
+        name: "Default",
+        sku: "",
+        barcode: "",
+        is_default: true,
+        status: "active" as const,
+        attribute_overrides: {},
+      },
+    ]),
+  // Legacy fields for backward compatibility
   variant_name: z.string().optional(),
   variant_sku: z.string().optional(),
   variant_barcode: z.string().optional(),
@@ -221,6 +250,18 @@ export function TemplateBuilder({
           variant_name: "Default Variant",
           variant_sku: "",
           variant_barcode: "",
+          // Variant creation defaults
+          create_variants_immediately: false,
+          initial_variants: [
+            {
+              name: "Default",
+              sku: "",
+              barcode: "",
+              is_default: true,
+              status: "active" as const,
+              attribute_overrides: {},
+            },
+          ],
           // Base fields for product
           name: baseTemplate ? baseTemplate.template.name : "",
           description: baseTemplate?.template.description || "",
@@ -280,6 +321,16 @@ export function TemplateBuilder({
     name: "attributes",
   });
 
+  // Variant field array for product builder
+  const {
+    fields: variantFields,
+    append: appendVariant,
+    remove: removeVariant,
+  } = useFieldArray({
+    control,
+    name: "initial_variants",
+  });
+
   const watchedAttributes = watch("attributes");
   const watchedSupportedContexts = watch("supported_contexts");
 
@@ -322,6 +373,10 @@ export function TemplateBuilder({
       input_type: "text",
       validation_rules: {},
       display_order: fields.length,
+      // Inheritance configuration defaults
+      is_inheritable: true,
+      is_variant_specific: false,
+      inherit_by_default: true,
       ...(isProductBuilder && { value: "" }), // Add value field for products
     } as any;
 
@@ -598,24 +653,192 @@ export function TemplateBuilder({
                 />
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="variant_sku">SKU</Label>
-                  <Input
-                    id="variant_sku"
-                    {...register("variant_sku" as keyof typeof register)}
-                    placeholder="e.g., IP15P-128-BLK"
-                  />
+              {/* Variant Creation Section */}
+              <div className="space-y-4 rounded-lg border bg-gradient-to-r from-blue-50 to-green-50 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Variant Creation</h3>
+                    <p className="text-sm text-gray-600">
+                      Create product variants immediately using template inheritance
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={watch("create_variants_immediately")}
+                      onCheckedChange={(checked) =>
+                        setValue("create_variants_immediately", checked)
+                      }
+                    />
+                    <Label>Create variants now</Label>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="variant_barcode">Barcode</Label>
-                  <Input
-                    id="variant_barcode"
-                    {...register("variant_barcode" as keyof typeof register)}
-                    placeholder="e.g., 1234567890123"
-                  />
-                </div>
+
+                {watch("create_variants_immediately") && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="space-y-4 border-t pt-4"
+                  >
+                    <div className="rounded-lg bg-white p-4">
+                      <h4 className="mb-3 font-medium">Initial Variants</h4>
+                      <p className="mb-4 text-sm text-gray-600">
+                        Add the initial variants you want to create. Each variant will inherit
+                        template attributes automatically and you can override specific values.
+                      </p>
+
+                      {variantFields.map((field, index) => (
+                        <motion.div
+                          key={field.id}
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mb-4 rounded-md border bg-gray-50 p-4"
+                        >
+                          <div className="mb-3 flex items-center justify-between">
+                            <h5 className="font-medium">Variant {index + 1}</h5>
+                            {variantFields.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeVariant(index)}
+                                className="text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                            <div className="space-y-2">
+                              <Label>Variant Name *</Label>
+                              <Input
+                                {...register(`initial_variants.${index}.name`)}
+                                placeholder="e.g., Red - Large"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>SKU</Label>
+                              <Input
+                                {...register(`initial_variants.${index}.sku`)}
+                                placeholder="e.g., PROD-RED-L"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Barcode</Label>
+                              <Input
+                                {...register(`initial_variants.${index}.barcode`)}
+                                placeholder="e.g., 1234567890"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                checked={watch(`initial_variants.${index}.is_default`)}
+                                onCheckedChange={(checked) =>
+                                  setValue(`initial_variants.${index}.is_default`, checked)
+                                }
+                              />
+                              <Label>Default variant</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Label>Status:</Label>
+                              <Select
+                                value={watch(`initial_variants.${index}.status`)}
+                                onValueChange={(value) =>
+                                  setValue(`initial_variants.${index}.status`, value)
+                                }
+                              >
+                                <SelectTrigger className="w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="active">Active</SelectItem>
+                                  <SelectItem value="inactive">Inactive</SelectItem>
+                                  <SelectItem value="discontinued">Discontinued</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* Attribute Overrides Preview */}
+                          {baseTemplate && (
+                            <div className="mt-4 rounded-md bg-white p-3">
+                              <Label className="text-xs font-medium text-gray-700">
+                                Inheritance Preview
+                              </Label>
+                              <p className="mt-1 text-xs text-gray-500">
+                                This variant will inherit {baseTemplate.attributes.length}{" "}
+                                attributes from the template. You can customize specific attributes
+                                after creation.
+                              </p>
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+
+                      <div className="flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            appendVariant({
+                              name: `Variant ${variantFields.length + 1}`,
+                              sku: "",
+                              barcode: "",
+                              is_default: false,
+                              status: "active" as const,
+                              attribute_overrides: {},
+                            })
+                          }
+                          className="border-dashed"
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Another Variant
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg bg-green-50 p-4">
+                      <h4 className="mb-2 flex items-center gap-2 font-medium text-green-800">
+                        <CheckCircle className="h-4 w-4" />
+                        What happens next?
+                      </h4>
+                      <ul className="space-y-1 text-sm text-green-700">
+                        <li>• Product will be created with template attributes</li>
+                        <li>• {variantFields.length} variant(s) will be created automatically</li>
+                        <li>
+                          • Each variant inherits template attributes based on inheritance rules
+                        </li>
+                        <li>• You can modify variants immediately after creation</li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
               </div>
+
+              {/* Legacy Fields (hidden when using variant creation) */}
+              {!watch("create_variants_immediately") && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="variant_sku">SKU</Label>
+                    <Input
+                      id="variant_sku"
+                      {...register("variant_sku" as keyof typeof register)}
+                      placeholder="e.g., IP15P-128-BLK"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="variant_barcode">Barcode</Label>
+                    <Input
+                      id="variant_barcode"
+                      {...register("variant_barcode" as keyof typeof register)}
+                      placeholder="e.g., 1234567890123"
+                    />
+                  </div>
+                </div>
+              )}
 
               {baseTemplate && (
                 <div className="rounded-md bg-muted/50 p-3">
@@ -998,9 +1221,10 @@ export function TemplateBuilder({
                                     </div>
                                   ) : (
                                     <Tabs defaultValue="basic" className="w-full">
-                                      <TabsList className="grid w-full grid-cols-3">
+                                      <TabsList className="grid w-full grid-cols-4">
                                         <TabsTrigger value="basic">Basic</TabsTrigger>
                                         <TabsTrigger value="validation">Validation</TabsTrigger>
+                                        <TabsTrigger value="inheritance">Inheritance</TabsTrigger>
                                         <TabsTrigger value="display">Display</TabsTrigger>
                                       </TabsList>
 
@@ -1110,6 +1334,152 @@ export function TemplateBuilder({
                                               }
                                             />
                                             <Label>Searchable</Label>
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+
+                                      <TabsContent value="inheritance" className="space-y-4">
+                                        <div className="space-y-4">
+                                          <div className="rounded-lg border bg-blue-50 p-4">
+                                            <h4 className="mb-2 font-medium text-blue-900">
+                                              Variant Inheritance Configuration
+                                            </h4>
+                                            <p className="text-sm text-blue-700">
+                                              Configure how this attribute behaves when creating new
+                                              variants. These settings help automate variant
+                                              creation and reduce manual work.
+                                            </p>
+                                          </div>
+
+                                          <div className="grid grid-cols-1 gap-6">
+                                            <div className="flex items-start space-x-3">
+                                              <Switch
+                                                checked={
+                                                  watchedAttributes[index]?.is_inheritable !== false
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                  setValue(
+                                                    `attributes.${index}.is_inheritable`,
+                                                    checked
+                                                  )
+                                                }
+                                              />
+                                              <div className="flex-1">
+                                                <Label className="text-sm font-medium">
+                                                  Allow Variant Inheritance
+                                                </Label>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                  When enabled, new variants can automatically
+                                                  inherit this attribute's value. Disable for
+                                                  attributes that must always be unique per variant.
+                                                </p>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-start space-x-3">
+                                              <Switch
+                                                checked={
+                                                  watchedAttributes[index]?.is_variant_specific ||
+                                                  false
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                  setValue(
+                                                    `attributes.${index}.is_variant_specific`,
+                                                    checked
+                                                  )
+                                                }
+                                              />
+                                              <div className="flex-1">
+                                                <Label className="text-sm font-medium">
+                                                  Variant-Specific Attribute
+                                                </Label>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                  Mark this if the attribute commonly differs
+                                                  between variants (e.g., color, size, material).
+                                                  Helps organize the variant creation interface.
+                                                </p>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-start space-x-3">
+                                              <Switch
+                                                checked={
+                                                  watchedAttributes[index]?.inherit_by_default !==
+                                                  false
+                                                }
+                                                onCheckedChange={(checked) =>
+                                                  setValue(
+                                                    `attributes.${index}.inherit_by_default`,
+                                                    checked
+                                                  )
+                                                }
+                                                disabled={
+                                                  watchedAttributes[index]?.is_inheritable === false
+                                                }
+                                              />
+                                              <div className="flex-1">
+                                                <Label className="text-sm font-medium">
+                                                  Inherit by Default
+                                                </Label>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                  When creating new variants, automatically inherit
+                                                  the current product value or template default.
+                                                  Users can still override this per variant.
+                                                  {watchedAttributes[index]?.is_inheritable ===
+                                                    false && (
+                                                    <span className="text-orange-600">
+                                                      {" "}
+                                                      (Disabled - inheritance not allowed)
+                                                    </span>
+                                                  )}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          {/* Inheritance Preview */}
+                                          <div className="rounded-lg border bg-gray-50 p-4">
+                                            <h4 className="mb-2 font-medium text-gray-900">
+                                              Inheritance Preview
+                                            </h4>
+                                            <div className="text-sm text-gray-600">
+                                              {watchedAttributes[index]?.is_inheritable ===
+                                              false ? (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                                                  <span>
+                                                    Variants will NOT inherit this attribute - must
+                                                    be set manually
+                                                  </span>
+                                                </div>
+                                              ) : watchedAttributes[index]?.inherit_by_default !==
+                                                false ? (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                                                  <span>
+                                                    Variants will automatically inherit this
+                                                    attribute value
+                                                  </span>
+                                                </div>
+                                              ) : (
+                                                <div className="flex items-center gap-2">
+                                                  <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                                                  <span>
+                                                    Variants can inherit this attribute but won't by
+                                                    default
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {watchedAttributes[index]?.is_variant_specific && (
+                                                <div className="mt-1 flex items-center gap-2">
+                                                  <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                                                  <span>
+                                                    Marked as variant-specific - commonly differs
+                                                    between variants
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
                                         </div>
                                       </TabsContent>
