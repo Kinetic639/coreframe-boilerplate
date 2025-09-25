@@ -893,7 +893,8 @@
         "service": "Debug usług",
         "labels": "Testowanie etykiet",
         "locations": "Debug lokalizacji",
-        "richTextEditor": "Edytor Tekstu"
+        "richTextEditor": "Edytor Tekstu",
+        "subscriptionTest": "Test Subskrypcji"
       }
     }
   }

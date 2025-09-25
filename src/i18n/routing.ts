@@ -322,6 +322,10 @@ export const routing = defineRouting({
       en: "/dashboard/development/rich-text-editor",
       pl: "/dashboard/deweloperskie/rich-text-editor",
     },
+    "/dashboard/dev/subscription-test": {
+      en: "/dashboard/dev/subscription-test",
+      pl: "/dashboard/dev/test-subskrypcji",
+    },
 
     // === User Account module ===
     "/dashboard/account/profile": {
