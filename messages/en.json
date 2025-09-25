@@ -877,7 +877,8 @@
           "list": "User List",
           "invitations": "Invitations",
           "roles": "Roles & Permissions"
-        }
+        },
+        "billing": "Billing & Subscriptions"
       }
     },
     "support": {
@@ -941,6 +942,84 @@
         "locations": "Locations Debug",
         "richTextEditor": "Rich Text Editor",
         "subscriptionTest": "Subscription Test"
+      }
+    }
+  },
+  "organization": {
+    "billing": {
+      "title": "Billing & Subscriptions",
+      "description": "Manage your organization's subscription plan and billing information",
+      "noSubscription": {
+        "title": "No Active Subscription",
+        "description": "This organization does not have an active subscription plan."
+      },
+      "currentPlan": {
+        "title": "Current Plan",
+        "subtitle": "Your active subscription plan details"
+      },
+      "status": {
+        "active": "Active",
+        "trialing": "Trial",
+        "past_due": "Past Due",
+        "canceled": "Canceled",
+        "unpaid": "Unpaid",
+        "incomplete": "Incomplete"
+      },
+      "developmentPlan": "Development",
+      "perMonth": "month",
+      "billingPeriod": "Billing period",
+      "planIncludes": "Plan includes",
+      "modules": "modules",
+      "contexts": "contexts",
+      "users": "users",
+      "branches": "branches",
+      "products": "products",
+      "locations": "locations",
+      "unlimited": "Unlimited",
+      "availableModules": {
+        "title": "Available Modules",
+        "description": "Modules included in your current subscription plan"
+      },
+      "availableContexts": {
+        "title": "Available Contexts",
+        "description": "Business contexts you can access with your current plan"
+      },
+      "features": {
+        "title": "Plan Features",
+        "description": "Features and capabilities included in your subscription"
+      },
+      "moduleNames": {
+        "home": "Home",
+        "warehouse": "Warehouse",
+        "teams": "Teams",
+        "organization-management": "Organization",
+        "support": "Support",
+        "user-account": "Account",
+        "analytics": "Analytics",
+        "development": "Development"
+      },
+      "contextNames": {
+        "warehouse": "Warehouse",
+        "ecommerce": "E-commerce",
+        "b2b": "B2B",
+        "pos": "Point of Sale",
+        "manufacturing": "Manufacturing"
+      },
+      "contextDescriptions": {
+        "warehouse": "Internal inventory management",
+        "ecommerce": "Online store product management",
+        "b2b": "Business client catalog",
+        "pos": "Point of sale integration",
+        "manufacturing": "Production and assembly"
+      },
+      "featureNames": {
+        "basic_support": "Basic Support",
+        "api_access": "API Access",
+        "advanced_reports": "Advanced Reports",
+        "priority_support": "Priority Support",
+        "custom_branding": "Custom Branding",
+        "white_label": "White Label",
+        "custom_integrations": "Custom Integrations"
       }
     }
   }

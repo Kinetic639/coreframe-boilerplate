@@ -223,6 +223,10 @@ export const routing = defineRouting({
       en: "/dashboard/organization/roles/[id]",
       pl: "/dashboard/organizacja/role/[id]",
     },
+    "/dashboard/organization/billing": {
+      en: "/dashboard/organization/billing",
+      pl: "/dashboard/organizacja/rozliczenia",
+    },
 
     // === Invitation system ===
     "/invite/[token]": {
