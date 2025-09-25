@@ -1,13 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CheckCircle, XCircle, AlertTriangle, Settings } from "lucide-react";
 import { useSubscription, useModuleAccess, useUsageLimit } from "@/lib/hooks/use-subscription";
-import { SubscriptionGate, FeatureFlag } from "@/components/subscription/subscription-gate";
 import { useAppStore } from "@/lib/stores/app-store";
 import { subscriptionService } from "@/lib/services/subscription-service";
 import { toast } from "react-toastify";
@@ -25,15 +31,13 @@ export function SubscriptionTest({ className }: SubscriptionTestProps) {
             <Settings className="h-5 w-5" />
             Subscription System Test
           </CardTitle>
-          <CardDescription>Testing subscription access controls and components</CardDescription>
+          <CardDescription>Testing subscription access controls and plan switching</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <PlanSwitcher />
           <SubscriptionStatusTest />
           <ModuleAccessTest />
-          <FeatureAccessTest />
           <UsageLimitsTest />
-          <SubscriptionGateTests />
-          <ActionTests />
         </CardContent>
       </Card>
     </div>
@@ -86,6 +90,61 @@ function SubscriptionStatusTest() {
   );
 }
 
+function PlanSwitcher() {
+  const { activeOrgId } = useAppStore();
+  const [selectedPlan, setSelectedPlan] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handlePlanChange = async (planName: string) => {
+    if (!activeOrgId) {
+      toast.error("No active organization");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Call subscription service to set development subscription
+      const success = await subscriptionService.setDevelopmentSubscription(activeOrgId, planName);
+      if (success) {
+        toast.success(`Plan changed to ${planName}`);
+        // Refresh the page to see changes
+        window.location.reload();
+      } else {
+        toast.error("Failed to change plan");
+      }
+    } catch (error) {
+      toast.error("Error changing plan");
+      console.error("Error changing plan:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <h4 className="mb-2 font-medium">Plan Switcher</h4>
+      <div className="flex items-center gap-4">
+        <Select value={selectedPlan} onValueChange={setSelectedPlan} disabled={isLoading}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Select a plan" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="free">Free Plan</SelectItem>
+            <SelectItem value="professional">Professional Plan</SelectItem>
+            <SelectItem value="enterprise">Enterprise Plan</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => handlePlanChange(selectedPlan)}
+          disabled={!selectedPlan || isLoading}
+        >
+          {isLoading ? "Switching..." : "Switch Plan"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ModuleAccessTest() {
   const { activeOrgId } = useAppStore();
   const modules = ["home", "warehouse", "teams", "organization-management", "support", "analytics"];
@@ -120,23 +179,6 @@ function ModuleAccessItem({ module, orgId }: { module: string; orgId?: string })
           <span className="text-xs">{hasAccess ? "Access" : "Blocked"}</span>
         </div>
       )}
-    </div>
-  );
-}
-
-function FeatureAccessTest() {
-  return (
-    <div>
-      <h4 className="mb-2 font-medium">Feature Access</h4>
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 text-blue-600" />
-          <span className="text-sm text-blue-800">No premium features implemented yet</span>
-        </div>
-        <p className="mt-1 text-xs text-blue-600">
-          Feature flags system is ready - premium features can be added here when implemented
-        </p>
-      </div>
     </div>
   );
 }
@@ -177,99 +219,6 @@ function UsageLimitItem({ limit, orgId }: { limit: string; orgId?: string }) {
       ) : (
         <span className="text-xs text-muted-foreground">No data</span>
       )}
-    </div>
-  );
-}
-
-function SubscriptionGateTests() {
-  return (
-    <div>
-      <h4 className="mb-2 font-medium">Subscription Gates</h4>
-      <div className="space-y-3">
-        {/* Module gate test */}
-        <div className="rounded border p-3">
-          <h5 className="mb-2 text-sm font-medium">Module Gate (Teams)</h5>
-          <SubscriptionGate module="teams">
-            <div className="rounded border border-green-200 bg-green-50 p-2 text-sm text-green-800">
-              ✅ Teams module content is accessible!
-            </div>
-          </SubscriptionGate>
-        </div>
-
-        {/* Feature gate test */}
-        <div className="rounded border p-3">
-          <h5 className="mb-2 text-sm font-medium">Feature Gate (API Access)</h5>
-          <SubscriptionGate feature="api_access">
-            <div className="rounded border border-blue-200 bg-blue-50 p-2 text-sm text-blue-800">
-              ✅ API access features are available!
-            </div>
-          </SubscriptionGate>
-        </div>
-
-        {/* Feature flag test */}
-        <div className="rounded border p-3">
-          <h5 className="mb-2 text-sm font-medium">Feature Flag (Custom Branding)</h5>
-          <FeatureFlag feature="custom_branding">
-            <div className="rounded border border-purple-200 bg-purple-50 p-2 text-sm text-purple-800">
-              ✅ Custom branding options would appear here
-            </div>
-          </FeatureFlag>
-          <FeatureFlag
-            feature="custom_branding"
-            fallback={
-              <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-600">
-                Custom branding not available on current plan
-              </div>
-            }
-          >
-            <div>This won't show</div>
-          </FeatureFlag>
-        </div>
-
-        {/* Minimalist gate test */}
-        <div className="rounded border p-3">
-          <h5 className="mb-2 text-sm font-medium">Minimalist Gate</h5>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">Enterprise Feature:</span>
-            <SubscriptionGate feature="white_label" minimalist>
-              <Badge variant="default">White Label Available</Badge>
-            </SubscriptionGate>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActionTests() {
-  const { activeOrgId } = useAppStore();
-
-  const testUsageIncrement = async () => {
-    if (!activeOrgId) {
-      toast.error("No active organization");
-      return;
-    }
-
-    try {
-      const success = await subscriptionService.incrementUsage(activeOrgId, "max_products", 1);
-      if (success) {
-        toast.success("Usage incremented successfully");
-      } else {
-        toast.warning("Usage increment blocked (at limit)");
-      }
-    } catch {
-      toast.error("Error incrementing usage");
-    }
-  };
-
-  return (
-    <div>
-      <h4 className="mb-2 font-medium">Action Tests</h4>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline" onClick={testUsageIncrement}>
-          Test Usage Increment
-        </Button>
-      </div>
     </div>
   );
 }
