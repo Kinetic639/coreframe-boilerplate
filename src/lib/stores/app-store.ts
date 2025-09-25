@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Tables } from "../../../supabase/types/types";
 import { UserLocation } from "../types";
 import { createClient } from "@/utils/supabase/client";
+import type { OrganizationSubscriptionWithPlan } from "@/lib/services/subscription-service";
 
 // 🔸 Typ jednego modułu użytkownika
 export type LoadedUserModule = {
@@ -62,6 +63,7 @@ export type AppContext = {
   productTemplates: Tables<"product_templates">[];
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
+  subscription: OrganizationSubscriptionWithPlan | null;
 };
 
 // 🧠 Zustand store
@@ -101,6 +103,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   productTemplates: [],
   organizationUsers: [],
   privateContacts: [],
+  subscription: null,
 
   setContext: (context) =>
     set({

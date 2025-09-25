@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Shield, Database, Image, Server, Code, AlertTriangle } from "lucide-react";
+import { Shield, Database, Image, Server, Code, AlertTriangle, CreditCard } from "lucide-react";
+import { DevelopmentSubscriptionManager } from "@/components/dev/subscription-manager";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -57,6 +58,14 @@ const debugTools = [
     description: "Test service role connections and database access",
     icon: Server,
     href: "/dashboard/development/service",
+    status: "ready" as const,
+  },
+  {
+    id: "subscription-test",
+    title: "Subscription Test",
+    description: "Test subscription system, access controls, and plan switching",
+    icon: CreditCard,
+    href: "/dashboard/dev/subscription-test",
     status: "ready" as const,
   },
 ];
@@ -116,6 +125,9 @@ export default async function DevelopmentDashboardPage() {
           );
         })}
       </div>
+
+      {/* Development Subscription Manager Widget */}
+      <DevelopmentSubscriptionManager position="relative" />
     </div>
   );
 }
