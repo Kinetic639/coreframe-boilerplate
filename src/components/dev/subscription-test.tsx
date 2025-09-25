@@ -6,12 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle, XCircle, AlertTriangle, Settings } from "lucide-react";
-import {
-  useSubscription,
-  useModuleAccess,
-  useFeatureAccess,
-  useUsageLimit,
-} from "@/lib/hooks/use-subscription";
+import { useSubscription, useModuleAccess, useUsageLimit } from "@/lib/hooks/use-subscription";
 import { SubscriptionGate, FeatureFlag } from "@/components/subscription/subscription-gate";
 import { useAppStore } from "@/lib/stores/app-store";
 import { subscriptionService } from "@/lib/services/subscription-service";
@@ -93,7 +88,7 @@ function SubscriptionStatusTest() {
 
 function ModuleAccessTest() {
   const { activeOrgId } = useAppStore();
-  const modules = ["home", "warehouse", "teams", "organization-management", "support"];
+  const modules = ["home", "warehouse", "teams", "organization-management", "support", "analytics"];
 
   return (
     <div>
@@ -130,39 +125,18 @@ function ModuleAccessItem({ module, orgId }: { module: string; orgId?: string })
 }
 
 function FeatureAccessTest() {
-  const { activeOrgId } = useAppStore();
-  const features = ["api_access", "custom_branding", "priority_support", "advanced_reports"];
-
   return (
     <div>
       <h4 className="mb-2 font-medium">Feature Access</h4>
-      <div className="grid grid-cols-2 gap-2">
-        {features.map((feature) => (
-          <FeatureAccessItem key={feature} feature={feature} orgId={activeOrgId} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FeatureAccessItem({ feature, orgId }: { feature: string; orgId?: string }) {
-  const { data: hasAccess, isLoading } = useFeatureAccess(feature, orgId);
-
-  return (
-    <div className="flex items-center justify-between rounded border p-2">
-      <span className="text-sm font-medium">{feature.replace("_", " ")}</span>
-      {isLoading ? (
-        <Skeleton className="h-4 w-4" />
-      ) : (
-        <div className="flex items-center gap-1">
-          {hasAccess ? (
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          ) : (
-            <XCircle className="h-4 w-4 text-red-600" />
-          )}
-          <span className="text-xs">{hasAccess ? "Available" : "Locked"}</span>
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-blue-600" />
+          <span className="text-sm text-blue-800">No premium features implemented yet</span>
         </div>
-      )}
+        <p className="mt-1 text-xs text-blue-600">
+          Feature flags system is ready - premium features can be added here when implemented
+        </p>
+      </div>
     </div>
   );
 }

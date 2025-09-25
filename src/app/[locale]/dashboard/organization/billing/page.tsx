@@ -246,37 +246,7 @@ export default function BillingPage() {
         </CardContent>
       </Card>
 
-      {/* Plan Features */}
-      {Object.keys(plan.features).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("features.title")}</CardTitle>
-            <CardDescription>{t("features.description")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {Object.entries(plan.features).map(([feature, enabled]) => (
-                <div key={feature} className="flex items-center gap-2">
-                  {enabled ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <div className="h-4 w-4 rounded-full border border-muted-foreground" />
-                  )}
-                  <span
-                    className={cn("text-sm", enabled ? "text-foreground" : "text-muted-foreground")}
-                  >
-                    {t(`featureNames.${feature}`, {
-                      defaultValue: feature
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (l) => l.toUpperCase()),
-                    })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Plan Features - Hidden since no premium features are implemented */}
     </div>
   );
 }
