@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
+import { subscriptionService } from "@/lib/services/subscription-service";
 
 // Context management types
 export type Context = Tables<"context_configurations">;
@@ -7,6 +8,11 @@ export type FieldVisibilityRule = Tables<"field_visibility_rules">;
 
 export type CreateContextRequest = TablesInsert<"context_configurations">;
 export type UpdateContextRequest = TablesUpdate<"context_configurations">;
+
+export interface ContextWithAccess extends Context {
+  hasAccess: boolean;
+  isPremium: boolean;
+}
 
 export type ContextConfig = {
   api_enabled: boolean;
@@ -25,7 +31,7 @@ export class ContextService {
   private supabase = createClient();
 
   /**
-   * Get all available contexts for an organization (system + custom)
+   * Get all available contexts for an organization with subscription access control
    */
   async getAvailableContexts(organizationId?: string): Promise<Context[]> {
     try {
@@ -45,9 +51,75 @@ export class ContextService {
       const { data, error } = await query;
       if (error) throw error;
 
+      // Filter contexts based on subscription access
+      if (organizationId && data) {
+        const accessibleContexts = [];
+        for (const context of data) {
+          const hasAccess = await subscriptionService.hasContextAccess(
+            organizationId,
+            context.context_name
+          );
+          if (hasAccess) {
+            accessibleContexts.push(context);
+          }
+        }
+        return accessibleContexts;
+      }
+
       return data || [];
     } catch (error) {
       console.error("Error getting available contexts:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all contexts with access information (for UI that shows locked contexts)
+   */
+  async getContextsWithAccess(organizationId?: string): Promise<ContextWithAccess[]> {
+    try {
+      let query = this.supabase
+        .from("context_configurations")
+        .select("*")
+        .eq("is_active", true)
+        .order("context_name");
+
+      // Include system contexts and organization-specific contexts
+      if (organizationId) {
+        query = query.or(`context_type.eq.system,organization_id.eq.${organizationId}`);
+      } else {
+        query = query.eq("context_type", "system");
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Add access information to each context
+      const contextsWithAccess: ContextWithAccess[] = [];
+
+      if (data) {
+        for (const context of data) {
+          let hasAccess = true;
+          const isPremium = context.context_name !== "warehouse"; // Warehouse is always free
+
+          if (organizationId && isPremium) {
+            hasAccess = await subscriptionService.hasContextAccess(
+              organizationId,
+              context.context_name
+            );
+          }
+
+          contextsWithAccess.push({
+            ...context,
+            hasAccess,
+            isPremium,
+          });
+        }
+      }
+
+      return contextsWithAccess;
+    } catch (error) {
+      console.error("Error getting contexts with access:", error);
       throw error;
     }
   }

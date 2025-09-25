@@ -1521,6 +1521,72 @@ export type Database = {
           },
         ];
       };
+      organization_subscriptions: {
+        Row: {
+          created_at: string | null;
+          current_period_end: string;
+          current_period_start: string;
+          dev_expires_at: string | null;
+          id: string;
+          is_development: boolean | null;
+          organization_id: string | null;
+          plan_id: string | null;
+          status: string;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          trial_end: string | null;
+          trial_start: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          current_period_end?: string;
+          current_period_start?: string;
+          dev_expires_at?: string | null;
+          id?: string;
+          is_development?: boolean | null;
+          organization_id?: string | null;
+          plan_id?: string | null;
+          status?: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          current_period_end?: string;
+          current_period_start?: string;
+          dev_expires_at?: string | null;
+          id?: string;
+          is_development?: boolean | null;
+          organization_id?: string | null;
+          plan_id?: string | null;
+          status?: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          trial_end?: string | null;
+          trial_start?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_subscriptions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_subscriptions_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "subscription_plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organizations: {
         Row: {
           created_at: string | null;
@@ -2672,6 +2738,101 @@ export type Database = {
             columns: ["variant_id"];
             isOneToOne: false;
             referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscription_plans: {
+        Row: {
+          created_at: string | null;
+          description: Json | null;
+          display_name: Json;
+          enabled_contexts: string[] | null;
+          enabled_modules: string[] | null;
+          features: Json | null;
+          id: string;
+          is_active: boolean | null;
+          limits: Json | null;
+          name: string;
+          price_monthly: number | null;
+          price_yearly: number | null;
+          sort_order: number | null;
+          stripe_product_id: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          description?: Json | null;
+          display_name: Json;
+          enabled_contexts?: string[] | null;
+          enabled_modules?: string[] | null;
+          features?: Json | null;
+          id?: string;
+          is_active?: boolean | null;
+          limits?: Json | null;
+          name: string;
+          price_monthly?: number | null;
+          price_yearly?: number | null;
+          sort_order?: number | null;
+          stripe_product_id?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          description?: Json | null;
+          display_name?: Json;
+          enabled_contexts?: string[] | null;
+          enabled_modules?: string[] | null;
+          features?: Json | null;
+          id?: string;
+          is_active?: boolean | null;
+          limits?: Json | null;
+          name?: string;
+          price_monthly?: number | null;
+          price_yearly?: number | null;
+          sort_order?: number | null;
+          stripe_product_id?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      subscription_usage: {
+        Row: {
+          created_at: string | null;
+          current_value: number | null;
+          feature_key: string;
+          id: string;
+          organization_id: string | null;
+          period_end: string;
+          period_start: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          current_value?: number | null;
+          feature_key: string;
+          id?: string;
+          organization_id?: string | null;
+          period_end: string;
+          period_start: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          current_value?: number | null;
+          feature_key?: string;
+          id?: string;
+          organization_id?: string | null;
+          period_end?: string;
+          period_start?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscription_usage_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
