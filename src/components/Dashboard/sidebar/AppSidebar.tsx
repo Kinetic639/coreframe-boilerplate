@@ -9,7 +9,7 @@ import { AppSidebarWrapper } from "./AppSidebarWrapper";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
 import { SidebarInitializer } from "./SidebarInitializer";
 import { createClient } from "@/utils/supabase/server";
-import { getAllModules } from "@/modules";
+import { getAccessibleModules } from "@/modules";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { checkIsActive } from "@/utils/sidebar/active-detection";
@@ -35,7 +35,7 @@ const AppSidebar = async () => {
   const userPermissions = userContext?.permissions ?? [];
 
   // Load modules and translations
-  const modules = await getAllModules();
+  const modules = await getAccessibleModules(activeOrgId, appContext?.subscription);
   const t = await getTranslations("modules");
 
   // Get current pathname to check for active items

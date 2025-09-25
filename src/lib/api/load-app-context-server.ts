@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
 import { AppContext, BranchData } from "@/lib/stores/app-store";
+import { subscriptionService } from "@/lib/services/subscription-service";
 
 // Pomocnicza funkcja sprawdzająca, czy JSON to obiekt (do bezpiecznego spreadowania)
 function safeObject(obj: unknown): Record<string, unknown> {
@@ -190,7 +191,18 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     }
   }
 
-  // 8. Load private contacts for the user (placeholder for future implementation)
+  // 8. Load subscription data for the organization
+  let subscription = null;
+  if (activeOrgId) {
+    try {
+      subscription = await subscriptionService.getActiveSubscription(activeOrgId);
+    } catch (error) {
+      console.error("Error loading subscription data:", error);
+      subscription = null;
+    }
+  }
+
+  // 9. Load private contacts for the user (placeholder for future implementation)
   const privateContacts: any[] = [];
   // TODO: Implement private contacts loading if needed
   // This could be from a separate contacts table or external sources
@@ -226,6 +238,7 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     productTemplates,
     organizationUsers,
     privateContacts,
+    subscription,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);
