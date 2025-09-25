@@ -1,252 +1,74 @@
-"use client";
-
 import React from "react";
-import { useTranslations } from "next-intl";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  CreditCard,
-  Package,
-  Users,
-  MapPin,
-  GitBranch,
-  Calendar,
-  Shield,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
-import { useSubscription } from "@/lib/hooks/use-subscription";
-import { useAppStore } from "@/lib/stores/app-store";
-import { cn } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
+import BillingClient from "./BillingClient";
 
-export default function BillingPage() {
-  const t = useTranslations("organization.billing");
-  const { activeOrgId } = useAppStore();
-  const { data: subscription, isLoading } = useSubscription(activeOrgId);
+export default async function BillingPage() {
+  const t = await getTranslations("organization.billing");
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-96" />
-        </div>
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
+  // Get all translations for the billing namespace
+  const translations = {
+    title: t("title"),
+    description: t("description"),
+    noSubscription: {
+      title: t("noSubscription.title"),
+      description: t("noSubscription.description"),
+    },
+    currentPlan: {
+      title: t("currentPlan.title"),
+      subtitle: t("currentPlan.subtitle"),
+    },
+    status: {
+      active: t("status.active"),
+      trialing: t("status.trialing"),
+      past_due: t("status.past_due"),
+      canceled: t("status.canceled"),
+      unpaid: t("status.unpaid"),
+      incomplete: t("status.incomplete"),
+    },
+    developmentPlan: t("developmentPlan"),
+    perMonth: t("perMonth"),
+    billingPeriod: t("billingPeriod"),
+    planIncludes: t("planIncludes"),
+    modules: t("modules"),
+    contexts: t("contexts"),
+    users: t("users"),
+    branches: t("branches"),
+    products: t("products"),
+    locations: t("locations"),
+    unlimited: t("unlimited"),
+    availableModules: {
+      title: t("availableModules.title"),
+      description: t("availableModules.description"),
+    },
+    availableContexts: {
+      title: t("availableContexts.title"),
+      description: t("availableContexts.description"),
+    },
+    moduleNames: {
+      home: t("moduleNames.home"),
+      warehouse: t("moduleNames.warehouse"),
+      teams: t("moduleNames.teams"),
+      "organization-management": t("moduleNames.organization-management"),
+      support: t("moduleNames.support"),
+      "user-account": t("moduleNames.user-account"),
+      analytics: t("moduleNames.analytics"),
+      development: t("moduleNames.development", { defaultValue: "Development" }),
+    },
+    contextNames: {
+      warehouse: t("contextNames.warehouse", { defaultValue: "Warehouse" }),
+      branch: t("contextNames.branch", { defaultValue: "Branch" }),
+      organization: t("contextNames.organization", { defaultValue: "Organization" }),
+    },
+    contextDescriptions: {
+      warehouse: t("contextDescriptions.warehouse", {
+        defaultValue: "Warehouse management context",
+      }),
+      branch: t("contextDescriptions.branch", { defaultValue: "Branch-specific context" }),
+      organization: t("contextDescriptions.organization", {
+        defaultValue: "Organization-wide context",
+      }),
+    },
+  };
 
-  if (!subscription) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-muted-foreground">{t("description")}</p>
-        </div>
-
-        <Card className="border-amber-200 bg-amber-50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              <CardTitle className="text-amber-900">{t("noSubscription.title")}</CardTitle>
-            </div>
-            <CardDescription className="text-amber-700">
-              {t("noSubscription.description")}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
-  const plan = subscription.plan;
-  const displayName =
-    typeof plan.display_name === "object" && plan.display_name !== null
-      ? (plan.display_name as any).en || (plan.display_name as any).pl || plan.name
-      : plan.name;
-
-  const isFreePlan = plan.name === "free";
-  const isDevelopment = subscription.is_development;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-muted-foreground">{t("description")}</p>
-      </div>
-
-      {/* Current Plan Card */}
-      <Card
-        className={cn(
-          "border-2",
-          isFreePlan ? "border-blue-200 bg-blue-50" : "border-green-200 bg-green-50"
-        )}
-      >
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CreditCard
-                className={cn("h-6 w-6", isFreePlan ? "text-blue-600" : "text-green-600")}
-              />
-              <div>
-                <CardTitle
-                  className={cn("text-xl", isFreePlan ? "text-blue-900" : "text-green-900")}
-                >
-                  {t("currentPlan.title")}
-                </CardTitle>
-                <CardDescription className={cn(isFreePlan ? "text-blue-700" : "text-green-700")}>
-                  {t("currentPlan.subtitle")}
-                </CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={subscription.status === "active" ? "default" : "secondary"}
-                className="text-xs"
-              >
-                {t(`status.${subscription.status}`)}
-              </Badge>
-              {isDevelopment && (
-                <Badge variant="outline" className="border-amber-300 text-xs text-amber-800">
-                  {t("developmentPlan")}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Plan Details */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{displayName}</h3>
-                {!isFreePlan && (
-                  <span className="text-lg font-bold">
-                    ${(plan.price_monthly / 100).toFixed(0)}/{t("perMonth")}
-                  </span>
-                )}
-              </div>
-
-              {/* Billing Period */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {t("billingPeriod")}:{" "}
-                  {new Date(subscription.current_period_start).toLocaleDateString()} -{" "}
-                  {new Date(subscription.current_period_end).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Plan Features Summary */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">{t("planIncludes")}</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-1">
-                  <Package className="h-3 w-3 text-muted-foreground" />
-                  <span>
-                    {plan.enabled_modules.length} {t("modules")}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Shield className="h-3 w-3 text-muted-foreground" />
-                  <span>
-                    {plan.enabled_contexts.length} {t("contexts")}
-                  </span>
-                </div>
-                {plan.limits.max_users !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <Users className="h-3 w-3 text-muted-foreground" />
-                    <span>
-                      {plan.limits.max_users === -1 ? t("unlimited") : plan.limits.max_users}{" "}
-                      {t("users")}
-                    </span>
-                  </div>
-                )}
-                {plan.limits.max_branches !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <GitBranch className="h-3 w-3 text-muted-foreground" />
-                    <span>
-                      {plan.limits.max_branches === -1 ? t("unlimited") : plan.limits.max_branches}{" "}
-                      {t("branches")}
-                    </span>
-                  </div>
-                )}
-                {plan.limits.max_products !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <Package className="h-3 w-3 text-muted-foreground" />
-                    <span>
-                      {plan.limits.max_products === -1 ? t("unlimited") : plan.limits.max_products}{" "}
-                      {t("products")}
-                    </span>
-                  </div>
-                )}
-                {plan.limits.max_locations !== undefined && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-muted-foreground" />
-                    <span>
-                      {plan.limits.max_locations === -1
-                        ? t("unlimited")
-                        : plan.limits.max_locations}{" "}
-                      {t("locations")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Available Modules */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("availableModules.title")}</CardTitle>
-          <CardDescription>{t("availableModules.description")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-            {plan.enabled_modules.map((module) => (
-              <div key={module} className="flex items-center gap-2 rounded-lg border p-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium capitalize">
-                  {t(`moduleNames.${module}`, { defaultValue: module.replace("-", " ") })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Available Contexts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("availableContexts.title")}</CardTitle>
-          <CardDescription>{t("availableContexts.description")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {plan.enabled_contexts.map((context) => (
-              <div key={context} className="flex items-center gap-2 rounded-lg border p-3">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <div>
-                  <span className="text-sm font-medium capitalize">
-                    {t(`contextNames.${context}`, { defaultValue: context })}
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    {t(`contextDescriptions.${context}`, {
-                      defaultValue: `${context.charAt(0).toUpperCase() + context.slice(1)} context`,
-                    })}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Plan Features - Hidden since no premium features are implemented */}
-    </div>
-  );
+  return <BillingClient translations={translations} />;
 }
