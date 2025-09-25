@@ -939,7 +939,8 @@
         "service": "Service Debug",
         "labels": "Label Testing",
         "locations": "Locations Debug",
-        "richTextEditor": "Rich Text Editor"
+        "richTextEditor": "Rich Text Editor",
+        "subscriptionTest": "Subscription Test"
       }
     }
   }
