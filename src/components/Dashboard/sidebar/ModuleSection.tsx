@@ -24,7 +24,7 @@ interface ModuleSectionProps {
 
 export function ModuleSection({ module, hasActiveItemInAnyModule = false }: ModuleSectionProps) {
   const { state } = useSidebar();
-  const { openSections, toggleSection } = useSidebarStore();
+  const { openSections, toggleSection, mode } = useSidebarStore();
   const isExpanded = state === "expanded";
   const pathname = useCurrentPath();
 
@@ -37,6 +37,10 @@ export function ModuleSection({ module, hasActiveItemInAnyModule = false }: Modu
 
   // Should this module header be grayed out?
   const shouldGrayOutModule = hasActiveItemInAnyModule && !hasActiveItem;
+
+  // Should tooltips be shown?
+  // Only show tooltips when sidebar is collapsed AND in manual mode (not auto mode)
+  const shouldShowTooltip = !isExpanded && mode === "manual";
 
   // Get module icon
   const ModuleIcon = (Icons as any)[module.icon || "Folder"] || Icons.Folder;
@@ -91,7 +95,7 @@ export function ModuleSection({ module, hasActiveItemInAnyModule = false }: Modu
               />
             </div>
           </TooltipTrigger>
-          {!isExpanded && (
+          {shouldShowTooltip && (
             <TooltipContent
               side="right"
               className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"

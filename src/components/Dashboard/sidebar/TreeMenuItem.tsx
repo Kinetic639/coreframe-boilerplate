@@ -34,7 +34,7 @@ export function TreeMenuItem({
   const pathname = usePathname();
   const { state } = useSidebar();
   const isExpanded = state === "expanded";
-  const { openSections, toggleSection } = useSidebarStore();
+  const { openSections, toggleSection, mode } = useSidebarStore();
 
   // Create unique section ID for state persistence
   const sectionId = moduleSlug ? `${moduleSlug}-${item.id}` : item.id;
@@ -59,6 +59,10 @@ export function TreeMenuItem({
   const shouldGrayOut =
     hasActiveItemInAnyModule &&
     (!hasActiveItemInModule || (hasActiveItemInModule && !isInActivePath));
+
+  // Should tooltips be shown?
+  // Only show tooltips when sidebar is collapsed AND in manual mode (not auto mode)
+  const shouldShowTooltip = !isExpanded && mode === "manual";
 
   // Calculate responsive indentation
   const indent = isExpanded ? 16 : 12;
@@ -168,7 +172,7 @@ export function TreeMenuItem({
                 </AnimatePresence>
               </div>
             </TooltipTrigger>
-            {!isExpanded && (
+            {shouldShowTooltip && (
               <TooltipContent
                 side="right"
                 className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
@@ -233,7 +237,7 @@ export function TreeMenuItem({
                 </div>
               </Link>
             </TooltipTrigger>
-            {!isExpanded && (
+            {shouldShowTooltip && (
               <TooltipContent
                 side="right"
                 className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
@@ -308,7 +312,7 @@ export function TreeMenuItem({
                 />
               </div>
             </TooltipTrigger>
-            {!isExpanded && (
+            {shouldShowTooltip && (
               <TooltipContent
                 side="right"
                 className="z-[9999] border-[color-mix(in_srgb,var(--font-color)_20%,transparent)] bg-[color:var(--font-color)] text-[color:var(--sidebar-bg)] shadow-lg"
