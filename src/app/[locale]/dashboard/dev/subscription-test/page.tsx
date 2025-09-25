@@ -1,3 +1,5 @@
+"use client";
+
 import { SubscriptionTest } from "@/components/dev/subscription-test";
 
 export default function SubscriptionTestPage() {

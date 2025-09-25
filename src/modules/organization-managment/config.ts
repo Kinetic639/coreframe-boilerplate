@@ -54,5 +54,12 @@ export const orgManagmentModule: ModuleConfig = {
         },
       ],
     },
+    {
+      id: "billing",
+      label: "modules.organizationManagement.items.billing",
+      path: "/dashboard/organization/billing",
+      icon: "CreditCard",
+      requiredPermissions: ["organization.billing.read"],
+    },
   ],
 };
