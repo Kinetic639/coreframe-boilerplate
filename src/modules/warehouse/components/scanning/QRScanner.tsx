@@ -492,7 +492,7 @@ export function QRScanner({
                   <SelectContent>
                     {cameras.map((camera) => (
                       <SelectItem key={camera.deviceId} value={camera.deviceId}>
-                        {camera.label || `Kamera ${camera.deviceId.substring(0, 8)}`}
+                        {camera.label || `Kamera ${camera.deviceId?.substring(0, 8) || "Unknown"}`}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -12,24 +12,21 @@ import { ProductFilters } from "@/modules/warehouse/products/components/product-
 import { ProductCard } from "@/modules/warehouse/products/components/product-card";
 import { ProductList } from "@/modules/warehouse/products/components/product-list";
 import { ProductTable } from "@/modules/warehouse/products/components/product-table";
-import { NewProductFormDialog } from "@/modules/warehouse/products/components/new-product-form-dialog";
-import { productService, ProductWithVariants } from "@/modules/warehouse/api/products";
+import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
+import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type DisplayMode = "grid" | "list" | "table";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const { activeBranchId, isLoaded } = useAppStore();
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
-  const [selectedProduct, setSelectedProduct] = React.useState<ProductWithVariants | undefined>(
-    undefined
-  );
 
   // Product data state
-  const [products, setProducts] = React.useState<ProductWithVariants[]>([]);
+  const [products, setProducts] = React.useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -43,15 +40,14 @@ export default function ProductsPage() {
   const [currentFilters, setCurrentFilters] = React.useState<any>({});
 
   const handleAddNew = () => {
-    setSelectedProduct(undefined);
-    setIsFormOpen(true);
+    // Redirect to templates page for template-based product creation
+    router.push("/dashboard/warehouse/products/templates");
   };
 
-  const handleProductSuccess = () => {
-    // Refresh the product list
-    loadProducts();
-    // console.log("Product operation completed successfully");
-  };
+  // const handleAddNewOld = () => {
+  //   setSelectedProduct(undefined);
+  //   setIsFormOpen(true);
+  // };
 
   // Load products from Supabase
   const loadProducts = React.useCallback(async () => {
@@ -63,16 +59,12 @@ export default function ProductsPage() {
     try {
       const filters = {
         search: currentFilters.search,
-        minPrice: currentFilters.minPrice,
-        maxPrice: currentFilters.maxPrice,
-        supplierId: currentFilters.supplierId,
-        locationId: currentFilters.locationId,
-        showLowStock: currentFilters.showLowStock,
+        branch_id: activeBranchId,
         limit: itemsPerPage,
         offset: (currentPage - 1) * itemsPerPage,
       };
 
-      const result = await productService.getProductsByBranch(activeBranchId, filters);
+      const result = await flexibleProductService.searchProducts(filters);
       setProducts(result.products);
       setTotalProducts(result.total);
     } catch (err) {
@@ -252,12 +244,6 @@ export default function ProductsPage() {
           </Card>
         </Suspense>
       </motion.div>
-      <NewProductFormDialog
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        product={selectedProduct}
-        onSuccess={handleProductSuccess}
-      />
     </div>
   );
 }

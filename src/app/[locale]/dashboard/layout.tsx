@@ -11,6 +11,7 @@ import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { DevelopmentSubscriptionManager } from "@/components/dev/subscription-manager";
 
 function hexToRgb(hex: string | null): string {
   if (!hex) return "0,0,0";
@@ -68,6 +69,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
             </UserInitProvider>
           </AppInitProvider>
         </QueryClientProvider>
+        {/* Development Subscription Manager - only shows in development */}
+        <DevelopmentSubscriptionManager />
       </SidebarProvider>
     </Suspense>
   );

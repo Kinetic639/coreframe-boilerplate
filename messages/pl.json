@@ -711,7 +711,20 @@
       "title": "Magazyn",
       "description": "Zarządzanie magazynem i zapasami",
       "items": {
-        "products": "Produkty",
+        "products": {
+          "title": "Produkty",
+          "overview": "Przegląd produktów",
+          "templates": "Szablony produktów",
+          "import": "Importuj produkty"
+        },
+        "inventory": {
+          "title": "Inwentarz",
+          "overview": "Przegląd inwentarza",
+          "movements": "Ruchy magazynowe",
+          "adjustments": "Korekty stanów",
+          "reservations": "Rezerwacje",
+          "transfers": "Transfery międzyoddziałowe"
+        },
         "locations": "Lokalizacje",
         "audits": {
           "title": "Audyty",
@@ -818,7 +831,8 @@
           "list": "Lista użytkowników",
           "invitations": "Zaproszenia",
           "roles": "Role i uprawnienia"
-        }
+        },
+        "billing": "Rozliczenia i subskrypcje"
       }
     },
     "support": {
@@ -880,7 +894,86 @@
         "service": "Debug usług",
         "labels": "Testowanie etykiet",
         "locations": "Debug lokalizacji",
-        "richTextEditor": "Edytor Tekstu"
+        "richTextEditor": "Edytor Tekstu",
+        "subscriptionTest": "Test Subskrypcji"
+      }
+    }
+  },
+  "organization": {
+    "billing": {
+      "title": "Rozliczenia i subskrypcje",
+      "description": "Zarządzaj planem subskrypcji i informacjami o rozliczeniach organizacji",
+      "noSubscription": {
+        "title": "Brak aktywnej subskrypcji",
+        "description": "Ta organizacja nie ma aktywnego planu subskrypcji."
+      },
+      "currentPlan": {
+        "title": "Obecny plan",
+        "subtitle": "Szczegóły Twojego aktywnego planu subskrypcji"
+      },
+      "status": {
+        "active": "Aktywny",
+        "trialing": "Próbny",
+        "past_due": "Przeterminowany",
+        "canceled": "Anulowany",
+        "unpaid": "Nieopłacony",
+        "incomplete": "Niekompletny"
+      },
+      "developmentPlan": "Rozwojowy",
+      "perMonth": "miesiąc",
+      "billingPeriod": "Okres rozliczeniowy",
+      "planIncludes": "Plan zawiera",
+      "modules": "moduły",
+      "contexts": "konteksty",
+      "users": "użytkownicy",
+      "branches": "oddziały",
+      "products": "produkty",
+      "locations": "lokalizacje",
+      "unlimited": "Nieograniczone",
+      "availableModules": {
+        "title": "Dostępne moduły",
+        "description": "Moduły zawarte w Twoim obecnym planie subskrypcji"
+      },
+      "availableContexts": {
+        "title": "Dostępne konteksty",
+        "description": "Konteksty biznesowe dostępne w Twoim obecnym planie"
+      },
+      "features": {
+        "title": "Funkcje planu",
+        "description": "Funkcje i możliwości zawarte w Twojej subskrypcji"
+      },
+      "moduleNames": {
+        "home": "Start",
+        "warehouse": "Magazyn",
+        "teams": "Zespoły",
+        "organization-management": "Organizacja",
+        "support": "Wsparcie",
+        "user-account": "Konto",
+        "analytics": "Analityka",
+        "development": "Rozwój"
+      },
+      "contextNames": {
+        "warehouse": "Magazyn",
+        "ecommerce": "E-commerce",
+        "b2b": "B2B",
+        "pos": "Punkt sprzedaży",
+        "manufacturing": "Produkcja"
+      },
+      "contextDescriptions": {
+        "warehouse": "Wewnętrzne zarządzanie zapasami",
+        "ecommerce": "Zarządzanie produktami sklepu internetowego",
+        "b2b": "Katalog klientów biznesowych",
+        "pos": "Integracja z punktem sprzedaży",
+        "manufacturing": "Produkcja i montaż"
+      },
+      "featureNames": {
+        "basic_support": "Podstawowe wsparcie",
+        "api_access": "Dostęp do API",
+        "advanced_reports": "Zaawansowane raporty",
+        "priority_support": "Wsparcie priorytetowe",
+        "custom_branding": "Własny branding",
+        "white_label": "White label",
+        "custom_integrations": "Niestandardowe integracje"
       }
     }
   }

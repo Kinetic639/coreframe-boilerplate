@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
 import { AppContext, BranchData } from "@/lib/stores/app-store";
+import { subscriptionService } from "@/lib/services/subscription-service";
 
 // Pomocnicza funkcja sprawdzająca, czy JSON to obiekt (do bezpiecznego spreadowania)
 function safeObject(obj: unknown): Record<string, unknown> {
@@ -146,9 +147,9 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
 
   // 6. Load suppliers for the organization
   let suppliers: Tables<"suppliers">[] = [];
-  let productTypes: Tables<"product_types">[] = [];
+  let productTemplates: Tables<"product_templates">[] = [];
   if (activeOrgId) {
-    const [suppliersResult, productTypesResult] = await Promise.all([
+    const [suppliersResult, productTemplatesResult] = await Promise.all([
       supabase
         .from("suppliers")
         .select("*")
@@ -156,14 +157,15 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
         .is("deleted_at", null)
         .order("name", { ascending: true }),
       supabase
-        .from("product_types")
+        .from("product_templates")
         .select("*")
-        .eq("organization_id", activeOrgId)
+        .or(`organization_id.eq.${activeOrgId},is_system.eq.true`)
+        .is("deleted_at", null)
         .order("name", { ascending: true }),
     ]);
 
     suppliers = suppliersResult.data || [];
-    productTypes = productTypesResult.data || [];
+    productTemplates = productTemplatesResult.data || [];
   }
 
   // 7. Load organization users for chat functionality
@@ -189,7 +191,18 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     }
   }
 
-  // 8. Load private contacts for the user (placeholder for future implementation)
+  // 8. Load subscription data for the organization
+  let subscription = null;
+  if (activeOrgId) {
+    try {
+      subscription = await subscriptionService.getActiveSubscription(activeOrgId);
+    } catch (error) {
+      console.error("Error loading subscription data:", error);
+      subscription = null;
+    }
+  }
+
+  // 9. Load private contacts for the user (placeholder for future implementation)
   const privateContacts: any[] = [];
   // TODO: Implement private contacts loading if needed
   // This could be from a separate contacts table or external sources
@@ -222,9 +235,10 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     location: null,
     locations,
     suppliers,
-    productTypes,
+    productTemplates,
     organizationUsers,
     privateContacts,
+    subscription,
   };
 }
 export const loadAppContextServer = cache(_loadAppContextServer);

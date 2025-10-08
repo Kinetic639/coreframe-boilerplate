@@ -26,25 +26,17 @@ export function ProductCard({ product }: ProductCardProps) {
 
   const totalStock =
     product.variants?.reduce((sum, variant) => {
-      return sum + (variant.stock_locations?.reduce((s, sl) => s + (sl.quantity || 0), 0) || 0);
+      return (
+        sum +
+        (variant.stock_snapshots?.reduce(
+          (s, snapshot) => s + (snapshot.quantity_available || 0),
+          0
+        ) || 0)
+      );
     }, 0) || 0;
 
-  const displayPrice = product.inventory_data?.purchase_price || 0;
-
-  const getLocalizedUnit = (unit: string) => {
-    switch (unit) {
-      case "szt.":
-        return "szt.";
-      case "kg":
-        return "kg";
-      case "m":
-        return "m";
-      case "litr":
-        return "litr";
-      default:
-        return unit;
-    }
-  };
+  // For flexible products, try to get price from attributes or default to 0
+  const displayPrice = 0; // TODO: Implement price extraction from product attributes
 
   return (
     <Card className="relative flex h-full flex-col overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
@@ -59,9 +51,9 @@ export function ProductCard({ product }: ProductCardProps) {
         </div>
       )}
       <div className="relative h-48 w-full">
-        {product.main_image_id ? (
+        {product.images && product.images.length > 0 ? (
           <Image
-            src={product.main_image_id}
+            src={product.images[0].storage_path}
             alt={product.name}
             layout="fill"
             objectFit="cover"
@@ -75,9 +67,11 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
       <CardHeader className="pb-2">
         <div className="text-xs text-muted-foreground">
-          {product.sku && <span>SKU: {product.sku}</span>}
-          {product.sku && product.barcode && <span className="mx-1">|</span>}
-          {product.barcode && <span>EAN: {product.barcode}</span>}
+          {product.variants?.[0]?.sku && <span>SKU: {product.variants[0].sku}</span>}
+          {product.variants?.[0]?.sku && product.variants?.[0]?.barcode && (
+            <span className="mx-1">|</span>
+          )}
+          {product.variants?.[0]?.barcode && <span>EAN: {product.variants[0].barcode}</span>}
         </div>
         <CardTitle className="line-clamp-1 text-lg">{product.name}</CardTitle>
         <CardDescription className="line-clamp-2">
@@ -87,7 +81,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div
             className={`text-2xl font-bold ${totalStock > 0 && totalStock < 10 ? "text-red-500" : totalStock === 0 ? "text-red-500" : "text-foreground"}`}
           >
-            {totalStock} {getLocalizedUnit(product.default_unit)}
+            {totalStock} szt.
           </div>
         </div>
       </CardHeader>
@@ -106,7 +100,13 @@ export function ProductCard({ product }: ProductCardProps) {
           <Warehouse className="h-4 w-4" />
           Lokalizacje:{" "}
           <span className="font-medium text-foreground">
-            {new Set(product.stock_locations?.map((sl) => sl.location_id) || []).size}
+            {
+              new Set(
+                product.variants?.flatMap(
+                  (v) => v.stock_snapshots?.map((s) => s.location_id) || []
+                ) || []
+              ).size
+            }
           </span>
         </div>
       </CardContent>

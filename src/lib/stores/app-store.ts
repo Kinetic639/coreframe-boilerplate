@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Tables } from "../../../supabase/types/types";
 import { UserLocation } from "../types";
 import { createClient } from "@/utils/supabase/client";
+import type { OrganizationSubscriptionWithPlan } from "@/lib/services/subscription-service";
 
 // 🔸 Typ jednego modułu użytkownika
 export type LoadedUserModule = {
@@ -59,9 +60,10 @@ export type AppContext = {
   location: UserLocation | null;
   locations: Tables<"locations">[];
   suppliers: Tables<"suppliers">[];
-  productTypes: Tables<"product_types">[];
+  productTemplates: Tables<"product_templates">[];
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
+  subscription: OrganizationSubscriptionWithPlan | null;
 };
 
 // 🧠 Zustand store
@@ -74,7 +76,7 @@ type AppStore = AppContext & {
   setLocation: (location: UserLocation | null) => void;
   setLocations: (locations: Tables<"locations">[]) => void;
   setSuppliers: (suppliers: Tables<"suppliers">[]) => void;
-  setProductTypes: (productTypes: Tables<"product_types">[]) => void;
+  setProductTemplates: (productTemplates: Tables<"product_templates">[]) => void;
   setOrganizationUsers: (users: OrganizationUser[]) => void;
   setPrivateContacts: (contacts: PrivateContact[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
@@ -98,9 +100,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
   location: null,
   locations: [],
   suppliers: [],
-  productTypes: [],
+  productTemplates: [],
   organizationUsers: [],
   privateContacts: [],
+  subscription: null,
 
   setContext: (context) =>
     set({
@@ -113,7 +116,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setSuppliers: (suppliers) => set({ suppliers }),
 
-  setProductTypes: (productTypes) => set({ productTypes }),
+  setProductTemplates: (productTemplates) => set({ productTemplates }),
 
   setOrganizationUsers: (users) => set({ organizationUsers: users }),
 
@@ -184,10 +187,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
           .is("deleted_at", null)
           .order("name", { ascending: true });
 
-        const { data: productTypes, error: productTypesError } = await supabase
-          .from("product_types")
+        const { data: productTemplates, error: productTemplatesError } = await supabase
+          .from("product_templates")
           .select("*")
-          .eq("organization_id", state.activeOrgId)
+          .or(`organization_id.eq.${state.activeOrgId},is_system.eq.true`)
+          .is("deleted_at", null)
           .order("name", { ascending: true });
 
         if (suppliersError) {
@@ -196,10 +200,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
           set({ suppliers: suppliers || [] });
         }
 
-        if (productTypesError) {
-          console.error("Error loading product types:", productTypesError);
+        if (productTemplatesError) {
+          console.error("Error loading product templates:", productTemplatesError);
         } else {
-          set({ productTypes: productTypes || [] });
+          set({ productTemplates: productTemplates || [] });
         }
       } catch (error) {
         console.error("Error loading org data:", error);
@@ -250,7 +254,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
       location: null,
       locations: [],
       suppliers: [],
-      productTypes: [],
       organizationUsers: [],
       privateContacts: [],
     }),

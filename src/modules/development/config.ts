@@ -56,5 +56,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/rich-text-editor",
       icon: "FileText",
     },
+    {
+      id: "subscription-test",
+      label: "modules.development.items.subscriptionTest",
+      path: "/dashboard/dev/subscription-test",
+      icon: "CreditCard",
+    },
   ],
 };
