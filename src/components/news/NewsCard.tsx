@@ -26,7 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { LexicalContentRenderer } from "./LexicalContentRenderer";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 
 // System badges that should be translated
 const SYSTEM_BADGES = new Set([
@@ -106,37 +106,25 @@ export function NewsCard({
 
   const renderContent = () => {
     if (compact) {
-      // For compact mode, just show the excerpt or truncated content
-      const shortContent =
-        news.excerpt ||
-        (typeof news.content === "string"
-          ? news.content.slice(0, 150) + "..."
-          : "Click to view full message...");
+      // For compact mode, just show the excerpt or a generic message
+      const shortContent = news.excerpt || "Click to view full message...";
       return <span className="text-sm leading-relaxed text-foreground">{shortContent}</span>;
     }
 
     // For non-compact mode, show full accordion functionality
-    const hasContent =
-      news.content && (typeof news.content === "string" ? news.content.length > 0 : true);
+    const hasContent = news.content && news.content.trim && news.content.trim() !== "";
 
-    const shortContent =
-      news.excerpt ||
-      (typeof news.content === "string"
-        ? news.content.slice(0, 200) + (news.content.length > 200 ? "..." : "")
-        : "Click to expand full message...");
+    // Use excerpt if available, otherwise show a generic message
+    const shortContent = news.excerpt || "Click to expand full message...";
 
-    // Always show accordion for non-compact if we have content
-    const showAccordion =
-      hasContent &&
-      (!news.excerpt ||
-        (typeof news.content === "string" && news.content.length > 200) ||
-        typeof news.content !== "string");
+    // Show accordion if we have rich content and either no excerpt or the content is substantial
+    const showAccordion = hasContent && news.content;
 
     return (
       <div className="space-y-3">
         <div className="text-sm leading-relaxed text-foreground">
           {isExpanded ? (
-            <LexicalContentRenderer content={news.content} />
+            <RichTextContent content={news.content} className="prose prose-sm max-w-none" />
           ) : (
             <div className="whitespace-pre-wrap">{shortContent}</div>
           )}
