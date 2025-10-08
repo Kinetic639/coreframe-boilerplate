@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import { RichTextEditor } from "./RichTextEditor";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 // Validation schema
 const newsFormSchema = z.object({
@@ -172,10 +172,14 @@ export function NewsForm({
               <FormLabel>{t("form.content")}</FormLabel>
               <FormControl>
                 <RichTextEditor
-                  value={field.value}
-                  onChange={field.onChange}
+                  initialContent={field.value}
+                  onChange={(content) => {
+                    // Store the JSON content
+                    field.onChange(content);
+                  }}
                   placeholder={t("form.contentPlaceholder")}
                   disabled={isLoading}
+                  className="min-h-[300px]"
                 />
               </FormControl>
               <FormMessage />

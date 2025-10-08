@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { RichTextEditor, RichTextEditorRef } from "@/components/ui/rich-text-editor";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -279,6 +280,32 @@ export default function RichTextEditorTestPage() {
                   <span>Characters: {markdown.length}</span>
                   <span>Words: {markdown.split(/\s+/).filter(Boolean).length}</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Live Preview
+              </CardTitle>
+              <CardDescription>
+                Real-time preview of how the content will be displayed
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="min-h-[200px] rounded-md border border-border bg-muted/20 p-4">
+                {content && !isEmpty ? (
+                  <RichTextContent
+                    content={content}
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                    Start typing in the editor above to see the preview...
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
