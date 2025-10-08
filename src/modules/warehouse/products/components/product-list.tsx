@@ -1,18 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { ProductWithVariants } from "@/modules/warehouse/api/products";
+import { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, Eye } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 
-export function ProductList({ product }: { product: ProductWithVariants }) {
+export function ProductList({ product }: { product: ProductWithDetails }) {
   const totalStock =
     product.variants?.reduce(
       (acc, v) =>
-        acc + (v.stock_locations?.reduce((accSL, sl) => accSL + (sl.quantity || 0), 0) || 0),
+        acc +
+        (v.stock_snapshots?.reduce(
+          (accSL, snapshot) => accSL + (snapshot.quantity_available || 0),
+          0
+        ) || 0),
       0
     ) || 0;
 
@@ -24,7 +28,9 @@ export function ProductList({ product }: { product: ProductWithVariants }) {
         </div>
         <div className="flex-grow">
           <h3 className="font-semibold">{product.name}</h3>
-          <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+          <p className="text-sm text-muted-foreground">
+            SKU: {product.variants?.[0]?.sku || "N/A"}
+          </p>
           <p className="text-sm text-muted-foreground">
             Liczba wariantów: {product.variants.length}
           </p>

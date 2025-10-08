@@ -83,6 +83,18 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/zapasy/ruchy",
     },
+    "/dashboard/warehouse/inventory/adjustments": {
+      en: "/dashboard/warehouse/inventory/adjustments",
+      pl: "/dashboard/magazyn/zapasy/korekty",
+    },
+    "/dashboard/warehouse/inventory/reservations": {
+      en: "/dashboard/warehouse/inventory/reservations",
+      pl: "/dashboard/magazyn/zapasy/rezerwacje",
+    },
+    "/dashboard/warehouse/inventory/transfers": {
+      en: "/dashboard/warehouse/inventory/transfers",
+      pl: "/dashboard/magazyn/zapasy/transfery",
+    },
     "/dashboard/warehouse/products": {
       en: "/dashboard/warehouse/products",
       pl: "/dashboard/magazyn/produkty",
@@ -90,6 +102,30 @@ export const routing = defineRouting({
     "/dashboard/warehouse/products/[id]": {
       en: "/dashboard/warehouse/products/[id]",
       pl: "/dashboard/magazyn/produkty/[id]",
+    },
+    "/dashboard/warehouse/products/templates": {
+      en: "/dashboard/warehouse/products/templates",
+      pl: "/dashboard/magazyn/produkty/szablony",
+    },
+    "/dashboard/warehouse/products/templates/create": {
+      en: "/dashboard/warehouse/products/templates/create",
+      pl: "/dashboard/magazyn/produkty/szablony/utworz",
+    },
+    "/dashboard/warehouse/products/templates/edit/[id]": {
+      en: "/dashboard/warehouse/products/templates/edit/[id]",
+      pl: "/dashboard/magazyn/produkty/szablony/edytuj/[id]",
+    },
+    "/dashboard/warehouse/products/templates/clone/[id]": {
+      en: "/dashboard/warehouse/products/templates/clone/[id]",
+      pl: "/dashboard/magazyn/produkty/szablony/klonuj/[id]",
+    },
+    "/dashboard/warehouse/products/create": {
+      en: "/dashboard/warehouse/products/create",
+      pl: "/dashboard/magazyn/produkty/utworz",
+    },
+    "/dashboard/warehouse/products/import": {
+      en: "/dashboard/warehouse/products/import",
+      pl: "/dashboard/magazyn/produkty/import",
     },
     "/dashboard/warehouse/suppliers": {
       en: "/dashboard/warehouse/suppliers",
@@ -186,6 +222,10 @@ export const routing = defineRouting({
     "/dashboard/organization/roles/[id]": {
       en: "/dashboard/organization/roles/[id]",
       pl: "/dashboard/organizacja/role/[id]",
+    },
+    "/dashboard/organization/billing": {
+      en: "/dashboard/organization/billing",
+      pl: "/dashboard/organizacja/rozliczenia",
     },
 
     // === Invitation system ===
@@ -285,6 +325,10 @@ export const routing = defineRouting({
     "/dashboard/development/rich-text-editor": {
       en: "/dashboard/development/rich-text-editor",
       pl: "/dashboard/deweloperskie/rich-text-editor",
+    },
+    "/dashboard/dev/subscription-test": {
+      en: "/dashboard/dev/subscription-test",
+      pl: "/dashboard/dev/test-subskrypcji",
     },
 
     // === User Account module ===
