@@ -98,38 +98,6 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         label: "modules.warehouse.items.labels.title",
         icon: "QrCode",
         path: "/dashboard/warehouse/labels",
-        submenu: [
-          {
-            id: "labels-overview",
-            label: "modules.warehouse.items.labels.overview",
-            path: "/dashboard/warehouse/labels",
-            icon: "List",
-          },
-          {
-            id: "label-creator",
-            label: "modules.warehouse.items.labels.creator",
-            path: "/dashboard/warehouse/labels/create",
-            icon: "Plus",
-          },
-          {
-            id: "label-templates",
-            label: "modules.warehouse.items.labels.templates",
-            path: "/dashboard/warehouse/labels/templates",
-            icon: "FileText",
-          },
-          {
-            id: "label-batches",
-            label: "modules.warehouse.items.labels.batches",
-            path: "/dashboard/warehouse/labels/batches",
-            icon: "Layers",
-          },
-          {
-            id: "label-history",
-            label: "modules.warehouse.items.labels.history",
-            path: "/dashboard/warehouse/labels/history",
-            icon: "History",
-          },
-        ],
       },
       {
         id: "suppliers",
