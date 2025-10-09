@@ -33,6 +33,7 @@ export interface ModuleConfig {
   icon?: string;
   description?: string;
   color?: string;
+  path?: string; // Optional direct link for modules without submenus
   items: MenuItem[];
   actions?: Record<string, () => void>;
   widgets?: Widget[]; // 👈 tutaj
