@@ -991,5 +991,33 @@
         "custom_integrations": "Niestandardowe integracje"
       }
     }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Szybkie dodawanie",
+        "tooltip": "Szybkie dodawanie",
+        "inventory": {
+          "title": "MAGAZYN",
+          "product": "Produkt",
+          "location": "Lokalizacja",
+          "order": "Zamówienie"
+        },
+        "sales": {
+          "title": "SPRZEDAŻ",
+          "customer": "Klient",
+          "invoice": "Faktura"
+        },
+        "purchases": {
+          "title": "ZAKUPY",
+          "supplier": "Dostawca",
+          "bill": "Rachunek"
+        },
+        "other": {
+          "title": "INNE",
+          "document": "Dokument"
+        }
+      }
+    }
   }
 }
