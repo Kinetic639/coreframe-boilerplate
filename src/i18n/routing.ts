@@ -161,10 +161,6 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/labels/templates/edit/[id]",
       pl: "/dashboard/magazyn/etykiety/szablony/edytuj/[id]",
     },
-    "/dashboard/warehouse/labels/batches": {
-      en: "/dashboard/warehouse/labels/batches",
-      pl: "/dashboard/magazyn/etykiety/partie",
-    },
     "/dashboard/warehouse/labels/history": {
       en: "/dashboard/warehouse/labels/history",
       pl: "/dashboard/magazyn/etykiety/historia",
