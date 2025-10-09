@@ -738,7 +738,10 @@
         "inventory": {
           "title": "Inwentarz",
           "movements": "Ruchy magazynowe",
-          "adjustments": "Korekty stanów"
+          "adjustments": {
+            "title": "Korekty stanów",
+            "single": "Pojedyncza korekta"
+          }
         },
         "locations": "Lokalizacje",
         "audits": {
