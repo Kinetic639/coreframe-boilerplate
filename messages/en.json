@@ -783,7 +783,10 @@
         "inventory": {
           "title": "Inventory",
           "movements": "Stock Movements",
-          "adjustments": "Stock Adjustments"
+          "adjustments": {
+            "title": "Stock Adjustments",
+            "single": "Single Adjustment"
+          }
         },
         "locations": "Locations",
         "audits": {
