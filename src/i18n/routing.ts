@@ -48,13 +48,13 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/categories",
       pl: "/dashboard/magazyn/kategorie",
     },
+    "/dashboard/warehouse/settings": {
+      en: "/dashboard/warehouse/settings",
+      pl: "/dashboard/magazyn/ustawienia",
+    },
     "/dashboard/warehouse/inventory": {
       en: "/dashboard/warehouse/inventory",
       pl: "/dashboard/magazyn/zapasy",
-    },
-    "/dashboard/warehouse/inventory/levels": {
-      en: "/dashboard/warehouse/inventory/levels",
-      pl: "/dashboard/magazyn/zapasy/poziomy",
     },
     "/dashboard/warehouse/locations": {
       en: "/dashboard/warehouse/locations",
@@ -87,14 +87,6 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/adjustments",
       pl: "/dashboard/magazyn/zapasy/korekty",
     },
-    "/dashboard/warehouse/inventory/reservations": {
-      en: "/dashboard/warehouse/inventory/reservations",
-      pl: "/dashboard/magazyn/zapasy/rezerwacje",
-    },
-    "/dashboard/warehouse/inventory/transfers": {
-      en: "/dashboard/warehouse/inventory/transfers",
-      pl: "/dashboard/magazyn/zapasy/transfery",
-    },
     "/dashboard/warehouse/products": {
       en: "/dashboard/warehouse/products",
       pl: "/dashboard/magazyn/produkty",
@@ -122,10 +114,6 @@ export const routing = defineRouting({
     "/dashboard/warehouse/products/create": {
       en: "/dashboard/warehouse/products/create",
       pl: "/dashboard/magazyn/produkty/utworz",
-    },
-    "/dashboard/warehouse/products/import": {
-      en: "/dashboard/warehouse/products/import",
-      pl: "/dashboard/magazyn/produkty/import",
     },
     "/dashboard/warehouse/suppliers": {
       en: "/dashboard/warehouse/suppliers",
@@ -172,10 +160,6 @@ export const routing = defineRouting({
     "/dashboard/warehouse/labels/templates/edit/[id]": {
       en: "/dashboard/warehouse/labels/templates/edit/[id]",
       pl: "/dashboard/magazyn/etykiety/szablony/edytuj/[id]",
-    },
-    "/dashboard/warehouse/labels/batches": {
-      en: "/dashboard/warehouse/labels/batches",
-      pl: "/dashboard/magazyn/etykiety/partie",
     },
     "/dashboard/warehouse/labels/history": {
       en: "/dashboard/warehouse/labels/history",

@@ -136,7 +136,8 @@ export default function ModuleSectionWrapper({
     translations
   );
 
-  if (visibleItems.length === 0) {
+  // Allow modules with direct paths to show even if they have no items
+  if (visibleItems.length === 0 && !module.path) {
     return null;
   }
 
@@ -146,6 +147,7 @@ export default function ModuleSectionWrapper({
         slug: module.slug,
         title: translateModuleLabel(module.title, translations),
         icon: module.icon,
+        path: module.path,
         items: visibleItems,
       }}
       hasActiveItemInAnyModule={hasActiveItemInAnyModule}

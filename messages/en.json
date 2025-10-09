@@ -114,7 +114,6 @@
       "loadingMessages": "Loading messages...",
       "noMessages": "No messages yet",
       "startConversation": "Start the conversation by sending a message below",
-      "typeMessage": "Type a message...",
       "pressEnterToSend": "Press Enter to send, Shift + Enter for new line",
       "messageUser": "Message {name}...",
       "messageChannel": "Message #{name}...",
@@ -130,11 +129,7 @@
       "delivered": "Delivered",
       "read": "Read",
       "sending": "Sending...",
-      "yesterday": "Yesterday",
-      "bold": "Bold",
-      "italic": "Italic",
-      "underline": "Underline",
-      "code": "Code"
+      "yesterday": "Yesterday"
     }
   },
   "common": {
@@ -757,19 +752,41 @@
       "title": "Warehouse",
       "description": "Warehouse and inventory management",
       "items": {
+        "settings": {
+          "title": "Settings",
+          "general": {
+            "title": "General Settings",
+            "description": "Overall warehouse module settings"
+          },
+          "products": {
+            "title": "Product Settings",
+            "description": "Units, measures, variants, and categories",
+            "units": "Units of Measure",
+            "variants": "Variant Option Groups",
+            "categories": "Product Categories"
+          },
+          "locations": {
+            "title": "Location Settings",
+            "description": "Location management settings"
+          },
+          "inventory": {
+            "title": "Inventory Settings",
+            "description": "Adjustment reasons and inventory options",
+            "adjustmentReasons": "Adjustment Reasons"
+          }
+        },
         "products": {
           "title": "Products",
           "overview": "Product Overview",
-          "templates": "Product Templates",
-          "import": "Import Products"
+          "templates": "Product Templates"
         },
         "inventory": {
           "title": "Inventory",
-          "overview": "Inventory Overview",
           "movements": "Stock Movements",
-          "adjustments": "Stock Adjustments",
-          "reservations": "Stock Reservations",
-          "transfers": "Inter-branch Transfers"
+          "adjustments": {
+            "title": "Stock Adjustments",
+            "single": "Single Adjustment"
+          }
         },
         "locations": "Locations",
         "audits": {
@@ -1020,6 +1037,34 @@
         "custom_branding": "Custom Branding",
         "white_label": "White Label",
         "custom_integrations": "Custom Integrations"
+      }
+    }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Quick Add",
+        "tooltip": "Quick Add",
+        "inventory": {
+          "title": "INVENTORY",
+          "product": "Product",
+          "location": "Location",
+          "order": "Order"
+        },
+        "sales": {
+          "title": "SALES",
+          "customer": "Customer",
+          "invoice": "Invoice"
+        },
+        "purchases": {
+          "title": "PURCHASES",
+          "supplier": "Supplier",
+          "bill": "Bill"
+        },
+        "other": {
+          "title": "OTHER",
+          "document": "Document"
+        }
       }
     }
   }

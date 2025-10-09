@@ -129,11 +129,7 @@
       "delivered": "Dostarczone",
       "read": "Przeczytane",
       "sending": "Wysyłanie...",
-      "yesterday": "Wczoraj",
-      "bold": "Pogrubienie",
-      "italic": "Kursywa",
-      "underline": "Podkreślenie",
-      "code": "Kod"
+      "yesterday": "Wczoraj"
     }
   },
   "common": {
@@ -711,19 +707,41 @@
       "title": "Magazyn",
       "description": "Zarządzanie magazynem i zapasami",
       "items": {
+        "settings": {
+          "title": "Ustawienia",
+          "general": {
+            "title": "Ustawienia ogólne",
+            "description": "Ogólne ustawienia modułu magazynu"
+          },
+          "products": {
+            "title": "Ustawienia produktów",
+            "description": "Jednostki, miary, warianty i kategorie",
+            "units": "Jednostki miary",
+            "variants": "Grupy opcji wariantów",
+            "categories": "Kategorie produktów"
+          },
+          "locations": {
+            "title": "Ustawienia lokalizacji",
+            "description": "Ustawienia zarządzania lokalizacjami"
+          },
+          "inventory": {
+            "title": "Ustawienia inwentarza",
+            "description": "Powody korekt i opcje inwentarza",
+            "adjustmentReasons": "Powody korekt"
+          }
+        },
         "products": {
           "title": "Produkty",
           "overview": "Przegląd produktów",
-          "templates": "Szablony produktów",
-          "import": "Importuj produkty"
+          "templates": "Szablony produktów"
         },
         "inventory": {
           "title": "Inwentarz",
-          "overview": "Przegląd inwentarza",
           "movements": "Ruchy magazynowe",
-          "adjustments": "Korekty stanów",
-          "reservations": "Rezerwacje",
-          "transfers": "Transfery międzyoddziałowe"
+          "adjustments": {
+            "title": "Korekty stanów",
+            "single": "Pojedyncza korekta"
+          }
         },
         "locations": "Lokalizacje",
         "audits": {
@@ -974,6 +992,34 @@
         "custom_branding": "Własny branding",
         "white_label": "White label",
         "custom_integrations": "Niestandardowe integracje"
+      }
+    }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Szybkie dodawanie",
+        "tooltip": "Szybkie dodawanie",
+        "inventory": {
+          "title": "MAGAZYN",
+          "product": "Produkt",
+          "location": "Lokalizacja",
+          "order": "Zamówienie"
+        },
+        "sales": {
+          "title": "SPRZEDAŻ",
+          "customer": "Klient",
+          "invoice": "Faktura"
+        },
+        "purchases": {
+          "title": "ZAKUPY",
+          "supplier": "Dostawca",
+          "bill": "Rachunek"
+        },
+        "other": {
+          "title": "INNE",
+          "document": "Dokument"
+        }
       }
     }
   }
