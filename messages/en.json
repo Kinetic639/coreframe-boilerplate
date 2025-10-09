@@ -1036,5 +1036,33 @@
         "custom_integrations": "Custom Integrations"
       }
     }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Quick Add",
+        "tooltip": "Quick Add",
+        "inventory": {
+          "title": "INVENTORY",
+          "product": "Product",
+          "location": "Location",
+          "order": "Order"
+        },
+        "sales": {
+          "title": "SALES",
+          "customer": "Customer",
+          "invoice": "Invoice"
+        },
+        "purchases": {
+          "title": "PURCHASES",
+          "supplier": "Supplier",
+          "bill": "Bill"
+        },
+        "other": {
+          "title": "OTHER",
+          "document": "Document"
+        }
+      }
+    }
   }
 }
