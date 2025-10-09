@@ -12,6 +12,13 @@ import {
   Hand,
   Layers,
   Minus,
+  Plus,
+  Package,
+  Users,
+  FileText,
+  ShoppingCart,
+  Warehouse,
+  FolderTree,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,6 +112,45 @@ const DashboardHeader = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Quick Add Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm" className="h-9 w-9 p-0">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[200px]">
+              <DropdownMenuLabel>Quick Add</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <Package className="mr-2 h-4 w-4" />
+                <span>New Product</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <Warehouse className="mr-2 h-4 w-4" />
+                <span>New Location</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                <span>New Order</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <Users className="mr-2 h-4 w-4" />
+                <span>New Customer</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <FolderTree className="mr-2 h-4 w-4" />
+                <span>New Supplier</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="flex cursor-pointer items-center">
+                <FileText className="mr-2 h-4 w-4" />
+                <span>New Document</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <MessagesDrawer />
           <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />
