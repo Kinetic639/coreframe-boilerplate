@@ -12,6 +12,13 @@ import {
   Hand,
   Layers,
   Minus,
+  Plus,
+  Package,
+  Users,
+  FileText,
+  ShoppingCart,
+  Warehouse,
+  FolderTree,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -21,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { BranchSelector } from "./BranchSelector";
 import { Link } from "@/i18n/navigation";
@@ -30,10 +38,12 @@ import { useUserStore } from "@/lib/stores/user-store";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { SidebarToggleButton } from "./SidebarToggleButton";
 import MessagesDrawer from "@/components/chat/MessagesDrawer";
+import { useTranslations } from "next-intl";
 
 const DashboardHeader = () => {
   const { user } = useUserStore();
   const { mode, setMode, sectionMode, setSectionMode } = useSidebarStore();
+  const t = useTranslations("dashboard.header.quickAdd");
 
   if (!user) {
     return null; // or loading state
@@ -105,6 +115,89 @@ const DashboardHeader = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Quick Add Dropdown */}
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="default" size="sm" className="h-9 w-9 p-0">
+                      <Plus className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t("tooltip")}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-[600px] p-4">
+              <div className="grid grid-cols-3 gap-6">
+                {/* Inventory Column */}
+                <div className="space-y-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    {t("inventory.title")}
+                  </div>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Package className="mr-3 h-4 w-4" />
+                    <span>{t("inventory.product")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Warehouse className="mr-3 h-4 w-4" />
+                    <span>{t("inventory.location")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <ShoppingCart className="mr-3 h-4 w-4" />
+                    <span>{t("inventory.order")}</span>
+                  </DropdownMenuItem>
+                </div>
+
+                {/* Sales Column */}
+                <div className="space-y-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    {t("sales.title")}
+                  </div>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Users className="mr-3 h-4 w-4" />
+                    <span>{t("sales.customer")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <FileText className="mr-3 h-4 w-4" />
+                    <span>{t("sales.invoice")}</span>
+                  </DropdownMenuItem>
+                </div>
+
+                {/* Purchases Column */}
+                <div className="space-y-2">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                    {t("purchases.title")}
+                  </div>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <FolderTree className="mr-3 h-4 w-4" />
+                    <span>{t("purchases.supplier")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <FileText className="mr-3 h-4 w-4" />
+                    <span>{t("purchases.bill")}</span>
+                  </DropdownMenuItem>
+                </div>
+              </div>
+
+              <DropdownMenuSeparator className="my-3" />
+
+              {/* Other Section */}
+              <div className="space-y-2">
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                  {t("other.title")}
+                </div>
+                <DropdownMenuItem className="cursor-pointer">
+                  <FileText className="mr-3 h-4 w-4" />
+                  <span>{t("other.document")}</span>
+                </DropdownMenuItem>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <MessagesDrawer />
           <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />

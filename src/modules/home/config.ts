@@ -34,13 +34,7 @@ export const homeModule: ModuleConfig = {
   title: "modules.home.title",
   icon: "Home",
   color: "#3b82f6",
-  items: [
-    {
-      id: "dashboard",
-      label: "modules.home.items.dashboard",
-      path: "/dashboard/start",
-      icon: "Home",
-    },
-  ],
+  path: "/dashboard/start", // Direct link without dropdown
+  items: [],
   widgets,
 };
