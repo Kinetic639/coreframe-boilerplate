@@ -254,7 +254,15 @@
     "dashboard": {
       "start": {
         "title": "Dashboard",
-        "description": "Overview of your organization's key metrics, activities, and quick access to important features"
+        "description": "Overview of your organization's key metrics, activities, and quick access to important features",
+        "gettingStarted": {
+          "title": "Getting Started",
+          "description": "Quick setup guide and onboarding steps"
+        },
+        "recentUpdates": {
+          "title": "Recent Updates",
+          "description": "Latest features, improvements, and system updates"
+        }
       },
       "analytics": {
         "title": "Analytics",
@@ -1064,6 +1072,91 @@
         "other": {
           "title": "OTHER",
           "document": "Document"
+        }
+      }
+    }
+  },
+  "pages": {
+    "start": {
+      "title": "Home",
+      "description": "Your personalized dashboard with updates and quick actions",
+      "tabs": {
+        "overview": "Dashboard",
+        "gettingStarted": "Getting Started",
+        "recentUpdates": "Recent Updates"
+      },
+      "gettingStarted": {
+        "welcomeTitle": "Welcome to CoreFrame!",
+        "welcomeDescription": "Follow these steps to get started with your workspace and make the most of our platform.",
+        "progressTitle": "Setup Progress",
+        "progressDescription": "Complete these steps to fully configure your workspace",
+        "startButton": "Get Started",
+        "steps": {
+          "configureOrganization": {
+            "title": "Configure Your Organization",
+            "description": "Set up your organization profile, logo, and basic information"
+          },
+          "inviteTeam": {
+            "title": "Invite Team Members",
+            "description": "Add team members and assign roles to start collaborating"
+          },
+          "setupWarehouse": {
+            "title": "Set Up Warehouse Locations",
+            "description": "Create warehouse locations and organize your inventory structure"
+          },
+          "addProducts": {
+            "title": "Add Your First Products",
+            "description": "Start building your product catalog with items and variants"
+          },
+          "configureSettings": {
+            "title": "Configure Module Settings",
+            "description": "Customize warehouse settings, units, categories, and preferences"
+          },
+          "getHelp": {
+            "title": "Get Help & Support",
+            "description": "Access documentation, tutorials, and contact our support team"
+          }
+        },
+        "needHelp": {
+          "title": "Need Help?",
+          "description": "We're here to help you get started. Contact our support team or browse our documentation.",
+          "contactSupport": "Contact Support",
+          "viewDocs": "View Documentation"
+        }
+      },
+      "recentUpdates": {
+        "title": "What's New",
+        "description": "Stay up to date with the latest features, improvements, and bug fixes",
+        "types": {
+          "feature": "New Feature",
+          "improvement": "Improvement",
+          "bugfix": "Bug Fix"
+        },
+        "updates": {
+          "warehouseAudits": {
+            "title": "Warehouse Audit System",
+            "description": "New comprehensive audit system with scheduling, history tracking, and inventory verification. Conduct audits with step-by-step guidance and automatic stock corrections."
+          },
+          "labelGenerator": {
+            "title": "Label Generator & Templates",
+            "description": "Generate professional labels for products and locations. Create custom templates and print QR codes for easy scanning."
+          },
+          "inventoryCorrections": {
+            "title": "Improved Inventory Corrections",
+            "description": "Enhanced stock correction workflow with better validation, audit trails, and support for location-based adjustments."
+          },
+          "performanceOptimization": {
+            "title": "Performance Improvements",
+            "description": "Faster page loads, optimized database queries, and improved overall system responsiveness across all modules."
+          },
+          "bugFixes": {
+            "title": "Bug Fixes & Stability",
+            "description": "Fixed multiple issues including product filtering, location tree rendering, and permission validation."
+          }
+        },
+        "footer": {
+          "moreUpdates": "Want to see more updates?",
+          "viewChangelog": "View full changelog"
         }
       }
     }
