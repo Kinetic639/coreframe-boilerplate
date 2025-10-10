@@ -47,7 +47,10 @@ export const routing = defineRouting({
     },
 
     // === Warehouse module (uzupełnienia) ===
-
+    "/dashboard/warehouse": {
+      en: "/dashboard/warehouse",
+      pl: "/dashboard/magazyn",
+    },
     "/dashboard/warehouse/products/accessories": {
       en: "/dashboard/warehouse/products/accessories",
       pl: "/dashboard/magazyn/produkty/akcesoria",
@@ -183,6 +186,10 @@ export const routing = defineRouting({
     },
 
     // === Org Management module ===
+    "/dashboard/organization": {
+      en: "/dashboard/organization",
+      pl: "/dashboard/organizacja",
+    },
     "/dashboard/organization/profile": {
       en: "/dashboard/organization/profile",
       pl: "/dashboard/organizacja/profil",
@@ -233,7 +240,10 @@ export const routing = defineRouting({
     },
 
     // === Teams module ===
-
+    "/dashboard/teams": {
+      en: "/dashboard/teams",
+      pl: "/dashboard/zespoly",
+    },
     "/dashboard/teams/communication": {
       en: "/dashboard/teams/communication",
       pl: "/dashboard/zespoly/komunikacja",
@@ -260,6 +270,10 @@ export const routing = defineRouting({
     },
 
     // === Support module ===
+    "/dashboard/support": {
+      en: "/dashboard/support",
+      pl: "/dashboard/wsparcie",
+    },
     "/dashboard/support/help": {
       en: "/dashboard/support/help",
       pl: "/dashboard/wsparcie/pomoc",
