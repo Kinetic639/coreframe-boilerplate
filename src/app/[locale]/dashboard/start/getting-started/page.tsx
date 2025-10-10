@@ -13,6 +13,7 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
+import type { Pathnames } from "@/i18n/routing";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -49,7 +50,14 @@ function LoadingSkeleton() {
 async function GettingStartedContent() {
   const t = await getTranslations("pages.start.gettingStarted");
 
-  const steps = [
+  const steps: Array<{
+    title: string;
+    description: string;
+    icon: typeof Settings;
+    href: Pathnames;
+    color: string;
+    completed: boolean;
+  }> = [
     {
       title: t("steps.configureOrganization.title"),
       description: t("steps.configureOrganization.description"),
@@ -151,7 +159,7 @@ async function GettingStartedContent() {
               </CardHeader>
               <CardContent>
                 <p className="mb-4 text-sm text-muted-foreground">{step.description}</p>
-                <Link href={step.href}>
+                <Link href={step.href as any}>
                   <Button
                     variant="outline"
                     size="sm"
