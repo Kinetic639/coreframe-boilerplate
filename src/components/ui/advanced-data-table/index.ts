@@ -4,6 +4,7 @@ export { TableSidebar } from "./table-sidebar";
 export { TableDetailPanel } from "./table-detail-panel";
 export { TableMobileView } from "./table-mobile-view";
 export { TableCheckbox } from "./components/table-checkbox";
+export { ColumnManager } from "./components/column-manager";
 
 export type {
   ColumnConfig,

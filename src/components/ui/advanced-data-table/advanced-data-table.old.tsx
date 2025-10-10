@@ -21,7 +21,6 @@ import { TableSidebar } from "./table-sidebar";
 import { TableDetailPanel } from "./table-detail-panel";
 import { TableMobileView } from "./table-mobile-view";
 import { TableCheckbox } from "./components/table-checkbox";
-import { ColumnManager } from "./components/column-manager";
 
 export function AdvancedDataTable<T>({
   data,
@@ -46,8 +45,6 @@ export function AdvancedDataTable<T>({
   const selectedRowIds = useTableStore((state) => state.selectedRowIds);
   const layoutMode = useTableStore((state) => state.layoutMode);
   const sort = useTableStore((state) => state.sort);
-  const columnVisibility = useTableStore((state) => state.columnVisibility);
-  const columnOrder = useTableStore((state) => state.columnOrder);
 
   // Zustand store actions
   const openDetail = useTableStore((state) => state.openDetail);
@@ -71,18 +68,6 @@ export function AdvancedDataTable<T>({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
-  // Get visible columns in correct order
-  const visibleColumns = React.useMemo(() => {
-    const orderedCols =
-      columnOrder.length > 0
-        ? columnOrder
-            .map((key) => columns.find((col) => col.key === key))
-            .filter((col): col is (typeof columns)[0] => col !== undefined)
-        : columns;
-
-    return orderedCols.filter((col) => columnVisibility[col.key] !== false);
-  }, [columns, columnOrder, columnVisibility]);
 
   // Handle row click
   const handleRowClick = React.useCallback(
@@ -117,15 +102,12 @@ export function AdvancedDataTable<T>({
   // Mobile view
   if (responsive && isMobile && layoutMode === "full") {
     return (
-      <div className={cn("space-y-3", className)}>
-        <div className="flex items-center justify-between gap-2">
-          <TableFilters
-            columns={columns}
-            searchPlaceholder={searchPlaceholder}
-            showSearch={showSearch}
-          />
-          <ColumnManager columns={columns} />
-        </div>
+      <div className={cn("space-y-4", className)}>
+        <TableFilters
+          columns={columns}
+          searchPlaceholder={searchPlaceholder}
+          showSearch={showSearch}
+        />
 
         {toolbarActions && <div className="flex justify-end">{toolbarActions}</div>}
 
@@ -138,7 +120,7 @@ export function AdvancedDataTable<T>({
         ) : (
           <TableMobileView
             data={processedData}
-            columns={visibleColumns}
+            columns={columns}
             onRowClick={handleRowClick}
             getRowId={getRowId}
             selectable={selectable}
@@ -149,60 +131,35 @@ export function AdvancedDataTable<T>({
   }
 
   return (
-    <div className={cn("flex h-full flex-col gap-3", className)}>
-      {/* Filters and Column Manager */}
-      <div className="flex items-center justify-between gap-2">
-        <TableFilters
-          columns={columns}
-          searchPlaceholder={searchPlaceholder}
-          showSearch={showSearch}
-        />
-        <ColumnManager columns={columns} />
-      </div>
+    <div className={cn("flex h-full flex-col space-y-4", className)}>
+      {/* Filters */}
+      <TableFilters
+        columns={columns}
+        searchPlaceholder={searchPlaceholder}
+        showSearch={showSearch}
+      />
 
       {/* Toolbar Actions */}
       {toolbarActions && <div className="flex justify-end">{toolbarActions}</div>}
 
       {/* Table Container with Sidebar and Detail Panel */}
-      <div className="relative flex flex-1 overflow-hidden rounded-md border bg-background">
-        <AnimatePresence initial={false} mode="sync">
+      <div className="flex flex-1 overflow-hidden rounded-lg border">
+        <AnimatePresence mode="wait">
           {layoutMode === "sidebar-detail" ? (
             // Sidebar + Detail Panel Layout
             <React.Fragment key="sidebar-detail">
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "280px", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{
-                  duration: 0.2,
-                  ease: "easeInOut",
-                }}
-                className="border-r"
-              >
-                <TableSidebar
-                  data={processedData}
-                  columns={visibleColumns}
-                  onRowSelect={handleRowClick}
-                  getRowId={getRowId}
-                />
-              </motion.div>
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{
-                  duration: 0.2,
-                  ease: "easeInOut",
-                }}
-                className="flex-1"
-              >
-                <TableDetailPanel
-                  row={selectedRow}
-                  onClose={closeDetail}
-                  renderDetail={renderDetail}
-                  columns={visibleColumns}
-                />
-              </motion.div>
+              <TableSidebar
+                data={processedData}
+                columns={columns}
+                onRowSelect={handleRowClick}
+                getRowId={getRowId}
+              />
+              <TableDetailPanel
+                row={selectedRow}
+                onClose={closeDetail}
+                renderDetail={renderDetail}
+                columns={columns}
+              />
             </React.Fragment>
           ) : (
             // Full Table Layout
@@ -211,7 +168,6 @@ export function AdvancedDataTable<T>({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
               className="flex-1 overflow-auto"
             >
               {loading ? (
@@ -226,10 +182,10 @@ export function AdvancedDataTable<T>({
                 <div className="p-4">{emptyState || <EmptyState message={emptyMessage} />}</div>
               ) : (
                 <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
-                    <TableRow className="hover:bg-transparent">
+                  <TableHeader>
+                    <TableRow>
                       {selectable && (
-                        <TableHead className="h-9 w-10 p-2">
+                        <TableHead className="w-12">
                           <TableCheckbox
                             checked={checkboxState}
                             onCheckedChange={handleSelectAll}
@@ -237,24 +193,19 @@ export function AdvancedDataTable<T>({
                           />
                         </TableHead>
                       )}
-                      {visibleColumns.map((column) => (
+                      {columns.map((column) => (
                         <TableHead
                           key={column.key}
-                          style={{
-                            width: column.width,
-                            minWidth: column.minWidth,
-                          }}
+                          style={{ width: column.width }}
                           className={cn(
-                            "h-9 px-3 py-2 text-xs font-medium",
-                            column.sortable &&
-                              "cursor-pointer select-none transition-colors hover:bg-muted/80",
+                            column.sortable && "cursor-pointer select-none hover:bg-muted/50",
                             column.align === "center" && "text-center",
                             column.align === "right" && "text-right"
                           )}
                           onClick={() => column.sortable && toggleSort(column.key)}
                         >
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate">{column.header}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{column.header}</span>
                             {column.sortable && (
                               <SortIcon
                                 active={sort?.key === column.key}
@@ -274,34 +225,32 @@ export function AdvancedDataTable<T>({
                       return (
                         <TableRow
                           key={rowId}
+                          className="cursor-pointer"
                           onClick={() => handleRowClick(row)}
-                          className={cn(
-                            "h-10 cursor-pointer transition-colors",
-                            isSelected && "bg-muted/50"
-                          )}
+                          data-state={isSelected ? "selected" : undefined}
                         >
                           {selectable && (
-                            <TableCell className="p-2">
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                               <TableCheckbox
                                 checked={isSelected}
                                 onCheckedChange={() => toggleRowSelection(rowId)}
-                                onClick={(e) => e.stopPropagation()}
                                 aria-label={`Select row ${rowId}`}
                               />
                             </TableCell>
                           )}
-                          {visibleColumns.map((column) => {
+                          {columns.map((column) => {
                             const value = (row as any)[column.key];
+                            const displayValue = column.render ? column.render(value, row) : value;
+
                             return (
                               <TableCell
                                 key={column.key}
                                 className={cn(
-                                  "px-3 py-2 text-sm",
                                   column.align === "center" && "text-center",
                                   column.align === "right" && "text-right"
                                 )}
                               >
-                                {column.render ? column.render(value, row) : String(value ?? "")}
+                                {displayValue}
                               </TableCell>
                             );
                           })}
@@ -319,44 +268,50 @@ export function AdvancedDataTable<T>({
   );
 }
 
-// Sort Icon Component
+// Sort icon component
 function SortIcon({ active, direction }: { active: boolean; direction?: "asc" | "desc" }) {
   if (!active) {
-    return <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/50" />;
+    return <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />;
   }
 
   return direction === "asc" ? (
-    <ChevronUp className="h-3.5 w-3.5 text-foreground" />
+    <ChevronUp className="h-4 w-4" />
   ) : (
-    <ChevronDown className="h-3.5 w-3.5 text-foreground" />
+    <ChevronDown className="h-4 w-4" />
   );
 }
 
-// Loading Skeleton
+// Loading skeleton
 function LoadingSkeleton({ count }: { count: number }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-10 w-full" />
+        <div key={i} className="flex items-center space-x-4">
+          <Skeleton className="h-12 w-12 rounded" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </div>
       ))}
     </div>
   );
 }
 
-// Error State
+// Error state
 function ErrorState({ error }: { error: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-sm font-medium text-destructive">{error}</p>
+    <div className="py-12 text-center">
+      <p className="text-destructive">{error}</p>
     </div>
   );
 }
 
-// Empty State
+// Empty state
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-sm text-muted-foreground">{message}</p>
+    <div className="py-12 text-center text-muted-foreground">
+      <p>{message}</p>
     </div>
   );
 }
