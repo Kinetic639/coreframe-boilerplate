@@ -19,6 +19,8 @@ export interface ColumnConfig<T = any> {
   key: string;
   /** Display header text */
   header: string;
+  /** Icon to display next to header in filters */
+  icon?: ReactNode;
   /** Type of filter to show for this column */
   filterType?: FilterType;
   /** Options for select/multi-select filters */

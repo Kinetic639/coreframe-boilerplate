@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { ColumnConfig } from "./types";
@@ -20,15 +19,9 @@ export function TableSidebar<T>({ data, columns, onRowSelect, getRowId }: TableS
   const primaryColumn = columns.find((col) => col.isPrimary) || columns[0];
 
   return (
-    <motion.div
-      initial={{ width: "100%" }}
-      animate={{ width: "320px" }}
-      exit={{ width: "100%" }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="flex h-full flex-col border-r bg-background"
-    >
-      <div className="border-b px-4 py-3">
-        <h3 className="font-semibold">Items ({data.length})</h3>
+    <div className="flex h-full w-full flex-col bg-background">
+      <div className="border-b px-3 py-2">
+        <h3 className="text-xs font-semibold text-muted-foreground">Items ({data.length})</h3>
       </div>
 
       <ScrollArea className="flex-1">
@@ -50,9 +43,9 @@ export function TableSidebar<T>({ data, columns, onRowSelect, getRowId }: TableS
                 key={rowId}
                 onClick={() => onRowSelect(row)}
                 className={cn(
-                  "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-                  "hover:bg-muted/50 focus:bg-muted/50 focus:outline-none",
-                  isSelected && "bg-muted"
+                  "flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors",
+                  "hover:bg-accent focus:bg-accent focus:outline-none",
+                  isSelected && "bg-accent"
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -63,7 +56,7 @@ export function TableSidebar<T>({ data, columns, onRowSelect, getRowId }: TableS
                   )}
 
                   {/* Show secondary info from additional columns */}
-                  {columns.slice(1, 3).map((col) => {
+                  {columns.slice(1, 2).map((col) => {
                     const value = (row as any)[col.key];
                     if (!value) return null;
 
@@ -76,12 +69,12 @@ export function TableSidebar<T>({ data, columns, onRowSelect, getRowId }: TableS
                 </div>
 
                 {/* Selected indicator */}
-                {isSelected && <div className="h-2 w-2 rounded-full bg-primary" />}
+                {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
               </button>
             );
           })}
         </div>
       </ScrollArea>
-    </motion.div>
+    </div>
   );
 }
