@@ -303,7 +303,15 @@
     "dashboard": {
       "start": {
         "title": "Panel Główny",
-        "description": "Przegląd kluczowych wskaźników organizacji, aktywności i szybki dostęp do ważnych funkcji"
+        "description": "Przegląd kluczowych wskaźników organizacji, aktywności i szybki dostęp do ważnych funkcji",
+        "gettingStarted": {
+          "title": "Pierwsze Kroki",
+          "description": "Szybki przewodnik konfiguracji i kroki onboardingu"
+        },
+        "recentUpdates": {
+          "title": "Ostatnie Aktualizacje",
+          "description": "Najnowsze funkcje, ulepszenia i aktualizacje systemu"
+        }
       },
       "analytics": {
         "title": "Analityka",
@@ -1019,6 +1027,91 @@
         "other": {
           "title": "INNE",
           "document": "Dokument"
+        }
+      }
+    }
+  },
+  "pages": {
+    "start": {
+      "title": "Start",
+      "description": "Twój spersonalizowany panel z aktualizacjami i szybkimi akcjami",
+      "tabs": {
+        "overview": "Panel",
+        "gettingStarted": "Pierwsze Kroki",
+        "recentUpdates": "Ostatnie Aktualizacje"
+      },
+      "gettingStarted": {
+        "welcomeTitle": "Witaj w CoreFrame!",
+        "welcomeDescription": "Wykonaj te kroki, aby rozpocząć pracę z platformą i w pełni wykorzystać jej możliwości.",
+        "progressTitle": "Postęp Konfiguracji",
+        "progressDescription": "Wykonaj te kroki, aby w pełni skonfigurować swoje środowisko pracy",
+        "startButton": "Rozpocznij",
+        "steps": {
+          "configureOrganization": {
+            "title": "Skonfiguruj Organizację",
+            "description": "Ustaw profil organizacji, logo i podstawowe informacje"
+          },
+          "inviteTeam": {
+            "title": "Zaproś Członków Zespołu",
+            "description": "Dodaj członków zespołu i przypisz role, aby rozpocząć współpracę"
+          },
+          "setupWarehouse": {
+            "title": "Skonfiguruj Lokalizacje Magazynowe",
+            "description": "Utwórz lokalizacje magazynowe i zorganizuj strukturę zapasów"
+          },
+          "addProducts": {
+            "title": "Dodaj Pierwsze Produkty",
+            "description": "Zacznij budować katalog produktów z artykułami i wariantami"
+          },
+          "configureSettings": {
+            "title": "Skonfiguruj Ustawienia Modułu",
+            "description": "Dostosuj ustawienia magazynu, jednostki, kategorie i preferencje"
+          },
+          "getHelp": {
+            "title": "Uzyskaj Pomoc i Wsparcie",
+            "description": "Uzyskaj dostęp do dokumentacji, samouczków i skontaktuj się z naszym zespołem wsparcia"
+          }
+        },
+        "needHelp": {
+          "title": "Potrzebujesz Pomocy?",
+          "description": "Jesteśmy tutaj, aby pomóc Ci rozpocząć. Skontaktuj się z naszym zespołem wsparcia lub przejrzyj naszą dokumentację.",
+          "contactSupport": "Skontaktuj się z Pomocą",
+          "viewDocs": "Zobacz Dokumentację"
+        }
+      },
+      "recentUpdates": {
+        "title": "Co Nowego",
+        "description": "Bądź na bieżąco z najnowszymi funkcjami, ulepszeniami i poprawkami błędów",
+        "types": {
+          "feature": "Nowa Funkcja",
+          "improvement": "Ulepszenie",
+          "bugfix": "Poprawka Błędu"
+        },
+        "updates": {
+          "warehouseAudits": {
+            "title": "System Audytów Magazynowych",
+            "description": "Nowy kompleksowy system audytów z harmonogramowaniem, historią i weryfikacją zapasów. Przeprowadzaj audyty z przewodnikiem krok po kroku i automatycznymi korektami stanów."
+          },
+          "labelGenerator": {
+            "title": "Generator Etykiet i Szablony",
+            "description": "Generuj profesjonalne etykiety dla produktów i lokalizacji. Twórz własne szablony i drukuj kody QR do łatwego skanowania."
+          },
+          "inventoryCorrections": {
+            "title": "Ulepszone Korekty Stanów Magazynowych",
+            "description": "Ulepszony proces korekt stanów z lepszą walidacją, ścieżką audytu i wsparciem dla korekt opartych na lokalizacji."
+          },
+          "performanceOptimization": {
+            "title": "Ulepszenia Wydajności",
+            "description": "Szybsze ładowanie stron, zoptymalizowane zapytania do bazy danych i poprawiona ogólna responsywność systemu we wszystkich modułach."
+          },
+          "bugFixes": {
+            "title": "Poprawki Błędów i Stabilność",
+            "description": "Naprawiono wiele problemów, w tym filtrowanie produktów, renderowanie drzewa lokalizacji i walidację uprawnień."
+          }
+        },
+        "footer": {
+          "moreUpdates": "Chcesz zobaczyć więcej aktualizacji?",
+          "viewChangelog": "Zobacz pełny dziennik zmian"
         }
       }
     }
