@@ -31,12 +31,18 @@ export interface ColumnConfig<T = any> {
   renderSidebar?: (value: any, row: T) => ReactNode;
   /** Width of the column (CSS value) */
   width?: string;
+  /** Minimum width of the column (CSS value) */
+  minWidth?: string;
   /** Whether to show this column in mobile view */
   showInMobile?: boolean;
   /** Alignment of cell content */
   align?: "left" | "center" | "right";
   /** Whether this column is the primary identifier (shown in sidebar) */
   isPrimary?: boolean;
+  /** Whether this column is visible by default */
+  defaultVisible?: boolean;
+  /** Whether this column can be hidden */
+  canHide?: boolean;
 }
 
 /**

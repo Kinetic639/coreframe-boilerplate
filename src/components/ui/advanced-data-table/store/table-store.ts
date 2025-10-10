@@ -20,6 +20,10 @@ interface TableStoreState<T = any> {
   // Sort state
   sort: SortConfig | null;
 
+  // Column state
+  columnVisibility: Record<string, boolean>;
+  columnOrder: string[];
+
   // Pagination state (if needed)
   pagination: {
     pageIndex: number;
@@ -55,6 +59,12 @@ interface TableStoreActions<T = any> {
   setSort: (sort: SortConfig | null) => void;
   toggleSort: (key: string) => void;
 
+  // Column actions
+  setColumnVisibility: (columnKey: string, visible: boolean) => void;
+  setColumnOrder: (order: string[]) => void;
+  toggleColumnVisibility: (columnKey: string) => void;
+  resetColumns: () => void;
+
   // Pagination actions
   setPagination: (pagination: { pageIndex: number; pageSize: number }) => void;
   setPageIndex: (pageIndex: number) => void;
@@ -80,6 +90,8 @@ const initialState: TableStoreState = {
   searchQuery: "",
   filterPanelOpen: false,
   sort: null,
+  columnVisibility: {},
+  columnOrder: [],
   pagination: {
     pageIndex: 0,
     pageSize: 20,
@@ -173,6 +185,24 @@ export const createTableStore = <T = any>() => {
         // If descending, remove sort
         return { sort: null };
       }),
+
+    // Column actions
+    setColumnVisibility: (columnKey, visible) =>
+      set((state) => ({
+        columnVisibility: { ...state.columnVisibility, [columnKey]: visible },
+      })),
+
+    setColumnOrder: (order) => set({ columnOrder: order }),
+
+    toggleColumnVisibility: (columnKey) =>
+      set((state) => ({
+        columnVisibility: {
+          ...state.columnVisibility,
+          [columnKey]: !state.columnVisibility[columnKey],
+        },
+      })),
+
+    resetColumns: () => set({ columnVisibility: {}, columnOrder: [] }),
 
     // Pagination actions
     setPagination: (pagination) => set({ pagination }),
