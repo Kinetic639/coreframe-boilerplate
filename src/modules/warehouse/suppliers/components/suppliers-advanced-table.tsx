@@ -29,6 +29,7 @@ interface SuppliersAdvancedTableProps {
   error?: string | null;
   onEdit?: (supplier: SupplierWithContacts) => void;
   onDelete?: (supplier: SupplierWithContacts) => void;
+  onAdd?: () => void;
 }
 
 export function SuppliersAdvancedTable({
@@ -37,6 +38,7 @@ export function SuppliersAdvancedTable({
   error = null,
   onEdit,
   onDelete,
+  onAdd,
 }: SuppliersAdvancedTableProps) {
   const getInitials = (name: string) => {
     return name
@@ -395,6 +397,7 @@ export function SuppliersAdvancedTable({
       showSearch={true}
       searchPlaceholder="Szukaj dostawców po nazwie, email, stronie..."
       responsive={true}
+      onAdd={onAdd}
     />
   );
 }

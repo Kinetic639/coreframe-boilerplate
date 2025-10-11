@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { SuppliersAdvancedTable } from "@/modules/warehouse/suppliers/components/suppliers-advanced-table";
@@ -117,18 +116,16 @@ export default function SuppliersListPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
+        className="flex-1"
       >
-        <Card>
-          <CardContent className="p-6">
-            <SuppliersAdvancedTable
-              suppliers={suppliers}
-              loading={loading}
-              error={error}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
-          </CardContent>
-        </Card>
+        <SuppliersAdvancedTable
+          suppliers={suppliers}
+          loading={loading}
+          error={error}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAdd={handleAddNew}
+        />
       </motion.div>
 
       {/* Dialogs */}

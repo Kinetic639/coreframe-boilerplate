@@ -123,6 +123,8 @@ export interface AdvancedDataTableProps<T = any> {
   toolbarActions?: ReactNode;
   /** Whether to enable mobile responsive view */
   responsive?: boolean;
+  /** Callback when add button is clicked */
+  onAdd?: () => void;
 }
 
 /**
