@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Table,
   TableBody,
@@ -11,7 +10,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronUp, ChevronDown, ChevronsUpDown, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdvancedDataTableProps } from "./types";
 import { useTableStore } from "./store/table-store";
@@ -38,8 +38,9 @@ export function AdvancedDataTable<T>({
   className,
   searchPlaceholder = "Search...",
   showSearch = true,
-  toolbarActions,
+  toolbarActions: _toolbarActions,
   responsive = true,
+  onAdd,
 }: AdvancedDataTableProps<T>) {
   // Zustand store selectors
   const selectedRow = useTableStore((state) => state.selectedRow);
@@ -117,207 +118,193 @@ export function AdvancedDataTable<T>({
   // Mobile view
   if (responsive && isMobile && layoutMode === "full") {
     return (
-      <div className={cn("space-y-3", className)}>
-        <div className="flex items-center justify-between gap-2">
+      <div className={cn("flex h-full flex-col", className)}>
+        <div className="mb-2 flex items-center justify-between border-b bg-background px-3 py-2">
           <TableFilters
             columns={columns}
             searchPlaceholder={searchPlaceholder}
             showSearch={showSearch}
+            layoutMode={layoutMode}
           />
-          <ColumnManager columns={columns} />
+          <div className="flex items-center gap-2">
+            {onAdd && (
+              <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New</span>
+              </Button>
+            )}
+            <ColumnManager columns={columns} />
+          </div>
         </div>
 
-        {toolbarActions && <div className="flex justify-end">{toolbarActions}</div>}
-
-        {loading ? (
-          <LoadingSkeleton count={5} />
-        ) : error ? (
-          <ErrorState error={error} />
-        ) : processedData.length === 0 ? (
-          emptyState || <EmptyState message={emptyMessage} />
-        ) : (
-          <TableMobileView
-            data={processedData}
-            columns={visibleColumns}
-            onRowClick={handleRowClick}
-            getRowId={getRowId}
-            selectable={selectable}
-          />
-        )}
+        <div className="flex-1 overflow-auto">
+          {loading ? (
+            <LoadingSkeleton count={5} />
+          ) : error ? (
+            <ErrorState error={error} />
+          ) : processedData.length === 0 ? (
+            emptyState || <EmptyState message={emptyMessage} />
+          ) : (
+            <TableMobileView
+              data={processedData}
+              columns={visibleColumns}
+              onRowClick={handleRowClick}
+              getRowId={getRowId}
+              selectable={selectable}
+            />
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("flex h-full flex-col", className)}>
-      {/* Toolbar Actions */}
-      {toolbarActions && <div className="mb-2 flex justify-end">{toolbarActions}</div>}
-
-      {/* Table Container with Sidebar and Detail Panel */}
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-md border bg-background">
-        {/* Inline Filters Header - Like inFlow */}
-        <div className="flex items-center justify-between border-b bg-muted/30">
+    <div className={cn("flex h-full flex-col bg-background", className)}>
+      {/* Table Container - NO BORDER, NO ROUNDED */}
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-white">
+        {/* Inline Filters Header */}
+        <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-2">
           <TableFilters
             columns={columns}
             searchPlaceholder={searchPlaceholder}
             showSearch={showSearch}
+            layoutMode={layoutMode}
           />
-          <div className="flex items-center gap-2 pr-3">
+          <div className="flex items-center gap-2">
+            {onAdd && (
+              <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
+                <Plus className="h-4 w-4" />
+                <span>New</span>
+              </Button>
+            )}
             <ColumnManager columns={columns} />
           </div>
         </div>
 
         {/* Table Content */}
         <div className="relative flex flex-1 overflow-hidden">
-          <AnimatePresence initial={false} mode="sync">
-            {layoutMode === "sidebar-detail" ? (
-              // Sidebar + Detail Panel Layout
-              <React.Fragment key="sidebar-detail">
-                <motion.div
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: "280px", opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{
-                    duration: 0.2,
-                    ease: "easeInOut",
-                  }}
-                  className="border-r"
-                >
-                  <TableSidebar
-                    data={processedData}
-                    columns={visibleColumns}
-                    onRowSelect={handleRowClick}
-                    getRowId={getRowId}
-                  />
-                </motion.div>
-                <motion.div
-                  initial={{ x: "100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "100%" }}
-                  transition={{
-                    duration: 0.2,
-                    ease: "easeInOut",
-                  }}
-                  className="flex-1"
-                >
-                  <TableDetailPanel
-                    row={selectedRow}
-                    onClose={closeDetail}
-                    renderDetail={renderDetail}
-                    columns={visibleColumns}
-                  />
-                </motion.div>
-              </React.Fragment>
-            ) : (
-              // Full Table Layout
-              <motion.div
-                key="full-table"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex-1 overflow-auto"
-              >
-                {loading ? (
-                  <div className="p-4">
-                    <LoadingSkeleton count={10} />
-                  </div>
-                ) : error ? (
-                  <div className="p-4">
-                    <ErrorState error={error} />
-                  </div>
-                ) : processedData.length === 0 ? (
-                  <div className="p-4">{emptyState || <EmptyState message={emptyMessage} />}</div>
-                ) : (
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
-                      <TableRow className="hover:bg-transparent">
-                        {selectable && (
-                          <TableHead className="h-9 w-10 p-2">
-                            <TableCheckbox
-                              checked={checkboxState}
-                              onCheckedChange={handleSelectAll}
-                              aria-label="Select all rows"
-                            />
-                          </TableHead>
-                        )}
-                        {visibleColumns.map((column) => (
-                          <TableHead
-                            key={column.key}
-                            style={{
-                              width: column.width,
-                              minWidth: column.minWidth,
-                            }}
-                            className={cn(
-                              "h-9 px-3 py-2 text-xs font-medium",
-                              column.sortable &&
-                                "cursor-pointer select-none transition-colors hover:bg-muted/80",
-                              column.align === "center" && "text-center",
-                              column.align === "right" && "text-right"
+          {layoutMode === "sidebar-detail" ? (
+            // Sidebar + Detail Panel Layout - NO ANIMATION
+            <>
+              <div className="w-[280px] border-r">
+                <TableSidebar
+                  data={processedData}
+                  columns={visibleColumns}
+                  onRowSelect={handleRowClick}
+                  getRowId={getRowId}
+                />
+              </div>
+              <div className="flex-1">
+                <TableDetailPanel
+                  row={selectedRow}
+                  onClose={closeDetail}
+                  renderDetail={renderDetail}
+                  columns={visibleColumns}
+                />
+              </div>
+            </>
+          ) : (
+            // Full Table Layout
+            <div className="flex-1 overflow-auto">
+              {loading ? (
+                <div className="p-4">
+                  <LoadingSkeleton count={10} />
+                </div>
+              ) : error ? (
+                <div className="p-4">
+                  <ErrorState error={error} />
+                </div>
+              ) : processedData.length === 0 ? (
+                <div className="p-4">{emptyState || <EmptyState message={emptyMessage} />}</div>
+              ) : (
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
+                    <TableRow className="hover:bg-transparent">
+                      {selectable && (
+                        <TableHead className="h-9 w-10 p-2">
+                          <TableCheckbox
+                            checked={checkboxState}
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all rows"
+                          />
+                        </TableHead>
+                      )}
+                      {visibleColumns.map((column) => (
+                        <TableHead
+                          key={column.key}
+                          style={{
+                            width: column.width,
+                            minWidth: column.minWidth,
+                          }}
+                          className={cn(
+                            "h-9 px-3 py-2 text-xs font-medium",
+                            column.sortable &&
+                              "cursor-pointer select-none transition-colors hover:bg-muted/80",
+                            column.align === "center" && "text-center",
+                            column.align === "right" && "text-right"
+                          )}
+                          onClick={() => column.sortable && toggleSort(column.key)}
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate">{column.header}</span>
+                            {column.sortable && (
+                              <SortIcon
+                                active={sort?.key === column.key}
+                                direction={sort?.direction}
+                              />
                             )}
-                            onClick={() => column.sortable && toggleSort(column.key)}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="truncate">{column.header}</span>
-                              {column.sortable && (
-                                <SortIcon
-                                  active={sort?.key === column.key}
-                                  direction={sort?.direction}
-                                />
-                              )}
-                            </div>
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {processedData.map((row) => {
-                        const rowId = getRowId(row);
-                        const isSelected = selectedRowIds.has(rowId);
+                          </div>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processedData.map((row) => {
+                      const rowId = getRowId(row);
+                      const isSelected = selectedRowIds.has(rowId);
 
-                        return (
-                          <TableRow
-                            key={rowId}
-                            onClick={() => handleRowClick(row)}
-                            className={cn(
-                              "h-10 cursor-pointer transition-colors",
-                              isSelected && "bg-muted/50"
-                            )}
-                          >
-                            {selectable && (
-                              <TableCell className="p-2">
-                                <TableCheckbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleRowSelection(rowId)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  aria-label={`Select row ${rowId}`}
-                                />
+                      return (
+                        <TableRow
+                          key={rowId}
+                          onClick={() => handleRowClick(row)}
+                          className={cn(
+                            "h-10 cursor-pointer transition-colors",
+                            isSelected && "bg-muted/50"
+                          )}
+                        >
+                          {selectable && (
+                            <TableCell className="p-2">
+                              <TableCheckbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleRowSelection(rowId)}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Select row ${rowId}`}
+                              />
+                            </TableCell>
+                          )}
+                          {visibleColumns.map((column) => {
+                            const value = (row as any)[column.key];
+                            return (
+                              <TableCell
+                                key={column.key}
+                                className={cn(
+                                  "px-3 py-2 text-sm",
+                                  column.align === "center" && "text-center",
+                                  column.align === "right" && "text-right"
+                                )}
+                              >
+                                {column.render ? column.render(value, row) : String(value ?? "")}
                               </TableCell>
-                            )}
-                            {visibleColumns.map((column) => {
-                              const value = (row as any)[column.key];
-                              return (
-                                <TableCell
-                                  key={column.key}
-                                  className={cn(
-                                    "px-3 py-2 text-sm",
-                                    column.align === "center" && "text-center",
-                                    column.align === "right" && "text-right"
-                                  )}
-                                >
-                                  {column.render ? column.render(value, row) : String(value ?? "")}
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

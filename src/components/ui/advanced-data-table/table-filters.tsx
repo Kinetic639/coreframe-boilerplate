@@ -14,12 +14,14 @@ interface TableFiltersProps<T = any> {
   columns: ColumnConfig<T>[];
   searchPlaceholder?: string;
   showSearch?: boolean;
+  layoutMode?: "full" | "sidebar-detail";
 }
 
 export function TableFilters<T>({
   columns,
   searchPlaceholder = "Search...",
   showSearch = true,
+  layoutMode: _layoutMode = "full",
 }: TableFiltersProps<T>) {
   const [searchExpanded, setSearchExpanded] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
