@@ -1814,6 +1814,92 @@ export type Database = {
           },
         ];
       };
+      product_option_groups: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          display_order: number | null;
+          id: string;
+          name: string;
+          product_id: string;
+          template_group_id: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          name: string;
+          product_id: string;
+          template_group_id?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          name?: string;
+          product_id?: string;
+          template_group_id?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_option_groups_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_option_groups_template_group_id_fkey";
+            columns: ["template_group_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_option_values: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          display_order: number | null;
+          id: string;
+          product_option_group_id: string;
+          updated_at: string | null;
+          value: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          product_option_group_id: string;
+          updated_at?: string | null;
+          value: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          product_option_group_id?: string;
+          updated_at?: string | null;
+          value?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_option_values_product_option_group_id_fkey";
+            columns: ["product_option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "product_option_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_templates: {
         Row: {
           category: string | null;
@@ -1876,6 +1962,52 @@ export type Database = {
             columns: ["parent_template_id"];
             isOneToOne: false;
             referencedRelation: "product_templates";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_variant_options: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          product_option_group_id: string;
+          product_option_value_id: string;
+          variant_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          product_option_group_id: string;
+          product_option_value_id: string;
+          variant_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          product_option_group_id?: string;
+          product_option_value_id?: string;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_variant_options_product_option_group_id_fkey";
+            columns: ["product_option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "product_option_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_variant_options_product_option_value_id_fkey";
+            columns: ["product_option_value_id"];
+            isOneToOne: false;
+            referencedRelation: "product_option_values";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_variant_options_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];
@@ -3476,6 +3608,85 @@ export type Database = {
             columns: ["status_id"];
             isOneToOne: false;
             referencedRelation: "user_statuses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_option_group_values: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          display_order: number | null;
+          id: string;
+          option_group_id: string;
+          updated_at: string | null;
+          value: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id: string;
+          updated_at?: string | null;
+          value: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id?: string;
+          updated_at?: string | null;
+          value?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_option_group_values_option_group_id_fkey";
+            columns: ["option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_groups";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_option_groups: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          is_template: boolean | null;
+          name: string;
+          organization_id: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_template?: boolean | null;
+          name: string;
+          organization_id: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_template?: boolean | null;
+          name?: string;
+          organization_id?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_option_groups_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
