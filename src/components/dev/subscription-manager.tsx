@@ -26,6 +26,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  X,
 } from "lucide-react";
 import {
   useSubscription,
@@ -55,9 +56,10 @@ export function DevelopmentSubscriptionManager({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isHidden, setIsHidden] = useState(false);
 
   // Only show in development
-  if (process.env.NODE_ENV !== "development") {
+  if (process.env.NODE_ENV !== "development" || isHidden) {
     return null;
   }
 
@@ -102,11 +104,21 @@ export function DevelopmentSubscriptionManager({
               </Badge>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)}>
-            <ChevronDown
-              className={cn("h-3 w-3 transition-transform", isCollapsed ? "" : "rotate-180")}
-            />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setIsCollapsed(!isCollapsed)}>
+              <ChevronDown
+                className={cn("h-3 w-3 transition-transform", isCollapsed ? "" : "rotate-180")}
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsHidden(true)}
+              className="h-7 w-7 p-0"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
         {!isCollapsed && (
           <CardDescription className="text-xs text-yellow-700">

@@ -3,7 +3,9 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@context7/mcp-server@latest"],
-      "env": {}
+      "env": {
+        "CONTEXT7_API_KEY": "ctx7sk-2767c41e-4be5-4e89-9dbc-13ed717b4d60"
+      }
     },
     "supabase": {
       "command": "npx",
