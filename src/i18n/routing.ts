@@ -63,6 +63,14 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/settings",
       pl: "/dashboard/magazyn/ustawienia",
     },
+    "/dashboard/warehouse/settings/units": {
+      en: "/dashboard/warehouse/settings/units",
+      pl: "/dashboard/magazyn/ustawienia/jednostki",
+    },
+    "/dashboard/warehouse/settings/variant-options": {
+      en: "/dashboard/warehouse/settings/variant-options",
+      pl: "/dashboard/magazyn/ustawienia/grupy-opcji-wariantow",
+    },
     "/dashboard/warehouse/inventory": {
       en: "/dashboard/warehouse/inventory",
       pl: "/dashboard/magazyn/zapasy",
