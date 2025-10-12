@@ -3201,6 +3201,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      units_of_measure: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          name: string;
+          organization_id: string;
+          symbol: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          name: string;
+          organization_id: string;
+          symbol?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          name?: string;
+          organization_id?: string;
+          symbol?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "units_of_measure_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_modules: {
         Row: {
           created_at: string | null;
