@@ -1,8 +1,10 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Settings, Package, MapPin, Archive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Settings, Package, MapPin, Archive, ArrowRight, Ruler } from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("modules.warehouse.items.settings");
@@ -66,13 +68,27 @@ export default async function WarehouseSettingsPage() {
               <CardTitle>{t("products.title")}</CardTitle>
               <CardDescription>{t("products.description")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="mb-2 text-lg font-semibold">{t("products.units")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Manage units of measure for products.
-                </p>
-              </div>
+            <CardContent className="space-y-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Ruler className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-semibold">{t("products.units")}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Manage units of measure for products
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/warehouse/settings/units">
+                    <Button variant="outline" size="sm">
+                      Manage
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardHeader>
+              </Card>
+
               <div>
                 <h3 className="mb-2 text-lg font-semibold">{t("products.variants")}</h3>
                 <p className="text-sm text-muted-foreground">
