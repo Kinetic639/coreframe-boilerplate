@@ -1757,6 +1757,69 @@ export type Database = {
           },
         ];
       };
+      product_categories: {
+        Row: {
+          color: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          icon_name: string | null;
+          id: string;
+          is_default: boolean | null;
+          level: number | null;
+          name: string;
+          organization_id: string;
+          parent_id: string | null;
+          sort_order: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          color?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          icon_name?: string | null;
+          id?: string;
+          is_default?: boolean | null;
+          level?: number | null;
+          name: string;
+          organization_id: string;
+          parent_id?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          color?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          icon_name?: string | null;
+          id?: string;
+          is_default?: boolean | null;
+          level?: number | null;
+          name?: string;
+          organization_id?: string;
+          parent_id?: string | null;
+          sort_order?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_categories_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "product_categories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_images: {
         Row: {
           alt_text: string | null;
@@ -2067,6 +2130,7 @@ export type Database = {
       };
       products: {
         Row: {
+          category_id: string | null;
           created_at: string | null;
           created_by: string | null;
           deleted_at: string | null;
@@ -2080,6 +2144,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          category_id?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -2093,6 +2158,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          category_id?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -2106,6 +2172,13 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "products_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "product_categories";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "products_created_by_fkey";
             columns: ["created_by"];
