@@ -787,6 +787,69 @@
               "valueAdded": "Wartość została dodana pomyślnie",
               "valueDeleted": "Wartość została usunięta pomyślnie"
             }
+          },
+          "categories": {
+            "title": "Kategorie produktów",
+            "description": "Organizuj produkty w kategorie i podkategorie",
+            "dragToReorder": "Przeciągnij aby zmienić kolejność",
+            "loading": "Ładowanie...",
+            "saving": "Zapisywanie",
+            "empty": "Brak kategorii",
+            "emptyDescription": "Utwórz pierwszą kategorię aby organizować produkty",
+            "addCategory": "Dodaj kategorię",
+            "addSubcategory": "Dodaj podkategorię",
+            "rootCategory": "Kategoria główna",
+            "default": "Domyślna",
+            "productsCount": "{count} produktów",
+            "table": {
+              "name": "Nazwa",
+              "description": "Opis",
+              "actions": "Akcje"
+            },
+            "actions": {
+              "edit": "Edytuj",
+              "addSubcategory": "Dodaj podkategorię",
+              "delete": "Usuń"
+            },
+            "form": {
+              "name": "Nazwa kategorii",
+              "namePlaceholder": "np. Elektronika, Meble",
+              "description": "Opis",
+              "descriptionPlaceholder": "Opcjonalny opis",
+              "parentCategory": "Kategoria nadrzędna",
+              "parentCategoryPlaceholder": "Wybierz kategorię nadrzędną",
+              "color": "Kolor (opcjonalnie)",
+              "colorPlaceholder": "Wybierz kolor",
+              "cancel": "Anuluj",
+              "add": "Dodaj",
+              "save": "Zapisz",
+              "saving": "Zapisywanie...",
+              "addDescription": "Utwórz nową kategorię aby organizować produkty",
+              "editCategory": "Edytuj kategorię",
+              "editDescription": "Zaktualizuj informacje o kategorii"
+            },
+            "confirmDelete": {
+              "title": "Usunąć \"{name}\"?",
+              "usedBy": "Ta kategoria jest używana przez {count} produktów."
+            },
+            "deleteWarning": {
+              "subcategory": "{count} produktów zostanie przeniesionych z \"{name}\" do \"{target}\"",
+              "mainCategory": "Ta kategoria zawiera {productCount} produktów i {childCount} podkategorii. Wszystko zostanie przeniesione do \"{target}\""
+            },
+            "errors": {
+              "loadFailed": "Nie udało się załadować kategorii",
+              "createFailed": "Nie udało się utworzyć kategorii",
+              "updateFailed": "Nie udało się zaktualizować kategorii",
+              "deleteFailed": "Nie udało się usunąć kategorii",
+              "reorderFailed": "Nie udało się zmienić kolejności kategorii",
+              "cannotDeleteDefault": "Nie można usunąć domyślnej kategorii"
+            },
+            "success": {
+              "created": "Kategoria została utworzona pomyślnie",
+              "updated": "Kategoria została zaktualizowana pomyślnie",
+              "deleted": "Kategoria została usunięta pomyślnie",
+              "reordered": "Kolejność kategorii została zmieniona pomyślnie"
+            }
           }
         },
         "products": {

@@ -108,12 +108,26 @@ export default async function WarehouseSettingsPage() {
                   </Link>
                 </CardHeader>
               </Card>
-              <div>
-                <h3 className="mb-2 text-lg font-semibold">{t("products.categories")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Manage product categories and hierarchies.
-                </p>
-              </div>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Box className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-semibold">{t("products.categories")}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Manage product categories and hierarchies
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/warehouse/settings/categories">
+                    <Button variant="outline" size="sm">
+                      Manage
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardHeader>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>
