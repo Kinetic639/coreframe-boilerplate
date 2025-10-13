@@ -809,8 +809,12 @@
             "actions": {
               "edit": "Edytuj",
               "addSubcategory": "Dodaj podkategorię",
+              "move": "Przenieś do",
               "delete": "Usuń"
             },
+            "moveCategory": "Przenieś kategorię",
+            "moveCategoryDescription": "Wybierz nową kategorię nadrzędną dla \"{name}\"",
+            "topLevel": "Poziom główny (Bez nadrzędnej)",
             "form": {
               "name": "Nazwa kategorii",
               "namePlaceholder": "np. Elektronika, Meble",
@@ -818,12 +822,16 @@
               "descriptionPlaceholder": "Opcjonalny opis",
               "parentCategory": "Kategoria nadrzędna",
               "parentCategoryPlaceholder": "Wybierz kategorię nadrzędną",
+              "targetParent": "Przenieś do",
+              "selectTarget": "Wybierz docelową nadrzędną",
               "color": "Kolor (opcjonalnie)",
               "colorPlaceholder": "Wybierz kolor",
               "cancel": "Anuluj",
               "add": "Dodaj",
               "save": "Zapisz",
               "saving": "Zapisywanie...",
+              "move": "Przenieś",
+              "moving": "Przenoszenie...",
               "addDescription": "Utwórz nową kategorię aby organizować produkty",
               "editCategory": "Edytuj kategorię",
               "editDescription": "Zaktualizuj informacje o kategorii"
@@ -841,14 +849,20 @@
               "createFailed": "Nie udało się utworzyć kategorii",
               "updateFailed": "Nie udało się zaktualizować kategorii",
               "deleteFailed": "Nie udało się usunąć kategorii",
+              "moveFailed": "Nie udało się przenieść kategorii",
               "reorderFailed": "Nie udało się zmienić kolejności kategorii",
-              "cannotDeleteDefault": "Nie można usunąć domyślnej kategorii"
+              "cannotDeleteDefault": "Nie można usunąć domyślnej kategorii",
+              "cannotMoveToDescendant": "Nie można przenieść kategorii do własnej podkategorii",
+              "togglePreferredFailed": "Nie udało się zmienić statusu ulubionej"
             },
             "success": {
               "created": "Kategoria została utworzona pomyślnie",
               "updated": "Kategoria została zaktualizowana pomyślnie",
               "deleted": "Kategoria została usunięta pomyślnie",
-              "reordered": "Kolejność kategorii została zmieniona pomyślnie"
+              "moved": "Kategoria została przeniesiona pomyślnie",
+              "reordered": "Kolejność kategorii została zmieniona pomyślnie",
+              "markedPreferred": "Kategoria oznaczona jako ulubiona",
+              "unmarkedPreferred": "Kategoria odznaczona jako ulubiona"
             }
           }
         },

@@ -13,12 +13,14 @@ class CategoriesService {
 
   /**
    * Get all categories for an organization as a tree
+   * Excludes default "Uncategorized" category from display
    */
   async getCategories(organizationId: string): Promise<CategoryTreeItem[]> {
     const { data, error } = await this.supabase
       .from("product_categories")
       .select("*")
       .eq("organization_id", organizationId)
+      .eq("is_default", false)
       .is("deleted_at", null)
       .order("sort_order");
 
@@ -284,6 +286,141 @@ class CategoriesService {
 
       if (error) throw error;
     }
+  }
+
+  /**
+   * Move category to a different parent (or to top level)
+   */
+  async moveCategory(categoryId: string, newParentId: string | null): Promise<void> {
+    const category = await this.getCategoryById(categoryId);
+    if (!category) throw new Error("Category not found");
+
+    // Calculate new level
+    let newLevel = 0;
+    if (newParentId) {
+      const newParent = await this.getCategoryById(newParentId);
+      if (!newParent) throw new Error("Target parent category not found");
+
+      // Prevent moving to own child
+      if (await this.isDescendant(newParentId, categoryId)) {
+        throw new Error("Cannot move category to its own descendant");
+      }
+
+      newLevel = newParent.level + 1;
+    }
+
+    // Get next sort order in target location
+    const { data: siblings } = await this.supabase
+      .from("product_categories")
+      .select("sort_order")
+      .eq("organization_id", category.organization_id)
+      .eq("parent_id", newParentId || null)
+      .is("deleted_at", null)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextSortOrder = siblings ? siblings.sort_order + 1 : 0;
+
+    // Update category
+    const { error } = await this.supabase
+      .from("product_categories")
+      .update({
+        parent_id: newParentId,
+        level: newLevel,
+        sort_order: nextSortOrder,
+      })
+      .eq("id", categoryId);
+
+    if (error) throw error;
+
+    // Update levels of all children recursively
+    await this.updateChildrenLevels(categoryId, newLevel);
+  }
+
+  /**
+   * Check if targetId is a descendant of categoryId
+   */
+  private async isDescendant(targetId: string, categoryId: string): Promise<boolean> {
+    const target = await this.getCategoryById(targetId);
+    if (!target) return false;
+
+    if (target.parent_id === categoryId) return true;
+    if (!target.parent_id) return false;
+
+    return this.isDescendant(target.parent_id, categoryId);
+  }
+
+  /**
+   * Update levels of all children when parent moves
+   */
+  private async updateChildrenLevels(parentId: string, parentLevel: number): Promise<void> {
+    const { data: children } = await this.supabase
+      .from("product_categories")
+      .select("id, level")
+      .eq("parent_id", parentId)
+      .is("deleted_at", null);
+
+    if (!children || children.length === 0) return;
+
+    const newChildLevel = parentLevel + 1;
+
+    for (const child of children) {
+      await this.supabase
+        .from("product_categories")
+        .update({ level: newChildLevel })
+        .eq("id", child.id);
+
+      // Recursively update grandchildren
+      await this.updateChildrenLevels(child.id, newChildLevel);
+    }
+  }
+
+  /**
+   * Toggle preferred status (starred category)
+   * Only one category can be preferred at a time
+   */
+  async togglePreferred(categoryId: string): Promise<boolean> {
+    const category = await this.getCategoryById(categoryId);
+    if (!category) throw new Error("Category not found");
+
+    const newPreferredStatus = !category.is_preferred;
+
+    // If setting as preferred, unset all other preferred categories first
+    if (newPreferredStatus) {
+      await this.supabase
+        .from("product_categories")
+        .update({ is_preferred: false })
+        .eq("organization_id", category.organization_id)
+        .eq("is_preferred", true)
+        .neq("id", categoryId);
+    }
+
+    // Toggle this category
+    const { error } = await this.supabase
+      .from("product_categories")
+      .update({ is_preferred: newPreferredStatus })
+      .eq("id", categoryId);
+
+    if (error) throw error;
+
+    return newPreferredStatus;
+  }
+
+  /**
+   * Get all preferred categories for quick access
+   */
+  async getPreferredCategories(organizationId: string): Promise<ProductCategory[]> {
+    const { data, error } = await this.supabase
+      .from("product_categories")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .eq("is_preferred", true)
+      .is("deleted_at", null)
+      .order("name");
+
+    if (error) throw error;
+    return data || [];
   }
 
   /**

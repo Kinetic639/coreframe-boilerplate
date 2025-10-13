@@ -854,8 +854,12 @@
             "actions": {
               "edit": "Edit",
               "addSubcategory": "Add Subcategory",
+              "move": "Move to",
               "delete": "Delete"
             },
+            "moveCategory": "Move Category",
+            "moveCategoryDescription": "Select a new parent category for \"{name}\"",
+            "topLevel": "Top Level (No Parent)",
             "form": {
               "name": "Category Name",
               "namePlaceholder": "e.g., Electronics, Furniture",
@@ -863,12 +867,16 @@
               "descriptionPlaceholder": "Optional description",
               "parentCategory": "Parent Category",
               "parentCategoryPlaceholder": "Select parent category",
+              "targetParent": "Move to",
+              "selectTarget": "Select target parent",
               "color": "Color (optional)",
               "colorPlaceholder": "Choose a color",
               "cancel": "Cancel",
               "add": "Add",
               "save": "Save",
               "saving": "Saving...",
+              "move": "Move",
+              "moving": "Moving...",
               "addDescription": "Create a new category to organize your products",
               "editCategory": "Edit Category",
               "editDescription": "Update category information"
@@ -886,14 +894,20 @@
               "createFailed": "Failed to create category",
               "updateFailed": "Failed to update category",
               "deleteFailed": "Failed to delete category",
+              "moveFailed": "Failed to move category",
               "reorderFailed": "Failed to reorder categories",
-              "cannotDeleteDefault": "Cannot delete the default category"
+              "cannotDeleteDefault": "Cannot delete the default category",
+              "cannotMoveToDescendant": "Cannot move category to its own descendant",
+              "togglePreferredFailed": "Failed to toggle preferred status"
             },
             "success": {
               "created": "Category created successfully",
               "updated": "Category updated successfully",
               "deleted": "Category deleted successfully",
-              "reordered": "Categories reordered successfully"
+              "moved": "Category moved successfully",
+              "reordered": "Categories reordered successfully",
+              "markedPreferred": "Category marked as preferred",
+              "unmarkedPreferred": "Category unmarked as preferred"
             }
           }
         },
