@@ -14,6 +14,7 @@ export interface CategoryTreeItem {
   icon_name?: string | null;
   color?: string | null;
   is_default: boolean;
+  is_preferred?: boolean | null;
   organization_id: string;
   created_at?: string | null;
   updated_at?: string | null;

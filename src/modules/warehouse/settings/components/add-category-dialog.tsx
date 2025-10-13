@@ -161,12 +161,15 @@ export function AddCategoryDialog({
           {!parentCategory && !editCategory && (
             <div className="space-y-2">
               <Label htmlFor="parent">{t("form.parentCategory")}</Label>
-              <Select value={selectedParentId} onValueChange={setSelectedParentId}>
+              <Select
+                value={selectedParentId || "none"}
+                onValueChange={(value) => setSelectedParentId(value === "none" ? "" : value)}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("form.parentCategoryPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{t("rootCategory")}</SelectItem>
+                  <SelectItem value="none">{t("rootCategory")}</SelectItem>
                   {flatCategories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}

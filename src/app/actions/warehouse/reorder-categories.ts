@@ -17,12 +17,20 @@ export async function reorderCategories(
   try {
     // Update each category's sort_order
     for (const item of items) {
-      const { error } = await supabase
+      let query = supabase
         .from("product_categories")
         .update({ sort_order: item.sort_order })
         .eq("id", item.id)
-        .eq("organization_id", organizationId)
-        .eq("parent_id", parentId || null);
+        .eq("organization_id", organizationId);
+
+      // Handle null parent_id properly
+      if (parentId === null) {
+        query = query.is("parent_id", null);
+      } else {
+        query = query.eq("parent_id", parentId);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
     }

@@ -38,7 +38,16 @@ export class ProductService {
     } = productData;
 
     try {
-      // 1. Create the main product
+      // 1. Get default category for organization
+      const { data: defaultCategory } = await this.supabase
+        .from("product_categories")
+        .select("id")
+        .eq("organization_id", organization_id)
+        .eq("is_default", true)
+        .is("deleted_at", null)
+        .single();
+
+      // 2. Create the main product
       const productInsert: TablesInsert<"products"> = {
         organization_id,
         template_id,
@@ -46,6 +55,7 @@ export class ProductService {
         slug: name.toLowerCase().replace(/\s+/g, "-"),
         description,
         status,
+        category_id: defaultCategory?.id || null,
       };
 
       const { data: product, error: productError } = await this.supabase
@@ -56,7 +66,7 @@ export class ProductService {
 
       if (productError) throw productError;
 
-      // 2. Create default variant
+      // 3. Create default variant
       const variantInsert: TablesInsert<"product_variants"> = {
         product_id: product.id,
         name: variant_name || name,
@@ -74,7 +84,7 @@ export class ProductService {
 
       if (variantError) throw variantError;
 
-      // 3. Create product attributes
+      // 4. Create product attributes
       if (Object.keys(attributes).length > 0) {
         const attributeInserts = Object.entries(attributes).map(([key, attributeValue]) => ({
           product_id: product.id,
@@ -95,7 +105,7 @@ export class ProductService {
         if (attributeError) throw attributeError;
       }
 
-      // 4. Return the created product
+      // 5. Return the created product
       return await this.getProductById(product.id);
     } catch (error) {
       console.error("Error creating product:", error);

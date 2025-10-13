@@ -85,6 +85,15 @@ export class FlexibleProductService {
     } = productData;
 
     try {
+      // Get default category for organization
+      const { data: defaultCategory } = await this.supabase
+        .from("product_categories")
+        .select("id")
+        .eq("organization_id", organization_id)
+        .eq("is_default", true)
+        .is("deleted_at", null)
+        .single();
+
       // Start transaction
       const { data: product, error: productError } = await this.supabase
         .from("products")
@@ -95,6 +104,7 @@ export class FlexibleProductService {
           slug: slug || this.generateSlug(name),
           description,
           status,
+          category_id: defaultCategory?.id || null,
           created_by: (await this.supabase.auth.getUser()).data.user?.id,
         })
         .select()

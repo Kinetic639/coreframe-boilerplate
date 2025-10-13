@@ -9,6 +9,7 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { categoriesService } from "../../api/categories-service";
 import type { CategoryTreeItem, DeleteCategoryInfo } from "../../types/categories";
 import { AddCategoryDialog } from "./add-category-dialog";
+import { MoveCategoryDialog } from "./move-category-dialog";
 import { DraggableCategoryTree } from "./draggable-category-tree";
 import {
   AlertDialog,
@@ -33,6 +34,8 @@ export function CategoriesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteInfo, setDeleteInfo] = React.useState<DeleteCategoryInfo | null>(null);
   const [categoryToDelete, setCategoryToDelete] = React.useState<CategoryTreeItem | null>(null);
+  const [moveDialogOpen, setMoveDialogOpen] = React.useState(false);
+  const [categoryToMove, setCategoryToMove] = React.useState<CategoryTreeItem | null>(null);
 
   React.useEffect(() => {
     if (activeOrgId) {
@@ -172,6 +175,40 @@ export function CategoriesPage() {
     setParentForNew(undefined);
   }
 
+  function handleMove(category: CategoryTreeItem) {
+    setCategoryToMove(category);
+    setMoveDialogOpen(true);
+  }
+
+  async function handleMoveSubmit(targetParentId: string | null) {
+    if (!categoryToMove) return;
+
+    try {
+      await categoriesService.moveCategory(categoryToMove.id, targetParentId);
+      toast.success(t("success.moved"));
+      await loadCategories();
+    } catch (error: any) {
+      console.error("Failed to move category:", error);
+      if (error.message?.includes("descendant")) {
+        toast.error(t("errors.cannotMoveToDescendant"));
+      } else {
+        toast.error(t("errors.moveFailed"));
+      }
+      throw error;
+    }
+  }
+
+  async function handleTogglePreferred(category: CategoryTreeItem) {
+    try {
+      const newStatus = await categoriesService.togglePreferred(category.id);
+      toast.success(newStatus ? t("success.markedPreferred") : t("success.unmarkedPreferred"));
+      await loadCategories();
+    } catch (error) {
+      console.error("Failed to toggle preferred:", error);
+      toast.error(t("errors.togglePreferredFailed"));
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -216,8 +253,11 @@ export function CategoriesPage() {
               onEdit={handleEdit}
               onAddChild={handleAddChild}
               onDelete={handleDeleteClick}
+              onMove={handleMove}
+              onTogglePreferred={handleTogglePreferred}
               onReorderComplete={loadCategories}
               organizationId={activeOrgId}
+              allCategories={categories}
             />
           )}
         </div>
@@ -231,6 +271,15 @@ export function CategoriesPage() {
         categories={categories}
         parentCategory={parentForNew}
         editCategory={editCategory}
+      />
+
+      {/* Move Category Dialog */}
+      <MoveCategoryDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        onSubmit={handleMoveSubmit}
+        category={categoryToMove}
+        allCategories={categories}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -1766,6 +1766,7 @@ export type Database = {
           icon_name: string | null;
           id: string;
           is_default: boolean | null;
+          is_preferred: boolean | null;
           level: number | null;
           name: string;
           organization_id: string;
@@ -1781,6 +1782,7 @@ export type Database = {
           icon_name?: string | null;
           id?: string;
           is_default?: boolean | null;
+          is_preferred?: boolean | null;
           level?: number | null;
           name: string;
           organization_id: string;
@@ -1796,6 +1798,7 @@ export type Database = {
           icon_name?: string | null;
           id?: string;
           is_default?: boolean | null;
+          is_preferred?: boolean | null;
           level?: number | null;
           name?: string;
           organization_id?: string;

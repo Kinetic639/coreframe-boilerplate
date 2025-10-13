@@ -6,7 +6,16 @@ import { CSS } from "@dnd-kit/utilities";
 import { CategoryTreeItem } from "../../types/categories";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, Edit, Plus, Trash2, MoreHorizontal, GripVertical } from "lucide-react";
+import {
+  ChevronRight,
+  Edit,
+  Plus,
+  Trash2,
+  MoreHorizontal,
+  GripVertical,
+  Star,
+  Move,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,10 +31,13 @@ interface DraggableCategoryNodeProps {
   onEdit?: (category: CategoryTreeItem) => void;
   onAddChild?: (parentCategory: CategoryTreeItem) => void;
   onDelete?: (category: CategoryTreeItem) => void;
+  onMove?: (category: CategoryTreeItem) => void;
+  onTogglePreferred?: (category: CategoryTreeItem) => void;
   level: number;
   isExpanded?: boolean;
   onToggle?: () => void;
   isDragging?: boolean;
+  allCategories?: CategoryTreeItem[];
 }
 
 export function DraggableCategoryNode({
@@ -33,6 +45,8 @@ export function DraggableCategoryNode({
   onEdit,
   onAddChild,
   onDelete,
+  onMove,
+  onTogglePreferred,
   level,
   isExpanded = true,
   onToggle,
@@ -80,6 +94,21 @@ export function DraggableCategoryNode({
         <div className="w-6" />
       )}
 
+      {/* Preferred Star */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onTogglePreferred?.(category)}
+        className="h-6 w-6 p-0"
+      >
+        <Star
+          className={cn(
+            "h-4 w-4 transition-colors",
+            category.is_preferred ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+          )}
+        />
+      </Button>
+
       {/* Color Badge */}
       {category.color && (
         <div className="h-3 w-3 rounded-full border" style={{ backgroundColor: category.color }} />
@@ -125,6 +154,12 @@ export function DraggableCategoryNode({
             <DropdownMenuItem onClick={() => onAddChild?.(category)}>
               <Plus className="mr-2 h-4 w-4" />
               {t("actions.addSubcategory")}
+            </DropdownMenuItem>
+          )}
+          {!category.is_default && (
+            <DropdownMenuItem onClick={() => onMove?.(category)}>
+              <Move className="mr-2 h-4 w-4" />
+              {t("actions.move")}
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />

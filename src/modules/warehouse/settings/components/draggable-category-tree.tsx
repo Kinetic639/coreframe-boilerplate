@@ -25,10 +25,13 @@ interface DraggableCategoryTreeProps {
   onEdit?: (category: CategoryTreeItem) => void;
   onAddChild?: (parentCategory: CategoryTreeItem) => void;
   onDelete?: (category: CategoryTreeItem) => void;
+  onMove?: (category: CategoryTreeItem) => void;
+  onTogglePreferred?: (category: CategoryTreeItem) => void;
   onReorderComplete?: () => void;
   organizationId: string;
   level?: number;
   parentId?: string | null;
+  allCategories?: CategoryTreeItem[];
 }
 
 const measuring = {
@@ -42,10 +45,13 @@ export function DraggableCategoryTree({
   onEdit,
   onAddChild,
   onDelete,
+  onMove,
+  onTogglePreferred,
   onReorderComplete,
   organizationId,
   level = 0,
   parentId = null,
+  allCategories = [],
 }: DraggableCategoryTreeProps) {
   const t = useTranslations("modules.warehouse.items.settings.categories");
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -157,10 +163,13 @@ export function DraggableCategoryTree({
                   onEdit={onEdit}
                   onAddChild={onAddChild}
                   onDelete={onDelete}
+                  onMove={onMove}
+                  onTogglePreferred={onTogglePreferred}
                   level={level}
                   isExpanded={isExpanded}
                   onToggle={() => handleToggleExpand(category.id)}
                   isDragging={isDragging && activeId !== category.id}
+                  allCategories={allCategories}
                 />
 
                 {/* Children */}
@@ -171,10 +180,13 @@ export function DraggableCategoryTree({
                       onEdit={onEdit}
                       onAddChild={onAddChild}
                       onDelete={onDelete}
+                      onMove={onMove}
+                      onTogglePreferred={onTogglePreferred}
                       onReorderComplete={onReorderComplete}
                       organizationId={organizationId}
                       level={level + 1}
                       parentId={category.id}
+                      allCategories={allCategories}
                     />
                   </div>
                 )}
