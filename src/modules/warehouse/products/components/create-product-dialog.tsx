@@ -35,7 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
-import type { CreateProductFormData } from "@/modules/warehouse/types/products";
+import type { CreateProductFormData, ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 
@@ -43,9 +43,15 @@ interface CreateProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  product?: ProductWithDetails | null;
 }
 
-export function CreateProductDialog({ open, onOpenChange, onSuccess }: CreateProductDialogProps) {
+export function CreateProductDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  product,
+}: CreateProductDialogProps) {
   const t = useTranslations("productsModule");
   const { activeOrgId } = useAppStore();
   const { user } = useUserStore();
@@ -118,6 +124,51 @@ export function CreateProductDialog({ open, onOpenChange, onSuccess }: CreatePro
     },
   });
 
+  const isEditMode = !!product;
+
+  // Populate form when editing
+  React.useEffect(() => {
+    if (product && open) {
+      form.reset({
+        product_type: product.product_type,
+        name: product.name,
+        sku: product.sku || "",
+        description: product.description || "",
+        category_id: product.category_id || "",
+        brand: product.brand || "",
+        manufacturer: product.manufacturer || "",
+        unit: product.unit,
+        returnable_item: product.returnable_item,
+        dimensions_length: product.dimensions_length || undefined,
+        dimensions_width: product.dimensions_width || undefined,
+        dimensions_height: product.dimensions_height || undefined,
+        dimensions_unit: product.dimensions_unit || "",
+        weight: product.weight || undefined,
+        weight_unit: product.weight_unit || "",
+        upc: product.upc || "",
+        ean: product.ean || "",
+        isbn: product.isbn || "",
+        mpn: product.mpn || "",
+        selling_price: product.selling_price || 0,
+        sales_account: product.sales_account || "",
+        sales_description: product.sales_description || "",
+        cost_price: product.cost_price || 0,
+        purchase_account: product.purchase_account || "",
+        purchase_description: product.purchase_description || "",
+        preferred_vendor_id: product.preferred_vendor_id || "",
+        track_inventory: product.track_inventory,
+        inventory_account: product.inventory_account || "",
+        reorder_point: product.reorder_point || 0,
+        opening_stock: product.opening_stock || 0,
+        opening_stock_rate: product.opening_stock_rate || undefined,
+      });
+      setBarcodes(product.barcodes || []);
+    } else if (!product && open) {
+      form.reset();
+      setBarcodes([]);
+    }
+  }, [product, open, form]);
+
   const onSubmit = async (values: FormValues) => {
     if (!activeOrgId) {
       toast.error(t("messages.organizationRequired"));
@@ -163,16 +214,23 @@ export function CreateProductDialog({ open, onOpenChange, onSuccess }: CreatePro
         ...(barcodes.length > 0 && { barcodes }),
       };
 
-      await productsService.createProduct(productData, activeOrgId, user?.id || "");
+      if (isEditMode && product) {
+        // Update existing product
+        await productsService.updateProduct(product.id, productData);
+        toast.success(t("messages.updateSuccess"));
+      } else {
+        // Create new product
+        await productsService.createProduct(productData, activeOrgId, user?.id || "");
+        toast.success(t("messages.productCreated"));
+      }
 
-      toast.success(t("messages.productCreated"));
       form.reset();
       setBarcodes([]);
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      console.error("Error creating product:", error);
-      toast.error(t("messages.productCreationFailed"));
+      console.error(`Error ${isEditMode ? "updating" : "creating"} product:`, error);
+      toast.error(isEditMode ? t("messages.updateError") : t("messages.productCreationFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -209,7 +267,7 @@ export function CreateProductDialog({ open, onOpenChange, onSuccess }: CreatePro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("actions.createProduct")}</DialogTitle>
+          <DialogTitle>{isEditMode ? t("editProduct") : t("createProduct")}</DialogTitle>
           <DialogDescription>{t("basicInfo.productTypeDescription")}</DialogDescription>
         </DialogHeader>
 
@@ -807,7 +865,7 @@ export function CreateProductDialog({ open, onOpenChange, onSuccess }: CreatePro
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t("actions.create")}
+                {isEditMode ? t("actions.save") : t("actions.save")}
               </Button>
             </DialogFooter>
           </form>
