@@ -175,14 +175,14 @@ export function AdvancedDataTable<T>({
           <div className="relative flex flex-1 overflow-hidden">
             {/* Left Sidebar with Filters Above */}
             <div className="flex w-[280px] flex-col border-r">
-              {/* Compact Filter Bar - Only above sidebar */}
-              <div className="flex h-9 items-center gap-1 border-b bg-background px-2">
+              {/* Compact Filter Bar - Only above sidebar - InFlow style */}
+              <div className="flex h-10 items-center justify-between border-b bg-background px-3">
                 {/* Search Icon */}
                 {showSearch && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0"
+                    className="h-8 w-8 p-0"
                     onClick={() => {
                       /* Search functionality */
                     }}
@@ -191,20 +191,20 @@ export function AdvancedDataTable<T>({
                   </Button>
                 )}
 
-                {/* Filters Button - Clicking closes detail */}
+                {/* Filters Button - Clicking closes detail - Centered */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 gap-1.5 px-2 text-xs font-normal"
+                  className="h-8 gap-1.5 px-3 text-sm font-normal"
                   onClick={closeDetail}
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  <SlidersHorizontal className="h-4 w-4" />
                   <span>Filters</span>
                 </Button>
 
                 {/* Add Button */}
                 {onAdd && (
-                  <Button size="sm" className="ml-auto h-7 w-7 p-0" onClick={onAdd} title="Add new">
+                  <Button size="sm" className="h-8 w-8 p-0" onClick={onAdd} title="Add new">
                     <Plus className="h-4 w-4" />
                   </Button>
                 )}

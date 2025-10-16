@@ -5,9 +5,8 @@ import { AdvancedDataTable, ColumnConfig } from "@/components/ui/advanced-data-t
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit, Trash2, Package, Barcode, DollarSign, Clock, ArrowRightLeft } from "lucide-react";
+import { Edit, Trash2, Package, Clock, ArrowRightLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface ProductsAdvancedTableProps {
@@ -126,89 +125,77 @@ export function ProductsAdvancedTable({
     },
   ];
 
-  // Custom detail panel renderer for the right sidebar - InFlow style with tabs
+  // Custom detail panel renderer for the right sidebar - InFlow/Zoho professional style
   const renderDetail = (product: ProductWithDetails) => (
-    <div className="flex h-full flex-col">
-      {/* Compact Header with Actions */}
-      <div className="border-b bg-background p-4">
+    <div className="flex h-full flex-col bg-white">
+      {/* Header - InFlow/Zoho style */}
+      <div className="border-b p-4">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#10b981]/10">
-              <Package className="h-6 w-6 text-[#10b981]" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">{product.name}</h3>
-              <div className="flex items-center gap-1.5">
-                <Badge variant="outline" className="text-xs">
-                  {product.product_type === "goods"
-                    ? t("productType.goods")
-                    : t("productType.service")}
-                </Badge>
-                <Badge
-                  variant={product.status === "active" ? "default" : "secondary"}
-                  className="text-xs"
-                >
-                  {t(`status.${product.status}`)}
-                </Badge>
-              </div>
+          <div>
+            <h3 className="mb-1 text-xl font-semibold text-[#0066CC]">{product.name}</h3>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>SKU: {product.sku || "—"}</span>
+              {product.product_type === "goods" && (
+                <>
+                  <span>•</span>
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {product.returnable_item ? "Returnable Item" : "Non-returnable"}
+                  </Badge>
+                </>
+              )}
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-2">
             {onEdit && (
-              <Button variant="outline" size="sm" className="h-8" onClick={() => onEdit(product)}>
-                <Edit className="mr-1.5 h-3.5 w-3.5" />
-                {t("actions.edit")}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-sm"
+                onClick={() => onEdit(product)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
               </Button>
             )}
             {onDelete && (
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-red-600 hover:text-red-700"
+                className="h-9 text-sm text-red-600 hover:text-red-700"
                 onClick={() => onDelete(product)}
               >
-                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                {t("actions.delete")}
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - Clean text-only like InFlow */}
       <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden">
-        <TabsList className="w-full justify-start rounded-none border-b bg-background px-4">
-          <TabsTrigger value="overview" className="gap-1.5">
-            <Package className="h-3.5 w-3.5" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-1.5">
-            <ArrowRightLeft className="h-3.5 w-3.5" />
-            Transactions
-          </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            History
-          </TabsTrigger>
+        <TabsList className="w-full justify-start rounded-none border-b bg-background px-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="flex-1 overflow-auto p-4">
-          <div className="space-y-4">
+        {/* Overview Tab - Clean professional layout */}
+        <TabsContent value="overview" className="flex-1 overflow-auto p-6">
+          <div className="space-y-6">
             {/* Description */}
             {product.description && (
-              <div>
-                <p className="text-sm text-muted-foreground">{product.description}</p>
+              <div className="rounded-md bg-muted/30 p-4">
+                <p className="text-sm leading-relaxed text-foreground">{product.description}</p>
               </div>
             )}
 
-            {/* Basic Information */}
+            {/* Basic Information - Clean key-value pairs */}
             <div>
-              <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                <Package className="h-3.5 w-3.5" />
-                {t("basicInfo.title")}
+              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Product Information
               </h4>
-              <div className="grid gap-2 text-sm">
+              <div className="space-y-3">
                 {product.sku && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">SKU:</span>
@@ -242,164 +229,129 @@ export function ProductsAdvancedTable({
 
             {/* Barcodes */}
             {product.barcodes && product.barcodes.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <Barcode className="h-3.5 w-3.5" />
-                    {t("barcodes.title")}
-                  </h4>
-                  <div className="space-y-2">
-                    {product.barcodes.map((barcode, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-lg bg-muted/50 p-2"
-                      >
-                        <code className="font-mono text-sm">{barcode.barcode}</code>
-                        {barcode.is_primary && (
-                          <Badge variant="secondary" className="text-xs">
-                            {t("barcodes.primary")}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              <div>
+                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Barcodes
+                </h4>
+                <div className="space-y-2">
+                  {product.barcodes.map((barcode, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2">
+                      <code className="font-mono text-sm">{barcode.barcode}</code>
+                      {barcode.is_primary && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          Primary
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              </>
+              </div>
             )}
 
-            {/* Identifiers */}
-            {(product.upc || product.ean || product.isbn || product.mpn) && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold">{t("identifiers.title")}</h4>
-                  <div className="grid gap-2 text-sm">
-                    {product.upc && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">UPC:</span>
-                        <span className="font-medium">{product.upc}</span>
-                      </div>
-                    )}
-                    {product.ean && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">EAN:</span>
-                        <span className="font-medium">{product.ean}</span>
-                      </div>
-                    )}
-                    {product.isbn && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">ISBN:</span>
-                        <span className="font-medium">{product.isbn}</span>
-                      </div>
-                    )}
-                    {product.mpn && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">MPN:</span>
-                        <span className="font-medium">{product.mpn}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Measurements */}
-            {(product.dimensions_length || product.weight) && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold">{t("measurements.title")}</h4>
-                  <div className="grid gap-2 text-sm">
-                    {product.dimensions_length && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          {t("measurements.dimensions")}:
-                        </span>
-                        <span className="font-medium">
-                          {product.dimensions_length} × {product.dimensions_width} ×{" "}
-                          {product.dimensions_height} {product.dimensions_unit}
-                        </span>
-                      </div>
-                    )}
-                    {product.weight && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{t("measurements.weight")}:</span>
-                        <span className="font-medium">
-                          {product.weight} {product.weight_unit}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Pricing */}
-            <Separator />
+            {/* Pricing & Cost - InFlow blue card style */}
             <div>
-              <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                <DollarSign className="h-3.5 w-3.5" />
-                {t("pricing.title")}
+              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Pricing & Cost
               </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-muted/50 p-2.5">
-                  <div className="text-xs text-muted-foreground">{t("salesInfo.sellingPrice")}</div>
-                  <div className="mt-1 text-lg font-bold text-green-600">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Selling Price</div>
+                  <div className="text-2xl font-semibold text-green-600">
                     {product.selling_price?.toFixed(2) || "0.00"} PLN
                   </div>
                 </div>
-                <div className="rounded-lg bg-muted/50 p-2.5">
-                  <div className="text-xs text-muted-foreground">{t("purchaseInfo.costPrice")}</div>
-                  <div className="mt-1 text-lg font-bold">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Cost Price</div>
+                  <div className="text-2xl font-semibold">
                     {product.cost_price?.toFixed(2) || "0.00"} PLN
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Inventory */}
-            {product.product_type === "goods" && product.track_inventory && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="mb-2 text-sm font-semibold">{t("inventorySettings.title")}</h4>
-                  <div className="grid gap-2 text-sm">
+            {/* Additional Product Details */}
+            {(product.upc ||
+              product.ean ||
+              product.isbn ||
+              product.mpn ||
+              product.dimensions_length ||
+              product.weight ||
+              (product.product_type === "goods" && product.track_inventory)) && (
+              <div>
+                <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Additional Details
+                </h4>
+                <div className="space-y-3">
+                  {/* Identifiers */}
+                  {product.upc && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t("inventorySettings.trackInventory")}:
-                      </span>
-                      <span className="font-medium">{t("yes")}</span>
+                      <span className="text-sm text-muted-foreground">UPC</span>
+                      <span className="text-sm font-medium">{product.upc}</span>
                     </div>
+                  )}
+                  {product.ean && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t("inventorySettings.openingStock")}:
-                      </span>
-                      <span className="font-medium">
-                        {product.opening_stock || 0} {product.unit}
-                      </span>
+                      <span className="text-sm text-muted-foreground">EAN</span>
+                      <span className="text-sm font-medium">{product.ean}</span>
                     </div>
+                  )}
+                  {product.isbn && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        {t("inventorySettings.reorderPoint")}:
-                      </span>
-                      <span className="font-medium">
-                        {product.reorder_point || 0} {product.unit}
+                      <span className="text-sm text-muted-foreground">ISBN</span>
+                      <span className="text-sm font-medium">{product.isbn}</span>
+                    </div>
+                  )}
+                  {product.mpn && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">MPN</span>
+                      <span className="text-sm font-medium">{product.mpn}</span>
+                    </div>
+                  )}
+                  {/* Dimensions */}
+                  {product.dimensions_length && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Dimensions</span>
+                      <span className="text-sm font-medium">
+                        {product.dimensions_length} × {product.dimensions_width} ×{" "}
+                        {product.dimensions_height} {product.dimensions_unit}
                       </span>
                     </div>
-                    {product.opening_stock_rate && (
+                  )}
+                  {product.weight && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Weight</span>
+                      <span className="text-sm font-medium">
+                        {product.weight} {product.weight_unit}
+                      </span>
+                    </div>
+                  )}
+                  {/* Inventory */}
+                  {product.product_type === "goods" && product.track_inventory && (
+                    <>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          {t("inventorySettings.openingStockRate")}:
-                        </span>
-                        <span className="font-medium">
-                          {product.opening_stock_rate.toFixed(2)} PLN
+                        <span className="text-sm text-muted-foreground">Opening Stock</span>
+                        <span className="text-sm font-medium">
+                          {product.opening_stock || 0} {product.unit}
                         </span>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Reorder Point</span>
+                        <span className="text-sm font-medium">
+                          {product.reorder_point || 0} {product.unit}
+                        </span>
+                      </div>
+                      {product.opening_stock_rate && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Opening Stock Rate</span>
+                          <span className="text-sm font-medium">
+                            {product.opening_stock_rate.toFixed(2)} PLN
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </TabsContent>
