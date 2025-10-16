@@ -62,11 +62,6 @@ export default function ProductsPage() {
     }
   };
 
-  const handleDuplicate = async () => {
-    // TODO: Implement duplicate functionality
-    toast.info("Duplicate functionality coming soon");
-  };
-
   return (
     <div className="space-y-6">
       <CreateProductDialog
@@ -83,7 +78,6 @@ export default function ProductsPage() {
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        onDuplicate={handleDuplicate}
       />
     </div>
   );
