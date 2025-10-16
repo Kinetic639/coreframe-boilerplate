@@ -1188,6 +1188,7 @@
       "namePlaceholder": "Wprowadź nazwę produktu",
       "sku": "SKU",
       "skuPlaceholder": "Wprowadź SKU",
+      "skuDescription": "Pozostaw puste, aby automatycznie wygenerować",
       "description": "Opis",
       "descriptionPlaceholder": "Wprowadź opis produktu",
       "category": "Kategoria",
@@ -1198,7 +1199,10 @@
       "manufacturerPlaceholder": "Wprowadź producenta",
       "unit": "Jednostka",
       "unitPlaceholder": "Wybierz jednostkę",
-      "returnableItem": "Produkt Zwrotny"
+      "returnableItem": "Produkt Zwrotny",
+      "returnableItemDescription": "Włącz, jeśli ten produkt może być zwracany przez klientów",
+      "productType": "Typ Produktu",
+      "productTypeDescription": "Wybierz, czy to jest fizyczny towar, czy usługa"
     },
     "measurements": {
       "title": "Wymiary",
@@ -1244,7 +1248,11 @@
       "manageBarcodes": "Zarządzaj Kodami Kreskowymi",
       "addBarcode": "Dodaj Kod Kreskowy",
       "defaultBarcode": "Domyślny kod kreskowy",
+      "barcodePlaceholder": "Wprowadź kod kreskowy",
+      "setPrimary": "Ustaw jako główny",
+      "remove": "Usuń",
       "isPrimary": "Główny",
+      "primary": "Główny",
       "helpText": "Domyślny kod kreskowy jest synchronizowany z integracjami e-commerce i używany do drukowania etykiet."
     },
     "customFields": {
@@ -1313,9 +1321,6 @@
     },
     "yes": "Tak",
     "no": "Nie",
-    "noProductsFound": "Nie znaleziono produktów",
-    "barcodes": {
-      "primary": "Główny"
-    }
+    "noProductsFound": "Nie znaleziono produktów"
   }
 }

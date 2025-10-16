@@ -1293,7 +1293,11 @@
       "manageBarcodes": "Manage Barcodes",
       "addBarcode": "Add Barcode",
       "defaultBarcode": "Default barcode",
+      "barcodePlaceholder": "Enter barcode",
+      "setPrimary": "Set as primary",
+      "remove": "Remove",
       "isPrimary": "Primary",
+      "primary": "Primary",
       "helpText": "The default barcode is synced with e-commerce integrations and used for label printing."
     },
     "customFields": {
@@ -1362,9 +1366,6 @@
     },
     "yes": "Yes",
     "no": "No",
-    "noProductsFound": "No products found",
-    "barcodes": {
-      "primary": "Primary"
-    }
+    "noProductsFound": "No products found"
   }
 }
