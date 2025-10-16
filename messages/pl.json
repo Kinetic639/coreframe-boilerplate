@@ -1199,6 +1199,8 @@
       "manufacturerPlaceholder": "Wprowadź producenta",
       "unit": "Jednostka",
       "unitPlaceholder": "Wybierz jednostkę",
+      "selectUnit": "Wybierz jednostkę miary",
+      "noUnits": "Brak dostępnych jednostek. Dodaj jednostki w ustawieniach magazynu.",
       "returnableItem": "Produkt Zwrotny",
       "returnableItemDescription": "Włącz, jeśli ten produkt może być zwracany przez klientów",
       "productType": "Typ Produktu",
@@ -1253,6 +1255,7 @@
       "remove": "Usuń",
       "isPrimary": "Główny",
       "primary": "Główny",
+      "noBarcodes": "Nie dodano jeszcze kodów kreskowych. Kliknij przycisk powyżej, aby dodać.",
       "helpText": "Domyślny kod kreskowy jest synchronizowany z integracjami e-commerce i używany do drukowania etykiet."
     },
     "customFields": {

@@ -1244,6 +1244,8 @@
       "manufacturerPlaceholder": "Enter manufacturer",
       "unit": "Unit",
       "unitPlaceholder": "Select unit",
+      "selectUnit": "Select unit of measure",
+      "noUnits": "No units available. Add units in warehouse settings.",
       "returnableItem": "Returnable Item",
       "returnableItemDescription": "Enable if this item can be returned by customers",
       "productType": "Product Type",
@@ -1298,6 +1300,7 @@
       "remove": "Remove",
       "isPrimary": "Primary",
       "primary": "Primary",
+      "noBarcodes": "No barcodes added yet. Click the button above to add one.",
       "helpText": "The default barcode is synced with e-commerce integrations and used for label printing."
     },
     "customFields": {

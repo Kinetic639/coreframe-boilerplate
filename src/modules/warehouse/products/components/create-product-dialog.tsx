@@ -31,15 +31,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
+import { unitsService } from "@/modules/warehouse/api/units-service";
 import type {
   CreateProductFormData,
   UpdateProductFormData,
   ProductWithDetails,
 } from "@/modules/warehouse/types/products";
+import type { UnitOfMeasure } from "@/modules/warehouse/types/units";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 
@@ -63,6 +72,8 @@ export function CreateProductDialog({
   const [barcodes, setBarcodes] = React.useState<Array<{ barcode: string; is_primary: boolean }>>(
     []
   );
+  const [units, setUnits] = React.useState<UnitOfMeasure[]>([]);
+  const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
 
   // Form schema
   const formSchema = z.object({
@@ -129,6 +140,21 @@ export function CreateProductDialog({
   });
 
   const isEditMode = !!product;
+
+  // Load units when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      setIsLoadingUnits(true);
+      unitsService
+        .getUnits(activeOrgId)
+        .then(setUnits)
+        .catch((error) => {
+          console.error("Failed to load units:", error);
+          toast.error("Failed to load units of measure");
+        })
+        .finally(() => setIsLoadingUnits(false));
+    }
+  }, [open, activeOrgId]);
 
   // Populate form when editing
   React.useEffect(() => {
@@ -377,9 +403,31 @@ export function CreateProductDialog({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("basicInfo.unit")}</FormLabel>
-                        <FormControl>
-                          <Input placeholder="pcs, kg, m, etc." {...field} />
-                        </FormControl>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isLoadingUnits}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("basicInfo.selectUnit")} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {units.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                {t("basicInfo.noUnits")}
+                              </div>
+                            ) : (
+                              units.map((unit) => (
+                                <SelectItem key={unit.id} value={unit.name}>
+                                  {unit.name}
+                                  {unit.symbol && ` (${unit.symbol})`}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -459,31 +507,38 @@ export function CreateProductDialog({
                       {t("barcodes.addBarcode")}
                     </Button>
                   </div>
-                  {barcodes.map((barcode, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Input
-                        placeholder={t("barcodes.barcodePlaceholder")}
-                        value={barcode.barcode}
-                        onChange={(e) => handleBarcodeChange(index, e.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        variant={barcode.is_primary ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleSetPrimaryBarcode(index)}
-                      >
-                        {barcode.is_primary ? t("barcodes.primary") : t("barcodes.setPrimary")}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveBarcode(index)}
-                      >
-                        {t("barcodes.remove")}
-                      </Button>
-                    </div>
-                  ))}
+                  <div className="max-h-[300px] space-y-2 overflow-y-auto">
+                    {barcodes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t("barcodes.noBarcodes")}</p>
+                    ) : (
+                      barcodes.map((barcode, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            placeholder={t("barcodes.barcodePlaceholder")}
+                            value={barcode.barcode}
+                            onChange={(e) => handleBarcodeChange(index, e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            type="button"
+                            variant={barcode.is_primary ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleSetPrimaryBarcode(index)}
+                          >
+                            {barcode.is_primary ? t("barcodes.primary") : t("barcodes.setPrimary")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveBarcode(index)}
+                          >
+                            {t("barcodes.remove")}
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
