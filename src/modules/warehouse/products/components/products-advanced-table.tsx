@@ -6,7 +6,25 @@ import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit, Trash2, Package, Clock, ArrowRightLeft } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Edit,
+  Trash2,
+  Package,
+  Clock,
+  ArrowRightLeft,
+  MoreVertical,
+  X,
+  ChevronRight,
+  Settings,
+  Plus,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 interface ProductsAdvancedTableProps {
@@ -127,47 +145,48 @@ export function ProductsAdvancedTable({
 
   // Custom detail panel renderer - PROPER InFlow/Zoho style
   const renderDetail = (product: ProductWithDetails) => (
-    <div className="flex h-full flex-col bg-white">
-      {/* Header with product name and actions */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
-        <div className="flex gap-2">
-          {onEdit && (
-            <Button variant="outline" size="sm" onClick={() => onEdit(product)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          )}
-          {onDelete && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-red-600 hover:text-red-700"
-              onClick={() => onDelete(product)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* SKU and Returnable badge */}
-      <div className="border-b px-6 py-3">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span className="font-medium">SKU</span>
-          <span>{product.sku || "—"}</span>
+    <div className="flex h-full flex-col">
+      {/* Header - Product name with badges and actions */}
+      <div className="flex items-center justify-between border-b bg-white px-6 py-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
           {product.returnable_item && (
-            <Badge variant="outline" className="ml-2">
+            <Badge variant="outline" className="text-xs">
               Returnable Item
             </Badge>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          {onEdit && (
+            <Button variant="ghost" size="icon" onClick={() => onEdit(product)}>
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
+              {onDelete && (
+                <DropdownMenuItem className="text-red-600" onClick={() => onDelete(product)}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="ghost" size="icon">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Tabs - InFlow rounded pill style */}
-      <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden">
-        <div className="border-b px-6 pt-4">
+      <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden bg-white">
+        <div className="border-b px-6 py-3">
           <TabsList className="h-auto rounded-full bg-transparent p-0">
             <TabsTrigger
               value="overview"
@@ -191,10 +210,11 @@ export function ProductsAdvancedTable({
         </div>
 
         {/* Overview Tab - InFlow layout with image and 2-column grid */}
-        <TabsContent value="overview" className="flex-1 overflow-auto p-6">
+        <TabsContent value="overview" className="flex-1 overflow-auto bg-white p-6">
           <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-            {/* Left: Product Image */}
-            <div className="flex flex-col gap-4">
+            {/* Left Column: Image + Brand + Manufacturer + Description */}
+            <div className="space-y-4">
+              {/* Product Image */}
               <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed bg-muted/30">
                 <div className="text-center">
                   <Package className="mx-auto mb-2 h-12 w-12 text-muted-foreground/50" />
@@ -207,16 +227,50 @@ export function ProductsAdvancedTable({
                   </p>
                 </div>
               </div>
+
+              {/* Brand */}
+              {product.brand && (
+                <div>
+                  <div className="mb-1 text-xs font-medium text-muted-foreground">Brand</div>
+                  <div className="text-sm">{product.brand}</div>
+                </div>
+              )}
+
+              {/* Manufacturer */}
+              {product.manufacturer && (
+                <div>
+                  <div className="mb-1 text-xs font-medium text-muted-foreground">Manufacturer</div>
+                  <div className="text-sm">{product.manufacturer}</div>
+                </div>
+              )}
+
+              {/* Description */}
+              <div>
+                <div className="mb-2 text-xs font-medium text-muted-foreground">Description</div>
+                <Textarea
+                  value={product.description || ""}
+                  readOnly
+                  className="min-h-[100px] resize-none text-sm"
+                  placeholder="No description"
+                />
+              </div>
             </div>
 
-            {/* Right: Product Information in 2-column grid like InFlow */}
-            <div className="space-y-8">
-              {/* Description */}
-              {product.description && (
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {product.description}
-                </p>
-              )}
+            {/* Right Column: Product Information */}
+            <div className="space-y-6">
+              {/* Category Breadcrumbs at top */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <span>Electronics</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span>Components</span>
+                  <ChevronRight className="h-3 w-3" />
+                  <span className="text-foreground">Resistors</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Settings className="h-3 w-3" />
+                </Button>
+              </div>
 
               {/* Product Information - 2 columns side by side like InFlow */}
               <div className="grid grid-cols-2 gap-x-12 gap-y-4">
@@ -227,26 +281,33 @@ export function ProductsAdvancedTable({
                     <div className="text-sm">{product.sku || "—"}</div>
                   </div>
 
-                  {product.barcodes && product.barcodes.length > 0 && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">Barcode</div>
-                      <div className="space-y-1">
-                        {product.barcodes.map((barcode, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-sm">
-                            <code className="font-mono">{barcode.barcode}</code>
-                            {barcode.is_primary && (
-                              <Badge variant="outline" className="text-xs">
-                                Primary
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      <button className="mt-1 text-xs text-[#0066CC] hover:underline">
-                        Manage barcodes
+                  <div>
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">Barcode</div>
+                    {product.barcodes && product.barcodes.length > 0 ? (
+                      <>
+                        <div className="space-y-1">
+                          {product.barcodes.map((barcode, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <code className="font-mono">{barcode.barcode}</code>
+                              {barcode.is_primary && (
+                                <Badge variant="outline" className="text-xs">
+                                  Primary
+                                </Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <button className="mt-1 text-xs text-[#0066CC] hover:underline">
+                          Manage barcodes
+                        </button>
+                      </>
+                    ) : (
+                      <button className="mt-1 flex items-center gap-1 text-xs text-[#0066CC] hover:underline">
+                        <Plus className="h-3 w-3" />
+                        Add barcode
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {product.dimensions_length && (
                     <div>
@@ -271,22 +332,6 @@ export function ProductsAdvancedTable({
 
                 {/* Column 2 */}
                 <div className="space-y-4">
-                  {product.brand && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">Brand</div>
-                      <div className="text-sm">{product.brand}</div>
-                    </div>
-                  )}
-
-                  {product.manufacturer && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">
-                        Manufacturer
-                      </div>
-                      <div className="text-sm">{product.manufacturer}</div>
-                    </div>
-                  )}
-
                   {product.upc && (
                     <div>
                       <div className="mb-1 text-xs font-medium text-muted-foreground">UPC</div>
@@ -307,15 +352,48 @@ export function ProductsAdvancedTable({
                       <div className="text-sm">{product.mpn}</div>
                     </div>
                   )}
+
+                  {product.isbn && (
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">ISBN</div>
+                      <div className="text-sm">{product.isbn}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Quantity on hand - Big blue InFlow style */}
+              {/* Quantity Cards - 2x2 Grid with blue background */}
               {product.product_type === "goods" && product.track_inventory && (
-                <div className="rounded-lg bg-[#0066CC] p-6 text-white">
-                  <div className="mb-2 text-sm font-medium">Quantity on hand</div>
-                  <div className="text-4xl font-bold">{product.opening_stock || 0}</div>
-                  <div className="mt-1 text-sm opacity-90">{product.unit}</div>
+                <div className="rounded-lg bg-[#0066CC] p-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Quantity on hand */}
+                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                      <div className="mb-1 text-xs opacity-90">Qty</div>
+                      <div className="text-sm font-medium">To be Shipped</div>
+                      <div className="mt-2 text-3xl font-bold">{product.opening_stock || 0}</div>
+                    </div>
+
+                    {/* To be Received */}
+                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                      <div className="mb-1 text-xs opacity-90">Qty</div>
+                      <div className="text-sm font-medium">To be Received</div>
+                      <div className="mt-2 text-3xl font-bold">0</div>
+                    </div>
+
+                    {/* To be Invoiced */}
+                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                      <div className="mb-1 text-xs opacity-90">Qty</div>
+                      <div className="text-sm font-medium">To be Invoiced</div>
+                      <div className="mt-2 text-3xl font-bold">0</div>
+                    </div>
+
+                    {/* To be Billed */}
+                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                      <div className="mb-1 text-xs opacity-90">Qty</div>
+                      <div className="text-sm font-medium">To be Billed</div>
+                      <div className="mt-2 text-3xl font-bold">0</div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -338,22 +416,38 @@ export function ProductsAdvancedTable({
                 </div>
               </div>
 
-              {/* Additional inventory details */}
-              {product.product_type === "goods" &&
-                product.track_inventory &&
-                product.opening_stock_rate && (
-                  <div>
-                    <h3 className="mb-4 text-base font-semibold">Inventory Details</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Opening Stock Rate</span>
-                        <span className="text-sm font-medium">
-                          {product.opening_stock_rate.toFixed(2)} PLN
-                        </span>
-                      </div>
+              {/* Reorder Settings */}
+              {product.product_type === "goods" && product.track_inventory && (
+                <div>
+                  <h3 className="mb-4 text-base font-semibold">Reorder Settings</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Reorder Point</span>
+                      <span className="text-sm font-medium">
+                        {product.reorder_point || 0} {product.unit}
+                      </span>
                     </div>
+                    {product.reorder_point && product.opening_stock && (
+                      <div className="rounded-lg bg-amber-50 p-3">
+                        <div className="text-sm text-amber-900">
+                          {product.opening_stock < product.reorder_point ? (
+                            <>
+                              <span className="font-semibold">Reorder needed:</span> Order at least{" "}
+                              {product.reorder_point - product.opening_stock} {product.unit} to
+                              reach reorder point
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-semibold">Stock level OK:</span> Current stock
+                              is above reorder point
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
