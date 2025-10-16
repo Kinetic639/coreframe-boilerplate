@@ -35,7 +35,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
-import type { CreateProductFormData, ProductWithDetails } from "@/modules/warehouse/types/products";
+import type {
+  CreateProductFormData,
+  UpdateProductFormData,
+  ProductWithDetails,
+} from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 
@@ -129,8 +133,14 @@ export function CreateProductDialog({
   // Populate form when editing
   React.useEffect(() => {
     if (product && open) {
+      // Only allow editing goods and service products (not item_group)
+      const product_type =
+        product.product_type === "goods" || product.product_type === "service"
+          ? product.product_type
+          : "goods";
+
       form.reset({
-        product_type: product.product_type,
+        product_type,
         name: product.name,
         sku: product.sku || "",
         description: product.description || "",
@@ -216,7 +226,11 @@ export function CreateProductDialog({
 
       if (isEditMode && product) {
         // Update existing product
-        await productsService.updateProduct(product.id, productData);
+        const updateData: UpdateProductFormData = {
+          id: product.id,
+          ...productData,
+        };
+        await productsService.updateProduct(product.id, updateData);
         toast.success(t("messages.updateSuccess"));
       } else {
         // Create new product
