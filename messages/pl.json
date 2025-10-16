@@ -1178,7 +1178,9 @@
       "label": "Typ Produktu",
       "goods": "Towary",
       "service": "Usługa",
-      "itemGroup": "Grupa Produktów"
+      "itemGroup": "Grupa Produktów",
+      "goodsDescription": "Fizyczne towary magazynowe",
+      "serviceDescription": "Usługi lub produkty niefizyczne"
     },
     "basicInfo": {
       "title": "Podstawowe Informacje",
@@ -1282,6 +1284,11 @@
       "deleteError": "Nie udało się usunąć produktu"
     },
     "tabs": {
+      "basic": "Podstawowe",
+      "sales": "Sprzedaż",
+      "purchase": "Zakup",
+      "inventory": "Magazyn",
+      "additional": "Dodatkowe",
       "overview": "Przegląd",
       "vendors": "Dostawcy Produktu",
       "orderHistory": "Historia Zamówień",
@@ -1300,6 +1307,15 @@
       "search": "Szukaj produktów...",
       "filterBy": "Filtruj według",
       "sortBy": "Sortuj według"
+    },
+    "pricing": {
+      "title": "Ceny"
+    },
+    "yes": "Tak",
+    "no": "Nie",
+    "noProductsFound": "Nie znaleziono produktów",
+    "barcodes": {
+      "primary": "Główny"
     }
   }
 }

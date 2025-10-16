@@ -306,7 +306,7 @@ export function CreateProductDialog({
                           <label htmlFor="goods" className="flex cursor-pointer flex-col gap-2">
                             <span className="font-semibold">{t("productType.goods")}</span>
                             <span className="text-sm text-muted-foreground">
-                              Physical inventory items
+                              {t("productType.goodsDescription")}
                             </span>
                           </label>
                         </CardContent>
@@ -317,7 +317,7 @@ export function CreateProductDialog({
                           <label htmlFor="service" className="flex cursor-pointer flex-col gap-2">
                             <span className="font-semibold">{t("productType.service")}</span>
                             <span className="text-sm text-muted-foreground">
-                              Services or non-physical items
+                              {t("productType.serviceDescription")}
                             </span>
                           </label>
                         </CardContent>

@@ -1223,7 +1223,9 @@
       "label": "Product Type",
       "goods": "Goods",
       "service": "Service",
-      "itemGroup": "Item Group"
+      "itemGroup": "Item Group",
+      "goodsDescription": "Physical inventory items",
+      "serviceDescription": "Services or non-physical items"
     },
     "basicInfo": {
       "title": "Basic Information",
@@ -1331,6 +1333,11 @@
       "deleteError": "Failed to delete product"
     },
     "tabs": {
+      "basic": "Basic",
+      "sales": "Sales",
+      "purchase": "Purchase",
+      "inventory": "Inventory",
+      "additional": "Additional",
       "overview": "Overview",
       "vendors": "Product Vendors",
       "orderHistory": "Order History",
@@ -1349,6 +1356,15 @@
       "search": "Search products...",
       "filterBy": "Filter by",
       "sortBy": "Sort by"
+    },
+    "pricing": {
+      "title": "Pricing"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "noProductsFound": "No products found",
+    "barcodes": {
+      "primary": "Primary"
     }
   }
 }
