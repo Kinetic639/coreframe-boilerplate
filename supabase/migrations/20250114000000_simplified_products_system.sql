@@ -43,10 +43,12 @@ CREATE TABLE IF NOT EXISTS variant_option_groups (
   display_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(organization_id, name) WHERE deleted_at IS NULL
+  deleted_at TIMESTAMPTZ
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS variant_option_groups_org_name_unique
+  ON variant_option_groups(organization_id, name)
+  WHERE deleted_at IS NULL;
 
 -- Variant Option Values (belongs to option groups)
 CREATE TABLE IF NOT EXISTS variant_option_values (
@@ -56,10 +58,12 @@ CREATE TABLE IF NOT EXISTS variant_option_values (
   display_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(option_group_id, value) WHERE deleted_at IS NULL
+  deleted_at TIMESTAMPTZ
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS variant_option_values_group_value_unique
+  ON variant_option_values(option_group_id, value)
+  WHERE deleted_at IS NULL;
 
 -- Main Products Table (individual products OR item groups)
 CREATE TABLE products (
@@ -127,12 +131,51 @@ CREATE TABLE products (
   deleted_at TIMESTAMPTZ,
 
   -- Constraints
-  UNIQUE(organization_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL,
   CHECK (
     (product_type IN ('goods', 'service') AND sku IS NOT NULL) OR
     (product_type = 'item_group' AND sku IS NULL)
   )
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS products_org_sku_unique
+  ON products(organization_id, sku)
+  WHERE sku IS NOT NULL AND deleted_at IS NULL;
+
+-- Product Variants (only for item_group products)
+CREATE TABLE product_variants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+
+  -- Generated Info
+  name TEXT NOT NULL, -- e.g., "Red - Large"
+  sku VARCHAR(100) NOT NULL,
+
+  -- Override prices (optional, inherits from parent if null)
+  selling_price NUMERIC,
+  cost_price NUMERIC,
+  reorder_point NUMERIC,
+
+  -- Identifiers
+  upc VARCHAR(20),
+  ean VARCHAR(20),
+  isbn VARCHAR(20),
+
+  -- Status
+  is_active BOOLEAN DEFAULT true,
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS product_variants_sku_unique
+  ON product_variants(sku)
+  WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS product_variants_product_name_unique
+  ON product_variants(product_id, name)
+  WHERE deleted_at IS NULL;
 
 -- Product Barcodes (multi-barcode support like InFlow)
 CREATE TABLE product_barcodes (
@@ -160,10 +203,12 @@ CREATE TABLE product_custom_field_definitions (
   display_order INT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(organization_id, field_name) WHERE deleted_at IS NULL
+  deleted_at TIMESTAMPTZ
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS product_custom_field_definitions_org_name_unique
+  ON product_custom_field_definitions(organization_id, field_name)
+  WHERE deleted_at IS NULL;
 
 -- Product Custom Field Values (per product/variant)
 CREATE TABLE product_custom_field_values (
@@ -178,44 +223,19 @@ CREATE TABLE product_custom_field_values (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
 
-  UNIQUE(product_id, field_definition_id) WHERE product_id IS NOT NULL,
-  UNIQUE(variant_id, field_definition_id) WHERE variant_id IS NOT NULL,
   CHECK (
     (product_id IS NOT NULL AND variant_id IS NULL) OR
     (product_id IS NULL AND variant_id IS NOT NULL)
   )
 );
 
--- Product Variants (only for item_group products)
-CREATE TABLE product_variants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+CREATE UNIQUE INDEX IF NOT EXISTS product_custom_field_values_product_field_unique
+  ON product_custom_field_values(product_id, field_definition_id)
+  WHERE product_id IS NOT NULL;
 
-  -- Generated Info
-  name TEXT NOT NULL, -- e.g., "Red - Large"
-  sku VARCHAR(100) NOT NULL,
-
-  -- Override prices (optional, inherits from parent if null)
-  selling_price NUMERIC,
-  cost_price NUMERIC,
-  reorder_point NUMERIC,
-
-  -- Identifiers
-  upc VARCHAR(20),
-  ean VARCHAR(20),
-  isbn VARCHAR(20),
-
-  -- Status
-  is_active BOOLEAN DEFAULT true,
-
-  -- Timestamps
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  deleted_at TIMESTAMPTZ,
-
-  UNIQUE(sku) WHERE deleted_at IS NULL,
-  UNIQUE(product_id, name) WHERE deleted_at IS NULL
-);
+CREATE UNIQUE INDEX IF NOT EXISTS product_custom_field_values_variant_field_unique
+  ON product_custom_field_values(variant_id, field_definition_id)
+  WHERE variant_id IS NOT NULL;
 
 -- Product Group Configuration (which variant options are used)
 CREATE TABLE product_group_attributes (
@@ -262,41 +282,41 @@ CREATE TABLE product_images (
 -- ============================================
 
 -- Product indexes
-CREATE INDEX idx_products_org ON products(organization_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_products_type ON products(product_type) WHERE deleted_at IS NULL;
-CREATE INDEX idx_products_category ON products(category_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_products_sku ON products(sku) WHERE sku IS NOT NULL AND deleted_at IS NULL;
-CREATE INDEX idx_products_status ON products(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_products_vendor ON products(preferred_vendor_id) WHERE preferred_vendor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_org ON products(organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_type ON products(product_type) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku) WHERE sku IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_status ON products(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_products_vendor ON products(preferred_vendor_id) WHERE preferred_vendor_id IS NOT NULL;
 
 -- Barcode indexes
-CREATE INDEX idx_product_barcodes_product ON product_barcodes(product_id);
-CREATE INDEX idx_product_barcodes_variant ON product_barcodes(variant_id);
-CREATE INDEX idx_product_barcodes_barcode ON product_barcodes(barcode);
+CREATE INDEX IF NOT EXISTS idx_product_barcodes_product ON product_barcodes(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_barcodes_variant ON product_barcodes(variant_id);
+CREATE INDEX IF NOT EXISTS idx_product_barcodes_barcode ON product_barcodes(barcode);
 
 -- Custom field indexes
-CREATE INDEX idx_custom_field_defs_org ON product_custom_field_definitions(organization_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_custom_field_values_product ON product_custom_field_values(product_id);
-CREATE INDEX idx_custom_field_values_variant ON product_custom_field_values(variant_id);
+CREATE INDEX IF NOT EXISTS idx_custom_field_defs_org ON product_custom_field_definitions(organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_custom_field_values_product ON product_custom_field_values(product_id);
+CREATE INDEX IF NOT EXISTS idx_custom_field_values_variant ON product_custom_field_values(variant_id);
 
 -- Variant indexes
-CREATE INDEX idx_product_variants_product ON product_variants(product_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_product_variants_sku ON product_variants(sku) WHERE deleted_at IS NULL;
-CREATE INDEX idx_product_variants_active ON product_variants(is_active) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_variants_sku ON product_variants(sku) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_variants_active ON product_variants(is_active) WHERE deleted_at IS NULL;
 
 -- Variant option indexes
-CREATE INDEX idx_variant_option_groups_org ON variant_option_groups(organization_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_variant_option_values_group ON variant_option_values(option_group_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_product_group_attrs_product ON product_group_attributes(product_id);
-CREATE INDEX idx_variant_attr_values_variant ON variant_attribute_values(variant_id);
+CREATE INDEX IF NOT EXISTS idx_variant_option_groups_org ON variant_option_groups(organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_variant_option_values_group ON variant_option_values(option_group_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_group_attrs_product ON product_group_attributes(product_id);
+CREATE INDEX IF NOT EXISTS idx_variant_attr_values_variant ON variant_attribute_values(variant_id);
 
 -- Category indexes
-CREATE INDEX idx_product_categories_org ON product_categories(organization_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_product_categories_parent ON product_categories(parent_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_categories_org ON product_categories(organization_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_product_categories_parent ON product_categories(parent_id) WHERE deleted_at IS NULL;
 
 -- Image indexes
-CREATE INDEX idx_product_images_product ON product_images(product_id);
-CREATE INDEX idx_product_images_variant ON product_images(variant_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_images_variant ON product_images(variant_id);
 
 -- ============================================
 -- STEP 4: RLS DISABLED (Will be enabled later)
@@ -317,37 +337,37 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply triggers
-CREATE TRIGGER update_products_updated_at
+CREATE OR REPLACE TRIGGER update_products_updated_at
   BEFORE UPDATE ON products
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_product_variants_updated_at
+CREATE OR REPLACE TRIGGER update_product_variants_updated_at
   BEFORE UPDATE ON product_variants
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_variant_option_groups_updated_at
+CREATE OR REPLACE TRIGGER update_variant_option_groups_updated_at
   BEFORE UPDATE ON variant_option_groups
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_variant_option_values_updated_at
+CREATE OR REPLACE TRIGGER update_variant_option_values_updated_at
   BEFORE UPDATE ON variant_option_values
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_product_categories_updated_at
+CREATE OR REPLACE TRIGGER update_product_categories_updated_at
   BEFORE UPDATE ON product_categories
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_custom_field_defs_updated_at
+CREATE OR REPLACE TRIGGER update_custom_field_defs_updated_at
   BEFORE UPDATE ON product_custom_field_definitions
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_custom_field_values_updated_at
+CREATE OR REPLACE TRIGGER update_custom_field_values_updated_at
   BEFORE UPDATE ON product_custom_field_values
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
