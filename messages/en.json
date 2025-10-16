@@ -1160,5 +1160,135 @@
         }
       }
     }
+  },
+  "productsModule": {
+    "title": "Products",
+    "description": "Manage your product catalog",
+    "createProduct": "Create Product",
+    "createProductGroup": "Create Product Group",
+    "editProduct": "Edit Product",
+    "deleteProduct": "Delete Product",
+    "productType": {
+      "label": "Product Type",
+      "goods": "Goods",
+      "service": "Service",
+      "itemGroup": "Item Group"
+    },
+    "basicInfo": {
+      "title": "Basic Information",
+      "name": "Name",
+      "namePlaceholder": "Enter product name",
+      "sku": "SKU",
+      "skuPlaceholder": "Enter SKU",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter product description",
+      "category": "Category",
+      "categoryPlaceholder": "Select category",
+      "brand": "Brand",
+      "brandPlaceholder": "Enter brand",
+      "manufacturer": "Manufacturer",
+      "manufacturerPlaceholder": "Enter manufacturer",
+      "unit": "Unit",
+      "unitPlaceholder": "Select unit",
+      "returnableItem": "Returnable Item"
+    },
+    "measurements": {
+      "title": "Measurements",
+      "dimensions": "Dimensions (L × W × H)",
+      "length": "Length",
+      "width": "Width",
+      "height": "Height",
+      "weight": "Weight",
+      "dimensionsUnit": "cm",
+      "weightUnit": "kg"
+    },
+    "identifiers": {
+      "title": "Identifiers",
+      "upc": "UPC",
+      "ean": "EAN",
+      "isbn": "ISBN",
+      "mpn": "MPN"
+    },
+    "salesInfo": {
+      "title": "Sales Information",
+      "sellingPrice": "Selling Price",
+      "salesAccount": "Sales Account",
+      "salesDescription": "Sales Description"
+    },
+    "purchaseInfo": {
+      "title": "Purchase Information",
+      "costPrice": "Cost Price",
+      "purchaseAccount": "Purchase Account",
+      "purchaseDescription": "Purchase Description",
+      "preferredVendor": "Preferred Vendor"
+    },
+    "inventorySettings": {
+      "title": "Inventory Settings",
+      "trackInventory": "Track Inventory",
+      "inventoryAccount": "Inventory Account",
+      "reorderPoint": "Reorder Point",
+      "reorderPointHelp": "Set to 0 to disable low stock notifications",
+      "openingStock": "Opening Stock",
+      "openingStockRate": "Opening Stock Rate"
+    },
+    "barcodes": {
+      "title": "Barcodes",
+      "manageBarcodes": "Manage Barcodes",
+      "addBarcode": "Add Barcode",
+      "defaultBarcode": "Default barcode",
+      "isPrimary": "Primary",
+      "helpText": "The default barcode is synced with e-commerce integrations and used for label printing."
+    },
+    "customFields": {
+      "title": "Custom Fields",
+      "manageCustomFields": "Manage Custom Fields",
+      "addField": "Add Field",
+      "fieldName": "Field Name",
+      "fieldType": "Field Type",
+      "fieldValue": "Value",
+      "types": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "dropdown": "Dropdown",
+        "checkbox": "Checkbox"
+      }
+    },
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "archive": "Archive"
+    },
+    "messages": {
+      "createSuccess": "Product created successfully",
+      "updateSuccess": "Product updated successfully",
+      "deleteSuccess": "Product deleted successfully",
+      "createError": "Failed to create product",
+      "updateError": "Failed to update product",
+      "deleteError": "Failed to delete product"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "vendors": "Product Vendors",
+      "orderHistory": "Order History",
+      "movementHistory": "Movement History"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "archived": "Archived"
+    },
+    "filters": {
+      "all": "All Products",
+      "goods": "Goods",
+      "services": "Services",
+      "itemGroups": "Item Groups",
+      "search": "Search products...",
+      "filterBy": "Filter by",
+      "sortBy": "Sort by"
+    }
   }
 }
