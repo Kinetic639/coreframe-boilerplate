@@ -736,6 +736,57 @@
             "title": "Ustawienia inwentarza",
             "description": "Powody korekt i opcje inwentarza",
             "adjustmentReasons": "Powody korekt"
+          },
+          "variantOptions": {
+            "title": "Grupy opcji wariantów",
+            "description": "Zarządzaj grupami opcji dla wariantów produktów",
+            "loading": "Ładowanie...",
+            "empty": "Brak grup opcji wariantów",
+            "confirmDelete": "Czy na pewno chcesz usunąć \"{name}\"?",
+            "table": {
+              "name": "Nazwa",
+              "description": "Opis",
+              "values": "Wartości",
+              "actions": "Akcje"
+            },
+            "actions": {
+              "edit": "Edytuj (wkrótce)",
+              "delete": "Usuń"
+            },
+            "values": {
+              "title": "Wartości",
+              "empty": "Brak wartości",
+              "addValue": "Dodaj wartość",
+              "valuePlaceholder": "Wpisz wartość"
+            },
+            "form": {
+              "groupName": "Nazwa grupy",
+              "groupNamePlaceholder": "np. Rozmiar, Kolor, Wymiary",
+              "description": "Opis",
+              "descriptionPlaceholder": "Opcjonalny opis",
+              "add": "Dodaj",
+              "quickPick": "Szybki wybór"
+            },
+            "quickPick": {
+              "title": "Szybki wybór grup opcji",
+              "description": "Wybierz z popularnych grup opcji",
+              "language": "Język",
+              "valuesCount": "wartości",
+              "done": "Gotowe"
+            },
+            "errors": {
+              "loadFailed": "Nie udało się załadować grup opcji wariantów",
+              "createFailed": "Nie udało się utworzyć grupy opcji wariantów",
+              "deleteFailed": "Nie udało się usunąć grupy opcji wariantów",
+              "addValueFailed": "Nie udało się dodać wartości",
+              "deleteValueFailed": "Nie udało się usunąć wartości"
+            },
+            "success": {
+              "groupCreated": "Grupa opcji wariantów została utworzona pomyślnie",
+              "groupDeleted": "Grupa opcji wariantów została usunięta pomyślnie",
+              "valueAdded": "Wartość została dodana pomyślnie",
+              "valueDeleted": "Wartość została usunięta pomyślnie"
+            }
           }
         },
         "products": {

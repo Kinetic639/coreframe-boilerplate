@@ -781,6 +781,57 @@
             "title": "Inventory Settings",
             "description": "Adjustment reasons and inventory options",
             "adjustmentReasons": "Adjustment Reasons"
+          },
+          "variantOptions": {
+            "title": "Variant Option Groups",
+            "description": "Manage option groups for product variants",
+            "loading": "Loading...",
+            "empty": "No variant option groups yet",
+            "confirmDelete": "Are you sure you want to delete \"{name}\"?",
+            "table": {
+              "name": "Name",
+              "description": "Description",
+              "values": "Values",
+              "actions": "Actions"
+            },
+            "actions": {
+              "edit": "Edit (coming soon)",
+              "delete": "Delete"
+            },
+            "values": {
+              "title": "Values",
+              "empty": "No values yet",
+              "addValue": "Add value",
+              "valuePlaceholder": "Enter value"
+            },
+            "form": {
+              "groupName": "Group Name",
+              "groupNamePlaceholder": "e.g., Size, Color, Dimensions",
+              "description": "Description",
+              "descriptionPlaceholder": "Optional description",
+              "add": "Add",
+              "quickPick": "Quick Pick"
+            },
+            "quickPick": {
+              "title": "Quick Pick Option Groups",
+              "description": "Select from common option groups",
+              "language": "Language",
+              "valuesCount": "values",
+              "done": "Done"
+            },
+            "errors": {
+              "loadFailed": "Failed to load variant option groups",
+              "createFailed": "Failed to create variant option group",
+              "deleteFailed": "Failed to delete variant option group",
+              "addValueFailed": "Failed to add value",
+              "deleteValueFailed": "Failed to delete value"
+            },
+            "success": {
+              "groupCreated": "Variant option group created successfully",
+              "groupDeleted": "Variant option group deleted successfully",
+              "valueAdded": "Value added successfully",
+              "valueDeleted": "Value deleted successfully"
+            }
           }
         },
         "products": {
