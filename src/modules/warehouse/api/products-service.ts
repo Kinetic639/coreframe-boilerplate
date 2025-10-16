@@ -301,6 +301,30 @@ class ProductsService {
       throw new Error(`Failed to update product: ${error.message}`);
     }
 
+    // Update barcodes if provided
+    if (data.barcodes !== undefined) {
+      // Delete existing barcodes for this product
+      await this.supabase.from("product_barcodes").delete().eq("product_id", productId);
+
+      // Insert new barcodes
+      if (data.barcodes.length > 0) {
+        const barcodeInserts = data.barcodes.map((b) => ({
+          product_id: productId,
+          barcode: b.barcode,
+          is_primary: b.is_primary,
+        }));
+
+        const { error: barcodeError } = await this.supabase
+          .from("product_barcodes")
+          .insert(barcodeInserts);
+
+        if (barcodeError) {
+          console.error("Failed to update barcodes:", barcodeError);
+          throw new Error(`Failed to update barcodes: ${barcodeError.message}`);
+        }
+      }
+    }
+
     // Fetch and return the complete product
     const updatedProduct = await this.getProductById(productId);
     if (!updatedProduct) {
