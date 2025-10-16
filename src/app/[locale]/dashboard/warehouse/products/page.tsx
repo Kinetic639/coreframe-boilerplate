@@ -9,21 +9,34 @@ import { Button } from "@/components/ui/button";
 import { Plus, LayoutGrid, List, Table as TableIcon } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProductFilters } from "@/modules/warehouse/products/components/product-filters";
-import { ProductCard } from "@/modules/warehouse/products/components/product-card";
-import { ProductList } from "@/modules/warehouse/products/components/product-list";
-import { ProductTable } from "@/modules/warehouse/products/components/product-table";
-import { flexibleProductService } from "@/modules/warehouse/api/flexible-products";
-import type { ProductWithDetails } from "@/modules/warehouse/types/flexible-products";
+import { SimpleProductCard } from "@/modules/warehouse/products/components/simple-product-card";
+import { SimpleProductList } from "@/modules/warehouse/products/components/simple-product-list";
+import { SimpleProductTable } from "@/modules/warehouse/products/components/simple-product-table";
+import { CreateProductDialog } from "@/modules/warehouse/products/components/create-product-dialog";
+import { productsService } from "@/modules/warehouse/api/products-service";
+import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 type DisplayMode = "grid" | "list" | "table";
 
+interface ProductFiltersState {
+  search?: string;
+  product_type?: string[];
+  status?: string[];
+  category_id?: string[];
+  brand?: string[];
+  manufacturer?: string[];
+  preferred_vendor_id?: string[];
+  min_price?: number;
+  max_price?: number;
+}
+
 export default function ProductsPage() {
-  const router = useRouter();
-  const { activeBranchId, isLoaded } = useAppStore();
+  const { activeOrgId, isLoaded } = useAppStore();
   const [displayMode, setDisplayMode] = React.useState<DisplayMode>("grid");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
 
   // Product data state
   const [products, setProducts] = React.useState<ProductWithDetails[]>([]);
@@ -37,11 +50,10 @@ export default function ProductsPage() {
 
   // Filter state
   const searchParams = useSearchParams();
-  const [currentFilters, setCurrentFilters] = React.useState<any>({});
+  const [currentFilters, setCurrentFilters] = React.useState<ProductFiltersState>({});
 
   const handleAddNew = () => {
-    // Redirect to templates page for template-based product creation
-    router.push("/dashboard/warehouse/products/templates");
+    setIsCreateDialogOpen(true);
   };
 
   // const handleAddNewOld = () => {
@@ -51,7 +63,7 @@ export default function ProductsPage() {
 
   // Load products from Supabase
   const loadProducts = React.useCallback(async () => {
-    if (!activeBranchId || !isLoaded) return;
+    if (!activeOrgId || !isLoaded) return;
 
     setLoading(true);
     setError(null);
@@ -59,14 +71,21 @@ export default function ProductsPage() {
     try {
       const filters = {
         search: currentFilters.search,
-        branch_id: activeBranchId,
+        product_type: currentFilters.product_type,
+        status: currentFilters.status,
+        category_id: currentFilters.category_id,
+        brand: currentFilters.brand,
+        manufacturer: currentFilters.manufacturer,
+        preferred_vendor_id: currentFilters.preferred_vendor_id,
+        min_price: currentFilters.min_price,
+        max_price: currentFilters.max_price,
         limit: itemsPerPage,
         offset: (currentPage - 1) * itemsPerPage,
       };
 
-      const result = await flexibleProductService.searchProducts(filters);
+      const result = await productsService.getProducts(activeOrgId, filters);
       setProducts(result.products);
-      setTotalProducts(result.total);
+      setTotalProducts(result.total_count);
     } catch (err) {
       console.error("Error loading products:", err);
       setError("Błąd podczas ładowania produktów");
@@ -74,7 +93,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeBranchId, isLoaded, currentFilters, currentPage, itemsPerPage]);
+  }, [activeOrgId, isLoaded, currentFilters, currentPage, itemsPerPage]);
 
   // Load products when dependencies change
   React.useEffect(() => {
@@ -113,6 +132,13 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Create Product Dialog */}
+      <CreateProductDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onSuccess={loadProducts}
+      />
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -217,18 +243,18 @@ export default function ProductsPage() {
                   {displayMode === "grid" && (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {products.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <SimpleProductCard key={product.id} product={product} />
                       ))}
                     </div>
                   )}
                   {displayMode === "list" && (
                     <div className="space-y-4">
                       {products.map((product) => (
-                        <ProductList key={product.id} product={product} />
+                        <SimpleProductList key={product.id} product={product} />
                       ))}
                     </div>
                   )}
-                  {displayMode === "table" && <ProductTable products={products} />}
+                  {displayMode === "table" && <SimpleProductTable products={products} />}
                   {totalPages > 1 && (
                     <PaginationControls
                       currentPage={currentPage}

@@ -1115,5 +1115,135 @@
         }
       }
     }
+  },
+  "productsModule": {
+    "title": "Produkty",
+    "description": "Zarządzaj katalogiem produktów",
+    "createProduct": "Utwórz Produkt",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProduct": "Edytuj Produkt",
+    "deleteProduct": "Usuń Produkt",
+    "productType": {
+      "label": "Typ Produktu",
+      "goods": "Towary",
+      "service": "Usługa",
+      "itemGroup": "Grupa Produktów"
+    },
+    "basicInfo": {
+      "title": "Podstawowe Informacje",
+      "name": "Nazwa",
+      "namePlaceholder": "Wprowadź nazwę produktu",
+      "sku": "SKU",
+      "skuPlaceholder": "Wprowadź SKU",
+      "description": "Opis",
+      "descriptionPlaceholder": "Wprowadź opis produktu",
+      "category": "Kategoria",
+      "categoryPlaceholder": "Wybierz kategorię",
+      "brand": "Marka",
+      "brandPlaceholder": "Wprowadź markę",
+      "manufacturer": "Producent",
+      "manufacturerPlaceholder": "Wprowadź producenta",
+      "unit": "Jednostka",
+      "unitPlaceholder": "Wybierz jednostkę",
+      "returnableItem": "Produkt Zwrotny"
+    },
+    "measurements": {
+      "title": "Wymiary",
+      "dimensions": "Wymiary (D × S × W)",
+      "length": "Długość",
+      "width": "Szerokość",
+      "height": "Wysokość",
+      "weight": "Waga",
+      "dimensionsUnit": "cm",
+      "weightUnit": "kg"
+    },
+    "identifiers": {
+      "title": "Identyfikatory",
+      "upc": "UPC",
+      "ean": "EAN",
+      "isbn": "ISBN",
+      "mpn": "MPN"
+    },
+    "salesInfo": {
+      "title": "Informacje Sprzedażowe",
+      "sellingPrice": "Cena Sprzedaży",
+      "salesAccount": "Konto Sprzedaży",
+      "salesDescription": "Opis Sprzedażowy"
+    },
+    "purchaseInfo": {
+      "title": "Informacje Zakupowe",
+      "costPrice": "Cena Zakupu",
+      "purchaseAccount": "Konto Zakupu",
+      "purchaseDescription": "Opis Zakupowy",
+      "preferredVendor": "Preferowany Dostawca"
+    },
+    "inventorySettings": {
+      "title": "Ustawienia Magazynowe",
+      "trackInventory": "Śledź Inwentarz",
+      "inventoryAccount": "Konto Magazynowe",
+      "reorderPoint": "Punkt Zamówienia",
+      "reorderPointHelp": "Ustaw na 0, aby wyłączyć powiadomienia o niskim stanie",
+      "openingStock": "Stan Początkowy",
+      "openingStockRate": "Stawka Stanu Początkowego"
+    },
+    "barcodes": {
+      "title": "Kody Kreskowe",
+      "manageBarcodes": "Zarządzaj Kodami Kreskowymi",
+      "addBarcode": "Dodaj Kod Kreskowy",
+      "defaultBarcode": "Domyślny kod kreskowy",
+      "isPrimary": "Główny",
+      "helpText": "Domyślny kod kreskowy jest synchronizowany z integracjami e-commerce i używany do drukowania etykiet."
+    },
+    "customFields": {
+      "title": "Pola Niestandardowe",
+      "manageCustomFields": "Zarządzaj Polami Niestandardowymi",
+      "addField": "Dodaj Pole",
+      "fieldName": "Nazwa Pola",
+      "fieldType": "Typ Pola",
+      "fieldValue": "Wartość",
+      "types": {
+        "text": "Tekst",
+        "number": "Liczba",
+        "date": "Data",
+        "dropdown": "Lista Rozwijana",
+        "checkbox": "Pole Wyboru"
+      }
+    },
+    "actions": {
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "edit": "Edytuj",
+      "duplicate": "Duplikuj",
+      "archive": "Archiwizuj"
+    },
+    "messages": {
+      "createSuccess": "Produkt utworzony pomyślnie",
+      "updateSuccess": "Produkt zaktualizowany pomyślnie",
+      "deleteSuccess": "Produkt usunięty pomyślnie",
+      "createError": "Nie udało się utworzyć produktu",
+      "updateError": "Nie udało się zaktualizować produktu",
+      "deleteError": "Nie udało się usunąć produktu"
+    },
+    "tabs": {
+      "overview": "Przegląd",
+      "vendors": "Dostawcy Produktu",
+      "orderHistory": "Historia Zamówień",
+      "movementHistory": "Historia Ruchów"
+    },
+    "status": {
+      "active": "Aktywny",
+      "inactive": "Nieaktywny",
+      "archived": "Zarchiwizowany"
+    },
+    "filters": {
+      "all": "Wszystkie Produkty",
+      "goods": "Towary",
+      "services": "Usługi",
+      "itemGroups": "Grupy Produktów",
+      "search": "Szukaj produktów...",
+      "filterBy": "Filtruj według",
+      "sortBy": "Sortuj według"
+    }
   }
 }
