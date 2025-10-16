@@ -1231,6 +1231,7 @@
       "namePlaceholder": "Enter product name",
       "sku": "SKU",
       "skuPlaceholder": "Enter SKU",
+      "skuDescription": "Leave empty to auto-generate",
       "description": "Description",
       "descriptionPlaceholder": "Enter product description",
       "category": "Category",
@@ -1241,7 +1242,10 @@
       "manufacturerPlaceholder": "Enter manufacturer",
       "unit": "Unit",
       "unitPlaceholder": "Select unit",
-      "returnableItem": "Returnable Item"
+      "returnableItem": "Returnable Item",
+      "returnableItemDescription": "Enable if this item can be returned by customers",
+      "productType": "Product Type",
+      "productTypeDescription": "Choose whether this is a physical good or a service"
     },
     "measurements": {
       "title": "Measurements",
@@ -1314,6 +1318,11 @@
       "archive": "Archive"
     },
     "messages": {
+      "nameRequired": "Product name is required",
+      "unitRequired": "Unit is required",
+      "organizationRequired": "Organization is required",
+      "productCreated": "Product created successfully",
+      "productCreationFailed": "Failed to create product",
       "createSuccess": "Product created successfully",
       "updateSuccess": "Product updated successfully",
       "deleteSuccess": "Product deleted successfully",

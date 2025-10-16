@@ -1269,6 +1269,11 @@
       "archive": "Archiwizuj"
     },
     "messages": {
+      "nameRequired": "Nazwa produktu jest wymagana",
+      "unitRequired": "Jednostka jest wymagana",
+      "organizationRequired": "Organizacja jest wymagana",
+      "productCreated": "Produkt utworzony pomyślnie",
+      "productCreationFailed": "Nie udało się utworzyć produktu",
       "createSuccess": "Produkt utworzony pomyślnie",
       "updateSuccess": "Produkt zaktualizowany pomyślnie",
       "deleteSuccess": "Produkt usunięty pomyślnie",
