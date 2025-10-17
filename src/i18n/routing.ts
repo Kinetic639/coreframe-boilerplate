@@ -71,6 +71,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/settings/variant-options",
       pl: "/dashboard/magazyn/ustawienia/grupy-opcji-wariantow",
     },
+    "/dashboard/warehouse/settings/custom-fields": {
+      en: "/dashboard/warehouse/settings/custom-fields",
+      pl: "/dashboard/magazyn/ustawienia/pola-niestandardowe",
+    },
     "/dashboard/warehouse/inventory": {
       en: "/dashboard/warehouse/inventory",
       pl: "/dashboard/magazyn/zapasy",
