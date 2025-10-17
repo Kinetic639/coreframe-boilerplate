@@ -13,7 +13,6 @@ export interface OptionGroupWithValues extends VariantOptionGroup {
 export interface CreateOptionGroupData {
   organization_id: string;
   name: string;
-  display_order?: number;
   values?: Array<{
     value: string;
     display_order?: number;
@@ -23,7 +22,6 @@ export interface CreateOptionGroupData {
 export interface UpdateOptionGroupData {
   id: string;
   name?: string;
-  display_order?: number;
 }
 
 // Form data for creating/updating option values
