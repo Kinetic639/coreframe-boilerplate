@@ -25,7 +25,7 @@ export class OptionGroupsService {
       )
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
-      .order("display_order", { ascending: true });
+      .order("name", { ascending: true });
 
     if (error) throw error;
 
@@ -71,7 +71,6 @@ export class OptionGroupsService {
       .insert({
         organization_id: groupData.organization_id,
         name: groupData.name,
-        display_order: groupData.display_order || 0,
       })
       .select()
       .single();
@@ -113,7 +112,6 @@ export class OptionGroupsService {
     const updateData: any = {};
 
     if (groupData.name !== undefined) updateData.name = groupData.name;
-    if (groupData.display_order !== undefined) updateData.display_order = groupData.display_order;
 
     const { error } = await this.supabase
       .from("variant_option_groups")
