@@ -26,6 +26,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -45,6 +46,10 @@ export function ProductsAdvancedTable({
   onAdd,
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
+  const [customFieldsProduct, setCustomFieldsProduct] = React.useState<ProductWithDetails | null>(
+    null
+  );
+  const [isCustomFieldsDialogOpen, setIsCustomFieldsDialogOpen] = React.useState(false);
 
   const columns: ColumnConfig<ProductWithDetails>[] = [
     {
@@ -448,6 +453,27 @@ export function ProductsAdvancedTable({
                   </div>
                 </div>
               )}
+
+              {/* Custom Fields */}
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-base font-semibold">Custom Fields</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCustomFieldsProduct(product);
+                      setIsCustomFieldsDialogOpen(true);
+                    }}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Manage
+                  </Button>
+                </div>
+                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  Click "Manage" to view and edit custom fields for this product
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -478,19 +504,29 @@ export function ProductsAdvancedTable({
   );
 
   return (
-    <AdvancedDataTable
-      data={products}
-      columns={columns}
-      loading={loading}
-      error={error}
-      emptyMessage={t("noProductsFound")}
-      getRowId={(row) => row.id}
-      renderDetail={renderDetail}
-      selectable={false}
-      showSearch={true}
-      searchPlaceholder={t("filters.search")}
-      responsive={true}
-      onAdd={onAdd}
-    />
+    <>
+      <AdvancedDataTable
+        data={products}
+        columns={columns}
+        loading={loading}
+        error={error}
+        emptyMessage={t("noProductsFound")}
+        getRowId={(row) => row.id}
+        renderDetail={renderDetail}
+        selectable={false}
+        showSearch={true}
+        searchPlaceholder={t("filters.search")}
+        responsive={true}
+        onAdd={onAdd}
+      />
+
+      {customFieldsProduct && (
+        <ManageCustomFieldsDialog
+          open={isCustomFieldsDialogOpen}
+          onOpenChange={setIsCustomFieldsDialogOpen}
+          product={customFieldsProduct}
+        />
+      )}
+    </>
   );
 }
