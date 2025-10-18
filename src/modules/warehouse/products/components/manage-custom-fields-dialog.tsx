@@ -9,12 +9,28 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
-import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/custom-fields";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
-import { CustomFieldsRenderer } from "./custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
+import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+
+interface CustomFieldConfig {
+  id: string;
+  field_name: string;
+  field_type: "text" | "checkbox" | "date" | "dropdown" | "number";
+  dropdown_options?: string[];
+}
 
 interface ManageCustomFieldsDialogProps {
   open: boolean;
@@ -26,22 +42,33 @@ interface ManageCustomFieldsDialogProps {
 export function ManageCustomFieldsDialog({
   open,
   onOpenChange,
-  product,
   onSave,
 }: ManageCustomFieldsDialogProps) {
   const { activeOrgId } = useAppStore();
-  const [customFields, setCustomFields] = React.useState<CustomFieldDefinitionWithValues[]>([]);
-  const [customFieldValues, setCustomFieldValues] = React.useState<Record<string, any>>({});
+  const [fields, setFields] = React.useState<CustomFieldConfig[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [expandedDropdowns, setExpandedDropdowns] = React.useState<Set<string>>(new Set());
+  const [showInactive, setShowInactive] = React.useState(false);
 
-  // Load custom fields when dialog opens
+  // Load existing custom field definitions for this product
   React.useEffect(() => {
     if (open && activeOrgId) {
       setLoading(true);
       customFieldsService
         .getFieldDefinitions(activeOrgId)
-        .then(setCustomFields)
+        .then((definitions) => {
+          const configs: CustomFieldConfig[] = definitions.map((def) => ({
+            id: def.id,
+            field_name: def.field_name,
+            field_type: def.field_type,
+            dropdown_options:
+              def.dropdown_options && typeof def.dropdown_options === "string"
+                ? JSON.parse(def.dropdown_options)
+                : def.dropdown_options || [],
+          }));
+          setFields(configs);
+        })
         .catch((error) => {
           console.error("Failed to load custom fields:", error);
           toast.error("Failed to load custom fields");
@@ -50,46 +77,94 @@ export function ManageCustomFieldsDialog({
     }
   }, [open, activeOrgId]);
 
-  // Load custom field values for the product
-  React.useEffect(() => {
-    if (open && product?.id) {
-      customFieldsService
-        .getProductFieldValues(product.id)
-        .then((values) => {
-          const valueMap: Record<string, any> = {};
-          values.forEach((v) => {
-            const value = v.value_text ?? v.value_boolean ?? v.value_date ?? v.value_number ?? null;
-            valueMap[v.field_definition_id] = value;
-          });
-          setCustomFieldValues(valueMap);
-        })
-        .catch((error) => {
-          console.error("Failed to load custom field values:", error);
-        });
+  const addField = () => {
+    const newField: CustomFieldConfig = {
+      id: `temp_${Date.now()}`,
+      field_name: "",
+      field_type: "text",
+      dropdown_options: [],
+    };
+    setFields((prev) => [...prev, newField]);
+  };
+
+  const removeField = (id: string) => {
+    setFields((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const updateField = (id: string, updates: Partial<CustomFieldConfig>) => {
+    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
+  };
+
+  const toggleDropdown = (id: string) => {
+    setExpandedDropdowns((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const addDropdownOption = (fieldId: string) => {
+    const field = fields.find((f) => f.id === fieldId);
+    if (field) {
+      updateField(fieldId, {
+        dropdown_options: [...(field.dropdown_options || []), ""],
+      });
     }
-  }, [open, product?.id]);
+  };
+
+  const updateDropdownOption = (fieldId: string, index: number, value: string) => {
+    const field = fields.find((f) => f.id === fieldId);
+    if (field && field.dropdown_options) {
+      const newOptions = [...field.dropdown_options];
+      newOptions[index] = value;
+      updateField(fieldId, { dropdown_options: newOptions });
+    }
+  };
+
+  const removeDropdownOption = (fieldId: string, index: number) => {
+    const field = fields.find((f) => f.id === fieldId);
+    if (field && field.dropdown_options) {
+      const newOptions = field.dropdown_options.filter((_, i) => i !== index);
+      updateField(fieldId, { dropdown_options: newOptions });
+    }
+  };
 
   const handleSave = async () => {
+    if (!activeOrgId) return;
+
     setSaving(true);
     try {
-      const savePromises = Object.entries(customFieldValues).map(([fieldId, value]) => {
-        if (value !== null && value !== undefined && value !== "") {
-          return customFieldsService.setFieldValue({
-            product_id: product.id,
-            field_definition_id: fieldId,
-            value,
+      // Delete old fields and create new ones
+      const existingFields = await customFieldsService.getFieldDefinitions(activeOrgId);
+
+      // Delete all existing fields
+      for (const field of existingFields) {
+        await customFieldsService.deleteFieldDefinition(field.id);
+      }
+
+      // Create new fields
+      for (const field of fields) {
+        if (field.field_name.trim()) {
+          await customFieldsService.createFieldDefinition({
+            organization_id: activeOrgId,
+            field_name: field.field_name,
+            field_type: field.field_type,
+            dropdown_options: field.dropdown_options,
           });
         }
-        return Promise.resolve();
-      });
-      await Promise.all(savePromises);
-      toast.success("Custom fields saved successfully");
+      }
+
+      toast.success("Custom fields updated successfully");
       if (onSave) {
         await onSave();
       }
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to save custom field values:", error);
+      console.error("Failed to save custom fields:", error);
       toast.error("Failed to save custom fields");
     } finally {
       setSaving(false);
@@ -98,10 +173,12 @@ export function ManageCustomFieldsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manage Custom Fields</DialogTitle>
-          <DialogDescription>Edit custom field values for {product.name}</DialogDescription>
+          <DialogTitle>Customize inFlow to your specific needs with custom fields.</DialogTitle>
+          <DialogDescription>
+            Add custom fields to track additional product information
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -109,23 +186,122 @@ export function ManageCustomFieldsDialog({
             <div className="py-8 text-center text-sm text-muted-foreground">
               Loading custom fields...
             </div>
-          ) : customFields.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No custom fields defined yet. Go to Settings → Custom Fields to create them.
-              </p>
-            </div>
           ) : (
-            <CustomFieldsRenderer
-              fields={customFields as any}
-              values={customFieldValues}
-              onChange={(fieldId, value) => {
-                setCustomFieldValues((prev) => ({
-                  ...prev,
-                  [fieldId]: value,
-                }));
-              }}
-            />
+            <>
+              {fields.map((field, index) => (
+                <div key={field.id} className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => removeField(field.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <span className="font-medium">Field {index + 1}</span>
+                      </div>
+
+                      <div className="grid gap-3">
+                        <div>
+                          <Label className="text-xs">Field Name</Label>
+                          <Input
+                            value={field.field_name}
+                            onChange={(e) => updateField(field.id, { field_name: e.target.value })}
+                            placeholder="e.g. Brand, Country, Material"
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-xs">Type</Label>
+                          <Select
+                            value={field.field_type}
+                            onValueChange={(value: any) =>
+                              updateField(field.id, { field_type: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text field</SelectItem>
+                              <SelectItem value="dropdown">Drop-down</SelectItem>
+                              <SelectItem value="date">Date field</SelectItem>
+                              <SelectItem value="checkbox">Checkbox</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {field.field_type === "dropdown" && (
+                          <div>
+                            <button
+                              className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                              onClick={() => toggleDropdown(field.id)}
+                            >
+                              {expandedDropdowns.has(field.id) ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                              Manage drop-down options
+                            </button>
+
+                            {expandedDropdowns.has(field.id) && (
+                              <div className="mt-2 space-y-2 rounded-md border p-3">
+                                {(field.dropdown_options || []).map((option, optIndex) => (
+                                  <div key={optIndex} className="flex items-center gap-2">
+                                    <Input
+                                      value={option}
+                                      onChange={(e) =>
+                                        updateDropdownOption(field.id, optIndex, e.target.value)
+                                      }
+                                      placeholder={`Option ${optIndex + 1}`}
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => removeDropdownOption(field.id, optIndex)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addDropdownOption(field.id)}
+                                >
+                                  Add Option
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <Button variant="outline" onClick={addField} className="w-full">
+                Add Field
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="show-inactive"
+                  checked={showInactive}
+                  onCheckedChange={(checked) => setShowInactive(checked as boolean)}
+                />
+                <Label htmlFor="show-inactive" className="text-sm">
+                  Show inactive
+                </Label>
+              </div>
+            </>
           )}
         </div>
 
@@ -133,8 +309,8 @@ export function ManageCustomFieldsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving || customFields.length === 0}>
-            {saving ? "Saving..." : "Save Changes"}
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </DialogContent>
