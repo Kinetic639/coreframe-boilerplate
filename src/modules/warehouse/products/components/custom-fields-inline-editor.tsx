@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
+import { pl, enUS } from "date-fns/locale";
+import { useTranslations, useLocale } from "next-intl";
 
 interface CustomFieldsInlineEditorProps {
   productId: string;
@@ -32,6 +34,9 @@ export function CustomFieldsInlineEditor({
   fieldValues,
   onValueChange,
 }: CustomFieldsInlineEditorProps) {
+  const t = useTranslations("productsModule.customFields");
+  const locale = useLocale();
+  const dateLocale = locale === "pl" ? pl : enUS;
   const [editingField, setEditingField] = React.useState<string | null>(null);
   const [localValues, setLocalValues] = React.useState<Record<string, any>>({});
 
@@ -47,13 +52,19 @@ export function CustomFieldsInlineEditor({
   const handleBlur = async (fieldId: string) => {
     setEditingField(null);
     const value = localValues[fieldId];
-    if (value !== undefined && value !== null && value !== "") {
-      await onValueChange(fieldId, value);
-    }
+    // Save even if empty - allows clearing values
+    await onValueChange(fieldId, value || "");
   };
 
   const handleChange = (fieldId: string, value: any) => {
     setLocalValues((prev) => ({ ...prev, [fieldId]: value }));
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent, fieldId: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      await handleBlur(fieldId);
+    }
   };
 
   const renderField = (fieldDef: CustomFieldDefinition) => {
@@ -68,6 +79,7 @@ export function CustomFieldsInlineEditor({
               value={value || ""}
               onChange={(e) => handleChange(fieldDef.id, e.target.value)}
               onBlur={() => handleBlur(fieldDef.id)}
+              onKeyDown={(e) => handleKeyDown(e, fieldDef.id)}
               autoFocus
               className="h-7 text-sm"
             />
@@ -78,7 +90,7 @@ export function CustomFieldsInlineEditor({
             className="cursor-pointer rounded px-2 py-1 text-sm hover:bg-muted/50"
             onClick={() => setEditingField(fieldDef.id)}
           >
-            {value || <span className="text-muted-foreground">Enter data</span>}
+            {value || <span className="text-muted-foreground">{t("enterData")}</span>}
           </div>
         );
 
@@ -97,7 +109,7 @@ export function CustomFieldsInlineEditor({
             }}
           >
             <SelectTrigger className="h-7 text-sm">
-              <SelectValue placeholder="Select..." />
+              <SelectValue placeholder={t("selectPlaceholder")} />
             </SelectTrigger>
             <SelectContent>
               {(options as string[]).map((option, idx) => (
@@ -115,7 +127,11 @@ export function CustomFieldsInlineEditor({
             <PopoverTrigger asChild>
               <Button variant="outline" className="h-7 justify-start text-left text-sm font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {value ? format(new Date(value), "PPP") : <span>Pick a date</span>}
+                {value ? (
+                  format(new Date(value), "PPP", { locale: dateLocale })
+                ) : (
+                  <span>{t("pickDate")}</span>
+                )}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -129,6 +145,7 @@ export function CustomFieldsInlineEditor({
                     await onValueChange(fieldDef.id, isoDate);
                   }
                 }}
+                locale={dateLocale}
                 initialFocus
               />
             </PopoverContent>
@@ -145,12 +162,12 @@ export function CustomFieldsInlineEditor({
                 await onValueChange(fieldDef.id, checked);
               }}
             />
-            <span className="text-sm">{value ? "Yes" : "No"}</span>
+            <span className="text-sm">{value ? t("yes") : t("no")}</span>
           </div>
         );
 
       default:
-        return <span className="text-sm text-muted-foreground">Enter data</span>;
+        return <span className="text-sm text-muted-foreground">{t("enterData")}</span>;
     }
   };
 

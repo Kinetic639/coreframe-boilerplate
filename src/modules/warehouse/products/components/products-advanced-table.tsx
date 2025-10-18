@@ -412,6 +412,48 @@ export function ProductsAdvancedTable({
                 </div>
               </div>
 
+              {/* Custom Fields - InFlow Style with Inline Editing */}
+              {customFieldDefinitions.length > 0 && (
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-base font-semibold">{t("customFields.title")}</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCustomFieldsProduct(product);
+                        setIsCustomFieldsDialogOpen(true);
+                      }}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      {t("customFields.manageCustomFields")}
+                    </Button>
+                  </div>
+                  <CustomFieldsInlineEditor
+                    productId={product.id}
+                    fieldDefinitions={customFieldDefinitions}
+                    fieldValues={customFieldValuesMap[product.id] || []}
+                    onValueChange={async (fieldId, value) => {
+                      try {
+                        await customFieldsService.setFieldValue({
+                          product_id: product.id,
+                          field_definition_id: fieldId,
+                          value,
+                        });
+                        // Reload values
+                        const values = await customFieldsService.getProductFieldValues(product.id);
+                        setCustomFieldValuesMap((prev) => ({
+                          ...prev,
+                          [product.id]: values,
+                        }));
+                      } catch (error) {
+                        console.error("Failed to save custom field value:", error);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Quantity Cards - 2x2 Grid with blue background */}
               {product.product_type === "goods" && product.track_inventory && (
                 <div className="rounded-lg bg-[#0066CC] p-6">
@@ -496,48 +538,6 @@ export function ProductsAdvancedTable({
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-
-              {/* Custom Fields - InFlow Style with Inline Editing */}
-              {customFieldDefinitions.length > 0 && (
-                <div>
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-base font-semibold">Custom Fields</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setCustomFieldsProduct(product);
-                        setIsCustomFieldsDialogOpen(true);
-                      }}
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Manage
-                    </Button>
-                  </div>
-                  <CustomFieldsInlineEditor
-                    productId={product.id}
-                    fieldDefinitions={customFieldDefinitions}
-                    fieldValues={customFieldValuesMap[product.id] || []}
-                    onValueChange={async (fieldId, value) => {
-                      try {
-                        await customFieldsService.setFieldValue({
-                          product_id: product.id,
-                          field_definition_id: fieldId,
-                          value,
-                        });
-                        // Reload values
-                        const values = await customFieldsService.getProductFieldValues(product.id);
-                        setCustomFieldValuesMap((prev) => ({
-                          ...prev,
-                          [product.id]: values,
-                        }));
-                      } catch (error) {
-                        console.error("Failed to save custom field value:", error);
-                      }
-                    }}
-                  />
                 </div>
               )}
             </div>

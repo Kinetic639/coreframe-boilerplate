@@ -24,6 +24,7 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
 import { X, ChevronDown, ChevronUp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useTranslations } from "next-intl";
 
 interface CustomFieldConfig {
   id: string;
@@ -44,6 +45,7 @@ export function ManageCustomFieldsDialog({
   onOpenChange,
   onSave,
 }: ManageCustomFieldsDialogProps) {
+  const t = useTranslations("productsModule.customFields");
   const { activeOrgId } = useAppStore();
   const [fields, setFields] = React.useState<CustomFieldConfig[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -71,7 +73,7 @@ export function ManageCustomFieldsDialog({
         })
         .catch((error) => {
           console.error("Failed to load custom fields:", error);
-          toast.error("Failed to load custom fields");
+          toast.error(t("errorLoad"));
         })
         .finally(() => setLoading(false));
     }
@@ -158,14 +160,14 @@ export function ManageCustomFieldsDialog({
         }
       }
 
-      toast.success("Custom fields updated successfully");
+      toast.success(t("successUpdate"));
       if (onSave) {
         await onSave();
       }
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to save custom fields:", error);
-      toast.error("Failed to save custom fields");
+      toast.error(t("errorSave"));
     } finally {
       setSaving(false);
     }
@@ -175,17 +177,13 @@ export function ManageCustomFieldsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Customize inFlow to your specific needs with custom fields.</DialogTitle>
-          <DialogDescription>
-            Add custom fields to track additional product information
-          </DialogDescription>
+          <DialogTitle>{t("dialogTitle")}</DialogTitle>
+          <DialogDescription>{t("dialogDescription")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {loading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              Loading custom fields...
-            </div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t("loading")}</div>
           ) : (
             <>
               {fields.map((field, index) => (
@@ -201,21 +199,23 @@ export function ManageCustomFieldsDialog({
                         >
                           <X className="h-4 w-4" />
                         </Button>
-                        <span className="font-medium">Field {index + 1}</span>
+                        <span className="font-medium">
+                          {t("fieldLabel", { number: index + 1 })}
+                        </span>
                       </div>
 
                       <div className="grid gap-3">
                         <div>
-                          <Label className="text-xs">Field Name</Label>
+                          <Label className="text-xs">{t("fieldName")}</Label>
                           <Input
                             value={field.field_name}
                             onChange={(e) => updateField(field.id, { field_name: e.target.value })}
-                            placeholder="e.g. Brand, Country, Material"
+                            placeholder={t("fieldNamePlaceholder")}
                           />
                         </div>
 
                         <div>
-                          <Label className="text-xs">Type</Label>
+                          <Label className="text-xs">{t("typeLabel")}</Label>
                           <Select
                             value={field.field_type}
                             onValueChange={(value: any) =>
@@ -226,10 +226,10 @@ export function ManageCustomFieldsDialog({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="text">Text field</SelectItem>
-                              <SelectItem value="dropdown">Drop-down</SelectItem>
-                              <SelectItem value="date">Date field</SelectItem>
-                              <SelectItem value="checkbox">Checkbox</SelectItem>
+                              <SelectItem value="text">{t("types.text")}</SelectItem>
+                              <SelectItem value="dropdown">{t("types.dropdown")}</SelectItem>
+                              <SelectItem value="date">{t("types.date")}</SelectItem>
+                              <SelectItem value="checkbox">{t("types.checkbox")}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -245,7 +245,7 @@ export function ManageCustomFieldsDialog({
                               ) : (
                                 <ChevronDown className="h-4 w-4" />
                               )}
-                              Manage drop-down options
+                              {t("manageDropdownOptions")}
                             </button>
 
                             {expandedDropdowns.has(field.id) && (
@@ -257,7 +257,7 @@ export function ManageCustomFieldsDialog({
                                       onChange={(e) =>
                                         updateDropdownOption(field.id, optIndex, e.target.value)
                                       }
-                                      placeholder={`Option ${optIndex + 1}`}
+                                      placeholder={t("optionPlaceholder", { number: optIndex + 1 })}
                                       className="flex-1"
                                     />
                                     <Button
@@ -275,7 +275,7 @@ export function ManageCustomFieldsDialog({
                                   size="sm"
                                   onClick={() => addDropdownOption(field.id)}
                                 >
-                                  Add Option
+                                  {t("addOption")}
                                 </Button>
                               </div>
                             )}
@@ -288,7 +288,7 @@ export function ManageCustomFieldsDialog({
               ))}
 
               <Button variant="outline" onClick={addField} className="w-full">
-                Add Field
+                {t("addField")}
               </Button>
 
               <div className="flex items-center gap-2">
@@ -298,7 +298,7 @@ export function ManageCustomFieldsDialog({
                   onCheckedChange={(checked) => setShowInactive(checked as boolean)}
                 />
                 <Label htmlFor="show-inactive" className="text-sm">
-                  Show inactive
+                  {t("showInactive")}
                 </Label>
               </div>
             </>
@@ -307,10 +307,10 @@ export function ManageCustomFieldsDialog({
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("saving") : t("save")}
           </Button>
         </div>
       </DialogContent>
