@@ -27,6 +27,12 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
+import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { useAppStore } from "@/lib/stores/app-store";
+import type {
+  CustomFieldDefinition,
+  CustomFieldValue,
+} from "@/modules/warehouse/types/custom-fields";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -46,10 +52,48 @@ export function ProductsAdvancedTable({
   onAdd,
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
+  const { activeOrgId } = useAppStore();
   const [customFieldsProduct, setCustomFieldsProduct] = React.useState<ProductWithDetails | null>(
     null
   );
   const [isCustomFieldsDialogOpen, setIsCustomFieldsDialogOpen] = React.useState(false);
+  const [customFieldDefinitions, setCustomFieldDefinitions] = React.useState<
+    CustomFieldDefinition[]
+  >([]);
+  const [customFieldValuesMap, setCustomFieldValuesMap] = React.useState<
+    Record<string, CustomFieldValue[]>
+  >({});
+
+  // Load custom field definitions
+  React.useEffect(() => {
+    if (activeOrgId) {
+      customFieldsService
+        .getFieldDefinitions(activeOrgId)
+        .then(setCustomFieldDefinitions)
+        .catch((error) => {
+          console.error("Failed to load custom field definitions:", error);
+        });
+    }
+  }, [activeOrgId]);
+
+  // Load custom field values for all products
+  React.useEffect(() => {
+    if (products.length > 0) {
+      const loadAllCustomFields = async () => {
+        const valuesMap: Record<string, CustomFieldValue[]> = {};
+        for (const product of products) {
+          try {
+            const values = await customFieldsService.getProductFieldValues(product.id);
+            valuesMap[product.id] = values;
+          } catch (error) {
+            console.error(`Failed to load custom fields for product ${product.id}:`, error);
+          }
+        }
+        setCustomFieldValuesMap(valuesMap);
+      };
+      loadAllCustomFields();
+    }
+  }, [products]);
 
   const columns: ColumnConfig<ProductWithDetails>[] = [
     {
@@ -454,26 +498,61 @@ export function ProductsAdvancedTable({
                 </div>
               )}
 
-              {/* Custom Fields */}
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-base font-semibold">Custom Fields</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setCustomFieldsProduct(product);
-                      setIsCustomFieldsDialogOpen(true);
-                    }}
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    Manage
-                  </Button>
+              {/* Custom Fields - InFlow Style */}
+              {customFieldDefinitions.length > 0 && (
+                <div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-base font-semibold">Custom Fields</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCustomFieldsProduct(product);
+                        setIsCustomFieldsDialogOpen(true);
+                      }}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Manage
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+                    {customFieldDefinitions.map((fieldDef) => {
+                      const fieldValues = customFieldValuesMap[product.id] || [];
+                      const fieldValue = fieldValues.find(
+                        (v) => v.field_definition_id === fieldDef.id
+                      );
+                      const displayValue =
+                        fieldValue?.value_text ||
+                        fieldValue?.value_number?.toString() ||
+                        (fieldValue?.value_boolean !== null &&
+                        fieldValue?.value_boolean !== undefined
+                          ? fieldValue.value_boolean
+                            ? "Yes"
+                            : "No"
+                          : null) ||
+                        (fieldValue?.value_date
+                          ? new Date(fieldValue.value_date).toLocaleDateString()
+                          : null) ||
+                        "—";
+
+                      return (
+                        <div key={fieldDef.id}>
+                          <div className="mb-1 text-xs font-medium text-muted-foreground">
+                            {fieldDef.field_name}
+                          </div>
+                          <div className="text-sm">
+                            {displayValue !== "—" ? (
+                              displayValue
+                            ) : (
+                              <span className="text-muted-foreground">Enter data</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Click "Manage" to view and edit custom fields for this product
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -525,6 +604,20 @@ export function ProductsAdvancedTable({
           open={isCustomFieldsDialogOpen}
           onOpenChange={setIsCustomFieldsDialogOpen}
           product={customFieldsProduct}
+          onSave={async () => {
+            // Reload custom field values for this product
+            try {
+              const values = await customFieldsService.getProductFieldValues(
+                customFieldsProduct.id
+              );
+              setCustomFieldValuesMap((prev) => ({
+                ...prev,
+                [customFieldsProduct.id]: values,
+              }));
+            } catch (error) {
+              console.error("Failed to reload custom field values:", error);
+            }
+          }}
         />
       )}
     </>
