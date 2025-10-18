@@ -20,12 +20,14 @@ interface ManageCustomFieldsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product: ProductWithDetails;
+  onSave?: () => void | Promise<void>;
 }
 
 export function ManageCustomFieldsDialog({
   open,
   onOpenChange,
   product,
+  onSave,
 }: ManageCustomFieldsDialogProps) {
   const { activeOrgId } = useAppStore();
   const [customFields, setCustomFields] = React.useState<CustomFieldDefinitionWithValues[]>([]);
@@ -82,6 +84,9 @@ export function ManageCustomFieldsDialog({
       });
       await Promise.all(savePromises);
       toast.success("Custom fields saved successfully");
+      if (onSave) {
+        await onSave();
+      }
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to save custom field values:", error);
