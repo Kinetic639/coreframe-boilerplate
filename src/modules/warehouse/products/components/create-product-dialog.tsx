@@ -43,12 +43,15 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
 import { unitsService } from "@/modules/warehouse/api/units-service";
+import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import type {
   CreateProductFormData,
   UpdateProductFormData,
   ProductWithDetails,
 } from "@/modules/warehouse/types/products";
 import type { UnitOfMeasure } from "@/modules/warehouse/types/units";
+import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/custom-fields";
+import { CustomFieldsRenderer } from "@/modules/warehouse/products/components/custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 
@@ -74,6 +77,10 @@ export function CreateProductDialog({
   );
   const [units, setUnits] = React.useState<UnitOfMeasure[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
+
+  // Custom fields state
+  const [customFields, setCustomFields] = React.useState<CustomFieldDefinitionWithValues[]>([]);
+  const [customFieldValues, setCustomFieldValues] = React.useState<Record<string, any>>({});
 
   // Form schema
   const formSchema = z.object({
@@ -155,6 +162,39 @@ export function CreateProductDialog({
         .finally(() => setIsLoadingUnits(false));
     }
   }, [open, activeOrgId]);
+
+  // Load custom fields when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      customFieldsService
+        .getFieldDefinitions(activeOrgId)
+        .then(setCustomFields)
+        .catch((error) => {
+          console.error("Failed to load custom fields:", error);
+        });
+    }
+  }, [open, activeOrgId]);
+
+  // Load custom field values when editing
+  React.useEffect(() => {
+    if (open && product?.id) {
+      customFieldsService
+        .getProductFieldValues(product.id)
+        .then((values) => {
+          const valueMap: Record<string, any> = {};
+          values.forEach((v) => {
+            const value = v.value_text ?? v.value_boolean ?? v.value_date ?? v.value_number ?? null;
+            valueMap[v.field_definition_id] = value;
+          });
+          setCustomFieldValues(valueMap);
+        })
+        .catch((error) => {
+          console.error("Failed to load custom field values:", error);
+        });
+    } else {
+      setCustomFieldValues({});
+    }
+  }, [open, product?.id]);
 
   // Populate form when editing
   React.useEffect(() => {
@@ -250,6 +290,8 @@ export function CreateProductDialog({
         ...(barcodes.length > 0 && { barcodes }),
       };
 
+      let productId: string;
+
       if (isEditMode && product) {
         // Update existing product
         const updateData: UpdateProductFormData = {
@@ -257,15 +299,42 @@ export function CreateProductDialog({
           ...productData,
         };
         await productsService.updateProduct(product.id, updateData);
+        productId = product.id;
         toast.success(t("messages.updateSuccess"));
       } else {
         // Create new product
-        await productsService.createProduct(productData, activeOrgId, user?.id || "");
+        const createdProduct = await productsService.createProduct(
+          productData,
+          activeOrgId,
+          user?.id || ""
+        );
+        productId = createdProduct.id;
         toast.success(t("messages.productCreated"));
+      }
+
+      // Save custom field values
+      if (Object.keys(customFieldValues).length > 0) {
+        try {
+          const savePromises = Object.entries(customFieldValues).map(([fieldId, value]) => {
+            if (value !== null && value !== undefined && value !== "") {
+              return customFieldsService.setFieldValue({
+                product_id: productId,
+                field_definition_id: fieldId,
+                value,
+              });
+            }
+            return Promise.resolve();
+          });
+          await Promise.all(savePromises);
+        } catch (error) {
+          console.error("Failed to save custom field values:", error);
+          // Don't show error to user as main product was saved successfully
+        }
       }
 
       form.reset();
       setBarcodes([]);
+      setCustomFieldValues({});
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
@@ -357,12 +426,13 @@ export function CreateProductDialog({
 
             {/* Tabs for different sections */}
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="basic">{t("tabs.basic")}</TabsTrigger>
                 <TabsTrigger value="sales">{t("tabs.sales")}</TabsTrigger>
                 <TabsTrigger value="purchase">{t("tabs.purchase")}</TabsTrigger>
                 <TabsTrigger value="inventory">{t("tabs.inventory")}</TabsTrigger>
                 <TabsTrigger value="additional">{t("tabs.additional")}</TabsTrigger>
+                <TabsTrigger value="custom-fields">Custom Fields</TabsTrigger>
               </TabsList>
 
               {/* Basic Information Tab */}
@@ -920,6 +990,28 @@ export function CreateProductDialog({
                     </div>
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* Custom Fields Tab */}
+              <TabsContent value="custom-fields" className="space-y-4">
+                {customFields.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No custom fields defined yet. Go to Settings → Custom Fields to create them.
+                    </p>
+                  </div>
+                ) : (
+                  <CustomFieldsRenderer
+                    fields={customFields as any}
+                    values={customFieldValues}
+                    onChange={(fieldId, value) => {
+                      setCustomFieldValues((prev) => ({
+                        ...prev,
+                        [fieldId]: value,
+                      }));
+                    }}
+                  />
+                )}
               </TabsContent>
             </Tabs>
 
