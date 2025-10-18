@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
+import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import type {
@@ -498,7 +499,7 @@ export function ProductsAdvancedTable({
                 </div>
               )}
 
-              {/* Custom Fields - InFlow Style */}
+              {/* Custom Fields - InFlow Style with Inline Editing */}
               {customFieldDefinitions.length > 0 && (
                 <div>
                   <div className="mb-4 flex items-center justify-between">
@@ -515,42 +516,28 @@ export function ProductsAdvancedTable({
                       Manage
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                    {customFieldDefinitions.map((fieldDef) => {
-                      const fieldValues = customFieldValuesMap[product.id] || [];
-                      const fieldValue = fieldValues.find(
-                        (v) => v.field_definition_id === fieldDef.id
-                      );
-                      const displayValue =
-                        fieldValue?.value_text ||
-                        fieldValue?.value_number?.toString() ||
-                        (fieldValue?.value_boolean !== null &&
-                        fieldValue?.value_boolean !== undefined
-                          ? fieldValue.value_boolean
-                            ? "Yes"
-                            : "No"
-                          : null) ||
-                        (fieldValue?.value_date
-                          ? new Date(fieldValue.value_date).toLocaleDateString()
-                          : null) ||
-                        "—";
-
-                      return (
-                        <div key={fieldDef.id}>
-                          <div className="mb-1 text-xs font-medium text-muted-foreground">
-                            {fieldDef.field_name}
-                          </div>
-                          <div className="text-sm">
-                            {displayValue !== "—" ? (
-                              displayValue
-                            ) : (
-                              <span className="text-muted-foreground">Enter data</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <CustomFieldsInlineEditor
+                    productId={product.id}
+                    fieldDefinitions={customFieldDefinitions}
+                    fieldValues={customFieldValuesMap[product.id] || []}
+                    onValueChange={async (fieldId, value) => {
+                      try {
+                        await customFieldsService.setFieldValue({
+                          product_id: product.id,
+                          field_definition_id: fieldId,
+                          value,
+                        });
+                        // Reload values
+                        const values = await customFieldsService.getProductFieldValues(product.id);
+                        setCustomFieldValuesMap((prev) => ({
+                          ...prev,
+                          [product.id]: values,
+                        }));
+                      } catch (error) {
+                        console.error("Failed to save custom field value:", error);
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>
