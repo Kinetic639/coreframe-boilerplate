@@ -45,9 +45,13 @@ export function SKUGeneratorDialog({
   const { config, previewSKU, setConfig, updateAttributeConfig, generatePreview, reset } =
     useSKUGeneratorStore();
 
-  // Initialize attribute configs when dialog opens
+  const initializedRef = React.useRef(false);
+
+  // Initialize attribute configs ONCE when dialog opens
   React.useEffect(() => {
-    if (open && attributes.length > 0) {
+    if (open && attributes.length > 0 && !initializedRef.current) {
+      initializedRef.current = true;
+
       const initialAttributeConfigs = attributes.map((attr) => ({
         attributeName: attr.name,
         include: true,
@@ -63,17 +67,12 @@ export function SKUGeneratorDialog({
         attributes.map((a) => ({ name: a.name, value: a.sampleValue }))
       );
     }
-  }, [open, attributes, baseName, setConfig, generatePreview]);
 
-  // Regenerate preview whenever config changes
-  React.useEffect(() => {
-    if (open && attributes.length > 0) {
-      generatePreview(
-        baseName,
-        attributes.map((a) => ({ name: a.name, value: a.sampleValue }))
-      );
+    // Reset when dialog closes
+    if (!open) {
+      initializedRef.current = false;
     }
-  }, [config, open, baseName, attributes, generatePreview]);
+  }, [open, attributes, baseName, setConfig, generatePreview]);
 
   const handleGenerate = () => {
     // Import the service to generate SKUs for all variants

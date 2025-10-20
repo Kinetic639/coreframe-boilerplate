@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -51,9 +50,11 @@ interface BasicInfo {
   description?: string;
 }
 
-interface AttributeWithValues {
-  optionGroup: OptionGroupWithValues;
-  newValues: string[]; // Values being typed in
+interface SelectedAttributeRow {
+  optionGroupId: string;
+  optionGroupName: string;
+  selectedValues: string[]; // User-entered or selected values
+  newValueInput: string; // Current input value
 }
 
 export function CreateProductGroupClient() {
@@ -72,19 +73,13 @@ export function CreateProductGroupClient() {
     description: "",
   });
 
-  // Multiple Items State
-  const [multipleItems, setMultipleItems] = React.useState(false);
-
   // Available option groups from database
   const [availableOptionGroups, setAvailableOptionGroups] = React.useState<OptionGroupWithValues[]>(
     []
   );
 
-  // Selected attributes with their new values
-  const [selectedAttributes, setSelectedAttributes] = React.useState<AttributeWithValues[]>([]);
-
-  // Input states for adding new values (one per attribute)
-  const [newValueInputs, setNewValueInputs] = React.useState<Record<number, string>>({});
+  // Selected attributes (rows in the attribute section)
+  const [selectedAttributes, setSelectedAttributes] = React.useState<SelectedAttributeRow[]>([]);
 
   // Generated variants
   const [generatedVariants, setGeneratedVariants] = React.useState<GeneratedVariant[]>([]);
@@ -101,14 +96,13 @@ export function CreateProductGroupClient() {
       if (!activeOrg?.organization_id) return;
 
       try {
-        setLoadingOptionGroups(true);
         const groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
         setAvailableOptionGroups(groups);
       } catch (error) {
         console.error("Failed to load option groups:", error);
+        // Don't show error toast if there are simply no option groups yet
+        if (groups && groups.length === 0) return;
         toast.error("Failed to load attributes");
-      } finally {
-        setLoadingOptionGroups(false);
       }
     };
 
@@ -117,41 +111,43 @@ export function CreateProductGroupClient() {
 
   // Auto-generate variants when attributes change
   React.useEffect(() => {
-    if (!multipleItems || selectedAttributes.length === 0) {
+    if (
+      selectedAttributes.length === 0 ||
+      !selectedAttributes.every((attr) => attr.selectedValues.length > 0)
+    ) {
       setGeneratedVariants([]);
       return;
     }
 
-    // Convert to the format expected by variant generation service
-    const selectedAttributesForGeneration = selectedAttributes.map((attr) => ({
-      optionGroup: attr.optionGroup,
-      selectedValueIds: attr.newValues.map((_, idx) => `new-${attr.optionGroup.id}-${idx}`),
-    }));
-
-    // Temporarily add new values to option groups
-    const attributesWithNewValues = selectedAttributesForGeneration.map((attr, attrIndex) => ({
-      ...attr,
-      optionGroup: {
-        ...attr.optionGroup,
-        values: [
-          ...attr.optionGroup.values,
-          ...selectedAttributes[attrIndex].newValues.map((val, idx) => ({
-            id: `new-${attr.optionGroup.id}-${idx}`,
-            option_group_id: attr.optionGroup.id,
+    try {
+      // Create mock option groups with user-entered values
+      const mockSelectedAttributes = selectedAttributes.map((attr, attrIndex) => ({
+        optionGroup: {
+          id: attr.optionGroupId || `temp-${attrIndex}`,
+          name: attr.optionGroupName,
+          organization_id: activeOrg?.organization_id || "",
+          description: null,
+          display_order: attrIndex,
+          is_template: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          deleted_at: null,
+          values: attr.selectedValues.map((val, valIndex) => ({
+            id: `temp-${attrIndex}-${valIndex}`,
+            option_group_id: attr.optionGroupId || `temp-${attrIndex}`,
             value: val,
-            display_order: idx,
+            display_order: valIndex,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             deleted_at: null,
           })),
-        ],
-      },
-    }));
+        } as OptionGroupWithValues,
+        selectedValueIds: attr.selectedValues.map((_, valIndex) => `temp-${attrIndex}-${valIndex}`),
+      }));
 
-    try {
       const variants = variantGenerationService.generateVariantCombinations(
         basicInfo.name || "Product",
-        attributesWithNewValues,
+        mockSelectedAttributes,
         {
           selling: basicInfo.sellingPrice,
           cost: basicInfo.costPrice,
@@ -161,54 +157,79 @@ export function CreateProductGroupClient() {
       setGeneratedVariants(variants);
     } catch (error) {
       console.error("Failed to generate variants:", error);
+      setGeneratedVariants([]);
     }
   }, [
     selectedAttributes,
-    multipleItems,
     basicInfo.name,
     basicInfo.sellingPrice,
     basicInfo.costPrice,
     basicInfo.reorderPoint,
+    activeOrg?.organization_id,
   ]);
 
   // Get option groups not already selected
   const availableGroups = React.useMemo(() => {
-    const selectedIds = selectedAttributes.map((attr) => attr.optionGroup.id);
+    const selectedIds = selectedAttributes.map((attr) => attr.optionGroupId).filter(Boolean);
     return availableOptionGroups.filter((group) => !selectedIds.includes(group.id));
   }, [availableOptionGroups, selectedAttributes]);
 
-  const handleAddAttribute = (optionGroupId: string) => {
+  const handleAddAttributeRow = () => {
+    setSelectedAttributes([
+      ...selectedAttributes,
+      {
+        optionGroupId: "",
+        optionGroupName: "",
+        selectedValues: [],
+        newValueInput: "",
+      },
+    ]);
+  };
+
+  const handleSelectOptionGroup = (rowIndex: number, optionGroupId: string) => {
     const optionGroup = availableOptionGroups.find((g) => g.id === optionGroupId);
     if (!optionGroup) return;
 
-    setSelectedAttributes([...selectedAttributes, { optionGroup, newValues: [] }]);
+    const updated = [...selectedAttributes];
+    updated[rowIndex] = {
+      ...updated[rowIndex],
+      optionGroupId: optionGroup.id,
+      optionGroupName: optionGroup.name,
+      // Pre-fill with existing values from the option group
+      selectedValues: optionGroup.values.map((v) => v.value),
+    };
+    setSelectedAttributes(updated);
   };
 
-  const handleRemoveAttribute = (index: number) => {
-    setSelectedAttributes(selectedAttributes.filter((_, i) => i !== index));
-    // Clear input state for this attribute
-    setNewValueInputs((prev) => {
-      const updated = { ...prev };
-      delete updated[index];
-      return updated;
-    });
+  const handleRemoveAttributeRow = (rowIndex: number) => {
+    setSelectedAttributes(selectedAttributes.filter((_, i) => i !== rowIndex));
   };
 
-  const handleAddValue = (attrIndex: number) => {
-    const value = newValueInputs[attrIndex]?.trim();
+  const handleAddValueToAttribute = (rowIndex: number) => {
+    const attr = selectedAttributes[rowIndex];
+    const value = attr.newValueInput.trim();
     if (!value) return;
 
     const updated = [...selectedAttributes];
-    updated[attrIndex].newValues.push(value);
+    updated[rowIndex] = {
+      ...updated[rowIndex],
+      selectedValues: [...attr.selectedValues, value],
+      newValueInput: "",
+    };
     setSelectedAttributes(updated);
-
-    // Clear input
-    setNewValueInputs((prev) => ({ ...prev, [attrIndex]: "" }));
   };
 
-  const handleRemoveValue = (attrIndex: number, valueIndex: number) => {
+  const handleRemoveValueFromAttribute = (rowIndex: number, valueIndex: number) => {
     const updated = [...selectedAttributes];
-    updated[attrIndex].newValues.splice(valueIndex, 1);
+    updated[rowIndex].selectedValues = updated[rowIndex].selectedValues.filter(
+      (_, i) => i !== valueIndex
+    );
+    setSelectedAttributes(updated);
+  };
+
+  const handleUpdateValueInput = (rowIndex: number, value: string) => {
+    const updated = [...selectedAttributes];
+    updated[rowIndex].newValueInput = value;
     setSelectedAttributes(updated);
   };
 
@@ -224,7 +245,7 @@ export function CreateProductGroupClient() {
 
   const handleOpenSKUGenerator = () => {
     if (generatedVariants.length === 0) {
-      toast.warning("Generate variants first");
+      toast.warning("Generate variants first by adding attributes and values");
       return;
     }
     setShowSKUGenerator(true);
@@ -250,15 +271,55 @@ export function CreateProductGroupClient() {
       return;
     }
 
-    if (multipleItems && generatedVariants.length === 0) {
-      toast.error("Please generate at least one variant");
+    if (selectedAttributes.length === 0) {
+      toast.error("Please add at least one attribute");
+      return;
+    }
+
+    if (generatedVariants.length === 0) {
+      toast.error("Please add values to attributes to generate variants");
       return;
     }
 
     setIsSaving(true);
 
     try {
-      // Prepare form data
+      // Build the proper data structure for the API
+      const attributesForAPI = selectedAttributes.map((attr) => {
+        // Find or create option group
+        const existingGroup = availableOptionGroups.find((g) => g.id === attr.optionGroupId);
+
+        return {
+          optionGroup:
+            existingGroup ||
+            ({
+              id: attr.optionGroupId || `new-${attr.optionGroupName}`,
+              name: attr.optionGroupName,
+              organization_id: activeOrg.organization_id,
+              description: null,
+              display_order: 0,
+              is_template: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              deleted_at: null,
+              values: attr.selectedValues.map((val, idx) => ({
+                id: `new-${attr.optionGroupName}-${idx}`,
+                option_group_id: attr.optionGroupId || `new-${attr.optionGroupName}`,
+                value: val,
+                display_order: idx,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                deleted_at: null,
+              })),
+            } as OptionGroupWithValues),
+          selectedValueIds: attr.selectedValues.map(
+            (_, idx) =>
+              existingGroup?.values.find((v) => v.value === attr.selectedValues[idx])?.id ||
+              `new-${attr.optionGroupName}-${idx}`
+          ),
+        };
+      });
+
       const formData: CreateProductGroupFormData = {
         name: basicInfo.name,
         description: basicInfo.description,
@@ -270,10 +331,7 @@ export function CreateProductGroupClient() {
         trackInventory: true,
         sellable: true,
         purchasable: true,
-        selectedAttributes: selectedAttributes.map((attr) => ({
-          optionGroup: attr.optionGroup,
-          selectedValueIds: attr.newValues.map((_, idx) => `new-${attr.optionGroup.id}-${idx}`),
-        })),
+        selectedAttributes: attributesForAPI,
         generatedVariants,
       };
 
@@ -284,7 +342,6 @@ export function CreateProductGroupClient() {
       );
 
       toast.success("Product group created successfully");
-      // Use window.location for navigation to non-typed routes
       window.location.href = `/dashboard/warehouse/products/groups/${result.product.id}`;
     } catch (error) {
       console.error("Failed to create product group:", error);
@@ -400,258 +457,241 @@ export function CreateProductGroupClient() {
         </CardContent>
       </Card>
 
-      {/* Multiple Items Section */}
+      {/* Attributes Section - EXACTLY like Zoho */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="multipleItems"
-              checked={multipleItems}
-              onCheckedChange={(checked) => setMultipleItems(checked as boolean)}
-            />
-            <Label htmlFor="multipleItems" className="font-medium">
-              Multiple Items
-            </Label>
-            <span className="text-sm text-muted-foreground">(Create Attributes and Options)</span>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Attributes</CardTitle>
+            <Button variant="outline" size="sm" onClick={handleAddAttributeRow}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Attribute
+            </Button>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {selectedAttributes.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <p className="text-sm">No attributes selected</p>
+              <p className="mt-1 text-xs">Click "Add Attribute" to get started</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {selectedAttributes.map((attr, rowIndex) => (
+                <div key={rowIndex} className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground">Attribute*</Label>
+                      <Select
+                        value={attr.optionGroupId}
+                        onValueChange={(value) => handleSelectOptionGroup(rowIndex, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an attribute..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableGroups.map((group) => (
+                            <SelectItem key={group.id} value={group.id}>
+                              {group.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveAttributeRow(rowIndex)}
+                      className="mt-5"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Options*</Label>
+
+                    {/* Display selected values as badges */}
+                    <div className="flex flex-wrap gap-2 rounded-md border p-3 min-h-[50px]">
+                      {attr.selectedValues.map((value, valueIndex) => (
+                        <Badge key={valueIndex} variant="secondary" className="gap-1">
+                          {value}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveValueFromAttribute(rowIndex, valueIndex)}
+                            className="ml-1 rounded-full hover:bg-muted"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {/* Input to add new values */}
+                    <div className="flex gap-2">
+                      <Input
+                        value={attr.newValueInput}
+                        onChange={(e) => handleUpdateValueInput(rowIndex, e.target.value)}
+                        placeholder="Type a value and press Enter..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddValueToAttribute(rowIndex);
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleAddValueToAttribute(rowIndex)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Attributes & Variants Section */}
-      {multipleItems && (
-        <>
-          {/* Attributes */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Attributes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Add Attribute Dropdown */}
-              {availableGroups.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Select onValueChange={handleAddAttribute}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select an attribute..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableGroups.map((group) => (
-                        <SelectItem key={group.id} value={group.id}>
-                          {group.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Selected Attributes */}
-              {selectedAttributes.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <p className="text-sm">No attributes selected</p>
-                  <p className="mt-1 text-xs">Select an attribute to get started</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {selectedAttributes.map((attribute, attrIndex) => (
-                    <div key={attribute.optionGroup.id} className="space-y-2 rounded-md border p-4">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-base font-semibold">
-                          {attribute.optionGroup.name}
-                        </Label>
+      {/* Variants Table - Shows ONLY when variants are generated */}
+      {generatedVariants.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Variants ({generatedVariants.length})</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  All possible combinations of selected attribute values
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenSKUGenerator}
+                className="gap-2"
+              >
+                <Wand2 className="h-4 w-4" />
+                Configure SKU Pattern
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Variant Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Attributes</TableHead>
+                    <TableHead className="text-right">Selling Price</TableHead>
+                    <TableHead className="text-right">Cost Price</TableHead>
+                    <TableHead className="text-right">Reorder Point</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {generatedVariants.map((variant, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
+                        <Input
+                          value={variant.name}
+                          onChange={(e) => handleUpdateVariant(index, "name", e.target.value)}
+                          className="h-8"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.sku}
+                          onChange={(e) => handleUpdateVariant(index, "sku", e.target.value)}
+                          className="h-8 w-32"
+                          placeholder="SKU"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {variant.attributeValues.map((attr, attrIndex) => (
+                            <Badge key={attrIndex} variant="outline" className="text-xs">
+                              {attr.optionValueName}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={variant.sellingPrice}
+                          onChange={(e) =>
+                            handleUpdateVariant(
+                              index,
+                              "sellingPrice",
+                              parseFloat(e.target.value) || 0
+                            )
+                          }
+                          className="h-8 w-24 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={variant.costPrice}
+                          onChange={(e) =>
+                            handleUpdateVariant(index, "costPrice", parseFloat(e.target.value) || 0)
+                          }
+                          className="h-8 w-24 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          step="1"
+                          value={variant.reorderPoint}
+                          onChange={(e) =>
+                            handleUpdateVariant(
+                              index,
+                              "reorderPoint",
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="h-8 w-20 text-right"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleRemoveAttribute(attrIndex)}
-                          className="h-6 w-6"
+                          onClick={() => handleDeleteVariant(index)}
                         >
-                          <X className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      </div>
-
-                      {/* Display existing values as badges */}
-                      <div className="flex flex-wrap gap-2">
-                        {attribute.newValues.map((value, valueIndex) => (
-                          <Badge key={valueIndex} variant="secondary" className="cursor-pointer">
-                            {value}
-                            <X
-                              className="ml-1 h-3 w-3"
-                              onClick={() => handleRemoveValue(attrIndex, valueIndex)}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-
-                      {/* Input for adding new values */}
-                      <div className="flex gap-2">
-                        <Input
-                          value={newValueInputs[attrIndex] || ""}
-                          onChange={(e) =>
-                            setNewValueInputs((prev) => ({ ...prev, [attrIndex]: e.target.value }))
-                          }
-                          placeholder="Type value and press Enter..."
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleAddValue(attrIndex);
-                            }
-                          }}
-                        />
-                        <Button onClick={() => handleAddValue(attrIndex)} size="sm">
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Variants Table */}
-          {generatedVariants.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Variants ({generatedVariants.length})</CardTitle>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenSKUGenerator}
-                    className="gap-2"
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    Configure SKU Pattern
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Variant Name</TableHead>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Attributes</TableHead>
-                        <TableHead className="text-right">Selling Price</TableHead>
-                        <TableHead className="text-right">Cost Price</TableHead>
-                        <TableHead className="text-right">Reorder Point</TableHead>
-                        <TableHead className="text-center">Active</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {generatedVariants.map((variant, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">
-                            <Input
-                              value={variant.name}
-                              onChange={(e) => handleUpdateVariant(index, "name", e.target.value)}
-                              className="h-8"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={variant.sku}
-                              onChange={(e) => handleUpdateVariant(index, "sku", e.target.value)}
-                              className="h-8 w-32"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {variant.attributeValues.map((attr, attrIndex) => (
-                                <Badge key={attrIndex} variant="outline" className="text-xs">
-                                  {attr.optionValueName}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.sellingPrice}
-                              onChange={(e) =>
-                                handleUpdateVariant(
-                                  index,
-                                  "sellingPrice",
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              className="h-8 w-24 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.costPrice}
-                              onChange={(e) =>
-                                handleUpdateVariant(
-                                  index,
-                                  "costPrice",
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              className="h-8 w-24 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="1"
-                              value={variant.reorderPoint}
-                              onChange={(e) =>
-                                handleUpdateVariant(
-                                  index,
-                                  "reorderPoint",
-                                  parseInt(e.target.value) || 0
-                                )
-                              }
-                              className="h-8 w-20 text-right"
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={variant.isActive}
-                              onCheckedChange={(checked) =>
-                                handleUpdateVariant(index, "isActive", checked)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteVariant(index)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* SKU Generator Dialog */}
-      <SKUGeneratorDialog
-        open={showSKUGenerator}
-        onOpenChange={setShowSKUGenerator}
-        baseName={basicInfo.name}
-        attributes={selectedAttributes.map((attr) => ({
-          name: attr.optionGroup.name,
-          sampleValue: attr.newValues[0] || "Sample",
-        }))}
-        variants={generatedVariants}
-        onApply={handleApplySKUs}
-      />
+      {showSKUGenerator && (
+        <SKUGeneratorDialog
+          open={showSKUGenerator}
+          onOpenChange={setShowSKUGenerator}
+          baseName={basicInfo.name}
+          attributes={selectedAttributes.map((attr) => ({
+            name: attr.optionGroupName,
+            sampleValue: attr.selectedValues[0] || "Sample",
+          }))}
+          variants={generatedVariants}
+          onApply={handleApplySKUs}
+        />
+      )}
     </div>
   );
 }
