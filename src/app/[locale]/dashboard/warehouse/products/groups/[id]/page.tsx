@@ -3,15 +3,16 @@ import { getTranslations } from "next-intl/server";
 import { ProductGroupDetailClient } from "./product-group-detail-client";
 
 interface ProductGroupDetailPageProps {
-  params: {
+  params: Promise<{
     locale: string;
     id: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: ProductGroupDetailPageProps): Promise<Metadata> {
+  const { locale } = await params;
   const t = await getTranslations({
-    locale: params.locale,
+    locale,
     namespace: "productGroups.detail",
   });
 
@@ -22,5 +23,6 @@ export async function generateMetadata({ params }: ProductGroupDetailPageProps):
 }
 
 export default async function ProductGroupDetailPage({ params }: ProductGroupDetailPageProps) {
-  return <ProductGroupDetailClient productGroupId={params.id} />;
+  const { id } = await params;
+  return <ProductGroupDetailClient productGroupId={id} />;
 }
