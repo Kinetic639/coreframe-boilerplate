@@ -9,10 +9,13 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"]
-    }
+    },
+    // Memory optimizations for Codespaces
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
   typescript: {
-    ignoreBuildErrors: false,
+    // Disable TypeScript type-checking during builds to avoid timeout - run separately with 'npm run type-check'
+    ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true, // Disable ESLint during builds - run separately with 'npm run lint'
