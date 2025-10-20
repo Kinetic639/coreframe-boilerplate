@@ -19,7 +19,7 @@ export default function SKUGeneratorTestingPage() {
     { name: "Size", values: ["S", "M", "L", "XL"] },
   ]);
   const [newAttrName, setNewAttrName] = React.useState("");
-  const [newAttrValue, setNewAttrValue] = React.useState("");
+  const [newAttrValues, setNewAttrValues] = React.useState<Record<number, string>>({});
   const [generatedVariants, setGeneratedVariants] = React.useState<GeneratedVariant[]>([]);
   const [showSKUGenerator, setShowSKUGenerator] = React.useState(false);
 
@@ -30,11 +30,13 @@ export default function SKUGeneratorTestingPage() {
   };
 
   const handleAddValue = (attrIndex: number) => {
-    if (!newAttrValue.trim()) return;
+    const value = newAttrValues[attrIndex] || "";
+    if (!value.trim()) return;
     const updated = [...attributes];
-    updated[attrIndex].values.push(newAttrValue);
+    updated[attrIndex].values.push(value);
     setAttributes(updated);
-    setNewAttrValue("");
+    // Clear only this attribute's input
+    setNewAttrValues((prev) => ({ ...prev, [attrIndex]: "" }));
   };
 
   const handleRemoveAttribute = (index: number) => {
@@ -162,8 +164,10 @@ export default function SKUGeneratorTestingPage() {
               {/* Add Value */}
               <div className="flex gap-2">
                 <Input
-                  value={newAttrValue}
-                  onChange={(e) => setNewAttrValue(e.target.value)}
+                  value={newAttrValues[attrIndex] || ""}
+                  onChange={(e) =>
+                    setNewAttrValues((prev) => ({ ...prev, [attrIndex]: e.target.value }))
+                  }
                   placeholder="Add value..."
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {

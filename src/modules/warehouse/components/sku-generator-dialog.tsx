@@ -63,7 +63,7 @@ export function SKUGeneratorDialog({
         attributes.map((a) => ({ name: a.name, value: a.sampleValue }))
       );
     }
-  }, [open, attributes, baseName]);
+  }, [open, attributes, baseName, setConfig, generatePreview]);
 
   // Regenerate preview whenever config changes
   React.useEffect(() => {
@@ -73,7 +73,7 @@ export function SKUGeneratorDialog({
         attributes.map((a) => ({ name: a.name, value: a.sampleValue }))
       );
     }
-  }, [config, open]);
+  }, [config, open, baseName, attributes, generatePreview]);
 
   const handleGenerate = () => {
     // Import the service to generate SKUs for all variants

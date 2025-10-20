@@ -1,21 +1,21 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "@/i18n/navigation";
 import { ProductsAdvancedTable } from "@/modules/warehouse/products/components/products-advanced-table";
 import { CreateProductDialog } from "@/modules/warehouse/products/components/create-product-dialog";
-import { CreateProductGroupDialog } from "@/modules/warehouse/products/components/create-product-group-dialog";
 import { productsService } from "@/modules/warehouse/api/products-service";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
 
 export default function ProductsPage() {
+  const router = useRouter();
   const { activeOrgId } = useAppStore();
   const [products, setProducts] = React.useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
-  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithDetails | null>(null);
 
   // Load products
@@ -47,7 +47,7 @@ export default function ProductsPage() {
   };
 
   const handleAddProductGroup = () => {
-    setIsCreateGroupDialogOpen(true);
+    router.push("/dashboard/warehouse/products/groups/new");
   };
 
   const handleEdit = (product: ProductWithDetails) => {
@@ -75,12 +75,6 @@ export default function ProductsPage() {
         onOpenChange={setIsCreateDialogOpen}
         onSuccess={loadProducts}
         product={editingProduct}
-      />
-
-      <CreateProductGroupDialog
-        open={isCreateGroupDialogOpen}
-        onOpenChange={setIsCreateGroupDialogOpen}
-        onSuccess={loadProducts}
       />
 
       <ProductsAdvancedTable
