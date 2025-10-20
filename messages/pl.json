@@ -972,7 +972,8 @@
         "labels": "Testowanie etykiet",
         "locations": "Debug lokalizacji",
         "richTextEditor": "Edytor Tekstu",
-        "subscriptionTest": "Test Subskrypcji"
+        "subscriptionTest": "Test Subskrypcji",
+        "skuGenerator": "Test Generatora SKU"
       }
     }
   },
@@ -1351,5 +1352,104 @@
     "yes": "Tak",
     "no": "Nie",
     "noProductsFound": "Nie znaleziono produktów"
+  },
+  "productGroups": {
+    "title": "Grupy Produktów",
+    "description": "Zarządzaj grupami produktów z wariantami",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProductGroup": "Edytuj Grupę Produktów",
+    "deleteProductGroup": "Usuń Grupę Produktów",
+    "skuGenerator": {
+      "title": "Konfiguruj Wzór SKU dla {baseName}",
+      "description": "Ustaw wzór SKU dla wszystkich wariantów w tej grupie produktów",
+      "table": {
+        "selectAttribute": "Wybierz Atrybut",
+        "show": "Pokaż",
+        "letterCase": "Wielkość Liter",
+        "separator": "Separator"
+      },
+      "format": {
+        "first": "Pierwsze 3 znaki",
+        "last": "Ostatnie 3 znaki",
+        "full": "Pełny tekst"
+      },
+      "case": {
+        "upper": "WIELKIE LITERY",
+        "lower": "małe litery",
+        "title": "Pierwsza Wielka"
+      },
+      "preview": {
+        "title": "Podgląd SKU",
+        "empty": "Nie wygenerowano SKU",
+        "description": "Ten podgląd pokazuje, jak będzie wyglądał SKU na podstawie Twojej konfiguracji"
+      },
+      "actions": {
+        "cancel": "Anuluj",
+        "generate": "Generuj SKU"
+      }
+    },
+    "variantGeneration": {
+      "title": "Generowanie Wariantów",
+      "description": "Skonfiguruj atrybuty, aby wygenerować warianty produktów",
+      "selectAttributes": "Wybierz Atrybuty",
+      "selectAttributesDescription": "Wybierz atrybuty do użycia dla wariantów",
+      "attributesSelected": "Wybrano {count} atrybutów",
+      "variantsWillBeGenerated": "Zostanie wygenerowanych {count} wariantów",
+      "generateVariants": "Generuj Warianty",
+      "configureSKU": "Konfiguruj Wzór SKU"
+    },
+    "variantsTable": {
+      "title": "Wygenerowane Warianty",
+      "description": "Wszystkie kombinacje wariantów z ich atrybutami",
+      "variantName": "Nazwa Wariantu",
+      "sku": "SKU",
+      "attributes": "Atrybuty",
+      "sellingPrice": "Cena Sprzedaży",
+      "costPrice": "Cena Zakupu",
+      "reorderPoint": "Punkt Zamówienia",
+      "active": "Aktywny",
+      "actions": "Akcje",
+      "noVariants": "Nie wygenerowano jeszcze wariantów",
+      "editVariant": "Edytuj Wariant",
+      "deleteVariant": "Usuń Wariant",
+      "bulkEdit": "Edycja Zbiorcza",
+      "copyToAll": "Kopiuj do Wszystkich"
+    },
+    "attributes": {
+      "title": "Atrybuty",
+      "description": "Atrybuty grupy produktów i ich wartości",
+      "selectAttribute": "Wybierz Atrybut",
+      "selectValues": "Wybierz Wartości",
+      "addAttribute": "Dodaj Atrybut",
+      "removeAttribute": "Usuń Atrybut",
+      "noAttributes": "Nie wybrano atrybutów",
+      "noAttributesDescription": "Dodaj atrybuty, aby wygenerować warianty produktów"
+    },
+    "detail": {
+      "title": "Szczegóły Grupy Produktów",
+      "overview": "Przegląd",
+      "variants": "Warianty",
+      "settings": "Ustawienia",
+      "totalVariants": "Wszystkie Warianty",
+      "activeVariants": "Aktywne Warianty",
+      "totalStock": "Całkowity Stan",
+      "viewVariants": "Zobacz Warianty",
+      "manageVariants": "Zarządzaj Wariantami"
+    },
+    "messages": {
+      "nameRequired": "Nazwa grupy produktów jest wymagana",
+      "attributesRequired": "Wymagany jest przynajmniej jeden atrybut",
+      "variantsRequired": "Musi zostać wygenerowany przynajmniej jeden wariant",
+      "productGroupCreated": "Grupa produktów została utworzona pomyślnie",
+      "productGroupUpdated": "Grupa produktów została zaktualizowana pomyślnie",
+      "productGroupDeleted": "Grupa produktów została usunięta pomyślnie",
+      "variantUpdated": "Wariant zaktualizowany pomyślnie",
+      "variantDeleted": "Wariant usunięty pomyślnie",
+      "variantsBulkUpdated": "Warianty zaktualizowane pomyślnie",
+      "createError": "Nie udało się utworzyć grupy produktów",
+      "updateError": "Nie udało się zaktualizować grupy produktów",
+      "deleteError": "Nie udało się usunąć grupy produktów",
+      "loadError": "Nie udało się załadować grupy produktów"
+    }
   }
 }

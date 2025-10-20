@@ -62,5 +62,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/dev/subscription-test",
       icon: "CreditCard",
     },
+    {
+      id: "sku-generator",
+      label: "modules.development.items.skuGenerator",
+      path: "/dashboard/development/sku-generator",
+      icon: "Wand2",
+    },
   ],
 };

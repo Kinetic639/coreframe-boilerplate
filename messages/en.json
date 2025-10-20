@@ -1017,7 +1017,8 @@
         "labels": "Label Testing",
         "locations": "Locations Debug",
         "richTextEditor": "Rich Text Editor",
-        "subscriptionTest": "Subscription Test"
+        "subscriptionTest": "Subscription Test",
+        "skuGenerator": "SKU Generator Test"
       }
     }
   },
@@ -1396,5 +1397,104 @@
     "yes": "Yes",
     "no": "No",
     "noProductsFound": "No products found"
+  },
+  "productGroups": {
+    "title": "Product Groups",
+    "description": "Manage product groups with variants",
+    "createProductGroup": "Create Product Group",
+    "editProductGroup": "Edit Product Group",
+    "deleteProductGroup": "Delete Product Group",
+    "skuGenerator": {
+      "title": "Configure SKU Pattern for {baseName}",
+      "description": "Set up the SKU pattern for all variants in this product group",
+      "table": {
+        "selectAttribute": "Select Attribute",
+        "show": "Show",
+        "letterCase": "Letter Case",
+        "separator": "Separator"
+      },
+      "format": {
+        "first": "First 3 chars",
+        "last": "Last 3 chars",
+        "full": "Full text"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case"
+      },
+      "preview": {
+        "title": "SKU Preview",
+        "empty": "No SKU generated",
+        "description": "This preview shows how the SKU will look based on your configuration"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "generate": "Generate SKUs"
+      }
+    },
+    "variantGeneration": {
+      "title": "Variant Generation",
+      "description": "Configure attributes to generate product variants",
+      "selectAttributes": "Select Attributes",
+      "selectAttributesDescription": "Choose which attributes to use for variants",
+      "attributesSelected": "{count} attributes selected",
+      "variantsWillBeGenerated": "{count} variants will be generated",
+      "generateVariants": "Generate Variants",
+      "configureSKU": "Configure SKU Pattern"
+    },
+    "variantsTable": {
+      "title": "Generated Variants",
+      "description": "All variant combinations with their attributes",
+      "variantName": "Variant Name",
+      "sku": "SKU",
+      "attributes": "Attributes",
+      "sellingPrice": "Selling Price",
+      "costPrice": "Cost Price",
+      "reorderPoint": "Reorder Point",
+      "active": "Active",
+      "actions": "Actions",
+      "noVariants": "No variants generated yet",
+      "editVariant": "Edit Variant",
+      "deleteVariant": "Delete Variant",
+      "bulkEdit": "Bulk Edit",
+      "copyToAll": "Copy to All"
+    },
+    "attributes": {
+      "title": "Attributes",
+      "description": "Product group attributes and their values",
+      "selectAttribute": "Select Attribute",
+      "selectValues": "Select Values",
+      "addAttribute": "Add Attribute",
+      "removeAttribute": "Remove Attribute",
+      "noAttributes": "No attributes selected",
+      "noAttributesDescription": "Add attributes to generate product variants"
+    },
+    "detail": {
+      "title": "Product Group Details",
+      "overview": "Overview",
+      "variants": "Variants",
+      "settings": "Settings",
+      "totalVariants": "Total Variants",
+      "activeVariants": "Active Variants",
+      "totalStock": "Total Stock",
+      "viewVariants": "View Variants",
+      "manageVariants": "Manage Variants"
+    },
+    "messages": {
+      "nameRequired": "Product group name is required",
+      "attributesRequired": "At least one attribute is required",
+      "variantsRequired": "At least one variant must be generated",
+      "productGroupCreated": "Product group created successfully",
+      "productGroupUpdated": "Product group updated successfully",
+      "productGroupDeleted": "Product group deleted successfully",
+      "variantUpdated": "Variant updated successfully",
+      "variantDeleted": "Variant deleted successfully",
+      "variantsBulkUpdated": "Variants updated successfully",
+      "createError": "Failed to create product group",
+      "updateError": "Failed to update product group",
+      "deleteError": "Failed to delete product group",
+      "loadError": "Failed to load product group"
+    }
   }
 }
