@@ -42,6 +42,7 @@ interface ProductsAdvancedTableProps {
   onEdit?: (product: ProductWithDetails) => void;
   onDelete?: (product: ProductWithDetails) => void;
   onAdd?: () => void;
+  onAddProductGroup?: () => void;
 }
 
 export function ProductsAdvancedTable({
@@ -51,6 +52,7 @@ export function ProductsAdvancedTable({
   onEdit,
   onDelete,
   onAdd,
+  onAddProductGroup,
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
   const { activeOrgId } = useAppStore();
@@ -571,6 +573,14 @@ export function ProductsAdvancedTable({
 
   return (
     <>
+      {onAddProductGroup && (
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={onAddProductGroup}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("createProductGroup")}
+          </Button>
+        </div>
+      )}
       <AdvancedDataTable
         data={products}
         columns={columns}
