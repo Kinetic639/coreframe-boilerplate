@@ -216,7 +216,6 @@ export function CreateProductGroupDialog({
     setIsSubmitting(true);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const productGroupData: any = {
         ...values,
         selectedAttributes,

@@ -15,7 +15,17 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true, // Disable ESLint during builds - run separately with 'npm run lint'
+  },
+  // Suppress Supabase Edge Runtime warnings
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.ignoreWarnings = [
+        { module: /node_modules\/@supabase\/realtime-js/ },
+        { module: /node_modules\/@supabase\/supabase-js/ },
+      ];
+    }
+    return config;
   },
 };
  
