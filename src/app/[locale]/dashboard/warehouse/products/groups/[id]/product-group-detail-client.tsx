@@ -241,13 +241,11 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {variant.attribute_values?.map(
-                              (attrVal: { id: string; value: string }) => (
-                                <Badge key={attrVal.id} variant="outline" className="text-xs">
-                                  {attrVal.value}
-                                </Badge>
-                              )
-                            )}
+                            {variant.attribute_values?.map((attrVal) => (
+                              <Badge key={attrVal.id} variant="outline" className="text-xs">
+                                {attrVal.option_value_id}
+                              </Badge>
+                            ))}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">

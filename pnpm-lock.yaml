@@ -249,6 +249,9 @@ importers:
         specifier: ^2.2.1
         version: 2.2.1(@types/emscripten@1.41.1)
     devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.3.1
+        version: 3.3.1
       '@next/eslint-plugin-next':
         specifier: ^15.3.5
         version: 15.5.2
