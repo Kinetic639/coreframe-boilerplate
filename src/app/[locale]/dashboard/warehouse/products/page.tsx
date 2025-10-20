@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ProductsAdvancedTable } from "@/modules/warehouse/products/components/products-advanced-table";
 import { CreateProductDialog } from "@/modules/warehouse/products/components/create-product-dialog";
+import { CreateProductGroupDialog } from "@/modules/warehouse/products/components/create-product-group-dialog";
 import { productsService } from "@/modules/warehouse/api/products-service";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -14,6 +15,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = React.useState(false);
+  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = React.useState(false);
   const [editingProduct, setEditingProduct] = React.useState<ProductWithDetails | null>(null);
 
   // Load products
@@ -44,6 +46,10 @@ export default function ProductsPage() {
     setIsCreateDialogOpen(true);
   };
 
+  const handleAddProductGroup = () => {
+    setIsCreateGroupDialogOpen(true);
+  };
+
   const handleEdit = (product: ProductWithDetails) => {
     setEditingProduct(product);
     setIsCreateDialogOpen(true);
@@ -71,11 +77,18 @@ export default function ProductsPage() {
         product={editingProduct}
       />
 
+      <CreateProductGroupDialog
+        open={isCreateGroupDialogOpen}
+        onOpenChange={setIsCreateGroupDialogOpen}
+        onSuccess={loadProducts}
+      />
+
       <ProductsAdvancedTable
         products={products}
         loading={loading}
         error={error}
         onAdd={handleAdd}
+        onAddProductGroup={handleAddProductGroup}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
