@@ -11,7 +11,14 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ChevronUp, ChevronDown, ChevronsUpDown, Plus } from "lucide-react";
+import {
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdvancedDataTableProps } from "./types";
 import { useTableStore } from "./store/table-store";
@@ -162,31 +169,49 @@ export function AdvancedDataTable<T>({
     <div className={cn("flex h-full flex-col bg-background", className)}>
       {/* Table Container - NO BORDER, NO ROUNDED */}
       <div className="relative flex flex-1 flex-col overflow-hidden bg-white">
-        {/* Inline Filters Header */}
-        <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-2">
-          <TableFilters
-            columns={columns}
-            searchPlaceholder={searchPlaceholder}
-            showSearch={showSearch}
-            layoutMode={layoutMode}
-          />
-          <div className="flex items-center gap-2">
-            {onAdd && (
-              <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
-                <Plus className="h-4 w-4" />
-                <span>New</span>
-              </Button>
-            )}
-            <ColumnManager columns={columns} />
-          </div>
-        </div>
+        {/* Layout changes based on mode */}
+        {layoutMode === "sidebar-detail" ? (
+          // InFlow-style layout: Filters only above sidebar, details reach top
+          <div className="relative flex flex-1 overflow-hidden">
+            {/* Left Sidebar with Filters Above */}
+            <div className="flex w-[280px] flex-col border-r">
+              {/* Compact Filter Bar - Only above sidebar - InFlow style */}
+              <div className="flex h-10 items-center justify-between border-b bg-background px-3">
+                {/* Search Icon */}
+                {showSearch && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => {
+                      /* Search functionality */
+                    }}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                )}
 
-        {/* Table Content */}
-        <div className="relative flex flex-1 overflow-hidden">
-          {layoutMode === "sidebar-detail" ? (
-            // Sidebar + Detail Panel Layout - NO ANIMATION
-            <>
-              <div className="w-[280px] border-r">
+                {/* Filters Button - Clicking closes detail - Centered */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-sm font-normal"
+                  onClick={closeDetail}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  <span>Filters</span>
+                </Button>
+
+                {/* Add Button */}
+                {onAdd && (
+                  <Button size="sm" className="h-8 w-8 p-0" onClick={onAdd} title="Add new">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Sidebar List */}
+              <div className="flex-1 overflow-auto">
                 <TableSidebar
                   data={processedData}
                   columns={visibleColumns}
@@ -194,17 +219,41 @@ export function AdvancedDataTable<T>({
                   getRowId={getRowId}
                 />
               </div>
-              <div className="flex-1">
-                <TableDetailPanel
-                  row={selectedRow}
-                  onClose={closeDetail}
-                  renderDetail={renderDetail}
-                  columns={visibleColumns}
-                />
+            </div>
+
+            {/* Right Detail Panel - Reaches top, same level as filters */}
+            <div className="flex-1 overflow-auto">
+              <TableDetailPanel
+                row={selectedRow}
+                onClose={closeDetail}
+                renderDetail={renderDetail}
+                columns={visibleColumns}
+              />
+            </div>
+          </div>
+        ) : (
+          // Full table layout: Filters span full width
+          <>
+            {/* Full-width Filters Header */}
+            <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-2">
+              <TableFilters
+                columns={columns}
+                searchPlaceholder={searchPlaceholder}
+                showSearch={showSearch}
+                layoutMode={layoutMode}
+              />
+              <div className="flex items-center gap-2">
+                {onAdd && (
+                  <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
+                    <Plus className="h-4 w-4" />
+                    <span>New</span>
+                  </Button>
+                )}
+                <ColumnManager columns={columns} />
               </div>
-            </>
-          ) : (
-            // Full Table Layout
+            </div>
+
+            {/* Full Table Layout */}
             <div className="flex-1 overflow-auto">
               {loading ? (
                 <div className="p-4">
@@ -304,8 +353,8 @@ export function AdvancedDataTable<T>({
                 </Table>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -71,6 +71,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/settings/variant-options",
       pl: "/dashboard/magazyn/ustawienia/grupy-opcji-wariantow",
     },
+    "/dashboard/warehouse/settings/custom-fields": {
+      en: "/dashboard/warehouse/settings/custom-fields",
+      pl: "/dashboard/magazyn/ustawienia/pola-niestandardowe",
+    },
     "/dashboard/warehouse/settings/categories": {
       en: "/dashboard/warehouse/settings/categories",
       pl: "/dashboard/magazyn/ustawienia/kategorie",
@@ -117,6 +121,14 @@ export const routing = defineRouting({
     "/dashboard/warehouse/products/[id]": {
       en: "/dashboard/warehouse/products/[id]",
       pl: "/dashboard/magazyn/produkty/[id]",
+    },
+    "/dashboard/warehouse/products/groups/new": {
+      en: "/dashboard/warehouse/products/groups/new",
+      pl: "/dashboard/magazyn/produkty/grupy/nowa",
+    },
+    "/dashboard/warehouse/products/groups/[id]": {
+      en: "/dashboard/warehouse/products/groups/[id]",
+      pl: "/dashboard/magazyn/produkty/grupy/[id]",
     },
     "/dashboard/warehouse/products/templates": {
       en: "/dashboard/warehouse/products/templates",
@@ -343,6 +355,10 @@ export const routing = defineRouting({
     "/dashboard/development/rich-text-editor": {
       en: "/dashboard/development/rich-text-editor",
       pl: "/dashboard/deweloperskie/rich-text-editor",
+    },
+    "/dashboard/development/sku-generator": {
+      en: "/dashboard/development/sku-generator",
+      pl: "/dashboard/deweloperskie/generator-sku",
     },
     "/dashboard/dev/subscription-test": {
       en: "/dashboard/dev/subscription-test",

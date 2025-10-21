@@ -1049,7 +1049,8 @@
         "labels": "Testowanie etykiet",
         "locations": "Debug lokalizacji",
         "richTextEditor": "Edytor Tekstu",
-        "subscriptionTest": "Test Subskrypcji"
+        "subscriptionTest": "Test Subskrypcji",
+        "skuGenerator": "Test Generatora SKU"
       }
     }
   },
@@ -1242,6 +1243,290 @@
           "viewChangelog": "Zobacz pełny dziennik zmian"
         }
       }
+    }
+  },
+  "productsModule": {
+    "title": "Produkty",
+    "description": "Zarządzaj katalogiem produktów",
+    "createProduct": "Utwórz Produkt",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProduct": "Edytuj Produkt",
+    "deleteProduct": "Usuń Produkt",
+    "productType": {
+      "label": "Typ Produktu",
+      "goods": "Towary",
+      "service": "Usługa",
+      "itemGroup": "Grupa Produktów",
+      "goodsDescription": "Fizyczne towary magazynowe",
+      "serviceDescription": "Usługi lub produkty niefizyczne"
+    },
+    "basicInfo": {
+      "title": "Podstawowe Informacje",
+      "name": "Nazwa",
+      "namePlaceholder": "Wprowadź nazwę produktu",
+      "sku": "SKU",
+      "skuPlaceholder": "Wprowadź SKU",
+      "skuDescription": "Pozostaw puste, aby automatycznie wygenerować",
+      "description": "Opis",
+      "descriptionPlaceholder": "Wprowadź opis produktu",
+      "category": "Kategoria",
+      "categoryPlaceholder": "Wybierz kategorię",
+      "brand": "Marka",
+      "brandPlaceholder": "Wprowadź markę",
+      "manufacturer": "Producent",
+      "manufacturerPlaceholder": "Wprowadź producenta",
+      "unit": "Jednostka",
+      "unitPlaceholder": "Wybierz jednostkę",
+      "selectUnit": "Wybierz jednostkę miary",
+      "noUnits": "Brak dostępnych jednostek. Dodaj jednostki w ustawieniach magazynu.",
+      "returnableItem": "Produkt Zwrotny",
+      "returnableItemDescription": "Włącz, jeśli ten produkt może być zwracany przez klientów",
+      "productType": "Typ Produktu",
+      "productTypeDescription": "Wybierz, czy to jest fizyczny towar, czy usługa"
+    },
+    "measurements": {
+      "title": "Wymiary",
+      "dimensions": "Wymiary (D × S × W)",
+      "length": "Długość",
+      "width": "Szerokość",
+      "height": "Wysokość",
+      "weight": "Waga",
+      "dimensionsUnit": "cm",
+      "weightUnit": "kg"
+    },
+    "identifiers": {
+      "title": "Identyfikatory",
+      "upc": "UPC",
+      "ean": "EAN",
+      "isbn": "ISBN",
+      "mpn": "MPN"
+    },
+    "salesInfo": {
+      "title": "Informacje Sprzedażowe",
+      "sellingPrice": "Cena Sprzedaży",
+      "salesAccount": "Konto Sprzedaży",
+      "salesDescription": "Opis Sprzedażowy"
+    },
+    "purchaseInfo": {
+      "title": "Informacje Zakupowe",
+      "costPrice": "Cena Zakupu",
+      "purchaseAccount": "Konto Zakupu",
+      "purchaseDescription": "Opis Zakupowy",
+      "preferredVendor": "Preferowany Dostawca"
+    },
+    "inventorySettings": {
+      "title": "Ustawienia Magazynowe",
+      "trackInventory": "Śledź Inwentarz",
+      "inventoryAccount": "Konto Magazynowe",
+      "reorderPoint": "Punkt Zamówienia",
+      "reorderPointHelp": "Ustaw na 0, aby wyłączyć powiadomienia o niskim stanie",
+      "openingStock": "Stan Początkowy",
+      "openingStockRate": "Stawka Stanu Początkowego"
+    },
+    "barcodes": {
+      "title": "Kody Kreskowe",
+      "manageBarcodes": "Zarządzaj Kodami Kreskowymi",
+      "addBarcode": "Dodaj Kod Kreskowy",
+      "defaultBarcode": "Domyślny kod kreskowy",
+      "barcodePlaceholder": "Wprowadź kod kreskowy",
+      "setPrimary": "Ustaw jako główny",
+      "remove": "Usuń",
+      "isPrimary": "Główny",
+      "primary": "Główny",
+      "noBarcodes": "Nie dodano jeszcze kodów kreskowych. Kliknij przycisk powyżej, aby dodać.",
+      "helpText": "Domyślny kod kreskowy jest synchronizowany z integracjami e-commerce i używany do drukowania etykiet."
+    },
+    "customFields": {
+      "title": "Pola Niestandardowe",
+      "manageCustomFields": "Zarządzaj Polami Niestandardowymi",
+      "addField": "Dodaj Pole",
+      "fieldName": "Nazwa Pola",
+      "fieldType": "Typ Pola",
+      "fieldValue": "Wartość",
+      "dialogTitle": "Dostosuj inFlow do swoich potrzeb za pomocą pól niestandardowych.",
+      "dialogDescription": "Dodaj pola niestandardowe, aby śledzić dodatkowe informacje o produktach",
+      "fieldLabel": "Pole {number}",
+      "fieldNamePlaceholder": "np. Marka, Kraj, Materiał",
+      "typeLabel": "Typ",
+      "manageDropdownOptions": "Zarządzaj opcjami listy rozwijanej",
+      "addOption": "Dodaj Opcję",
+      "optionPlaceholder": "Opcja {number}",
+      "showInactive": "Pokaż nieaktywne",
+      "enterData": "Wprowadź dane",
+      "selectPlaceholder": "Wybierz...",
+      "pickDate": "Wybierz datę",
+      "yes": "Tak",
+      "no": "Nie",
+      "saving": "Zapisywanie...",
+      "saveChanges": "Zapisz Zmiany",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "loading": "Ładowanie pól niestandardowych...",
+      "noFieldsDefined": "Nie zdefiniowano jeszcze pól niestandardowych. Przejdź do Ustawienia → Pola Niestandardowe, aby je utworzyć.",
+      "successCreate": "Pole niestandardowe utworzone pomyślnie",
+      "successUpdate": "Pola niestandardowe zaktualizowane pomyślnie",
+      "successSave": "Pola niestandardowe zapisane pomyślnie",
+      "errorLoad": "Nie udało się załadować pól niestandardowych",
+      "errorSave": "Nie udało się zapisać pól niestandardowych",
+      "confirmDelete": "Czy na pewno chcesz usunąć \"{name}\"?",
+      "types": {
+        "text": "Pole tekstowe",
+        "number": "Liczba",
+        "date": "Pole daty",
+        "dropdown": "Lista rozwijana",
+        "checkbox": "Pole wyboru"
+      }
+    },
+    "actions": {
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "edit": "Edytuj",
+      "duplicate": "Duplikuj",
+      "archive": "Archiwizuj"
+    },
+    "messages": {
+      "nameRequired": "Nazwa produktu jest wymagana",
+      "unitRequired": "Jednostka jest wymagana",
+      "organizationRequired": "Organizacja jest wymagana",
+      "productCreated": "Produkt utworzony pomyślnie",
+      "productCreationFailed": "Nie udało się utworzyć produktu",
+      "createSuccess": "Produkt utworzony pomyślnie",
+      "updateSuccess": "Produkt zaktualizowany pomyślnie",
+      "deleteSuccess": "Produkt usunięty pomyślnie",
+      "createError": "Nie udało się utworzyć produktu",
+      "updateError": "Nie udało się zaktualizować produktu",
+      "deleteError": "Nie udało się usunąć produktu"
+    },
+    "tabs": {
+      "basic": "Podstawowe",
+      "sales": "Sprzedaż",
+      "purchase": "Zakup",
+      "inventory": "Magazyn",
+      "additional": "Dodatkowe",
+      "overview": "Przegląd",
+      "vendors": "Dostawcy Produktu",
+      "orderHistory": "Historia Zamówień",
+      "movementHistory": "Historia Ruchów"
+    },
+    "status": {
+      "active": "Aktywny",
+      "inactive": "Nieaktywny",
+      "archived": "Zarchiwizowany"
+    },
+    "filters": {
+      "all": "Wszystkie Produkty",
+      "goods": "Towary",
+      "services": "Usługi",
+      "itemGroups": "Grupy Produktów",
+      "search": "Szukaj produktów...",
+      "filterBy": "Filtruj według",
+      "sortBy": "Sortuj według"
+    },
+    "pricing": {
+      "title": "Ceny"
+    },
+    "yes": "Tak",
+    "no": "Nie",
+    "noProductsFound": "Nie znaleziono produktów"
+  },
+  "productGroups": {
+    "title": "Grupy Produktów",
+    "description": "Zarządzaj grupami produktów z wariantami",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProductGroup": "Edytuj Grupę Produktów",
+    "deleteProductGroup": "Usuń Grupę Produktów",
+    "skuGenerator": {
+      "title": "Konfiguruj Wzór SKU dla {baseName}",
+      "description": "Ustaw wzór SKU dla wszystkich wariantów w tej grupie produktów",
+      "table": {
+        "selectAttribute": "Wybierz Atrybut",
+        "show": "Pokaż",
+        "letterCase": "Wielkość Liter",
+        "separator": "Separator"
+      },
+      "format": {
+        "first": "Pierwsze 3 znaki",
+        "last": "Ostatnie 3 znaki",
+        "full": "Pełny tekst"
+      },
+      "case": {
+        "upper": "WIELKIE LITERY",
+        "lower": "małe litery",
+        "title": "Pierwsza Wielka"
+      },
+      "preview": {
+        "title": "Podgląd SKU",
+        "empty": "Nie wygenerowano SKU",
+        "description": "Ten podgląd pokazuje, jak będzie wyglądał SKU na podstawie Twojej konfiguracji"
+      },
+      "actions": {
+        "cancel": "Anuluj",
+        "generate": "Generuj SKU"
+      }
+    },
+    "variantGeneration": {
+      "title": "Generowanie Wariantów",
+      "description": "Skonfiguruj atrybuty, aby wygenerować warianty produktów",
+      "selectAttributes": "Wybierz Atrybuty",
+      "selectAttributesDescription": "Wybierz atrybuty do użycia dla wariantów",
+      "attributesSelected": "Wybrano {count} atrybutów",
+      "variantsWillBeGenerated": "Zostanie wygenerowanych {count} wariantów",
+      "generateVariants": "Generuj Warianty",
+      "configureSKU": "Konfiguruj Wzór SKU"
+    },
+    "variantsTable": {
+      "title": "Wygenerowane Warianty",
+      "description": "Wszystkie kombinacje wariantów z ich atrybutami",
+      "variantName": "Nazwa Wariantu",
+      "sku": "SKU",
+      "attributes": "Atrybuty",
+      "sellingPrice": "Cena Sprzedaży",
+      "costPrice": "Cena Zakupu",
+      "reorderPoint": "Punkt Zamówienia",
+      "active": "Aktywny",
+      "actions": "Akcje",
+      "noVariants": "Nie wygenerowano jeszcze wariantów",
+      "editVariant": "Edytuj Wariant",
+      "deleteVariant": "Usuń Wariant",
+      "bulkEdit": "Edycja Zbiorcza",
+      "copyToAll": "Kopiuj do Wszystkich"
+    },
+    "attributes": {
+      "title": "Atrybuty",
+      "description": "Atrybuty grupy produktów i ich wartości",
+      "selectAttribute": "Wybierz Atrybut",
+      "selectValues": "Wybierz Wartości",
+      "addAttribute": "Dodaj Atrybut",
+      "removeAttribute": "Usuń Atrybut",
+      "noAttributes": "Nie wybrano atrybutów",
+      "noAttributesDescription": "Dodaj atrybuty, aby wygenerować warianty produktów"
+    },
+    "detail": {
+      "title": "Szczegóły Grupy Produktów",
+      "overview": "Przegląd",
+      "variants": "Warianty",
+      "settings": "Ustawienia",
+      "totalVariants": "Wszystkie Warianty",
+      "activeVariants": "Aktywne Warianty",
+      "totalStock": "Całkowity Stan",
+      "viewVariants": "Zobacz Warianty",
+      "manageVariants": "Zarządzaj Wariantami"
+    },
+    "messages": {
+      "nameRequired": "Nazwa grupy produktów jest wymagana",
+      "attributesRequired": "Wymagany jest przynajmniej jeden atrybut",
+      "variantsRequired": "Musi zostać wygenerowany przynajmniej jeden wariant",
+      "productGroupCreated": "Grupa produktów została utworzona pomyślnie",
+      "productGroupUpdated": "Grupa produktów została zaktualizowana pomyślnie",
+      "productGroupDeleted": "Grupa produktów została usunięta pomyślnie",
+      "variantUpdated": "Wariant zaktualizowany pomyślnie",
+      "variantDeleted": "Wariant usunięty pomyślnie",
+      "variantsBulkUpdated": "Warianty zaktualizowane pomyślnie",
+      "createError": "Nie udało się utworzyć grupy produktów",
+      "updateError": "Nie udało się zaktualizować grupy produktów",
+      "deleteError": "Nie udało się usunąć grupy produktów",
+      "loadError": "Nie udało się załadować grupy produktów"
     }
   }
 }
