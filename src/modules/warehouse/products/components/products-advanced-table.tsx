@@ -654,6 +654,14 @@ export function ProductsAdvancedTable({
           onOpenChange={setIsCustomFieldsDialogOpen}
           product={customFieldsProduct}
           onSave={async () => {
+            // Reload custom field definitions for the organization
+            try {
+              const definitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+              setCustomFieldDefinitions(definitions);
+            } catch (error) {
+              console.error("Failed to reload custom field definitions:", error);
+            }
+
             // Reload custom field values for this product
             try {
               const values = await customFieldsService.getProductFieldValues(

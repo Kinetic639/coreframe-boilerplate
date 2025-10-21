@@ -391,6 +391,47 @@ export function CreateProductDialog({
     setBarcodes(newBarcodes);
   };
 
+  const handleRemoveCustomField = async (fieldId: string) => {
+    if (!isEditMode || !product?.id) {
+      toast.error(t("messages.cannotRemoveCustomField"));
+      return;
+    }
+
+    try {
+      // Find the custom field value ID to delete
+      const fieldValueToDelete = product.custom_field_values?.find(
+        (fv) => fv.field_definition_id === fieldId
+      );
+
+      if (fieldValueToDelete) {
+        await customFieldsService.deleteFieldValue(fieldValueToDelete.id);
+        toast.success(t("messages.customFieldRemoved"));
+        // Update local state
+        setCustomFieldValues((prev) => {
+          const newState = { ...prev };
+          delete newState[fieldId];
+          return newState;
+        });
+        // Also update the product object to reflect the change immediately
+        if (product.custom_field_values) {
+          product.custom_field_values = product.custom_field_values.filter(
+            (fv) => fv.field_definition_id !== fieldId
+          );
+        }
+      } else {
+        // If it's a new field that hasn't been saved yet, just remove from state
+        setCustomFieldValues((prev) => {
+          const newState = { ...prev };
+          delete newState[fieldId];
+          return newState;
+        });
+      }
+    } catch (error) {
+      console.error("Failed to remove custom field value:", error);
+      toast.error(t("messages.customFieldRemoveFailed"));
+    }
+  };
+
   const renderCategoryOptions = (categories: CategoryTreeItem[], level = 0): React.ReactNode[] => {
     let options: React.ReactNode[] = [];
     for (const category of categories) {
@@ -1075,6 +1116,7 @@ export function CreateProductDialog({
                         [fieldId]: value,
                       }));
                     }}
+                    onRemove={handleRemoveCustomField}
                   />
                 )}
               </TabsContent>
