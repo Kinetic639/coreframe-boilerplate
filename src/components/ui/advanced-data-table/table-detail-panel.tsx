@@ -26,9 +26,7 @@ export function TableDetailPanel<T>({
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="p-4">
-          {renderDetail ? renderDetail(row) : <DefaultDetailView row={row} columns={columns} />}
-        </div>
+        {renderDetail ? renderDetail(row) : <DefaultDetailView row={row} columns={columns} />}
       </ScrollArea>
     </div>
   );
