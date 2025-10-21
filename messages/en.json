@@ -1409,6 +1409,7 @@
       "cancel": "Cancel",
       "loading": "Loading custom fields...",
       "noFieldsDefined": "No custom fields defined yet. Go to Settings → Custom Fields to create them.",
+      "noCustomFieldsSelected": "No custom fields selected for this product. Click 'Add Field' to add one.",
       "successCreate": "Custom field created successfully",
       "successUpdate": "Custom fields updated successfully",
       "successSave": "Custom fields saved successfully",
@@ -1442,7 +1443,10 @@
       "deleteSuccess": "Product deleted successfully",
       "createError": "Failed to create product",
       "updateError": "Failed to update product",
-      "deleteError": "Failed to delete product"
+      "deleteError": "Failed to delete product",
+      "cannotRemoveCustomField": "Cannot remove custom field in this mode.",
+      "customFieldRemoved": "Custom field removed successfully.",
+      "customFieldRemoveFailed": "Failed to remove custom field."
     },
     "tabs": {
       "basic": "Basic",
