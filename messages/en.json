@@ -832,6 +832,83 @@
               "valueAdded": "Value added successfully",
               "valueDeleted": "Value deleted successfully"
             }
+          },
+          "categories": {
+            "title": "Product Categories",
+            "description": "Organize products into categories and subcategories",
+            "dragToReorder": "Drag to reorder",
+            "loading": "Loading...",
+            "saving": "Saving",
+            "empty": "No categories yet",
+            "emptyDescription": "Create your first category to organize products",
+            "addCategory": "Add Category",
+            "addSubcategory": "Add Subcategory",
+            "rootCategory": "Root Category",
+            "default": "Default",
+            "productsCount": "{count} products",
+            "table": {
+              "name": "Name",
+              "description": "Description",
+              "actions": "Actions"
+            },
+            "actions": {
+              "edit": "Edit",
+              "addSubcategory": "Add Subcategory",
+              "move": "Move to",
+              "delete": "Delete"
+            },
+            "moveCategory": "Move Category",
+            "moveCategoryDescription": "Select a new parent category for \"{name}\"",
+            "topLevel": "Top Level (No Parent)",
+            "form": {
+              "name": "Category Name",
+              "namePlaceholder": "e.g., Electronics, Furniture",
+              "description": "Description",
+              "descriptionPlaceholder": "Optional description",
+              "parentCategory": "Parent Category",
+              "parentCategoryPlaceholder": "Select parent category",
+              "targetParent": "Move to",
+              "selectTarget": "Select target parent",
+              "color": "Color (optional)",
+              "colorPlaceholder": "Choose a color",
+              "cancel": "Cancel",
+              "add": "Add",
+              "save": "Save",
+              "saving": "Saving...",
+              "move": "Move",
+              "moving": "Moving...",
+              "addDescription": "Create a new category to organize your products",
+              "editCategory": "Edit Category",
+              "editDescription": "Update category information"
+            },
+            "confirmDelete": {
+              "title": "Delete \"{name}\"?",
+              "usedBy": "This category is used by {count} products."
+            },
+            "deleteWarning": {
+              "subcategory": "{count} products will be moved from \"{name}\" to \"{target}\"",
+              "mainCategory": "This category contains {productCount} products and {childCount} subcategories. All will be moved to \"{target}\""
+            },
+            "errors": {
+              "loadFailed": "Failed to load categories",
+              "createFailed": "Failed to create category",
+              "updateFailed": "Failed to update category",
+              "deleteFailed": "Failed to delete category",
+              "moveFailed": "Failed to move category",
+              "reorderFailed": "Failed to reorder categories",
+              "cannotDeleteDefault": "Cannot delete the default category",
+              "cannotMoveToDescendant": "Cannot move category to its own descendant",
+              "togglePreferredFailed": "Failed to toggle preferred status"
+            },
+            "success": {
+              "created": "Category created successfully",
+              "updated": "Category updated successfully",
+              "deleted": "Category deleted successfully",
+              "moved": "Category moved successfully",
+              "reordered": "Categories reordered successfully",
+              "markedPreferred": "Category marked as preferred",
+              "unmarkedPreferred": "Category unmarked as preferred"
+            }
           }
         },
         "products": {
