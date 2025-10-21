@@ -28,11 +28,13 @@ import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
 import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
 } from "@/modules/warehouse/types/custom-fields";
+import type { CategoryTreeItem } from "@/modules/warehouse/types/categories";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -73,6 +75,14 @@ export function ProductsAdvancedTable({
   const [customFieldValuesMap, setCustomFieldValuesMap] = React.useState<
     Record<string, CustomFieldValue[]>
   >({});
+  const [categoryTree, setCategoryTree] = React.useState<CategoryTreeItem[]>([]);
+
+  // Load categories
+  React.useEffect(() => {
+    if (activeOrgId) {
+      categoriesService.getCategories(activeOrgId).then(setCategoryTree);
+    }
+  }, [activeOrgId]);
 
   // Load custom field definitions
   React.useEffect(() => {
@@ -202,17 +212,27 @@ export function ProductsAdvancedTable({
     },
   ];
 
+  const findCategoryPath = (tree: CategoryTreeItem[], categoryId: string): ProductCategory[] => {
+    for (const category of tree) {
+      if (category.id === categoryId) {
+        return [category];
+      }
+      if (category.children) {
+        const path = findCategoryPath(category.children, categoryId);
+        if (path.length > 0) {
+          return [category, ...path];
+        }
+      }
+    }
+    return [];
+  };
+
   const renderBreadcrumbs = (category: ProductCategory | null | undefined) => {
     if (!category) {
       return null;
     }
 
-    const breadcrumbs: ProductCategory[] = [];
-    let current: (ProductCategory & { parent?: ProductCategory }) | null | undefined = category;
-    while (current) {
-      breadcrumbs.unshift(current);
-      current = current.parent;
-    }
+    const breadcrumbs = findCategoryPath(categoryTree, category.id);
 
     return (
       <div className="mb-4">

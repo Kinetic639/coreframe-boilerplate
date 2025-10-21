@@ -1315,6 +1315,7 @@
       "description": "Description",
       "descriptionPlaceholder": "Enter product description",
       "category": "Category",
+      "selectCategory": "Select a category",
       "categoryPlaceholder": "Select category",
       "brand": "Brand",
       "brandPlaceholder": "Enter brand",
