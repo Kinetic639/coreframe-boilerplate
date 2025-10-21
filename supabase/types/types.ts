@@ -1694,62 +1694,41 @@ export type Database = {
         };
         Relationships: [];
       };
-      product_attributes: {
+      product_barcodes: {
         Row: {
-          attribute_key: string;
-          context_scope: string;
+          barcode: string;
           created_at: string | null;
           id: string;
-          locale: string | null;
-          product_id: string;
-          updated_at: string | null;
-          value_boolean: boolean | null;
-          value_date: string | null;
-          value_json: Json | null;
-          value_number: number | null;
-          value_text: string | null;
+          is_primary: boolean | null;
+          product_id: string | null;
           variant_id: string | null;
         };
         Insert: {
-          attribute_key: string;
-          context_scope?: string;
+          barcode: string;
           created_at?: string | null;
           id?: string;
-          locale?: string | null;
-          product_id: string;
-          updated_at?: string | null;
-          value_boolean?: boolean | null;
-          value_date?: string | null;
-          value_json?: Json | null;
-          value_number?: number | null;
-          value_text?: string | null;
+          is_primary?: boolean | null;
+          product_id?: string | null;
           variant_id?: string | null;
         };
         Update: {
-          attribute_key?: string;
-          context_scope?: string;
+          barcode?: string;
           created_at?: string | null;
           id?: string;
-          locale?: string | null;
-          product_id?: string;
-          updated_at?: string | null;
-          value_boolean?: boolean | null;
-          value_date?: string | null;
-          value_json?: Json | null;
-          value_number?: number | null;
-          value_text?: string | null;
+          is_primary?: boolean | null;
+          product_id?: string | null;
           variant_id?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "product_attributes_product_id_fkey";
+            foreignKeyName: "product_barcodes_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
             referencedRelation: "products";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "product_attributes_variant_id_fkey";
+            foreignKeyName: "product_barcodes_variant_id_fkey";
             columns: ["variant_id"];
             isOneToOne: false;
             referencedRelation: "product_variants";
@@ -1823,43 +1802,181 @@ export type Database = {
           },
         ];
       };
+      product_custom_field_definitions: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          display_order: number | null;
+          dropdown_options: Json | null;
+          field_name: string;
+          field_type: string;
+          id: string;
+          organization_id: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          dropdown_options?: Json | null;
+          field_name: string;
+          field_type: string;
+          id?: string;
+          organization_id: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          dropdown_options?: Json | null;
+          field_name?: string;
+          field_type?: string;
+          id?: string;
+          organization_id?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_custom_field_definitions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_custom_field_values: {
+        Row: {
+          created_at: string | null;
+          field_definition_id: string;
+          id: string;
+          product_id: string | null;
+          updated_at: string | null;
+          value_boolean: boolean | null;
+          value_date: string | null;
+          value_number: number | null;
+          value_text: string | null;
+          variant_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          field_definition_id: string;
+          id?: string;
+          product_id?: string | null;
+          updated_at?: string | null;
+          value_boolean?: boolean | null;
+          value_date?: string | null;
+          value_number?: number | null;
+          value_text?: string | null;
+          variant_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          field_definition_id?: string;
+          id?: string;
+          product_id?: string | null;
+          updated_at?: string | null;
+          value_boolean?: boolean | null;
+          value_date?: string | null;
+          value_number?: number | null;
+          value_text?: string | null;
+          variant_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_custom_field_values_field_definition_id_fkey";
+            columns: ["field_definition_id"];
+            isOneToOne: false;
+            referencedRelation: "product_custom_field_definitions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_custom_field_values_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_custom_field_values_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_group_attributes: {
+        Row: {
+          created_at: string | null;
+          display_order: number | null;
+          id: string;
+          option_group_id: string;
+          product_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id: string;
+          product_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id?: string;
+          product_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_group_attributes_option_group_id_fkey";
+            columns: ["option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_group_attributes_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_images: {
         Row: {
           alt_text: string | null;
-          context_scope: string;
           created_at: string | null;
           display_order: number | null;
           file_name: string;
           id: string;
           is_primary: boolean | null;
-          metadata: Json | null;
-          product_id: string;
+          product_id: string | null;
           storage_path: string;
           variant_id: string | null;
         };
         Insert: {
           alt_text?: string | null;
-          context_scope?: string;
           created_at?: string | null;
           display_order?: number | null;
           file_name: string;
           id?: string;
           is_primary?: boolean | null;
-          metadata?: Json | null;
-          product_id: string;
+          product_id?: string | null;
           storage_path: string;
           variant_id?: string | null;
         };
         Update: {
           alt_text?: string | null;
-          context_scope?: string;
           created_at?: string | null;
           display_order?: number | null;
           file_name?: string;
           id?: string;
           is_primary?: boolean | null;
-          metadata?: Json | null;
-          product_id?: string;
+          product_id?: string | null;
           storage_path?: string;
           variant_id?: string | null;
         };
@@ -1913,13 +2030,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "product_option_groups_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "product_option_groups_template_group_id_fkey";
             columns: ["template_group_id"];
             isOneToOne: false;
@@ -1966,72 +2076,6 @@ export type Database = {
           },
         ];
       };
-      product_templates: {
-        Row: {
-          category: string | null;
-          color: string | null;
-          created_at: string | null;
-          deleted_at: string | null;
-          description: string | null;
-          icon: string | null;
-          id: string;
-          is_system: boolean | null;
-          metadata: Json | null;
-          name: string;
-          organization_id: string | null;
-          parent_template_id: string | null;
-          slug: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          category?: string | null;
-          color?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          description?: string | null;
-          icon?: string | null;
-          id?: string;
-          is_system?: boolean | null;
-          metadata?: Json | null;
-          name: string;
-          organization_id?: string | null;
-          parent_template_id?: string | null;
-          slug: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          category?: string | null;
-          color?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          description?: string | null;
-          icon?: string | null;
-          id?: string;
-          is_system?: boolean | null;
-          metadata?: Json | null;
-          name?: string;
-          organization_id?: string | null;
-          parent_template_id?: string | null;
-          slug?: string;
-          updated_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "product_templates_organization_id_fkey";
-            columns: ["organization_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "product_templates_parent_template_id_fkey";
-            columns: ["parent_template_id"];
-            isOneToOne: false;
-            referencedRelation: "product_templates";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       product_variant_options: {
         Row: {
           created_at: string | null;
@@ -2069,56 +2113,55 @@ export type Database = {
             referencedRelation: "product_option_values";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "product_variant_options_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "product_variants";
-            referencedColumns: ["id"];
-          },
         ];
       };
       product_variants: {
         Row: {
-          barcode: string | null;
+          cost_price: number | null;
           created_at: string | null;
           deleted_at: string | null;
+          ean: string | null;
           id: string;
-          is_default: boolean | null;
-          metadata: Json | null;
+          is_active: boolean | null;
+          isbn: string | null;
           name: string;
           product_id: string;
-          sku: string | null;
-          slug: string;
-          status: string;
+          reorder_point: number | null;
+          selling_price: number | null;
+          sku: string;
+          upc: string | null;
           updated_at: string | null;
         };
         Insert: {
-          barcode?: string | null;
+          cost_price?: number | null;
           created_at?: string | null;
           deleted_at?: string | null;
+          ean?: string | null;
           id?: string;
-          is_default?: boolean | null;
-          metadata?: Json | null;
+          is_active?: boolean | null;
+          isbn?: string | null;
           name: string;
           product_id: string;
-          sku?: string | null;
-          slug: string;
-          status?: string;
+          reorder_point?: number | null;
+          selling_price?: number | null;
+          sku: string;
+          upc?: string | null;
           updated_at?: string | null;
         };
         Update: {
-          barcode?: string | null;
+          cost_price?: number | null;
           created_at?: string | null;
           deleted_at?: string | null;
+          ean?: string | null;
           id?: string;
-          is_default?: boolean | null;
-          metadata?: Json | null;
+          is_active?: boolean | null;
+          isbn?: string | null;
           name?: string;
           product_id?: string;
-          sku?: string | null;
-          slug?: string;
-          status?: string;
+          reorder_point?: number | null;
+          selling_price?: number | null;
+          sku?: string;
+          upc?: string | null;
           updated_at?: string | null;
         };
         Relationships: [
@@ -2133,46 +2176,124 @@ export type Database = {
       };
       products: {
         Row: {
+          brand: string | null;
           category_id: string | null;
+          cost_price: number | null;
           created_at: string | null;
           created_by: string | null;
           deleted_at: string | null;
           description: string | null;
+          dimensions_height: number | null;
+          dimensions_length: number | null;
+          dimensions_unit: string | null;
+          dimensions_width: number | null;
+          ean: string | null;
           id: string;
+          inventory_account: string | null;
+          isbn: string | null;
+          manufacturer: string | null;
+          mpn: string | null;
           name: string;
+          opening_stock: number | null;
+          opening_stock_rate: number | null;
           organization_id: string;
-          slug: string;
-          status: string;
-          template_id: string | null;
+          preferred_vendor_id: string | null;
+          product_type: string;
+          purchase_account: string | null;
+          purchase_description: string | null;
+          reorder_point: number | null;
+          returnable_item: boolean | null;
+          sales_account: string | null;
+          sales_description: string | null;
+          selling_price: number | null;
+          sku: string | null;
+          status: string | null;
+          track_inventory: boolean | null;
+          unit: string | null;
+          upc: string | null;
           updated_at: string | null;
+          weight: number | null;
+          weight_unit: string | null;
         };
         Insert: {
+          brand?: string | null;
           category_id?: string | null;
+          cost_price?: number | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          dimensions_height?: number | null;
+          dimensions_length?: number | null;
+          dimensions_unit?: string | null;
+          dimensions_width?: number | null;
+          ean?: string | null;
           id?: string;
+          inventory_account?: string | null;
+          isbn?: string | null;
+          manufacturer?: string | null;
+          mpn?: string | null;
           name: string;
+          opening_stock?: number | null;
+          opening_stock_rate?: number | null;
           organization_id: string;
-          slug: string;
-          status?: string;
-          template_id?: string | null;
+          preferred_vendor_id?: string | null;
+          product_type: string;
+          purchase_account?: string | null;
+          purchase_description?: string | null;
+          reorder_point?: number | null;
+          returnable_item?: boolean | null;
+          sales_account?: string | null;
+          sales_description?: string | null;
+          selling_price?: number | null;
+          sku?: string | null;
+          status?: string | null;
+          track_inventory?: boolean | null;
+          unit?: string | null;
+          upc?: string | null;
           updated_at?: string | null;
+          weight?: number | null;
+          weight_unit?: string | null;
         };
         Update: {
+          brand?: string | null;
           category_id?: string | null;
+          cost_price?: number | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          dimensions_height?: number | null;
+          dimensions_length?: number | null;
+          dimensions_unit?: string | null;
+          dimensions_width?: number | null;
+          ean?: string | null;
           id?: string;
+          inventory_account?: string | null;
+          isbn?: string | null;
+          manufacturer?: string | null;
+          mpn?: string | null;
           name?: string;
+          opening_stock?: number | null;
+          opening_stock_rate?: number | null;
           organization_id?: string;
-          slug?: string;
-          status?: string;
-          template_id?: string | null;
+          preferred_vendor_id?: string | null;
+          product_type?: string;
+          purchase_account?: string | null;
+          purchase_description?: string | null;
+          reorder_point?: number | null;
+          returnable_item?: boolean | null;
+          sales_account?: string | null;
+          sales_description?: string | null;
+          selling_price?: number | null;
+          sku?: string | null;
+          status?: string | null;
+          track_inventory?: boolean | null;
+          unit?: string | null;
+          upc?: string | null;
           updated_at?: string | null;
+          weight?: number | null;
+          weight_unit?: string | null;
         };
         Relationships: [
           {
@@ -2197,10 +2318,10 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_template_id_fkey";
-            columns: ["template_id"];
+            foreignKeyName: "products_preferred_vendor_id_fkey";
+            columns: ["preferred_vendor_id"];
             isOneToOne: false;
-            referencedRelation: "product_templates";
+            referencedRelation: "suppliers";
             referencedColumns: ["id"];
           },
         ];
@@ -2731,20 +2852,6 @@ export type Database = {
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "stock_movements_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_movements_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "product_variants";
-            referencedColumns: ["id"];
-          },
         ];
       };
       stock_reservations: {
@@ -2847,20 +2954,6 @@ export type Database = {
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
-          {
-            foreignKeyName: "stock_reservations_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_reservations_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "product_variants";
-            referencedColumns: ["id"];
-          },
         ];
       };
       stock_snapshots: {
@@ -2932,20 +3025,6 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_snapshots_product_id_fkey";
-            columns: ["product_id"];
-            isOneToOne: false;
-            referencedRelation: "products";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_snapshots_variant_id_fkey";
-            columns: ["variant_id"];
-            isOneToOne: false;
-            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];
@@ -3212,83 +3291,6 @@ export type Database = {
             columns: ["branch_id"];
             isOneToOne: false;
             referencedRelation: "branches";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      template_attribute_definitions: {
-        Row: {
-          api_visibility: Json | null;
-          attribute_key: string;
-          context_behavior: string | null;
-          context_scope: string[] | null;
-          created_at: string | null;
-          data_type: string;
-          default_value: Json | null;
-          description: string | null;
-          display_name: string;
-          display_order: number | null;
-          id: string;
-          inherit_by_default: boolean | null;
-          inheritance_rules: Json | null;
-          is_inheritable: boolean | null;
-          is_required: boolean | null;
-          is_searchable: boolean | null;
-          is_unique: boolean | null;
-          is_variant_specific: boolean | null;
-          template_id: string;
-          validation_rules: Json | null;
-        };
-        Insert: {
-          api_visibility?: Json | null;
-          attribute_key: string;
-          context_behavior?: string | null;
-          context_scope?: string[] | null;
-          created_at?: string | null;
-          data_type: string;
-          default_value?: Json | null;
-          description?: string | null;
-          display_name: string;
-          display_order?: number | null;
-          id?: string;
-          inherit_by_default?: boolean | null;
-          inheritance_rules?: Json | null;
-          is_inheritable?: boolean | null;
-          is_required?: boolean | null;
-          is_searchable?: boolean | null;
-          is_unique?: boolean | null;
-          is_variant_specific?: boolean | null;
-          template_id: string;
-          validation_rules?: Json | null;
-        };
-        Update: {
-          api_visibility?: Json | null;
-          attribute_key?: string;
-          context_behavior?: string | null;
-          context_scope?: string[] | null;
-          created_at?: string | null;
-          data_type?: string;
-          default_value?: Json | null;
-          description?: string | null;
-          display_name?: string;
-          display_order?: number | null;
-          id?: string;
-          inherit_by_default?: boolean | null;
-          inheritance_rules?: Json | null;
-          is_inheritable?: boolean | null;
-          is_required?: boolean | null;
-          is_searchable?: boolean | null;
-          is_unique?: boolean | null;
-          is_variant_specific?: boolean | null;
-          template_id?: string;
-          validation_rules?: Json | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "template_attribute_definitions_template_id_fkey";
-            columns: ["template_id"];
-            isOneToOne: false;
-            referencedRelation: "product_templates";
             referencedColumns: ["id"];
           },
         ];
@@ -3688,6 +3690,52 @@ export type Database = {
           },
         ];
       };
+      variant_attribute_values: {
+        Row: {
+          created_at: string | null;
+          id: string;
+          option_group_id: string;
+          option_value_id: string;
+          variant_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          id?: string;
+          option_group_id: string;
+          option_value_id: string;
+          variant_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          id?: string;
+          option_group_id?: string;
+          option_value_id?: string;
+          variant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_attribute_values_option_group_id_fkey";
+            columns: ["option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_groups";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "variant_attribute_values_option_value_id_fkey";
+            columns: ["option_value_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_values";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "variant_attribute_values_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       variant_option_group_values: {
         Row: {
           created_at: string | null;
@@ -3763,6 +3811,44 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      variant_option_values: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          display_order: number | null;
+          id: string;
+          option_group_id: string;
+          updated_at: string | null;
+          value: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id: string;
+          updated_at?: string | null;
+          value: string;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          id?: string;
+          option_group_id?: string;
+          updated_at?: string | null;
+          value?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "variant_option_values_option_group_id_fkey";
+            columns: ["option_group_id"];
+            isOneToOne: false;
+            referencedRelation: "variant_option_groups";
             referencedColumns: ["id"];
           },
         ];

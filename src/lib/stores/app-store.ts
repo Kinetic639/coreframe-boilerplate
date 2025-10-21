@@ -60,7 +60,6 @@ export type AppContext = {
   location: UserLocation | null;
   locations: Tables<"locations">[];
   suppliers: Tables<"suppliers">[];
-  productTemplates: Tables<"product_templates">[];
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
   subscription: OrganizationSubscriptionWithPlan | null;
@@ -76,7 +75,6 @@ type AppStore = AppContext & {
   setLocation: (location: UserLocation | null) => void;
   setLocations: (locations: Tables<"locations">[]) => void;
   setSuppliers: (suppliers: Tables<"suppliers">[]) => void;
-  setProductTemplates: (productTemplates: Tables<"product_templates">[]) => void;
   setOrganizationUsers: (users: OrganizationUser[]) => void;
   setPrivateContacts: (contacts: PrivateContact[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
@@ -100,7 +98,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   location: null,
   locations: [],
   suppliers: [],
-  productTemplates: [],
   organizationUsers: [],
   privateContacts: [],
   subscription: null,
@@ -115,8 +112,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setLocations: (locations) => set({ locations }),
 
   setSuppliers: (suppliers) => set({ suppliers }),
-
-  setProductTemplates: (productTemplates) => set({ productTemplates }),
 
   setOrganizationUsers: (users) => set({ organizationUsers: users }),
 
@@ -187,23 +182,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
           .is("deleted_at", null)
           .order("name", { ascending: true });
 
-        const { data: productTemplates, error: productTemplatesError } = await supabase
-          .from("product_templates")
-          .select("*")
-          .or(`organization_id.eq.${state.activeOrgId},is_system.eq.true`)
-          .is("deleted_at", null)
-          .order("name", { ascending: true });
-
         if (suppliersError) {
           console.error("Error loading suppliers:", suppliersError);
         } else {
           set({ suppliers: suppliers || [] });
-        }
-
-        if (productTemplatesError) {
-          console.error("Error loading product templates:", productTemplatesError);
-        } else {
-          set({ productTemplates: productTemplates || [] });
         }
       } catch (error) {
         console.error("Error loading org data:", error);

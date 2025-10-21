@@ -4,7 +4,16 @@ import { Link } from "@/i18n/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, Package, MapPin, Archive, ArrowRight, Ruler, Box } from "lucide-react";
+import {
+  Settings,
+  Package,
+  MapPin,
+  Archive,
+  ArrowRight,
+  Ruler,
+  Box,
+  ListChecks,
+} from "lucide-react";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("modules.warehouse.items.settings");
@@ -101,6 +110,26 @@ export default async function WarehouseSettingsPage() {
                     </div>
                   </div>
                   <Link href="/dashboard/warehouse/settings/variant-options">
+                    <Button variant="outline" size="sm">
+                      Manage
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardHeader>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div className="flex items-center gap-3">
+                    <ListChecks className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-semibold">Custom Fields</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Add custom fields for additional product information
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/warehouse/settings/custom-fields">
                     <Button variant="outline" size="sm">
                       Manage
                       <ArrowRight className="ml-2 h-4 w-4" />

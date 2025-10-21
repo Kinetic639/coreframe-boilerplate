@@ -2,25 +2,23 @@
 
 import * as React from "react";
 import { useAppStore } from "@/lib/stores/app-store";
-import { variantOptionsService } from "../../api/variant-options-service";
+import { optionGroupsService } from "../../api/option-groups-service";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2 } from "lucide-react";
-import { AddVariantOptionDialog } from "./add-variant-option-dialog";
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { CreateOptionGroupDialog } from "./create-option-group-dialog";
+import { EditOptionGroupDialog } from "./edit-option-group-dialog";
 import { toast } from "react-toastify";
-import type { VariantOptionGroupWithValues } from "../../types/variant-options";
-import { useTranslations } from "next-intl";
+import type { OptionGroupWithValues } from "../../types/option-groups";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 
 export function VariantOptionsPage() {
-  const t = useTranslations("modules.warehouse.items.settings.variantOptions");
   const { activeOrgId } = useAppStore();
-  const [groups, setGroups] = React.useState<VariantOptionGroupWithValues[]>([]);
+  const [groups, setGroups] = React.useState<OptionGroupWithValues[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [showAddDialog, setShowAddDialog] = React.useState(false);
-  const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
-  const [customName, setCustomName] = React.useState("");
-  const [customDescription, setCustomDescription] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [newValue, setNewValue] = React.useState<Record<string, string>>({});
+  const [showCreateDialog, setShowCreateDialog] = React.useState(false);
+  const [editingGroup, setEditingGroup] = React.useState<OptionGroupWithValues | null>(null);
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     if (activeOrgId) {
@@ -33,141 +31,130 @@ export function VariantOptionsPage() {
 
     try {
       setIsLoading(true);
-      const data = await variantOptionsService.getTemplateGroups(activeOrgId);
+      const data = await optionGroupsService.getOptionGroups(activeOrgId);
       setGroups(data);
+      // Auto-expand all groups on initial load
+      setExpandedGroups(new Set(data.map((g) => g.id)));
     } catch (error) {
-      console.error("Failed to load variant option groups:", error);
-      toast.error(t("errors.loadFailed"));
+      console.error("Failed to load option groups:", error);
+      toast.error("Failed to load variant option groups");
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function handleCreateGroup(data: {
-    name: string;
-    description?: string;
-    values?: string[];
-  }) {
+  const toggleGroupExpanded = (groupId: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  async function handleCreateGroup(data: { name: string; values: string[] }) {
     if (!activeOrgId) return;
 
     try {
-      const newGroup = await variantOptionsService.createTemplateGroup({
+      const newGroup = await optionGroupsService.createOptionGroup({
         organization_id: activeOrgId,
         name: data.name,
-        description: data.description,
+        values: data.values.map((v, index) => ({ value: v, display_order: index })),
       });
 
-      // Add values if provided
-      const createdValues = [];
-      if (data.values && data.values.length > 0) {
-        for (let i = 0; i < data.values.length; i++) {
-          const value = await variantOptionsService.addValueToTemplate({
-            option_group_id: newGroup.id,
-            value: data.values[i],
-            display_order: i,
-          });
-          createdValues.push(value);
-        }
-      }
-
-      setGroups((prev) => [
-        ...prev,
-        { group: newGroup, values: createdValues, valueCount: createdValues.length },
-      ]);
-      toast.success(t("success.groupCreated"));
+      setGroups((prev) => [...prev, newGroup]);
+      setExpandedGroups((prev) => new Set([...prev, newGroup.id]));
+      toast.success("Option group created successfully");
     } catch (error) {
-      console.error("Failed to create variant option group:", error);
-      toast.error(t("errors.createFailed"));
+      console.error("Failed to create option group:", error);
+      toast.error("Failed to create option group");
       throw error;
     }
   }
 
-  async function handleAddCustomGroup() {
-    if (!customName.trim()) return;
-
-    setIsSubmitting(true);
+  async function handleUpdateGroup(groupId: string, name: string) {
     try {
-      await handleCreateGroup({
-        name: customName.trim(),
-        description: customDescription.trim() || undefined,
+      const updatedGroup = await optionGroupsService.updateOptionGroup({
+        id: groupId,
+        name,
       });
 
-      setCustomName("");
-      setCustomDescription("");
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
+      toast.success("Option group updated");
     } catch (error) {
-      console.error("Failed to add custom group:", error);
-    } finally {
-      setIsSubmitting(false);
+      console.error("Failed to update option group:", error);
+      toast.error("Failed to update option group");
+      throw error;
+    }
+  }
+
+  async function handleAddValue(groupId: string, value: string) {
+    try {
+      await optionGroupsService.createOptionValue({
+        option_group_id: groupId,
+        value,
+        display_order: 0,
+      });
+
+      // Reload the specific group
+      const updatedGroup = await optionGroupsService.getOptionGroup(groupId);
+      if (updatedGroup) {
+        setGroups((prev) => prev.map((g) => (g.id === groupId ? updatedGroup : g)));
+      }
+      toast.success("Value added");
+    } catch (error) {
+      console.error("Failed to add value:", error);
+      toast.error("Failed to add value");
+      throw error;
+    }
+  }
+
+  async function handleUpdateValue(valueId: string, value: string) {
+    try {
+      await optionGroupsService.updateOptionValue({
+        id: valueId,
+        value,
+      });
+
+      // Reload groups to get updated data
+      await loadGroups();
+      toast.success("Value updated");
+    } catch (error) {
+      console.error("Failed to update value:", error);
+      toast.error("Failed to update value");
+      throw error;
+    }
+  }
+
+  async function handleDeleteValue(valueId: string) {
+    try {
+      await optionGroupsService.deleteOptionValue(valueId);
+
+      // Reload groups to get updated data
+      await loadGroups();
+      toast.success("Value deleted");
+    } catch (error) {
+      console.error("Failed to delete value:", error);
+      toast.error("Failed to delete value");
+      throw error;
     }
   }
 
   async function handleDeleteGroup(groupId: string, groupName: string) {
-    if (!confirm(t("confirmDelete", { name: groupName }))) {
+    if (!confirm(`Are you sure you want to delete "${groupName}"?`)) {
       return;
     }
 
     try {
-      await variantOptionsService.deleteTemplateGroup(groupId);
-      toast.success(t("success.groupDeleted"));
-      loadGroups();
+      await optionGroupsService.deleteOptionGroup(groupId);
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      toast.success("Option group deleted");
     } catch (error) {
-      console.error("Failed to delete group:", error);
-      toast.error(t("errors.deleteFailed"));
-    }
-  }
-
-  function handleRowClick(group: VariantOptionGroupWithValues) {
-    setSelectedGroup(selectedGroup === group.group.id ? null : group.group.id);
-  }
-
-  async function handleAddValue(groupId: string) {
-    const value = newValue[groupId]?.trim();
-    if (!value) return;
-
-    try {
-      const currentGroup = groups.find((g) => g.group.id === groupId);
-      const createdValue = await variantOptionsService.addValueToTemplate({
-        option_group_id: groupId,
-        value: value,
-        display_order: currentGroup?.values.length || 0,
-      });
-
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.group.id === groupId
-            ? { ...g, values: [...g.values, createdValue], valueCount: g.valueCount + 1 }
-            : g
-        )
-      );
-
-      setNewValue((prev) => ({ ...prev, [groupId]: "" }));
-      toast.success(t("success.valueAdded"));
-    } catch (error) {
-      console.error("Failed to add value:", error);
-      toast.error(t("errors.addValueFailed"));
-    }
-  }
-
-  async function handleDeleteValue(groupId: string, valueId: string) {
-    try {
-      await variantOptionsService.deleteTemplateValue(valueId);
-
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.group.id === groupId
-            ? {
-                ...g,
-                values: g.values.filter((v) => v.id !== valueId),
-                valueCount: g.valueCount - 1,
-              }
-            : g
-        )
-      );
-
-      toast.success(t("success.valueDeleted"));
-    } catch (error) {
-      console.error("Failed to delete value:", error);
-      toast.error(t("errors.deleteValueFailed"));
+      console.error("Failed to delete option group:", error);
+      toast.error("Failed to delete option group");
     }
   }
 
@@ -175,7 +162,7 @@ export function VariantOptionsPage() {
     return (
       <div className="p-6">
         <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-muted-foreground">{t("loading")}</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -186,203 +173,131 @@ export function VariantOptionsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
+          <h1 className="text-xl font-semibold">Variant Option Groups</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage option groups for product variants (color, size, material, etc.)
+          </p>
         </div>
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Option Group
+        </Button>
       </div>
 
-      {/* Groups Table */}
+      {/* Option Groups List */}
       {groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <p className="mb-3 text-center text-sm text-muted-foreground">{t("empty")}</p>
-        </div>
+        <Card className="flex flex-col items-center justify-center py-12">
+          <p className="mb-3 text-center text-sm text-muted-foreground">
+            No option groups yet. Create your first option group to manage product variants.
+          </p>
+          <Button variant="outline" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create First Option Group
+          </Button>
+        </Card>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium">{t("table.name")}</th>
-                <th className="px-4 py-2 text-left font-medium">{t("table.description")}</th>
-                <th className="w-24 px-4 py-2 text-left font-medium">{t("table.values")}</th>
-                <th className="w-24 px-4 py-2 text-right font-medium">{t("table.actions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {groups.map((item) => (
-                <React.Fragment key={item.group.id}>
-                  <tr
-                    className="cursor-pointer transition-colors hover:bg-muted/30"
-                    onClick={() => handleRowClick(item)}
+        <div className="space-y-3">
+          {groups.map((group) => {
+            const isExpanded = expandedGroups.has(group.id);
+
+            return (
+              <Card key={group.id} className="overflow-hidden">
+                <div className="flex items-center gap-3 p-4">
+                  {/* Expand/Collapse Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => toggleGroupExpanded(group.id)}
                   >
-                    <td className="px-4 py-2 font-medium">{item.group.name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {item.group.description || "—"}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">{item.valueCount}</td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          disabled
-                          title={t("actions.edit")}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteGroup(item.group.id, item.group.name);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+
+                  {/* Group Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium">{group.name}</h3>
+                      <Badge variant="secondary" className="text-xs">
+                        {group.values.length} {group.values.length === 1 ? "value" : "values"}
+                      </Badge>
+                    </div>
+
+                    {/* Values Preview (when collapsed) */}
+                    {!isExpanded && group.values.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {group.values.slice(0, 5).map((value) => (
+                          <Badge key={value.id} variant="outline" className="text-xs">
+                            {value.value}
+                          </Badge>
+                        ))}
+                        {group.values.length > 5 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{group.values.length - 5} more
+                          </Badge>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                  {selectedGroup === item.group.id && (
-                    <tr>
-                      <td colSpan={4} className="bg-muted/20 px-4 py-3">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-medium uppercase text-muted-foreground">
-                              {t("values.title")}
-                            </h4>
-                          </div>
+                    )}
+                  </div>
 
-                          {/* Values display */}
-                          {item.values.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">{t("values.empty")}</p>
-                          ) : (
-                            <div className="flex flex-wrap gap-1.5">
-                              {item.values.map((value) => (
-                                <div
-                                  key={value.id}
-                                  className="inline-flex items-center gap-1 rounded border bg-background px-2 py-1 text-xs"
-                                >
-                                  <span>{value.value}</span>
-                                  <button
-                                    onClick={() => handleDeleteValue(item.group.id, value.id)}
-                                    className="ml-1 text-muted-foreground transition-colors hover:text-destructive"
-                                    title={t("actions.delete")}
-                                  >
-                                    <Plus className="h-3 w-3 rotate-45" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                  {/* Actions */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditingGroup(group)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteGroup(group.id, group.name)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
 
-                          {/* Add value input */}
-                          <div className="flex gap-2 border-t pt-2">
-                            <input
-                              type="text"
-                              placeholder={t("values.valuePlaceholder")}
-                              value={newValue[item.group.id] || ""}
-                              onChange={(e) =>
-                                setNewValue((prev) => ({
-                                  ...prev,
-                                  [item.group.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && newValue[item.group.id]?.trim()) {
-                                  handleAddValue(item.group.id);
-                                }
-                              }}
-                              className="h-8 flex-1 rounded-md border bg-background px-2 text-xs"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => handleAddValue(item.group.id)}
-                              disabled={!newValue[item.group.id]?.trim()}
-                              className="h-8 px-3"
-                            >
-                              <Plus className="mr-1 h-3 w-3" />
-                              {t("values.addValue")}
-                            </Button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                {/* Expanded Values List */}
+                {isExpanded && group.values.length > 0 && (
+                  <div className="border-t bg-muted/20 px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {group.values.map((value) => (
+                        <Badge key={value.id} variant="secondary">
+                          {value.value}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Add Custom Group Form */}
-      <div className="rounded-lg border bg-muted/20 p-4">
-        <div className="space-y-3">
-          <div className="flex items-end gap-3">
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">
-                {t("form.groupName")}
-              </label>
-              <input
-                type="text"
-                placeholder={t("form.groupNamePlaceholder")}
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && customName.trim()) {
-                    handleAddCustomGroup();
-                  }
-                }}
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              />
-            </div>
-            <div className="flex-1 space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">
-                {t("form.description")}
-              </label>
-              <input
-                type="text"
-                placeholder={t("form.descriptionPlaceholder")}
-                value={customDescription}
-                onChange={(e) => setCustomDescription(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && customName.trim()) {
-                    handleAddCustomGroup();
-                  }
-                }}
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              />
-            </div>
-            <Button
-              size="sm"
-              onClick={handleAddCustomGroup}
-              disabled={!customName.trim() || isSubmitting}
-              className="h-9"
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              {t("form.add")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowAddDialog(true)}
-              className="h-9"
-            >
-              {t("form.quickPick")}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Group Dialog */}
-      <AddVariantOptionDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
+      {/* Create Dialog */}
+      <CreateOptionGroupDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
         onSubmit={handleCreateGroup}
-        existingGroups={groups.map((g) => g.group)}
+      />
+
+      {/* Edit Dialog */}
+      <EditOptionGroupDialog
+        open={!!editingGroup}
+        onOpenChange={(open) => !open && setEditingGroup(null)}
+        group={editingGroup}
+        onUpdateGroup={handleUpdateGroup}
+        onAddValue={handleAddValue}
+        onUpdateValue={handleUpdateValue}
+        onDeleteValue={handleDeleteValue}
       />
     </div>
   );

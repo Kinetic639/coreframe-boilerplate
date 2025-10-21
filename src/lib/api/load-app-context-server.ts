@@ -147,25 +147,15 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
 
   // 6. Load suppliers for the organization
   let suppliers: Tables<"suppliers">[] = [];
-  let productTemplates: Tables<"product_templates">[] = [];
   if (activeOrgId) {
-    const [suppliersResult, productTemplatesResult] = await Promise.all([
-      supabase
-        .from("suppliers")
-        .select("*")
-        .eq("organization_id", activeOrgId)
-        .is("deleted_at", null)
-        .order("name", { ascending: true }),
-      supabase
-        .from("product_templates")
-        .select("*")
-        .or(`organization_id.eq.${activeOrgId},is_system.eq.true`)
-        .is("deleted_at", null)
-        .order("name", { ascending: true }),
-    ]);
+    const { data: suppliersData } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("organization_id", activeOrgId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
 
-    suppliers = suppliersResult.data || [];
-    productTemplates = productTemplatesResult.data || [];
+    suppliers = suppliersData || [];
   }
 
   // 7. Load organization users for chat functionality
@@ -235,7 +225,6 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     location: null,
     locations,
     suppliers,
-    productTemplates,
     organizationUsers,
     privateContacts,
     subscription,

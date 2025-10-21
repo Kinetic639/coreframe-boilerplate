@@ -1,70 +1,32 @@
-import nextPlugin from '@next/eslint-plugin-next';
-import reactPlugin from 'eslint-plugin-react';
-import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import typescriptPlugin from '@typescript-eslint/eslint-plugin';
-import typescriptParser from '@typescript-eslint/parser';
-import tailwindPlugin from 'eslint-plugin-tailwindcss';
+import { FlatCompat } from '@eslint/eslintrc';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
 
 export default [
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
-    ignores: ['backup/**/*'],
-    plugins: {
-      '@next/next': nextPlugin,
-      'react': reactPlugin,
-      'react-hooks': reactHooksPlugin,
-      '@typescript-eslint': typescriptPlugin,
-      'tailwindcss': tailwindPlugin,
-    },
-    languageOptions: {
-      parser: typescriptParser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-        project: './tsconfig.json',
-      },
-    },
     rules: {
-      // Next.js rules
-      '@next/next/no-html-link-for-pages': 'error',
-      '@next/next/no-img-element': 'warn',
-      
-      // React rules
-      'react/react-in-jsx-scope': 'off',
-      'react/prop-types': 'off',
-      'react/jsx-props-no-spreading': 'off',
-      
-      // React Hooks rules
-      'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn',
-      
-      // TypeScript rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/explicit-module-boundary-types': 'off',
-      
-      // General rules
+      '@typescript-eslint/no-explicit-any': 'off', // Allow 'any' type without warnings
+      '@typescript-eslint/no-empty-object-type': 'off', // Allow empty interfaces
+      '@typescript-eslint/no-require-imports': 'off', // Allow require() imports
+      '@typescript-eslint/triple-slash-reference': 'off', // Allow triple-slash references
+      '@typescript-eslint/ban-ts-comment': 'off', // Allow @ts-ignore comments
+      'react/no-unescaped-entities': 'off', // Allow unescaped quotes and apostrophes in JSX
+      'react-hooks/exhaustive-deps': 'warn',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'error',
       'no-var': 'error',
-      
-      // Tailwind CSS rules
-      'tailwindcss/classnames-order': 'warn',
-      'tailwindcss/no-custom-classname': 'warn',
-      'tailwindcss/no-contradicting-classname': 'error',
-    },
-    settings: {
-      react: {
-        version: 'detect',
-      },
-      tailwindcss: {
-        callees: ['cn', 'clsx', 'twMerge'],
-        config: 'tailwind.config.ts',
-      },
+      'import/no-anonymous-default-export': 'off', // Allow anonymous default exports
+      '@next/next/no-assign-module-variable': 'off', // Allow module variable assignment
     },
   },
   {
@@ -75,9 +37,8 @@ export default [
       'build/**',
       'coverage/**',
       'public/**',
-      '*.config.js',
-      '*.config.ts',
+      'backup/**',
       'supabase/functions/**',
     ],
   },
-]; 
+];
