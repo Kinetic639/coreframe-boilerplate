@@ -43,6 +43,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
 import { unitsService } from "@/modules/warehouse/api/units-service";
+import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import type {
   CreateProductFormData,
@@ -50,6 +51,7 @@ import type {
   ProductWithDetails,
 } from "@/modules/warehouse/types/products";
 import type { UnitOfMeasure } from "@/modules/warehouse/types/units";
+import type { CategoryTreeItem } from "@/modules/warehouse/types/categories";
 import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/custom-fields";
 import { CustomFieldsRenderer } from "@/modules/warehouse/products/components/custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -77,6 +79,8 @@ export function CreateProductDialog({
   );
   const [units, setUnits] = React.useState<UnitOfMeasure[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
+  const [categories, setCategories] = React.useState<CategoryTreeItem[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = React.useState(false);
 
   // Custom fields state
   const [customFields, setCustomFields] = React.useState<CustomFieldDefinitionWithValues[]>([]);
@@ -160,6 +164,21 @@ export function CreateProductDialog({
           toast.error("Failed to load units of measure");
         })
         .finally(() => setIsLoadingUnits(false));
+    }
+  }, [open, activeOrgId]);
+
+  // Load categories when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      setIsLoadingCategories(true);
+      categoriesService
+        .getCategories(activeOrgId)
+        .then(setCategories)
+        .catch((error) => {
+          console.error("Failed to load categories:", error);
+          toast.error("Failed to load categories");
+        })
+        .finally(() => setIsLoadingCategories(false));
     }
   }, [open, activeOrgId]);
 
@@ -372,6 +391,21 @@ export function CreateProductDialog({
     setBarcodes(newBarcodes);
   };
 
+  const renderCategoryOptions = (categories: CategoryTreeItem[], level = 0): React.ReactNode[] => {
+    let options: React.ReactNode[] = [];
+    for (const category of categories) {
+      options.push(
+        <SelectItem key={category.id} value={category.id}>
+          <span style={{ paddingLeft: `${level * 1.5}rem` }}>{category.name}</span>
+        </SelectItem>
+      );
+      if (category.children && category.children.length > 0) {
+        options = options.concat(renderCategoryOptions(category.children, level + 1));
+      }
+    }
+    return options;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -495,6 +529,37 @@ export function CreateProductDialog({
                                   {unit.symbol && ` (${unit.symbol})`}
                                 </SelectItem>
                               ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="category_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("basicInfo.category")}</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isLoadingCategories}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("basicInfo.selectCategory")} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                {t("basicInfo.noCategories")}
+                              </div>
+                            ) : (
+                              renderCategoryOptions(categories)
                             )}
                           </SelectContent>
                         </Select>
