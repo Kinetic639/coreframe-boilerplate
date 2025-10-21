@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Trash2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import {
   Select,
@@ -22,9 +22,15 @@ interface CustomFieldsRendererProps {
   fields: CustomFieldDefinition[];
   values: Record<string, string | boolean | null>;
   onChange: (fieldId: string, value: string | boolean | null) => void;
+  onRemove: (fieldId: string) => void;
 }
 
-export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsRendererProps) {
+export function CustomFieldsRenderer({
+  fields,
+  values,
+  onChange,
+  onRemove,
+}: CustomFieldsRendererProps) {
   if (fields.length === 0) return null;
 
   return (
@@ -32,10 +38,19 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
       {fields.map((field) => {
         const value = values[field.id];
 
+        const renderWrapper = (children: React.ReactNode) => (
+          <div key={field.id} className="flex items-end gap-2">
+            <div className="flex-1 space-y-2">{children}</div>
+            <Button variant="ghost" size="icon" onClick={() => onRemove(field.id)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        );
+
         switch (field.field_type) {
           case "text":
-            return (
-              <div key={field.id} className="space-y-2">
+            return renderWrapper(
+              <>
                 <Label htmlFor={`custom-field-${field.id}`}>{field.field_name}</Label>
                 <Input
                   id={`custom-field-${field.id}`}
@@ -44,12 +59,12 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
                   onChange={(e) => onChange(field.id, e.target.value)}
                   placeholder={`Enter ${field.field_name.toLowerCase()}`}
                 />
-              </div>
+              </>
             );
 
           case "checkbox":
-            return (
-              <div key={field.id} className="flex items-center space-x-2">
+            return renderWrapper(
+              <div className="flex items-center space-x-2 pt-2">
                 <Checkbox
                   id={`custom-field-${field.id}`}
                   checked={(value as boolean) || false}
@@ -66,8 +81,8 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
 
           case "date":
             const dateValue = value ? new Date(value as string) : undefined;
-            return (
-              <div key={field.id} className="space-y-2">
+            return renderWrapper(
+              <>
                 <Label htmlFor={`custom-field-${field.id}`}>{field.field_name}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -91,7 +106,7 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
                     />
                   </PopoverContent>
                 </Popover>
-              </div>
+              </>
             );
 
           case "dropdown":
@@ -100,8 +115,8 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
                 ? JSON.parse(field.dropdown_options)
                 : field.dropdown_options
               : [];
-            return (
-              <div key={field.id} className="space-y-2">
+            return renderWrapper(
+              <>
                 <Label htmlFor={`custom-field-${field.id}`}>{field.field_name}</Label>
                 <Select
                   value={(value as string) || ""}
@@ -118,7 +133,7 @@ export function CustomFieldsRenderer({ fields, values, onChange }: CustomFieldsR
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </>
             );
 
           default:
