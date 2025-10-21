@@ -233,18 +233,6 @@ export function CreateProductDialog({
     }
   }, [open, activeOrgId]);
 
-  // Load custom fields when dialog opens
-  React.useEffect(() => {
-    if (open && activeOrgId) {
-      customFieldsService
-        .getFieldDefinitions(activeOrgId)
-        .then(setCustomFields)
-        .catch((error) => {
-          console.error("Failed to load custom fields:", error);
-        });
-    }
-  }, [open, activeOrgId]);
-
   // Load custom field values when editing
   React.useEffect(() => {
     if (open && product?.id) {
