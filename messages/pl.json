@@ -1270,6 +1270,7 @@
       "description": "Opis",
       "descriptionPlaceholder": "Wprowadź opis produktu",
       "category": "Kategoria",
+      "selectCategory": "Wybierz kategorię",
       "categoryPlaceholder": "Wybierz kategorię",
       "brand": "Marka",
       "brandPlaceholder": "Wprowadź markę",
