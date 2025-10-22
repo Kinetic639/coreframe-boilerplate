@@ -81,8 +81,7 @@ export interface AdvancedDataTableProps<T = any> {
   data: T[];
   /** Column configuration */
   columns: ColumnConfig<T>[];
-  /** Custom render function for the detail panel */
-  renderDetail?: (row: T) => ReactNode;
+  renderDetail?: (row: T, onClose: () => void) => ReactNode;
   /** Callback when a row is clicked */
   onRowClick?: (row: T) => void;
   /** Whether to show checkboxes for row selection */
