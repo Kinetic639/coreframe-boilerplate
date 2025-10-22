@@ -66,9 +66,9 @@ export default async function Layout({ children }: { children: React.ReactNode }
                         <div>{children}</div>
                       </Suspense>
                     </main>
+                    <DashboardStatusBar />
                   </div>
                 </div>
-                <DashboardStatusBar />
               </div>
             </UserInitProvider>
           </AppInitProvider>
