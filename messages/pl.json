@@ -1270,6 +1270,7 @@
       "description": "Opis",
       "descriptionPlaceholder": "Wprowadź opis produktu",
       "category": "Kategoria",
+      "selectCategory": "Wybierz kategorię",
       "categoryPlaceholder": "Wybierz kategorię",
       "brand": "Marka",
       "brandPlaceholder": "Wprowadź markę",
@@ -1363,6 +1364,7 @@
       "cancel": "Anuluj",
       "loading": "Ładowanie pól niestandardowych...",
       "noFieldsDefined": "Nie zdefiniowano jeszcze pól niestandardowych. Przejdź do Ustawienia → Pola Niestandardowe, aby je utworzyć.",
+      "noCustomFieldsSelected": "Nie wybrano pól niestandardowych dla tego produktu. Kliknij 'Dodaj Pole', aby dodać.",
       "successCreate": "Pole niestandardowe utworzone pomyślnie",
       "successUpdate": "Pola niestandardowe zaktualizowane pomyślnie",
       "successSave": "Pola niestandardowe zapisane pomyślnie",
@@ -1396,7 +1398,10 @@
       "deleteSuccess": "Produkt usunięty pomyślnie",
       "createError": "Nie udało się utworzyć produktu",
       "updateError": "Nie udało się zaktualizować produktu",
-      "deleteError": "Nie udało się usunąć produktu"
+      "deleteError": "Nie udało się usunąć produktu",
+      "cannotRemoveCustomField": "Nie można usunąć pola niestandardowego w tym trybie.",
+      "customFieldRemoved": "Pole niestandardowe usunięte pomyślnie.",
+      "customFieldRemoveFailed": "Nie udało się usunąć pola niestandardowego."
     },
     "tabs": {
       "basic": "Podstawowe",

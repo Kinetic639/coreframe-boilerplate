@@ -43,6 +43,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
 import { unitsService } from "@/modules/warehouse/api/units-service";
+import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import type {
   CreateProductFormData,
@@ -50,6 +51,7 @@ import type {
   ProductWithDetails,
 } from "@/modules/warehouse/types/products";
 import type { UnitOfMeasure } from "@/modules/warehouse/types/units";
+import type { CategoryTreeItem } from "@/modules/warehouse/types/categories";
 import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/custom-fields";
 import { CustomFieldsRenderer } from "@/modules/warehouse/products/components/custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -77,10 +79,63 @@ export function CreateProductDialog({
   );
   const [units, setUnits] = React.useState<UnitOfMeasure[]>([]);
   const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
+  const [categories, setCategories] = React.useState<CategoryTreeItem[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = React.useState(false);
 
-  // Custom fields state
-  const [customFields, setCustomFields] = React.useState<CustomFieldDefinitionWithValues[]>([]);
+  // All available custom field definitions for the organization
+  const [allCustomFieldDefinitions, setAllCustomFieldDefinitions] = React.useState<
+    CustomFieldDefinitionWithValues[]
+  >([]);
+  // Custom fields currently selected/rendered for this product
+  const [selectedCustomFieldDefinitions, setSelectedCustomFieldDefinitions] = React.useState<
+    CustomFieldDefinitionWithValues[]
+  >([]);
   const [customFieldValues, setCustomFieldValues] = React.useState<Record<string, any>>({});
+
+  // Load ALL custom field definitions when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      customFieldsService
+        .getFieldDefinitions(activeOrgId)
+        .then(setAllCustomFieldDefinitions)
+        .catch((error) => {
+          console.error("Failed to load all custom field definitions:", error);
+        });
+    }
+  }, [open, activeOrgId]);
+
+  // Load custom field values and set selected definitions when editing
+  React.useEffect(() => {
+    if (open && product?.id && allCustomFieldDefinitions.length > 0) {
+      customFieldsService
+        .getProductFieldValues(product.id)
+        .then((values) => {
+          const valueMap: Record<string, any> = {};
+          const definitionsToSelect: CustomFieldDefinitionWithValues[] = [];
+
+          values.forEach((v) => {
+            const value = v.value_text ?? v.value_boolean ?? v.value_date ?? v.value_number ?? null;
+            valueMap[v.field_definition_id] = value;
+
+            const def = allCustomFieldDefinitions.find((d) => d.id === v.field_definition_id);
+            if (def) {
+              definitionsToSelect.push(def);
+            }
+          });
+          setCustomFieldValues(valueMap);
+          setSelectedCustomFieldDefinitions(definitionsToSelect);
+        })
+        .catch((error) => {
+          console.error("Failed to load custom field values:", error);
+          setCustomFieldValues({});
+          setSelectedCustomFieldDefinitions([]);
+        });
+    } else if (!product && open) {
+      // For new products, start with no custom fields selected
+      setCustomFieldValues({});
+      setSelectedCustomFieldDefinitions([]);
+    }
+  }, [open, product, allCustomFieldDefinitions]); // Depend on allCustomFieldDefinitions to ensure it's loaded
 
   // Form schema
   const formSchema = z.object({
@@ -163,15 +218,18 @@ export function CreateProductDialog({
     }
   }, [open, activeOrgId]);
 
-  // Load custom fields when dialog opens
+  // Load categories when dialog opens
   React.useEffect(() => {
     if (open && activeOrgId) {
-      customFieldsService
-        .getFieldDefinitions(activeOrgId)
-        .then(setCustomFields)
+      setIsLoadingCategories(true);
+      categoriesService
+        .getCategories(activeOrgId)
+        .then(setCategories)
         .catch((error) => {
-          console.error("Failed to load custom fields:", error);
-        });
+          console.error("Failed to load categories:", error);
+          toast.error("Failed to load categories");
+        })
+        .finally(() => setIsLoadingCategories(false));
     }
   }, [open, activeOrgId]);
 
@@ -372,6 +430,64 @@ export function CreateProductDialog({
     setBarcodes(newBarcodes);
   };
 
+  const handleRemoveCustomField = async (fieldId: string) => {
+    if (!isEditMode || !product?.id) {
+      toast.error(t("messages.cannotRemoveCustomField"));
+      return;
+    }
+
+    try {
+      // Find the custom field value ID to delete
+      const fieldValueToDelete = product.custom_field_values?.find(
+        (fv) => fv.field_definition_id === fieldId
+      );
+
+      if (fieldValueToDelete) {
+        await customFieldsService.deleteFieldValue(fieldValueToDelete.id);
+        toast.success(t("messages.customFieldRemoved"));
+        // Update local state
+        setCustomFieldValues((prev) => {
+          const newState = { ...prev };
+          delete newState[fieldId];
+          return newState;
+        });
+        setSelectedCustomFieldDefinitions((prev) => prev.filter((def) => def.id !== fieldId));
+        // Also update the product object to reflect the change immediately
+        if (product.custom_field_values) {
+          product.custom_field_values = product.custom_field_values.filter(
+            (fv) => fv.field_definition_id !== fieldId
+          );
+        }
+      } else {
+        // If it's a new field that hasn't been saved yet, just remove from state
+        setCustomFieldValues((prev) => {
+          const newState = { ...prev };
+          delete newState[fieldId];
+          return newState;
+        });
+        setSelectedCustomFieldDefinitions((prev) => prev.filter((def) => def.id !== fieldId));
+      }
+    } catch (error) {
+      console.error("Failed to remove custom field value:", error);
+      toast.error(t("messages.customFieldRemoveFailed"));
+    }
+  };
+
+  const renderCategoryOptions = (categories: CategoryTreeItem[], level = 0): React.ReactNode[] => {
+    let options: React.ReactNode[] = [];
+    for (const category of categories) {
+      options.push(
+        <SelectItem key={category.id} value={category.id}>
+          <span style={{ paddingLeft: `${level * 1.5}rem` }}>{category.name}</span>
+        </SelectItem>
+      );
+      if (category.children && category.children.length > 0) {
+        options = options.concat(renderCategoryOptions(category.children, level + 1));
+      }
+    }
+    return options;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
@@ -495,6 +611,37 @@ export function CreateProductDialog({
                                   {unit.symbol && ` (${unit.symbol})`}
                                 </SelectItem>
                               ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="category_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("basicInfo.category")}</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isLoadingCategories}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={t("basicInfo.selectCategory")} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">
+                                {t("basicInfo.noCategories")}
+                              </div>
+                            ) : (
+                              renderCategoryOptions(categories)
                             )}
                           </SelectContent>
                         </Select>
@@ -994,15 +1141,47 @@ export function CreateProductDialog({
 
               {/* Custom Fields Tab */}
               <TabsContent value="custom-fields" className="space-y-4">
-                {customFields.length === 0 ? (
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold">{t("customFields.title")}</h3>
+                  <Select
+                    onValueChange={(fieldId) => {
+                      const fieldToAdd = allCustomFieldDefinitions.find(
+                        (def) => def.id === fieldId
+                      );
+                      if (fieldToAdd) {
+                        setSelectedCustomFieldDefinitions((prev) => [...prev, fieldToAdd]);
+                      }
+                    }}
+                    value=""
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder={t("customFields.addField")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCustomFieldDefinitions
+                        .filter(
+                          (def) =>
+                            !selectedCustomFieldDefinitions.some((sDef) => sDef.id === def.id)
+                        )
+                        .map((def) => (
+                          <SelectItem key={def.id} value={def.id}>
+                            {def.field_name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedCustomFieldDefinitions.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-8 text-center">
                     <p className="text-sm text-muted-foreground">
-                      No custom fields defined yet. Go to Settings → Custom Fields to create them.
+                      {allCustomFieldDefinitions.length === 0
+                        ? t("customFields.noFieldsDefined")
+                        : t("customFields.noCustomFieldsSelected")}
                     </p>
                   </div>
                 ) : (
                   <CustomFieldsRenderer
-                    fields={customFields as any}
+                    fields={selectedCustomFieldDefinitions as any}
                     values={customFieldValues}
                     onChange={(fieldId, value) => {
                       setCustomFieldValues((prev) => ({
@@ -1010,6 +1189,7 @@ export function CreateProductDialog({
                         [fieldId]: value,
                       }));
                     }}
+                    onRemove={handleRemoveCustomField}
                   />
                 )}
               </TabsContent>

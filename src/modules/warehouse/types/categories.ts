@@ -7,8 +7,8 @@ export type ProductCategory = Tables<"product_categories">;
 export interface CategoryTreeItem {
   id: string;
   name: string;
-  description?: string | null;
-  parent_id?: string | null;
+  description: string | null;
+  parent_id: string | null;
   level: number;
   sort_order: number;
   icon_name?: string | null;
@@ -16,8 +16,9 @@ export interface CategoryTreeItem {
   is_default: boolean;
   is_preferred?: boolean | null;
   organization_id: string;
-  created_at?: string | null;
-  updated_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
   children?: CategoryTreeItem[];
   productCount?: number;
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { AdvancedDataTable, ColumnConfig } from "@/components/ui/advanced-data-table";
-import type { ProductWithDetails } from "@/modules/warehouse/types/products";
+import type { ProductWithDetails, ProductCategory } from "@/modules/warehouse/types/products";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,6 @@ import {
   ArrowRightLeft,
   MoreVertical,
   X,
-  ChevronRight,
   Settings,
   Plus,
 } from "lucide-react";
@@ -29,11 +28,21 @@ import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
 import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
 } from "@/modules/warehouse/types/custom-fields";
+import type { CategoryTreeItem } from "@/modules/warehouse/types/categories";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -66,6 +75,14 @@ export function ProductsAdvancedTable({
   const [customFieldValuesMap, setCustomFieldValuesMap] = React.useState<
     Record<string, CustomFieldValue[]>
   >({});
+  const [categoryTree, setCategoryTree] = React.useState<CategoryTreeItem[]>([]);
+
+  // Load categories
+  React.useEffect(() => {
+    if (activeOrgId) {
+      categoriesService.getCategories(activeOrgId).then(setCategoryTree);
+    }
+  }, [activeOrgId]);
 
   // Load custom field definitions
   React.useEffect(() => {
@@ -195,44 +212,93 @@ export function ProductsAdvancedTable({
     },
   ];
 
+  const findCategoryPath = (tree: CategoryTreeItem[], categoryId: string): ProductCategory[] => {
+    for (const category of tree) {
+      if (category.id === categoryId) {
+        return [category];
+      }
+      if (category.children) {
+        const path = findCategoryPath(category.children, categoryId);
+        if (path.length > 0) {
+          return [category, ...path];
+        }
+      }
+    }
+    return [];
+  };
+
+  const renderBreadcrumbs = (category: ProductCategory | null | undefined) => {
+    if (!category) {
+      return null;
+    }
+
+    const breadcrumbs = findCategoryPath(categoryTree, category.id);
+
+    return (
+      <div className="mb-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            {breadcrumbs.map((crumb, index) => (
+              <React.Fragment key={crumb.id}>
+                <BreadcrumbItem>
+                  {index === breadcrumbs.length - 1 ? (
+                    <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={`/dashboard/warehouse/products?category=${crumb.id}`}>
+                      {crumb.name}
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+              </React.Fragment>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+    );
+  };
+
   // Custom detail panel renderer - PROPER InFlow/Zoho style
-  const renderDetail = (product: ProductWithDetails) => (
+  const renderDetail = (product: ProductWithDetails, onClose: () => void) => (
     <div className="flex h-full flex-col">
       {/* Header - Product name with badges and actions */}
-      <div className="flex items-center justify-between border-b bg-white px-6 py-4">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
-          {product.returnable_item && (
-            <Badge variant="outline" className="text-xs">
-              Returnable Item
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {onEdit && (
-            <Button variant="ghost" size="icon" onClick={() => onEdit(product)}>
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
+      <div className="border-b bg-white px-6 py-4">
+        {renderBreadcrumbs(product.category)}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
+            {product.returnable_item && (
+              <Badge variant="outline" className="text-xs">
+                Returnable Item
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {onEdit && (
+              <Button variant="ghost" size="icon" onClick={() => onEdit(product)}>
+                <Edit className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
-              {onDelete && (
-                <DropdownMenuItem className="text-red-600" onClick={() => onDelete(product)}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="icon">
-            <X className="h-4 w-4" />
-          </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
+                {onDelete && (
+                  <DropdownMenuItem className="text-red-600" onClick={() => onDelete(product)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -310,20 +376,6 @@ export function ProductsAdvancedTable({
 
             {/* Right Column: Product Information */}
             <div className="space-y-6">
-              {/* Category Breadcrumbs at top */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <span>Electronics</span>
-                  <ChevronRight className="h-3 w-3" />
-                  <span>Components</span>
-                  <ChevronRight className="h-3 w-3" />
-                  <span className="text-foreground">Resistors</span>
-                </div>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <Settings className="h-3 w-3" />
-                </Button>
-              </div>
-
               {/* Product Information - 2 columns side by side like InFlow */}
               <div className="grid grid-cols-2 gap-x-12 gap-y-4">
                 {/* Column 1 */}
@@ -602,6 +654,14 @@ export function ProductsAdvancedTable({
           onOpenChange={setIsCustomFieldsDialogOpen}
           product={customFieldsProduct}
           onSave={async () => {
+            // Reload custom field definitions for the organization
+            try {
+              const definitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+              setCustomFieldDefinitions(definitions);
+            } catch (error) {
+              console.error("Failed to reload custom field definitions:", error);
+            }
+
             // Reload custom field values for this product
             try {
               const values = await customFieldsService.getProductFieldValues(
