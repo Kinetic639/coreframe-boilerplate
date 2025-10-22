@@ -79,6 +79,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/settings/categories",
       pl: "/dashboard/magazyn/ustawienia/kategorie",
     },
+    "/dashboard/warehouse/settings/products-templates": {
+      en: "/dashboard/warehouse/settings/products-templates",
+      pl: "/dashboard/magazyn/ustawienia/szablony-produktow",
+    },
     "/dashboard/warehouse/inventory": {
       en: "/dashboard/warehouse/inventory",
       pl: "/dashboard/magazyn/zapasy",

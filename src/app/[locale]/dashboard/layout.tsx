@@ -59,7 +59,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
                 </div>
                 <div className="flex min-w-0 flex-1 flex-grow flex-col">
                   <DashboardHeader />
-                  <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+                  <main className="flex-1 overflow-auto bg-muted/20">
                     <Suspense fallback={<Loader />}>
                       <div>{children}</div>
                     </Suspense>
