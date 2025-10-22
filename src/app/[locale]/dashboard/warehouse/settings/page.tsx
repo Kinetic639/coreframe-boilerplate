@@ -157,6 +157,26 @@ export default async function WarehouseSettingsPage() {
                   </Link>
                 </CardHeader>
               </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <div className="flex items-center gap-3">
+                    <Box className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <h3 className="font-semibold"> Manage Products Templates</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Manage predefined templates for product listings
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/dashboard/warehouse/settings/products-templates">
+                    <Button variant="outline" size="sm">
+                      Manage
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </CardHeader>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>

@@ -12,6 +12,7 @@ import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DevelopmentSubscriptionManager } from "@/components/dev/subscription-manager";
+import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 
 function hexToRgb(hex: string | null): string {
   if (!hex) return "0,0,0";
@@ -64,6 +65,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
                       <div>{children}</div>
                     </Suspense>
                   </main>
+                  <DashboardStatusBar />
                 </div>
               </div>
             </UserInitProvider>
