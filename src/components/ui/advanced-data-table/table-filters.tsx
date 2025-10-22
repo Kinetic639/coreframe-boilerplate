@@ -70,7 +70,7 @@ export function TableFilters<T>({
   }, [searchExpanded, searchQuery]);
 
   return (
-    <div className="flex h-9 items-center gap-1 border-b bg-background px-3">
+    <div className="flex h-9 items-center gap-1.5">
       {/* Search - Compact Icon or Expanded */}
       {showSearch && (
         <>

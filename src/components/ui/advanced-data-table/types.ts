@@ -124,6 +124,8 @@ export interface AdvancedDataTableProps<T = any> {
   responsive?: boolean;
   /** Callback when add button is clicked */
   onAdd?: () => void;
+  /** Callback when add button is clicked */
+  onAddProductGroup?: () => void;
 }
 
 /**
