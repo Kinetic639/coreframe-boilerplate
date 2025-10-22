@@ -1433,7 +1433,8 @@
     },
     "yes": "Tak",
     "no": "Nie",
-    "noProductsFound": "Nie znaleziono produktów"
+    "noProductsFound": "Nie znaleziono produktów",
+    "noCategoryAssigned": "Brak przypisanej kategorii"
   },
   "productGroups": {
     "title": "Grupy Produktów",

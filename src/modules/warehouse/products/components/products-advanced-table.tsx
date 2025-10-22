@@ -229,7 +229,7 @@ export function ProductsAdvancedTable({
 
   const renderBreadcrumbs = (category: ProductCategory | null | undefined) => {
     if (!category) {
-      return null;
+      return <div className="text-sm text-muted-foreground">{t("noCategoryAssigned")}</div>;
     }
 
     const breadcrumbs = findCategoryPath(categoryTree, category.id);
@@ -263,7 +263,6 @@ export function ProductsAdvancedTable({
     <div className="flex h-full flex-col">
       {/* Header - Product name with badges and actions */}
       <div className="border-b bg-white px-6 py-4">
-        {renderBreadcrumbs(product.category)}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
@@ -272,6 +271,7 @@ export function ProductsAdvancedTable({
                 Returnable Item
               </Badge>
             )}
+            {renderBreadcrumbs(product.category)}
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
