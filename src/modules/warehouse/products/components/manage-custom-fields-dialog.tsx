@@ -140,25 +140,58 @@ export function ManageCustomFieldsDialog({
 
     setSaving(true);
     try {
-      // Delete old fields and create new ones
-      const existingFields = await customFieldsService.getFieldDefinitions(activeOrgId);
+      const existingDefinitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+      const existingDefinitionMap = new Map(existingDefinitions.map((def) => [def.id, def]));
 
-      // Delete all existing fields
-      for (const field of existingFields) {
-        await customFieldsService.deleteFieldDefinition(field.id);
-      }
+      const createPromises: Promise<any>[] = [];
+      const updatePromises: Promise<any>[] = [];
+      const deletePromises: Promise<any>[] = [];
 
-      // Create new fields
+      // Process current fields from the dialog state
       for (const field of fields) {
-        if (field.field_name.trim()) {
-          await customFieldsService.createFieldDefinition({
-            organization_id: activeOrgId,
-            field_name: field.field_name,
-            field_type: field.field_type,
-            dropdown_options: field.dropdown_options,
-          });
+        if (!field.field_name.trim()) continue; // Skip empty field names
+
+        if (field.id.startsWith("temp_")) {
+          // New field
+          createPromises.push(
+            customFieldsService.createFieldDefinition({
+              organization_id: activeOrgId,
+              field_name: field.field_name,
+              field_type: field.field_type,
+              dropdown_options: field.dropdown_options,
+            })
+          );
+        } else {
+          // Existing field - check for updates
+          const existing = existingDefinitionMap.get(field.id);
+          if (existing) {
+            const currentDropdownOptions = JSON.stringify(field.dropdown_options || []);
+            const existingDropdownOptions = JSON.stringify(existing.dropdown_options || []);
+
+            if (
+              existing.field_name !== field.field_name ||
+              existing.field_type !== field.field_type ||
+              currentDropdownOptions !== existingDropdownOptions
+            ) {
+              updatePromises.push(
+                customFieldsService.updateFieldDefinition(field.id, {
+                  field_name: field.field_name,
+                  field_type: field.field_type,
+                  dropdown_options: field.dropdown_options,
+                })
+              );
+            }
+            existingDefinitionMap.delete(field.id); // Mark as processed
+          }
         }
       }
+
+      // Any remaining in existingDefinitionMap were deleted
+      for (const [id] of existingDefinitionMap) {
+        deletePromises.push(customFieldsService.deleteFieldDefinition(id));
+      }
+
+      await Promise.all([...createPromises, ...updatePromises, ...deletePromises]);
 
       toast.success(t("successUpdate"));
       if (onSave) {

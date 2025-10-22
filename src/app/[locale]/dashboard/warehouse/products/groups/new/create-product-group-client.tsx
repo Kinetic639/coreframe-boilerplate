@@ -94,9 +94,9 @@ export function CreateProductGroupClient() {
   React.useEffect(() => {
     const loadOptionGroups = async () => {
       if (!activeOrg?.organization_id) return;
-
+      let groups: OptionGroupWithValues[] = [];
       try {
-        const groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
+        groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
         setAvailableOptionGroups(groups);
       } catch (error) {
         console.error("Failed to load option groups:", error);
