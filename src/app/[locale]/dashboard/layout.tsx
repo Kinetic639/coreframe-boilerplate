@@ -46,7 +46,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
           >
             <UserInitProvider context={userContext}>
               <div
-                className="flex h-screen w-full flex-col"
+                className="flex h-screen w-full"
                 style={
                   {
                     "--theme-color": themeColor,
@@ -55,19 +55,17 @@ export default async function Layout({ children }: { children: React.ReactNode }
                   } as React.CSSProperties
                 }
               >
-                <div className="flex flex-1">
-                  <div className="flex min-w-fit flex-shrink-0">
-                    <AppSidebar />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-grow flex-col">
-                    <DashboardHeader />
-                    <main className="flex-1 overflow-auto bg-muted/20 py-6 px-4">
-                      <Suspense fallback={<Loader />}>
-                        <div>{children}</div>
-                      </Suspense>
-                    </main>
-                    <DashboardStatusBar />
-                  </div>
+                <div className="flex min-w-fit flex-shrink-0">
+                  <AppSidebar />
+                </div>
+                <div className="flex min-w-0 flex-1 flex-grow flex-col">
+                  <DashboardHeader />
+                  <main className="flex-1 overflow-auto bg-muted/20 px-4 py-6">
+                    <Suspense fallback={<Loader />}>
+                      <div>{children}</div>
+                    </Suspense>
+                  </main>
+                  <DashboardStatusBar />
                 </div>
               </div>
             </UserInitProvider>
