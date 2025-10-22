@@ -81,7 +81,7 @@ export function CompactBranchSelector() {
           size="sm"
           role="combobox"
           aria-expanded={open}
-          className="h-6 w-[120px] justify-between focus-visible:ring-1"
+          className="h-6 w-[160px] justify-between focus-visible:ring-1"
           disabled={isPending}
         >
           <span className="truncate text-xs">{activeBranch?.name || "Select branch..."}</span>
