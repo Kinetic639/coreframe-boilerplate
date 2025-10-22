@@ -45,12 +45,6 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             path: "/dashboard/warehouse/products",
             icon: "Package",
           },
-          {
-            id: "products-templates",
-            label: "modules.warehouse.items.products.templates",
-            path: "/dashboard/warehouse/products/templates",
-            icon: "FileTemplate",
-          },
         ],
       },
       {
