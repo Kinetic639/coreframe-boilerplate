@@ -229,32 +229,33 @@ export function ProductsAdvancedTable({
 
   const renderBreadcrumbs = (category: ProductCategory | null | undefined) => {
     if (!category) {
-      return <div className="text-sm text-muted-foreground">{t("noCategoryAssigned")}</div>;
+      return <div className="text-xs text-muted-foreground">{t("noCategoryAssigned")}</div>;
     }
 
     const breadcrumbs = findCategoryPath(categoryTree, category.id);
 
     return (
-      <div className="mb-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            {breadcrumbs.map((crumb, index) => (
-              <React.Fragment key={crumb.id}>
-                <BreadcrumbItem>
-                  {index === breadcrumbs.length - 1 ? (
-                    <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink href={`/dashboard/warehouse/products?category=${crumb.id}`}>
-                      {crumb.name}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
-              </React.Fragment>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
+      <Breadcrumb>
+        <BreadcrumbList>
+          {breadcrumbs.map((crumb, index) => (
+            <React.Fragment key={crumb.id}>
+              <BreadcrumbItem>
+                {index === breadcrumbs.length - 1 ? (
+                  <BreadcrumbPage className="text-xs">{crumb.name}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink
+                    className="text-xs"
+                    href={`/dashboard/warehouse/products?category=${crumb.id}`}
+                  >
+                    {crumb.name}
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+              {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+            </React.Fragment>
+          ))}
+        </BreadcrumbList>
+      </Breadcrumb>
     );
   };
 
