@@ -271,7 +271,6 @@ export function ProductsAdvancedTable({
                 Returnable Item
               </Badge>
             )}
-            {renderBreadcrumbs(product.category)}
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -301,6 +300,7 @@ export function ProductsAdvancedTable({
           </div>
         </div>
       </div>
+      {renderBreadcrumbs(product.category)}
 
       {/* Tabs - InFlow rounded pill style */}
       <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden bg-white">
