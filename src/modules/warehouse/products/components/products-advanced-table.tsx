@@ -626,14 +626,14 @@ export function ProductsAdvancedTable({
 
   return (
     <>
-      {onAddProductGroup && (
+      {/* {onAddProductGroup && (
         <div className="mb-4 flex items-center justify-end gap-2">
           <Button variant="outline" onClick={onAddProductGroup}>
             <Plus className="mr-2 h-4 w-4" />
             {t("createProductGroup")}
           </Button>
         </div>
-      )}
+      )} */}
       <AdvancedDataTable
         data={products}
         columns={columns}
@@ -647,6 +647,7 @@ export function ProductsAdvancedTable({
         searchPlaceholder={t("filters.search")}
         responsive={true}
         onAdd={onAdd}
+        onAddProductGroup={onAddProductGroup}
       />
 
       {customFieldsProduct && (

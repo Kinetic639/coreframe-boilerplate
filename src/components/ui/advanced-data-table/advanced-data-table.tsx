@@ -48,6 +48,7 @@ export function AdvancedDataTable<T>({
   toolbarActions: _toolbarActions,
   responsive = true,
   onAdd,
+  onAddProductGroup,
 }: AdvancedDataTableProps<T>) {
   // Zustand store selectors
   const selectedRow = useTableStore((state) => state.selectedRow);
@@ -134,10 +135,16 @@ export function AdvancedDataTable<T>({
             layoutMode={layoutMode}
           />
           <div className="flex items-center gap-2">
+            {onAddProductGroup && (
+              <Button size="sm" className="h-8 gap-1.5" onClick={onAddProductGroup}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Groupa</span>
+              </Button>
+            )}
             {onAdd && (
               <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">New</span>
+                <span className="hidden sm:inline">Produkt</span>
               </Button>
             )}
             <ColumnManager columns={columns} />
