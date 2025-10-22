@@ -299,8 +299,8 @@ export function ProductsAdvancedTable({
             </Button>
           </div>
         </div>
+        {renderBreadcrumbs(product.category)}
       </div>
-      {renderBreadcrumbs(product.category)}
 
       {/* Tabs - InFlow rounded pill style */}
       <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden bg-white">
