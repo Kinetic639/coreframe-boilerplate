@@ -259,7 +259,7 @@ export function ProductsAdvancedTable({
   };
 
   // Custom detail panel renderer - PROPER InFlow/Zoho style
-  const renderDetail = (product: ProductWithDetails) => (
+  const renderDetail = (product: ProductWithDetails, onClose: () => void) => (
     <div className="flex h-full flex-col">
       {/* Header - Product name with badges and actions */}
       <div className="border-b bg-white px-6 py-4">
@@ -295,7 +295,7 @@ export function ProductsAdvancedTable({
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>

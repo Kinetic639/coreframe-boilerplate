@@ -1,9 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X } from "lucide-react";
 import { TableDetailPanelProps } from "./types";
 
 export function TableDetailPanel<T>({
@@ -16,17 +14,13 @@ export function TableDetailPanel<T>({
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between border-b px-4 py-2.5">
-        <h2 className="text-sm font-semibold">Details</h2>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
       {/* Content */}
       <ScrollArea className="flex-1">
-        {renderDetail ? renderDetail(row) : <DefaultDetailView row={row} columns={columns} />}
+        {renderDetail ? (
+          renderDetail(row, onClose)
+        ) : (
+          <DefaultDetailView row={row} columns={columns} />
+        )}
       </ScrollArea>
     </div>
   );
