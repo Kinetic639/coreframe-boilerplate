@@ -178,7 +178,7 @@ export interface TableSidebarProps<T = any> {
 export interface TableDetailPanelProps<T = any> {
   row: T | null;
   onClose: () => void;
-  renderDetail?: (row: T) => ReactNode;
+  renderDetail?: (row: T, onClose: () => void) => ReactNode;
   columns: ColumnConfig<T>[];
 }
 

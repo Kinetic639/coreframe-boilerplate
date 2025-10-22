@@ -1478,7 +1478,8 @@
     },
     "yes": "Yes",
     "no": "No",
-    "noProductsFound": "No products found"
+    "noProductsFound": "No products found",
+    "noCategoryAssigned": "No category assigned"
   },
   "productGroups": {
     "title": "Product Groups",
