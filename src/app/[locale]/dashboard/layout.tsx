@@ -12,6 +12,7 @@ import { Suspense } from "react";
 import DashboardHeader from "@/components/Dashboard/header/DashboardHeader";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { DevelopmentSubscriptionManager } from "@/components/dev/subscription-manager";
+import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 
 function hexToRgb(hex: string | null): string {
   if (!hex) return "0,0,0";
@@ -45,7 +46,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
           >
             <UserInitProvider context={userContext}>
               <div
-                className="flex h-screen w-full"
+                className="flex h-screen w-full flex-col"
                 style={
                   {
                     "--theme-color": themeColor,
@@ -54,17 +55,20 @@ export default async function Layout({ children }: { children: React.ReactNode }
                   } as React.CSSProperties
                 }
               >
-                <div className="flex min-w-fit flex-shrink-0">
-                  <AppSidebar />
+                <div className="flex flex-1">
+                  <div className="flex min-w-fit flex-shrink-0">
+                    <AppSidebar />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-grow flex-col">
+                    <DashboardHeader />
+                    <main className="flex-1 overflow-auto bg-muted/20 py-6 px-4">
+                      <Suspense fallback={<Loader />}>
+                        <div>{children}</div>
+                      </Suspense>
+                    </main>
+                  </div>
                 </div>
-                <div className="flex min-w-0 flex-1 flex-grow flex-col">
-                  <DashboardHeader />
-                  <main className="flex-1 overflow-auto bg-muted/20 py-6 px-4">
-                    <Suspense fallback={<Loader />}>
-                      <div>{children}</div>
-                    </Suspense>
-                  </main>
-                </div>
+                <DashboardStatusBar />
               </div>
             </UserInitProvider>
           </AppInitProvider>
