@@ -42,7 +42,6 @@ import type {
 
 interface BasicInfo {
   name: string;
-  sku: string;
   unit: string;
   sellingPrice: number;
   costPrice: number;
@@ -65,7 +64,6 @@ export function CreateProductGroupClient() {
   // Basic Info State
   const [basicInfo, setBasicInfo] = React.useState<BasicInfo>({
     name: "",
-    sku: "",
     unit: "pcs",
     sellingPrice: 0,
     costPrice: 0,
@@ -247,6 +245,17 @@ export function CreateProductGroupClient() {
       toast.warning("Generate variants first by adding attributes and values");
       return;
     }
+
+    // Validate that all attributes have names and values
+    const invalidAttrs = selectedAttributes.filter(
+      (attr) => !attr.optionGroupName || attr.selectedValues.length === 0
+    );
+
+    if (invalidAttrs.length > 0) {
+      toast.error("All attributes must have a name and at least one value");
+      return;
+    }
+
     setShowSKUGenerator(true);
   };
 
@@ -376,25 +385,17 @@ export function CreateProductGroupClient() {
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={basicInfo.name}
-                onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
-                placeholder="Enter product name..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={basicInfo.sku}
-                onChange={(e) => setBasicInfo({ ...basicInfo, sku: e.target.value })}
-                placeholder="Enter SKU..."
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Name *</Label>
+            <Input
+              id="name"
+              value={basicInfo.name}
+              onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
+              placeholder="Enter product group name..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Product group doesn't have a SKU. Each variant will have its own SKU.
+            </p>
           </div>
 
           <div className="space-y-2">
