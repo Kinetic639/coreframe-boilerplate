@@ -263,6 +263,41 @@ export function CreateProductGroupClient() {
     setGeneratedVariants(updatedVariants);
   };
 
+  const handleAutoGenerateSKUs = async () => {
+    if (generatedVariants.length === 0) {
+      toast.warning("No variants to generate SKUs for");
+      return;
+    }
+
+    // Import the service dynamically
+    const { variantGenerationService } = await import(
+      "@/modules/warehouse/api/variant-generation-service"
+    );
+
+    // Use default config: base name + all attributes, uppercase, dash separator
+    const defaultConfig = {
+      includeBaseName: true,
+      baseNameFormat: "first" as const,
+      baseNameCase: "upper" as const,
+      includeAttributes: selectedAttributes.map((attr) => ({
+        attributeName: attr.optionGroupName,
+        include: true,
+        displayFormat: "first" as const,
+        letterCase: "upper" as const,
+      })),
+      separator: "-" as const,
+    };
+
+    const updatedVariants = variantGenerationService.generateSKUsForAllVariants(
+      basicInfo.name,
+      generatedVariants,
+      defaultConfig
+    );
+
+    setGeneratedVariants(updatedVariants);
+    toast.success("SKUs generated successfully");
+  };
+
   const handleSave = async () => {
     if (!activeOrg?.organization_id) {
       toast.error("No organization selected");
@@ -567,15 +602,26 @@ export function CreateProductGroupClient() {
                   All possible combinations of selected attribute values
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenSKUGenerator}
-                className="gap-2"
-              >
-                <Wand2 className="h-4 w-4" />
-                Configure SKU Pattern
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleAutoGenerateSKUs}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Generate SKUs
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenSKUGenerator}
+                  className="gap-2"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  Configure Pattern
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
