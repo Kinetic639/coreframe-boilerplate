@@ -94,14 +94,13 @@ export function CreateProductGroupClient() {
   React.useEffect(() => {
     const loadOptionGroups = async () => {
       if (!activeOrg?.organization_id) return;
-      let groups: OptionGroupWithValues[] = [];
+
       try {
-        groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
+        const groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
         setAvailableOptionGroups(groups);
       } catch (error) {
         console.error("Failed to load option groups:", error);
-        // Don't show error toast if there are simply no option groups yet
-        if (groups && groups.length === 0) return;
+        // Only show error toast if it's an actual error, not just empty results
         toast.error("Failed to load attributes");
       }
     };
