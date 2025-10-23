@@ -68,9 +68,20 @@ export function SimpleProductTable({ products }: SimpleProductTableProps) {
                   </TableCell>
                   <TableCell>{product.sku || "-"}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">
-                      {product.product_type === "goods" ? "Towar" : "Usługa"}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="outline">
+                        {product.product_type === "goods"
+                          ? "Towar"
+                          : product.product_type === "service"
+                            ? "Usługa"
+                            : "Grupa"}
+                      </Badge>
+                      {product.product_type === "item_group" && product.variants && (
+                        <Badge variant="secondary" className="text-xs">
+                          {product.variants.length} wariantów
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>{product.brand || "-"}</TableCell>
                   <TableCell className="text-right">

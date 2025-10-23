@@ -25,7 +25,16 @@ export function SimpleProductList({ product }: SimpleProductListProps) {
       <div className="flex-grow space-y-1">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">{product.name}</h3>
-          <Badge variant="outline">{product.product_type === "goods" ? "Towar" : "Usługa"}</Badge>
+          <Badge variant="outline">
+            {product.product_type === "goods"
+              ? "Towar"
+              : product.product_type === "service"
+                ? "Usługa"
+                : "Grupa"}
+          </Badge>
+          {product.product_type === "item_group" && product.variants && (
+            <Badge variant="secondary">{product.variants.length} wariantów</Badge>
+          )}
           {product.status === "inactive" && <Badge variant="secondary">Nieaktywny</Badge>}
           {product.status === "archived" && <Badge variant="destructive">Zarchiwizowany</Badge>}
         </div>
