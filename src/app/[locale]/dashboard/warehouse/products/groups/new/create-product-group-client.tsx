@@ -42,7 +42,6 @@ import type {
 
 interface BasicInfo {
   name: string;
-  sku: string;
   unit: string;
   sellingPrice: number;
   costPrice: number;
@@ -65,7 +64,6 @@ export function CreateProductGroupClient() {
   // Basic Info State
   const [basicInfo, setBasicInfo] = React.useState<BasicInfo>({
     name: "",
-    sku: "",
     unit: "pcs",
     sellingPrice: 0,
     costPrice: 0,
@@ -94,14 +92,13 @@ export function CreateProductGroupClient() {
   React.useEffect(() => {
     const loadOptionGroups = async () => {
       if (!activeOrg?.organization_id) return;
-      let groups: OptionGroupWithValues[] = [];
+
       try {
-        groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
+        const groups = await optionGroupsService.getOptionGroups(activeOrg.organization_id);
         setAvailableOptionGroups(groups);
       } catch (error) {
         console.error("Failed to load option groups:", error);
-        // Don't show error toast if there are simply no option groups yet
-        if (groups && groups.length === 0) return;
+        // Only show error toast if it's an actual error, not just empty results
         toast.error("Failed to load attributes");
       }
     };
@@ -248,11 +245,57 @@ export function CreateProductGroupClient() {
       toast.warning("Generate variants first by adding attributes and values");
       return;
     }
+
+    // Validate that all attributes have names and values
+    const invalidAttrs = selectedAttributes.filter(
+      (attr) => !attr.optionGroupName || attr.selectedValues.length === 0
+    );
+
+    if (invalidAttrs.length > 0) {
+      toast.error("All attributes must have a name and at least one value");
+      return;
+    }
+
     setShowSKUGenerator(true);
   };
 
   const handleApplySKUs = (updatedVariants: GeneratedVariant[]) => {
     setGeneratedVariants(updatedVariants);
+  };
+
+  const handleAutoGenerateSKUs = async () => {
+    if (generatedVariants.length === 0) {
+      toast.warning("No variants to generate SKUs for");
+      return;
+    }
+
+    // Import the service dynamically
+    const { variantGenerationService } = await import(
+      "@/modules/warehouse/api/variant-generation-service"
+    );
+
+    // Use default config: base name + all attributes, uppercase, dash separator
+    const defaultConfig = {
+      includeBaseName: true,
+      baseNameFormat: "first" as const,
+      baseNameCase: "upper" as const,
+      includeAttributes: selectedAttributes.map((attr) => ({
+        attributeName: attr.optionGroupName,
+        include: true,
+        displayFormat: "first" as const,
+        letterCase: "upper" as const,
+      })),
+      separator: "-" as const,
+    };
+
+    const updatedVariants = variantGenerationService.generateSKUsForAllVariants(
+      basicInfo.name,
+      generatedVariants,
+      defaultConfig
+    );
+
+    setGeneratedVariants(updatedVariants);
+    toast.success("SKUs generated successfully");
   };
 
   const handleSave = async () => {
@@ -377,25 +420,17 @@ export function CreateProductGroupClient() {
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                value={basicInfo.name}
-                onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
-                placeholder="Enter product name..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
-              <Input
-                id="sku"
-                value={basicInfo.sku}
-                onChange={(e) => setBasicInfo({ ...basicInfo, sku: e.target.value })}
-                placeholder="Enter SKU..."
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="name">Name *</Label>
+            <Input
+              id="name"
+              value={basicInfo.name}
+              onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
+              placeholder="Enter product group name..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Product group doesn't have a SKU. Each variant will have its own SKU.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -567,15 +602,26 @@ export function CreateProductGroupClient() {
                   All possible combinations of selected attribute values
                 </p>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenSKUGenerator}
-                className="gap-2"
-              >
-                <Wand2 className="h-4 w-4" />
-                Configure SKU Pattern
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleAutoGenerateSKUs}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Generate SKUs
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenSKUGenerator}
+                  className="gap-2"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  Configure Pattern
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

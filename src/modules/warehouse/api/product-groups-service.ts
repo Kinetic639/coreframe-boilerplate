@@ -76,10 +76,52 @@ class ProductGroupsService {
     }
 
     try {
-      // 2. Create product_group_attributes links (which option groups are used)
+      // 2. Handle option groups - create new ones if needed
+      const optionGroupMap: Map<string, string> = new Map(); // oldId -> newId mapping
+
+      for (const attr of data.selectedAttributes) {
+        const optionGroupId = attr.optionGroup.id;
+
+        // Check if this is a new option group (ID starts with "new-")
+        if (optionGroupId.startsWith("new-")) {
+          // Create the option group
+          const { data: newGroup, error: groupError } = await this.supabase
+            .from("variant_option_groups")
+            .insert({
+              organization_id: organizationId,
+              name: attr.optionGroup.name,
+              display_order: 0,
+            })
+            .select()
+            .single();
+
+          if (groupError) throw groupError;
+
+          // Map old ID to new ID
+          optionGroupMap.set(optionGroupId, newGroup.id);
+
+          // Create option values for this new group
+          const valueInserts = attr.optionGroup.values.map((val, index) => ({
+            option_group_id: newGroup.id,
+            value: val.value,
+            display_order: index,
+          }));
+
+          const { error: valuesError } = await this.supabase
+            .from("variant_option_values")
+            .insert(valueInserts);
+
+          if (valuesError) throw valuesError;
+        } else {
+          // Existing option group - map to itself
+          optionGroupMap.set(optionGroupId, optionGroupId);
+        }
+      }
+
+      // 3. Create product_group_attributes links (which option groups are used)
       const groupAttributeInserts = data.selectedAttributes.map((attr, index) => ({
         product_id: product.id,
-        option_group_id: attr.optionGroup.id,
+        option_group_id: optionGroupMap.get(attr.optionGroup.id) || attr.optionGroup.id,
         display_order: index,
       }));
 
@@ -110,7 +152,25 @@ class ProductGroupsService {
 
       if (variantsError) throw variantsError;
 
-      // 4. Create variant_attribute_values mappings (link variants to option values)
+      // 4. Fetch the real option values for the created/existing option groups
+      const realOptionValues: Map<string, Map<string, string>> = new Map(); // optionGroupId -> (value -> valueId)
+
+      for (const [, newGroupId] of optionGroupMap) {
+        const { data: values, error: valuesError } = await this.supabase
+          .from("variant_option_values")
+          .select("*")
+          .eq("option_group_id", newGroupId);
+
+        if (valuesError) throw valuesError;
+
+        const valueMap = new Map<string, string>();
+        for (const val of values || []) {
+          valueMap.set(val.value, val.id);
+        }
+        realOptionValues.set(newGroupId, valueMap);
+      }
+
+      // 5. Create variant_attribute_values mappings (link variants to option values)
       const attributeValueInserts: Array<{
         variant_id: string;
         option_group_id: string;
@@ -122,10 +182,42 @@ class ProductGroupsService {
         const createdVariant = createdVariants[i];
 
         for (const attrValue of variant.attributeValues) {
+          // Map old option group ID to real ID
+          const realGroupId =
+            optionGroupMap.get(attrValue.optionGroupId) || attrValue.optionGroupId;
+
+          // Find the attribute config to get the value name
+          const attrConfig = data.selectedAttributes.find(
+            (a) => (optionGroupMap.get(a.optionGroup.id) || a.optionGroup.id) === realGroupId
+          );
+
+          if (!attrConfig) {
+            console.error("Could not find attribute config for group:", realGroupId);
+            continue;
+          }
+
+          // Find the option value by matching the value name
+          const valueName = attrConfig.optionGroup.values.find(
+            (v) => v.id === attrValue.optionValueId
+          )?.value;
+
+          if (!valueName) {
+            console.error("Could not find value name for value ID:", attrValue.optionValueId);
+            continue;
+          }
+
+          // Get the real value ID from our map
+          const realValueId = realOptionValues.get(realGroupId)?.get(valueName);
+
+          if (!realValueId) {
+            console.error("Could not find real value ID for:", valueName, "in group:", realGroupId);
+            continue;
+          }
+
           attributeValueInserts.push({
             variant_id: createdVariant.id,
-            option_group_id: attrValue.optionGroupId,
-            option_value_id: attrValue.optionValueId,
+            option_group_id: realGroupId,
+            option_value_id: realValueId,
           });
         }
       }
@@ -136,7 +228,7 @@ class ProductGroupsService {
 
       if (attrValuesError) throw attrValuesError;
 
-      // 5. Fetch and return complete product group
+      // 6. Fetch and return complete product group
       const productGroup = await this.getProductGroupById(product.id);
       if (!productGroup) {
         throw new Error("Failed to fetch created product group");
@@ -339,7 +431,8 @@ class ProductGroupsService {
     // 2. Update stock_snapshots
     // 3. Handle location-specific stock if locationId is provided
 
-    console.log("Stock adjustment requested:", data);
+    // Log for debugging
+    console.error("Stock adjustment not yet implemented. Data:", data);
 
     throw new Error("Stock adjustment not yet implemented - integrate with existing stock service");
   }

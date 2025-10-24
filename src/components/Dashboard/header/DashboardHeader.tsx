@@ -30,7 +30,6 @@ import {
 } from "../../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
-import { BranchSelector } from "./BranchSelector";
 import { Link } from "@/i18n/navigation";
 import { signOutAction } from "@/app/actions/auth/sign-out";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
@@ -39,6 +38,7 @@ import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { SidebarToggleButton } from "./SidebarToggleButton";
 import MessagesDrawer from "@/components/chat/MessagesDrawer";
 import { useTranslations } from "next-intl";
+import { SearchBar } from "./SearchBar";
 
 const DashboardHeader = () => {
   const { user } = useUserStore();
@@ -111,7 +111,7 @@ const DashboardHeader = () => {
             </DropdownMenu>
           </div>
 
-          <BranchSelector />
+          <SearchBar />
         </div>
 
         <div className="flex items-center gap-4">

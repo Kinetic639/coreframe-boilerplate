@@ -171,10 +171,9 @@ export function SKUGeneratorDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="-">-</SelectItem>
-                        <SelectItem value="_">_</SelectItem>
-                        <SelectItem value=" ">Space</SelectItem>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="-">Dash (-)</SelectItem>
+                        <SelectItem value="_">Underscore (_)</SelectItem>
+                        <SelectItem value=" ">Space ( )</SelectItem>
                       </SelectContent>
                     </Select>
                   </td>
