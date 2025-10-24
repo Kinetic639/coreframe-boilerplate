@@ -67,9 +67,20 @@ export function SimpleProductCard({ product }: SimpleProductCardProps) {
             {product.sku && primaryBarcode && <span className="mx-1">|</span>}
             {primaryBarcode && <span>Barcode: {primaryBarcode.barcode}</span>}
           </div>
-          <Badge variant="outline" className="ml-2">
-            {product.product_type === "goods" ? "Towar" : "Usługa"}
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Badge variant="outline" className="ml-2">
+              {product.product_type === "goods"
+                ? "Towar"
+                : product.product_type === "service"
+                  ? "Usługa"
+                  : "Grupa"}
+            </Badge>
+            {product.product_type === "item_group" && product.variants && (
+              <Badge variant="secondary" className="ml-1">
+                {product.variants.length} wariantów
+              </Badge>
+            )}
+          </div>
         </div>
         <CardTitle className="line-clamp-1 text-lg">{product.name}</CardTitle>
         <CardDescription className="line-clamp-2">

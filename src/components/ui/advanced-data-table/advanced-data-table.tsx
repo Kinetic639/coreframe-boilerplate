@@ -136,15 +136,20 @@ export function AdvancedDataTable<T>({
           />
           <div className="flex items-center gap-2">
             {onAddProductGroup && (
-              <Button size="sm" className="h-8 gap-1.5" onClick={onAddProductGroup}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                onClick={onAddProductGroup}
+              >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Groupa</span>
+                <span className="hidden sm:inline">Group</span>
               </Button>
             )}
             {onAdd && (
               <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Produkt</span>
+                <span className="hidden sm:inline">Product</span>
               </Button>
             )}
             <ColumnManager columns={columns} />
@@ -209,12 +214,25 @@ export function AdvancedDataTable<T>({
                   <span>Filters</span>
                 </Button>
 
-                {/* Add Button */}
-                {onAdd && (
-                  <Button size="sm" className="h-8 w-8 p-0" onClick={onAdd} title="Add new">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                )}
+                {/* Add Buttons */}
+                <div className="flex items-center gap-1">
+                  {onAddProductGroup && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 w-8 p-0"
+                      onClick={onAddProductGroup}
+                      title="Add product group"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onAdd && (
+                    <Button size="sm" className="h-8 w-8 p-0" onClick={onAdd} title="Add product">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Sidebar List */}
@@ -250,10 +268,21 @@ export function AdvancedDataTable<T>({
                 layoutMode={layoutMode}
               />
               <div className="flex items-center gap-2">
+                {onAddProductGroup && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5"
+                    onClick={onAddProductGroup}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Group</span>
+                  </Button>
+                )}
                 {onAdd && (
                   <Button size="sm" className="h-8 gap-1.5" onClick={onAdd}>
                     <Plus className="h-4 w-4" />
-                    <span>New</span>
+                    <span>Product</span>
                   </Button>
                 )}
                 <ColumnManager columns={columns} />

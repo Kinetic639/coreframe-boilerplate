@@ -41,6 +41,9 @@ import {
 
 import { productGroupsService } from "@/modules/warehouse/api/product-groups-service";
 import type { ProductGroupDetail } from "@/modules/warehouse/types/product-groups";
+import type { ProductVariantWithDetails } from "@/modules/warehouse/types/products";
+import { EditVariantDialog } from "@/modules/warehouse/products/components/edit-variant-dialog";
+import { QuickStockAdjustmentDialog } from "@/modules/warehouse/products/components/quick-stock-adjustment-dialog";
 
 interface ProductGroupDetailClientProps {
   productGroupId: string;
@@ -55,6 +58,12 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [editingVariant, setEditingVariant] = React.useState<ProductVariantWithDetails | null>(
+    null
+  );
+  const [adjustingStockVariant, setAdjustingStockVariant] =
+    React.useState<ProductVariantWithDetails | null>(null);
+  const [selectedVariantIds, setSelectedVariantIds] = React.useState<Set<string>>(new Set());
 
   const loadProductGroup = React.useCallback(async () => {
     setIsLoading(true);
@@ -102,6 +111,74 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
     } catch (error) {
       console.error("Failed to delete variant:", error);
       toast.error("Failed to delete variant");
+    }
+  };
+
+  const handleToggleVariantSelection = (variantId: string) => {
+    setSelectedVariantIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(variantId)) {
+        newSet.delete(variantId);
+      } else {
+        newSet.add(variantId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllVariants = () => {
+    if (!productGroup) return;
+    const allIds = new Set(productGroup.variants.map((v) => v.id));
+    setSelectedVariantIds(allIds);
+  };
+
+  const handleDeselectAllVariants = () => {
+    setSelectedVariantIds(new Set());
+  };
+
+  const handleBulkActivate = async () => {
+    if (selectedVariantIds.size === 0) return;
+
+    try {
+      const { createClient } = await import("@/utils/supabase/client");
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("product_variants")
+        .update({ is_active: true })
+        .in("id", Array.from(selectedVariantIds));
+
+      if (error) throw error;
+
+      toast.success(`${selectedVariantIds.size} variants activated`);
+      setSelectedVariantIds(new Set());
+      loadProductGroup();
+    } catch (error) {
+      console.error("Failed to activate variants:", error);
+      toast.error("Failed to activate variants");
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedVariantIds.size === 0) return;
+
+    try {
+      const { createClient } = await import("@/utils/supabase/client");
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("product_variants")
+        .update({ is_active: false })
+        .in("id", Array.from(selectedVariantIds));
+
+      if (error) throw error;
+
+      toast.success(`${selectedVariantIds.size} variants deactivated`);
+      setSelectedVariantIds(new Set());
+      loadProductGroup();
+    } catch (error) {
+      console.error("Failed to deactivate variants:", error);
+      toast.error("Failed to deactivate variants");
     }
   };
 
@@ -203,6 +280,33 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
         </TabsList>
 
         <TabsContent value="variants" className="space-y-4">
+          {/* Bulk Actions Bar */}
+          {selectedVariantIds.size > 0 && (
+            <Card className="bg-muted/50">
+              <CardContent className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-4">
+                  <p className="text-sm font-medium">
+                    {selectedVariantIds.size} variant{selectedVariantIds.size !== 1 ? "s" : ""}{" "}
+                    selected
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={handleDeselectAllVariants}>
+                    Clear Selection
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleBulkActivate}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Activate Selected
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleBulkDeactivate}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Deactivate Selected
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -212,10 +316,27 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                     View and manage all variants in this product group
                   </CardDescription>
                 </div>
-                <Button size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Variant
-                </Button>
+                <div className="flex items-center gap-2">
+                  {productGroup.variants.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={
+                        selectedVariantIds.size === productGroup.variants.length
+                          ? handleDeselectAllVariants
+                          : handleSelectAllVariants
+                      }
+                    >
+                      {selectedVariantIds.size === productGroup.variants.length
+                        ? "Deselect All"
+                        : "Select All"}
+                    </Button>
+                  )}
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Variant
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -223,6 +344,7 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>{tTable("variantName")}</TableHead>
                       <TableHead>{tTable("sku")}</TableHead>
                       <TableHead>{tTable("attributes")}</TableHead>
@@ -235,6 +357,14 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                   <TableBody>
                     {productGroup.variants.map((variant) => (
                       <TableRow key={variant.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedVariantIds.has(variant.id)}
+                            onChange={() => handleToggleVariantSelection(variant.id)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{variant.name}</TableCell>
                         <TableCell>
                           <code className="rounded bg-muted px-2 py-1 text-xs">{variant.sku}</code>
@@ -263,7 +393,20 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setAdjustingStockVariant(variant)}
+                              title="Adjust Stock"
+                            >
+                              <Package className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingVariant(variant)}
+                              title="Edit Variant"
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
@@ -274,6 +417,7 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
                                   handleDeleteVariant(variant.id);
                                 }
                               }}
+                              title="Delete Variant"
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -369,6 +513,23 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Variant Dialog */}
+      <EditVariantDialog
+        open={!!editingVariant}
+        onOpenChange={(open) => !open && setEditingVariant(null)}
+        variant={editingVariant}
+        onSuccess={loadProductGroup}
+      />
+
+      {/* Quick Stock Adjustment Dialog */}
+      <QuickStockAdjustmentDialog
+        open={!!adjustingStockVariant}
+        onOpenChange={(open) => !open && setAdjustingStockVariant(null)}
+        variant={adjustingStockVariant}
+        currentStock={0}
+        onSuccess={loadProductGroup}
+      />
     </div>
   );
 }

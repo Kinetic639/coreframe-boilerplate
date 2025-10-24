@@ -206,6 +206,7 @@ class VariantGenerationService {
         formatted = cleaned.substring(Math.max(0, cleaned.length - 3));
         break;
       case "full":
+      default:
         formatted = cleaned;
         break;
     }
@@ -218,6 +219,8 @@ class VariantGenerationService {
         return formatted.toLowerCase();
       case "title":
         return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
+      default:
+        return formatted;
     }
   }
 

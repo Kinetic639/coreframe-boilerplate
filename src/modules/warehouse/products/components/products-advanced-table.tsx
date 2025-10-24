@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { AdvancedDataTable, ColumnConfig } from "@/components/ui/advanced-data-table";
 import type { ProductWithDetails, ProductCategory } from "@/modules/warehouse/types/products";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,7 @@ export function ProductsAdvancedTable({
   onAddProductGroup,
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
+  const router = useRouter();
   const { activeOrgId } = useAppStore();
   const [customFieldsProduct, setCustomFieldsProduct] = React.useState<ProductWithDetails | null>(
     null
@@ -129,7 +131,14 @@ export function ProductsAdvancedTable({
             <Package className="h-5 w-5 text-[#10b981]" />
           </div>
           <div>
-            <div className="font-medium">{value}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{value}</span>
+              {row.product_type === "item_group" && (
+                <Badge variant="secondary" className="text-xs">
+                  Group
+                </Badge>
+              )}
+            </div>
             <div className="text-sm text-muted-foreground">{row.sku && `SKU: ${row.sku}`}</div>
           </div>
         </div>
@@ -149,11 +158,16 @@ export function ProductsAdvancedTable({
       filterOptions: [
         { label: t("productType.goods"), value: "goods" },
         { label: t("productType.service"), value: "service" },
+        { label: t("productType.itemGroup"), value: "item_group" },
       ],
       showInMobile: true,
       render: (value) => (
         <Badge variant="outline" className="text-xs">
-          {value === "goods" ? t("productType.goods") : t("productType.service")}
+          {value === "goods"
+            ? t("productType.goods")
+            : value === "service"
+              ? t("productType.service")
+              : t("productType.itemGroup")}
         </Badge>
       ),
     },
@@ -648,6 +662,13 @@ export function ProductsAdvancedTable({
         responsive={true}
         onAdd={onAdd}
         onAddProductGroup={onAddProductGroup}
+        onRowClick={(product) => {
+          // If it's an item_group, navigate to the product group detail page
+          if (product.product_type === "item_group") {
+            router.push(`/dashboard/warehouse/products/groups/${product.id}`);
+          }
+          // Otherwise, the default detail panel will open
+        }}
       />
 
       {customFieldsProduct && (
