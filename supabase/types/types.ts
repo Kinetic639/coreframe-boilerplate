@@ -18,7 +18,7 @@ export type Database = {
           entity_id: string | null;
           entity_type_id: string | null;
           id: string;
-          ip_address: unknown | null;
+          ip_address: unknown;
           metadata: Json | null;
           module_id: string | null;
           organization_id: string;
@@ -38,7 +38,7 @@ export type Database = {
           entity_id?: string | null;
           entity_type_id?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           metadata?: Json | null;
           module_id?: string | null;
           organization_id: string;
@@ -58,7 +58,7 @@ export type Database = {
           entity_id?: string | null;
           entity_type_id?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           metadata?: Json | null;
           module_id?: string | null;
           organization_id?: string;
@@ -1335,34 +1335,73 @@ export type Database = {
       };
       movement_types: {
         Row: {
+          accounting_entry: Json | null;
           affects_stock: number;
+          allows_manual_entry: boolean | null;
+          category: string | null;
           code: string;
+          cost_impact: string | null;
           created_at: string | null;
           description: string | null;
+          generates_document: boolean | null;
           id: string;
           is_system: boolean | null;
+          metadata: Json | null;
           name: string;
+          name_en: string | null;
+          name_pl: string | null;
+          polish_document_type: string | null;
           requires_approval: boolean | null;
+          requires_destination_location: boolean | null;
+          requires_reference: boolean | null;
+          requires_source_location: boolean | null;
+          updated_at: string | null;
         };
         Insert: {
+          accounting_entry?: Json | null;
           affects_stock: number;
+          allows_manual_entry?: boolean | null;
+          category?: string | null;
           code: string;
+          cost_impact?: string | null;
           created_at?: string | null;
           description?: string | null;
+          generates_document?: boolean | null;
           id?: string;
           is_system?: boolean | null;
+          metadata?: Json | null;
           name: string;
+          name_en?: string | null;
+          name_pl?: string | null;
+          polish_document_type?: string | null;
           requires_approval?: boolean | null;
+          requires_destination_location?: boolean | null;
+          requires_reference?: boolean | null;
+          requires_source_location?: boolean | null;
+          updated_at?: string | null;
         };
         Update: {
+          accounting_entry?: Json | null;
           affects_stock?: number;
+          allows_manual_entry?: boolean | null;
+          category?: string | null;
           code?: string;
+          cost_impact?: string | null;
           created_at?: string | null;
           description?: string | null;
+          generates_document?: boolean | null;
           id?: string;
           is_system?: boolean | null;
+          metadata?: Json | null;
           name?: string;
+          name_en?: string | null;
+          name_pl?: string | null;
+          polish_document_type?: string | null;
           requires_approval?: boolean | null;
+          requires_destination_location?: boolean | null;
+          requires_reference?: boolean | null;
+          requires_source_location?: boolean | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -2433,7 +2472,7 @@ export type Database = {
           branch_id: string | null;
           error_message: string | null;
           id: string;
-          ip_address: unknown | null;
+          ip_address: unknown;
           organization_id: string | null;
           qr_token: string;
           redirect_path: string | null;
@@ -2449,7 +2488,7 @@ export type Database = {
           branch_id?: string | null;
           error_message?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           organization_id?: string | null;
           qr_token: string;
           redirect_path?: string | null;
@@ -2465,7 +2504,7 @@ export type Database = {
           branch_id?: string | null;
           error_message?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           organization_id?: string | null;
           qr_token?: string;
           redirect_path?: string | null;
@@ -3888,10 +3927,7 @@ export type Database = {
         };
         Returns: number;
       };
-      compare_variants: {
-        Args: { p_variant_ids: string[] };
-        Returns: Json;
-      };
+      compare_variants: { Args: { p_variant_ids: string[] }; Returns: Json };
       create_direct_chat: {
         Args: { br_id: string; org_id: string; other_user_id: string };
         Returns: string;
@@ -3900,14 +3936,8 @@ export type Database = {
         Args: { p_product_id: string; p_variants: Json };
         Returns: Json;
       };
-      custom_access_token_hook: {
-        Args: { event: Json };
-        Returns: Json;
-      };
-      debug_roles: {
-        Args: { uid: string };
-        Returns: Json;
-      };
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json };
+      debug_roles: { Args: { uid: string }; Returns: Json };
       generate_variant_combinations: {
         Args: { p_matrix: Json; p_options?: Json; p_product_id: string };
         Returns: Json;
@@ -3936,9 +3966,27 @@ export type Database = {
           updated_at: string;
         }[];
       };
-      get_invitation_stats: {
-        Args: { org_id: string };
-        Returns: Json;
+      get_invitation_stats: { Args: { org_id: string }; Returns: Json };
+      get_movement_types_by_category: {
+        Args: { p_category: string };
+        Returns: {
+          affects_stock: number;
+          allows_manual_entry: boolean;
+          category: string;
+          code: string;
+          cost_impact: string;
+          generates_document: boolean;
+          id: string;
+          is_system: boolean;
+          name: string;
+          name_en: string;
+          name_pl: string;
+          polish_document_type: string;
+          requires_approval: boolean;
+          requires_destination_location: boolean;
+          requires_reference: boolean;
+          requires_source_location: boolean;
+        }[];
       };
       get_organization_invitations: {
         Args: { org_id: string };
@@ -3977,10 +4025,7 @@ export type Database = {
           updated_at: string;
         }[];
       };
-      get_organization_user_stats: {
-        Args: { org_id: string };
-        Returns: Json;
-      };
+      get_organization_user_stats: { Args: { org_id: string }; Returns: Json };
       get_organization_users: {
         Args: { org_id: string };
         Returns: {
@@ -4028,7 +4073,7 @@ export type Database = {
         Returns: Json;
       };
       get_system_templates: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: {
           attributes: Json;
           color: string;
@@ -4076,14 +4121,8 @@ export type Database = {
           status_id: string;
         }[];
       };
-      get_user_roles: {
-        Args: { target_user_id: string };
-        Returns: Json;
-      };
-      get_user_roles_for_hook: {
-        Args: { user_uuid: string };
-        Returns: Json;
-      };
+      get_user_roles: { Args: { target_user_id: string }; Returns: Json };
+      get_user_roles_for_hook: { Args: { user_uuid: string }; Returns: Json };
       get_variant_performance: {
         Args: { p_date_from?: string; p_date_to?: string; p_product_id: string };
         Returns: {
@@ -4116,14 +4155,8 @@ export type Database = {
           variant_sku: string;
         }[];
       };
-      handle_user_signup_hook: {
-        Args: { event: Json };
-        Returns: Json;
-      };
-      mark_message_read: {
-        Args: { p_message_id: string };
-        Returns: boolean;
-      };
+      handle_user_signup_hook: { Args: { event: Json }; Returns: Json };
+      mark_message_read: { Args: { p_message_id: string }; Returns: boolean };
       refresh_stock_snapshot: {
         Args: {
           p_branch_id: string;
@@ -4144,20 +4177,23 @@ export type Database = {
         };
         Returns: string;
       };
-      test_auth_context: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
-      test_jwt_claims: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
+      test_auth_context: { Args: never; Returns: Json };
+      test_jwt_claims: { Args: never; Returns: Json };
       update_variant_pricing: {
         Args: { p_pricing_updates: Json };
         Returns: Json;
       };
       user_has_permission: {
         Args: { permission_slug: string; user_id: string };
+        Returns: boolean;
+      };
+      validate_movement_requirements: {
+        Args: {
+          p_has_destination_location: boolean;
+          p_has_reference: boolean;
+          p_has_source_location: boolean;
+          p_movement_type_code: string;
+        };
         Returns: boolean;
       };
     };
