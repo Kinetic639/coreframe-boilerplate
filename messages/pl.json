@@ -1534,5 +1534,108 @@
       "deleteError": "Nie udało się usunąć grupy produktów",
       "loadError": "Nie udało się załadować grupy produktów"
     }
+  },
+  "stockMovements": {
+    "title": "Ruchy Magazynowe",
+    "description": "Śledź i zarządzaj wszystkimi ruchami magazynowymi",
+    "createMovement": "Utwórz Ruch",
+    "movementDetails": "Szczegóły Ruchu",
+    "movementNumber": "Numer Ruchu",
+    "movementType": "Typ Ruchu",
+    "category": "Kategoria",
+    "status": "Status",
+    "product": "Produkt",
+    "variant": "Wariant",
+    "quantity": "Ilość",
+    "unitOfMeasure": "Jednostka Miary",
+    "sourceLocation": "Lokalizacja Źródłowa",
+    "destinationLocation": "Lokalizacja Docelowa",
+    "unitCost": "Koszt Jednostkowy",
+    "totalCost": "Koszt Całkowity",
+    "currency": "Waluta",
+    "notes": "Uwagi",
+    "batchNumber": "Numer Partii",
+    "serialNumber": "Numer Seryjny",
+    "lotNumber": "Numer Lotu",
+    "expiryDate": "Data Ważności",
+    "referenceType": "Typ Referencji",
+    "referenceNumber": "Numer Referencji",
+    "createdBy": "Utworzył",
+    "approvedBy": "Zatwierdził",
+    "occurredAt": "Data Wystąpienia",
+    "createdAt": "Data Utworzenia",
+    "approvedAt": "Data Zatwierdzenia",
+    "completedAt": "Data Zakończenia",
+    "cancelledAt": "Data Anulowania",
+    "statuses": {
+      "pending": "Oczekujący",
+      "approved": "Zatwierdzony",
+      "completed": "Zakończony",
+      "cancelled": "Anulowany",
+      "reversed": "Cofnięty"
+    },
+    "categories": {
+      "receipt": "Przyjęcie",
+      "issue": "Wydanie",
+      "transfer": "Przesunięcie",
+      "adjustment": "Korekta",
+      "reservation": "Rezerwacja",
+      "ecommerce": "E-commerce"
+    },
+    "actions": {
+      "approve": "Zatwierdź Ruch",
+      "cancel": "Anuluj Ruch",
+      "refresh": "Odśwież",
+      "viewDetails": "Zobacz Szczegóły",
+      "create": "Utwórz Ruch"
+    },
+    "messages": {
+      "movementCreated": "Ruch został utworzony pomyślnie",
+      "movementApproved": "Ruch został zatwierdzony pomyślnie",
+      "movementCancelled": "Ruch został anulowany pomyślnie",
+      "loadError": "Nie udało się załadować ruchów",
+      "createError": "Nie udało się utworzyć ruchu",
+      "approveError": "Nie udało się zatwierdzić ruchu",
+      "cancelError": "Nie udało się anulować ruchu",
+      "noMovements": "Nie znaleziono ruchów",
+      "authRequired": "Wymagana autoryzacja",
+      "cancellationReasonRequired": "Wymagany powód anulowania"
+    },
+    "filters": {
+      "title": "Filtry",
+      "clear": "Wyczyść Filtry",
+      "show": "Pokaż Filtry",
+      "hide": "Ukryj Filtry",
+      "allCategories": "Wszystkie Kategorie",
+      "allStatuses": "Wszystkie Statusy",
+      "fromDate": "Od Daty",
+      "toDate": "Do Daty",
+      "selectDate": "Wybierz datę"
+    },
+    "inventory": {
+      "title": "Panel Inwentaryzacji",
+      "description": "Poziomy zapasów i przegląd inwentaryzacji w czasie rzeczywistym",
+      "totalProducts": "Wszystkie Produkty",
+      "totalValue": "Wartość Całkowita",
+      "lowStock": "Niski Stan",
+      "outOfStock": "Brak w Magazynie",
+      "available": "Dostępne",
+      "reserved": "Zarezerwowane",
+      "atp": "Dostępne do Obietnicy",
+      "value": "Wartość",
+      "avgCost": "Śr. Koszt",
+      "stockLevel": "Poziom Zapasów",
+      "inStock": "W Magazynie",
+      "lowStockStatus": "Niski Stan",
+      "outOfStockStatus": "Brak w Magazynie",
+      "search": "Szukaj po ID produktu lub lokalizacji..."
+    },
+    "approvalQueue": {
+      "title": "Oczekujące Zatwierdzenia",
+      "description": "Ruchy oczekujące na zatwierdzenie",
+      "noApprovals": "Brak ruchów oczekujących na zatwierdzenie",
+      "reject": "Odrzuć",
+      "approve": "Zatwierdź"
+    }
   }
 }

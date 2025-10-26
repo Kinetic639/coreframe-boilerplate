@@ -54,7 +54,7 @@ export class StockMovementsService {
     }
 
     return {
-      data: (data || []) as StockMovementWithRelations[],
+      data: (data || []) as unknown as StockMovementWithRelations[],
       total: count || 0,
       page,
       page_size: pageSize,
@@ -102,7 +102,7 @@ export class StockMovementsService {
     }
 
     return {
-      data: (data || []) as StockMovementWithRelations[],
+      data: (data || []) as unknown as StockMovementWithRelations[],
       total: count || 0,
       page,
       page_size: pageSize,
@@ -136,7 +136,7 @@ export class StockMovementsService {
       throw new Error(`Failed to fetch movement: ${error.message}`);
     }
 
-    return data as StockMovementWithRelations | null;
+    return data as unknown as StockMovementWithRelations | null;
   }
 
   /**
@@ -316,7 +316,7 @@ export class StockMovementsService {
       throw new Error(`Failed to fetch pending approvals: ${error.message}`);
     }
 
-    return (data || []) as StockMovementWithRelations[];
+    return (data || []) as unknown as StockMovementWithRelations[];
   }
 
   /**
@@ -330,7 +330,7 @@ export class StockMovementsService {
   ): Promise<MovementStatistics> {
     let query = this.supabase
       .from("stock_movements")
-      .select("category, status, total_cost")
+      .select("category, status, total_cost, completed_at")
       .eq("organization_id", organizationId);
 
     if (branchId) {
