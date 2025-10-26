@@ -18,7 +18,7 @@ export type Database = {
           entity_id: string | null;
           entity_type_id: string | null;
           id: string;
-          ip_address: unknown | null;
+          ip_address: unknown;
           metadata: Json | null;
           module_id: string | null;
           organization_id: string;
@@ -38,7 +38,7 @@ export type Database = {
           entity_id?: string | null;
           entity_type_id?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           metadata?: Json | null;
           module_id?: string | null;
           organization_id: string;
@@ -58,7 +58,7 @@ export type Database = {
           entity_id?: string | null;
           entity_type_id?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           metadata?: Json | null;
           module_id?: string | null;
           organization_id?: string;
@@ -1335,34 +1335,79 @@ export type Database = {
       };
       movement_types: {
         Row: {
+          accounting_entry: Json | null;
           affects_stock: number;
+          allows_manual_entry: boolean | null;
+          category: string | null;
           code: string;
+          cost_impact: string | null;
           created_at: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
           description: string | null;
+          generates_document: boolean | null;
           id: string;
           is_system: boolean | null;
+          metadata: Json | null;
           name: string;
+          name_en: string | null;
+          name_pl: string | null;
+          polish_document_type: string | null;
           requires_approval: boolean | null;
+          requires_destination_location: boolean | null;
+          requires_reference: boolean | null;
+          requires_source_location: boolean | null;
+          updated_at: string | null;
         };
         Insert: {
+          accounting_entry?: Json | null;
           affects_stock: number;
+          allows_manual_entry?: boolean | null;
+          category?: string | null;
           code: string;
+          cost_impact?: string | null;
           created_at?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           description?: string | null;
+          generates_document?: boolean | null;
           id?: string;
           is_system?: boolean | null;
+          metadata?: Json | null;
           name: string;
+          name_en?: string | null;
+          name_pl?: string | null;
+          polish_document_type?: string | null;
           requires_approval?: boolean | null;
+          requires_destination_location?: boolean | null;
+          requires_reference?: boolean | null;
+          requires_source_location?: boolean | null;
+          updated_at?: string | null;
         };
         Update: {
+          accounting_entry?: Json | null;
           affects_stock?: number;
+          allows_manual_entry?: boolean | null;
+          category?: string | null;
           code?: string;
+          cost_impact?: string | null;
           created_at?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
           description?: string | null;
+          generates_document?: boolean | null;
           id?: string;
           is_system?: boolean | null;
+          metadata?: Json | null;
           name?: string;
+          name_en?: string | null;
+          name_pl?: string | null;
+          polish_document_type?: string | null;
           requires_approval?: boolean | null;
+          requires_destination_location?: boolean | null;
+          requires_reference?: boolean | null;
+          requires_source_location?: boolean | null;
+          updated_at?: string | null;
         };
         Relationships: [];
       };
@@ -2433,7 +2478,7 @@ export type Database = {
           branch_id: string | null;
           error_message: string | null;
           id: string;
-          ip_address: unknown | null;
+          ip_address: unknown;
           organization_id: string | null;
           qr_token: string;
           redirect_path: string | null;
@@ -2449,7 +2494,7 @@ export type Database = {
           branch_id?: string | null;
           error_message?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           organization_id?: string | null;
           qr_token: string;
           redirect_path?: string | null;
@@ -2465,7 +2510,7 @@ export type Database = {
           branch_id?: string | null;
           error_message?: string | null;
           id?: string;
-          ip_address?: unknown | null;
+          ip_address?: unknown;
           organization_id?: string | null;
           qr_token?: string;
           redirect_path?: string | null;
@@ -2739,13 +2784,26 @@ export type Database = {
           approved_by: string | null;
           batch_number: string | null;
           branch_id: string;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          category: string;
+          completed_at: string | null;
           created_at: string | null;
           created_by: string | null;
           currency: string | null;
+          deleted_at: string | null;
+          destination_location_id: string | null;
+          document_generated_at: string | null;
+          document_number: string | null;
+          document_url: string | null;
           expiry_date: string | null;
           id: string;
           location_id: string;
+          lot_number: string | null;
+          manufacturing_date: string | null;
           metadata: Json | null;
+          movement_number: string;
           movement_type_code: string;
           notes: string | null;
           occurred_at: string;
@@ -2753,10 +2811,17 @@ export type Database = {
           product_id: string;
           quantity: number;
           reference_id: string | null;
+          reference_number: string | null;
           reference_type: string | null;
+          requires_approval: boolean | null;
           serial_number: string | null;
+          source_location_id: string | null;
+          status: string;
           total_cost: number | null;
           unit_cost: number | null;
+          unit_of_measure: string | null;
+          updated_at: string | null;
+          updated_by: string | null;
           variant_id: string;
         };
         Insert: {
@@ -2764,13 +2829,26 @@ export type Database = {
           approved_by?: string | null;
           batch_number?: string | null;
           branch_id: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          category?: string;
+          completed_at?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           currency?: string | null;
+          deleted_at?: string | null;
+          destination_location_id?: string | null;
+          document_generated_at?: string | null;
+          document_number?: string | null;
+          document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
           location_id: string;
+          lot_number?: string | null;
+          manufacturing_date?: string | null;
           metadata?: Json | null;
+          movement_number?: string;
           movement_type_code: string;
           notes?: string | null;
           occurred_at?: string;
@@ -2778,10 +2856,17 @@ export type Database = {
           product_id: string;
           quantity: number;
           reference_id?: string | null;
+          reference_number?: string | null;
           reference_type?: string | null;
+          requires_approval?: boolean | null;
           serial_number?: string | null;
+          source_location_id?: string | null;
+          status?: string;
           total_cost?: number | null;
           unit_cost?: number | null;
+          unit_of_measure?: string | null;
+          updated_at?: string | null;
+          updated_by?: string | null;
           variant_id: string;
         };
         Update: {
@@ -2789,13 +2874,26 @@ export type Database = {
           approved_by?: string | null;
           batch_number?: string | null;
           branch_id?: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          category?: string;
+          completed_at?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           currency?: string | null;
+          deleted_at?: string | null;
+          destination_location_id?: string | null;
+          document_generated_at?: string | null;
+          document_number?: string | null;
+          document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
           location_id?: string;
+          lot_number?: string | null;
+          manufacturing_date?: string | null;
           metadata?: Json | null;
+          movement_number?: string;
           movement_type_code?: string;
           notes?: string | null;
           occurred_at?: string;
@@ -2803,10 +2901,17 @@ export type Database = {
           product_id?: string;
           quantity?: number;
           reference_id?: string | null;
+          reference_number?: string | null;
           reference_type?: string | null;
+          requires_approval?: boolean | null;
           serial_number?: string | null;
+          source_location_id?: string | null;
+          status?: string;
           total_cost?: number | null;
           unit_cost?: number | null;
+          unit_of_measure?: string | null;
+          updated_at?: string | null;
+          updated_by?: string | null;
           variant_id?: string;
         };
         Relationships: [
@@ -2832,6 +2937,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "stock_movements_destination_location_id_fkey";
+            columns: ["destination_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "stock_movements_location_id_fkey";
             columns: ["location_id"];
             isOneToOne: false;
@@ -2852,6 +2964,13 @@ export type Database = {
             referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "stock_movements_source_location_id_fkey";
+            columns: ["source_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
         ];
       };
       stock_reservations: {
@@ -2859,6 +2978,7 @@ export type Database = {
           branch_id: string;
           created_at: string | null;
           created_by: string | null;
+          deleted_at: string | null;
           expires_at: string | null;
           fulfilled_at: string | null;
           fulfilled_by: string | null;
@@ -2871,6 +2991,8 @@ export type Database = {
           product_id: string;
           quantity: number;
           reference_id: string | null;
+          reference_number: string | null;
+          reference_type: string;
           reserved_for: string;
           status: string;
           updated_at: string | null;
@@ -2880,6 +3002,7 @@ export type Database = {
           branch_id: string;
           created_at?: string | null;
           created_by?: string | null;
+          deleted_at?: string | null;
           expires_at?: string | null;
           fulfilled_at?: string | null;
           fulfilled_by?: string | null;
@@ -2892,6 +3015,8 @@ export type Database = {
           product_id: string;
           quantity: number;
           reference_id?: string | null;
+          reference_number?: string | null;
+          reference_type?: string;
           reserved_for: string;
           status?: string;
           updated_at?: string | null;
@@ -2901,6 +3026,7 @@ export type Database = {
           branch_id?: string;
           created_at?: string | null;
           created_by?: string | null;
+          deleted_at?: string | null;
           expires_at?: string | null;
           fulfilled_at?: string | null;
           fulfilled_by?: string | null;
@@ -2913,6 +3039,8 @@ export type Database = {
           product_id?: string;
           quantity?: number;
           reference_id?: string | null;
+          reference_number?: string | null;
+          reference_type?: string;
           reserved_for?: string;
           status?: string;
           updated_at?: string | null;
@@ -3855,7 +3983,38 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      stock_inventory: {
+        Row: {
+          available_quantity: number | null;
+          available_to_promise: number | null;
+          average_cost: number | null;
+          branch_id: string | null;
+          last_movement_at: string | null;
+          location_id: string | null;
+          organization_id: string | null;
+          product_id: string | null;
+          reserved_quantity: number | null;
+          total_movements: number | null;
+          total_value: number | null;
+          variant_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       authorize: {
@@ -3888,25 +4047,56 @@ export type Database = {
         };
         Returns: number;
       };
-      compare_variants: {
-        Args: { p_variant_ids: string[] };
-        Returns: Json;
+      check_stock_availability: {
+        Args: {
+          p_location_id: string;
+          p_product_id: string;
+          p_quantity: number;
+          p_variant_id: string;
+        };
+        Returns: boolean;
       };
+      compare_variants: { Args: { p_variant_ids: string[] }; Returns: Json };
       create_direct_chat: {
         Args: { br_id: string; org_id: string; other_user_id: string };
+        Returns: string;
+      };
+      create_stock_movement: {
+        Args: {
+          p_branch_id: string;
+          p_created_by?: string;
+          p_destination_location_id?: string;
+          p_movement_type_code: string;
+          p_notes?: string;
+          p_occurred_at?: string;
+          p_organization_id: string;
+          p_product_id: string;
+          p_quantity: number;
+          p_reference_id?: string;
+          p_reference_type?: string;
+          p_source_location_id?: string;
+          p_unit_cost?: number;
+          p_variant_id?: string;
+        };
         Returns: string;
       };
       create_variant_batch: {
         Args: { p_product_id: string; p_variants: Json };
         Returns: Json;
       };
-      custom_access_token_hook: {
-        Args: { event: Json };
-        Returns: Json;
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json };
+      debug_roles: { Args: { uid: string }; Returns: Json };
+      generate_document_number: {
+        Args: {
+          p_branch_id: string;
+          p_organization_id: string;
+          p_polish_doc_type: string;
+        };
+        Returns: string;
       };
-      debug_roles: {
-        Args: { uid: string };
-        Returns: Json;
+      generate_movement_number: {
+        Args: { p_movement_type_code: string; p_organization_id: string };
+        Returns: string;
       };
       generate_variant_combinations: {
         Args: { p_matrix: Json; p_options?: Json; p_product_id: string };
@@ -3936,9 +4126,27 @@ export type Database = {
           updated_at: string;
         }[];
       };
-      get_invitation_stats: {
-        Args: { org_id: string };
-        Returns: Json;
+      get_invitation_stats: { Args: { org_id: string }; Returns: Json };
+      get_movement_types_by_category: {
+        Args: { p_category: string };
+        Returns: {
+          affects_stock: number;
+          allows_manual_entry: boolean;
+          category: string;
+          code: string;
+          cost_impact: string;
+          generates_document: boolean;
+          id: string;
+          is_system: boolean;
+          name: string;
+          name_en: string;
+          name_pl: string;
+          polish_document_type: string;
+          requires_approval: boolean;
+          requires_destination_location: boolean;
+          requires_reference: boolean;
+          requires_source_location: boolean;
+        }[];
       };
       get_organization_invitations: {
         Args: { org_id: string };
@@ -3977,10 +4185,7 @@ export type Database = {
           updated_at: string;
         }[];
       };
-      get_organization_user_stats: {
-        Args: { org_id: string };
-        Returns: Json;
-      };
+      get_organization_user_stats: { Args: { org_id: string }; Returns: Json };
       get_organization_users: {
         Args: { org_id: string };
         Returns: {
@@ -4027,8 +4232,18 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_stock_level: {
+        Args: {
+          p_branch_id?: string;
+          p_location_id?: string;
+          p_organization_id?: string;
+          p_product_id: string;
+          p_variant_id?: string;
+        };
+        Returns: number;
+      };
       get_system_templates: {
-        Args: Record<PropertyKey, never>;
+        Args: never;
         Returns: {
           attributes: Json;
           color: string;
@@ -4076,14 +4291,8 @@ export type Database = {
           status_id: string;
         }[];
       };
-      get_user_roles: {
-        Args: { target_user_id: string };
-        Returns: Json;
-      };
-      get_user_roles_for_hook: {
-        Args: { user_uuid: string };
-        Returns: Json;
-      };
+      get_user_roles: { Args: { target_user_id: string }; Returns: Json };
+      get_user_roles_for_hook: { Args: { user_uuid: string }; Returns: Json };
       get_variant_performance: {
         Args: { p_date_from?: string; p_date_to?: string; p_product_id: string };
         Returns: {
@@ -4116,14 +4325,8 @@ export type Database = {
           variant_sku: string;
         }[];
       };
-      handle_user_signup_hook: {
-        Args: { event: Json };
-        Returns: Json;
-      };
-      mark_message_read: {
-        Args: { p_message_id: string };
-        Returns: boolean;
-      };
+      handle_user_signup_hook: { Args: { event: Json }; Returns: Json };
+      mark_message_read: { Args: { p_message_id: string }; Returns: boolean };
       refresh_stock_snapshot: {
         Args: {
           p_branch_id: string;
@@ -4133,6 +4336,10 @@ export type Database = {
           p_variant_id: string;
         };
         Returns: undefined;
+      };
+      restore_movement_type: {
+        Args: { p_movement_type_code: string };
+        Returns: boolean;
       };
       send_message: {
         Args: {
@@ -4144,20 +4351,27 @@ export type Database = {
         };
         Returns: string;
       };
-      test_auth_context: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
+      soft_delete_movement_type: {
+        Args: { p_deleted_by?: string; p_movement_type_code: string };
+        Returns: boolean;
       };
-      test_jwt_claims: {
-        Args: Record<PropertyKey, never>;
-        Returns: Json;
-      };
+      test_auth_context: { Args: never; Returns: Json };
+      test_jwt_claims: { Args: never; Returns: Json };
       update_variant_pricing: {
         Args: { p_pricing_updates: Json };
         Returns: Json;
       };
       user_has_permission: {
         Args: { permission_slug: string; user_id: string };
+        Returns: boolean;
+      };
+      validate_movement_requirements: {
+        Args: {
+          p_has_destination_location: boolean;
+          p_has_reference: boolean;
+          p_has_source_location: boolean;
+          p_movement_type_code: string;
+        };
         Returns: boolean;
       };
     };
