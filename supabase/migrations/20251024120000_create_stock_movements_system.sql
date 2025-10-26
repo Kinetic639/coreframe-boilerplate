@@ -443,6 +443,55 @@ CREATE TABLE IF NOT EXISTS stock_reservations (
 -- Add missing columns to stock_reservations if not exist
 DO $$
 BEGIN
+  -- Organization & Branch context columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='organization_id') THEN
+    ALTER TABLE stock_reservations ADD COLUMN organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='branch_id') THEN
+    ALTER TABLE stock_reservations ADD COLUMN branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE RESTRICT;
+  END IF;
+
+  -- Product & Location columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='product_id') THEN
+    ALTER TABLE stock_reservations ADD COLUMN product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='variant_id') THEN
+    ALTER TABLE stock_reservations ADD COLUMN variant_id UUID REFERENCES product_variants(id) ON DELETE RESTRICT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='location_id') THEN
+    ALTER TABLE stock_reservations ADD COLUMN location_id UUID NOT NULL REFERENCES locations(id) ON DELETE RESTRICT;
+  END IF;
+
+  -- Reservation details
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='reservation_number') THEN
+    ALTER TABLE stock_reservations ADD COLUMN reservation_number TEXT UNIQUE NOT NULL DEFAULT 'TEMP-' || gen_random_uuid()::text;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='quantity') THEN
+    ALTER TABLE stock_reservations ADD COLUMN quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (quantity > 0);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='reserved_quantity') THEN
+    ALTER TABLE stock_reservations ADD COLUMN reserved_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='released_quantity') THEN
+    ALTER TABLE stock_reservations ADD COLUMN released_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (released_quantity >= 0);
+  END IF;
+
+  -- Reference columns
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='stock_reservations' AND column_name='reference_type') THEN
     ALTER TABLE stock_reservations ADD COLUMN reference_type TEXT NOT NULL DEFAULT 'sales_order';
@@ -458,14 +507,71 @@ BEGIN
     ALTER TABLE stock_reservations ADD COLUMN reference_number TEXT;
   END IF;
 
+  -- Status column
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                 WHERE table_name='stock_reservations' AND column_name='deleted_at') THEN
-    ALTER TABLE stock_reservations ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
+                 WHERE table_name='stock_reservations' AND column_name='status') THEN
+    ALTER TABLE stock_reservations ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+    ALTER TABLE stock_reservations ADD CONSTRAINT stock_reservations_status_check
+      CHECK (status IN ('active', 'partial', 'fulfilled', 'expired', 'cancelled'));
+  END IF;
+
+  -- Timestamp columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='reserved_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN reserved_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns
                  WHERE table_name='stock_reservations' AND column_name='expires_at') THEN
     ALTER TABLE stock_reservations ADD COLUMN expires_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='fulfilled_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN fulfilled_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='cancelled_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN cancelled_at TIMESTAMPTZ;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='created_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='updated_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+
+  -- User tracking columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='created_by') THEN
+    ALTER TABLE stock_reservations ADD COLUMN created_by UUID REFERENCES auth.users(id);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='cancelled_by') THEN
+    ALTER TABLE stock_reservations ADD COLUMN cancelled_by UUID REFERENCES auth.users(id);
+  END IF;
+
+  -- Notes and metadata columns
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='notes') THEN
+    ALTER TABLE stock_reservations ADD COLUMN notes TEXT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='metadata') THEN
+    ALTER TABLE stock_reservations ADD COLUMN metadata JSONB DEFAULT '{}';
+  END IF;
+
+  -- Soft delete column
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='stock_reservations' AND column_name='deleted_at') THEN
+    ALTER TABLE stock_reservations ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
   END IF;
 END $$;
 
