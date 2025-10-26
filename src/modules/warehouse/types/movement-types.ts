@@ -76,6 +76,7 @@ export interface MovementType {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
 /**
