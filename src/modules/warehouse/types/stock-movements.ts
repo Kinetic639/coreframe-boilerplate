@@ -5,6 +5,9 @@
 
 import type { MovementCategory, MovementType } from "./movement-types";
 
+// Re-export for convenience
+export type { MovementCategory, MovementType };
+
 /**
  * Stock movement status
  */

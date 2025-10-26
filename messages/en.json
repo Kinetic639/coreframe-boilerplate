@@ -1579,5 +1579,108 @@
       "deleteError": "Failed to delete product group",
       "loadError": "Failed to load product group"
     }
+  },
+  "stockMovements": {
+    "title": "Stock Movements",
+    "description": "Track and manage all warehouse stock movements",
+    "createMovement": "Create Movement",
+    "movementDetails": "Movement Details",
+    "movementNumber": "Movement Number",
+    "movementType": "Movement Type",
+    "category": "Category",
+    "status": "Status",
+    "product": "Product",
+    "variant": "Variant",
+    "quantity": "Quantity",
+    "unitOfMeasure": "Unit of Measure",
+    "sourceLocation": "Source Location",
+    "destinationLocation": "Destination Location",
+    "unitCost": "Unit Cost",
+    "totalCost": "Total Cost",
+    "currency": "Currency",
+    "notes": "Notes",
+    "batchNumber": "Batch Number",
+    "serialNumber": "Serial Number",
+    "lotNumber": "Lot Number",
+    "expiryDate": "Expiry Date",
+    "referenceType": "Reference Type",
+    "referenceNumber": "Reference Number",
+    "createdBy": "Created By",
+    "approvedBy": "Approved By",
+    "occurredAt": "Occurred At",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "completedAt": "Completed At",
+    "cancelledAt": "Cancelled At",
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "reversed": "Reversed"
+    },
+    "categories": {
+      "receipt": "Receipt",
+      "issue": "Issue",
+      "transfer": "Transfer",
+      "adjustment": "Adjustment",
+      "reservation": "Reservation",
+      "ecommerce": "E-commerce"
+    },
+    "actions": {
+      "approve": "Approve Movement",
+      "cancel": "Cancel Movement",
+      "refresh": "Refresh",
+      "viewDetails": "View Details",
+      "create": "Create Movement"
+    },
+    "messages": {
+      "movementCreated": "Movement created successfully",
+      "movementApproved": "Movement approved successfully",
+      "movementCancelled": "Movement cancelled successfully",
+      "loadError": "Failed to load movements",
+      "createError": "Failed to create movement",
+      "approveError": "Failed to approve movement",
+      "cancelError": "Failed to cancel movement",
+      "noMovements": "No movements found",
+      "authRequired": "Authentication required",
+      "cancellationReasonRequired": "Cancellation reason is required"
+    },
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear Filters",
+      "show": "Show Filters",
+      "hide": "Hide Filters",
+      "allCategories": "All Categories",
+      "allStatuses": "All Statuses",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "selectDate": "Select date"
+    },
+    "inventory": {
+      "title": "Inventory Dashboard",
+      "description": "Real-time stock levels and inventory overview",
+      "totalProducts": "Total Products",
+      "totalValue": "Total Value",
+      "lowStock": "Low Stock Items",
+      "outOfStock": "Out of Stock",
+      "available": "Available",
+      "reserved": "Reserved",
+      "atp": "Available to Promise",
+      "value": "Value",
+      "avgCost": "Avg Cost",
+      "stockLevel": "Stock Level",
+      "inStock": "In Stock",
+      "lowStockStatus": "Low Stock",
+      "outOfStockStatus": "Out of Stock",
+      "search": "Search by product ID or location..."
+    },
+    "approvalQueue": {
+      "title": "Pending Approvals",
+      "description": "Movements awaiting approval",
+      "noApprovals": "No movements pending approval",
+      "reject": "Reject",
+      "approve": "Approve"
+    }
   }
 }
