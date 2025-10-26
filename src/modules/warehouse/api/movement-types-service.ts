@@ -27,7 +27,11 @@ class MovementTypesService {
    * @returns Array of movement types
    */
   async getMovementTypes(filters?: MovementTypeFilters): Promise<MovementType[]> {
-    let query = this.supabase.from("movement_types").select("*").order("code", { ascending: true });
+    let query = this.supabase
+      .from("movement_types")
+      .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
+      .order("code", { ascending: true });
 
     // Apply filters
     if (filters?.category) {
@@ -69,6 +73,7 @@ class MovementTypesService {
     const { data, error } = await this.supabase
       .from("movement_types")
       .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
       .eq("category", category)
       .order("code", { ascending: true });
 
@@ -89,6 +94,7 @@ class MovementTypesService {
     const { data, error } = await this.supabase
       .from("movement_types")
       .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
       .eq("code", code)
       .maybeSingle();
 
@@ -109,6 +115,7 @@ class MovementTypesService {
     const { data, error } = await this.supabase
       .from("movement_types")
       .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
       .eq("allows_manual_entry", true)
       .order("category", { ascending: true })
       .order("name", { ascending: true });
@@ -127,7 +134,11 @@ class MovementTypesService {
    * @returns Array of movement types that generate documents
    */
   async getDocumentGeneratingTypes(documentType?: PolishDocumentType): Promise<MovementType[]> {
-    let query = this.supabase.from("movement_types").select("*").eq("generates_document", true);
+    let query = this.supabase
+      .from("movement_types")
+      .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
+      .eq("generates_document", true);
 
     if (documentType) {
       query = query.eq("polish_document_type", documentType);
@@ -280,6 +291,7 @@ class MovementTypesService {
     const { data, error } = await this.supabase
       .from("movement_types")
       .select("*")
+      .is("deleted_at", null) // Exclude soft-deleted records
       .or(
         `name.ilike.%${term}%,name_pl.ilike.%${term}%,name_en.ilike.%${term}%,code.ilike.%${term}%`
       )
