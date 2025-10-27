@@ -2127,21 +2127,21 @@ export type Database = {
           id: string;
           product_option_group_id: string;
           product_option_value_id: string;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
           product_option_group_id: string;
           product_option_value_id: string;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           id?: string;
           product_option_group_id?: string;
           product_option_value_id?: string;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -2986,7 +2986,7 @@ export type Database = {
           reserved_for: string;
           status: string;
           updated_at: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           branch_id: string;
@@ -3010,7 +3010,7 @@ export type Database = {
           reserved_for: string;
           status?: string;
           updated_at?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           branch_id?: string;
@@ -3034,7 +3034,7 @@ export type Database = {
           reserved_for?: string;
           status?: string;
           updated_at?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -3089,7 +3089,7 @@ export type Database = {
           quantity_reserved: number;
           total_value: number | null;
           updated_at: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           average_cost?: number | null;
@@ -3105,7 +3105,7 @@ export type Database = {
           quantity_reserved?: number;
           total_value?: number | null;
           updated_at?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           average_cost?: number | null;
@@ -3121,7 +3121,7 @@ export type Database = {
           quantity_reserved?: number;
           total_value?: number | null;
           updated_at?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -3814,21 +3814,21 @@ export type Database = {
           id: string;
           option_group_id: string;
           option_value_id: string;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
           option_group_id: string;
           option_value_id: string;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           id?: string;
           option_group_id?: string;
           option_value_id?: string;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -4056,7 +4056,6 @@ export type Database = {
           p_branch_id: string;
           p_created_by?: string;
           p_destination_location_id?: string;
-          p_location_id?: string;
           p_movement_type_code: string;
           p_notes?: string;
           p_occurred_at?: string;
