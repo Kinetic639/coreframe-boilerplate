@@ -57,6 +57,7 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
         unit_cost: item.unit_cost,
         currency: "PLN",
         reference_type: "purchase_order" as const,
+        reference_id: deliveryNumber, // Use delivery number as reference_id to satisfy validation
         reference_number: data.source_document || deliveryNumber,
         batch_number: item.batch_number,
         serial_number: item.serial_number,
