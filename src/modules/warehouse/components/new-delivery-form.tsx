@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
 import { DeliveryStatusBadge } from "./delivery-status-badge";
 import { createDelivery } from "@/app/actions/warehouse/create-delivery";
+import { createClient } from "@/utils/supabase/client";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+
+interface Location {
+  id: string;
+  name: string;
+  code: string;
+}
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -23,6 +37,8 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [destinationLocationId, setDestinationLocationId] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
   const [sourceDocument, setSourceDocument] = useState("");
@@ -31,9 +47,38 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Load locations
+  const loadLocations = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("locations")
+      .select("id, name, code")
+      .eq("organization_id", organizationId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null)
+      .order("name");
+
+    if (!error && data && data.length > 0) {
+      setLocations(data);
+      // Auto-select first location
+      if (!destinationLocationId) {
+        setDestinationLocationId(data[0].id);
+      }
+    }
+  }, [organizationId, branchId, destinationLocationId]);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
+
   const handleSave = async () => {
     if (items.length === 0) {
       toast.error(t("products.noProducts"));
+      return;
+    }
+
+    if (!destinationLocationId) {
+      toast.error("Please select a destination location");
       return;
     }
 
@@ -42,7 +87,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     const data: CreateDeliveryData = {
       organization_id: organizationId,
       branch_id: branchId,
-      destination_location_id: "default-location-id", // Should be selected from a dropdown
+      destination_location_id: destinationLocationId,
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
@@ -108,6 +153,22 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         <div className="col-span-2 space-y-6">
           <Card className="p-6">
             <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>{t("fields.destinationLocation")}</Label>
+                <Select value={destinationLocationId} onValueChange={setDestinationLocationId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name} ({location.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label>{t("fields.deliveryAddress")}</Label>
                 <Input
