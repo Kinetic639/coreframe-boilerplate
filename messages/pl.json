@@ -902,6 +902,89 @@
           "verification": "Weryfikacja produktów",
           "operations": "Operacje skanowania"
         },
+        "deliveries": {
+          "title": "Dostawy",
+          "list": "Lista dostaw",
+          "new": "Nowa dostawa",
+          "status": {
+            "draft": "Projekt",
+            "waiting": "Oczekuje",
+            "ready": "Gotowe",
+            "done": "Zakończone",
+            "cancelled": "Anulowane"
+          },
+          "fields": {
+            "deliveryNumber": "Numer dostawy",
+            "reference": "Referencja",
+            "contact": "Kontakt",
+            "scheduledDate": "Planowana data",
+            "sourceDocument": "Dokument źródłowy",
+            "deliveryAddress": "Adres dostawy",
+            "operationType": "Typ operacji",
+            "shippingPolicy": "Polityka wysyłki",
+            "responsible": "Odpowiedzialny",
+            "destinationLocation": "Lokalizacja docelowa",
+            "notes": "Uwagi"
+          },
+          "actions": {
+            "markAsTodo": "Oznacz jako do zrobienia",
+            "validate": "Zatwierdź",
+            "cancel": "Anuluj",
+            "edit": "Edytuj",
+            "delete": "Usuń",
+            "viewDetails": "Zobacz szczegóły"
+          },
+          "products": {
+            "title": "Produkty",
+            "addProduct": "Dodaj produkt",
+            "product": "Produkt",
+            "demand": "Zapotrzebowanie",
+            "unitCost": "Cena jednostkowa",
+            "total": "Suma",
+            "noProducts": "Nie dodano jeszcze produktów",
+            "selectProduct": "Wybierz produkt",
+            "selectVariant": "Wybierz wariant (opcjonalnie)",
+            "quantity": "Ilość zapotrzebowania",
+            "enterQuantity": "Wprowadź ilość",
+            "enterUnitCost": "Wprowadź cenę jednostkową"
+          },
+          "tabs": {
+            "operations": "Operacje",
+            "additionalInfo": "Informacje dodatkowe",
+            "note": "Notatka"
+          },
+          "additionalInfo": {
+            "title": "Inne informacje",
+            "shippingPolicy": "Polityka wysyłki",
+            "responsible": "Odpowiedzialny"
+          },
+          "filters": {
+            "all": "Wszystkie dostawy",
+            "draft": "Projekt",
+            "waiting": "Oczekuje",
+            "ready": "Gotowe",
+            "done": "Zakończone",
+            "cancelled": "Anulowane",
+            "search": "Szukaj dostaw..."
+          },
+          "messages": {
+            "created": "Dostawa utworzona pomyślnie",
+            "updated": "Dostawa zaktualizowana pomyślnie",
+            "validated": "Dostawa zatwierdzona pomyślnie",
+            "cancelled": "Dostawa anulowana pomyślnie",
+            "deleted": "Dostawa usunięta pomyślnie",
+            "error": "Wystąpił błąd",
+            "noDeliveries": "Nie znaleziono dostaw",
+            "loadingDeliveries": "Ładowanie dostaw...",
+            "validationConfirm": "Czy na pewno chcesz zatwierdzić tę dostawę? Spowoduje to aktualizację stanów magazynowych.",
+            "cancelConfirm": "Czy na pewno chcesz anulować tę dostawę?",
+            "deleteConfirm": "Czy na pewno chcesz usunąć tę dostawę?"
+          },
+          "shipping": {
+            "asSoonAsPossible": "Jak najszybciej",
+            "whenAllReady": "Gdy wszystkie produkty są gotowe"
+          }
+        },
         "suppliers": {
           "title": "Dostawcy",
           "list": "Lista dostawców",
