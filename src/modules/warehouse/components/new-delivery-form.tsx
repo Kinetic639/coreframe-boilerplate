@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -19,14 +19,8 @@ import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
 import { DeliveryStatusBadge } from "./delivery-status-badge";
 import { createDelivery } from "@/app/actions/warehouse/create-delivery";
-import { createClient } from "@/utils/supabase/client";
+import { useAppStore } from "@/lib/stores/app-store";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
-
-interface Location {
-  id: string;
-  name: string;
-  code: string;
-}
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -37,7 +31,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  const [locations, setLocations] = useState<Location[]>([]);
+  // Get locations from store
+  const locations = useAppStore((state) => state.locations);
+
   const [destinationLocationId, setDestinationLocationId] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
@@ -47,29 +43,12 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load locations
-  const loadLocations = useCallback(async () => {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("locations")
-      .select("id, name, code")
-      .eq("organization_id", organizationId)
-      .eq("branch_id", branchId)
-      .is("deleted_at", null)
-      .order("name");
-
-    if (!error && data && data.length > 0) {
-      setLocations(data);
-      // Auto-select first location
-      if (!destinationLocationId) {
-        setDestinationLocationId(data[0].id);
-      }
-    }
-  }, [organizationId, branchId, destinationLocationId]);
-
+  // Auto-select first location when locations are available
   useEffect(() => {
-    loadLocations();
-  }, [loadLocations]);
+    if (locations.length > 0 && !destinationLocationId) {
+      setDestinationLocationId(locations[0].id);
+    }
+  }, [locations, destinationLocationId]);
 
   const handleSave = async () => {
     if (items.length === 0) {
@@ -155,16 +134,32 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>{t("fields.destinationLocation")}</Label>
-                <Select value={destinationLocationId} onValueChange={setDestinationLocationId}>
+                <Select
+                  value={destinationLocationId}
+                  onValueChange={setDestinationLocationId}
+                  disabled={locations.length === 0}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+                    <SelectValue
+                      placeholder={
+                        locations.length === 0
+                          ? "No locations available - create one first"
+                          : "Select location"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name} ({location.code})
-                      </SelectItem>
-                    ))}
+                    {locations.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No locations found. Go to Locations menu to create one.
+                      </div>
+                    ) : (
+                      locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.name} ({location.code})
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
