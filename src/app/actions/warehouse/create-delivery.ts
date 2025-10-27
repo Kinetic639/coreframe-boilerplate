@@ -41,7 +41,6 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
     const deliveryNumber = await generateDeliveryNumber(data.organization_id, data.branch_id);
 
     // Generate a unique reference ID (UUID) for this delivery batch
-    const supabase = await createClient();
     const deliveryReferenceId = crypto.randomUUID();
 
     // Create stock movements for each item (all using movement type 101 - GR from PO)
