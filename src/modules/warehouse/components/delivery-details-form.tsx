@@ -35,11 +35,22 @@ export function DeliveryDetailsForm({
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
+  // Debug: Log the delivery object to see what data we're receiving
+  console.log("=== DELIVERY DETAILS FORM DEBUG ===");
+  console.log("Full delivery object:", delivery);
+  console.log("delivery.delivery_address:", delivery.delivery_address);
+  console.log("delivery.scheduled_date:", delivery.scheduled_date);
+  console.log("delivery.source_document:", delivery.source_document);
+  console.log("delivery.metadata:", delivery.metadata);
+  console.log("delivery.items:", delivery.items);
+  console.log("delivery.items_with_details:", delivery.items_with_details);
+  console.log("===================================");
+
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
 
   const [destinationLocationId, setDestinationLocationId] = useState<string>(
-    delivery.destination_location_id
+    delivery.destination_location_id || ""
   );
   const [deliveryAddress, setDeliveryAddress] = useState(delivery.delivery_address || "");
   const [scheduledDate, setScheduledDate] = useState(() => {

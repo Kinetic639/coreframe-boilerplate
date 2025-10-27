@@ -52,6 +52,17 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
       return null;
     }
 
+    // Debug logging
+    console.log("=== GET DELIVERY SERVER ACTION DEBUG ===");
+    console.log("primaryMovement.occurred_at:", primaryMovement.occurred_at);
+    console.log("primaryMovement.reference_number:", primaryMovement.reference_number);
+    console.log("primaryMovement.metadata:", primaryMovement.metadata);
+    console.log(
+      "primaryMovement.destination_location_id:",
+      primaryMovement.destination_location_id
+    );
+    console.log("========================================");
+
     const deliveryNumber =
       (primaryMovement.metadata as any)?.delivery_number || primaryMovement.movement_number;
 
