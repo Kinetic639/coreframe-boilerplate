@@ -41,6 +41,7 @@ export async function getDeliveries(
         unit_cost,
         total_cost,
         reference_number,
+        reference_id,
         status,
         occurred_at,
         created_at,
@@ -54,12 +55,12 @@ export async function getDeliveries(
           name,
           code
         ),
-        product:products(
+        products!stock_movements_product_id_fkey(
           id,
           name,
           sku
         ),
-        variant:product_variants(
+        product_variants!stock_movements_variant_id_fkey(
           id,
           name,
           sku
@@ -120,14 +121,15 @@ export async function getDeliveries(
     }
 
     // Transform movements to deliveries
-    // Group movements by delivery_number in metadata
+    // Group movements by reference_id (each delivery has a unique reference_id)
     const deliveriesMap = new Map<string, DeliveryWithRelations>();
 
     for (const movement of data || []) {
       const deliveryNumber =
         (movement.metadata as any)?.delivery_number || movement.movement_number;
+      const groupKey = movement.reference_id || movement.id; // Use reference_id as the grouping key
 
-      if (!deliveriesMap.has(deliveryNumber)) {
+      if (!deliveriesMap.has(groupKey)) {
         // Create new delivery entry
         const delivery: DeliveryWithRelations = {
           id: movement.id,
@@ -170,11 +172,11 @@ export async function getDeliveries(
               : undefined,
         };
 
-        deliveriesMap.set(deliveryNumber, delivery);
+        deliveriesMap.set(groupKey, delivery);
       }
 
       // Add item to delivery
-      const delivery = deliveriesMap.get(deliveryNumber)!;
+      const delivery = deliveriesMap.get(groupKey)!;
       delivery.items.push({
         id: movement.id,
         product_id: movement.product_id,
@@ -192,12 +194,16 @@ export async function getDeliveries(
       }
 
       const productData =
-        movement.product && Array.isArray(movement.product) && movement.product.length > 0
-          ? movement.product[0]
+        (movement as any).products &&
+        Array.isArray((movement as any).products) &&
+        (movement as any).products.length > 0
+          ? (movement as any).products[0]
           : null;
       const variantData =
-        movement.variant && Array.isArray(movement.variant) && movement.variant.length > 0
-          ? movement.variant[0]
+        (movement as any).product_variants &&
+        Array.isArray((movement as any).product_variants) &&
+        (movement as any).product_variants.length > 0
+          ? (movement as any).product_variants[0]
           : null;
 
       delivery.items_with_details.push({
