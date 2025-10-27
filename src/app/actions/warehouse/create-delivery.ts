@@ -40,6 +40,10 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
     // Generate delivery number (WH/OUT/XXXXX format like Odoo)
     const deliveryNumber = await generateDeliveryNumber(data.organization_id, data.branch_id);
 
+    // Generate a unique reference ID (UUID) for this delivery batch
+    const supabase = await createClient();
+    const deliveryReferenceId = crypto.randomUUID();
+
     // Create stock movements for each item (all using movement type 101 - GR from PO)
     const movementIds: string[] = [];
     const errors: string[] = [];
@@ -57,7 +61,7 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
         unit_cost: item.unit_cost,
         currency: "PLN",
         reference_type: "purchase_order" as const,
-        reference_id: deliveryNumber, // Use delivery number as reference_id to satisfy validation
+        reference_id: deliveryReferenceId, // Use generated UUID as reference_id
         reference_number: data.source_document || deliveryNumber,
         batch_number: item.batch_number,
         serial_number: item.serial_number,
