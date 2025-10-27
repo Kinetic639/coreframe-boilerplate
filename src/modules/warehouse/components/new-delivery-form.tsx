@@ -34,7 +34,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
 
-  const [destinationLocationId, setDestinationLocationId] = useState<string>("");
+  const [destinationLocationId, setDestinationLocationId] = useState<string>("none");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
   const [sourceDocument, setSourceDocument] = useState("");
@@ -61,7 +61,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     const data: CreateDeliveryData = {
       organization_id: organizationId,
       branch_id: branchId,
-      destination_location_id: destinationLocationId || undefined, // Optional: only set if selected
+      destination_location_id: destinationLocationId !== "none" ? destinationLocationId : undefined, // Optional: only set if selected
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
@@ -148,7 +148,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </SelectTrigger>
                   <SelectContent>
                     {/* Add "None" option to clear selection */}
-                    <SelectItem value="">
+                    <SelectItem value="none">
                       <span className="text-muted-foreground">None (receive without location)</span>
                     </SelectItem>
                     {locations.length === 0 ? (
@@ -164,12 +164,12 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     )}
                   </SelectContent>
                 </Select>
-                {destinationLocationId && (
+                {destinationLocationId && destinationLocationId !== "none" && (
                   <p className="text-xs text-muted-foreground">
                     Products will be moved to this location when delivery is received
                   </p>
                 )}
-                {!destinationLocationId && (
+                {(!destinationLocationId || destinationLocationId === "none") && (
                   <p className="text-xs text-yellow-600">
                     Products will be received but not assigned to a location yet
                   </p>
