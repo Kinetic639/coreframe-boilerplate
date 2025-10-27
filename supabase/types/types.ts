@@ -2799,7 +2799,6 @@ export type Database = {
           document_url: string | null;
           expiry_date: string | null;
           id: string;
-          location_id: string;
           lot_number: string | null;
           manufacturing_date: string | null;
           metadata: Json | null;
@@ -2822,7 +2821,7 @@ export type Database = {
           unit_of_measure: string | null;
           updated_at: string | null;
           updated_by: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           approved_at?: string | null;
@@ -2844,7 +2843,6 @@ export type Database = {
           document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
-          location_id: string;
           lot_number?: string | null;
           manufacturing_date?: string | null;
           metadata?: Json | null;
@@ -2867,7 +2865,7 @@ export type Database = {
           unit_of_measure?: string | null;
           updated_at?: string | null;
           updated_by?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           approved_at?: string | null;
@@ -2889,7 +2887,6 @@ export type Database = {
           document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
-          location_id?: string;
           lot_number?: string | null;
           manufacturing_date?: string | null;
           metadata?: Json | null;
@@ -2912,7 +2909,7 @@ export type Database = {
           unit_of_measure?: string | null;
           updated_at?: string | null;
           updated_by?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -2939,13 +2936,6 @@ export type Database = {
           {
             foreignKeyName: "stock_movements_destination_location_id_fkey";
             columns: ["destination_location_id"];
-            isOneToOne: false;
-            referencedRelation: "locations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "stock_movements_location_id_fkey";
-            columns: ["location_id"];
             isOneToOne: false;
             referencedRelation: "locations";
             referencedColumns: ["id"];
