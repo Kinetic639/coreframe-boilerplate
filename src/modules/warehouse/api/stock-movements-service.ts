@@ -79,10 +79,8 @@ export class StockMovementsService {
         movement_type:movement_types!movement_type_code(code, name, name_pl, name_en, category),
         product:products(id, name, sku),
         variant:product_variants(id, name, sku),
-        source_location:locations!source_location_id(id, name, code),
-        destination_location:locations!destination_location_id(id, name, code),
-        created_by_user:auth.users!created_by(id, email),
-        approved_by_user:auth.users!approved_by(id, email)
+        source_location:locations!stock_movements_source_location_id_fkey(id, name, code),
+        destination_location:locations!stock_movements_destination_location_id_fkey(id, name, code)
       `,
         { count: "exact" }
       )
@@ -122,10 +120,8 @@ export class StockMovementsService {
         movement_type:movement_types!movement_type_code(*),
         product:products(*),
         variant:product_variants(*),
-        source_location:locations!source_location_id(*),
-        destination_location:locations!destination_location_id(*),
-        created_by_user:auth.users!created_by(id, email),
-        approved_by_user:auth.users!approved_by(id, email)
+        source_location:locations!stock_movements_source_location_id_fkey(*),
+        destination_location:locations!stock_movements_destination_location_id_fkey(*)
       `
       )
       .eq("id", id)
@@ -296,8 +292,7 @@ export class StockMovementsService {
         `
         *,
         movement_type:movement_types!movement_type_code(code, name, name_pl, name_en),
-        product:products(id, name, sku),
-        created_by_user:auth.users!created_by(id, email)
+        product:products(id, name, sku)
       `
       )
       .eq("organization_id", organizationId)
