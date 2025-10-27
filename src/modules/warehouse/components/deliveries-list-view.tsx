@@ -118,21 +118,10 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
           </p>
         </div>
 
-        <div className="flex gap-2">
-          {/* Debug button - only in development */}
-          {process.env.NODE_ENV === "development" && (
-            <Button
-              variant="outline"
-              onClick={() => router.push("/dashboard/warehouse/deliveries/debug")}
-            >
-              🐛 Debug
-            </Button>
-          )}
-          <Button onClick={handleNewDelivery} className="bg-[#8B4789] hover:bg-[#7A3E78]">
-            <Plus className="h-4 w-4 mr-2" />
-            {t("new")}
-          </Button>
-        </div>
+        <Button onClick={handleNewDelivery} className="bg-[#8B4789] hover:bg-[#7A3E78]">
+          <Plus className="h-4 w-4 mr-2" />
+          {t("new")}
+        </Button>
       </div>
 
       {/* Toolbar */}

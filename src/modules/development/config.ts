@@ -68,5 +68,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/sku-generator",
       icon: "Wand2",
     },
+    {
+      id: "delivery-debugger",
+      label: "modules.development.items.deliveryDebugger",
+      path: "/dashboard/development/delivery-debugger",
+      icon: "Truck",
+    },
   ],
 };

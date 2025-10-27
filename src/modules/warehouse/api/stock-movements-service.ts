@@ -168,6 +168,28 @@ export class StockMovementsService {
         };
       }
 
+      // Update with additional fields that the RPC function doesn't support
+      const updateData: Record<string, unknown> = {};
+
+      if (data.reference_number) updateData.reference_number = data.reference_number;
+      if (data.batch_number) updateData.batch_number = data.batch_number;
+      if (data.serial_number) updateData.serial_number = data.serial_number;
+      if (data.expiry_date) updateData.expiry_date = data.expiry_date;
+      if (data.currency) updateData.currency = data.currency;
+      if (data.metadata) updateData.metadata = data.metadata;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await this.supabase
+          .from("stock_movements")
+          .update(updateData)
+          .eq("id", result);
+
+        if (updateError) {
+          console.error("Error updating movement with additional fields:", updateError);
+          // Don't fail the whole operation, just log the error
+        }
+      }
+
       // Fetch the created movement to get the movement_number
       const movement = await this.getMovementById(result);
 
