@@ -145,20 +145,43 @@ export class StockMovementsService {
   ): Promise<CreateMovementResponse> {
     try {
       const { data: result, error } = await this.supabase.rpc("create_stock_movement", {
+        // Core movement fields
         p_movement_type_code: data.movement_type_code,
         p_organization_id: data.organization_id,
         p_branch_id: data.branch_id,
         p_product_id: data.product_id,
         p_quantity: data.quantity,
+
+        // Location fields
         p_source_location_id: data.source_location_id || null,
         p_destination_location_id: data.destination_location_id || null,
+
+        // Product variant
         p_variant_id: data.variant_id || null,
+
+        // Cost fields
         p_unit_cost: data.unit_cost || null,
+        p_currency: data.currency || "PLN",
+
+        // Reference fields (NOW SUPPORTED!)
         p_reference_type: data.reference_type || null,
         p_reference_id: data.reference_id || null,
+        p_reference_number: data.reference_number || null,
+
+        // Tracking fields (NOW SUPPORTED!)
+        p_batch_number: data.batch_number || null,
+        p_serial_number: data.serial_number || null,
+        p_lot_number: data.lot_number || null,
+        p_expiry_date: data.expiry_date || null,
+        p_manufacturing_date: data.manufacturing_date || null,
+
+        // User and timestamp
         p_created_by: userId || null,
         p_notes: data.notes || null,
         p_occurred_at: data.occurred_at || new Date().toISOString(),
+
+        // Additional data (NOW SUPPORTED!)
+        p_metadata: data.metadata || {},
       });
 
       if (error) {
@@ -166,28 +189,6 @@ export class StockMovementsService {
           success: false,
           errors: [error.message],
         };
-      }
-
-      // Update with additional fields that the RPC function doesn't support
-      const updateData: Record<string, unknown> = {};
-
-      if (data.reference_number) updateData.reference_number = data.reference_number;
-      if (data.batch_number) updateData.batch_number = data.batch_number;
-      if (data.serial_number) updateData.serial_number = data.serial_number;
-      if (data.expiry_date) updateData.expiry_date = data.expiry_date;
-      if (data.currency) updateData.currency = data.currency;
-      if (data.metadata) updateData.metadata = data.metadata;
-
-      if (Object.keys(updateData).length > 0) {
-        const { error: updateError } = await this.supabase
-          .from("stock_movements")
-          .update(updateData)
-          .eq("id", result);
-
-        if (updateError) {
-          console.error("Error updating movement with additional fields:", updateError);
-          // Don't fail the whole operation, just log the error
-        }
       }
 
       // Fetch the created movement to get the movement_number
