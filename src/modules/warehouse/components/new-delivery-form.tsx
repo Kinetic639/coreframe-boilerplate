@@ -36,7 +36,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
   const [destinationLocationId, setDestinationLocationId] = useState<string>("none");
   const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 16));
   const [sourceDocument, setSourceDocument] = useState("");
   const [shippingPolicy, setShippingPolicy] = useState("As soon as possible");
   const [notes, setNotes] = useState("");
