@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -43,12 +43,8 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Auto-select first location when locations are available
-  useEffect(() => {
-    if (locations.length > 0 && !destinationLocationId) {
-      setDestinationLocationId(locations[0].id);
-    }
-  }, [locations, destinationLocationId]);
+  // Don't auto-select location - make it optional
+  // User can choose to specify a location or leave it empty
 
   const handleSave = async () => {
     if (items.length === 0) {
@@ -56,17 +52,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       return;
     }
 
-    if (!destinationLocationId) {
-      toast.error("Please select a destination location");
-      return;
-    }
+    // Location is now optional - products can be received without assigning to a specific location yet
+    // If a location is selected, products will be moved there immediately
+    // If no location is selected, products are received but not yet placed in a location
 
     setLoading(true);
 
     const data: CreateDeliveryData = {
       organization_id: organizationId,
       branch_id: branchId,
-      destination_location_id: destinationLocationId,
+      destination_location_id: destinationLocationId || undefined, // Optional: only set if selected
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
@@ -133,7 +128,10 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
           <Card className="p-6">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>{t("fields.destinationLocation")}</Label>
+                <Label>
+                  {t("fields.destinationLocation")}
+                  <span className="text-xs text-muted-foreground ml-2">(Optional)</span>
+                </Label>
                 <Select
                   value={destinationLocationId}
                   onValueChange={setDestinationLocationId}
@@ -143,12 +141,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     <SelectValue
                       placeholder={
                         locations.length === 0
-                          ? "No locations available - create one first"
-                          : "Select location"
+                          ? "No locations available"
+                          : "Select location to assign products immediately (optional)"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Add "None" option to clear selection */}
+                    <SelectItem value="">
+                      <span className="text-muted-foreground">None (receive without location)</span>
+                    </SelectItem>
                     {locations.length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground text-center">
                         No locations found. Go to Locations menu to create one.
@@ -162,6 +164,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     )}
                   </SelectContent>
                 </Select>
+                {destinationLocationId && (
+                  <p className="text-xs text-muted-foreground">
+                    Products will be moved to this location when delivery is received
+                  </p>
+                )}
+                {!destinationLocationId && (
+                  <p className="text-xs text-yellow-600">
+                    Products will be received but not assigned to a location yet
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

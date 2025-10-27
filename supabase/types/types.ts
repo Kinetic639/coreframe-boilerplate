@@ -4066,6 +4066,7 @@ export type Database = {
           p_branch_id: string;
           p_created_by?: string;
           p_destination_location_id?: string;
+          p_location_id?: string;
           p_movement_type_code: string;
           p_notes?: string;
           p_occurred_at?: string;

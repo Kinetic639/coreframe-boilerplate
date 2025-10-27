@@ -41,8 +41,8 @@ export interface Delivery {
   delivery_address?: string; // Supplier or source
   operation_type: string; // e.g., "testerowanko: Delivery Orders"
 
-  // Location
-  destination_location_id: string;
+  // Location (optional - products can be received without immediate location assignment)
+  destination_location_id?: string;
 
   // Items (stock movements associated with this delivery)
   items: DeliveryItem[];
@@ -101,7 +101,7 @@ export interface DeliveryWithRelations extends Delivery {
 export interface CreateDeliveryData {
   organization_id: string;
   branch_id: string;
-  destination_location_id: string;
+  destination_location_id?: string; // Optional: products can be received without assigning to location
   scheduled_date?: string;
   source_document?: string;
   delivery_address?: string;
