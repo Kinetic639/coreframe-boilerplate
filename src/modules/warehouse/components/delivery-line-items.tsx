@@ -46,6 +46,7 @@ interface DeliveryLineItemsProps {
   onChange: (items: DeliveryItem[]) => void;
   organizationId: string;
   disabled?: boolean;
+  readOnly?: boolean;
 }
 
 export function DeliveryLineItems({
@@ -53,6 +54,7 @@ export function DeliveryLineItems({
   onChange,
   organizationId,
   disabled,
+  readOnly = false,
 }: DeliveryLineItemsProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Record<string, ProductVariant[]>>({});
@@ -217,7 +219,7 @@ export function DeliveryLineItems({
                       step="0.01"
                       value={item.expected_quantity}
                       onChange={(e) => handleUpdateQuantity(index, parseFloat(e.target.value) || 0)}
-                      disabled={disabled}
+                      disabled={disabled || readOnly}
                       className="w-24 text-right ml-auto"
                     />
                   </td>
@@ -228,7 +230,7 @@ export function DeliveryLineItems({
                       step="0.01"
                       value={item.unit_cost || 0}
                       onChange={(e) => handleUpdateUnitCost(index, parseFloat(e.target.value) || 0)}
-                      disabled={disabled}
+                      disabled={disabled || readOnly}
                       className="w-24 text-right ml-auto"
                     />
                   </td>
@@ -238,7 +240,7 @@ export function DeliveryLineItems({
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {!disabled && (
+                    {!disabled && !readOnly && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -261,7 +263,7 @@ export function DeliveryLineItems({
       )}
 
       {/* Add Product Button */}
-      {!disabled && (
+      {!disabled && !readOnly && (
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="link" size="sm" className="px-0 text-primary">
