@@ -52,7 +52,9 @@ export function DeliveryDetailsForm({
     delivery.shipping_policy || "As soon as possible"
   );
   const [notes, setNotes] = useState(delivery.notes || "");
-  const [items, setItems] = useState<DeliveryItem[]>(delivery.items || []);
+  const [items, setItems] = useState<DeliveryItem[]>(
+    delivery.items_with_details || delivery.items || []
+  );
   const [loading, setLoading] = useState(false);
 
   const isEditable = delivery.status === "draft" || delivery.status === "waiting";

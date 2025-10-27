@@ -24,6 +24,7 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
         destination_location_id,
         occurred_at,
         reference_number,
+        reference_id,
         status,
         created_at,
         completed_at,
@@ -54,7 +55,10 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
     const deliveryNumber =
       (primaryMovement.metadata as any)?.delivery_number || primaryMovement.movement_number;
 
-    // Get all related movements (all movements with the same delivery_number)
+    // Get all related movements (all movements with the same reference_id)
+    // Using reference_id as the grouping mechanism instead of delivery_number in metadata
+    const referenceId = primaryMovement.reference_id || primaryMovement.id;
+
     const { data: relatedMovements, error: relatedError } = await supabase
       .from("stock_movements")
       .select(
@@ -70,12 +74,12 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
         batch_number,
         serial_number,
         expiry_date,
-        product:products(
+        products!stock_movements_product_id_fkey(
           id,
           name,
           sku
         ),
-        variant:product_variants(
+        product_variants!stock_movements_variant_id_fkey(
           id,
           name,
           sku
@@ -85,7 +89,7 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
       .eq("organization_id", primaryMovement.organization_id)
       .eq("branch_id", primaryMovement.branch_id)
       .eq("movement_type_code", "101")
-      .contains("metadata", { delivery_number: deliveryNumber });
+      .eq("reference_id", referenceId);
 
     if (relatedError) {
       console.error("Error fetching related movements:", relatedError);
@@ -145,11 +149,13 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
               name: primaryMovement.created_by_user[0].email.split("@")[0],
             }
           : undefined,
-      items_with_details: movements.map((m) => {
+      items_with_details: movements.map((m: any) => {
         const productData =
-          m.product && Array.isArray(m.product) && m.product.length > 0 ? m.product[0] : null;
+          m.products && Array.isArray(m.products) && m.products.length > 0 ? m.products[0] : null;
         const variantData =
-          m.variant && Array.isArray(m.variant) && m.variant.length > 0 ? m.variant[0] : null;
+          m.product_variants && Array.isArray(m.product_variants) && m.product_variants.length > 0
+            ? m.product_variants[0]
+            : null;
 
         return {
           id: m.id,

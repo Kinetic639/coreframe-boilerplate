@@ -76,9 +76,9 @@ export class StockMovementsService {
       .select(
         `
         *,
-        movement_type:movement_types!movement_type_code(code, name, name_pl, name_en, category),
-        product:products(id, name, sku),
-        variant:product_variants(id, name, sku),
+        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en, category),
+        product:products!stock_movements_product_id_fkey(id, name, sku),
+        variant:product_variants!stock_movements_variant_id_fkey(id, name, sku),
         source_location:locations!stock_movements_source_location_id_fkey(id, name, code),
         destination_location:locations!stock_movements_destination_location_id_fkey(id, name, code)
       `,
@@ -117,9 +117,9 @@ export class StockMovementsService {
       .select(
         `
         *,
-        movement_type:movement_types!movement_type_code(*),
-        product:products(*),
-        variant:product_variants(*),
+        movement_type:movement_types!stock_movements_movement_type_code_fkey(*),
+        product:products!stock_movements_product_id_fkey(*),
+        variant:product_variants!stock_movements_variant_id_fkey(*),
         source_location:locations!stock_movements_source_location_id_fkey(*),
         destination_location:locations!stock_movements_destination_location_id_fkey(*)
       `
@@ -291,8 +291,8 @@ export class StockMovementsService {
       .select(
         `
         *,
-        movement_type:movement_types!movement_type_code(code, name, name_pl, name_en),
-        product:products(id, name, sku)
+        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en),
+        product:products!stock_movements_product_id_fkey(id, name, sku)
       `
       )
       .eq("organization_id", organizationId)
