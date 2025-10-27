@@ -42,11 +42,19 @@ export function DeliveryDetailsForm({
     delivery.destination_location_id
   );
   const [deliveryAddress, setDeliveryAddress] = useState(delivery.delivery_address || "");
-  const [scheduledDate, setScheduledDate] = useState(
-    delivery.scheduled_date
-      ? new Date(delivery.scheduled_date).toISOString().split("T")[0]
-      : new Date().toISOString().split("T")[0]
-  );
+  const [scheduledDate, setScheduledDate] = useState(() => {
+    if (delivery.scheduled_date) {
+      try {
+        const date = new Date(delivery.scheduled_date);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().slice(0, 16);
+        }
+      } catch (e) {
+        console.error("Invalid scheduled_date:", delivery.scheduled_date, e);
+      }
+    }
+    return new Date().toISOString().slice(0, 16);
+  });
   const [sourceDocument, setSourceDocument] = useState(delivery.source_document || "");
   const [shippingPolicy, setShippingPolicy] = useState(
     delivery.shipping_policy || "As soon as possible"
