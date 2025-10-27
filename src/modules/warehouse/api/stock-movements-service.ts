@@ -148,6 +148,10 @@ export class StockMovementsService {
     userId?: string
   ): Promise<CreateMovementResponse> {
     try {
+      // Determine location_id: use destination for receipts, source for issues, or explicit location_id
+      const locationId =
+        data.location_id || data.destination_location_id || data.source_location_id;
+
       const { data: result, error } = await this.supabase.rpc("create_stock_movement", {
         p_movement_type_code: data.movement_type_code,
         p_organization_id: data.organization_id,
@@ -156,6 +160,7 @@ export class StockMovementsService {
         p_quantity: data.quantity,
         p_source_location_id: data.source_location_id || null,
         p_destination_location_id: data.destination_location_id || null,
+        p_location_id: locationId || null, // NEW: Pass primary location
         p_variant_id: data.variant_id || null,
         p_unit_cost: data.unit_cost || null,
         p_reference_type: data.reference_type || null,
