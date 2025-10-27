@@ -1133,7 +1133,8 @@
         "locations": "Debug lokalizacji",
         "richTextEditor": "Edytor Tekstu",
         "subscriptionTest": "Test Subskrypcji",
-        "skuGenerator": "Test Generatora SKU"
+        "skuGenerator": "Test Generatora SKU",
+        "deliveryDebugger": "Debugger Dostaw"
       }
     }
   },
