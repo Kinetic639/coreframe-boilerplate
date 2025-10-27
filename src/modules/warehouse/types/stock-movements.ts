@@ -151,7 +151,6 @@ export interface CreateStockMovementData {
   product_id: string;
   quantity: number;
   variant_id?: string;
-  location_id?: string; // Primary location for the movement
   source_location_id?: string;
   destination_location_id?: string;
   unit_of_measure?: string;
