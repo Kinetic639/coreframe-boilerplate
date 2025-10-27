@@ -94,6 +94,26 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         path: "/dashboard/warehouse/labels",
       },
       {
+        id: "deliveries",
+        label: "modules.warehouse.items.deliveries.title",
+        icon: "Inbox",
+        path: "/dashboard/warehouse/deliveries",
+        submenu: [
+          {
+            id: "deliveries-list",
+            label: "modules.warehouse.items.deliveries.list",
+            path: "/dashboard/warehouse/deliveries",
+            icon: "List",
+          },
+          {
+            id: "new-delivery",
+            label: "modules.warehouse.items.deliveries.new",
+            path: "/dashboard/warehouse/deliveries/new",
+            icon: "Plus",
+          },
+        ],
+      },
+      {
         id: "suppliers",
         label: "modules.warehouse.items.suppliers.title",
         icon: "Truck",
@@ -104,12 +124,6 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             label: "modules.warehouse.items.suppliers.list",
             path: "/dashboard/warehouse/suppliers/list",
             icon: "List",
-          },
-          {
-            id: "deliveries",
-            label: "modules.warehouse.items.suppliers.deliveries",
-            path: "/dashboard/warehouse/suppliers/deliveries",
-            icon: "Inbox",
           },
         ],
       },
