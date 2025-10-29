@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DeliveryStatusBadge } from "./delivery-status-badge";
 import { getDeliveries } from "@/app/actions/warehouse/get-deliveries";
 import type {
   DeliveryWithRelations,
@@ -105,6 +104,23 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
     }
 
     return formatDate(dateStr, locale);
+  };
+
+  const getStatusVariant = (status: DeliveryStatus) => {
+    switch (status) {
+      case "draft":
+        return "secondary";
+      case "waiting":
+        return "default";
+      case "ready":
+        return "default";
+      case "done":
+        return "success";
+      case "cancelled":
+        return "destructive";
+      default:
+        return "secondary";
+    }
   };
 
   return (
@@ -272,7 +288,9 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
                   <TableCell>{formatScheduledDate(delivery.scheduled_date)}</TableCell>
                   <TableCell>{delivery.source_document || "-"}</TableCell>
                   <TableCell className="text-right">
-                    <DeliveryStatusBadge status={delivery.status} />
+                    <Badge variant={getStatusVariant(delivery.status)}>
+                      {t(`statuses.${delivery.status}`)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <button className="text-muted-foreground hover:text-foreground">⋮</button>

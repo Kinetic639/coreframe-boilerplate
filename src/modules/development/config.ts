@@ -74,5 +74,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/delivery-debugger",
       icon: "Truck",
     },
+    {
+      id: "status-stepper",
+      label: "Status Stepper",
+      path: "/dashboard/development/status-stepper",
+      icon: "Workflow",
+    },
   ],
 };

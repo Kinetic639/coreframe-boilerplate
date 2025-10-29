@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
-import { DeliveryStatusBadge } from "./delivery-status-badge";
 import { useAppStore } from "@/lib/stores/app-store";
 import type { DeliveryWithRelations, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface DeliveryDetailsFormProps {
   delivery: DeliveryWithRelations;
@@ -35,16 +35,12 @@ export function DeliveryDetailsForm({
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  // Debug: Log the delivery object to see what data we're receiving
-  console.log("=== DELIVERY DETAILS FORM DEBUG ===");
-  console.log("Full delivery object:", delivery);
-  console.log("delivery.delivery_address:", delivery.delivery_address);
-  console.log("delivery.scheduled_date:", delivery.scheduled_date);
-  console.log("delivery.source_document:", delivery.source_document);
-  console.log("delivery.metadata:", delivery.metadata);
-  console.log("delivery.items:", delivery.items);
-  console.log("delivery.items_with_details:", delivery.items_with_details);
-  console.log("===================================");
+  const deliverySteps: Step[] = [
+    { label: t("status.draft"), value: "draft" },
+    { label: t("status.waiting"), value: "waiting" },
+    { label: t("status.ready"), value: "ready" },
+    { label: t("status.done"), value: "done" },
+  ];
 
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
@@ -147,26 +143,9 @@ export function DeliveryDetailsForm({
         </div>
       </div>
 
-      {/* Status Pipeline */}
-      <div className="flex gap-2 items-center">
-        <DeliveryStatusBadge status={delivery.status} className="text-base px-4 py-2" />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge
-          status="waiting"
-          className={delivery.status === "draft" ? "opacity-50" : ""}
-        />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge
-          status="ready"
-          className={
-            delivery.status === "draft" || delivery.status === "waiting" ? "opacity-50" : ""
-          }
-        />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge
-          status="done"
-          className={delivery.status !== "done" ? "opacity-50" : ""}
-        />
+      {/* Status Stepper */}
+      <div className="w-full">
+        <StatusStepper steps={deliverySteps} activeStep={delivery.status} size="sm" />
       </div>
 
       {/* Main Form */}
