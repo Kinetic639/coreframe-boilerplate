@@ -128,7 +128,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 </Label>
                 <Select
                   value={destinationLocationId}
-                  onValuechange={setDestinationLocationId}
+                  onValueChange={setDestinationLocationId}
                   disabled={locations.length === 0}
                 >
                   <SelectTrigger>

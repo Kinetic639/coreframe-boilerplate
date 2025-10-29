@@ -951,7 +951,7 @@
           "title": "Deliveries",
           "list": "Deliveries List",
           "new": "New Delivery",
-          "status": {
+          "statuses": {
             "draft": "Draft",
             "waiting": "Waiting",
             "ready": "Ready",
