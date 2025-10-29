@@ -906,7 +906,7 @@
           "title": "Dostawy",
           "list": "Lista dostaw",
           "new": "Nowa dostawa",
-          "status": {
+          "statuses": {
             "draft": "Projekt",
             "waiting": "Oczekuje",
             "ready": "Gotowe",
