@@ -260,6 +260,48 @@ mcp__context7__get-library-docs: "/supabase/supabase"
 - Supplier CRUD
 - Incoming deliveries management
 
+#### Stock Movements & Transfers
+
+- SAP-style movement type system with numeric codes (101-613)
+- 31 pre-configured movement types across 6 categories:
+  - Receipts (101-105): Purchase orders, returns, production output
+  - Issues (201-206): Sales, returns to supplier, waste/damage
+  - Transfers (301-312): Intra-location and inter-branch transfers
+  - Adjustments (401-411): Inventory corrections, quality reclassification
+  - Reservations (501-502): Stock reservation management
+  - E-commerce (601-613): Shopify, WooCommerce, Allegro integration
+- Polish warehouse compliance with document types (PZ, WZ, MM, RW, KP, KN, INW)
+- Bilingual support (Polish/English)
+- Movement approval workflow with pending/approved/completed/cancelled/reversed statuses
+- Real-time stock inventory calculations via database views
+- Stock reservations for sales orders and allocations
+- Comprehensive validation service for business rules
+- Movement history tracking with audit trail
+- Soft delete architecture for complete audit trail
+
+**Pages**:
+
+- `/dashboard/warehouse/movements` - Main movements list with filtering
+- `/dashboard/warehouse/movements/new` - Create new movement
+- `/dashboard/warehouse/movements/[id]` - Movement details and approval
+- `/dashboard/warehouse/inventory` - Real-time inventory dashboard
+
+**Components**:
+
+- Movement status badges, cards, and filters
+- Stock level display with visual indicators
+- Approval queue for pending movements
+- Movement history timeline
+- Create movement dialog
+
+**Technical Architecture**:
+
+- Database migrations with idempotent DO blocks for upgrades
+- TypeScript service layer with full type safety
+- Server actions for authentication and authorization
+- React Hook Form for validated data entry
+- Comprehensive filter and search capabilities
+
 #### B2B Katalog (Business Clients)
 
 - Supplier:

@@ -2127,21 +2127,21 @@ export type Database = {
           id: string;
           product_option_group_id: string;
           product_option_value_id: string;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
           product_option_group_id: string;
           product_option_value_id: string;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           id?: string;
           product_option_group_id?: string;
           product_option_value_id?: string;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -2799,7 +2799,6 @@ export type Database = {
           document_url: string | null;
           expiry_date: string | null;
           id: string;
-          location_id: string;
           lot_number: string | null;
           manufacturing_date: string | null;
           metadata: Json | null;
@@ -2822,7 +2821,7 @@ export type Database = {
           unit_of_measure: string | null;
           updated_at: string | null;
           updated_by: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           approved_at?: string | null;
@@ -2844,7 +2843,6 @@ export type Database = {
           document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
-          location_id: string;
           lot_number?: string | null;
           manufacturing_date?: string | null;
           metadata?: Json | null;
@@ -2867,7 +2865,7 @@ export type Database = {
           unit_of_measure?: string | null;
           updated_at?: string | null;
           updated_by?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           approved_at?: string | null;
@@ -2889,7 +2887,6 @@ export type Database = {
           document_url?: string | null;
           expiry_date?: string | null;
           id?: string;
-          location_id?: string;
           lot_number?: string | null;
           manufacturing_date?: string | null;
           metadata?: Json | null;
@@ -2912,7 +2909,7 @@ export type Database = {
           unit_of_measure?: string | null;
           updated_at?: string | null;
           updated_by?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -2944,13 +2941,6 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "stock_movements_location_id_fkey";
-            columns: ["location_id"];
-            isOneToOne: false;
-            referencedRelation: "locations";
-            referencedColumns: ["id"];
-          },
-          {
             foreignKeyName: "stock_movements_movement_type_code_fkey";
             columns: ["movement_type_code"];
             isOneToOne: false;
@@ -2965,10 +2955,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "stock_movements_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "stock_movements_source_location_id_fkey";
             columns: ["source_location_id"];
             isOneToOne: false;
             referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];
@@ -2996,7 +3000,7 @@ export type Database = {
           reserved_for: string;
           status: string;
           updated_at: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           branch_id: string;
@@ -3020,7 +3024,7 @@ export type Database = {
           reserved_for: string;
           status?: string;
           updated_at?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           branch_id?: string;
@@ -3044,7 +3048,7 @@ export type Database = {
           reserved_for?: string;
           status?: string;
           updated_at?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -3099,7 +3103,7 @@ export type Database = {
           quantity_reserved: number;
           total_value: number | null;
           updated_at: string | null;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           average_cost?: number | null;
@@ -3115,7 +3119,7 @@ export type Database = {
           quantity_reserved?: number;
           total_value?: number | null;
           updated_at?: string | null;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           average_cost?: number | null;
@@ -3131,7 +3135,7 @@ export type Database = {
           quantity_reserved?: number;
           total_value?: number | null;
           updated_at?: string | null;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -3824,21 +3828,21 @@ export type Database = {
           id: string;
           option_group_id: string;
           option_value_id: string;
-          variant_id: string;
+          variant_id: string | null;
         };
         Insert: {
           created_at?: string | null;
           id?: string;
           option_group_id: string;
           option_value_id: string;
-          variant_id: string;
+          variant_id?: string | null;
         };
         Update: {
           created_at?: string | null;
           id?: string;
           option_group_id?: string;
           option_value_id?: string;
-          variant_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
           {
@@ -4011,6 +4015,20 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
             referencedColumns: ["id"];
           },
         ];

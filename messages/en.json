@@ -947,6 +947,109 @@
           "verification": "Product Verification",
           "operations": "Scanning Operations"
         },
+        "deliveries": {
+          "title": "Deliveries",
+          "list": "Deliveries List",
+          "new": "New Delivery",
+          "statuses": {
+            "draft": "Draft",
+            "waiting": "Waiting",
+            "ready": "Ready",
+            "done": "Done",
+            "cancelled": "Cancelled"
+          },
+          "fields": {
+            "deliveryNumber": "Delivery Number",
+            "reference": "Reference",
+            "contact": "Contact",
+            "scheduledDate": "Scheduled Date",
+            "sourceDocument": "Source Document",
+            "status": "Status",
+            "deliveryAddress": "Delivery Address",
+            "operationType": "Operation Type",
+            "shippingPolicy": "Shipping Policy",
+            "responsible": "Responsible",
+            "destinationLocation": "Destination Location",
+            "notes": "Notes"
+          },
+          "actions": {
+            "markAsTodo": "Mark as Todo",
+            "validate": "Validate",
+            "cancel": "Cancel",
+            "edit": "Edit",
+            "delete": "Delete",
+            "viewDetails": "View Details",
+            "saving": "Saving..."
+          },
+          "products": {
+            "title": "Products",
+            "addProduct": "Add a Product",
+            "product": "Product",
+            "demand": "Demand",
+            "unitCost": "Unit Cost",
+            "total": "Total",
+            "noProducts": "No products added yet",
+            "selectProduct": "Select a product",
+            "selectVariant": "Select a variant (optional)",
+            "quantity": "Demand Quantity",
+            "enterQuantity": "Enter quantity",
+            "enterUnitCost": "Enter unit cost"
+          },
+          "form": {
+            "optional": "(Optional)",
+            "noLocationsAvailable": "No locations available",
+            "selectLocationPlaceholder": "Select location to assign products immediately (optional)",
+            "receiveWithoutLocation": "None (receive without location)",
+            "noLocationsFound": "No locations found. Go to Locations menu to create one.",
+            "moveToLocationInfo": "Products will be moved to this location when delivery is received",
+            "receiveWithoutLocationInfo": "Products will be received but not assigned to a location yet",
+            "deliveryAddressPlaceholder": "e.g. Lumber Inc",
+            "sourceDocumentPlaceholder": "e.g. PO0032",
+            "notesPlaceholder": "Add notes...",
+            "operationTypeValue": "Delivery Orders",
+            "sendMessage": "Send message",
+            "logNote": "Log note",
+            "activity": "Activity",
+            "today": "Today",
+            "activityDescription": "Creating a new record..."
+          },
+          "tabs": {
+            "operations": "Operations",
+            "additionalInfo": "Additional Info",
+            "note": "Note"
+          },
+          "additionalInfo": {
+            "title": "Other Information",
+            "shippingPolicy": "Shipping Policy",
+            "responsible": "Responsible"
+          },
+          "filters": {
+            "all": "All Deliveries",
+            "draft": "Draft",
+            "waiting": "Waiting",
+            "ready": "Ready",
+            "done": "Done",
+            "cancelled": "Cancelled",
+            "search": "Search deliveries..."
+          },
+          "messages": {
+            "created": "Delivery created successfully",
+            "updated": "Delivery updated successfully",
+            "validated": "Delivery validated successfully",
+            "cancelled": "Delivery cancelled successfully",
+            "deleted": "Delivery deleted successfully",
+            "error": "An error occurred",
+            "noDeliveries": "No deliveries found",
+            "loadingDeliveries": "Loading deliveries...",
+            "validationConfirm": "Are you sure you want to validate this delivery? This will update stock levels.",
+            "cancelConfirm": "Are you sure you want to cancel this delivery?",
+            "deleteConfirm": "Are you sure you want to delete this delivery?"
+          },
+          "shipping": {
+            "asSoonAsPossible": "As soon as possible",
+            "whenAllReady": "When all products are ready"
+          }
+        },
         "suppliers": {
           "title": "Suppliers",
           "list": "Supplier List",
@@ -1095,7 +1198,8 @@
         "locations": "Locations Debug",
         "richTextEditor": "Rich Text Editor",
         "subscriptionTest": "Subscription Test",
-        "skuGenerator": "SKU Generator Test"
+        "skuGenerator": "SKU Generator Test",
+        "deliveryDebugger": "Delivery Debugger"
       }
     }
   },
@@ -1578,6 +1682,109 @@
       "updateError": "Failed to update product group",
       "deleteError": "Failed to delete product group",
       "loadError": "Failed to load product group"
+    }
+  },
+  "stockMovements": {
+    "title": "Stock Movements",
+    "description": "Track and manage all warehouse stock movements",
+    "createMovement": "Create Movement",
+    "movementDetails": "Movement Details",
+    "movementNumber": "Movement Number",
+    "movementType": "Movement Type",
+    "category": "Category",
+    "status": "Status",
+    "product": "Product",
+    "variant": "Variant",
+    "quantity": "Quantity",
+    "unitOfMeasure": "Unit of Measure",
+    "sourceLocation": "Source Location",
+    "destinationLocation": "Destination Location",
+    "unitCost": "Unit Cost",
+    "totalCost": "Total Cost",
+    "currency": "Currency",
+    "notes": "Notes",
+    "batchNumber": "Batch Number",
+    "serialNumber": "Serial Number",
+    "lotNumber": "Lot Number",
+    "expiryDate": "Expiry Date",
+    "referenceType": "Reference Type",
+    "referenceNumber": "Reference Number",
+    "createdBy": "Created By",
+    "approvedBy": "Approved By",
+    "occurredAt": "Occurred At",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "completedAt": "Completed At",
+    "cancelledAt": "Cancelled At",
+    "statuses": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "reversed": "Reversed"
+    },
+    "categories": {
+      "receipt": "Receipt",
+      "issue": "Issue",
+      "transfer": "Transfer",
+      "adjustment": "Adjustment",
+      "reservation": "Reservation",
+      "ecommerce": "E-commerce"
+    },
+    "actions": {
+      "approve": "Approve Movement",
+      "cancel": "Cancel Movement",
+      "refresh": "Refresh",
+      "viewDetails": "View Details",
+      "create": "Create Movement"
+    },
+    "messages": {
+      "movementCreated": "Movement created successfully",
+      "movementApproved": "Movement approved successfully",
+      "movementCancelled": "Movement cancelled successfully",
+      "loadError": "Failed to load movements",
+      "createError": "Failed to create movement",
+      "approveError": "Failed to approve movement",
+      "cancelError": "Failed to cancel movement",
+      "noMovements": "No movements found",
+      "authRequired": "Authentication required",
+      "cancellationReasonRequired": "Cancellation reason is required"
+    },
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear Filters",
+      "show": "Show Filters",
+      "hide": "Hide Filters",
+      "allCategories": "All Categories",
+      "allStatuses": "All Statuses",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "selectDate": "Select date"
+    },
+    "inventory": {
+      "title": "Inventory Dashboard",
+      "description": "Real-time stock levels and inventory overview",
+      "totalProducts": "Total Products",
+      "totalValue": "Total Value",
+      "lowStock": "Low Stock Items",
+      "outOfStock": "Out of Stock",
+      "available": "Available",
+      "reserved": "Reserved",
+      "atp": "Available to Promise",
+      "value": "Value",
+      "avgCost": "Avg Cost",
+      "stockLevel": "Stock Level",
+      "inStock": "In Stock",
+      "lowStockStatus": "Low Stock",
+      "outOfStockStatus": "Out of Stock",
+      "search": "Search by product ID or location..."
+    },
+    "approvalQueue": {
+      "title": "Pending Approvals",
+      "description": "Movements awaiting approval",
+      "noApprovals": "No movements pending approval",
+      "reject": "Reject",
+      "approve": "Approve"
     }
   }
 }
