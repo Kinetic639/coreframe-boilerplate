@@ -17,10 +17,10 @@ import {
 } from "@/components/ui/select";
 import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
-import { DeliveryStatusBadge } from "./delivery-status-badge";
 import { createDelivery } from "@/app/actions/warehouse/create-delivery";
 import { useAppStore } from "@/lib/stores/app-store";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -30,6 +30,13 @@ interface NewDeliveryFormProps {
 export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormProps) {
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
+
+  const deliverySteps: Step[] = [
+    { label: t("statuses.draft"), value: "draft" },
+    { label: t("statuses.waiting"), value: "waiting" },
+    { label: t("statuses.ready"), value: "ready" },
+    { label: t("statuses.done"), value: "done" },
+  ];
 
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
@@ -43,25 +50,18 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Don't auto-select location - make it optional
-  // User can choose to specify a location or leave it empty
-
   const handleSave = async () => {
     if (items.length === 0) {
       toast.error(t("products.noProducts"));
       return;
     }
 
-    // Location is now optional - products can be received without assigning to a specific location yet
-    // If a location is selected, products will be moved there immediately
-    // If no location is selected, products are received but not yet placed in a location
-
     setLoading(true);
 
     const data: CreateDeliveryData = {
       organization_id: organizationId,
       branch_id: branchId,
-      destination_location_id: destinationLocationId !== "none" ? destinationLocationId : undefined, // Optional: only set if selected
+      destination_location_id: destinationLocationId !== "none" ? destinationLocationId : undefined,
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
@@ -110,15 +110,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         </div>
       </div>
 
-      {/* Status Pipeline */}
-      <div className="flex gap-2">
-        <DeliveryStatusBadge status="draft" />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge status="waiting" />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge status="ready" />
-        <span className="text-muted-foreground">→</span>
-        <DeliveryStatusBadge status="done" />
+      {/* Status Stepper */}
+      <div className="w-full">
+        <StatusStepper steps={deliverySteps} activeStep="draft" size="md" />
       </div>
 
       {/* Main Form */}
@@ -134,7 +128,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 </Label>
                 <Select
                   value={destinationLocationId}
-                  onValueChange={setDestinationLocationId}
+                  onValuechange={setDestinationLocationId}
                   disabled={locations.length === 0}
                 >
                   <SelectTrigger>
@@ -147,7 +141,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {/* Add "None" option to clear selection */}
                     <SelectItem value="none">
                       <span className="text-muted-foreground">None (receive without location)</span>
                     </SelectItem>
