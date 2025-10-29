@@ -27,14 +27,43 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { getDeliveries } from "@/app/actions/warehouse/get-deliveries";
 import type {
   DeliveryWithRelations,
   DeliveryStatus,
   DeliveryFilters,
 } from "@/modules/warehouse/types/deliveries";
-import { formatDate } from "@/lib/utils";
+import { formatDate, cn } from "@/lib/utils";
+
+const STATUS_CONFIG: Record<
+  DeliveryStatus,
+  {
+    variant: BadgeProps["variant"];
+    className?: string;
+  }
+> = {
+  draft: {
+    variant: "secondary",
+  },
+  waiting: {
+    variant: "outline",
+    className: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  ready: {
+    variant: "default",
+    className: "bg-blue-500 text-white hover:bg-blue-600",
+  },
+  done: {
+    variant: "default",
+    className: "bg-emerald-500 text-white hover:bg-emerald-600",
+  },
+  cancelled: {
+    variant: "destructive",
+  },
+};
+
+const getStatusConfig = (status: DeliveryStatus) => STATUS_CONFIG[status] ?? STATUS_CONFIG.draft;
 
 interface DeliveriesListViewProps {
   organizationId: string;
@@ -104,23 +133,6 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
     }
 
     return formatDate(dateStr, locale);
-  };
-
-  const getStatusVariant = (status: DeliveryStatus) => {
-    switch (status) {
-      case "draft":
-        return "secondary";
-      case "waiting":
-        return "default";
-      case "ready":
-        return "default";
-      case "done":
-        return "success";
-      case "cancelled":
-        return "destructive";
-      default:
-        return "secondary";
-    }
   };
 
   return (
@@ -256,47 +268,51 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
                 <TableHead>{t("fields.contact")}</TableHead>
                 <TableHead>{t("fields.scheduledDate")}</TableHead>
                 <TableHead>{t("fields.sourceDocument")}</TableHead>
-                <TableHead className="text-right">Status</TableHead>
+                <TableHead className="text-right">{t("fields.status")}</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deliveries.map((delivery) => (
-                <TableRow
-                  key={delivery.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleRowClick(delivery.id)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" className="rounded border-gray-300" />
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      className="text-muted-foreground hover:text-yellow-500"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Toggle favorite
-                      }}
-                    >
-                      ☆
-                    </button>
-                  </TableCell>
-                  <TableCell className="font-medium">{delivery.delivery_number}</TableCell>
-                  <TableCell>
-                    {delivery.delivery_address || delivery.created_by_user?.name || "-"}
-                  </TableCell>
-                  <TableCell>{formatScheduledDate(delivery.scheduled_date)}</TableCell>
-                  <TableCell>{delivery.source_document || "-"}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={getStatusVariant(delivery.status)}>
-                      {t(`statuses.${delivery.status}`)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <button className="text-muted-foreground hover:text-foreground">⋮</button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {deliveries.map((delivery) => {
+                const statusConfig = getStatusConfig(delivery.status);
+
+                return (
+                  <TableRow
+                    key={delivery.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleRowClick(delivery.id)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" className="rounded border-gray-300" />
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        className="text-muted-foreground hover:text-yellow-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Toggle favorite
+                        }}
+                      >
+                        ☆
+                      </button>
+                    </TableCell>
+                    <TableCell className="font-medium">{delivery.delivery_number}</TableCell>
+                    <TableCell>
+                      {delivery.delivery_address || delivery.created_by_user?.name || "-"}
+                    </TableCell>
+                    <TableCell>{formatScheduledDate(delivery.scheduled_date)}</TableCell>
+                    <TableCell>{delivery.source_document || "-"}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant={statusConfig.variant} className={cn(statusConfig.className)}>
+                        {t(`statuses.${delivery.status}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <button className="text-muted-foreground hover:text-foreground">⋮</button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>

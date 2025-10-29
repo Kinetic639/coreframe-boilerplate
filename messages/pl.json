@@ -919,6 +919,7 @@
             "contact": "Kontakt",
             "scheduledDate": "Planowana data",
             "sourceDocument": "Dokument źródłowy",
+            "status": "Status",
             "deliveryAddress": "Adres dostawy",
             "operationType": "Typ operacji",
             "shippingPolicy": "Polityka wysyłki",

@@ -964,6 +964,7 @@
             "contact": "Contact",
             "scheduledDate": "Scheduled Date",
             "sourceDocument": "Source Document",
+            "status": "Status",
             "deliveryAddress": "Delivery Address",
             "operationType": "Operation Type",
             "shippingPolicy": "Shipping Policy",

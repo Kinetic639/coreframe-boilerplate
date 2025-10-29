@@ -36,10 +36,10 @@ export function DeliveryDetailsForm({
   const t = useTranslations("modules.warehouse.items.deliveries");
 
   const deliverySteps: Step[] = [
-    { label: t("status.draft"), value: "draft" },
-    { label: t("status.waiting"), value: "waiting" },
-    { label: t("status.ready"), value: "ready" },
-    { label: t("status.done"), value: "done" },
+    { label: t("statuses.draft"), value: "draft" },
+    { label: t("statuses.waiting"), value: "waiting" },
+    { label: t("statuses.ready"), value: "ready" },
+    { label: t("statuses.done"), value: "done" },
   ];
 
   // Get locations from store
