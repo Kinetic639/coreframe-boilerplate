@@ -45,7 +45,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 16));
   const [sourceDocument, setSourceDocument] = useState("");
-  const [shippingPolicy, setShippingPolicy] = useState("As soon as possible");
+  const [shippingPolicy, setShippingPolicy] = useState(t("shipping.asSoonAsPossible"));
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -93,7 +93,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         <div className="space-y-2">
           <div className="flex items-center gap-4">
             <button className="text-2xl text-muted-foreground hover:text-yellow-500">☆</button>
-            <h1 className="text-3xl font-bold">New Delivery</h1>
+            <h1 className="text-3xl font-bold">{t("new")}</h1>
           </div>
         </div>
         <div className="flex gap-2">
@@ -105,7 +105,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
             disabled={loading}
             className="bg-[#8B4789] hover:bg-[#7A3E78]"
           >
-            {loading ? "Saving..." : t("actions.validate")}
+            {loading ? t("actions.saving") : t("actions.validate")}
           </Button>
         </div>
       </div>
@@ -124,29 +124,31 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               <div className="space-y-2">
                 <Label>
                   {t("fields.destinationLocation")}
-                  <span className="text-xs text-muted-foreground ml-2">(Optional)</span>
+                  <span className="text-xs text-muted-foreground ml-2">{t("form.optional")}</span>
                 </Label>
                 <Select
                   value={destinationLocationId}
-                  onValuechange={setDestinationLocationId}
+                  onValueChange={setDestinationLocationId}
                   disabled={locations.length === 0}
                 >
                   <SelectTrigger>
                     <SelectValue
                       placeholder={
                         locations.length === 0
-                          ? "No locations available"
-                          : "Select location to assign products immediately (optional)"
+                          ? t("form.noLocationsAvailable")
+                          : t("form.selectLocationPlaceholder")
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">
-                      <span className="text-muted-foreground">None (receive without location)</span>
+                      <span className="text-muted-foreground">
+                        {t("form.receiveWithoutLocation")}
+                      </span>
                     </SelectItem>
                     {locations.length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground text-center">
-                        No locations found. Go to Locations menu to create one.
+                        {t("form.noLocationsFound")}
                       </div>
                     ) : (
                       locations.map((location) => (
@@ -158,14 +160,10 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </SelectContent>
                 </Select>
                 {destinationLocationId && destinationLocationId !== "none" && (
-                  <p className="text-xs text-muted-foreground">
-                    Products will be moved to this location when delivery is received
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t("form.moveToLocationInfo")}</p>
                 )}
                 {(!destinationLocationId || destinationLocationId === "none") && (
-                  <p className="text-xs text-yellow-600">
-                    Products will be received but not assigned to a location yet
-                  </p>
+                  <p className="text-xs text-yellow-600">{t("form.receiveWithoutLocationInfo")}</p>
                 )}
               </div>
 
@@ -174,7 +172,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 <Input
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="e.g. Lumber Inc"
+                  placeholder={t("form.deliveryAddressPlaceholder")}
                 />
               </div>
 
@@ -188,8 +186,8 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               </div>
 
               <div className="space-y-2">
-                <Label>Operation Type</Label>
-                <Input value="Delivery Orders" disabled className="bg-muted" />
+                <Label>{t("fields.operationType")}</Label>
+                <Input value={t("form.operationTypeValue")} disabled className="bg-muted" />
               </div>
 
               <div className="space-y-2">
@@ -197,7 +195,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 <Input
                   value={sourceDocument}
                   onChange={(e) => setSourceDocument(e.target.value)}
-                  placeholder="e.g. PO0032"
+                  placeholder={t("form.sourceDocumentPlaceholder")}
                 />
               </div>
             </div>
@@ -255,7 +253,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="w-full min-h-[200px] p-3 border rounded-md"
-                    placeholder="Add notes..."
+                    placeholder={t("form.notesPlaceholder")}
                   />
                 </div>
               </Card>
@@ -269,18 +267,18 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
             <div className="space-y-4">
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1">
-                  Send message
+                  {t("form.sendMessage")}
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1">
-                  Log note
+                  {t("form.logNote")}
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1">
-                  Activity
+                  {t("form.activity")}
                 </Button>
               </div>
 
               <div className="border-t pt-4">
-                <p className="text-sm text-muted-foreground">Today</p>
+                <p className="text-sm text-muted-foreground">{t("form.today")}</p>
                 <div className="mt-2 flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold text-sm">
                     M
@@ -289,7 +287,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     <p className="text-sm font-medium">
                       Michalek <span className="text-muted-foreground text-xs">5:22 AM</span>
                     </p>
-                    <p className="text-sm text-muted-foreground">Creating a new record...</p>
+                    <p className="text-sm text-muted-foreground">{t("form.activityDescription")}</p>
                   </div>
                 </div>
               </div>
