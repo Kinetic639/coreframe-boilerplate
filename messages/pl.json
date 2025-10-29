@@ -906,7 +906,7 @@
           "title": "Dostawy",
           "list": "Lista dostaw",
           "new": "Nowa dostawa",
-          "status": {
+          "statuses": {
             "draft": "Projekt",
             "waiting": "Oczekuje",
             "ready": "Gotowe",
@@ -932,7 +932,8 @@
             "cancel": "Anuluj",
             "edit": "Edytuj",
             "delete": "Usuń",
-            "viewDetails": "Zobacz szczegóły"
+            "viewDetails": "Zobacz szczegóły",
+            "saving": "Zapisywanie..."
           },
           "products": {
             "title": "Produkty",
@@ -947,6 +948,24 @@
             "quantity": "Ilość zapotrzebowania",
             "enterQuantity": "Wprowadź ilość",
             "enterUnitCost": "Wprowadź cenę jednostkową"
+          },
+          "form": {
+            "optional": "(Opcjonalnie)",
+            "noLocationsAvailable": "Brak dostępnych lokalizacji",
+            "selectLocationPlaceholder": "Wybierz lokalizację, aby od razu przypisać produkty (opcjonalnie)",
+            "receiveWithoutLocation": "Brak (przyjmij bez lokalizacji)",
+            "noLocationsFound": "Nie znaleziono lokalizacji. Przejdź do menu Lokalizacje, aby ją utworzyć.",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do tej lokalizacji po przyjęciu dostawy",
+            "receiveWithoutLocationInfo": "Produkty zostaną przyjęte, ale jeszcze nie przypisane do lokalizacji",
+            "deliveryAddressPlaceholder": "np. Lumber Inc",
+            "sourceDocumentPlaceholder": "np. PO0032",
+            "notesPlaceholder": "Dodaj notatki...",
+            "operationTypeValue": "Zlecenia dostawy",
+            "sendMessage": "Wyślij wiadomość",
+            "logNote": "Dodaj notatkę",
+            "activity": "Aktywność",
+            "today": "Dzisiaj",
+            "activityDescription": "Tworzenie nowego rekordu..."
           },
           "tabs": {
             "operations": "Operacje",
