@@ -1,3 +1,5 @@
+"use client";
+
 // =============================================
 // Stock Movement Card Component
 // Displays movement summary in a card format

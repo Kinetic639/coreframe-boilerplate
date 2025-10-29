@@ -951,7 +951,7 @@
           "title": "Deliveries",
           "list": "Deliveries List",
           "new": "New Delivery",
-          "status": {
+          "statuses": {
             "draft": "Draft",
             "waiting": "Waiting",
             "ready": "Ready",
@@ -964,6 +964,7 @@
             "contact": "Contact",
             "scheduledDate": "Scheduled Date",
             "sourceDocument": "Source Document",
+            "status": "Status",
             "deliveryAddress": "Delivery Address",
             "operationType": "Operation Type",
             "shippingPolicy": "Shipping Policy",
@@ -977,7 +978,8 @@
             "cancel": "Cancel",
             "edit": "Edit",
             "delete": "Delete",
-            "viewDetails": "View Details"
+            "viewDetails": "View Details",
+            "saving": "Saving..."
           },
           "products": {
             "title": "Products",
@@ -992,6 +994,24 @@
             "quantity": "Demand Quantity",
             "enterQuantity": "Enter quantity",
             "enterUnitCost": "Enter unit cost"
+          },
+          "form": {
+            "optional": "(Optional)",
+            "noLocationsAvailable": "No locations available",
+            "selectLocationPlaceholder": "Select location to assign products immediately (optional)",
+            "receiveWithoutLocation": "None (receive without location)",
+            "noLocationsFound": "No locations found. Go to Locations menu to create one.",
+            "moveToLocationInfo": "Products will be moved to this location when delivery is received",
+            "receiveWithoutLocationInfo": "Products will be received but not assigned to a location yet",
+            "deliveryAddressPlaceholder": "e.g. Lumber Inc",
+            "sourceDocumentPlaceholder": "e.g. PO0032",
+            "notesPlaceholder": "Add notes...",
+            "operationTypeValue": "Delivery Orders",
+            "sendMessage": "Send message",
+            "logNote": "Log note",
+            "activity": "Activity",
+            "today": "Today",
+            "activityDescription": "Creating a new record..."
           },
           "tabs": {
             "operations": "Operations",
