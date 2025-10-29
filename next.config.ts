@@ -1,7 +1,7 @@
 import {NextConfig} from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
- 
-const nextConfig: NextConfig = {
+
+const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ["avatars.githubusercontent.com", "zlcnlalwfmmtusigeuyk.supabase.co", "picsum.photos"],
@@ -17,9 +17,6 @@ const nextConfig: NextConfig = {
     // Disable TypeScript type-checking during builds to avoid timeout - run separately with 'npm run type-check'
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true, // Disable ESLint during builds - run separately with 'npm run lint'
-  },
   // Suppress Supabase Edge Runtime warnings
   webpack: (config, { isServer }) => {
     if (isServer) {
@@ -30,8 +27,8 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-};
- 
+} satisfies NextConfig;
+
 const withNextIntl = createNextIntlPlugin();
 export default withNextIntl(nextConfig);
 

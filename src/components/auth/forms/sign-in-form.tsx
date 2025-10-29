@@ -58,12 +58,7 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">{t("passwordLabel")}</Label>
-              <Link className="text-xs text-foreground underline" href="/forgot-password">
-                {t("forgotPassword")}
-              </Link>
-            </div>
+            <Label htmlFor="password">{t("passwordLabel")}</Label>
             <Input
               id="password"
               type="password"
@@ -73,6 +68,9 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
             )}
+            <Link className="text-xs text-foreground underline self-end" href="/forgot-password">
+              {t("forgotPassword")}
+            </Link>
           </div>
 
           <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
