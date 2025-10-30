@@ -109,12 +109,13 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
     const movements = relatedMovements || [];
 
     // Fetch responsible user if available in metadata
+    // Query from public.users table (application-level users, not auth.users)
     const responsibleUserId = (primaryMovement.metadata as any)?.responsible_user_id;
     let responsibleUser = null;
 
     if (responsibleUserId) {
       const { data: userData, error: userError } = await supabase
-        .from("users")
+        .from("users") // This queries public.users by default
         .select("id, email, first_name, last_name, avatar_url")
         .eq("id", responsibleUserId)
         .single();
