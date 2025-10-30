@@ -223,11 +223,11 @@ export function MovementDetailsModal({
             </>
           )}
 
-          {/* Timestamps */}
+          {/* Timestamps and Users */}
           <div className="space-y-3">
             <h3 className="font-semibold flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Timestamps
+              Timestamps & Responsible Persons
             </h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
@@ -238,11 +238,33 @@ export function MovementDetailsModal({
                 <p className="text-muted-foreground">Created At</p>
                 <p className="font-medium">{formatDate(movement.created_at)}</p>
               </div>
-              {movement.approved_at && (
-                <div>
-                  <p className="text-muted-foreground">Approved At</p>
-                  <p className="font-medium">{formatDate(movement.approved_at)}</p>
+              {movement.created_by_user && (
+                <div className="col-span-2">
+                  <p className="text-muted-foreground">Created By</p>
+                  <p className="font-medium">
+                    {movement.created_by_user.first_name && movement.created_by_user.last_name
+                      ? `${movement.created_by_user.first_name} ${movement.created_by_user.last_name}`
+                      : movement.created_by_user.email}
+                  </p>
                 </div>
+              )}
+              {movement.approved_at && (
+                <>
+                  <div>
+                    <p className="text-muted-foreground">Approved At</p>
+                    <p className="font-medium">{formatDate(movement.approved_at)}</p>
+                  </div>
+                  {movement.approved_by_user && (
+                    <div>
+                      <p className="text-muted-foreground">Approved By</p>
+                      <p className="font-medium">
+                        {movement.approved_by_user.first_name && movement.approved_by_user.last_name
+                          ? `${movement.approved_by_user.first_name} ${movement.approved_by_user.last_name}`
+                          : movement.approved_by_user.email}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
               {movement.completed_at && (
                 <div>
@@ -251,10 +273,23 @@ export function MovementDetailsModal({
                 </div>
               )}
               {movement.cancelled_at && (
-                <div>
-                  <p className="text-muted-foreground">Cancelled At</p>
-                  <p className="font-medium">{formatDate(movement.cancelled_at)}</p>
-                </div>
+                <>
+                  <div>
+                    <p className="text-muted-foreground">Cancelled At</p>
+                    <p className="font-medium">{formatDate(movement.cancelled_at)}</p>
+                  </div>
+                  {movement.cancelled_by_user && (
+                    <div>
+                      <p className="text-muted-foreground">Cancelled By</p>
+                      <p className="font-medium">
+                        {movement.cancelled_by_user.first_name &&
+                        movement.cancelled_by_user.last_name
+                          ? `${movement.cancelled_by_user.first_name} ${movement.cancelled_by_user.last_name}`
+                          : movement.cancelled_by_user.email}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

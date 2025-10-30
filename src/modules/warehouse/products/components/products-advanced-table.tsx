@@ -14,11 +14,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Edit,
   Trash2,
   Package,
-  Clock,
   ArrowRightLeft,
   MoreVertical,
   X,
@@ -31,6 +31,9 @@ import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { useAppStore } from "@/lib/stores/app-store";
+import { MovementHistoryList } from "@/modules/warehouse/components/movement-history-list";
+import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
+import type { StockMovementWithRelations } from "@/modules/warehouse/types/stock-movements";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
@@ -78,6 +81,10 @@ export function ProductsAdvancedTable({
     Record<string, CustomFieldValue[]>
   >({});
   const [categoryTree, setCategoryTree] = React.useState<CategoryTreeItem[]>([]);
+  const [selectedMovement, setSelectedMovement] = React.useState<StockMovementWithRelations | null>(
+    null
+  );
+  const [isMovementDetailsOpen, setIsMovementDetailsOpen] = React.useState(false);
 
   // Load categories
   React.useEffect(() => {
@@ -625,14 +632,15 @@ export function ProductsAdvancedTable({
         </TabsContent>
 
         {/* History Tab */}
-        <TabsContent value="history" className="flex-1 overflow-auto p-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Clock className="mb-3 h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mb-1 text-sm font-medium">No history available</h3>
-            <p className="text-xs text-muted-foreground">
-              Product history and audit logs will appear here
-            </p>
-          </div>
+        <TabsContent value="history" className="flex-1 overflow-auto">
+          <MovementHistoryList
+            filters={{ product_id: product.id }}
+            maxHeight="600px"
+            onMovementClick={(movement) => {
+              setSelectedMovement(movement);
+              setIsMovementDetailsOpen(true);
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -698,6 +706,14 @@ export function ProductsAdvancedTable({
               console.error("Failed to reload custom field values:", error);
             }
           }}
+        />
+      )}
+
+      {selectedMovement && (
+        <MovementDetailsModal
+          movement={selectedMovement}
+          open={isMovementDetailsOpen}
+          onOpenChange={setIsMovementDetailsOpen}
         />
       )}
     </>
