@@ -1,7 +1,8 @@
 {pkgs}: {
-  channel = "stable-24.05";
+  channel = "unstable";
   packages = [
     pkgs.nodejs_20
+    pkgs.supabase-cli
   ];
   idx.extensions = [
     
