@@ -5,7 +5,7 @@
       "args": ["-y", "@supabase/mcp-server-supabase@latest"],
       "env": {
         "SUPABASE_URL": "https://zlcnlalwfmmtusigeuyk.supabase.co",
-        "SUPABASE_ACCESS_TOKEN": "sbp_0f6b6deefb203b99635351b02cacf0d6fce4be70"
+        "SUPABASE_ACCESS_TOKEN": "sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e"
       }
     }
   }
