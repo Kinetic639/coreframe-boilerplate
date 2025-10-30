@@ -98,7 +98,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       notes,
       items,
       supplier_id: selectedSupplierId || undefined,
-      supplier_contact_id: selectedSupplierContact || undefined,
     };
 
     const result = await createDelivery(data);
