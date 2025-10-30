@@ -260,11 +260,11 @@ export function DeliveryDetailsForm({
                     <Label>{t("additionalInfo.responsible")}</Label>
                     <div className="flex items-center gap-2 p-2 border rounded">
                       <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
-                        {delivery.created_by_user?.name?.[0]?.toUpperCase() || "U"}
+                        {delivery.responsible_user?.name?.[0]?.toUpperCase() || "U"}
                       </div>
                       <span>
-                        {delivery.created_by_user?.name ||
-                          delivery.created_by_user?.email ||
+                        {delivery.responsible_user?.name ||
+                          delivery.responsible_user?.email ||
                           "Unknown"}
                       </span>
                     </div>

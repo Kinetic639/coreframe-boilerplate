@@ -108,6 +108,22 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
 
     const movements = relatedMovements || [];
 
+    // Fetch responsible user if available in metadata
+    const responsibleUserId = (primaryMovement.metadata as any)?.responsible_user_id;
+    let responsibleUser = null;
+
+    if (responsibleUserId) {
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id, email, first_name, last_name, avatar_url")
+        .eq("id", responsibleUserId)
+        .single();
+
+      if (!userError && userData) {
+        responsibleUser = userData;
+      }
+    }
+
     // Build delivery object
     const delivery: DeliveryWithRelations = {
       id: primaryMovement.id,
@@ -160,6 +176,16 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
               name: primaryMovement.created_by_user[0].email.split("@")[0],
             }
           : undefined,
+      responsible_user: responsibleUser
+        ? {
+            id: responsibleUser.id,
+            email: responsibleUser.email,
+            name:
+              responsibleUser.first_name && responsibleUser.last_name
+                ? `${responsibleUser.first_name} ${responsibleUser.last_name}`
+                : responsibleUser.email.split("@")[0],
+          }
+        : undefined,
       items_with_details: movements.map((m: any) => {
         const productData =
           m.products && Array.isArray(m.products) && m.products.length > 0 ? m.products[0] : null;
