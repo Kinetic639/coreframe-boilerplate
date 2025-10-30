@@ -107,6 +107,7 @@ export interface CreateDeliveryData {
   delivery_address?: string;
   shipping_policy?: string;
   responsible_user_id?: string;
+  supplier_id?: string; // Supplier/vendor for this delivery
   notes?: string;
   items: DeliveryItem[];
 }
