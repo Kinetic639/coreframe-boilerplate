@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/claude-code':
-        specifier: ^2.0.26
-        version: 2.0.26
+        specifier: ^2.0.29
+        version: 2.0.29
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -374,8 +374,8 @@ packages:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
 
-  '@anthropic-ai/claude-code@2.0.26':
-    resolution: {integrity: sha512-bk/sxGdTEbI0N7g+pTwYq5CNUjdAcvIKXvf/x5oRV9q24b42uq3gijrZGycSbWmtYTIjbzFAHeWw5n7Ic43/6w==}
+  '@anthropic-ai/claude-code@2.0.29':
+    resolution: {integrity: sha512-a/dMfD9UTk+aA6DmNRSMUnMsj/Rk657qE8IKBqYS/Dt5stApJH6cSH0dmZKOIPa/qBHcekUPTrRvVpAC1mTQ9A==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -6971,7 +6971,7 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@anthropic-ai/claude-code@2.0.26':
+  '@anthropic-ai/claude-code@2.0.29':
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5

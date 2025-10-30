@@ -4081,9 +4081,15 @@ export type Database = {
       };
       create_stock_movement: {
         Args: {
+          p_batch_number?: string;
           p_branch_id: string;
           p_created_by?: string;
+          p_currency?: string;
           p_destination_location_id?: string;
+          p_expiry_date?: string;
+          p_lot_number?: string;
+          p_manufacturing_date?: string;
+          p_metadata?: Json;
           p_movement_type_code: string;
           p_notes?: string;
           p_occurred_at?: string;
@@ -4091,7 +4097,9 @@ export type Database = {
           p_product_id: string;
           p_quantity: number;
           p_reference_id?: string;
+          p_reference_number?: string;
           p_reference_type?: string;
+          p_serial_number?: string;
           p_source_location_id?: string;
           p_unit_cost?: number;
           p_variant_id?: string;
