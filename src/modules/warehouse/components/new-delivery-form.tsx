@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,11 @@ import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
 import { createDelivery } from "@/app/actions/warehouse/create-delivery";
 import { useAppStore } from "@/lib/stores/app-store";
+import { useUserStore } from "@/lib/stores/user-store";
+import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
+import { Plus } from "lucide-react";
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -38,8 +41,14 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     { label: t("status.done"), value: "done" },
   ];
 
+  // Get data from stores
   const locations = useAppStore((state) => state.locations);
+  const suppliers = useAppStore((state) => state.suppliers);
+  const organizationUsers = useAppStore((state) => state.organizationUsers);
+  const currentUser = useUserStore((state) => state.user);
+  const loadBranchData = useAppStore((state) => state.loadBranchData);
 
+  // Form state
   const [destinationLocationId, setDestinationLocationId] = useState<string>("none");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 16));
@@ -49,9 +58,29 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // User and supplier selection
+  const [responsibleUserId, setResponsibleUserId] = useState<string>("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+
+  // Initialize responsible user to current user
+  useEffect(() => {
+    if (currentUser?.id && !responsibleUserId) {
+      setResponsibleUserId(currentUser.id);
+    }
+  }, [currentUser, responsibleUserId]);
+
+  // Get selected supplier details
+  const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
+
   const handleSave = async () => {
     if (items.length === 0) {
       toast.error(t("products.noProducts"));
+      return;
+    }
+
+    if (!responsibleUserId) {
+      toast.error("Please select a responsible user");
       return;
     }
 
@@ -65,8 +94,11 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
       shipping_policy: shippingPolicy,
+      responsible_user_id: responsibleUserId,
       notes,
       items,
+      supplier_id: selectedSupplierId || undefined,
+      supplier_contact_id: selectedSupplierContact || undefined,
     };
 
     const result = await createDelivery(data);
@@ -81,8 +113,35 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     }
   };
 
+  const handleSupplierCreated = async () => {
+    // Reload suppliers after creating new one
+    await loadBranchData(branchId);
+    // Auto-select the newly created supplier (it will be the most recent one)
+    if (suppliers.length > 0) {
+      const newestSupplier = suppliers[suppliers.length - 1];
+      setSelectedSupplierId(newestSupplier.id);
+    }
+  };
+
   const handleCancel = () => {
     router.push("/dashboard/warehouse/deliveries");
+  };
+
+  // Helper function to get user display name
+  const getUserDisplayName = (userId: string) => {
+    const user = organizationUsers.find((u) => u.id === userId);
+    if (!user) return "Unknown User";
+    return user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
+  };
+
+  // Helper function to get user initials
+  const getUserInitials = (userId: string) => {
+    const user = organizationUsers.find((u) => u.id === userId);
+    if (!user) return "?";
+    if (user.first_name && user.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    }
+    return user.email[0].toUpperCase();
   };
 
   return (
@@ -116,6 +175,46 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         <div className="col-span-2 space-y-6">
           <Card className="p-6">
             <div className="grid grid-cols-2 gap-6">
+              {/* Supplier/Vendor Selection */}
+              <div className="space-y-2">
+                <Label>Supplier / Vendor</Label>
+                <div className="flex gap-2">
+                  <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select supplier..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No suppliers found
+                        </div>
+                      ) : (
+                        suppliers.map((supplier) => (
+                          <SelectItem key={supplier.id} value={supplier.id}>
+                            {supplier.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSupplierDialogOpen(true)}
+                    title="Add new supplier"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {selectedSupplier && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedSupplier.city && `${selectedSupplier.city}, `}
+                    {selectedSupplier.country}
+                  </p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label>
                   {t("fields.destinationLocation")}
@@ -227,13 +326,44 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t("additionalInfo.responsible")}</Label>
-                    <div className="flex items-center gap-2 p-2 border rounded">
-                      <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
-                        M
+                    <Label>{t("additionalInfo.responsible")} *</Label>
+                    <Select value={responsibleUserId} onValueChange={setResponsibleUserId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select responsible user..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizationUsers.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No users found
+                          </div>
+                        ) : (
+                          organizationUsers.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-[#10b981] flex items-center justify-center text-white text-xs font-semibold">
+                                  {user.first_name && user.last_name
+                                    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
+                                    : user.email[0].toUpperCase()}
+                                </div>
+                                <span>
+                                  {user.first_name && user.last_name
+                                    ? `${user.first_name} ${user.last_name}`
+                                    : user.email}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {responsibleUserId && (
+                      <div className="flex items-center gap-2 p-2 border rounded bg-muted/50">
+                        <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
+                          {getUserInitials(responsibleUserId)}
+                        </div>
+                        <span className="font-medium">{getUserDisplayName(responsibleUserId)}</span>
                       </div>
-                      <span>Michalek</span>
-                    </div>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -274,11 +404,18 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 <p className="text-sm text-muted-foreground">{t("form.today")}</p>
                 <div className="mt-2 flex gap-3">
                   <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold text-sm">
-                    M
+                    {currentUser && currentUser.first_name && currentUser.last_name
+                      ? `${currentUser.first_name[0]}${currentUser.last_name[0]}`.toUpperCase()
+                      : currentUser?.email[0].toUpperCase() || "?"}
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">
-                      Michalek <span className="text-muted-foreground text-xs">5:22 AM</span>
+                      {currentUser && currentUser.first_name && currentUser.last_name
+                        ? `${currentUser.first_name} ${currentUser.last_name}`
+                        : currentUser?.email || "Unknown"}
+                      <span className="text-muted-foreground text-xs ml-1">
+                        {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
                     </p>
                     <p className="text-sm text-muted-foreground">{t("form.activityDescription")}</p>
                   </div>
@@ -288,6 +425,13 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
           </Card>
         </div>
       </div>
+
+      {/* Supplier Dialog */}
+      <NewSupplierFormDialog
+        open={supplierDialogOpen}
+        onOpenChange={setSupplierDialogOpen}
+        onSuccess={handleSupplierCreated}
+      />
     </div>
   );
 }

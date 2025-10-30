@@ -72,6 +72,8 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
           delivery_address: data.delivery_address,
           shipping_policy: data.shipping_policy,
           responsible_user_id: data.responsible_user_id,
+          supplier_id: data.supplier_id,
+          supplier_contact_id: data.supplier_contact_id,
         },
       };
 
