@@ -108,7 +108,6 @@ export interface CreateDeliveryData {
   shipping_policy?: string;
   responsible_user_id?: string;
   supplier_id?: string; // Supplier/vendor for this delivery
-  supplier_contact_id?: string; // Contact person at supplier
   notes?: string;
   items: DeliveryItem[];
 }
