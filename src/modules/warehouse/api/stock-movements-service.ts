@@ -76,11 +76,14 @@ export class StockMovementsService {
       .select(
         `
         *,
-        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en, category),
+        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en, category, polish_document_type),
         product:products!stock_movements_product_id_fkey(id, name, sku),
         variant:product_variants!stock_movements_variant_id_fkey(id, name, sku),
         source_location:locations!stock_movements_source_location_id_fkey(id, name, code),
-        destination_location:locations!stock_movements_destination_location_id_fkey(id, name, code)
+        destination_location:locations!stock_movements_destination_location_id_fkey(id, name, code),
+        created_by_user:users!stock_movements_created_by_fkey(id, email, first_name, last_name),
+        approved_by_user:users!stock_movements_approved_by_fkey(id, email, first_name, last_name),
+        cancelled_by_user:users!stock_movements_cancelled_by_fkey(id, email, first_name, last_name)
       `,
         { count: "exact" }
       )
@@ -121,7 +124,10 @@ export class StockMovementsService {
         product:products!stock_movements_product_id_fkey(*),
         variant:product_variants!stock_movements_variant_id_fkey(*),
         source_location:locations!stock_movements_source_location_id_fkey(*),
-        destination_location:locations!stock_movements_destination_location_id_fkey(*)
+        destination_location:locations!stock_movements_destination_location_id_fkey(*),
+        created_by_user:users!stock_movements_created_by_fkey(id, email, first_name, last_name),
+        approved_by_user:users!stock_movements_approved_by_fkey(id, email, first_name, last_name),
+        cancelled_by_user:users!stock_movements_cancelled_by_fkey(id, email, first_name, last_name)
       `
       )
       .eq("id", id)

@@ -132,12 +132,20 @@ export interface StockMovementWithRelations extends StockMovement {
   created_by_user?: {
     id: string;
     email: string;
-    name: string;
+    first_name: string | null;
+    last_name: string | null;
   };
   approved_by_user?: {
     id: string;
     email: string;
-    name: string;
+    first_name: string | null;
+    last_name: string | null;
+  };
+  cancelled_by_user?: {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
   };
 }
 
