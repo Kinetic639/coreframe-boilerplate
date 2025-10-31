@@ -34,6 +34,7 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { MovementHistoryList } from "@/modules/warehouse/components/movement-history-list";
 import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
 import type { StockMovementWithRelations } from "@/modules/warehouse/types/stock-movements";
+import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
@@ -85,6 +86,7 @@ export function ProductsAdvancedTable({
     null
   );
   const [isMovementDetailsOpen, setIsMovementDetailsOpen] = React.useState(false);
+  const [productStockMap, setProductStockMap] = React.useState<Record<string, number>>({});
 
   // Load categories
   React.useEffect(() => {
@@ -104,6 +106,31 @@ export function ProductsAdvancedTable({
         });
     }
   }, [activeOrgId]);
+
+  // Load stock levels for all products
+  React.useEffect(() => {
+    if (activeOrgId && products.length > 0) {
+      const loadStockLevels = async () => {
+        try {
+          const stockLevels = await stockMovementsService.getInventoryLevels(activeOrgId);
+          const stockMap: Record<string, number> = {};
+
+          stockLevels.forEach((stock) => {
+            const key = stock.product_id;
+            if (!stockMap[key]) {
+              stockMap[key] = 0;
+            }
+            stockMap[key] += stock.available_quantity || 0;
+          });
+
+          setProductStockMap(stockMap);
+        } catch (error) {
+          console.error("Failed to load stock levels:", error);
+        }
+      };
+      loadStockLevels();
+    }
+  }, [activeOrgId, products]);
 
   // Load custom field values for all products
   React.useEffect(() => {
@@ -537,8 +564,10 @@ export function ProductsAdvancedTable({
                     {/* Quantity on hand */}
                     <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
                       <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">To be Shipped</div>
-                      <div className="mt-2 text-3xl font-bold">{product.opening_stock || 0}</div>
+                      <div className="text-sm font-medium">On Hand</div>
+                      <div className="mt-2 text-3xl font-bold">
+                        {productStockMap[product.id] || 0}
+                      </div>
                     </div>
 
                     {/* To be Received */}
@@ -595,14 +624,14 @@ export function ProductsAdvancedTable({
                         {product.reorder_point || 0} {product.unit}
                       </span>
                     </div>
-                    {product.reorder_point && product.opening_stock && (
+                    {product.reorder_point && (
                       <div className="rounded-lg bg-amber-50 p-3">
                         <div className="text-sm text-amber-900">
-                          {product.opening_stock < product.reorder_point ? (
+                          {(productStockMap[product.id] || 0) < product.reorder_point ? (
                             <>
                               <span className="font-semibold">Reorder needed:</span> Order at least{" "}
-                              {product.reorder_point - product.opening_stock} {product.unit} to
-                              reach reorder point
+                              {product.reorder_point - (productStockMap[product.id] || 0)}{" "}
+                              {product.unit} to reach reorder point
                             </>
                           ) : (
                             <>
