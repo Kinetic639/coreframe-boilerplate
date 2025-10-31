@@ -31,7 +31,12 @@ BEGIN
   -- Get organization and branch (assuming first org/branch for testing)
   SELECT id INTO org_id FROM organizations LIMIT 1;
   SELECT id INTO branch_id FROM branches WHERE organization_id = org_id LIMIT 1;
-  SELECT id INTO user_id FROM users WHERE organization_id = org_id LIMIT 1;
+
+  -- Get user from organization_users table
+  SELECT user_id INTO user_id
+  FROM organization_users
+  WHERE organization_id = org_id
+  LIMIT 1;
 
   IF org_id IS NULL OR branch_id IS NULL OR user_id IS NULL THEN
     RAISE EXCEPTION 'Missing organization, branch, or user data';
