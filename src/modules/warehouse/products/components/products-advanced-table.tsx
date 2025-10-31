@@ -35,6 +35,7 @@ import { MovementHistoryList } from "@/modules/warehouse/components/movement-his
 import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
 import type { StockMovementWithRelations } from "@/modules/warehouse/types/stock-movements";
 import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
+import { ProductLocationBreakdown } from "./product-location-breakdown";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
@@ -592,6 +593,11 @@ export function ProductsAdvancedTable({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Stock by Location */}
+              {product.product_type === "goods" && product.track_inventory && (
+                <ProductLocationBreakdown productId={product.id} organizationId={activeOrgId} />
               )}
 
               {/* Pricing & Cost - Clean layout like Zoho */}
