@@ -30,12 +30,8 @@ interface LocationDetailsPageProps {
   }>;
 }
 
-// Add generateStaticParams for static export
-export async function generateStaticParams() {
-  const supabase = await createClient();
-  const { data: locations } = await supabase.from("locations").select("id");
-  return locations?.map(({ id }) => ({ id })) || [];
-}
+// Dynamic page - cannot use generateStaticParams as it requires user context
+export const dynamic = "force-dynamic";
 
 function LoadingSkeleton() {
   return (
