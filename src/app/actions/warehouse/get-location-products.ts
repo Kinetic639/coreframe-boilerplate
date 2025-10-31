@@ -31,14 +31,33 @@ export async function getLocationProducts(
   try {
     const supabase = await createClient();
 
-    // Step 1: Get stock inventory data
-    const { data: inventoryData, error: inventoryError } = await supabase
+    // Step 1a: Get stock inventory data for products without variants
+    const { data: nonVariantData, error: nonVariantError } = await supabase
       .from("stock_inventory")
-      .select("*")
+      .select(
+        "product_id, variant_id, location_id, organization_id, branch_id, available_quantity, reserved_quantity, total_value, average_cost, last_movement_at"
+      )
       .eq("location_id", locationId)
       .eq("organization_id", organizationId)
+      .is("variant_id", null)
       .gt("available_quantity", 0)
       .order("available_quantity", { ascending: false });
+
+    // Step 1b: Get stock inventory data for products with variants
+    const { data: variantData, error: variantError } = await supabase
+      .from("stock_inventory")
+      .select(
+        "product_id, variant_id, location_id, organization_id, branch_id, available_quantity, reserved_quantity, total_value, average_cost, last_movement_at"
+      )
+      .eq("location_id", locationId)
+      .eq("organization_id", organizationId)
+      .not("variant_id", "is", null)
+      .gt("available_quantity", 0)
+      .order("available_quantity", { ascending: false });
+
+    // Combine both datasets
+    const inventoryData = [...(nonVariantData || []), ...(variantData || [])];
+    const inventoryError = nonVariantError || variantError;
 
     if (inventoryError) {
       console.error("Error fetching inventory:", inventoryError);
