@@ -14,11 +14,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+
 import {
   Edit,
   Trash2,
   Package,
-  Clock,
   ArrowRightLeft,
   MoreVertical,
   X,
@@ -31,6 +31,11 @@ import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
 import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { useAppStore } from "@/lib/stores/app-store";
+import { MovementHistoryList } from "@/modules/warehouse/components/movement-history-list";
+import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
+import type { StockMovementWithRelations } from "@/modules/warehouse/types/stock-movements";
+import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
+import { ProductLocationBreakdown } from "./product-location-breakdown";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
@@ -78,6 +83,11 @@ export function ProductsAdvancedTable({
     Record<string, CustomFieldValue[]>
   >({});
   const [categoryTree, setCategoryTree] = React.useState<CategoryTreeItem[]>([]);
+  const [selectedMovement, setSelectedMovement] = React.useState<StockMovementWithRelations | null>(
+    null
+  );
+  const [isMovementDetailsOpen, setIsMovementDetailsOpen] = React.useState(false);
+  const [productStockMap, setProductStockMap] = React.useState<Record<string, number>>({});
 
   // Load categories
   React.useEffect(() => {
@@ -97,6 +107,31 @@ export function ProductsAdvancedTable({
         });
     }
   }, [activeOrgId]);
+
+  // Load stock levels for all products
+  React.useEffect(() => {
+    if (activeOrgId && products.length > 0) {
+      const loadStockLevels = async () => {
+        try {
+          const stockLevels = await stockMovementsService.getInventoryLevels(activeOrgId);
+          const stockMap: Record<string, number> = {};
+
+          stockLevels.forEach((stock) => {
+            const key = stock.product_id;
+            if (!stockMap[key]) {
+              stockMap[key] = 0;
+            }
+            stockMap[key] += stock.available_quantity || 0;
+          });
+
+          setProductStockMap(stockMap);
+        } catch (error) {
+          console.error("Failed to load stock levels:", error);
+        }
+      };
+      loadStockLevels();
+    }
+  }, [activeOrgId, products]);
 
   // Load custom field values for all products
   React.useEffect(() => {
@@ -530,8 +565,10 @@ export function ProductsAdvancedTable({
                     {/* Quantity on hand */}
                     <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
                       <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">To be Shipped</div>
-                      <div className="mt-2 text-3xl font-bold">{product.opening_stock || 0}</div>
+                      <div className="text-sm font-medium">On Hand</div>
+                      <div className="mt-2 text-3xl font-bold">
+                        {productStockMap[product.id] || 0}
+                      </div>
                     </div>
 
                     {/* To be Received */}
@@ -556,6 +593,11 @@ export function ProductsAdvancedTable({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* Stock by Location */}
+              {product.product_type === "goods" && product.track_inventory && (
+                <ProductLocationBreakdown productId={product.id} organizationId={activeOrgId} />
               )}
 
               {/* Pricing & Cost - Clean layout like Zoho */}
@@ -588,14 +630,14 @@ export function ProductsAdvancedTable({
                         {product.reorder_point || 0} {product.unit}
                       </span>
                     </div>
-                    {product.reorder_point && product.opening_stock && (
+                    {product.reorder_point && (
                       <div className="rounded-lg bg-amber-50 p-3">
                         <div className="text-sm text-amber-900">
-                          {product.opening_stock < product.reorder_point ? (
+                          {(productStockMap[product.id] || 0) < product.reorder_point ? (
                             <>
                               <span className="font-semibold">Reorder needed:</span> Order at least{" "}
-                              {product.reorder_point - product.opening_stock} {product.unit} to
-                              reach reorder point
+                              {product.reorder_point - (productStockMap[product.id] || 0)}{" "}
+                              {product.unit} to reach reorder point
                             </>
                           ) : (
                             <>
@@ -625,14 +667,15 @@ export function ProductsAdvancedTable({
         </TabsContent>
 
         {/* History Tab */}
-        <TabsContent value="history" className="flex-1 overflow-auto p-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Clock className="mb-3 h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mb-1 text-sm font-medium">No history available</h3>
-            <p className="text-xs text-muted-foreground">
-              Product history and audit logs will appear here
-            </p>
-          </div>
+        <TabsContent value="history" className="flex-1 overflow-auto">
+          <MovementHistoryList
+            filters={{ product_id: product.id }}
+            maxHeight="600px"
+            onMovementClick={(movement) => {
+              setSelectedMovement(movement);
+              setIsMovementDetailsOpen(true);
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -698,6 +741,14 @@ export function ProductsAdvancedTable({
               console.error("Failed to reload custom field values:", error);
             }
           }}
+        />
+      )}
+
+      {selectedMovement && (
+        <MovementDetailsModal
+          movement={selectedMovement}
+          open={isMovementDetailsOpen}
+          onOpenChange={setIsMovementDetailsOpen}
         />
       )}
     </>

@@ -76,7 +76,7 @@ export class StockMovementsService {
       .select(
         `
         *,
-        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en, category),
+        movement_type:movement_types!stock_movements_movement_type_code_fkey(code, name, name_pl, name_en, category, polish_document_type),
         product:products!stock_movements_product_id_fkey(id, name, sku),
         variant:product_variants!stock_movements_variant_id_fkey(id, name, sku),
         source_location:locations!stock_movements_source_location_id_fkey(id, name, code),
@@ -99,8 +99,45 @@ export class StockMovementsService {
       throw new Error(`Failed to fetch movements: ${error.message}`);
     }
 
+    // Fetch user data separately for each movement
+    const movements = (data || []) as unknown as StockMovementWithRelations[];
+
+    // Collect unique user IDs
+    const userIds = new Set<string>();
+    movements.forEach((m) => {
+      if (m.created_by) userIds.add(m.created_by);
+      if (m.approved_by) userIds.add(m.approved_by);
+      if (m.cancelled_by) userIds.add(m.cancelled_by);
+    });
+
+    // Fetch all users in one query
+    const usersMap = new Map();
+    if (userIds.size > 0) {
+      const { data: users } = await this.supabase
+        .from("users")
+        .select("id, email, first_name, last_name")
+        .in("id", Array.from(userIds));
+
+      users?.forEach((user) => {
+        usersMap.set(user.id, user);
+      });
+    }
+
+    // Attach user data to movements
+    movements.forEach((movement) => {
+      if (movement.created_by) {
+        movement.created_by_user = usersMap.get(movement.created_by);
+      }
+      if (movement.approved_by) {
+        movement.approved_by_user = usersMap.get(movement.approved_by);
+      }
+      if (movement.cancelled_by) {
+        movement.cancelled_by_user = usersMap.get(movement.cancelled_by);
+      }
+    });
+
     return {
-      data: (data || []) as unknown as StockMovementWithRelations[],
+      data: movements,
       total: count || 0,
       page,
       page_size: pageSize,

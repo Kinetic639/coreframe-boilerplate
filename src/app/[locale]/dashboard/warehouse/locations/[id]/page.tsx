@@ -4,8 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { createClient } from "@/utils/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { createClient } from "@/utils/supabase/server";
+import { LocationProductsTable } from "@/modules/warehouse/locations/components/location-products-table";
 import { LocationTreeItem } from "@/lib/types/location-tree";
+import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import {
   MapPin,
   Package,
@@ -27,12 +30,8 @@ interface LocationDetailsPageProps {
   }>;
 }
 
-// Add generateStaticParams for static export
-export async function generateStaticParams() {
-  const supabase = createClient();
-  const { data: locations } = await supabase.from("locations").select("id");
-  return locations?.map(({ id }) => ({ id })) || [];
-}
+// Dynamic page - cannot use generateStaticParams as it requires user context
+export const dynamic = "force-dynamic";
 
 function LoadingSkeleton() {
   return (
@@ -50,7 +49,16 @@ function LoadingSkeleton() {
 }
 
 async function LocationDetailsContent({ locationId }: { locationId: string }) {
-  const supabase = createClient();
+  const supabase = await createClient();
+
+  // Load app context to get organization_id
+  const appContext = await loadAppContextServer();
+  const organizationId = appContext?.activeOrg?.organization_id;
+
+  if (!organizationId) {
+    console.error("No active organization found");
+    notFound();
+  }
 
   const { data: locationData, error: locationError } = await supabase
     .from("locations")
@@ -75,11 +83,12 @@ async function LocationDetailsContent({ locationId }: { locationId: string }) {
 
   const branch = locationData.branch_profiles;
 
-  // Fetch product count for the location
+  // Fetch product count for the location using stock_inventory view
   const { count: productCount, error: productCountError } = await supabase
-    .from("product_stock_locations")
-    .select("*", { count: "exact" })
-    .eq("location_id", locationId);
+    .from("stock_inventory")
+    .select("product_id", { count: "exact", head: true })
+    .eq("location_id", locationId)
+    .gt("available_quantity", 0);
 
   if (productCountError) {
     console.error("Error fetching product count:", productCountError);
@@ -189,191 +198,207 @@ async function LocationDetailsContent({ locationId }: { locationId: string }) {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Informacje podstawowe
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Nazwa</label>
-                <p className="text-sm">{location.name}</p>
-              </div>
-              {location.code && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Kod</label>
-                  <p className="font-mono text-sm">{location.code}</p>
-                </div>
-              )}
-            </div>
+      {/* Tabs */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview">Przegląd</TabsTrigger>
+          <TabsTrigger value="products">Produkty</TabsTrigger>
+        </TabsList>
 
-            {location.description && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Opis</label>
-                <p className="text-sm">{location.description}</p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Poziom</label>
-                <p className="text-sm">{location.level}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Kolejność</label>
-                <p className="text-sm">{location.sort_order}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Ikona</label>
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  <span className="text-sm">{location.icon_name}</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Kolor</label>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-4 w-4 rounded border"
-                    style={{ backgroundColor: location.color || "#6b7280" }}
-                  />
-                  <span className="font-mono text-sm">{location.color}</span>
-                </div>
-              </div>
-            </div>
-
-            {branch && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Oddział</label>
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <span className="text-sm">{branch.name}</span>
-                </div>
-              </div>
-            )}
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-              <div>
-                <label className="font-medium">Utworzono</label>
-                <p>{new Date(location.raw.created_at!).toLocaleDateString("pl-PL")}</p>
-              </div>
-              <div>
-                <label className="font-medium">Zaktualizowano</label>
-                <p>{new Date(location.raw.updated_at!).toLocaleDateString("pl-PL")}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Statistics and Relations */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Statystyki i relacje
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-lg bg-muted/20 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{productCount || 0}</div>
-                <div className="text-sm text-muted-foreground">Produktów</div>
-              </div>
-              <div className="rounded-lg bg-muted/20 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">{childLocations.length}</div>
-                <div className="text-sm text-muted-foreground">Podlokalizacji</div>
-              </div>
-            </div>
-
-            {parentLocation && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">
-                  Lokalizacja nadrzędna
-                </label>
-                <div className="mt-1 flex items-center gap-2 rounded bg-muted/20 p-2">
-                  <MapPin className="h-4 w-4" />
-                  <span className="text-sm">{parentLocation.name}</span>
-                  {parentLocation.code && (
-                    <Badge variant="outline" className="text-xs">
-                      {parentLocation.code}
-                    </Badge>
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Basic Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Informacje podstawowe
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Nazwa</label>
+                    <p className="text-sm">{location.name}</p>
+                  </div>
+                  {location.code && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">Kod</label>
+                      <p className="font-mono text-sm">{location.code}</p>
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
 
-            {childLocations.length > 0 && (
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Podlokalizacje</label>
-                <div className="mt-1 space-y-1">
-                  {childLocations.map((child) => {
-                    const ChildIcon = child.icon_name
-                      ? (Icons[child.icon_name as keyof typeof Icons] as React.ComponentType<{
-                          className?: string;
-                        }>)
-                      : Icons.MapPin;
+                {location.description && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Opis</label>
+                    <p className="text-sm">{location.description}</p>
+                  </div>
+                )}
 
-                    return (
-                      <div
-                        key={child.id}
-                        className="flex items-center gap-2 rounded bg-muted/20 p-2"
-                      >
-                        <div
-                          className="flex h-6 w-6 items-center justify-center rounded text-white"
-                          style={{ backgroundColor: child.color || "#6b7280" }}
-                        >
-                          <ChildIcon className="h-3 w-3" />
-                        </div>
-                        <span className="text-sm">{child.name}</span>
-                        {child.code && (
-                          <Badge variant="outline" className="text-xs">
-                            {child.code}
-                          </Badge>
-                        )}
-                        <div className="ml-auto text-xs text-muted-foreground">
-                          {/* Product count for child location */}
-                          {productCount || 0} produktów
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Poziom</label>
+                    <p className="text-sm">{location.level}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Kolejność</label>
+                    <p className="text-sm">{location.sort_order}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Image */}
-        {location.raw.image_url && (
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Zdjęcie lokalizacji
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-video overflow-hidden rounded-lg bg-muted">
-                <img
-                  src={location.raw.image_url}
-                  alt={location.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Ikona</label>
+                    <div className="flex items-center gap-2">
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm">{location.icon_name}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Kolor</label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-4 w-4 rounded border"
+                        style={{ backgroundColor: location.color || "#6b7280" }}
+                      />
+                      <span className="font-mono text-sm">{location.color}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {branch && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Oddział</label>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      <span className="text-sm">{branch.name}</span>
+                    </div>
+                  </div>
+                )}
+
+                <Separator />
+
+                <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+                  <div>
+                    <label className="font-medium">Utworzono</label>
+                    <p>{new Date(location.raw.created_at!).toLocaleDateString("pl-PL")}</p>
+                  </div>
+                  <div>
+                    <label className="font-medium">Zaktualizowano</label>
+                    <p>{new Date(location.raw.updated_at!).toLocaleDateString("pl-PL")}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Statistics and Relations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Statystyki i relacje
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg bg-muted/20 p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{productCount || 0}</div>
+                    <div className="text-sm text-muted-foreground">Produktów</div>
+                  </div>
+                  <div className="rounded-lg bg-muted/20 p-4 text-center">
+                    <div className="text-2xl font-bold text-primary">{childLocations.length}</div>
+                    <div className="text-sm text-muted-foreground">Podlokalizacji</div>
+                  </div>
+                </div>
+
+                {parentLocation && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Lokalizacja nadrzędna
+                    </label>
+                    <div className="mt-1 flex items-center gap-2 rounded bg-muted/20 p-2">
+                      <MapPin className="h-4 w-4" />
+                      <span className="text-sm">{parentLocation.name}</span>
+                      {parentLocation.code && (
+                        <Badge variant="outline" className="text-xs">
+                          {parentLocation.code}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {childLocations.length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Podlokalizacje
+                    </label>
+                    <div className="mt-1 space-y-1">
+                      {childLocations.map((child) => {
+                        const ChildIcon = child.icon_name
+                          ? (Icons[child.icon_name as keyof typeof Icons] as React.ComponentType<{
+                              className?: string;
+                            }>)
+                          : Icons.MapPin;
+
+                        return (
+                          <div
+                            key={child.id}
+                            className="flex items-center gap-2 rounded bg-muted/20 p-2"
+                          >
+                            <div
+                              className="flex h-6 w-6 items-center justify-center rounded text-white"
+                              style={{ backgroundColor: child.color || "#6b7280" }}
+                            >
+                              <ChildIcon className="h-3 w-3" />
+                            </div>
+                            <span className="text-sm">{child.name}</span>
+                            {child.code && (
+                              <Badge variant="outline" className="text-xs">
+                                {child.code}
+                              </Badge>
+                            )}
+                            <div className="ml-auto text-xs text-muted-foreground">
+                              {/* Product count for child location */}
+                              {productCount || 0} produktów
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Image */}
+            {location.raw.image_url && (
+              <Card className="md:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5" />
+                    Zdjęcie lokalizacji
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="aspect-video overflow-hidden rounded-lg bg-muted">
+                    <img
+                      src={location.raw.image_url}
+                      alt={location.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="products">
+          <LocationProductsTable locationId={locationId} organizationId={organizationId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -160,6 +160,16 @@ export function MovementHistoryList({
                   </span>
                 </div>
 
+                {/* Created by user */}
+                {movement.created_by_user && (
+                  <div className="text-xs text-muted-foreground">
+                    Created by:{" "}
+                    {movement.created_by_user.first_name && movement.created_by_user.last_name
+                      ? `${movement.created_by_user.first_name} ${movement.created_by_user.last_name}`
+                      : movement.created_by_user.email}
+                  </div>
+                )}
+
                 {/* Notes */}
                 {movement.notes && (
                   <p className="text-xs text-muted-foreground italic">{movement.notes}</p>
