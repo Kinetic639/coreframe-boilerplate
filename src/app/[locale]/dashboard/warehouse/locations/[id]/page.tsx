@@ -5,9 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/server";
 import { LocationProductsTable } from "@/modules/warehouse/locations/components/location-products-table";
 import { LocationTreeItem } from "@/lib/types/location-tree";
+import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import {
   MapPin,
   Package,
@@ -31,7 +32,7 @@ interface LocationDetailsPageProps {
 
 // Add generateStaticParams for static export
 export async function generateStaticParams() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: locations } = await supabase.from("locations").select("id");
   return locations?.map(({ id }) => ({ id })) || [];
 }
@@ -52,7 +53,16 @@ function LoadingSkeleton() {
 }
 
 async function LocationDetailsContent({ locationId }: { locationId: string }) {
-  const supabase = createClient();
+  const supabase = await createClient();
+
+  // Load app context to get organization_id
+  const appContext = await loadAppContextServer();
+  const organizationId = appContext?.activeOrg?.organization_id;
+
+  if (!organizationId) {
+    console.error("No active organization found");
+    notFound();
+  }
 
   const { data: locationData, error: locationError } = await supabase
     .from("locations")
@@ -390,10 +400,7 @@ async function LocationDetailsContent({ locationId }: { locationId: string }) {
         </TabsContent>
 
         <TabsContent value="products">
-          <LocationProductsTable
-            locationId={locationId}
-            organizationId={location.raw.organization_id}
-          />
+          <LocationProductsTable locationId={locationId} organizationId={organizationId} />
         </TabsContent>
       </Tabs>
     </div>
