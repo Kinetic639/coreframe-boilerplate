@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   // Get data from stores
   const locations = useAppStore((state) => state.locations);
   const suppliers = useAppStore((state) => state.suppliers);
-  const organizationUsers = useAppStore((state) => state.organizationUsers);
   const currentUser = useUserStore((state) => state.user);
   const loadBranchData = useAppStore((state) => state.loadBranchData);
 
@@ -58,17 +57,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // User and supplier selection
-  const [responsibleUserId, setResponsibleUserId] = useState<string>("");
+  // Supplier selection
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
-
-  // Initialize responsible user to current user
-  useEffect(() => {
-    if (currentUser?.id && !responsibleUserId) {
-      setResponsibleUserId(currentUser.id);
-    }
-  }, [currentUser, responsibleUserId]);
 
   // Get selected supplier details
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
@@ -79,8 +70,8 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       return;
     }
 
-    if (!responsibleUserId) {
-      toast.error("Please select a responsible user");
+    if (!currentUser?.id) {
+      toast.error("User not logged in");
       return;
     }
 
@@ -94,7 +85,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       source_document: sourceDocument,
       delivery_address: deliveryAddress,
       shipping_policy: shippingPolicy,
-      responsible_user_id: responsibleUserId,
+      responsible_user_id: currentUser.id, // Always use current logged-in user
       notes,
       items,
       supplier_id: selectedSupplierId || undefined,
@@ -124,23 +115,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
   const handleCancel = () => {
     router.push("/dashboard/warehouse/deliveries");
-  };
-
-  // Helper function to get user display name
-  const getUserDisplayName = (userId: string) => {
-    const user = organizationUsers.find((u) => u.id === userId);
-    if (!user) return "Unknown User";
-    return user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.email;
-  };
-
-  // Helper function to get user initials
-  const getUserInitials = (userId: string) => {
-    const user = organizationUsers.find((u) => u.id === userId);
-    if (!user) return "?";
-    if (user.first_name && user.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
-    }
-    return user.email[0].toUpperCase();
   };
 
   return (
@@ -325,44 +299,24 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{t("additionalInfo.responsible")} *</Label>
-                    <Select value={responsibleUserId} onValueChange={setResponsibleUserId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select responsible user..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {organizationUsers.length === 0 ? (
-                          <div className="p-2 text-sm text-muted-foreground text-center">
-                            No users found
-                          </div>
-                        ) : (
-                          organizationUsers.map((user) => (
-                            <SelectItem key={user.id} value={user.id}>
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-[#10b981] flex items-center justify-center text-white text-xs font-semibold">
-                                  {user.first_name && user.last_name
-                                    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
-                                    : user.email[0].toUpperCase()}
-                                </div>
-                                <span>
-                                  {user.first_name && user.last_name
-                                    ? `${user.first_name} ${user.last_name}`
-                                    : user.email}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    {responsibleUserId && (
-                      <div className="flex items-center gap-2 p-2 border rounded bg-muted/50">
-                        <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
-                          {getUserInitials(responsibleUserId)}
-                        </div>
-                        <span className="font-medium">{getUserDisplayName(responsibleUserId)}</span>
+                    <Label>{t("additionalInfo.responsible")}</Label>
+                    <div className="flex items-center gap-2 p-3 border rounded bg-muted/30">
+                      <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
+                        {currentUser && currentUser.first_name && currentUser.last_name
+                          ? `${currentUser.first_name[0]}${currentUser.last_name[0]}`.toUpperCase()
+                          : currentUser?.email[0].toUpperCase() || "?"}
                       </div>
-                    )}
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {currentUser && currentUser.first_name && currentUser.last_name
+                            ? `${currentUser.first_name} ${currentUser.last_name}`
+                            : currentUser?.email || "Unknown"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Automatically assigned as responsible for this delivery
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Card>
