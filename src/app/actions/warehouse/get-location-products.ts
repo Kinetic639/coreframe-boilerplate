@@ -49,11 +49,27 @@ export async function getLocationProducts(
       return { data: [], error: null };
     }
 
+    // Debug: Log raw inventory data to see variant_id values
+    console.log("Raw inventory data sample:", inventoryData[0]);
+    console.log(
+      "Variant IDs in data:",
+      inventoryData.map((item) => ({
+        variant_id: item.variant_id,
+        type: typeof item.variant_id,
+      }))
+    );
+
     // Step 2: Get unique product IDs and variant IDs
     const productIds = [...new Set(inventoryData.map((item) => item.product_id))];
+
+    // Filter out null, undefined, and string "null" values
     const variantIds = inventoryData
       .map((item) => item.variant_id)
-      .filter((id): id is string => id !== null);
+      .filter((id): id is string => {
+        return id !== null && id !== undefined && id !== "null" && id.trim() !== "";
+      });
+
+    console.log("Filtered variant IDs:", variantIds);
 
     // Step 3: Fetch products
     const { data: products, error: productsError } = await supabase
@@ -69,15 +85,24 @@ export async function getLocationProducts(
     // Step 4: Fetch variants (if any)
     let variants: any[] = [];
     if (variantIds.length > 0) {
-      const { data: variantsData, error: variantsError } = await supabase
-        .from("product_variants")
-        .select("id, name, sku")
-        .in("id", variantIds);
+      // Double-check all IDs are valid UUIDs
+      const validVariantIds = [...new Set(variantIds)].filter((id) => {
+        // Basic UUID format check
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(id);
+      });
 
-      if (variantsError) {
-        console.error("Error fetching variants:", variantsError);
-      } else {
-        variants = variantsData || [];
+      if (validVariantIds.length > 0) {
+        const { data: variantsData, error: variantsError } = await supabase
+          .from("product_variants")
+          .select("id, name, sku")
+          .in("id", validVariantIds);
+
+        if (variantsError) {
+          console.error("Error fetching variants:", variantsError);
+        } else {
+          variants = variantsData || [];
+        }
       }
     }
 
@@ -106,6 +131,7 @@ export async function getLocationProducts(
     return { data: result, error: null };
   } catch (err) {
     console.error("Error in getLocationProducts:", err);
+    console.error("Full error details:", JSON.stringify(err, null, 2));
     return {
       data: [],
       error: err instanceof Error ? err.message : "Failed to fetch location products",
