@@ -29,6 +29,16 @@ export async function getLocationProducts(
   organizationId: string
 ): Promise<{ data: LocationProduct[]; error: string | null }> {
   try {
+    console.log("getLocationProducts called with:", { locationId, organizationId });
+
+    // Validate inputs
+    if (!locationId || !organizationId) {
+      return {
+        data: [],
+        error: `Missing required parameters: locationId=${locationId}, organizationId=${organizationId}`,
+      };
+    }
+
     const supabase = await createClient();
 
     // Step 1a: Get stock inventory data for products without variants
