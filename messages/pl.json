@@ -911,7 +911,10 @@
             "waiting": "Oczekuje",
             "ready": "Gotowe",
             "done": "Zakończone",
-            "cancelled": "Anulowane"
+            "cancelled": "Anulowane",
+            "pending": "Oczekuje na przyjęcie",
+            "approved": "Zatwierdzone",
+            "completed": "Zakończone"
           },
           "fields": {
             "deliveryNumber": "Numer dostawy",

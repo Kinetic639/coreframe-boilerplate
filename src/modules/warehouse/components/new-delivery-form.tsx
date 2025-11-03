@@ -23,6 +23,7 @@ import { useUserStore } from "@/lib/stores/user-store";
 import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
 import { Plus } from "lucide-react";
+import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -33,7 +34,11 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  // Removed fake stepper - deliveries are created in 'pending' status
+  const deliverySteps: Step[] = [
+    { label: t("statuses.pending"), value: "pending" },
+    { label: t("statuses.approved"), value: "approved" },
+    { label: t("statuses.completed"), value: "completed" },
+  ];
 
   // Get data from stores
   const locations = useAppStore((state) => state.locations);
@@ -72,7 +77,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
     // Get supplier details for delivery_address
     const supplierAddress = selectedSupplier
-      ? `${selectedSupplier.name}${selectedSupplier.street ? `, ${selectedSupplier.street}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
+      ? `${selectedSupplier.name}${selectedSupplier.address_line_1 ? `, ${selectedSupplier.address_line_1}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
       : "";
 
     const data: CreateDeliveryData = {
@@ -138,6 +143,10 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         </div>
       </div>
 
+      <div className="w-full">
+        <StatusStepper steps={deliverySteps} activeStep="pending" size="md" />
+      </div>
+
       <div className="grid grid-cols-3 gap-6">
         <div className="col-span-2 space-y-6">
           <Card className="p-6">
@@ -177,15 +186,19 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                 {selectedSupplier && (
                   <div className="mt-2 p-3 bg-muted/30 rounded border text-sm space-y-1">
                     <div className="font-medium">{selectedSupplier.name}</div>
-                    {selectedSupplier.nip && (
-                      <div className="text-muted-foreground">NIP: {selectedSupplier.nip}</div>
-                    )}
-                    {selectedSupplier.regon && (
-                      <div className="text-muted-foreground">REGON: {selectedSupplier.regon}</div>
-                    )}
-                    {(selectedSupplier.street || selectedSupplier.city) && (
+                    {selectedSupplier.tax_number && (
                       <div className="text-muted-foreground">
-                        {selectedSupplier.street && `${selectedSupplier.street}, `}
+                        NIP: {selectedSupplier.tax_number}
+                      </div>
+                    )}
+                    {selectedSupplier.company_registration_number && (
+                      <div className="text-muted-foreground">
+                        REGON: {selectedSupplier.company_registration_number}
+                      </div>
+                    )}
+                    {(selectedSupplier.address_line_1 || selectedSupplier.city) && (
+                      <div className="text-muted-foreground">
+                        {selectedSupplier.address_line_1 && `${selectedSupplier.address_line_1}, `}
                         {selectedSupplier.postal_code} {selectedSupplier.city}
                         {selectedSupplier.country && `, ${selectedSupplier.country}`}
                       </div>

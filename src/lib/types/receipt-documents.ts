@@ -11,7 +11,7 @@
  * This design separates compliance/audit concerns from movement mechanics.
  */
 
-import { Database } from "@/supabase/types/types";
+import { Database } from "../../../supabase/types/types";
 
 // ============================================
 // Database Types (from Supabase)
