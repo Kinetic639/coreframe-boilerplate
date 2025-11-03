@@ -925,7 +925,8 @@
             "shippingPolicy": "Polityka wysyłki",
             "responsible": "Odpowiedzialny",
             "destinationLocation": "Lokalizacja docelowa",
-            "notes": "Uwagi"
+            "notes": "Uwagi",
+            "supplier": "Dostawca"
           },
           "actions": {
             "markAsTodo": "Oznacz jako do zrobienia",
@@ -934,7 +935,9 @@
             "edit": "Edytuj",
             "delete": "Usuń",
             "viewDetails": "Zobacz szczegóły",
-            "saving": "Zapisywanie..."
+            "saving": "Zapisywanie...",
+            "save": "Zapisz",
+            "receiveDelivery": "Przyjmij dostawę"
           },
           "products": {
             "title": "Produkty",
@@ -966,7 +969,10 @@
             "logNote": "Dodaj notatkę",
             "activity": "Aktywność",
             "today": "Dzisiaj",
-            "activityDescription": "Tworzenie nowego rekordu..."
+            "activityDescription": "Tworzenie nowego rekordu...",
+            "selectSupplierPlaceholder": "Wybierz dostawcę...",
+            "noSuppliersFound": "Nie znaleziono dostawców",
+            "addNewSupplier": "Dodaj nowego dostawcę"
           },
           "tabs": {
             "operations": "Operacje",
@@ -1003,6 +1009,13 @@
           "shipping": {
             "asSoonAsPossible": "Jak najszybciej",
             "whenAllReady": "Gdy wszystkie produkty są gotowe"
+          },
+          "receiving": {
+            "title": "Przyjęcie dostawy",
+            "movementLabel": "Ruch",
+            "infoTitle": "Informacje o dostawie",
+            "reference": "Referencja",
+            "created": "Utworzono"
           }
         },
         "suppliers": {

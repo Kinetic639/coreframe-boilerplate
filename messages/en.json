@@ -970,7 +970,8 @@
             "shippingPolicy": "Shipping Policy",
             "responsible": "Responsible",
             "destinationLocation": "Destination Location",
-            "notes": "Notes"
+            "notes": "Notes",
+            "supplier": "Supplier"
           },
           "actions": {
             "markAsTodo": "Mark as Todo",
@@ -979,7 +980,9 @@
             "edit": "Edit",
             "delete": "Delete",
             "viewDetails": "View Details",
-            "saving": "Saving..."
+            "saving": "Saving...",
+            "save": "Save",
+            "receiveDelivery": "Receive Delivery"
           },
           "products": {
             "title": "Products",
@@ -1011,7 +1014,10 @@
             "logNote": "Log note",
             "activity": "Activity",
             "today": "Today",
-            "activityDescription": "Creating a new record..."
+            "activityDescription": "Creating a new record...",
+            "selectSupplierPlaceholder": "Select a supplier...",
+            "noSuppliersFound": "No suppliers found",
+            "addNewSupplier": "Add new supplier"
           },
           "tabs": {
             "operations": "Operations",
@@ -1048,6 +1054,13 @@
           "shipping": {
             "asSoonAsPossible": "As soon as possible",
             "whenAllReady": "When all products are ready"
+          },
+          "receiving": {
+            "title": "Receive Delivery",
+            "movementLabel": "Movement",
+            "infoTitle": "Delivery Information",
+            "reference": "Reference",
+            "created": "Created"
           }
         },
         "suppliers": {

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Package } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getTranslations } from "next-intl/server";
 
 interface PageProps {
   params: Promise<{
@@ -17,6 +18,7 @@ interface PageProps {
 
 async function ReceiveDeliveryContent({ deliveryId }: { deliveryId: string }) {
   const supabase = await createClient();
+  const t = await getTranslations("modules.warehouse.items.deliveries");
 
   // Fetch delivery movement
   const { data: delivery, error: deliveryError } = await supabase
@@ -90,9 +92,11 @@ async function ReceiveDeliveryContent({ deliveryId }: { deliveryId: string }) {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <h1 className="text-3xl font-bold">Receive Delivery</h1>
+            <h1 className="text-3xl font-bold">{t("receiving.title")}</h1>
           </div>
-          <p className="text-muted-foreground">Movement: {delivery.movement_number}</p>
+          <p className="text-muted-foreground">
+            {t("receiving.movementLabel")}: {delivery.movement_number}
+          </p>
         </div>
       </div>
 
@@ -102,10 +106,10 @@ async function ReceiveDeliveryContent({ deliveryId }: { deliveryId: string }) {
           <div className="flex items-center gap-4">
             <Package className="h-8 w-8 text-primary" />
             <div>
-              <h3 className="font-semibold">Delivery Information</h3>
+              <h3 className="font-semibold">{t("receiving.infoTitle")}</h3>
               <p className="text-sm text-muted-foreground">
-                Reference: {delivery.reference_number || "N/A"} • Created:{" "}
-                {new Date(delivery.created_at).toLocaleDateString()}
+                {t("receiving.reference")}: {delivery.reference_number || "N/A"} •{" "}
+                {t("receiving.created")}: {new Date(delivery.created_at).toLocaleDateString()}
               </p>
             </div>
           </div>
