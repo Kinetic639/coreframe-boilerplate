@@ -22,8 +22,9 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
-import { Plus } from "lucide-react";
+import { Plus, Info } from "lucide-react";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface NewDeliveryFormProps {
   organizationId: string;
@@ -50,10 +51,10 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const [destinationLocationId, setDestinationLocationId] = useState<string>("none");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 16));
   const [sourceDocument, setSourceDocument] = useState("");
-  const [shippingPolicy, setShippingPolicy] = useState(t("shipping.asSoonAsPossible"));
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<DeliveryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [requiresVerification, setRequiresVerification] = useState(true); // NEW: Verification toggle
 
   // Supplier selection
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
@@ -87,11 +88,11 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
       delivery_address: supplierAddress,
-      shipping_policy: shippingPolicy,
       responsible_user_id: currentUser.id, // Always use current logged-in user
       notes,
       items,
       supplier_id: selectedSupplierId || undefined,
+      requires_verification: requiresVerification, // NEW: Pass verification flag
     };
 
     const result = await createDelivery(data);
@@ -143,8 +144,39 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         </div>
       </div>
 
+      {/* Verification Toggle */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="requires-verification"
+            checked={requiresVerification}
+            onCheckedChange={(checked) => setRequiresVerification(checked as boolean)}
+          />
+          <div className="flex-1">
+            <label
+              htmlFor="requires-verification"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              {t("fields.enableVerification")}
+            </label>
+            <div className="flex items-start gap-2 mt-1">
+              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                {requiresVerification
+                  ? t("fields.verificationEnabledHelp")
+                  : t("fields.verificationDisabledHelp")}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div className="w-full">
-        <StatusStepper steps={deliverySteps} activeStep="pending" size="md" />
+        <StatusStepper
+          steps={deliverySteps}
+          activeStep={requiresVerification ? "pending" : "completed"}
+          size="md"
+        />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -254,7 +286,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.scheduledDate")}</Label>
+                <Label>{t("fields.invoiceDate")}</Label>
                 <Input
                   type="datetime-local"
                   value={scheduledDate}
@@ -263,11 +295,11 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.sourceDocument")}</Label>
+                <Label>{t("fields.invoiceNumber")}</Label>
                 <Input
                   value={sourceDocument}
                   onChange={(e) => setSourceDocument(e.target.value)}
-                  placeholder={t("form.sourceDocumentPlaceholder")}
+                  placeholder={t("form.invoiceNumberPlaceholder")}
                 />
               </div>
             </div>
@@ -296,14 +328,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   <h3 className="font-semibold">{t("additionalInfo.title")}</h3>
 
                   <div className="space-y-2">
-                    <Label>{t("additionalInfo.shippingPolicy")}</Label>
-                    <Input
-                      value={shippingPolicy}
-                      onChange={(e) => setShippingPolicy(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>{t("additionalInfo.responsible")}</Label>
                     <div className="flex items-center gap-2 p-3 border rounded bg-muted/30">
                       <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
@@ -318,7 +342,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                             : currentUser?.email || "Unknown"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Automatically assigned as responsible for this delivery
+                          {t("additionalInfo.responsibleHelp")}
                         </p>
                       </div>
                     </div>

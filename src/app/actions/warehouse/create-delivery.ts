@@ -37,6 +37,9 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       };
     }
 
+    // Determine if verification is required (default: true)
+    const requiresVerification = data.requires_verification !== false;
+
     // Generate delivery number (WH/OUT/XXXXX format like Odoo)
     const deliveryNumber = await generateDeliveryNumber(data.organization_id, data.branch_id);
 
@@ -70,9 +73,9 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
         metadata: {
           delivery_number: deliveryNumber,
           delivery_address: data.delivery_address,
-          shipping_policy: data.shipping_policy,
           responsible_user_id: data.responsible_user_id,
           supplier_id: data.supplier_id,
+          requires_verification: requiresVerification, // Store verification flag
         },
       };
 
@@ -114,6 +117,18 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
 
     // Get the first movement ID as the primary delivery ID
     const deliveryId = movementIds[0];
+
+    // If verification is not required, complete the movements immediately
+    if (!requiresVerification && movementIds.length > 0) {
+      for (const movementId of movementIds) {
+        try {
+          await stockMovementsService.completeMovement(movementId);
+        } catch (completeError) {
+          console.error(`Failed to complete movement ${movementId}:`, completeError);
+          warnings.push(`Movement ${movementId} created but not auto-completed`);
+        }
+      }
+    }
 
     return {
       success: true,

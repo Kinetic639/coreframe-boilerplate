@@ -105,11 +105,11 @@ export interface CreateDeliveryData {
   scheduled_date?: string;
   source_document?: string;
   delivery_address?: string;
-  shipping_policy?: string;
   responsible_user_id?: string;
   supplier_id?: string; // Supplier/vendor for this delivery
   notes?: string;
   items: DeliveryItem[];
+  requires_verification?: boolean; // If false, complete immediately without verification step
 }
 
 /**

@@ -966,6 +966,8 @@
             "reference": "Reference",
             "contact": "Contact",
             "scheduledDate": "Scheduled Date",
+            "invoiceDate": "Invoice Date",
+            "invoiceNumber": "Invoice Number",
             "sourceDocument": "Source Document",
             "status": "Status",
             "deliveryAddress": "Delivery Address",
@@ -973,8 +975,14 @@
             "shippingPolicy": "Shipping Policy",
             "responsible": "Responsible",
             "destinationLocation": "Destination Location",
-            "notes": "Notes",
-            "supplier": "Supplier"
+            "notes": {
+              "label": "Notes"
+            },
+            "supplier": "Supplier",
+            "address": "Address",
+            "enableVerification": "Enable Verification Step",
+            "verificationEnabledHelp": "You'll enter expected quantities now, then verify actual quantities received in a separate step. This tracks discrepancies and damaged goods.",
+            "verificationDisabledHelp": "Quick mode: Enter actual quantities received and complete immediately. No separate verification step."
           },
           "actions": {
             "markAsTodo": "Mark as Todo",
@@ -985,7 +993,8 @@
             "viewDetails": "View Details",
             "saving": "Saving...",
             "save": "Save",
-            "receiveDelivery": "Receive Delivery"
+            "receiveDelivery": "Receive Delivery",
+            "back": "Back"
           },
           "products": {
             "title": "Products",
@@ -1011,6 +1020,7 @@
             "receiveWithoutLocationInfo": "Products will be received but not assigned to a location yet",
             "deliveryAddressPlaceholder": "e.g. Lumber Inc",
             "sourceDocumentPlaceholder": "e.g. PO0032",
+            "invoiceNumberPlaceholder": "e.g. FV/2024/001",
             "notesPlaceholder": "Add notes...",
             "operationTypeValue": "Delivery Orders",
             "sendMessage": "Send message",
@@ -1020,7 +1030,9 @@
             "activityDescription": "Creating a new record...",
             "selectSupplierPlaceholder": "Select a supplier...",
             "noSuppliersFound": "No suppliers found",
-            "addNewSupplier": "Add new supplier"
+            "addNewSupplier": "Add new supplier",
+            "noLocationSet": "No location set",
+            "noNotes": "No notes"
           },
           "tabs": {
             "operations": "Operations",
@@ -1030,7 +1042,8 @@
           "additionalInfo": {
             "title": "Other Information",
             "shippingPolicy": "Shipping Policy",
-            "responsible": "Responsible"
+            "responsible": "Responsible",
+            "responsibleHelp": "Automatically assigned as responsible for this delivery"
           },
           "filters": {
             "all": "All Deliveries",
