@@ -21,7 +21,6 @@ import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
 import { useAppStore } from "@/lib/stores/app-store";
 import type { DeliveryWithRelations, DeliveryItem } from "@/modules/warehouse/types/deliveries";
-import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface DeliveryDetailsFormProps {
   delivery: DeliveryWithRelations;
@@ -37,12 +36,21 @@ export function DeliveryDetailsForm({
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  const deliverySteps: Step[] = [
-    { label: t("statuses.draft"), value: "draft" },
-    { label: t("statuses.waiting"), value: "waiting" },
-    { label: t("statuses.ready"), value: "ready" },
-    { label: t("statuses.done"), value: "done" },
-  ];
+  // Map stock movement statuses to display labels
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "Oczekuje na przyjęcie";
+      case "approved":
+        return "Zatwierdzone";
+      case "completed":
+        return "Zakończone";
+      case "cancelled":
+        return "Anulowane";
+      default:
+        return status;
+    }
+  };
 
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
@@ -104,9 +112,12 @@ export function DeliveryDetailsForm({
     router.push("/dashboard/warehouse/deliveries");
   };
 
-  const handleValidate = async () => {
-    // TODO: Implement validate delivery action
-    toast.info("Validate delivery feature coming soon...");
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this delivery?")) {
+      return;
+    }
+    // TODO: Implement delete delivery action
+    toast.info("Delete delivery feature coming soon...");
   };
 
   return (
@@ -131,14 +142,10 @@ export function DeliveryDetailsForm({
           {isEditable && (
             <>
               <Button variant="outline" onClick={handleSave} disabled={loading}>
-                {loading ? "Saving..." : "Save"}
+                {loading ? t("actions.saving") : t("actions.save")}
               </Button>
-              <Button
-                onClick={handleValidate}
-                disabled={loading}
-                className="bg-[#8B4789] hover:bg-[#7A3E78]"
-              >
-                {t("actions.validate")}
+              <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                {t("actions.delete")}
               </Button>
             </>
           )}
@@ -146,16 +153,29 @@ export function DeliveryDetailsForm({
             <Link href={`/dashboard/warehouse/deliveries/${delivery.id}/receive`}>
               <Button className="bg-green-600 hover:bg-green-700">
                 <Package className="mr-2 h-4 w-4" />
-                Receive Delivery
+                {t("actions.receiveDelivery")}
               </Button>
             </Link>
           )}
         </div>
       </div>
 
-      {/* Status Stepper */}
-      <div className="w-full">
-        <StatusStepper steps={deliverySteps} activeStep={delivery.status} size="sm" />
+      {/* Status Badge */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-muted-foreground">{t("fields.status")}:</span>
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-medium ${
+            delivery.status === "pending"
+              ? "bg-yellow-100 text-yellow-800"
+              : delivery.status === "approved"
+                ? "bg-blue-100 text-blue-800"
+                : delivery.status === "completed"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {getStatusLabel(delivery.status)}
+        </span>
       </div>
 
       {/* Main Form */}

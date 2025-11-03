@@ -22,7 +22,6 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
 import type { CreateDeliveryData, DeliveryItem } from "@/modules/warehouse/types/deliveries";
-import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 import { Plus } from "lucide-react";
 
 interface NewDeliveryFormProps {
@@ -34,12 +33,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  const deliverySteps: Step[] = [
-    { label: t("status.draft"), value: "draft" },
-    { label: t("status.waiting"), value: "waiting" },
-    { label: t("status.ready"), value: "ready" },
-    { label: t("status.done"), value: "done" },
-  ];
+  // Removed fake stepper - deliveries are created in 'pending' status
 
   // Get data from stores
   const locations = useAppStore((state) => state.locations);
@@ -49,7 +43,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
   // Form state
   const [destinationLocationId, setDestinationLocationId] = useState<string>("none");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().slice(0, 16));
   const [sourceDocument, setSourceDocument] = useState("");
   const [shippingPolicy, setShippingPolicy] = useState(t("shipping.asSoonAsPossible"));
@@ -77,13 +70,18 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
     setLoading(true);
 
+    // Get supplier details for delivery_address
+    const supplierAddress = selectedSupplier
+      ? `${selectedSupplier.name}${selectedSupplier.street ? `, ${selectedSupplier.street}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
+      : "";
+
     const data: CreateDeliveryData = {
       organization_id: organizationId,
       branch_id: branchId,
       destination_location_id: destinationLocationId !== "none" ? destinationLocationId : undefined,
       scheduled_date: new Date(scheduledDate).toISOString(),
       source_document: sourceDocument,
-      delivery_address: deliveryAddress,
+      delivery_address: supplierAddress,
       shipping_policy: shippingPolicy,
       responsible_user_id: currentUser.id, // Always use current logged-in user
       notes,
@@ -135,13 +133,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
             disabled={loading}
             className="bg-[#8B4789] hover:bg-[#7A3E78]"
           >
-            {loading ? t("actions.saving") : t("actions.validate")}
+            {loading ? t("actions.saving") : t("actions.save")}
           </Button>
         </div>
-      </div>
-
-      <div className="w-full">
-        <StatusStepper steps={deliverySteps} activeStep="draft" size="md" />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -149,17 +143,17 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
           <Card className="p-6">
             <div className="grid grid-cols-2 gap-6">
               {/* Supplier/Vendor Selection */}
-              <div className="space-y-2">
-                <Label>Supplier / Vendor</Label>
+              <div className="space-y-2 col-span-2">
+                <Label>{t("fields.supplier")}</Label>
                 <div className="flex gap-2">
                   <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select supplier..." />
+                      <SelectValue placeholder={t("form.selectSupplierPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {suppliers.length === 0 ? (
                         <div className="p-2 text-sm text-muted-foreground text-center">
-                          No suppliers found
+                          {t("form.noSuppliersFound")}
                         </div>
                       ) : (
                         suppliers.map((supplier) => (
@@ -175,16 +169,28 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                     variant="outline"
                     size="icon"
                     onClick={() => setSupplierDialogOpen(true)}
-                    title="Add new supplier"
+                    title={t("form.addNewSupplier")}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 {selectedSupplier && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedSupplier.city && `${selectedSupplier.city}, `}
-                    {selectedSupplier.country}
-                  </p>
+                  <div className="mt-2 p-3 bg-muted/30 rounded border text-sm space-y-1">
+                    <div className="font-medium">{selectedSupplier.name}</div>
+                    {selectedSupplier.nip && (
+                      <div className="text-muted-foreground">NIP: {selectedSupplier.nip}</div>
+                    )}
+                    {selectedSupplier.regon && (
+                      <div className="text-muted-foreground">REGON: {selectedSupplier.regon}</div>
+                    )}
+                    {(selectedSupplier.street || selectedSupplier.city) && (
+                      <div className="text-muted-foreground">
+                        {selectedSupplier.street && `${selectedSupplier.street}, `}
+                        {selectedSupplier.postal_code} {selectedSupplier.city}
+                        {selectedSupplier.country && `, ${selectedSupplier.country}`}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -235,26 +241,12 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.deliveryAddress.label")}</Label>
-                <Input
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder={t("form.deliveryAddressPlaceholder")}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label>{t("fields.scheduledDate")}</Label>
                 <Input
                   type="datetime-local"
                   value={scheduledDate}
                   onChange={(e) => setScheduledDate(e.target.value)}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("fields.operationType")}</Label>
-                <Input value={t("form.operationTypeValue")} disabled className="bg-muted" />
               </div>
 
               <div className="space-y-2">
