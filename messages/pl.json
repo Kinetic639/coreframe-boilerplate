@@ -921,6 +921,8 @@
             "reference": "Referencja",
             "contact": "Kontakt",
             "scheduledDate": "Planowana data",
+            "invoiceDate": "Data faktury",
+            "invoiceNumber": "Numer faktury",
             "sourceDocument": "Dokument źródłowy",
             "status": "Status",
             "deliveryAddress": "Adres dostawy",
@@ -928,8 +930,14 @@
             "shippingPolicy": "Polityka wysyłki",
             "responsible": "Odpowiedzialny",
             "destinationLocation": "Lokalizacja docelowa",
-            "notes": "Uwagi",
-            "supplier": "Dostawca"
+            "notes": {
+              "label": "Uwagi"
+            },
+            "supplier": "Dostawca",
+            "address": "Adres",
+            "enableVerification": "Włącz krok weryfikacji",
+            "verificationEnabledHelp": "Najpierw wprowadzisz oczekiwane ilości, następnie zweryfikujesz faktycznie otrzymane ilości w osobnym kroku. Pozwala to śledzić rozbieżności i uszkodzone towary.",
+            "verificationDisabledHelp": "Tryb szybki: Wprowadź faktycznie otrzymane ilości i zakończ natychmiast. Bez osobnego kroku weryfikacji."
           },
           "actions": {
             "markAsTodo": "Oznacz jako do zrobienia",
@@ -940,7 +948,8 @@
             "viewDetails": "Zobacz szczegóły",
             "saving": "Zapisywanie...",
             "save": "Zapisz",
-            "receiveDelivery": "Przyjmij dostawę"
+            "receiveDelivery": "Przyjmij dostawę",
+            "back": "Wróć"
           },
           "products": {
             "title": "Produkty",
@@ -966,6 +975,7 @@
             "receiveWithoutLocationInfo": "Produkty zostaną przyjęte, ale jeszcze nie przypisane do lokalizacji",
             "deliveryAddressPlaceholder": "np. Lumber Inc",
             "sourceDocumentPlaceholder": "np. PO0032",
+            "invoiceNumberPlaceholder": "np. FV/2024/001",
             "notesPlaceholder": "Dodaj notatki...",
             "operationTypeValue": "Zlecenia dostawy",
             "sendMessage": "Wyślij wiadomość",
@@ -975,7 +985,18 @@
             "activityDescription": "Tworzenie nowego rekordu...",
             "selectSupplierPlaceholder": "Wybierz dostawcę...",
             "noSuppliersFound": "Nie znaleziono dostawców",
-            "addNewSupplier": "Dodaj nowego dostawcę"
+            "addNewSupplier": "Dodaj nowego dostawcę",
+            "noLocationSet": "Nie ustawiono lokalizacji",
+            "noNotes": "Brak notatek",
+            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
+            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
+            "selectLocationPlaceholder": "Wybierz lokalizację...",
+            "noLocationsAvailable": "Brak dostępnych lokalizacji",
+            "noLocationsFound": "Nie znaleziono lokalizacji",
+            "sourceDocumentPlaceholder": "np. PO0032",
+            "notesPlaceholder": "Dodaj notatki...",
+            "optional": "(opcjonalne)"
           },
           "tabs": {
             "operations": "Operacje",
@@ -985,7 +1006,8 @@
           "additionalInfo": {
             "title": "Inne informacje",
             "shippingPolicy": "Polityka wysyłki",
-            "responsible": "Odpowiedzialny"
+            "responsible": "Odpowiedzialny",
+            "responsibleHelp": "Automatycznie przypisany jako odpowiedzialny za tę dostawę"
           },
           "filters": {
             "all": "Wszystkie dostawy",

@@ -180,14 +180,36 @@ export class ReceiptService {
 
       const movementsCreated: string[] = [];
 
-      // Step 2: Create receipt document
+      // Step 2: Generate receipt number
+      const { data: receiptNumberData, error: numberError } = await this.supabase.rpc(
+        "generate_receipt_number",
+        {
+          p_organization_id: originalMovement.organization_id,
+          p_branch_id: originalMovement.branch_id,
+        }
+      );
+
+      if (numberError || !receiptNumberData) {
+        return {
+          success: false,
+          error: "Failed to generate receipt number",
+        };
+      }
+
+      // Step 3: Create receipt document
+      const receiptDate =
+        input.receipt_date instanceof Date
+          ? input.receipt_date.toISOString()
+          : input.receipt_date || new Date().toISOString();
+
       const { data: receipt, error: receiptError } = await this.supabase
         .from("receipt_documents")
         .insert({
+          receipt_number: receiptNumberData,
           organization_id: originalMovement.organization_id,
           branch_id: originalMovement.branch_id,
           receipt_type: input.receipt_type,
-          receipt_date: input.receipt_date || new Date().toISOString(),
+          receipt_date: receiptDate,
           created_by: userId,
           received_by: input.received_by || userId,
           quality_check_passed: input.quality_check_passed ?? true,
@@ -227,7 +249,10 @@ export class ReceiptService {
               destination_location_id: item.destination_location_id,
               batch_number: item.batch_number,
               serial_number: item.serial_number,
-              expiry_date: item.expiry_date,
+              expiry_date:
+                item.expiry_date instanceof Date
+                  ? item.expiry_date.toISOString()
+                  : item.expiry_date,
               status: "completed",
               created_by: userId,
               parent_movement_id: input.delivery_movement_id,

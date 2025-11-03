@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -10,17 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { Package } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
-import { useAppStore } from "@/lib/stores/app-store";
-import type { DeliveryWithRelations, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import type { DeliveryWithRelations } from "@/modules/warehouse/types/deliveries";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface DeliveryDetailsFormProps {
@@ -43,72 +33,8 @@ export function DeliveryDetailsForm({
     { label: t("statuses.completed"), value: "completed" },
   ];
 
-  // Get locations from store
-  const locations = useAppStore((state) => state.locations);
-
-  const [destinationLocationId, setDestinationLocationId] = useState<string>(
-    delivery.destination_location_id || ""
-  );
-  const [deliveryAddress, setDeliveryAddress] = useState(delivery.delivery_address || "");
-  const [scheduledDate, setScheduledDate] = useState(() => {
-    if (delivery.scheduled_date) {
-      try {
-        const date = new Date(delivery.scheduled_date);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().slice(0, 16);
-        }
-      } catch (e) {
-        console.error("Invalid scheduled_date:", delivery.scheduled_date, e);
-      }
-    }
-    return new Date().toISOString().slice(0, 16);
-  });
-  const [sourceDocument, setSourceDocument] = useState(delivery.source_document || "");
-  const [shippingPolicy, setShippingPolicy] = useState(
-    delivery.shipping_policy || "As soon as possible"
-  );
-  const [notes, setNotes] = useState(delivery.notes || "");
-  const [items, setItems] = useState<DeliveryItem[]>(
-    delivery.items_with_details || delivery.items || []
-  );
-  const [loading, setLoading] = useState(false);
-
-  const isEditable = delivery.status === "draft" || delivery.status === "waiting";
-
-  const handleSave = async () => {
-    if (!isEditable) {
-      toast.error("Cannot edit completed or cancelled deliveries");
-      return;
-    }
-
-    if (items.length === 0) {
-      toast.error(t("products.noProducts"));
-      return;
-    }
-
-    if (!destinationLocationId) {
-      toast.error("Please select a destination location");
-      return;
-    }
-
-    setLoading(true);
-
-    // TODO: Implement update delivery action
-    toast.info("Update delivery feature coming soon...");
-
-    setLoading(false);
-  };
-
-  const handleCancel = () => {
+  const handleBack = () => {
     router.push("/dashboard/warehouse/deliveries");
-  };
-
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this delivery?")) {
-      return;
-    }
-    // TODO: Implement delete delivery action
-    toast.info("Delete delivery feature coming soon...");
   };
 
   return (
@@ -127,24 +53,14 @@ export function DeliveryDetailsForm({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={loading}>
-            {t("actions.cancel")}
+          <Button variant="outline" onClick={handleBack}>
+            {t("actions.back")}
           </Button>
-          {isEditable && (
-            <>
-              <Button variant="outline" onClick={handleSave} disabled={loading}>
-                {loading ? t("actions.saving") : t("actions.save")}
-              </Button>
-              <Button variant="destructive" onClick={handleDelete} disabled={loading}>
-                {t("actions.delete")}
-              </Button>
-            </>
-          )}
           {((delivery.status as string) === "pending" ||
             (delivery.status as string) === "approved") && (
             <Link href={`/dashboard/warehouse/deliveries/${delivery.id}/receive`}>
-              <Button className="bg-green-600 hover:bg-green-700">
-                <Package className="mr-2 h-4 w-4" />
+              <Button className="bg-green-600 hover:bg-green-700" size="lg">
+                <Package className="mr-2 h-5 w-5" />
                 {t("actions.receiveDelivery")}
               </Button>
             </Link>
@@ -165,68 +81,32 @@ export function DeliveryDetailsForm({
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>{t("fields.destinationLocation")}</Label>
-                <Select
-                  value={destinationLocationId}
-                  onValueChange={setDestinationLocationId}
-                  disabled={!isEditable || locations.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        locations.length === 0
-                          ? "No locations available"
-                          : delivery.destination_location?.name || "Select location"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No locations found.
-                      </div>
-                    ) : (
-                      locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name} ({location.code})
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("fields.deliveryAddress")}</Label>
                 <Input
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="e.g. Lumber Inc"
-                  disabled={!isEditable}
+                  value={delivery.destination_location?.name || "Not specified"}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.scheduledDate")}</Label>
+                <Label>{t("fields.invoiceDate")}</Label>
                 <Input
-                  type="datetime-local"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  disabled={!isEditable}
+                  value={
+                    delivery.scheduled_date
+                      ? new Date(delivery.scheduled_date).toLocaleString()
+                      : "Not specified"
+                  }
+                  disabled
+                  className="bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Operation Type</Label>
-                <Input value="Delivery Orders" disabled className="bg-muted" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("fields.sourceDocument")}</Label>
+                <Label>{t("fields.invoiceNumber")}</Label>
                 <Input
-                  value={sourceDocument}
-                  onChange={(e) => setSourceDocument(e.target.value)}
-                  placeholder="e.g. PO0032"
-                  disabled={!isEditable}
+                  value={delivery.source_document || "Not specified"}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
             </div>
@@ -243,10 +123,10 @@ export function DeliveryDetailsForm({
             <TabsContent value="operations" className="mt-4">
               <Card className="p-6">
                 <DeliveryLineItems
-                  items={items}
-                  onChange={setItems}
+                  items={delivery.items_with_details || delivery.items || []}
+                  onChange={() => {}}
                   organizationId={organizationId}
-                  readOnly={!isEditable}
+                  readOnly={true}
                 />
               </Card>
             </TabsContent>
@@ -257,17 +137,8 @@ export function DeliveryDetailsForm({
                   <h3 className="font-semibold">{t("additionalInfo.title")}</h3>
 
                   <div className="space-y-2">
-                    <Label>{t("additionalInfo.shippingPolicy")}</Label>
-                    <Input
-                      value={shippingPolicy}
-                      onChange={(e) => setShippingPolicy(e.target.value)}
-                      disabled={!isEditable}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>{t("additionalInfo.responsible")}</Label>
-                    <div className="flex items-center gap-2 p-2 border rounded">
+                    <div className="flex items-center gap-2 p-2 border rounded bg-muted">
                       <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
                         {delivery.responsible_user?.name?.[0]?.toUpperCase() || "U"}
                       </div>
@@ -287,11 +158,10 @@ export function DeliveryDetailsForm({
                 <div className="space-y-2">
                   <Label>{t("fields.notes")}</Label>
                   <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full min-h-[200px] p-3 border rounded-md"
-                    placeholder="Add notes..."
-                    disabled={!isEditable}
+                    value={delivery.notes || ""}
+                    readOnly
+                    className="w-full min-h-[200px] p-3 border rounded-md bg-muted"
+                    placeholder="No notes"
                   />
                 </div>
               </Card>
