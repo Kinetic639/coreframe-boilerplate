@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
+import { Package } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -139,6 +141,14 @@ export function DeliveryDetailsForm({
                 {t("actions.validate")}
               </Button>
             </>
+          )}
+          {(delivery.status === "pending" || delivery.status === "approved") && (
+            <Link href={`/dashboard/warehouse/deliveries/${delivery.id}/receive`}>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <Package className="mr-2 h-4 w-4" />
+                Receive Delivery
+              </Button>
+            </Link>
           )}
         </div>
       </div>

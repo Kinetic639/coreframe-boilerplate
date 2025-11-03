@@ -2546,6 +2546,148 @@ export type Database = {
           },
         ];
       };
+      receipt_documents: {
+        Row: {
+          branch_id: string;
+          completed_at: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          id: string;
+          organization_id: string;
+          pz_document_number: string | null;
+          pz_document_url: string | null;
+          quality_check_passed: boolean | null;
+          quality_notes: string | null;
+          receipt_date: string;
+          receipt_number: string;
+          receipt_type: string | null;
+          received_by: string | null;
+          receiving_notes: string | null;
+          status: string | null;
+          total_movements: number | null;
+          total_value: number | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          branch_id: string;
+          completed_at?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          organization_id: string;
+          pz_document_number?: string | null;
+          pz_document_url?: string | null;
+          quality_check_passed?: boolean | null;
+          quality_notes?: string | null;
+          receipt_date?: string;
+          receipt_number: string;
+          receipt_type?: string | null;
+          received_by?: string | null;
+          receiving_notes?: string | null;
+          status?: string | null;
+          total_movements?: number | null;
+          total_value?: number | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          branch_id?: string;
+          completed_at?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          id?: string;
+          organization_id?: string;
+          pz_document_number?: string | null;
+          pz_document_url?: string | null;
+          quality_check_passed?: boolean | null;
+          quality_notes?: string | null;
+          receipt_date?: string;
+          receipt_number?: string;
+          receipt_type?: string | null;
+          received_by?: string | null;
+          receiving_notes?: string | null;
+          status?: string | null;
+          total_movements?: number | null;
+          total_value?: number | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "receipt_documents_branch_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_org_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_received_by_fkey";
+            columns: ["received_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      receipt_movements: {
+        Row: {
+          created_at: string | null;
+          movement_id: string;
+          receipt_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          movement_id: string;
+          receipt_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          movement_id?: string;
+          receipt_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "receipt_movements_movement_id_fkey";
+            columns: ["movement_id"];
+            isOneToOne: false;
+            referencedRelation: "receipt_details";
+            referencedColumns: ["movement_id"];
+          },
+          {
+            foreignKeyName: "receipt_movements_movement_id_fkey";
+            columns: ["movement_id"];
+            isOneToOne: false;
+            referencedRelation: "stock_movements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_movements_receipt_id_fkey";
+            columns: ["receipt_id"];
+            isOneToOne: false;
+            referencedRelation: "receipt_details";
+            referencedColumns: ["receipt_id"];
+          },
+          {
+            foreignKeyName: "receipt_movements_receipt_id_fkey";
+            columns: ["receipt_id"];
+            isOneToOne: false;
+            referencedRelation: "receipt_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       role_permissions: {
         Row: {
           allowed: boolean;
@@ -2807,6 +2949,7 @@ export type Database = {
           notes: string | null;
           occurred_at: string;
           organization_id: string;
+          parent_movement_id: string | null;
           product_id: string;
           quantity: number;
           reference_id: string | null;
@@ -2851,6 +2994,7 @@ export type Database = {
           notes?: string | null;
           occurred_at?: string;
           organization_id: string;
+          parent_movement_id?: string | null;
           product_id: string;
           quantity: number;
           reference_id?: string | null;
@@ -2895,6 +3039,7 @@ export type Database = {
           notes?: string | null;
           occurred_at?: string;
           organization_id?: string;
+          parent_movement_id?: string | null;
           product_id?: string;
           quantity?: number;
           reference_id?: string | null;
@@ -2952,6 +3097,20 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_parent_movement_id_fkey";
+            columns: ["parent_movement_id"];
+            isOneToOne: false;
+            referencedRelation: "receipt_details";
+            referencedColumns: ["movement_id"];
+          },
+          {
+            foreignKeyName: "stock_movements_parent_movement_id_fkey";
+            columns: ["parent_movement_id"];
+            isOneToOne: false;
+            referencedRelation: "stock_movements";
             referencedColumns: ["id"];
           },
           {
@@ -3987,6 +4146,129 @@ export type Database = {
       };
     };
     Views: {
+      receipt_details: {
+        Row: {
+          batch_number: string | null;
+          branch_id: string | null;
+          completed_at: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          created_by_email: string | null;
+          created_by_first_name: string | null;
+          created_by_last_name: string | null;
+          destination_location_id: string | null;
+          expiry_date: string | null;
+          movement_id: string | null;
+          movement_number: string | null;
+          movement_status: string | null;
+          movement_type_code: string | null;
+          organization_id: string | null;
+          parent_movement_id: string | null;
+          product_id: string | null;
+          pz_document_number: string | null;
+          pz_document_url: string | null;
+          quality_check_passed: boolean | null;
+          quality_notes: string | null;
+          quantity: number | null;
+          receipt_date: string | null;
+          receipt_id: string | null;
+          receipt_number: string | null;
+          receipt_type: string | null;
+          received_by: string | null;
+          received_by_email: string | null;
+          received_by_first_name: string | null;
+          received_by_last_name: string | null;
+          receiving_notes: string | null;
+          serial_number: string | null;
+          source_location_id: string | null;
+          status: string | null;
+          total_cost: number | null;
+          total_movements: number | null;
+          total_value: number | null;
+          unit: string | null;
+          unit_cost: number | null;
+          variant_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "receipt_documents_branch_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_org_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "receipt_documents_received_by_fkey";
+            columns: ["received_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_destination_location_id_fkey";
+            columns: ["destination_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_movement_type_code_fkey";
+            columns: ["movement_type_code"];
+            isOneToOne: false;
+            referencedRelation: "movement_types";
+            referencedColumns: ["code"];
+          },
+          {
+            foreignKeyName: "stock_movements_parent_movement_id_fkey";
+            columns: ["parent_movement_id"];
+            isOneToOne: false;
+            referencedRelation: "receipt_details";
+            referencedColumns: ["movement_id"];
+          },
+          {
+            foreignKeyName: "stock_movements_parent_movement_id_fkey";
+            columns: ["parent_movement_id"];
+            isOneToOne: false;
+            referencedRelation: "stock_movements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_source_location_id_fkey";
+            columns: ["source_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       stock_inventory: {
         Row: {
           available_quantity: number | null;
@@ -4122,6 +4404,10 @@ export type Database = {
       };
       generate_movement_number: {
         Args: { p_movement_type_code: string; p_organization_id: string };
+        Returns: string;
+      };
+      generate_receipt_number: {
+        Args: { p_branch_id: string; p_organization_id: string };
         Returns: string;
       };
       generate_variant_combinations: {
