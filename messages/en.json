@@ -956,7 +956,10 @@
             "waiting": "Waiting",
             "ready": "Ready",
             "done": "Done",
-            "cancelled": "Cancelled"
+            "cancelled": "Cancelled",
+            "pending": "Pending Receipt",
+            "approved": "Approved",
+            "completed": "Completed"
           },
           "fields": {
             "deliveryNumber": "Delivery Number",

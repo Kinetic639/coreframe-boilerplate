@@ -21,6 +21,7 @@ import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
 import { useAppStore } from "@/lib/stores/app-store";
 import type { DeliveryWithRelations, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 
 interface DeliveryDetailsFormProps {
   delivery: DeliveryWithRelations;
@@ -36,21 +37,11 @@ export function DeliveryDetailsForm({
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
 
-  // Map stock movement statuses to display labels
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Oczekuje na przyjęcie";
-      case "approved":
-        return "Zatwierdzone";
-      case "completed":
-        return "Zakończone";
-      case "cancelled":
-        return "Anulowane";
-      default:
-        return status;
-    }
-  };
+  const deliverySteps: Step[] = [
+    { label: t("statuses.pending"), value: "pending" },
+    { label: t("statuses.approved"), value: "approved" },
+    { label: t("statuses.completed"), value: "completed" },
+  ];
 
   // Get locations from store
   const locations = useAppStore((state) => state.locations);
@@ -149,7 +140,8 @@ export function DeliveryDetailsForm({
               </Button>
             </>
           )}
-          {(delivery.status === "pending" || delivery.status === "approved") && (
+          {((delivery.status as string) === "pending" ||
+            (delivery.status as string) === "approved") && (
             <Link href={`/dashboard/warehouse/deliveries/${delivery.id}/receive`}>
               <Button className="bg-green-600 hover:bg-green-700">
                 <Package className="mr-2 h-4 w-4" />
@@ -160,22 +152,9 @@ export function DeliveryDetailsForm({
         </div>
       </div>
 
-      {/* Status Badge */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground">{t("fields.status")}:</span>
-        <span
-          className={`px-3 py-1 rounded-full text-sm font-medium ${
-            delivery.status === "pending"
-              ? "bg-yellow-100 text-yellow-800"
-              : delivery.status === "approved"
-                ? "bg-blue-100 text-blue-800"
-                : delivery.status === "completed"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-gray-100 text-gray-800"
-          }`}
-        >
-          {getStatusLabel(delivery.status)}
-        </span>
+      {/* Status Stepper */}
+      <div className="w-full">
+        <StatusStepper steps={deliverySteps} activeStep={delivery.status as string} size="sm" />
       </div>
 
       {/* Main Form */}
