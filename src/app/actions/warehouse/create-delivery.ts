@@ -133,6 +133,74 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       }
     }
 
+    // Generate receipt document automatically
+    try {
+      // Generate receipt number
+      const { data: receiptNumber, error: receiptNumberError } = await supabase.rpc(
+        "generate_receipt_number",
+        {
+          p_organization_id: data.organization_id,
+          p_branch_id: data.branch_id,
+        }
+      );
+
+      if (receiptNumberError || !receiptNumber) {
+        console.error("Failed to generate receipt number:", receiptNumberError);
+        warnings.push("Receipt number generation failed");
+      } else {
+        // Calculate total value
+        const totalValue = data.items.reduce(
+          (sum, item) => sum + (item.unit_cost || 0) * item.expected_quantity,
+          0
+        );
+
+        // Create receipt document
+        const { data: receipt, error: receiptError } = await supabase
+          .from("receipt_documents")
+          .insert({
+            receipt_number: receiptNumber,
+            organization_id: data.organization_id,
+            branch_id: data.branch_id,
+            receipt_type: "full",
+            receipt_date: new Date().toISOString(),
+            created_by: user.id,
+            received_by: user.id,
+            quality_check_passed: true,
+            receiving_notes: data.notes || null,
+            status: "completed",
+            total_movements: movementIds.length,
+            total_value: totalValue,
+            completed_at: new Date().toISOString(),
+            pz_document_number: `PZ/${deliveryNumber}`,
+          })
+          .select()
+          .single();
+
+        if (receiptError || !receipt) {
+          console.error("Failed to create receipt document:", receiptError);
+          warnings.push("Receipt document creation failed");
+        } else {
+          // Link all movements to the receipt
+          const receiptMovements = movementIds.map((movementId) => ({
+            receipt_id: receipt.id,
+            movement_id: movementId,
+          }));
+
+          const { error: linkError } = await supabase
+            .from("receipt_movements")
+            .insert(receiptMovements);
+
+          if (linkError) {
+            console.error("Failed to link movements to receipt:", linkError);
+            warnings.push("Failed to link movements to receipt");
+          }
+        }
+      }
+    } catch (receiptGenError) {
+      console.error("Error generating receipt:", receiptGenError);
+      warnings.push("Receipt generation failed");
+    }
+
     return {
       success: true,
       delivery_id: deliveryId,
