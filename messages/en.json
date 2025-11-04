@@ -953,11 +953,8 @@
           "new": "New Delivery",
           "statuses": {
             "draft": "Draft",
-            "waiting": "Waiting",
-            "ready": "Ready",
-            "done": "Done",
             "cancelled": "Cancelled",
-            "pending": "Pending Receipt",
+            "pending": "Pending",
             "approved": "Approved",
             "completed": "Completed"
           },
@@ -993,8 +990,12 @@
             "viewDetails": "View Details",
             "saving": "Saving...",
             "save": "Save",
-            "receiveDelivery": "Receive Delivery",
-            "back": "Back"
+            "saveAsDraft": "Save as Draft",
+            "next": "Next",
+            "back": "Back",
+            "previous": "Previous",
+            "completeDelivery": "Complete Delivery",
+            "receiveDelivery": "Receive Delivery"
           },
           "products": {
             "title": "Products",

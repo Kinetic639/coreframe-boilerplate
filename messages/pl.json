@@ -907,12 +907,9 @@
           "list": "Lista dostaw",
           "new": "Nowa dostawa",
           "statuses": {
-            "draft": "Projekt",
-            "waiting": "Oczekuje",
-            "ready": "Gotowe",
-            "done": "Zakończone",
+            "draft": "Szkic",
             "cancelled": "Anulowane",
-            "pending": "Oczekuje na przyjęcie",
+            "pending": "Oczekuje",
             "approved": "Zatwierdzone",
             "completed": "Zakończone"
           },
@@ -948,8 +945,12 @@
             "viewDetails": "Zobacz szczegóły",
             "saving": "Zapisywanie...",
             "save": "Zapisz",
-            "receiveDelivery": "Przyjmij dostawę",
-            "back": "Wróć"
+            "saveAsDraft": "Zapisz jako szkic",
+            "next": "Dalej",
+            "back": "Wróć",
+            "previous": "Wstecz",
+            "completeDelivery": "Zakończ dostawę",
+            "receiveDelivery": "Przyjmij dostawę"
           },
           "products": {
             "title": "Produkty",
