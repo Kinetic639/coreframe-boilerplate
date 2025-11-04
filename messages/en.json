@@ -1000,7 +1000,8 @@
             "back": "Back",
             "previous": "Previous",
             "completeDelivery": "Complete Delivery",
-            "receiveDelivery": "Receive Delivery"
+            "receiveDelivery": "Receive Delivery",
+            "processingDelivery": "Processing delivery..."
           },
           "products": {
             "title": "Products",

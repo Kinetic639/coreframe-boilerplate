@@ -23,7 +23,7 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { NewSupplierFormDialog } from "@/modules/warehouse/suppliers/components/new-supplier-form-dialog";
 import type { DeliveryItem } from "@/modules/warehouse/types/deliveries";
-import { Plus, Info, ArrowLeft, ArrowRight } from "lucide-react";
+import { Plus, Info, ArrowRight, Loader2 } from "lucide-react";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -147,12 +147,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       return;
     }
 
-    // Only save if we have items
-    if (items.length === 0) {
-      toast.error("Add at least one product before saving draft");
-      return;
-    }
-
     setLoading(true);
 
     // Get supplier details for delivery_address
@@ -246,12 +240,6 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         // No items yet, just move to next step
         setCurrentStep(2);
       }
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep === 2) {
-      setCurrentStep(1);
     }
   };
 
@@ -351,18 +339,20 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
             </Button>
           )}
           {currentStep === 2 && (
-            <>
-              <Button variant="outline" onClick={handleBack} disabled={loading}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> {t("actions.previous")}
-              </Button>
-              <Button
-                onClick={handleCompleteDelivery}
-                disabled={loading}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {loading ? t("actions.saving") : t("actions.completeDelivery")}
-              </Button>
-            </>
+            <Button
+              onClick={handleCompleteDelivery}
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("actions.processingDelivery")}
+                </>
+              ) : (
+                t("actions.receiveDelivery")
+              )}
+            </Button>
           )}
         </div>
       </div>
