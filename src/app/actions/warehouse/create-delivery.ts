@@ -118,10 +118,14 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
     // Get the first movement ID as the primary delivery ID
     const deliveryId = movementIds[0];
 
-    // ALWAYS complete the movements and generate receipt
+    // ALWAYS approve and complete the movements to generate receipt
     // When user clicks "Przyjmij dostawę" in Step 3, they have already verified (if needed)
+    // Flow: pending → approved → completed
     for (const movementId of movementIds) {
       try {
+        // First approve the movement (pending → approved)
+        await stockMovementsService.approveMovement(movementId, user.id);
+        // Then complete it (approved → completed)
         await stockMovementsService.completeMovement(movementId);
       } catch (completeError) {
         console.error(`Failed to complete movement ${movementId}:`, completeError);
