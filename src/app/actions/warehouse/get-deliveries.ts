@@ -23,14 +23,9 @@ export async function getDeliveries(
   try {
     const supabase = await createClient();
 
-    // First, get all movement IDs that are part of receipts (to exclude them)
-    const { data: receiptMovements } = await supabase
-      .from("receipt_movements")
-      .select("movement_id");
-
-    const receiptMovementIds = receiptMovements?.map((rm) => rm.movement_id) || [];
-
-    // Build query for deliveries (movements with type 101 NOT part of receipts)
+    // Build query for deliveries (movements with type 101)
+    // NOTE: We now show ALL deliveries including those with receipts
+    // since receipts are automatically generated for completed deliveries
     let query = supabase
       .from("stock_movements")
       .select(
@@ -82,11 +77,6 @@ export async function getDeliveries(
       .eq("organization_id", organizationId)
       .eq("branch_id", branchId)
       .eq("movement_type_code", "101"); // Only GR from PO movements (deliveries)
-
-    // Exclude movements that are part of receipts
-    if (receiptMovementIds.length > 0) {
-      query = query.not("id", "in", `(${receiptMovementIds.join(",")})`);
-    }
 
     // Apply filters
     if (filters.status) {
