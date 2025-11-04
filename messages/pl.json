@@ -913,6 +913,11 @@
             "approved": "Zatwierdzone",
             "completed": "Zakończone"
           },
+          "wizard": {
+            "step1": "Informacje o dostawie",
+            "step2": "Weryfikacja",
+            "step3": "Zakończone"
+          },
           "fields": {
             "deliveryNumber": "Numer dostawy",
             "reference": "Referencja",
@@ -1025,6 +1030,7 @@
             "validated": "Dostawa zatwierdzona pomyślnie",
             "cancelled": "Dostawa anulowana pomyślnie",
             "deleted": "Dostawa usunięta pomyślnie",
+            "draftSaved": "Szkic zapisany pomyślnie",
             "error": "Wystąpił błąd",
             "noDeliveries": "Nie znaleziono dostaw",
             "loadingDeliveries": "Ładowanie dostaw...",

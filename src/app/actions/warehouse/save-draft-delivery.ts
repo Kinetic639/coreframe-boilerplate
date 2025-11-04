@@ -84,6 +84,16 @@ export async function saveDraftDelivery(
     const movementIds: string[] = [];
     const errors: string[] = [];
 
+    // Skip if no items
+    if (!data.items || data.items.length === 0) {
+      return {
+        success: true,
+        delivery_id: deliveryReferenceId,
+        delivery_number: deliveryNumber,
+        movement_ids: [],
+      };
+    }
+
     for (const item of data.items) {
       const { data: movement, error: movementError } = await supabase
         .from("stock_movements")

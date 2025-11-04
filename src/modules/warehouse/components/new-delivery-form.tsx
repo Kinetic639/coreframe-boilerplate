@@ -147,6 +147,12 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       return;
     }
 
+    // Only save if we have items
+    if (items.length === 0) {
+      toast.error("Add at least one product before saving draft");
+      return;
+    }
+
     setLoading(true);
 
     // Get supplier details for delivery_address
@@ -174,7 +180,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
     if (result.success && result.delivery_id) {
       setDeliveryId(result.delivery_id);
-      toast.success("Draft saved");
+      toast.success(t("messages.draftSaved"));
 
       // Update URL with draft ID if new draft
       if (!draftId) {
@@ -187,53 +193,58 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      // Validate step 1
+      // Validate step 1 - only require items if verification is enabled
       if (requiresVerification && items.length === 0) {
         toast.error(t("products.noProducts"));
         return;
       }
 
-      // Auto-save as draft before moving to next step
-      if (!currentUser?.id) {
-        toast.error("User not logged in");
-        return;
-      }
+      // Auto-save as draft before moving to next step (only if we have items)
+      if (items.length > 0) {
+        if (!currentUser?.id) {
+          toast.error("User not logged in");
+          return;
+        }
 
-      setLoading(true);
+        setLoading(true);
 
-      const supplierAddress = selectedSupplier
-        ? `${selectedSupplier.name}${selectedSupplier.address_line_1 ? `, ${selectedSupplier.address_line_1}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
-        : "";
+        const supplierAddress = selectedSupplier
+          ? `${selectedSupplier.name}${selectedSupplier.address_line_1 ? `, ${selectedSupplier.address_line_1}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
+          : "";
 
-      const result = await saveDraftDelivery({
-        delivery_id: deliveryId,
-        organization_id: organizationId,
-        branch_id: branchId,
-        destination_location_id:
-          destinationLocationId !== "none" ? destinationLocationId : undefined,
-        scheduled_date: new Date(scheduledDate).toISOString(),
-        source_document: sourceDocument,
-        delivery_address: supplierAddress,
-        responsible_user_id: currentUser.id,
-        notes,
-        items,
-        supplier_id: selectedSupplierId || undefined,
-        requires_verification: requiresVerification,
-        wizard_step: 2, // Moving to step 2
-      });
+        const result = await saveDraftDelivery({
+          delivery_id: deliveryId,
+          organization_id: organizationId,
+          branch_id: branchId,
+          destination_location_id:
+            destinationLocationId !== "none" ? destinationLocationId : undefined,
+          scheduled_date: new Date(scheduledDate).toISOString(),
+          source_document: sourceDocument,
+          delivery_address: supplierAddress,
+          responsible_user_id: currentUser.id,
+          notes,
+          items,
+          supplier_id: selectedSupplierId || undefined,
+          requires_verification: requiresVerification,
+          wizard_step: 2, // Moving to step 2
+        });
 
-      setLoading(false);
+        setLoading(false);
 
-      if (result.success && result.delivery_id) {
-        setDeliveryId(result.delivery_id);
-        setCurrentStep(2);
+        if (result.success && result.delivery_id) {
+          setDeliveryId(result.delivery_id);
+          setCurrentStep(2);
 
-        // Update URL with draft ID if new draft
-        if (!draftId) {
-          router.replace(`/dashboard/warehouse/deliveries/new?draft=${result.delivery_id}`);
+          // Update URL with draft ID if new draft
+          if (!draftId) {
+            router.replace(`/dashboard/warehouse/deliveries/new?draft=${result.delivery_id}`);
+          }
+        } else {
+          toast.error(result.errors?.[0] || t("messages.error"));
         }
       } else {
-        toast.error(result.errors?.[0] || t("messages.error"));
+        // No items yet, just move to next step
+        setCurrentStep(2);
       }
     }
   };
@@ -301,9 +312,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   };
 
   const deliverySteps: Step[] = [
-    { label: t("statuses.pending"), value: "pending" },
-    { label: t("statuses.approved"), value: "approved" },
-    { label: t("statuses.completed"), value: "completed" },
+    { label: t("wizard.step1"), value: "step1" },
+    { label: t("wizard.step2"), value: "step2" },
+    { label: t("wizard.step3"), value: "step3" },
   ];
 
   return (
@@ -360,7 +371,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       <div className="w-full">
         <StatusStepper
           steps={deliverySteps}
-          activeStep={requiresVerification ? "pending" : "completed"}
+          activeStep={currentStep === 1 ? "step1" : "step2"}
           size="md"
         />
       </div>
