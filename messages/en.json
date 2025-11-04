@@ -958,6 +958,11 @@
             "approved": "Approved",
             "completed": "Completed"
           },
+          "wizard": {
+            "step1": "Delivery Information",
+            "step2": "Verification",
+            "step3": "Completed"
+          },
           "fields": {
             "deliveryNumber": "Delivery Number",
             "reference": "Reference",
@@ -1061,6 +1066,7 @@
             "validated": "Delivery validated successfully",
             "cancelled": "Delivery cancelled successfully",
             "deleted": "Delivery deleted successfully",
+            "draftSaved": "Draft saved successfully",
             "error": "An error occurred",
             "noDeliveries": "No deliveries found",
             "loadingDeliveries": "Loading deliveries...",
