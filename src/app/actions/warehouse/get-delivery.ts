@@ -237,9 +237,10 @@ export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelat
  */
 function mapMovementStatusToDeliveryStatus(status: string): DeliveryStatus {
   const mapping: Record<string, DeliveryStatus> = {
-    pending: "draft",
-    approved: "ready",
-    completed: "done",
+    draft: "draft",
+    pending: "pending",
+    approved: "approved",
+    completed: "completed",
     cancelled: "cancelled",
     reversed: "cancelled",
   };

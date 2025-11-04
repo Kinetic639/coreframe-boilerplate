@@ -46,15 +46,15 @@ const STATUS_CONFIG: Record<
   draft: {
     variant: "secondary",
   },
-  waiting: {
+  pending: {
     variant: "outline",
     className: "border-amber-300 bg-amber-50 text-amber-700",
   },
-  ready: {
+  approved: {
     variant: "default",
     className: "bg-blue-500 text-white hover:bg-blue-600",
   },
-  done: {
+  completed: {
     variant: "default",
     className: "bg-emerald-500 text-white hover:bg-emerald-600",
   },
@@ -114,8 +114,13 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
     loadDeliveries();
   }, [loadDeliveries]);
 
-  const handleRowClick = (deliveryId: string) => {
-    router.push(`/dashboard/warehouse/deliveries/${deliveryId}`);
+  const handleRowClick = (deliveryId: string, status: DeliveryStatus) => {
+    // If draft, open wizard to resume; otherwise open details page
+    if (status === "draft") {
+      router.push(`/dashboard/warehouse/deliveries/new?draft=${deliveryId}`);
+    } else {
+      router.push(`/dashboard/warehouse/deliveries/${deliveryId}`);
+    }
   };
 
   const handleNewDelivery = () => {
@@ -182,11 +187,11 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("filters.all")}</SelectItem>
-                <SelectItem value="draft">{t("filters.draft")}</SelectItem>
-                <SelectItem value="waiting">{t("filters.waiting")}</SelectItem>
-                <SelectItem value="ready">{t("filters.ready")}</SelectItem>
-                <SelectItem value="done">{t("filters.done")}</SelectItem>
-                <SelectItem value="cancelled">{t("filters.cancelled")}</SelectItem>
+                <SelectItem value="draft">{t("statuses.draft")}</SelectItem>
+                <SelectItem value="pending">{t("statuses.pending")}</SelectItem>
+                <SelectItem value="approved">{t("statuses.approved")}</SelectItem>
+                <SelectItem value="completed">{t("statuses.completed")}</SelectItem>
+                <SelectItem value="cancelled">{t("statuses.cancelled")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -280,7 +285,7 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
                   <TableRow
                     key={delivery.id}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(delivery.id)}
+                    onClick={() => handleRowClick(delivery.id, delivery.status)}
                   >
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" className="rounded border-gray-300" />
