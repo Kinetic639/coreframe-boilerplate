@@ -45,7 +45,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const loadBranchData = useAppStore((state) => state.loadBranchData);
 
   // Wizard state
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [deliveryId, setDeliveryId] = useState<string | undefined>(draftId || undefined);
 
   // Form state - Step 1
@@ -240,6 +240,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         // No items yet, just move to next step
         setCurrentStep(2);
       }
+    } else if (currentStep === 2) {
+      // Step 2 -> Step 3: Just verify and move to final confirmation
+      setCurrentStep(3);
     }
   };
 
@@ -340,6 +343,15 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
           )}
           {currentStep === 2 && (
             <Button
+              onClick={handleNext}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {t("actions.verify")}
+            </Button>
+          )}
+          {currentStep === 3 && (
+            <Button
               onClick={handleCompleteDelivery}
               disabled={loading}
               className="bg-green-600 hover:bg-green-700"
@@ -361,7 +373,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       <div className="w-full">
         <StatusStepper
           steps={deliverySteps}
-          activeStep={currentStep === 1 ? "step1" : "step2"}
+          activeStep={currentStep === 1 ? "step1" : currentStep === 2 ? "step2" : "step3"}
           size="md"
         />
       </div>
@@ -694,6 +706,68 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </p>
                 </div>
               </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Final Confirmation */}
+      {currentStep === 3 && (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-2 space-y-6">
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Final Confirmation</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Review all details before receiving the delivery. Receipt will be automatically
+                generated.
+              </p>
+
+              {/* Summary */}
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-muted-foreground">Supplier</Label>
+                  <p className="font-medium">{selectedSupplier?.name || "Not specified"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Invoice Number</Label>
+                  <p className="font-medium">{sourceDocument || "Not specified"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Location</Label>
+                  <p className="font-medium">
+                    {destinationLocationId && destinationLocationId !== "none"
+                      ? locations.find((l) => l.id === destinationLocationId)?.name
+                      : "No location"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Products</Label>
+                  <p className="font-medium">{items.length} items</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Total Quantity</Label>
+                  <p className="font-medium">
+                    {items.reduce((sum, item) => sum + item.expected_quantity, 0)} units
+                  </p>
+                </div>
+                {notes && (
+                  <div>
+                    <Label className="text-muted-foreground">Notes</Label>
+                    <p className="font-medium">{notes}</p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-4">
+            <Card className="p-4 bg-green-50 border-green-200">
+              <h3 className="font-semibold mb-2 text-green-800">Ready to Receive</h3>
+              <p className="text-sm text-green-700">
+                Click "Przyjmij dostawę" to generate receipt (PZ) and update stock levels
+                automatically.
+              </p>
             </Card>
           </div>
         </div>
