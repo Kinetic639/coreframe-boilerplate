@@ -118,15 +118,14 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
     // Get the first movement ID as the primary delivery ID
     const deliveryId = movementIds[0];
 
-    // If verification is not required, complete the movements immediately
-    if (!requiresVerification && movementIds.length > 0) {
-      for (const movementId of movementIds) {
-        try {
-          await stockMovementsService.completeMovement(movementId);
-        } catch (completeError) {
-          console.error(`Failed to complete movement ${movementId}:`, completeError);
-          warnings.push(`Movement ${movementId} created but not auto-completed`);
-        }
+    // ALWAYS complete the movements and generate receipt
+    // When user clicks "Przyjmij dostawę" in Step 3, they have already verified (if needed)
+    for (const movementId of movementIds) {
+      try {
+        await stockMovementsService.completeMovement(movementId);
+      } catch (completeError) {
+        console.error(`Failed to complete movement ${movementId}:`, completeError);
+        warnings.push(`Movement ${movementId} created but not auto-completed`);
       }
     }
 
