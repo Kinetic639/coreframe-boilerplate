@@ -944,6 +944,7 @@
           "actions": {
             "markAsTodo": "Oznacz jako do zrobienia",
             "validate": "Zatwierdź",
+            "verify": "Zweryfikuj",
             "cancel": "Anuluj",
             "edit": "Edytuj",
             "delete": "Usuń",

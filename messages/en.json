@@ -989,6 +989,7 @@
           "actions": {
             "markAsTodo": "Mark as Todo",
             "validate": "Validate",
+            "verify": "Verify",
             "cancel": "Cancel",
             "edit": "Edit",
             "delete": "Delete",

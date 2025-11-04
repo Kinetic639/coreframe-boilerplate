@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Link from "next/link";
-import { Package } from "lucide-react";
 import { DeliveryLineItems } from "./delivery-line-items";
 import type { DeliveryWithRelations } from "@/modules/warehouse/types/deliveries";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
@@ -56,15 +54,6 @@ export function DeliveryDetailsForm({
           <Button variant="outline" onClick={handleBack}>
             {t("actions.back")}
           </Button>
-          {((delivery.status as string) === "pending" ||
-            (delivery.status as string) === "approved") && (
-            <Link href={`/dashboard/warehouse/deliveries/${delivery.id}/receive`}>
-              <Button className="bg-green-600 hover:bg-green-700" size="lg">
-                <Package className="mr-2 h-5 w-5" />
-                {t("actions.receiveDelivery")}
-              </Button>
-            </Link>
-          )}
         </div>
       </div>
 
