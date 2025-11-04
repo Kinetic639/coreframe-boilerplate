@@ -955,7 +955,8 @@
             "back": "Wróć",
             "previous": "Wstecz",
             "completeDelivery": "Zakończ dostawę",
-            "receiveDelivery": "Przyjmij dostawę"
+            "receiveDelivery": "Przyjmij dostawę",
+            "processingDelivery": "Procesowanie dostawy..."
           },
           "products": {
             "title": "Produkty",
