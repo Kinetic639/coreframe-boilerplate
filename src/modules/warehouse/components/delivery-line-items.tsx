@@ -2,36 +2,26 @@
 
 // =============================================
 // Delivery Line Items Component
-// Manages product lines in a delivery (Odoo-style)
+// Manages product lines in a delivery (Inflow-style)
 // =============================================
 
-import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ScanBarcode, Search, X, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
 import type { DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import { toast } from "react-toastify";
+import Image from "next/image";
 
 interface Product {
   id: string;
   name: string;
   sku: string;
+  product_images?: Array<{
+    image_url: string;
+    is_primary: boolean;
+  }>;
 }
 
 interface ProductVariant {
@@ -49,6 +39,11 @@ interface DeliveryLineItemsProps {
   readOnly?: boolean;
 }
 
+interface ExtendedDeliveryItem extends DeliveryItem {
+  _product?: Product;
+  _variant?: ProductVariant;
+}
+
 export function DeliveryLineItems({
   items,
   onChange,
@@ -58,17 +53,25 @@ export function DeliveryLineItems({
 }: DeliveryLineItemsProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Record<string, ProductVariant[]>>({});
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
-  const [selectedVariant, setSelectedVariant] = useState<string>("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unitCost, setUnitCost] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [extendedItems, setExtendedItems] = useState<ExtendedDeliveryItem[]>([]);
 
+  // Load products with images
   const loadProducts = useCallback(async () => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, sku")
+      .select(
+        `
+        id,
+        name,
+        sku,
+        product_images(image_url, is_primary)
+      `
+      )
       .eq("organization_id", organizationId)
       .order("name");
 
@@ -82,14 +85,10 @@ export function DeliveryLineItems({
     loadProducts();
   }, [loadProducts]);
 
-  // Load variants for selected product
-  useEffect(() => {
-    if (selectedProduct) {
-      loadVariants(selectedProduct);
-    }
-  }, [selectedProduct]);
-
+  // Load variants for a product
   const loadVariants = async (productId: string) => {
+    if (variants[productId]) return; // Already loaded
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from("product_variants")
@@ -105,30 +104,63 @@ export function DeliveryLineItems({
     }
   };
 
-  const handleAddItem = () => {
-    if (!selectedProduct || quantity <= 0) {
+  // Extend items with product data
+  useEffect(() => {
+    const extended = items.map((item) => {
+      const product = products.find((p) => p.id === item.product_id);
+      const variant =
+        item.variant_id && variants[item.product_id]
+          ? variants[item.product_id].find((v) => v.id === item.variant_id)
+          : undefined;
+
+      return {
+        ...item,
+        _product: product,
+        _variant: variant,
+      };
+    });
+
+    setExtendedItems(extended);
+  }, [items, products, variants]);
+
+  // Filter products based on search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredProducts([]);
       return;
     }
 
-    const product = products.find((p) => p.id === selectedProduct);
-    if (!product) return;
+    const query = searchQuery.toLowerCase();
+    const filtered = products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query)
+    );
+
+    setFilteredProducts(filtered.slice(0, 10)); // Limit to 10 results
+  }, [searchQuery, products]);
+
+  // Focus search input when opened
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
+  const handleAddProduct = async (product: Product) => {
+    // Load variants if needed
+    await loadVariants(product.id);
 
     const newItem: DeliveryItem = {
-      product_id: selectedProduct,
-      variant_id: selectedVariant || null,
-      expected_quantity: quantity,
-      unit_cost: unitCost > 0 ? unitCost : undefined,
-      total_cost: unitCost > 0 ? unitCost * quantity : undefined,
+      product_id: product.id,
+      variant_id: null,
+      expected_quantity: 1,
+      unit_cost: 0,
+      total_cost: 0,
     };
 
     onChange([...items, newItem]);
-
-    // Reset form
-    setSelectedProduct("");
-    setSelectedVariant("");
-    setQuantity(1);
-    setUnitCost(0);
-    setIsAddDialogOpen(false);
+    setSearchQuery("");
+    setIsSearchOpen(false);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -136,107 +168,136 @@ export function DeliveryLineItems({
     onChange(newItems);
   };
 
-  const handleUpdateQuantity = (index: number, newQuantity: number) => {
+  const handleUpdateQuantity = (index: number, value: string) => {
+    const quantity = parseFloat(value) || 0;
     const newItems = [...items];
-    newItems[index].expected_quantity = newQuantity;
+    newItems[index].expected_quantity = quantity;
 
-    // Recalculate total cost
+    // Recalculate total
     if (newItems[index].unit_cost) {
-      newItems[index].total_cost = newItems[index].unit_cost! * newQuantity;
+      newItems[index].total_cost = newItems[index].unit_cost! * quantity;
     }
 
     onChange(newItems);
   };
 
-  const handleUpdateUnitCost = (index: number, newCost: number) => {
+  const handleUpdateUnitCost = (index: number, value: string) => {
+    const cost = parseFloat(value) || 0;
     const newItems = [...items];
-    newItems[index].unit_cost = newCost;
-    newItems[index].total_cost = newCost * newItems[index].expected_quantity;
+    newItems[index].unit_cost = cost;
+    newItems[index].total_cost = cost * newItems[index].expected_quantity;
     onChange(newItems);
   };
 
-  const getProductName = (productId: string, variantId?: string | null) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return "Unknown Product";
-
-    if (variantId && variants[productId]) {
-      const variant = variants[productId].find((v) => v.id === variantId);
-      if (variant) {
-        return `${product.name} - ${variant.name}`;
-      }
-    }
-
-    return product.name;
+  const handleScanBarcode = () => {
+    toast.info("Barcode scanning feature coming soon!");
   };
 
-  const getProductSku = (productId: string, variantId?: string | null) => {
-    if (variantId && variants[productId]) {
-      const variant = variants[productId].find((v) => v.id === variantId);
-      if (variant) return variant.sku;
-    }
+  const calculateSubtotal = () => {
+    return items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
+  };
 
-    const product = products.find((p) => p.id === productId);
-    return product?.sku || "";
+  const getProductImage = (product?: Product) => {
+    if (!product?.product_images || product.product_images.length === 0) {
+      return null;
+    }
+    const primaryImage = product.product_images.find((img) => img.is_primary);
+    return primaryImage?.image_url || product.product_images[0]?.image_url;
   };
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Products</h3>
-      </div>
+      {/* Product Table */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/30 border-b">
+            <tr>
+              <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
+                Product
+              </th>
+              <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 w-32">
+                Vendor code
+              </th>
+              <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3 w-32">
+                Quantity
+              </th>
+              <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3 w-32">
+                Vendor price
+              </th>
+              <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3 w-32">
+                Subtotal
+              </th>
+              <th className="w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {extendedItems.map((item, index) => {
+              const imageUrl = getProductImage(item._product);
 
-      {/* Items Table */}
-      {items.length > 0 ? (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b">
-              <tr>
-                <th className="text-left text-sm font-medium px-4 py-2">Product</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Demand</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Unit Cost</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Total</th>
-                <th className="w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={index} className="border-b last:border-b-0 hover:bg-muted/30">
+              return (
+                <tr key={index} className="border-b last:border-b-0 hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <div className="space-y-1">
-                      <div className="font-medium text-sm">
-                        {getProductName(item.product_id, item.variant_id)}
+                    <div className="flex items-center gap-3">
+                      {/* Product Image */}
+                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={item._product?.name || "Product"}
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        ) : (
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {getProductSku(item.product_id, item.variant_id)}
+                      {/* Product Info */}
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">
+                          {item._product?.name || "Unknown Product"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {item._product?.sku || "N/A"}
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={item.expected_quantity}
-                      onChange={(e) => handleUpdateQuantity(index, parseFloat(e.target.value) || 0)}
-                      disabled={disabled || readOnly}
-                      className="w-24 text-right ml-auto"
-                    />
+                  <td className="px-4 py-3">
+                    <span className="text-sm text-muted-foreground">
+                      {item._variant?.sku || "-"}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item.unit_cost || 0}
-                      onChange={(e) => handleUpdateUnitCost(index, parseFloat(e.target.value) || 0)}
+                      value={item.expected_quantity || ""}
+                      onChange={(e) => handleUpdateQuantity(index, e.target.value)}
                       disabled={disabled || readOnly}
-                      className="w-24 text-right ml-auto"
+                      className="w-24 text-right ml-auto h-8 text-sm"
+                      placeholder="0"
                     />
                   </td>
                   <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <span className="text-xs text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unit_cost || ""}
+                        onChange={(e) => handleUpdateUnitCost(index, e.target.value)}
+                        disabled={disabled || readOnly}
+                        className="w-24 text-right h-8 text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-right">
                     <span className="text-sm font-medium">
-                      {item.total_cost ? item.total_cost.toFixed(2) : "0.00"} PLN
+                      ${(item.total_cost || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -245,116 +306,140 @@ export function DeliveryLineItems({
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveItem(index)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <X className="h-4 w-4" />
                       </Button>
                     )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground">
-          <p className="text-sm">No products added yet</p>
+              );
+            })}
+
+            {/* Empty State */}
+            {extendedItems.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No products added yet</p>
+                  <p className="text-xs mt-1">
+                    Search for products below or scan a barcode to add items
+                  </p>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Subtotal Section */}
+        {extendedItems.length > 0 && (
+          <div className="border-t bg-muted/10 px-4 py-3">
+            <div className="flex justify-end">
+              <div className="w-64 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span className="font-semibold">Total</span>
+                  <span className="font-semibold">${calculateSubtotal().toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add Product Section */}
+      {!disabled && !readOnly && (
+        <div className="flex gap-2">
+          {/* Search Input */}
+          <div className="flex-1 relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search product by name, description and category"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsSearchOpen(true);
+                }}
+                onFocus={() => setIsSearchOpen(true)}
+                className="pl-9 pr-10"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setIsSearchOpen(false);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {isSearchOpen && filteredProducts.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-background border rounded-lg shadow-lg max-h-80 overflow-auto">
+                {filteredProducts.map((product) => {
+                  const imageUrl = getProductImage(product);
+                  const stockCount = items.filter((item) => item.product_id === product.id).length;
+
+                  return (
+                    <button
+                      key={product.id}
+                      onClick={() => handleAddProduct(product)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left border-b last:border-b-0"
+                    >
+                      {/* Product Image */}
+                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={product.name}
+                            fill
+                            className="object-cover"
+                            sizes="40px"
+                          />
+                        ) : (
+                          <Package className="w-5 h-5 text-muted-foreground" />
+                        )}
+                      </div>
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{product.name}</div>
+                        <div className="text-xs text-muted-foreground">{product.sku}</div>
+                      </div>
+                      {/* Stock Indicator */}
+                      {stockCount > 0 && (
+                        <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
+                          <span className="w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px]">
+                            {stockCount}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Scan Button */}
+          <Button variant="outline" onClick={handleScanBarcode} className="gap-2 whitespace-nowrap">
+            <ScanBarcode className="h-4 w-4" />
+            Scan to add
+          </Button>
         </div>
       )}
 
-      {/* Add Product Button */}
-      {!disabled && !readOnly && (
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="link" size="sm" className="px-0 text-primary">
-              <Plus className="h-4 w-4 mr-1" />
-              Add a Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Product</DialogTitle>
-              <DialogDescription>
-                Select a product and specify the quantity to add to this delivery.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              {/* Product Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Product</label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.sku})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Variant Selection */}
-              {selectedProduct &&
-                variants[selectedProduct] &&
-                variants[selectedProduct].length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Variant</label>
-                    <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a variant (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {variants[selectedProduct].map((variant) => (
-                          <SelectItem key={variant.id} value={variant.id}>
-                            {variant.name} ({variant.sku})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-              {/* Quantity */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Demand Quantity</label>
-                <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
-                  placeholder="Enter quantity"
-                />
-              </div>
-
-              {/* Unit Cost */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Unit Cost (PLN)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
-                  placeholder="Enter unit cost"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddItem} disabled={!selectedProduct || quantity <= 0}>
-                Add Product
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Click outside to close search */}
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setIsSearchOpen(false)} />
       )}
     </div>
   );

@@ -77,7 +77,7 @@ export function DeliveryDetailsForm({
 
       {/* Status Stepper */}
       <div className="w-full">
-        <StatusStepper steps={deliverySteps} activeStep={delivery.status as string} size="sm" />
+        <StatusStepper size="sm" steps={deliverySteps} activeStep={delivery.status as string} />
       </div>
 
       {/* Main Form */}

@@ -374,7 +374,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         <StatusStepper
           steps={deliverySteps}
           activeStep={currentStep === 1 ? "step1" : currentStep === 2 ? "step2" : "step3"}
-          size="md"
+          size="sm"
         />
       </div>
 
