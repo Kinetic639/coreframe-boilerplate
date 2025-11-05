@@ -2,36 +2,30 @@
 
 // =============================================
 // Delivery Line Items Component
-// Manages product lines in a delivery (Odoo-style)
+// Manages product lines in a delivery (inline row-based editing)
 // =============================================
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
 import type { DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface Product {
   id: string;
   name: string;
   sku: string;
+  unit?: string;
 }
 
 interface ProductVariant {
@@ -39,6 +33,12 @@ interface ProductVariant {
   product_id: string;
   name: string;
   sku: string;
+}
+
+// Extended DeliveryItem for internal state with temporary row tracking
+interface DeliveryItemRow extends DeliveryItem {
+  _isNew?: boolean;
+  _rowId?: string;
 }
 
 interface DeliveryLineItemsProps {
@@ -58,11 +58,8 @@ export function DeliveryLineItems({
 }: DeliveryLineItemsProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [variants, setVariants] = useState<Record<string, ProductVariant[]>>({});
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
-  const [selectedVariant, setSelectedVariant] = useState<string>("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unitCost, setUnitCost] = useState<number>(0);
+  const [internalItems, setInternalItems] = useState<DeliveryItemRow[]>([]);
+  const [openProductSelectors, setOpenProductSelectors] = useState<Record<string, boolean>>({});
 
   const loadProducts = useCallback(async () => {
     const supabase = createClient();
@@ -77,19 +74,25 @@ export function DeliveryLineItems({
     }
   }, [organizationId]);
 
-  // Load products
+  // Load products on mount
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
 
-  // Load variants for selected product
+  // Sync external items to internal state
   useEffect(() => {
-    if (selectedProduct) {
-      loadVariants(selectedProduct);
-    }
-  }, [selectedProduct]);
+    setInternalItems(
+      items.map((item, index) => ({
+        ...item,
+        _rowId: item.id || `row-${index}`,
+        _isNew: false,
+      }))
+    );
+  }, [items]);
 
   const loadVariants = async (productId: string) => {
+    if (variants[productId]) return; // Already loaded
+
     const supabase = createClient();
     const { data, error } = await supabase
       .from("product_variants")
@@ -105,54 +108,98 @@ export function DeliveryLineItems({
     }
   };
 
-  const handleAddItem = () => {
-    if (!selectedProduct || quantity <= 0) {
-      return;
-    }
-
-    const product = products.find((p) => p.id === selectedProduct);
-    if (!product) return;
-
-    const newItem: DeliveryItem = {
-      product_id: selectedProduct,
-      variant_id: selectedVariant || null,
-      expected_quantity: quantity,
-      unit_cost: unitCost > 0 ? unitCost : undefined,
-      total_cost: unitCost > 0 ? unitCost * quantity : undefined,
+  const handleAddRow = () => {
+    const newRowId = `new-${Date.now()}`;
+    const newRow: DeliveryItemRow = {
+      product_id: "",
+      variant_id: null,
+      expected_quantity: 1,
+      unit_cost: 0,
+      total_cost: 0,
+      _isNew: true,
+      _rowId: newRowId,
     };
 
-    onChange([...items, newItem]);
-
-    // Reset form
-    setSelectedProduct("");
-    setSelectedVariant("");
-    setQuantity(1);
-    setUnitCost(0);
-    setIsAddDialogOpen(false);
+    const updatedItems = [...internalItems, newRow];
+    setInternalItems(updatedItems);
   };
 
-  const handleRemoveItem = (index: number) => {
-    const newItems = items.filter((_, i) => i !== index);
-    onChange(newItems);
+  const handleProductSelect = (rowId: string, productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
+    // Load variants for this product
+    loadVariants(productId);
+
+    const updatedItems = internalItems.map((item) => {
+      if (item._rowId === rowId) {
+        return {
+          ...item,
+          product_id: productId,
+          variant_id: null,
+          expected_quantity: item.expected_quantity || 1,
+          unit_cost: item.unit_cost || 0,
+          total_cost: (item.unit_cost || 0) * (item.expected_quantity || 1),
+          _isNew: false,
+        };
+      }
+      return item;
+    });
+
+    setInternalItems(updatedItems);
+    syncToParent(updatedItems);
+
+    // Close the popover
+    setOpenProductSelectors((prev) => ({ ...prev, [rowId]: false }));
   };
 
-  const handleUpdateQuantity = (index: number, newQuantity: number) => {
-    const newItems = [...items];
-    newItems[index].expected_quantity = newQuantity;
-
-    // Recalculate total cost
-    if (newItems[index].unit_cost) {
-      newItems[index].total_cost = newItems[index].unit_cost! * newQuantity;
-    }
-
-    onChange(newItems);
+  const handleRemoveRow = (rowId: string) => {
+    const updatedItems = internalItems.filter((item) => item._rowId !== rowId);
+    setInternalItems(updatedItems);
+    syncToParent(updatedItems);
   };
 
-  const handleUpdateUnitCost = (index: number, newCost: number) => {
-    const newItems = [...items];
-    newItems[index].unit_cost = newCost;
-    newItems[index].total_cost = newCost * newItems[index].expected_quantity;
-    onChange(newItems);
+  const handleUpdateQuantity = (rowId: string, newQuantity: number) => {
+    const updatedItems = internalItems.map((item) => {
+      if (item._rowId === rowId) {
+        const total = (item.unit_cost || 0) * newQuantity;
+        return {
+          ...item,
+          expected_quantity: newQuantity,
+          total_cost: total,
+        };
+      }
+      return item;
+    });
+
+    setInternalItems(updatedItems);
+    syncToParent(updatedItems);
+  };
+
+  const handleUpdateUnitCost = (rowId: string, newCost: number) => {
+    const updatedItems = internalItems.map((item) => {
+      if (item._rowId === rowId) {
+        const total = newCost * item.expected_quantity;
+        return {
+          ...item,
+          unit_cost: newCost,
+          total_cost: total,
+        };
+      }
+      return item;
+    });
+
+    setInternalItems(updatedItems);
+    syncToParent(updatedItems);
+  };
+
+  const syncToParent = (updatedItems: DeliveryItemRow[]) => {
+    // Filter out empty rows and remove temporary fields
+    const cleanedItems: DeliveryItem[] = updatedItems
+      .filter((item) => item.product_id !== "")
+      .map(({ _isNew, _rowId, ...item }) => item);
+
+    onChange(cleanedItems);
   };
 
   const getProductName = (productId: string, variantId?: string | null) => {
@@ -179,6 +226,11 @@ export function DeliveryLineItems({
     return product?.sku || "";
   };
 
+  const getProductUnit = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    return product?.unit || "pcs";
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -187,64 +239,123 @@ export function DeliveryLineItems({
       </div>
 
       {/* Items Table */}
-      {items.length > 0 ? (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-muted/50 border-b">
-              <tr>
-                <th className="text-left text-sm font-medium px-4 py-2">Product</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Demand</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Unit Cost</th>
-                <th className="text-right text-sm font-medium px-4 py-2 w-32">Total</th>
-                <th className="w-12"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item, index) => (
-                <tr key={index} className="border-b last:border-b-0 hover:bg-muted/30">
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/50 border-b">
+            <tr>
+              <th className="text-left text-sm font-medium px-4 py-2">Product</th>
+              <th className="text-center text-sm font-medium px-4 py-2 w-32">Quantity</th>
+              <th className="text-center text-sm font-medium px-4 py-2 w-24">Unit</th>
+              <th className="text-center text-sm font-medium px-4 py-2 w-32">Purchase Price</th>
+              <th className="w-12"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {internalItems.map((item) => {
+              const rowId = item._rowId!;
+              const isEmptyRow = !item.product_id;
+
+              return (
+                <tr
+                  key={rowId}
+                  className={`border-b last:border-b-0 ${isEmptyRow ? "bg-blue-50/30" : "hover:bg-muted/30"}`}
+                >
+                  {/* Product Selector */}
                   <td className="px-4 py-3">
-                    <div className="space-y-1">
-                      <div className="font-medium text-sm">
-                        {getProductName(item.product_id, item.variant_id)}
+                    {isEmptyRow ? (
+                      <Popover
+                        open={openProductSelectors[rowId] || false}
+                        onOpenChange={(open) =>
+                          setOpenProductSelectors((prev) => ({ ...prev, [rowId]: open }))
+                        }
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal"
+                            disabled={disabled || readOnly}
+                          >
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <span className="text-muted-foreground">Select a product...</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search products..." />
+                            <CommandList>
+                              <CommandEmpty>No products found.</CommandEmpty>
+                              <CommandGroup>
+                                {products.map((product) => (
+                                  <CommandItem
+                                    key={product.id}
+                                    value={`${product.name} ${product.sku}`}
+                                    onSelect={() => handleProductSelect(rowId, product.id)}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{product.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {product.sku}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="font-medium text-sm">
+                          {getProductName(item.product_id, item.variant_id)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {getProductSku(item.product_id, item.variant_id)}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {getProductSku(item.product_id, item.variant_id)}
-                      </div>
-                    </div>
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+
+                  {/* Quantity */}
+                  <td className="px-4 py-3">
                     <Input
                       type="number"
                       min="0.01"
                       step="0.01"
                       value={item.expected_quantity}
-                      onChange={(e) => handleUpdateQuantity(index, parseFloat(e.target.value) || 0)}
-                      disabled={disabled || readOnly}
-                      className="w-24 text-right ml-auto"
+                      onChange={(e) => handleUpdateQuantity(rowId, parseFloat(e.target.value) || 0)}
+                      disabled={disabled || readOnly || isEmptyRow}
+                      className="w-full text-center"
                     />
                   </td>
-                  <td className="px-4 py-3 text-right">
+
+                  {/* Unit */}
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-sm text-muted-foreground">
+                      {isEmptyRow ? "-" : getProductUnit(item.product_id)}
+                    </span>
+                  </td>
+
+                  {/* Purchase Price */}
+                  <td className="px-4 py-3">
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
                       value={item.unit_cost || 0}
-                      onChange={(e) => handleUpdateUnitCost(index, parseFloat(e.target.value) || 0)}
-                      disabled={disabled || readOnly}
-                      className="w-24 text-right ml-auto"
+                      onChange={(e) => handleUpdateUnitCost(rowId, parseFloat(e.target.value) || 0)}
+                      disabled={disabled || readOnly || isEmptyRow}
+                      className="w-full text-center"
                     />
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="text-sm font-medium">
-                      {item.total_cost ? item.total_cost.toFixed(2) : "0.00"} PLN
-                    </span>
-                  </td>
+
+                  {/* Delete Button */}
                   <td className="px-4 py-3">
                     {!disabled && !readOnly && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleRemoveItem(index)}
+                        onClick={() => handleRemoveRow(rowId)}
                         className="h-8 w-8 text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -252,109 +363,18 @@ export function DeliveryLineItems({
                     )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="border border-dashed rounded-lg p-8 text-center text-muted-foreground">
-          <p className="text-sm">No products added yet</p>
-        </div>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-      {/* Add Product Button */}
+      {/* Add Row Button */}
       {!disabled && !readOnly && (
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="link" size="sm" className="px-0 text-primary">
-              <Plus className="h-4 w-4 mr-1" />
-              Add a Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Product</DialogTitle>
-              <DialogDescription>
-                Select a product and specify the quantity to add to this delivery.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              {/* Product Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Product</label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} ({product.sku})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Variant Selection */}
-              {selectedProduct &&
-                variants[selectedProduct] &&
-                variants[selectedProduct].length > 0 && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Variant</label>
-                    <Select value={selectedVariant} onValueChange={setSelectedVariant}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a variant (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {variants[selectedProduct].map((variant) => (
-                          <SelectItem key={variant.id} value={variant.id}>
-                            {variant.name} ({variant.sku})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-              {/* Quantity */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Demand Quantity</label>
-                <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={quantity}
-                  onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
-                  placeholder="Enter quantity"
-                />
-              </div>
-
-              {/* Unit Cost */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Unit Cost (PLN)</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(parseFloat(e.target.value) || 0)}
-                  placeholder="Enter unit cost"
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddItem} disabled={!selectedProduct || quantity <= 0}>
-                Add Product
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button variant="outline" size="sm" onClick={handleAddRow} className="w-full border-dashed">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Row
+        </Button>
       )}
     </div>
   );
