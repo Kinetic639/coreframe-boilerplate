@@ -1831,5 +1831,172 @@
       "reject": "Reject",
       "approve": "Approve"
     }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Clients",
+      "description": "Manage customer contacts and relationships",
+      "pageTitle": "Clients",
+      "pageDescription": "Customer relationship management",
+      "list": "Client List",
+      "totalCount": "{count} total clients"
+    },
+    "vendors": {
+      "title": "Vendors",
+      "description": "Manage supplier contacts and relationships",
+      "pageTitle": "Vendors",
+      "pageDescription": "Supplier relationship management",
+      "list": "Vendor List",
+      "totalCount": "{count} total vendors"
+    },
+    "types": {
+      "customer": "Customer",
+      "vendor": "Vendor",
+      "lead": "Lead",
+      "employee": "Employee",
+      "other": "Other"
+    },
+    "entityTypes": {
+      "business": "Business",
+      "individual": "Individual"
+    },
+    "form": {
+      "newTitle": "New {type}",
+      "editTitle": "Edit {type}",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "tabs": {
+        "basicInfo": "Basic Info",
+        "otherDetails": "Other Details",
+        "address": "Address",
+        "contactPersons": "Contact Persons",
+        "customFields": "Custom Fields",
+        "remarks": "Remarks"
+      },
+      "fields": {
+        "customerType": "Customer Type",
+        "salutation": "Salutation",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "companyName": "Company Name",
+        "displayName": "Display Name",
+        "displayNameHelp": "This name will be displayed across all transactions",
+        "primaryEmail": "Primary Email",
+        "workPhone": "Work Phone",
+        "mobilePhone": "Mobile Phone",
+        "website": "Website",
+        "language": "Language",
+        "currency": "Currency",
+        "paymentTerms": "Payment Terms",
+        "taxRegistrationNumber": "Tax Registration Number",
+        "companyIdNumber": "Company ID Number",
+        "taxRate": "Tax Rate (%)",
+        "taxExempt": "Tax Exempt",
+        "creditLimit": "Credit Limit",
+        "openingBalance": "Opening Balance",
+        "portalEnabled": "Allow Portal Access",
+        "portalLanguage": "Portal Language",
+        "fax": "Fax",
+        "billingAddress": "Billing Address",
+        "shippingAddress": "Shipping Address",
+        "attentionTo": "Attention To",
+        "country": "Country",
+        "addressLine1": "Address Line 1",
+        "addressLine2": "Address Line 2",
+        "city": "City",
+        "stateProvince": "State/Province",
+        "postalCode": "Postal Code",
+        "phone": "Phone",
+        "defaultAddress": "Default",
+        "contactPersons": "Contact Persons",
+        "name": "Name",
+        "email": "Email",
+        "designation": "Designation",
+        "department": "Department",
+        "primary": "Primary",
+        "active": "Active",
+        "actions": "Actions",
+        "primaryContact": "Primary Contact",
+        "notes": "Notes",
+        "internalNotes": "Internal Notes",
+        "internalNotesHelp": "These notes are for internal use only and will not be visible to the contact",
+        "type": "Type",
+        "location": "Location"
+      },
+      "placeholders": {
+        "salutation": "Select salutation",
+        "firstName": "Enter first name",
+        "lastName": "Enter last name",
+        "companyName": "Enter company name",
+        "displayName": "Enter display name",
+        "email": "example@company.com",
+        "phone": "+1 234 567 890",
+        "website": "https://example.com",
+        "paymentTerms": "Select payment terms",
+        "taxNumber": "Enter tax number",
+        "companyId": "Enter company ID",
+        "taxRate": "e.g. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Enter fax number",
+        "attentionTo": "Contact person name",
+        "country": "Enter country",
+        "addressLine1": "Street address",
+        "addressLine2": "Apartment, suite, etc.",
+        "city": "Enter city",
+        "stateProvince": "Enter state/province",
+        "postalCode": "Enter postal code",
+        "designation": "Job title",
+        "department": "Department name",
+        "notes": "Add any additional notes here..."
+      },
+      "messages": {
+        "createSuccess": "Contact created successfully",
+        "updateSuccess": "Contact updated successfully",
+        "error": "Failed to save contact",
+        "customFieldsPlaceholder": "No custom fields defined",
+        "customFieldsInfo": "Custom fields can be configured in organization settings"
+      }
+    },
+    "actions": {
+      "newClient": "New Client",
+      "newVendor": "New Vendor",
+      "addBillingAddress": "Add Billing Address",
+      "addShippingAddress": "Add Shipping Address",
+      "addContactPerson": "Add Contact Person",
+      "add": "Add",
+      "update": "Update",
+      "cancel": "Cancel",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "dialogs": {
+      "addContactPerson": "Add Contact Person",
+      "editContactPerson": "Edit Contact Person"
+    },
+    "messages": {
+      "loading": "Loading contacts...",
+      "noContacts": "No contacts found",
+      "noAddresses": "No addresses added yet",
+      "noContactPersons": "No contact persons added yet",
+      "createSuccess": "Contact created successfully",
+      "updateSuccess": "Contact updated successfully",
+      "deleteSuccess": "Contact deleted successfully",
+      "error": "An error occurred"
+    },
+    "filters": {
+      "title": "Filters",
+      "searchPlaceholder": "Search by name, email, or phone...",
+      "allTypes": "All Types",
+      "clearAll": "Clear All"
+    },
+    "pagination": {
+      "showing": "Showing {start} to {end} of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    }
   }
 }

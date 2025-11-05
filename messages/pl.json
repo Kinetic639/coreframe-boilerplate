@@ -1811,5 +1811,172 @@
       "reject": "Odrzuć",
       "approve": "Zatwierdź"
     }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Klienci",
+      "description": "Zarządzaj kontaktami i relacjami z klientami",
+      "pageTitle": "Klienci",
+      "pageDescription": "Zarządzanie relacjami z klientami",
+      "list": "Lista Klientów",
+      "totalCount": "{count} klientów w sumie"
+    },
+    "vendors": {
+      "title": "Dostawcy",
+      "description": "Zarządzaj kontaktami i relacjami z dostawcami",
+      "pageTitle": "Dostawcy",
+      "pageDescription": "Zarządzanie relacjami z dostawcami",
+      "list": "Lista Dostawców",
+      "totalCount": "{count} dostawców w sumie"
+    },
+    "types": {
+      "customer": "Klient",
+      "vendor": "Dostawca",
+      "lead": "Potencjalny klient",
+      "employee": "Pracownik",
+      "other": "Inny"
+    },
+    "entityTypes": {
+      "business": "Firma",
+      "individual": "Osoba prywatna"
+    },
+    "form": {
+      "newTitle": "Nowy {type}",
+      "editTitle": "Edytuj {type}",
+      "save": "Zapisz",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
+      "tabs": {
+        "basicInfo": "Podstawowe Informacje",
+        "otherDetails": "Inne Szczegóły",
+        "address": "Adres",
+        "contactPersons": "Osoby Kontaktowe",
+        "customFields": "Pola Niestandardowe",
+        "remarks": "Uwagi"
+      },
+      "fields": {
+        "customerType": "Typ Klienta",
+        "salutation": "Tytuł",
+        "firstName": "Imię",
+        "lastName": "Nazwisko",
+        "companyName": "Nazwa Firmy",
+        "displayName": "Nazwa Wyświetlana",
+        "displayNameHelp": "Ta nazwa będzie wyświetlana we wszystkich transakcjach",
+        "primaryEmail": "Główny Email",
+        "workPhone": "Telefon Służbowy",
+        "mobilePhone": "Telefon Komórkowy",
+        "website": "Strona WWW",
+        "language": "Język",
+        "currency": "Waluta",
+        "paymentTerms": "Warunki Płatności",
+        "taxRegistrationNumber": "NIP",
+        "companyIdNumber": "REGON",
+        "taxRate": "Stawka VAT (%)",
+        "taxExempt": "Zwolniony z VAT",
+        "creditLimit": "Limit Kredytowy",
+        "openingBalance": "Saldo Początkowe",
+        "portalEnabled": "Dostęp do Portalu",
+        "portalLanguage": "Język Portalu",
+        "fax": "Faks",
+        "billingAddress": "Adres Fakturowy",
+        "shippingAddress": "Adres Dostawy",
+        "attentionTo": "Do rąk",
+        "country": "Kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Adres - linia 2",
+        "city": "Miasto",
+        "stateProvince": "Województwo",
+        "postalCode": "Kod Pocztowy",
+        "phone": "Telefon",
+        "defaultAddress": "Domyślny",
+        "contactPersons": "Osoby Kontaktowe",
+        "name": "Nazwa",
+        "email": "Email",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "primary": "Główny",
+        "active": "Aktywny",
+        "actions": "Akcje",
+        "primaryContact": "Główny Kontakt",
+        "notes": "Notatki",
+        "internalNotes": "Notatki Wewnętrzne",
+        "internalNotesHelp": "Te notatki są tylko do użytku wewnętrznego i nie będą widoczne dla kontaktu",
+        "type": "Typ",
+        "location": "Lokalizacja"
+      },
+      "placeholders": {
+        "salutation": "Wybierz tytuł",
+        "firstName": "Wprowadź imię",
+        "lastName": "Wprowadź nazwisko",
+        "companyName": "Wprowadź nazwę firmy",
+        "displayName": "Wprowadź nazwę wyświetlaną",
+        "email": "przykład@firma.pl",
+        "phone": "+48 123 456 789",
+        "website": "https://przykład.pl",
+        "paymentTerms": "Wybierz warunki płatności",
+        "taxNumber": "Wprowadź NIP",
+        "companyId": "Wprowadź REGON",
+        "taxRate": "np. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Wprowadź numer faksu",
+        "attentionTo": "Imię i nazwisko osoby",
+        "country": "Wprowadź kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Mieszkanie, biuro, itp.",
+        "city": "Wprowadź miasto",
+        "stateProvince": "Wprowadź województwo",
+        "postalCode": "Wprowadź kod pocztowy",
+        "designation": "Stanowisko",
+        "department": "Nazwa działu",
+        "notes": "Dodaj dodatkowe notatki tutaj..."
+      },
+      "messages": {
+        "createSuccess": "Kontakt został utworzony pomyślnie",
+        "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+        "error": "Nie udało się zapisać kontaktu",
+        "customFieldsPlaceholder": "Brak zdefiniowanych pól niestandardowych",
+        "customFieldsInfo": "Pola niestandardowe można skonfigurować w ustawieniach organizacji"
+      }
+    },
+    "actions": {
+      "newClient": "Nowy Klient",
+      "newVendor": "Nowy Dostawca",
+      "addBillingAddress": "Dodaj Adres Fakturowy",
+      "addShippingAddress": "Dodaj Adres Dostawy",
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "add": "Dodaj",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "view": "Pokaż",
+      "edit": "Edytuj",
+      "delete": "Usuń"
+    },
+    "dialogs": {
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "editContactPerson": "Edytuj Osobę Kontaktową"
+    },
+    "messages": {
+      "loading": "Ładowanie kontaktów...",
+      "noContacts": "Nie znaleziono kontaktów",
+      "noAddresses": "Nie dodano jeszcze żadnych adresów",
+      "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
+      "createSuccess": "Kontakt został utworzony pomyślnie",
+      "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+      "deleteSuccess": "Kontakt został usunięty pomyślnie",
+      "error": "Wystąpił błąd"
+    },
+    "filters": {
+      "title": "Filtry",
+      "searchPlaceholder": "Szukaj po nazwie, emailu lub telefonie...",
+      "allTypes": "Wszystkie Typy",
+      "clearAll": "Wyczyść Wszystko"
+    },
+    "pagination": {
+      "showing": "Pokazuję {start} do {end} z {total}",
+      "previous": "Poprzednia",
+      "next": "Następna"
+    }
   }
 }

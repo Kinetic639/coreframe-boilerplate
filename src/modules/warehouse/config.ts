@@ -40,16 +40,16 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         icon: "Archive",
         submenu: [
           {
-            id: "products-overview",
-            label: "modules.warehouse.items.products.title",
-            path: "/dashboard/warehouse/products",
-            icon: "Package",
-          },
-          {
             id: "inventory-movements",
             label: "modules.warehouse.items.inventory.movements",
             path: "/dashboard/warehouse/inventory/movements",
             icon: "ArrowRightLeft",
+          },
+          {
+            id: "products-overview",
+            label: "modules.warehouse.items.products.title",
+            path: "/dashboard/warehouse/products",
+            icon: "Package",
           },
           {
             id: "locations",
