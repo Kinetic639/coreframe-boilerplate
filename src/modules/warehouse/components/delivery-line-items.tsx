@@ -77,6 +77,8 @@ export function DeliveryLineItems({
 
     if (!error && data) {
       setProducts(data);
+      // Initialize filtered products with first 20 products
+      setFilteredProducts(data.slice(0, 20));
     }
   }, [organizationId]);
 
