@@ -123,11 +123,11 @@ export function DeliveryLineItems({
     setExtendedItems(extended);
   }, [items, products, variants]);
 
-  // Filter products based on search
+  // Filter products based on search - show all products when no search query
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredProducts([]);
-      setIsSearchOpen(false);
+      // Show all products when no search query
+      setFilteredProducts(products.slice(0, 20)); // Show first 20 products
       return;
     }
 
@@ -137,12 +137,7 @@ export function DeliveryLineItems({
         product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query)
     );
 
-    setFilteredProducts(filtered.slice(0, 10)); // Limit to 10 results
-
-    // Open dropdown if we have results
-    if (filtered.length > 0) {
-      setIsSearchOpen(true);
-    }
+    setFilteredProducts(filtered.slice(0, 20)); // Limit to 20 results
   }, [searchQuery, products]);
 
   // Focus search input when opened
@@ -372,9 +367,7 @@ export function DeliveryLineItems({
                   setSearchQuery(e.target.value);
                 }}
                 onFocus={() => {
-                  if (searchQuery.trim() && filteredProducts.length > 0) {
-                    setIsSearchOpen(true);
-                  }
+                  setIsSearchOpen(true);
                 }}
                 className="pl-9 pr-10"
               />
@@ -392,7 +385,7 @@ export function DeliveryLineItems({
             </div>
 
             {/* Search Results Dropdown */}
-            {isSearchOpen && searchQuery && filteredProducts.length > 0 && (
+            {isSearchOpen && filteredProducts.length > 0 && (
               <div className="absolute z-[100] w-full mt-1 bg-background border rounded-lg shadow-lg max-h-80 overflow-auto">
                 {filteredProducts.map((product) => {
                   const imageUrl = getProductImage(product);
@@ -452,7 +445,7 @@ export function DeliveryLineItems({
       )}
 
       {/* Click outside to close search */}
-      {isSearchOpen && searchQuery && filteredProducts.length > 0 && (
+      {isSearchOpen && (
         <div
           className="fixed inset-0 z-[90]"
           onClick={() => {
