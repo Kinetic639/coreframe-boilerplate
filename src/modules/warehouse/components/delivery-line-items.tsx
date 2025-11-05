@@ -26,6 +26,7 @@ interface Product {
   name: string;
   sku: string;
   unit?: string;
+  cost_price?: number;
 }
 
 interface ProductVariant {
@@ -65,7 +66,7 @@ export function DeliveryLineItems({
     const supabase = createClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, sku")
+      .select("id, name, sku, unit, cost_price")
       .eq("organization_id", organizationId)
       .order("name");
 
@@ -131,15 +132,19 @@ export function DeliveryLineItems({
     // Load variants for this product
     loadVariants(productId);
 
+    // Use product's cost_price as the default unit_cost
+    const defaultUnitCost = product.cost_price || 0;
+    const defaultQuantity = 1;
+
     const updatedItems = internalItems.map((item) => {
       if (item._rowId === rowId) {
         return {
           ...item,
           product_id: productId,
           variant_id: null,
-          expected_quantity: item.expected_quantity || 1,
-          unit_cost: item.unit_cost || 0,
-          total_cost: (item.unit_cost || 0) * (item.expected_quantity || 1),
+          expected_quantity: defaultQuantity,
+          unit_cost: defaultUnitCost,
+          total_cost: defaultUnitCost * defaultQuantity,
           _isNew: false,
         };
       }
