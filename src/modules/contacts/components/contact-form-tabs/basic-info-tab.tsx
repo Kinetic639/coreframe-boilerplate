@@ -81,7 +81,7 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
               <SelectContent>
                 {SALUTATIONS.map((sal) => (
                   <SelectItem key={sal.value} value={sal.value}>
-                    {sal.label}
+                    {t(sal.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -1855,6 +1855,18 @@
         "customFields": "Pola Niestandardowe",
         "remarks": "Uwagi"
       },
+      "entityTypes": {
+        "business": "Firma",
+        "individual": "Osoba prywatna"
+      },
+      "salutations": {
+        "mr": "Pan",
+        "mrs": "Pani",
+        "ms": "Pani",
+        "dr": "Dr",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
       "fields": {
         "customerType": "Typ Klienta",
         "salutation": "Tytuł",
@@ -1932,10 +1944,34 @@
         "department": "Nazwa działu",
         "notes": "Dodaj dodatkowe notatki tutaj..."
       },
+      "actions": {
+        "addBillingAddress": "Dodaj Adres Fakturowy",
+        "addShippingAddress": "Dodaj Adres Dostawy",
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "add": "Dodaj",
+        "update": "Aktualizuj",
+        "cancel": "Anuluj"
+      },
+      "dialogs": {
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "editContactPerson": "Edytuj Osobę Kontaktową",
+        "title": "Tytuł",
+        "workPhone": "Telefon Służbowy",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "notes": "Notatki",
+        "primaryContact": "Główny Kontakt",
+        "active": "Aktywny",
+        "cancel": "Anuluj",
+        "add": "Dodaj",
+        "update": "Aktualizuj"
+      },
       "messages": {
         "createSuccess": "Kontakt został utworzony pomyślnie",
         "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
         "error": "Nie udało się zapisać kontaktu",
+        "noAddresses": "Nie dodano jeszcze żadnych adresów",
+        "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
         "customFieldsPlaceholder": "Brak zdefiniowanych pól niestandardowych",
         "customFieldsInfo": "Pola niestandardowe można skonfigurować w ustawieniach organizacji"
       }

@@ -154,13 +154,18 @@ export const ENTITY_TYPES: { value: EntityType; label: string; labelPl: string }
   { value: "individual", label: "Individual", labelPl: "Osoba prywatna" },
 ];
 
-export const SALUTATIONS: { value: Salutation; label: string }[] = [
-  { value: "Mr", label: "Mr." },
-  { value: "Mrs", label: "Mrs." },
-  { value: "Ms", label: "Ms." },
-  { value: "Dr", label: "Dr." },
-  { value: "Prof", label: "Prof." },
-  { value: "Mx", label: "Mx." },
+type SalutationKey = Lowercase<Salutation>;
+
+export const SALUTATIONS: {
+  value: Salutation;
+  labelKey: `salutations.${SalutationKey}`;
+}[] = [
+  { value: "Mr", labelKey: "salutations.mr" },
+  { value: "Mrs", labelKey: "salutations.mrs" },
+  { value: "Ms", labelKey: "salutations.ms" },
+  { value: "Dr", labelKey: "salutations.dr" },
+  { value: "Prof", labelKey: "salutations.prof" },
+  { value: "Mx", labelKey: "salutations.mx" },
 ];
 
 export const ADDRESS_TYPES: { value: AddressType; label: string; labelPl: string }[] = [
