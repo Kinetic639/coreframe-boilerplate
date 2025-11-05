@@ -34,18 +34,10 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
     color: "#10b981",
     items: [
       {
-        id: "products",
+        id: "products-overview",
         label: "modules.warehouse.items.products.title",
         path: "/dashboard/warehouse/products",
         icon: "Package",
-        submenu: [
-          {
-            id: "products-overview",
-            label: "modules.warehouse.items.products.overview",
-            path: "/dashboard/warehouse/products",
-            icon: "Package",
-          },
-        ],
       },
       {
         id: "inventory",
@@ -64,6 +56,12 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             label: "modules.warehouse.items.deliveries.title",
             path: "/dashboard/warehouse/deliveries",
             icon: "Inbox",
+          },
+          {
+            id: "locations",
+            label: "modules.warehouse.items.locations",
+            path: "/dashboard/warehouse/locations",
+            icon: "MapPin",
           },
           {
             id: "inventory-adjustments",
@@ -88,30 +86,10 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         ],
       },
       {
-        id: "locations",
-        label: "modules.warehouse.items.locations",
-        path: "/dashboard/warehouse/locations",
-        icon: "MapPin",
-      },
-      {
-        id: "labels",
-        label: "modules.warehouse.items.labels.title",
-        icon: "QrCode",
-        path: "/dashboard/warehouse/labels",
-      },
-      {
         id: "suppliers",
         label: "modules.warehouse.items.suppliers.title",
         icon: "Truck",
-        path: "/dashboard/warehouse/suppliers",
-        submenu: [
-          {
-            id: "supplier-list",
-            label: "modules.warehouse.items.suppliers.list",
-            path: "/dashboard/warehouse/suppliers/list",
-            icon: "List",
-          },
-        ],
+        path: "/dashboard/warehouse/suppliers/list",
       },
       {
         id: "scanning",
@@ -119,6 +97,12 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         icon: "ScanLine",
         path: "/dashboard/warehouse/scanning",
         submenu: [
+          {
+            id: "labels",
+            label: "modules.warehouse.items.labels.title",
+            icon: "QrCode",
+            path: "/dashboard/warehouse/labels",
+          },
           {
             id: "scan-delivery",
             label: "modules.warehouse.items.scanning.delivery",
