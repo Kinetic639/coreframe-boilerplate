@@ -85,7 +85,8 @@ export function ClientsListView() {
 
     try {
       // Extract addresses, persons, and custom_fields from the form data
-      const { addresses, persons, ...contactData } = data;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { addresses, persons, custom_fields, ...contactData } = data;
 
       await contactsService.createContact(activeOrgId, contactData, addresses, persons);
 
