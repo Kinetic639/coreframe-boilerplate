@@ -13,6 +13,7 @@ import { createClient } from "@/utils/supabase/client";
 import type { DeliveryItem } from "@/modules/warehouse/types/deliveries";
 import { toast } from "react-toastify";
 import Image from "next/image";
+import { ProductSearchDropdown } from "./product-search-dropdown";
 
 interface Product {
   id: string;
@@ -55,7 +56,6 @@ export function DeliveryLineItems({
   const [variants, setVariants] = useState<Record<string, ProductVariant[]>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [extendedItems, setExtendedItems] = useState<ExtendedDeliveryItem[]>([]);
 
@@ -77,8 +77,6 @@ export function DeliveryLineItems({
 
     if (!error && data) {
       setProducts(data);
-      // Initialize filtered products with first 20 products
-      setFilteredProducts(data.slice(0, 20));
     }
   }, [organizationId]);
 
@@ -125,23 +123,6 @@ export function DeliveryLineItems({
     setExtendedItems(extended);
   }, [items, products, variants]);
 
-  // Filter products based on search - show all products when no search query
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      // Show all products when no search query
-      setFilteredProducts(products.slice(0, 20)); // Show first 20 products
-      return;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const filtered = products.filter(
-      (product) =>
-        product.name.toLowerCase().includes(query) || product.sku.toLowerCase().includes(query)
-    );
-
-    setFilteredProducts(filtered.slice(0, 20)); // Limit to 20 results
-  }, [searchQuery, products]);
-
   // Focus search input when opened
   useEffect(() => {
     if (isSearchOpen && searchInputRef.current) {
@@ -149,12 +130,12 @@ export function DeliveryLineItems({
     }
   }, [isSearchOpen]);
 
-  const handleAddProduct = async (product: Product) => {
+  const handleAddProduct = async (productId: string) => {
     // Load variants if needed
-    await loadVariants(product.id);
+    await loadVariants(productId);
 
     const newItem: DeliveryItem = {
-      product_id: product.id,
+      product_id: productId,
       variant_id: null,
       expected_quantity: 1,
       unit_cost: 0,
@@ -386,56 +367,13 @@ export function DeliveryLineItems({
               )}
             </div>
 
-            {/* Search Results Dropdown */}
-            {isSearchOpen && filteredProducts.length > 0 && (
-              <div className="absolute z-[100] w-full mt-1 bg-background border rounded-lg shadow-lg max-h-80 overflow-auto">
-                {filteredProducts.map((product) => {
-                  const imageUrl = getProductImage(product);
-                  const stockCount = items.filter((item) => item.product_id === product.id).length;
-
-                  return (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleAddProduct(product);
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors text-left border-b last:border-b-0"
-                    >
-                      {/* Product Image */}
-                      <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden relative">
-                        {imageUrl ? (
-                          <Image
-                            src={imageUrl}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                            sizes="40px"
-                          />
-                        ) : (
-                          <Package className="w-5 h-5 text-muted-foreground" />
-                        )}
-                      </div>
-                      {/* Product Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">{product.name}</div>
-                        <div className="text-xs text-muted-foreground">{product.sku}</div>
-                      </div>
-                      {/* Stock Indicator */}
-                      {stockCount > 0 && (
-                        <div className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-1 rounded text-xs font-medium">
-                          <span className="w-5 h-5 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px]">
-                            {stockCount}
-                          </span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            {/* Product Search Dropdown */}
+            <ProductSearchDropdown
+              organizationId={organizationId}
+              searchQuery={searchQuery}
+              onAddProduct={handleAddProduct}
+              isOpen={isSearchOpen}
+            />
           </div>
 
           {/* Scan Button */}
