@@ -34,17 +34,17 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
     color: "#10b981",
     items: [
       {
-        id: "products-overview",
-        label: "modules.warehouse.items.products.title",
-        path: "/dashboard/warehouse/products",
-        icon: "Package",
-      },
-      {
         id: "inventory",
         label: "modules.warehouse.items.inventory.title",
         path: "/dashboard/warehouse/inventory",
         icon: "Archive",
         submenu: [
+          {
+            id: "products-overview",
+            label: "modules.warehouse.items.products.title",
+            path: "/dashboard/warehouse/products",
+            icon: "Package",
+          },
           {
             id: "inventory-movements",
             label: "modules.warehouse.items.inventory.movements",
@@ -52,16 +52,16 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             icon: "ArrowRightLeft",
           },
           {
-            id: "deliveries",
-            label: "modules.warehouse.items.deliveries.title",
-            path: "/dashboard/warehouse/deliveries",
-            icon: "Inbox",
-          },
-          {
             id: "locations",
             label: "modules.warehouse.items.locations",
             path: "/dashboard/warehouse/locations",
             icon: "MapPin",
+          },
+          {
+            id: "labels",
+            label: "modules.warehouse.items.labels.title",
+            icon: "QrCode",
+            path: "/dashboard/warehouse/labels",
           },
           {
             id: "inventory-adjustments",
@@ -86,52 +86,42 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         ],
       },
       {
-        id: "suppliers",
-        label: "modules.warehouse.items.suppliers.title",
-        icon: "Truck",
-        path: "/dashboard/warehouse/suppliers/list",
-      },
-      {
-        id: "scanning",
-        label: "modules.warehouse.items.scanning.title",
-        icon: "ScanLine",
-        path: "/dashboard/warehouse/scanning",
+        id: "sales",
+        label: "modules.warehouse.items.sales.title",
+        path: "/dashboard/warehouse/sales",
+        icon: "ShoppingCart",
         submenu: [
           {
-            id: "labels",
-            label: "modules.warehouse.items.labels.title",
-            icon: "QrCode",
-            path: "/dashboard/warehouse/labels",
+            id: "clients",
+            label: "modules.warehouse.items.sales.clients",
+            path: "/dashboard/warehouse/clients",
+            icon: "Users",
+          },
+        ],
+      },
+      {
+        id: "purchases",
+        label: "modules.warehouse.items.purchases.title",
+        path: "/dashboard/warehouse/purchases",
+        icon: "ShoppingBag",
+        submenu: [
+          {
+            id: "deliveries",
+            label: "modules.warehouse.items.deliveries.title",
+            path: "/dashboard/warehouse/deliveries",
+            icon: "Inbox",
+          },
+          {
+            id: "suppliers",
+            label: "modules.warehouse.items.suppliers.title",
+            icon: "Truck",
+            path: "/dashboard/warehouse/suppliers/list",
           },
           {
             id: "scan-delivery",
             label: "modules.warehouse.items.scanning.delivery",
             path: "/dashboard/warehouse/scanning/delivery",
-            icon: "Truck",
-          },
-          {
-            id: "scan-inventory",
-            label: "modules.warehouse.items.scanning.inventory",
-            path: "/dashboard/warehouse/scanning/inventory",
-            icon: "Package",
-          },
-          {
-            id: "scan-assignment",
-            label: "modules.warehouse.items.scanning.assignment",
-            path: "/dashboard/warehouse/scanning/assignment",
-            icon: "MapPin",
-          },
-          {
-            id: "scan-verification",
-            label: "modules.warehouse.items.scanning.verification",
-            path: "/dashboard/warehouse/scanning/verification",
-            icon: "CheckCircle",
-          },
-          {
-            id: "scan-operations",
-            label: "modules.warehouse.items.scanning.operations",
-            path: "/dashboard/warehouse/scanning/operations",
-            icon: "Activity",
+            icon: "ScanLine",
           },
         ],
       },

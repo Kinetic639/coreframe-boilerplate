@@ -1072,6 +1072,13 @@
           "title": "Dostawcy",
           "list": "Lista dostawców",
           "deliveries": "Dostawy"
+        },
+        "sales": {
+          "title": "Sprzedaż",
+          "clients": "Klienci"
+        },
+        "purchases": {
+          "title": "Zakupy"
         }
       }
     },

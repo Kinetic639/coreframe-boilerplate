@@ -1092,6 +1092,13 @@
           "title": "Suppliers",
           "list": "Supplier List",
           "deliveries": "Deliveries"
+        },
+        "sales": {
+          "title": "Sales",
+          "clients": "Clients"
+        },
+        "purchases": {
+          "title": "Purchases"
         }
       }
     },
