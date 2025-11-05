@@ -1879,6 +1879,14 @@
         "business": "Business",
         "individual": "Individual"
       },
+      "salutations": {
+        "mr": "Mr.",
+        "mrs": "Mrs.",
+        "ms": "Ms.",
+        "dr": "Dr.",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
       "fields": {
         "customerType": "Customer Type",
         "salutation": "Salutation",

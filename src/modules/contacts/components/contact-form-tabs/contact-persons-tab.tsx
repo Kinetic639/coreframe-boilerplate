@@ -156,7 +156,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                     <SelectContent>
                       {SALUTATIONS.map((sal) => (
                         <SelectItem key={sal.value} value={sal.value}>
-                          {sal.label}
+                          {t(sal.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>

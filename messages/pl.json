@@ -1859,6 +1859,14 @@
         "business": "Firma",
         "individual": "Osoba prywatna"
       },
+      "salutations": {
+        "mr": "Pan",
+        "mrs": "Pani",
+        "ms": "Pani",
+        "dr": "Dr",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
       "fields": {
         "customerType": "Typ Klienta",
         "salutation": "Tytuł",
