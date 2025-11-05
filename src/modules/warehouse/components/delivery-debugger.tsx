@@ -115,7 +115,6 @@ export function DeliveryDebugger({ organizationId, branchId }: DeliveryDebuggerP
         scheduled_date: new Date().toISOString(),
         source_document: `TEST-PO-${Date.now()}`,
         delivery_address: "Test Vendor Corporation - Debug",
-        shipping_policy: "As soon as possible",
         notes: "This is a test delivery created by the debugger",
         items: [
           {

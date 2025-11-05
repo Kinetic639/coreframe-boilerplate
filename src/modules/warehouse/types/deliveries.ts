@@ -6,7 +6,7 @@
 /**
  * Delivery status (maps to stock movement status)
  */
-export type DeliveryStatus = "draft" | "waiting" | "ready" | "done" | "cancelled";
+export type DeliveryStatus = "draft" | "pending" | "approved" | "completed" | "cancelled";
 
 /**
  * Delivery item (product line in a delivery)
@@ -105,11 +105,11 @@ export interface CreateDeliveryData {
   scheduled_date?: string;
   source_document?: string;
   delivery_address?: string;
-  shipping_policy?: string;
   responsible_user_id?: string;
   supplier_id?: string; // Supplier/vendor for this delivery
   notes?: string;
   items: DeliveryItem[];
+  requires_verification?: boolean; // If false, complete immediately without verification step
 }
 
 /**
@@ -187,22 +187,22 @@ export const DELIVERY_STATUS_CONFIG: Record<
   }
 > = {
   draft: {
-    label: { pl: "Projekt", en: "Draft" },
+    label: { pl: "Szkic", en: "Draft" },
     color: "bg-gray-100 text-gray-800 border-gray-300",
     variant: "outline",
   },
-  waiting: {
-    label: { pl: "Oczekuje", en: "Waiting" },
+  pending: {
+    label: { pl: "Oczekuje", en: "Pending" },
     color: "bg-yellow-100 text-yellow-800 border-yellow-300",
     variant: "outline",
   },
-  ready: {
-    label: { pl: "Gotowe", en: "Ready" },
+  approved: {
+    label: { pl: "Zatwierdzone", en: "Approved" },
     color: "bg-blue-100 text-blue-800 border-blue-300",
     variant: "outline",
   },
-  done: {
-    label: { pl: "Zakończone", en: "Done" },
+  completed: {
+    label: { pl: "Zakończone", en: "Completed" },
     color: "bg-green-100 text-green-800 border-green-300",
     variant: "default",
   },
