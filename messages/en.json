@@ -1875,6 +1875,10 @@
         "customFields": "Custom Fields",
         "remarks": "Remarks"
       },
+      "entityTypes": {
+        "business": "Business",
+        "individual": "Individual"
+      },
       "fields": {
         "customerType": "Customer Type",
         "salutation": "Salutation",
@@ -1952,10 +1956,34 @@
         "department": "Department name",
         "notes": "Add any additional notes here..."
       },
+      "actions": {
+        "addBillingAddress": "Add Billing Address",
+        "addShippingAddress": "Add Shipping Address",
+        "addContactPerson": "Add Contact Person",
+        "add": "Add",
+        "update": "Update",
+        "cancel": "Cancel"
+      },
+      "dialogs": {
+        "addContactPerson": "Add Contact Person",
+        "editContactPerson": "Edit Contact Person",
+        "title": "Title",
+        "workPhone": "Work Phone",
+        "designation": "Job Title",
+        "department": "Department",
+        "notes": "Notes",
+        "primaryContact": "Primary Contact",
+        "active": "Active",
+        "cancel": "Cancel",
+        "add": "Add",
+        "update": "Update"
+      },
       "messages": {
         "createSuccess": "Contact created successfully",
         "updateSuccess": "Contact updated successfully",
         "error": "Failed to save contact",
+        "noAddresses": "No addresses added yet",
+        "noContactPersons": "No contact persons added yet",
         "customFieldsPlaceholder": "No custom fields defined",
         "customFieldsInfo": "Custom fields can be configured in organization settings"
       }
