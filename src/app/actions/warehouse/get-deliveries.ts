@@ -24,6 +24,8 @@ export async function getDeliveries(
     const supabase = await createClient();
 
     // Build query for deliveries (movements with type 101)
+    // NOTE: We now show ALL deliveries including those with receipts
+    // since receipts are automatically generated for completed deliveries
     let query = supabase
       .from("stock_movements")
       .select(
@@ -258,10 +260,10 @@ export async function getDeliveries(
  */
 function mapDeliveryStatusToMovementStatus(status: DeliveryStatus): string {
   const mapping: Record<DeliveryStatus, string> = {
-    draft: "pending",
-    waiting: "pending",
-    ready: "approved",
-    done: "completed",
+    draft: "draft",
+    pending: "pending",
+    approved: "approved",
+    completed: "completed",
     cancelled: "cancelled",
   };
   return mapping[status] || "pending";
@@ -272,9 +274,10 @@ function mapDeliveryStatusToMovementStatus(status: DeliveryStatus): string {
  */
 function mapMovementStatusToDeliveryStatus(status: string): DeliveryStatus {
   const mapping: Record<string, DeliveryStatus> = {
-    pending: "draft",
-    approved: "ready",
-    completed: "done",
+    draft: "draft",
+    pending: "pending",
+    approved: "approved",
+    completed: "completed",
     cancelled: "cancelled",
     reversed: "cancelled",
   };

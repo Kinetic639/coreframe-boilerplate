@@ -1,25 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "react-toastify";
 import { DeliveryLineItems } from "./delivery-line-items";
-import { useAppStore } from "@/lib/stores/app-store";
-import type { DeliveryWithRelations, DeliveryItem } from "@/modules/warehouse/types/deliveries";
+import type { DeliveryWithRelations } from "@/modules/warehouse/types/deliveries";
 import { StatusStepper, Step } from "@/components/ui/StatusStepper";
+import {
+  getDeliveryReceipts,
+  type DeliveryReceipt,
+} from "@/app/actions/warehouse/get-delivery-receipts";
+import { FileText, Download, CheckCircle2, Clock } from "lucide-react";
 
 interface DeliveryDetailsFormProps {
   delivery: DeliveryWithRelations;
@@ -34,77 +30,27 @@ export function DeliveryDetailsForm({
 }: DeliveryDetailsFormProps) {
   const router = useRouter();
   const t = useTranslations("modules.warehouse.items.deliveries");
+  const [receipts, setReceipts] = useState<DeliveryReceipt[]>([]);
+  const [loadingReceipts, setLoadingReceipts] = useState(true);
+
+  useEffect(() => {
+    async function fetchReceipts() {
+      setLoadingReceipts(true);
+      const data = await getDeliveryReceipts(delivery.id);
+      setReceipts(data);
+      setLoadingReceipts(false);
+    }
+    fetchReceipts();
+  }, [delivery.id]);
 
   const deliverySteps: Step[] = [
-    { label: t("statuses.draft"), value: "draft" },
-    { label: t("statuses.waiting"), value: "waiting" },
-    { label: t("statuses.ready"), value: "ready" },
-    { label: t("statuses.done"), value: "done" },
+    { label: t("statuses.pending"), value: "pending" },
+    { label: t("statuses.approved"), value: "approved" },
+    { label: t("statuses.completed"), value: "completed" },
   ];
 
-  // Get locations from store
-  const locations = useAppStore((state) => state.locations);
-
-  const [destinationLocationId, setDestinationLocationId] = useState<string>(
-    delivery.destination_location_id || ""
-  );
-  const [deliveryAddress, setDeliveryAddress] = useState(delivery.delivery_address || "");
-  const [scheduledDate, setScheduledDate] = useState(() => {
-    if (delivery.scheduled_date) {
-      try {
-        const date = new Date(delivery.scheduled_date);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().slice(0, 16);
-        }
-      } catch (e) {
-        console.error("Invalid scheduled_date:", delivery.scheduled_date, e);
-      }
-    }
-    return new Date().toISOString().slice(0, 16);
-  });
-  const [sourceDocument, setSourceDocument] = useState(delivery.source_document || "");
-  const [shippingPolicy, setShippingPolicy] = useState(
-    delivery.shipping_policy || "As soon as possible"
-  );
-  const [notes, setNotes] = useState(delivery.notes || "");
-  const [items, setItems] = useState<DeliveryItem[]>(
-    delivery.items_with_details || delivery.items || []
-  );
-  const [loading, setLoading] = useState(false);
-
-  const isEditable = delivery.status === "draft" || delivery.status === "waiting";
-
-  const handleSave = async () => {
-    if (!isEditable) {
-      toast.error("Cannot edit completed or cancelled deliveries");
-      return;
-    }
-
-    if (items.length === 0) {
-      toast.error(t("products.noProducts"));
-      return;
-    }
-
-    if (!destinationLocationId) {
-      toast.error("Please select a destination location");
-      return;
-    }
-
-    setLoading(true);
-
-    // TODO: Implement update delivery action
-    toast.info("Update delivery feature coming soon...");
-
-    setLoading(false);
-  };
-
-  const handleCancel = () => {
+  const handleBack = () => {
     router.push("/dashboard/warehouse/deliveries");
-  };
-
-  const handleValidate = async () => {
-    // TODO: Implement validate delivery action
-    toast.info("Validate delivery feature coming soon...");
   };
 
   return (
@@ -123,29 +69,15 @@ export function DeliveryDetailsForm({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={loading}>
-            {t("actions.cancel")}
+          <Button variant="outline" onClick={handleBack}>
+            {t("actions.back")}
           </Button>
-          {isEditable && (
-            <>
-              <Button variant="outline" onClick={handleSave} disabled={loading}>
-                {loading ? "Saving..." : "Save"}
-              </Button>
-              <Button
-                onClick={handleValidate}
-                disabled={loading}
-                className="bg-[#8B4789] hover:bg-[#7A3E78]"
-              >
-                {t("actions.validate")}
-              </Button>
-            </>
-          )}
         </div>
       </div>
 
       {/* Status Stepper */}
       <div className="w-full">
-        <StatusStepper steps={deliverySteps} activeStep={delivery.status} size="sm" />
+        <StatusStepper steps={deliverySteps} activeStep={delivery.status as string} size="sm" />
       </div>
 
       {/* Main Form */}
@@ -156,68 +88,32 @@ export function DeliveryDetailsForm({
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>{t("fields.destinationLocation")}</Label>
-                <Select
-                  value={destinationLocationId}
-                  onValueChange={setDestinationLocationId}
-                  disabled={!isEditable || locations.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        locations.length === 0
-                          ? "No locations available"
-                          : delivery.destination_location?.name || "Select location"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {locations.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No locations found.
-                      </div>
-                    ) : (
-                      locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name} ({location.code})
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("fields.deliveryAddress")}</Label>
                 <Input
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                  placeholder="e.g. Lumber Inc"
-                  disabled={!isEditable}
+                  value={delivery.destination_location?.name || "Not specified"}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.scheduledDate")}</Label>
+                <Label>{t("fields.invoiceDate")}</Label>
                 <Input
-                  type="datetime-local"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  disabled={!isEditable}
+                  value={
+                    delivery.scheduled_date
+                      ? new Date(delivery.scheduled_date).toLocaleString()
+                      : "Not specified"
+                  }
+                  disabled
+                  className="bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Operation Type</Label>
-                <Input value="Delivery Orders" disabled className="bg-muted" />
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t("fields.sourceDocument")}</Label>
+                <Label>{t("fields.invoiceNumber")}</Label>
                 <Input
-                  value={sourceDocument}
-                  onChange={(e) => setSourceDocument(e.target.value)}
-                  placeholder="e.g. PO0032"
-                  disabled={!isEditable}
+                  value={delivery.source_document || "Not specified"}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
             </div>
@@ -227,6 +123,9 @@ export function DeliveryDetailsForm({
           <Tabs defaultValue="operations" className="w-full">
             <TabsList>
               <TabsTrigger value="operations">{t("tabs.operations")}</TabsTrigger>
+              <TabsTrigger value="receipts">
+                {t("tabs.receipts")} {receipts.length > 0 && `(${receipts.length})`}
+              </TabsTrigger>
               <TabsTrigger value="additional">{t("tabs.additionalInfo")}</TabsTrigger>
               <TabsTrigger value="note">{t("tabs.note")}</TabsTrigger>
             </TabsList>
@@ -234,11 +133,134 @@ export function DeliveryDetailsForm({
             <TabsContent value="operations" className="mt-4">
               <Card className="p-6">
                 <DeliveryLineItems
-                  items={items}
-                  onChange={setItems}
+                  items={delivery.items_with_details || delivery.items || []}
+                  onChange={() => {}}
                   organizationId={organizationId}
-                  readOnly={!isEditable}
+                  readOnly={true}
                 />
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="receipts" className="mt-4">
+              <Card className="p-6">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">{t("receipts.title")}</h3>
+                    {loadingReceipts && (
+                      <span className="text-sm text-muted-foreground">{t("receipts.loading")}</span>
+                    )}
+                  </div>
+
+                  {!loadingReceipts && receipts.length === 0 && (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                      <p>{t("receipts.noReceipts")}</p>
+                      <p className="text-sm mt-2">{t("receipts.autoGeneratedInfo")}</p>
+                    </div>
+                  )}
+
+                  {!loadingReceipts && receipts.length > 0 && (
+                    <div className="space-y-4">
+                      {receipts.map((receipt) => (
+                        <Card key={receipt.id} className="p-4 border-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex gap-4 flex-1">
+                              <div className="p-3 bg-green-100 rounded-lg">
+                                <FileText className="h-6 w-6 text-green-600" />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-lg">
+                                    {receipt.receipt_number}
+                                  </h4>
+                                  {receipt.status === "completed" ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      {t("receipts.statusCompleted")}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      <Clock className="h-3 w-3" />
+                                      {t("receipts.statusDraft")}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">
+                                      {t("receipts.receiptDate")}:
+                                    </span>
+                                    <span className="ml-2 font-medium">
+                                      {new Date(receipt.receipt_date).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  {receipt.pz_document_number && (
+                                    <div>
+                                      <span className="text-muted-foreground">
+                                        {t("receipts.pzDocument")}:
+                                      </span>
+                                      <span className="ml-2 font-medium">
+                                        {receipt.pz_document_number}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div>
+                                    <span className="text-muted-foreground">
+                                      {t("receipts.totalItems")}:
+                                    </span>
+                                    <span className="ml-2 font-medium">
+                                      {receipt.total_movements}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">
+                                      {t("receipts.totalValue")}:
+                                    </span>
+                                    <span className="ml-2 font-medium">
+                                      {receipt.total_value.toFixed(2)} PLN
+                                    </span>
+                                  </div>
+                                  {receipt.received_by_user && (
+                                    <div>
+                                      <span className="text-muted-foreground">
+                                        {t("receipts.receivedBy")}:
+                                      </span>
+                                      <span className="ml-2 font-medium">
+                                        {receipt.received_by_user.name}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {receipt.completed_at && (
+                                    <div>
+                                      <span className="text-muted-foreground">
+                                        {t("receipts.completedAt")}:
+                                      </span>
+                                      <span className="ml-2 font-medium">
+                                        {new Date(receipt.completed_at).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {receipt.pz_document_url && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => window.open(receipt.pz_document_url, "_blank")}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                {t("receipts.downloadPz")}
+                              </Button>
+                            )}
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Card>
             </TabsContent>
 
@@ -248,17 +270,8 @@ export function DeliveryDetailsForm({
                   <h3 className="font-semibold">{t("additionalInfo.title")}</h3>
 
                   <div className="space-y-2">
-                    <Label>{t("additionalInfo.shippingPolicy")}</Label>
-                    <Input
-                      value={shippingPolicy}
-                      onChange={(e) => setShippingPolicy(e.target.value)}
-                      disabled={!isEditable}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>{t("additionalInfo.responsible")}</Label>
-                    <div className="flex items-center gap-2 p-2 border rounded">
+                    <div className="flex items-center gap-2 p-2 border rounded bg-muted">
                       <div className="w-8 h-8 rounded-full bg-[#10b981] flex items-center justify-center text-white font-semibold">
                         {delivery.responsible_user?.name?.[0]?.toUpperCase() || "U"}
                       </div>
@@ -278,11 +291,10 @@ export function DeliveryDetailsForm({
                 <div className="space-y-2">
                   <Label>{t("fields.notes")}</Label>
                   <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full min-h-[200px] p-3 border rounded-md"
-                    placeholder="Add notes..."
-                    disabled={!isEditable}
+                    value={delivery.notes || ""}
+                    readOnly
+                    className="w-full min-h-[200px] p-3 border rounded-md bg-muted"
+                    placeholder="No notes"
                   />
                 </div>
               </Card>

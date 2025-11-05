@@ -953,16 +953,23 @@
           "new": "New Delivery",
           "statuses": {
             "draft": "Draft",
-            "waiting": "Waiting",
-            "ready": "Ready",
-            "done": "Done",
-            "cancelled": "Cancelled"
+            "cancelled": "Cancelled",
+            "pending": "Pending",
+            "approved": "Approved",
+            "completed": "Completed"
+          },
+          "wizard": {
+            "step1": "Delivery Information",
+            "step2": "Verification",
+            "step3": "Completed"
           },
           "fields": {
             "deliveryNumber": "Delivery Number",
             "reference": "Reference",
             "contact": "Contact",
             "scheduledDate": "Scheduled Date",
+            "invoiceDate": "Invoice Date",
+            "invoiceNumber": "Invoice Number",
             "sourceDocument": "Source Document",
             "status": "Status",
             "deliveryAddress": "Delivery Address",
@@ -970,16 +977,32 @@
             "shippingPolicy": "Shipping Policy",
             "responsible": "Responsible",
             "destinationLocation": "Destination Location",
-            "notes": "Notes"
+            "notes": {
+              "label": "Notes"
+            },
+            "supplier": "Supplier",
+            "address": "Address",
+            "enableVerification": "Enable Verification Step",
+            "verificationEnabledHelp": "You'll enter expected quantities now, then verify actual quantities received in a separate step. This tracks discrepancies and damaged goods.",
+            "verificationDisabledHelp": "Quick mode: Enter actual quantities received and complete immediately. No separate verification step."
           },
           "actions": {
             "markAsTodo": "Mark as Todo",
             "validate": "Validate",
+            "verify": "Verify",
             "cancel": "Cancel",
             "edit": "Edit",
             "delete": "Delete",
             "viewDetails": "View Details",
-            "saving": "Saving..."
+            "saving": "Saving...",
+            "save": "Save",
+            "saveAsDraft": "Save as Draft",
+            "next": "Next",
+            "back": "Back",
+            "previous": "Previous",
+            "completeDelivery": "Complete Delivery",
+            "receiveDelivery": "Receive Delivery",
+            "processingDelivery": "Processing delivery..."
           },
           "products": {
             "title": "Products",
@@ -1005,13 +1028,19 @@
             "receiveWithoutLocationInfo": "Products will be received but not assigned to a location yet",
             "deliveryAddressPlaceholder": "e.g. Lumber Inc",
             "sourceDocumentPlaceholder": "e.g. PO0032",
+            "invoiceNumberPlaceholder": "e.g. FV/2024/001",
             "notesPlaceholder": "Add notes...",
             "operationTypeValue": "Delivery Orders",
             "sendMessage": "Send message",
             "logNote": "Log note",
             "activity": "Activity",
             "today": "Today",
-            "activityDescription": "Creating a new record..."
+            "activityDescription": "Creating a new record...",
+            "selectSupplierPlaceholder": "Select a supplier...",
+            "noSuppliersFound": "No suppliers found",
+            "addNewSupplier": "Add new supplier",
+            "noLocationSet": "No location set",
+            "noNotes": "No notes"
           },
           "tabs": {
             "operations": "Operations",
@@ -1021,7 +1050,8 @@
           "additionalInfo": {
             "title": "Other Information",
             "shippingPolicy": "Shipping Policy",
-            "responsible": "Responsible"
+            "responsible": "Responsible",
+            "responsibleHelp": "Automatically assigned as responsible for this delivery"
           },
           "filters": {
             "all": "All Deliveries",
@@ -1038,6 +1068,7 @@
             "validated": "Delivery validated successfully",
             "cancelled": "Delivery cancelled successfully",
             "deleted": "Delivery deleted successfully",
+            "draftSaved": "Draft saved successfully",
             "error": "An error occurred",
             "noDeliveries": "No deliveries found",
             "loadingDeliveries": "Loading deliveries...",
@@ -1048,6 +1079,13 @@
           "shipping": {
             "asSoonAsPossible": "As soon as possible",
             "whenAllReady": "When all products are ready"
+          },
+          "receiving": {
+            "title": "Receive Delivery",
+            "movementLabel": "Movement",
+            "infoTitle": "Delivery Information",
+            "reference": "Reference",
+            "created": "Created"
           }
         },
         "suppliers": {
