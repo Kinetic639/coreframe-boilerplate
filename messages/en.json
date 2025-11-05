@@ -1975,7 +1975,17 @@
     },
     "dialogs": {
       "addContactPerson": "Add Contact Person",
-      "editContactPerson": "Edit Contact Person"
+      "editContactPerson": "Edit Contact Person",
+      "title": "Title",
+      "workPhone": "Work Phone",
+      "designation": "Job Title",
+      "department": "Department",
+      "notes": "Notes",
+      "primaryContact": "Primary Contact",
+      "active": "Active",
+      "cancel": "Cancel",
+      "add": "Add",
+      "update": "Update"
     },
     "messages": {
       "loading": "Loading contacts...",

@@ -143,7 +143,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>{t("fields.salutation")}</Label>
+                  <Label>{t("dialogs.title")}</Label>
                   <Select
                     value={personForm.salutation || undefined}
                     onValueChange={(value) =>
@@ -198,7 +198,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t("fields.workPhone")}</Label>
+                  <Label>{t("dialogs.workPhone")}</Label>
                   <Input
                     value={personForm.work_phone || ""}
                     onChange={(e) => setPersonForm({ ...personForm, work_phone: e.target.value })}
@@ -216,7 +216,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t("fields.designation")}</Label>
+                  <Label>{t("dialogs.designation")}</Label>
                   <Input
                     value={personForm.designation || ""}
                     onChange={(e) => setPersonForm({ ...personForm, designation: e.target.value })}
@@ -225,7 +225,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>{t("fields.department")}</Label>
+                  <Label>{t("dialogs.department")}</Label>
                   <Input
                     value={personForm.department || ""}
                     onChange={(e) => setPersonForm({ ...personForm, department: e.target.value })}
@@ -235,7 +235,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>{t("fields.notes")}</Label>
+                <Label>{t("dialogs.notes")}</Label>
                 <Input
                   value={personForm.notes || ""}
                   onChange={(e) => setPersonForm({ ...personForm, notes: e.target.value })}
@@ -251,7 +251,7 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                       setPersonForm({ ...personForm, is_primary: !!checked })
                     }
                   />
-                  <Label className="font-normal">{t("fields.primaryContact")}</Label>
+                  <Label className="font-normal">{t("dialogs.primaryContact")}</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -261,16 +261,16 @@ export function ContactPersonsTab({ form }: ContactPersonsTabProps) {
                       setPersonForm({ ...personForm, is_active: !!checked })
                     }
                   />
-                  <Label className="font-normal">{t("fields.active")}</Label>
+                  <Label className="font-normal">{t("dialogs.active")}</Label>
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 mt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  {t("actions.cancel")}
+                  {t("dialogs.cancel")}
                 </Button>
                 <Button type="button" onClick={savePerson}>
-                  {editingIndex !== null ? t("actions.update") : t("actions.add")}
+                  {editingIndex !== null ? t("dialogs.update") : t("dialogs.add")}
                 </Button>
               </div>
             </div>

@@ -84,7 +84,10 @@ export function ClientsListView() {
     if (!activeOrgId) return;
 
     try {
-      await contactsService.createContact(activeOrgId, data, data.addresses, data.persons);
+      // Extract addresses, persons, and custom_fields from the form data
+      const { addresses, persons, ...contactData } = data;
+
+      await contactsService.createContact(activeOrgId, contactData, addresses, persons);
 
       await refreshContacts(activeOrgId);
       setIsFormOpen(false);

@@ -1955,7 +1955,17 @@
     },
     "dialogs": {
       "addContactPerson": "Dodaj Osobę Kontaktową",
-      "editContactPerson": "Edytuj Osobę Kontaktową"
+      "editContactPerson": "Edytuj Osobę Kontaktową",
+      "title": "Tytuł",
+      "workPhone": "Telefon Służbowy",
+      "designation": "Stanowisko",
+      "department": "Dział",
+      "notes": "Notatki",
+      "primaryContact": "Główny Kontakt",
+      "active": "Aktywny",
+      "cancel": "Anuluj",
+      "add": "Dodaj",
+      "update": "Aktualizuj"
     },
     "messages": {
       "loading": "Ładowanie kontaktów...",
