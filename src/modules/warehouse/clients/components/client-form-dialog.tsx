@@ -33,8 +33,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { clientService, type Client } from "../api";
+import { contactsService } from "@/modules/contacts/api/contacts-service";
+import { useAppStore } from "@/lib/stores/app-store";
+import { useUserStore } from "@/lib/stores/user-store";
 import { toast } from "react-toastify";
-import { Building2, User } from "lucide-react";
+import { Building2, User, UserPlus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // Form schema for client
 const clientFormSchema = z.object({
@@ -62,6 +66,9 @@ const clientFormSchema = z.object({
   postal_code: z.string().optional(),
   country: z.string().optional(),
 
+  // Contact person (link to contacts table)
+  contact_id: z.string().optional(),
+
   // Additional info
   notes: z.string().optional(),
   is_active: z.boolean().default(true),
@@ -78,7 +85,14 @@ interface ClientFormDialogProps {
 
 export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: ClientFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [contacts, setContacts] = React.useState<any[]>([]);
+  const [loadingContacts, setLoadingContacts] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
   const isEditMode = !!client;
+
+  const { activeOrgId, activeBranchId } = useAppStore();
+  const { user } = useUserStore();
+  const userId = user?.id;
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
@@ -97,12 +111,54 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       city: client?.city || "",
       postal_code: client?.postal_code || "",
       country: client?.country || "",
+      contact_id: client?.contact_id || "",
       notes: client?.notes || "",
       is_active: client?.is_active ?? true,
     },
   });
 
   const entityType = form.watch("entity_type");
+  const selectedContactId = form.watch("contact_id");
+
+  // Load contacts when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      loadContacts();
+    }
+  }, [open]);
+
+  const loadContacts = async () => {
+    if (!activeOrgId || !userId) return;
+
+    setLoadingContacts(true);
+    try {
+      const result = await contactsService.getContacts(
+        activeOrgId,
+        userId,
+        activeBranchId,
+        { contact_type: "contact" }, // Only load general contacts, not leads or others
+        1,
+        1000 // Load many contacts
+      );
+      setContacts(result.contacts);
+    } catch (error) {
+      console.error("Error loading contacts:", error);
+      toast.error("Failed to load contacts");
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const filteredContacts = React.useMemo(() => {
+    if (!searchTerm) return contacts;
+    return contacts.filter(
+      (contact: any) =>
+        contact.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.primary_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [contacts, searchTerm]);
+
+  const selectedContact = contacts.find((c: any) => c.id === selectedContactId);
 
   const onSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
@@ -174,9 +230,14 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
             />
 
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList
+                className={`grid w-full ${entityType === "business" ? "grid-cols-4" : "grid-cols-3"}`}
+              >
                 <TabsTrigger value="basic">Basic Info</TabsTrigger>
                 <TabsTrigger value="address">Address</TabsTrigger>
+                {entityType === "business" && (
+                  <TabsTrigger value="contact">Contact Person</TabsTrigger>
+                )}
                 <TabsTrigger value="additional">Additional</TabsTrigger>
               </TabsList>
 
@@ -398,6 +459,130 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                   />
                 </div>
               </TabsContent>
+
+              {/* Contact Person Tab - Only for Business */}
+              {entityType === "business" && (
+                <TabsContent value="contact" className="space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Link Contact Person</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Select an existing contact from your contacts list or create a new one
+                      </p>
+                    </div>
+
+                    {/* Selected Contact Display */}
+                    {selectedContact && (
+                      <div className="p-4 border rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{selectedContact.display_name}</p>
+                              {selectedContact.primary_email && (
+                                <p className="text-sm text-muted-foreground">
+                                  {selectedContact.primary_email}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => form.setValue("contact_id", "")}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contact Search and Selection */}
+                    {!selectedContact && (
+                      <div className="space-y-3">
+                        <Input
+                          placeholder="Search contacts by name or email..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+
+                        <div className="border rounded-lg max-h-64 overflow-y-auto">
+                          {loadingContacts ? (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                              Loading contacts...
+                            </div>
+                          ) : filteredContacts.length === 0 ? (
+                            <div className="p-4 text-center">
+                              <p className="text-sm text-muted-foreground mb-2">
+                                No contacts found
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  window.open("/dashboard/contacts", "_blank");
+                                }}
+                              >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Create New Contact
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="divide-y">
+                              {filteredContacts.map((contact: any) => (
+                                <button
+                                  key={contact.id}
+                                  type="button"
+                                  className="w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between"
+                                  onClick={() => form.setValue("contact_id", contact.id)}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                      <User className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-sm">{contact.display_name}</p>
+                                      {contact.primary_email && (
+                                        <p className="text-xs text-muted-foreground">
+                                          {contact.primary_email}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {contact.entity_type && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {contact.entity_type}
+                                    </Badge>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              window.open("/dashboard/contacts", "_blank");
+                            }}
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Create New Contact
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              )}
 
               {/* Additional Info Tab */}
               <TabsContent value="additional" className="space-y-4">
