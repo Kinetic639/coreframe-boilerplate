@@ -83,7 +83,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
-      entity_type: client?.entity_type || "business",
+      entity_type: (client?.entity_type as "business" | "individual") || "business",
       name: client?.name || "",
       company_registration_number: client?.company_registration_number || "",
       tax_number: client?.tax_number || "",

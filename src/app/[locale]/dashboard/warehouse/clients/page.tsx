@@ -9,7 +9,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { SuppliersAdvancedTable } from "@/modules/warehouse/suppliers/components/suppliers-advanced-table";
+import { ClientsTable } from "@/modules/warehouse/clients/components/clients-table";
 import { ClientFormDialog } from "@/modules/warehouse/clients/components/client-form-dialog";
 import { clientService, type ClientWithContacts } from "@/modules/warehouse/clients/api";
 import { toast } from "react-toastify";
@@ -118,8 +118,8 @@ export default function ClientsPage() {
 
       {/* Clients Table */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        <SuppliersAdvancedTable
-          suppliers={clients}
+        <ClientsTable
+          clients={clients}
           loading={loading}
           error={error}
           onEdit={handleEdit}
