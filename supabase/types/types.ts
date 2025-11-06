@@ -265,6 +265,96 @@ export type Database = {
           },
         ];
       };
+      business_accounts: {
+        Row: {
+          address_line_1: string | null;
+          address_line_2: string | null;
+          city: string | null;
+          company_registration_number: string | null;
+          contact_id: string | null;
+          country: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          delivery_terms: string | null;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          notes: string | null;
+          organization_id: string;
+          partner_type: string;
+          payment_terms: string | null;
+          postal_code: string | null;
+          state_province: string | null;
+          tags: string[] | null;
+          tax_number: string | null;
+          updated_at: string | null;
+          website: string | null;
+        };
+        Insert: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          contact_id?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          notes?: string | null;
+          organization_id: string;
+          partner_type?: string;
+          payment_terms?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          contact_id?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          notes?: string | null;
+          organization_id?: string;
+          partner_type?: string;
+          payment_terms?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "suppliers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_participants: {
         Row: {
           branch_id: string;
@@ -2757,7 +2847,7 @@ export type Database = {
           opening_stock: number | null;
           opening_stock_rate: number | null;
           organization_id: string;
-          preferred_vendor_id: string | null;
+          preferred_business_account_id: string | null;
           product_type: string;
           purchase_account: string | null;
           purchase_description: string | null;
@@ -2797,7 +2887,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_rate?: number | null;
           organization_id: string;
-          preferred_vendor_id?: string | null;
+          preferred_business_account_id?: string | null;
           product_type: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
@@ -2837,7 +2927,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_rate?: number | null;
           organization_id?: string;
-          preferred_vendor_id?: string | null;
+          preferred_business_account_id?: string | null;
           product_type?: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
@@ -2878,10 +2968,10 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_preferred_vendor_id_fkey";
-            columns: ["preferred_vendor_id"];
+            foreignKeyName: "products_preferred_business_account_id_fkey";
+            columns: ["preferred_business_account_id"];
             isOneToOne: false;
-            referencedRelation: "suppliers";
+            referencedRelation: "business_accounts";
             referencedColumns: ["id"];
           },
         ];
@@ -3987,94 +4077,7 @@ export type Database = {
             foreignKeyName: "supplier_contacts_supplier_id_fkey";
             columns: ["supplier_id"];
             isOneToOne: false;
-            referencedRelation: "suppliers";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      suppliers: {
-        Row: {
-          address_line_1: string | null;
-          address_line_2: string | null;
-          city: string | null;
-          company_registration_number: string | null;
-          contact_id: string | null;
-          country: string | null;
-          created_at: string | null;
-          deleted_at: string | null;
-          delivery_terms: string | null;
-          id: string;
-          is_active: boolean | null;
-          name: string;
-          notes: string | null;
-          organization_id: string;
-          payment_terms: string | null;
-          postal_code: string | null;
-          state_province: string | null;
-          tags: string[] | null;
-          tax_number: string | null;
-          updated_at: string | null;
-          website: string | null;
-        };
-        Insert: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          city?: string | null;
-          company_registration_number?: string | null;
-          contact_id?: string | null;
-          country?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          delivery_terms?: string | null;
-          id?: string;
-          is_active?: boolean | null;
-          name: string;
-          notes?: string | null;
-          organization_id: string;
-          payment_terms?: string | null;
-          postal_code?: string | null;
-          state_province?: string | null;
-          tags?: string[] | null;
-          tax_number?: string | null;
-          updated_at?: string | null;
-          website?: string | null;
-        };
-        Update: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          city?: string | null;
-          company_registration_number?: string | null;
-          contact_id?: string | null;
-          country?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          delivery_terms?: string | null;
-          id?: string;
-          is_active?: boolean | null;
-          name?: string;
-          notes?: string | null;
-          organization_id?: string;
-          payment_terms?: string | null;
-          postal_code?: string | null;
-          state_province?: string | null;
-          tags?: string[] | null;
-          tax_number?: string | null;
-          updated_at?: string | null;
-          website?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "suppliers_contact_id_fkey";
-            columns: ["contact_id"];
-            isOneToOne: false;
-            referencedRelation: "contacts";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "suppliers_organization_id_fkey";
-            columns: ["organization_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
+            referencedRelation: "business_accounts";
             referencedColumns: ["id"];
           },
         ];
