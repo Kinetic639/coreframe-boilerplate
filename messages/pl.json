@@ -1829,12 +1829,20 @@
       "list": "Lista Dostawców",
       "totalCount": "{count} dostawców w sumie"
     },
+    "title": "Kontakty",
+    "description": "Zarządzaj kontaktami osobistymi i organizacyjnymi",
     "types": {
-      "customer": "Klient",
-      "vendor": "Dostawca",
+      "contact": "Kontakt",
       "lead": "Potencjalny klient",
-      "employee": "Pracownik",
       "other": "Inny"
+    },
+    "visibilityScopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja",
+      "privateDesc": "Widoczne tylko dla Ciebie",
+      "branchDesc": "Widoczne dla członków oddziału",
+      "organizationDesc": "Widoczne dla wszystkich członków organizacji"
     },
     "entityTypes": {
       "business": "Firma",
@@ -1868,6 +1876,8 @@
         "mx": "Mx."
       },
       "fields": {
+        "visibilityScope": "Zakres Widoczności",
+        "visibilityScopeHelp": "Kontroluj, kto może zobaczyć ten kontakt",
         "customerType": "Typ Klienta",
         "salutation": "Tytuł",
         "firstName": "Imię",
@@ -1977,6 +1987,7 @@
       }
     },
     "actions": {
+      "newContact": "Nowy Kontakt",
       "newClient": "Nowy Klient",
       "newVendor": "Nowy Dostawca",
       "addBillingAddress": "Dodaj Adres Fakturowy",
@@ -2017,7 +2028,13 @@
       "title": "Filtry",
       "searchPlaceholder": "Szukaj po nazwie, emailu lub telefonie...",
       "allTypes": "Wszystkie Typy",
+      "allScopes": "Wszystkie Zakresy",
       "clearAll": "Wyczyść Wszystko"
+    },
+    "scopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja"
     },
     "pagination": {
       "showing": "Pokazuję {start} do {end} z {total}",

@@ -15,7 +15,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ContactFormData, ContactType, EntityType, SALUTATIONS, LANGUAGES } from "../../types";
+import {
+  ContactFormData,
+  ContactType,
+  EntityType,
+  SALUTATIONS,
+  LANGUAGES,
+  VISIBILITY_SCOPES,
+  VisibilityScope,
+} from "../../types";
 import { useTranslations } from "next-intl";
 
 interface BasicInfoTabProps {
@@ -43,6 +51,32 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Visibility Scope */}
+      <div className="space-y-2">
+        <Label htmlFor="visibility_scope">
+          {t("fields.visibilityScope")} <span className="text-red-500">*</span>
+        </Label>
+        <Select
+          value={watch("visibility_scope")}
+          onValueChange={(value) => setValue("visibility_scope", value as VisibilityScope)}
+        >
+          <SelectTrigger id="visibility_scope">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {VISIBILITY_SCOPES.map((scope) => (
+              <SelectItem key={scope.value} value={scope.value}>
+                <div className="flex flex-col">
+                  <span className="font-medium">{scope.label}</span>
+                  <span className="text-xs text-muted-foreground">{scope.description}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">{t("fields.visibilityScopeHelp")}</p>
+      </div>
+
       {/* Customer Type Toggle */}
       <div className="space-y-2">
         <Label>{t("fields.customerType")}</Label>

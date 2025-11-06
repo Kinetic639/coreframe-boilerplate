@@ -41,6 +41,7 @@ export function ContactForm({
     defaultValues: {
       contact_type: contactType,
       entity_type: "business",
+      visibility_scope: "organization",
       display_name: "",
       addresses: [],
       persons: [],

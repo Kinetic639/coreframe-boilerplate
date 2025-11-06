@@ -1849,12 +1849,20 @@
       "list": "Vendor List",
       "totalCount": "{count} total vendors"
     },
+    "title": "Contacts",
+    "description": "Manage your personal and organizational contacts",
     "types": {
-      "customer": "Customer",
-      "vendor": "Vendor",
+      "contact": "Contact",
       "lead": "Lead",
-      "employee": "Employee",
       "other": "Other"
+    },
+    "visibilityScopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization",
+      "privateDesc": "Only visible to you",
+      "branchDesc": "Visible to branch members",
+      "organizationDesc": "Visible to all organization members"
     },
     "entityTypes": {
       "business": "Business",
@@ -1888,6 +1896,8 @@
         "mx": "Mx."
       },
       "fields": {
+        "visibilityScope": "Visibility Scope",
+        "visibilityScopeHelp": "Control who can see this contact",
         "customerType": "Customer Type",
         "salutation": "Salutation",
         "firstName": "First Name",
@@ -1997,6 +2007,7 @@
       }
     },
     "actions": {
+      "newContact": "New Contact",
       "newClient": "New Client",
       "newVendor": "New Vendor",
       "addBillingAddress": "Add Billing Address",
@@ -2037,7 +2048,13 @@
       "title": "Filters",
       "searchPlaceholder": "Search by name, email, or phone...",
       "allTypes": "All Types",
+      "allScopes": "All Scopes",
       "clearAll": "Clear All"
+    },
+    "scopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization"
     },
     "pagination": {
       "showing": "Showing {start} to {end} of {total}",

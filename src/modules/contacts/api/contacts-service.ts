@@ -22,10 +22,12 @@ export class ContactsService {
   private supabase = createClient();
 
   /**
-   * Get all contacts with optional filters
+   * Get all contacts with optional filters and visibility scope
    */
   async getContacts(
     organizationId: string,
+    userId: string,
+    userBranchId: string | null,
     filters?: ContactFilters,
     page: number = 1,
     pageSize: number = 50
@@ -45,7 +47,19 @@ export class ContactsService {
       .eq("organization_id", organizationId)
       .is("deleted_at", null);
 
-    // Apply filters
+    // Apply visibility scope filtering
+    // User can see: organization-wide, their branch, or their private contacts
+    const visibilityClauses: string[] = ["visibility_scope.eq.organization"];
+
+    if (userBranchId) {
+      visibilityClauses.push(`and(visibility_scope.eq.branch,branch_id.eq.${userBranchId})`);
+    }
+
+    visibilityClauses.push(`and(visibility_scope.eq.private,owner_user_id.eq.${userId})`);
+
+    query = query.or(visibilityClauses.join(","));
+
+    // Apply additional filters
     if (filters?.contact_type) {
       if (Array.isArray(filters.contact_type)) {
         query = query.in("contact_type", filters.contact_type);
@@ -56,6 +70,10 @@ export class ContactsService {
 
     if (filters?.entity_type) {
       query = query.eq("entity_type", filters.entity_type);
+    }
+
+    if (filters?.visibility_scope) {
+      query = query.eq("visibility_scope", filters.visibility_scope);
     }
 
     if (filters?.search) {
@@ -127,17 +145,24 @@ export class ContactsService {
    */
   async createContact(
     organizationId: string,
+    userId: string,
+    branchId: string | null,
     contactData: Omit<ContactInsert, "organization_id">,
     addresses?: Omit<ContactAddressInsert, "contact_id">[],
     persons?: Omit<ContactPersonInsert, "contact_id">[]
   ): Promise<Contact> {
+    // Set owner and branch based on visibility scope
+    const dataToInsert = {
+      ...contactData,
+      organization_id: organizationId,
+      owner_user_id: contactData.visibility_scope === "private" ? userId : null,
+      branch_id: contactData.visibility_scope === "branch" ? branchId : null,
+    };
+
     // Create contact
     const { data: contact, error: contactError } = await this.supabase
       .from("contacts")
-      .insert({
-        ...contactData,
-        organization_id: organizationId,
-      })
+      .insert(dataToInsert)
       .select()
       .single();
 
@@ -383,6 +408,8 @@ export class ContactsService {
    */
   async searchContacts(
     organizationId: string,
+    userId: string,
+    userBranchId: string | null,
     searchTerm: string,
     contactTypes?: ContactType[],
     limit: number = 10
@@ -394,6 +421,14 @@ export class ContactsService {
       .is("deleted_at", null)
       .or(`display_name.ilike.%${searchTerm}%,primary_email.ilike.%${searchTerm}%`)
       .limit(limit);
+
+    // Apply visibility scope filtering
+    const visibilityClauses: string[] = ["visibility_scope.eq.organization"];
+    if (userBranchId) {
+      visibilityClauses.push(`and(visibility_scope.eq.branch,branch_id.eq.${userBranchId})`);
+    }
+    visibilityClauses.push(`and(visibility_scope.eq.private,owner_user_id.eq.${userId})`);
+    query = query.or(visibilityClauses.join(","));
 
     if (contactTypes && contactTypes.length > 0) {
       query = query.in("contact_type", contactTypes);
@@ -413,33 +448,20 @@ export class ContactsService {
    */
   async getContactsByType(
     organizationId: string,
+    userId: string,
+    userBranchId: string | null,
     contactType: ContactType,
     page: number = 1,
     pageSize: number = 50
   ): Promise<ContactsListResponse> {
-    return this.getContacts(organizationId, { contact_type: contactType }, page, pageSize);
-  }
-
-  /**
-   * Get all vendors (suppliers)
-   */
-  async getVendors(
-    organizationId: string,
-    page: number = 1,
-    pageSize: number = 50
-  ): Promise<ContactsListResponse> {
-    return this.getContactsByType(organizationId, "vendor", page, pageSize);
-  }
-
-  /**
-   * Get all customers (clients)
-   */
-  async getCustomers(
-    organizationId: string,
-    page: number = 1,
-    pageSize: number = 50
-  ): Promise<ContactsListResponse> {
-    return this.getContactsByType(organizationId, "customer", page, pageSize);
+    return this.getContacts(
+      organizationId,
+      userId,
+      userBranchId,
+      { contact_type: contactType },
+      page,
+      pageSize
+    );
   }
 }
 

@@ -716,6 +716,7 @@ export type Database = {
       };
       contacts: {
         Row: {
+          branch_id: string | null;
           company_id_number: string | null;
           company_name: string | null;
           contact_type: string;
@@ -736,6 +737,7 @@ export type Database = {
           notes: string | null;
           opening_balance: number | null;
           organization_id: string;
+          owner_user_id: string | null;
           payment_terms: string | null;
           portal_enabled: boolean | null;
           portal_language: string | null;
@@ -747,10 +749,12 @@ export type Database = {
           tax_rate: number | null;
           tax_registration_number: string | null;
           updated_at: string;
+          visibility_scope: string;
           website: string | null;
           work_phone: string | null;
         };
         Insert: {
+          branch_id?: string | null;
           company_id_number?: string | null;
           company_name?: string | null;
           contact_type?: string;
@@ -771,6 +775,7 @@ export type Database = {
           notes?: string | null;
           opening_balance?: number | null;
           organization_id: string;
+          owner_user_id?: string | null;
           payment_terms?: string | null;
           portal_enabled?: boolean | null;
           portal_language?: string | null;
@@ -782,10 +787,12 @@ export type Database = {
           tax_rate?: number | null;
           tax_registration_number?: string | null;
           updated_at?: string;
+          visibility_scope?: string;
           website?: string | null;
           work_phone?: string | null;
         };
         Update: {
+          branch_id?: string | null;
           company_id_number?: string | null;
           company_name?: string | null;
           contact_type?: string;
@@ -806,6 +813,7 @@ export type Database = {
           notes?: string | null;
           opening_balance?: number | null;
           organization_id?: string;
+          owner_user_id?: string | null;
           payment_terms?: string | null;
           portal_enabled?: boolean | null;
           portal_language?: string | null;
@@ -817,10 +825,18 @@ export type Database = {
           tax_rate?: number | null;
           tax_registration_number?: string | null;
           updated_at?: string;
+          visibility_scope?: string;
           website?: string | null;
           work_phone?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "contacts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "contacts_organization_id_fkey";
             columns: ["organization_id"];

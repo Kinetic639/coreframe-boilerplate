@@ -26,10 +26,11 @@ export type PriceList = Database["public"]["Tables"]["price_lists"]["Row"];
 export type ContactDocument = Database["public"]["Tables"]["contact_documents"]["Row"];
 
 // Enums
-export type ContactType = "customer" | "vendor" | "lead" | "employee" | "other";
+export type ContactType = "contact" | "lead" | "other";
 export type EntityType = "business" | "individual";
 export type Salutation = "Mr" | "Mrs" | "Ms" | "Dr" | "Prof" | "Mx";
 export type AddressType = "billing" | "shipping" | "both";
+export type VisibilityScope = "private" | "branch" | "organization";
 
 // Extended types with relations
 export interface ContactWithRelations extends Contact {
@@ -47,6 +48,11 @@ export interface ContactFormData {
   // Entity info
   contact_type: ContactType;
   entity_type: EntityType;
+
+  // Visibility scope
+  visibility_scope: VisibilityScope;
+  owner_user_id?: string;
+  branch_id?: string;
 
   // Individual fields
   salutation?: Salutation | null;
@@ -134,6 +140,7 @@ export interface ContactsListResponse {
 export interface ContactFilters {
   contact_type?: ContactType | ContactType[];
   entity_type?: EntityType;
+  visibility_scope?: VisibilityScope;
   search?: string;
   tags?: string[];
   has_portal_access?: boolean;
@@ -142,11 +149,39 @@ export interface ContactFilters {
 
 // Constants
 export const CONTACT_TYPES: { value: ContactType; label: string; labelPl: string }[] = [
-  { value: "customer", label: "Customer", labelPl: "Klient" },
-  { value: "vendor", label: "Vendor", labelPl: "Dostawca" },
+  { value: "contact", label: "Contact", labelPl: "Kontakt" },
   { value: "lead", label: "Lead", labelPl: "Potencjalny klient" },
-  { value: "employee", label: "Employee", labelPl: "Pracownik" },
   { value: "other", label: "Other", labelPl: "Inny" },
+];
+
+export const VISIBILITY_SCOPES: {
+  value: VisibilityScope;
+  label: string;
+  labelPl: string;
+  description: string;
+  descriptionPl: string;
+}[] = [
+  {
+    value: "private",
+    label: "Private",
+    labelPl: "Prywatne",
+    description: "Only visible to you",
+    descriptionPl: "Widoczne tylko dla Ciebie",
+  },
+  {
+    value: "branch",
+    label: "Branch",
+    labelPl: "Oddział",
+    description: "Visible to branch members",
+    descriptionPl: "Widoczne dla członków oddziału",
+  },
+  {
+    value: "organization",
+    label: "Organization",
+    labelPl: "Organizacja",
+    description: "Visible to all organization members",
+    descriptionPl: "Widoczne dla wszystkich członków organizacji",
+  },
 ];
 
 export const ENTITY_TYPES: { value: EntityType; label: string; labelPl: string }[] = [

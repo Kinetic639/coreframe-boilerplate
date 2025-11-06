@@ -9,6 +9,7 @@ import type {
   ContactsListResponse,
 } from "@/modules/contacts/types";
 import { contactsService } from "@/modules/contacts/api/contacts-service";
+import { createClient } from "@/utils/supabase/client";
 
 interface ContactsState {
   // Current state
@@ -71,8 +72,24 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      // Get user context
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Get user's branch from app store
+      const appStore = (await import("./app-store")).useAppStore;
+      const activeBranchId = appStore.getState().activeBranch?.id || null;
+
       const response: ContactsListResponse = await contactsService.getContacts(
         organizationId,
+        user.id,
+        activeBranchId,
         get().filters,
         currentPage,
         get().pageSize

@@ -56,8 +56,8 @@ export function ClientsListView() {
 
   useEffect(() => {
     if (activeOrgId) {
-      // Load customers only
-      setFilters({ contact_type: "customer" });
+      // Load contacts (clients are managed via separate system now)
+      setFilters({ contact_type: "contact" });
       loadContacts(activeOrgId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,7 +68,7 @@ export function ClientsListView() {
       const delaySearch = setTimeout(() => {
         setFilters({
           ...filters,
-          contact_type: "customer",
+          contact_type: "contact",
           entity_type: entityTypeFilter !== "all" ? entityTypeFilter : undefined,
           search: searchTerm || undefined,
         });
@@ -84,11 +84,31 @@ export function ClientsListView() {
     if (!activeOrgId) return;
 
     try {
+      // Get user context
+      const { createClient } = await import("@/utils/supabase/client");
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!userData.user) {
+        toast.error("User not authenticated");
+        return;
+      }
+
+      // Get active branch from app store
+      const { activeBranch } = useAppStore.getState();
+
       // Extract addresses, persons, and custom_fields from the form data
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { addresses, persons, custom_fields, ...contactData } = data;
 
-      await contactsService.createContact(activeOrgId, contactData, addresses, persons);
+      await contactsService.createContact(
+        activeOrgId,
+        userData.user.id,
+        activeBranch?.id || null,
+        contactData,
+        addresses,
+        persons
+      );
 
       await refreshContacts(activeOrgId);
       setIsFormOpen(false);
@@ -153,7 +173,7 @@ export function ClientsListView() {
               onClick={() => {
                 setSearchTerm("");
                 setEntityTypeFilter("all");
-                setFilters({ contact_type: "customer" });
+                setFilters({ contact_type: "contact" });
                 if (activeOrgId) loadContacts(activeOrgId);
               }}
             >
@@ -289,7 +309,7 @@ export function ClientsListView() {
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <ContactForm
-            contactType="customer"
+            contactType="contact"
             onSubmit={handleCreateContact}
             onCancel={() => setIsFormOpen(false)}
           />
