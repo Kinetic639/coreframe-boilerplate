@@ -379,7 +379,7 @@ export function ClientsListView() {
               setIsFormOpen(false);
               setEditingContact(null);
             }}
-            initialData={editingContact || undefined}
+            initialData={(editingContact as any) || undefined}
             isEditMode={!!editingContact}
           />
         </DialogContent>
