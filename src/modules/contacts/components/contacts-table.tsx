@@ -23,9 +23,11 @@ import { ContactWithRelations } from "../types";
 interface ContactsTableProps {
   contacts: ContactWithRelations[];
   isLoading: boolean;
+  onEdit?: (contact: ContactWithRelations) => void;
+  onDelete?: (contact: ContactWithRelations) => void;
 }
 
-export function ContactsTable({ contacts, isLoading }: ContactsTableProps) {
+export function ContactsTable({ contacts, isLoading, onEdit, onDelete }: ContactsTableProps) {
   const t = useTranslations("contacts");
   const router = useRouter();
 
@@ -114,15 +116,30 @@ export function ContactsTable({ contacts, isLoading }: ContactsTableProps) {
                       variant="ghost"
                       size="sm"
                       onClick={() => router.push(`/dashboard/contacts/${contact.id}` as any)}
+                      title={t("actions.view")}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {onEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(contact)}
+                        title={t("actions.edit")}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(contact)}
+                        title={t("actions.delete")}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

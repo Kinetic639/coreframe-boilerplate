@@ -19,10 +19,20 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ContactForm } from "./contact-form";
 import { ContactsTable } from "./contacts-table";
 import { Plus, Search } from "lucide-react";
-import { VisibilityScope, EntityType, ContactFormData } from "../types";
+import { VisibilityScope, EntityType, ContactFormData, ContactWithRelations } from "../types";
 import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
 
@@ -32,6 +42,9 @@ export function ContactsListView() {
   const { contacts, isLoading, loadContacts, setFilters, total } = useContactsStore();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactWithRelations | null>(null);
+  const [contactToDelete, setContactToDelete] = useState<ContactWithRelations | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [scopeFilter, setScopeFilter] = useState<VisibilityScope | "all">("all");
   const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | "all">("all");
@@ -92,6 +105,49 @@ export function ContactsListView() {
       toast.success(t("messages.createSuccess"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("messages.error"));
+    }
+  };
+
+  const handleUpdateContact = async (data: ContactFormData) => {
+    if (!activeOrgId || !editingContact) return;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { addresses, persons, custom_fields, ...contactData } = data;
+
+      await contactsService.updateContact(editingContact.id, contactData);
+
+      await loadContacts(activeOrgId);
+      setIsFormOpen(false);
+      setEditingContact(null);
+      toast.success(t("messages.updateSuccess"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("messages.error"));
+    }
+  };
+
+  const handleEdit = (contact: ContactWithRelations) => {
+    setEditingContact(contact);
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = (contact: ContactWithRelations) => {
+    setContactToDelete(contact);
+  };
+
+  const confirmDelete = async () => {
+    if (!contactToDelete || !activeOrgId) return;
+
+    setIsDeleting(true);
+    try {
+      await contactsService.deleteContact(contactToDelete.id);
+      await loadContacts(activeOrgId);
+      setContactToDelete(null);
+      toast.success(t("messages.deleteSuccess"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("messages.error"));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -162,7 +218,12 @@ export function ContactsListView() {
       </Card>
 
       {/* Contacts Table */}
-      <ContactsTable contacts={contacts} isLoading={isLoading} />
+      <ContactsTable
+        contacts={contacts}
+        isLoading={isLoading}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
 
       {/* Total */}
       {total > 0 && (
@@ -175,16 +236,48 @@ export function ContactsListView() {
         </div>
       )}
 
-      {/* Create Contact Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      {/* Create/Edit Contact Dialog */}
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) setEditingContact(null);
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <ContactForm
             contactType="contact"
-            onSubmit={handleCreateContact}
-            onCancel={() => setIsFormOpen(false)}
+            onSubmit={editingContact ? handleUpdateContact : handleCreateContact}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingContact(null);
+            }}
+            initialData={(editingContact as any) || undefined}
+            isEditMode={!!editingContact}
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!contactToDelete}
+        onOpenChange={(open) => !open && setContactToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("messages.confirmDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("messages.confirmDeleteText", { name: contactToDelete?.display_name || "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>{t("actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting ? t("actions.deleting") : t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
