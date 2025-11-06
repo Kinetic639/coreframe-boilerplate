@@ -2018,7 +2018,8 @@
       "cancel": "Cancel",
       "view": "View",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "confirmDelete": "Confirm Delete"
     },
     "dialogs": {
       "addContactPerson": "Add Contact Person",
@@ -2042,6 +2043,8 @@
       "createSuccess": "Contact created successfully",
       "updateSuccess": "Contact updated successfully",
       "deleteSuccess": "Contact deleted successfully",
+      "deleteError": "Failed to delete contact",
+      "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
       "error": "An error occurred"
     },
     "filters": {

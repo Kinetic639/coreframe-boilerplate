@@ -1998,7 +1998,8 @@
       "cancel": "Anuluj",
       "view": "Pokaż",
       "edit": "Edytuj",
-      "delete": "Usuń"
+      "delete": "Usuń",
+      "confirmDelete": "Potwierdź Usunięcie"
     },
     "dialogs": {
       "addContactPerson": "Dodaj Osobę Kontaktową",
@@ -2022,6 +2023,8 @@
       "createSuccess": "Kontakt został utworzony pomyślnie",
       "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
       "deleteSuccess": "Kontakt został usunięty pomyślnie",
+      "deleteError": "Nie udało się usunąć kontaktu",
+      "confirmDeleteText": "Czy na pewno chcesz usunąć {name}? Ta akcja nie może być cofnięta.",
       "error": "Wystąpił błąd"
     },
     "filters": {

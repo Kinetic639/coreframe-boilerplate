@@ -33,6 +33,7 @@ interface ContactsState {
   // Actions
   loadContacts: (organizationId: string, page?: number) => Promise<void>;
   loadContactById: (contactId: string) => Promise<void>;
+  updateContact: (contactId: string, contactData: any) => Promise<void>;
   setFilters: (filters: ContactFilters) => void;
   clearFilters: () => void;
   setPage: (page: number) => void;
@@ -151,6 +152,31 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
   // Select a contact
   selectContact: (contact: ContactWithRelations | null) => {
     set({ selectedContact: contact });
+  },
+
+  // Update contact
+  updateContact: async (contactId: string, contactData: any) => {
+    set({ isSaving: true, error: null });
+
+    try {
+      const updatedContact = await contactsService.updateContact(contactId, contactData);
+
+      // Update in local state
+      set((state) => ({
+        contacts: state.contacts.map((c) => (c.id === contactId ? { ...c, ...updatedContact } : c)),
+        selectedContact:
+          state.selectedContact?.id === contactId
+            ? { ...state.selectedContact, ...updatedContact }
+            : state.selectedContact,
+        isSaving: false,
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Failed to update contact",
+        isSaving: false,
+      });
+      throw error;
+    }
   },
 
   // Refresh contacts (reload current page)

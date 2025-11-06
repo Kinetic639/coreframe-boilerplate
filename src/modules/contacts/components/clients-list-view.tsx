@@ -29,10 +29,20 @@ import {
 import { useContactsStore } from "@/lib/stores/contacts-store";
 import { useAppStore } from "@/lib/stores/app-store";
 import { ContactForm } from "./contact-form";
-import { ContactFormData, EntityType } from "../types";
+import { ContactFormData, EntityType, ContactWithRelations } from "../types";
 import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
-import { Plus, Search, Filter, Mail, Phone, Building2, User } from "lucide-react";
+import { Plus, Search, Filter, Mail, Phone, Building2, User, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function ClientsListView() {
   const t = useTranslations("contacts");
@@ -51,6 +61,9 @@ export function ClientsListView() {
   } = useContactsStore();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState<ContactWithRelations | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<ContactWithRelations | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | "all">("all");
 
@@ -81,40 +94,75 @@ export function ClientsListView() {
   }, [searchTerm, entityTypeFilter]);
 
   const handleCreateContact = async (data: ContactFormData) => {
-    if (!activeOrgId) return;
+    if (!activeOrgId) {
+      throw new Error("Organization not selected");
+    }
+
+    // Get user context
+    const { createClient } = await import("@/utils/supabase/client");
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+
+    if (!userData.user) {
+      throw new Error("User not authenticated");
+    }
+
+    // Get active branch from app store
+    const { activeBranch } = useAppStore.getState();
+
+    // Extract addresses, persons, and custom_fields from the form data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { addresses, persons, custom_fields, ...contactData } = data;
+
+    await contactsService.createContact(
+      activeOrgId,
+      userData.user.id,
+      activeBranch?.id || null,
+      contactData,
+      addresses,
+      persons
+    );
+
+    await refreshContacts(activeOrgId);
+    setIsFormOpen(false);
+  };
+
+  const handleUpdateContact = async (data: ContactFormData) => {
+    if (!editingContact) return;
+
+    // Extract addresses, persons, and custom_fields from the form data
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { addresses, persons, custom_fields, ...contactData } = data;
+
+    const { updateContact } = useContactsStore.getState();
+    await updateContact(editingContact.id, contactData);
+
+    await refreshContacts(activeOrgId);
+    setEditingContact(null);
+    setIsFormOpen(false);
+  };
+
+  const handleEditClick = (contact: ContactWithRelations) => {
+    setEditingContact(contact);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteClick = (contact: ContactWithRelations) => {
+    setContactToDelete(contact);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!contactToDelete) return;
 
     try {
-      // Get user context
-      const { createClient } = await import("@/utils/supabase/client");
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-
-      if (!userData.user) {
-        toast.error("User not authenticated");
-        return;
-      }
-
-      // Get active branch from app store
-      const { activeBranch } = useAppStore.getState();
-
-      // Extract addresses, persons, and custom_fields from the form data
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { addresses, persons, custom_fields, ...contactData } = data;
-
-      await contactsService.createContact(
-        activeOrgId,
-        userData.user.id,
-        activeBranch?.id || null,
-        contactData,
-        addresses,
-        persons
-      );
-
-      await refreshContacts(activeOrgId);
-      setIsFormOpen(false);
-      toast.success(t("messages.createSuccess"));
+      const { deleteContact } = useContactsStore.getState();
+      await deleteContact(contactToDelete.id);
+      toast.success(t("messages.deleteSuccess"));
+      setDeleteDialogOpen(false);
+      setContactToDelete(null);
     } catch (error) {
-      throw error; // Let ContactForm handle the error display
+      toast.error(error instanceof Error ? error.message : t("messages.deleteError"));
     }
   };
 
@@ -249,15 +297,25 @@ export function ClientsListView() {
                           : "-"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            // TODO: Navigate to details page
-                          }}
-                        >
-                          {t("actions.view")}
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditClick(contact)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            {t("actions.edit")}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(contact)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            {t("actions.delete")}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -305,16 +363,50 @@ export function ClientsListView() {
         </CardContent>
       </Card>
 
-      {/* Create Contact Dialog */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      {/* Create/Edit Contact Dialog */}
+      <Dialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) setEditingContact(null);
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <ContactForm
             contactType="contact"
-            onSubmit={handleCreateContact}
-            onCancel={() => setIsFormOpen(false)}
+            onSubmit={editingContact ? handleUpdateContact : handleCreateContact}
+            onCancel={() => {
+              setIsFormOpen(false);
+              setEditingContact(null);
+            }}
+            initialData={editingContact || undefined}
+            isEditMode={!!editingContact}
           />
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("actions.confirmDelete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("messages.confirmDeleteText", { name: contactToDelete?.display_name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setContactToDelete(null)}>
+              {t("actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

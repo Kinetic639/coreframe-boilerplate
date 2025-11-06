@@ -49,6 +49,12 @@ COMMENT ON COLUMN contacts.visibility_scope IS 'Contact visibility: private (use
 COMMENT ON COLUMN contacts.owner_user_id IS 'User who created/owns the contact (required for private contacts)';
 COMMENT ON COLUMN contacts.branch_id IS 'Branch for branch-scoped contacts';
 
+-- Update existing contacts with old types before changing constraint
+UPDATE contacts
+SET contact_type = 'contact'
+WHERE contact_type IN ('customer', 'vendor', 'employee')
+  OR contact_type IS NULL;
+
 -- Update contact_type check constraint to only allow: contact, lead, other
 -- Remove customer and vendor as they are separate entities
 DO $$
@@ -66,9 +72,6 @@ EXCEPTION
     -- If constraint doesn't exist or other error, just continue
     NULL;
 END $$;
-
--- Set default contact_type to 'contact' for any NULL values
-UPDATE contacts SET contact_type = 'contact' WHERE contact_type IS NULL;
 
 -- Update existing contacts to have default visibility_scope if needed
 UPDATE contacts
