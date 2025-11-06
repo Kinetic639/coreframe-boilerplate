@@ -704,6 +704,9 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Kontakty"
+    },
     "home": {
       "title": "Start",
       "items": {

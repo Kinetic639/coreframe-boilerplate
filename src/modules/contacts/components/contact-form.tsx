@@ -1,7 +1,8 @@
 "use client";
 
 // =============================================
-// Contact Form - Zoho-style with Tabs
+// Contact Form - Simplified for Contact Book
+// 5 Tabs: Info, Addresses, Linked Accounts, Custom Fields, Notes
 // =============================================
 
 import { useState } from "react";
@@ -10,9 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContactFormData, ContactType } from "../types";
 import { ContactBasicInfoTab } from "./contact-form-tabs/basic-info-tab";
-import { ContactOtherDetailsTab } from "./contact-form-tabs/other-details-tab";
 import { ContactAddressTab } from "./contact-form-tabs/address-tab";
-import { ContactPersonsTab } from "./contact-form-tabs/contact-persons-tab";
+import { LinkedBusinessAccountsTab } from "./contact-form-tabs/linked-business-accounts-tab";
 import { ContactCustomFieldsTab } from "./contact-form-tabs/custom-fields-tab";
 import { ContactRemarksTab } from "./contact-form-tabs/remarks-tab";
 import { useTranslations } from "next-intl";
@@ -40,16 +40,11 @@ export function ContactForm({
   const form = useForm<ContactFormData>({
     defaultValues: {
       contact_type: contactType,
-      entity_type: "business",
       visibility_scope: "organization",
       display_name: "",
+      tags: [],
       addresses: [],
-      persons: [],
       custom_fields: {},
-      tax_exempt: false,
-      portal_enabled: false,
-      language_code: "en",
-      currency_code: "PLN",
       ...initialData,
     },
   });
@@ -59,11 +54,9 @@ export function ContactForm({
 
     try {
       await onSubmit(data);
-      toast.success(
-        isEditMode ? t("form.messages.updateSuccess") : t("form.messages.createSuccess")
-      );
+      toast.success(isEditMode ? t("messages.updateSuccess") : t("messages.createSuccess"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("form.messages.error"));
+      toast.error(error instanceof Error ? error.message : t("messages.error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -74,45 +67,42 @@ export function ContactForm({
       {/* Header */}
       <div className="flex items-center justify-between border-b pb-4">
         <h2 className="text-2xl font-bold">
-          {isEditMode
-            ? t("form.editTitle", { type: t(`types.${contactType}`) })
-            : t("form.newTitle", { type: t(`types.${contactType}`) })}
+          {isEditMode ? `Edit ${t(`types.${contactType}`)}` : `New ${t(`types.${contactType}`)}`}
         </h2>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onCancel}>
-            {t("form.cancel")}
+            {t("actions.cancel")}
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? t("form.saving") : isEditMode ? t("form.update") : t("form.save")}
+            {isSubmitting
+              ? t("actions.saving")
+              : isEditMode
+                ? t("actions.update")
+                : t("actions.save")}
           </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="basic-info">{t("form.tabs.basicInfo")}</TabsTrigger>
-          <TabsTrigger value="other-details">{t("form.tabs.otherDetails")}</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="basic-info">{t("form.tabs.info")}</TabsTrigger>
           <TabsTrigger value="address">{t("form.tabs.address")}</TabsTrigger>
-          <TabsTrigger value="contact-persons">{t("form.tabs.contactPersons")}</TabsTrigger>
+          <TabsTrigger value="linked-accounts">{t("form.tabs.linkedAccounts")}</TabsTrigger>
           <TabsTrigger value="custom-fields">{t("form.tabs.customFields")}</TabsTrigger>
-          <TabsTrigger value="remarks">{t("form.tabs.remarks")}</TabsTrigger>
+          <TabsTrigger value="remarks">{t("form.tabs.notes")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic-info" className="space-y-4 mt-6">
           <ContactBasicInfoTab form={form} contactType={contactType} />
         </TabsContent>
 
-        <TabsContent value="other-details" className="space-y-4 mt-6">
-          <ContactOtherDetailsTab form={form} />
-        </TabsContent>
-
         <TabsContent value="address" className="space-y-4 mt-6">
           <ContactAddressTab form={form} />
         </TabsContent>
 
-        <TabsContent value="contact-persons" className="space-y-4 mt-6">
-          <ContactPersonsTab form={form} />
+        <TabsContent value="linked-accounts" className="space-y-4 mt-6">
+          <LinkedBusinessAccountsTab contactId={initialData?.id} />
         </TabsContent>
 
         <TabsContent value="custom-fields" className="space-y-4 mt-6">

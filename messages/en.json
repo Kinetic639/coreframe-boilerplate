@@ -749,6 +749,9 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Contacts"
+    },
     "home": {
       "title": "Home",
       "items": {
