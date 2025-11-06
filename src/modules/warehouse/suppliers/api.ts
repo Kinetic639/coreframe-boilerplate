@@ -3,12 +3,17 @@ import { useAppStore } from "@/lib/stores/app-store";
 import { Database } from "../../../../supabase/types/types";
 
 // Type aliases for cleaner usage
-export type Supplier = Database["public"]["Tables"]["suppliers"]["Row"];
-export type SupplierInsert = Database["public"]["Tables"]["suppliers"]["Insert"];
-export type SupplierUpdate = Database["public"]["Tables"]["suppliers"]["Update"];
+export type BusinessAccount = Database["public"]["Tables"]["business_accounts"]["Row"];
+export type BusinessAccountInsert = Database["public"]["Tables"]["business_accounts"]["Insert"];
+export type BusinessAccountUpdate = Database["public"]["Tables"]["business_accounts"]["Update"];
 export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
 export type SupplierContactInsert = Database["public"]["Tables"]["supplier_contacts"]["Insert"];
 export type SupplierContactUpdate = Database["public"]["Tables"]["supplier_contacts"]["Update"];
+
+// Backward compatibility aliases
+export type Supplier = BusinessAccount;
+export type SupplierInsert = BusinessAccountInsert;
+export type SupplierUpdate = BusinessAccountUpdate;
 
 // Custom type for supplier with contacts
 export type SupplierWithContacts = Supplier & {
@@ -22,6 +27,7 @@ export interface SupplierFilters {
   search?: string;
   active?: boolean;
   tags?: string[];
+  partner_type?: "vendor" | "customer"; // Filter by vendor (supplier) or customer (client)
   limit?: number;
   offset?: number;
 }
@@ -51,7 +57,7 @@ class SupplierService {
     const organizationId = this.getOrganizationId();
 
     let query = this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .select(
         `
         *,
@@ -75,6 +81,14 @@ class SupplierService {
       )
       .eq("organization_id", organizationId)
       .is("deleted_at", null);
+
+    // Filter by partner_type - default to 'vendor' for suppliers
+    if (filters.partner_type) {
+      query = query.eq("partner_type", filters.partner_type);
+    } else {
+      // Default to vendors (suppliers) if no filter specified
+      query = query.eq("partner_type", "vendor");
+    }
 
     if (filters.search) {
       query = query.or(
@@ -125,7 +139,7 @@ class SupplierService {
     const organizationId = this.getOrganizationId();
 
     const { data, error } = await this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .select(
         `
         *,
@@ -175,10 +189,11 @@ class SupplierService {
     const supplierData = {
       ...supplier,
       organization_id: organizationId,
+      partner_type: (supplier as any).partner_type || "vendor", // Default to vendor
     };
 
     const { data, error } = await this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .insert(supplierData)
       .select()
       .single();
@@ -195,7 +210,7 @@ class SupplierService {
     const organizationId = this.getOrganizationId();
 
     const { data, error } = await this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .update({
         ...supplier,
         updated_at: new Date().toISOString(),
@@ -217,7 +232,7 @@ class SupplierService {
     const organizationId = this.getOrganizationId();
 
     const { error } = await this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .update({
         deleted_at: new Date().toISOString(),
       })
@@ -234,7 +249,7 @@ class SupplierService {
     const organizationId = this.getOrganizationId();
 
     const { data, error } = await this.supabase
-      .from("suppliers")
+      .from("business_accounts")
       .update({
         deleted_at: null,
         updated_at: new Date().toISOString(),

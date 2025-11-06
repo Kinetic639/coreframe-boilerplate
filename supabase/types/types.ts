@@ -265,6 +265,111 @@ export type Database = {
           },
         ];
       };
+      business_accounts: {
+        Row: {
+          address_line_1: string | null;
+          address_line_2: string | null;
+          city: string | null;
+          company_registration_number: string | null;
+          contact_id: string | null;
+          country: string | null;
+          created_at: string | null;
+          deleted_at: string | null;
+          delivery_terms: string | null;
+          email: string | null;
+          entity_type: string;
+          first_name: string | null;
+          id: string;
+          is_active: boolean | null;
+          last_name: string | null;
+          name: string;
+          notes: string | null;
+          organization_id: string;
+          partner_type: string;
+          payment_terms: string | null;
+          phone: string | null;
+          postal_code: string | null;
+          state_province: string | null;
+          tags: string[] | null;
+          tax_number: string | null;
+          updated_at: string | null;
+          website: string | null;
+        };
+        Insert: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          contact_id?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          email?: string | null;
+          entity_type?: string;
+          first_name?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          last_name?: string | null;
+          name: string;
+          notes?: string | null;
+          organization_id: string;
+          partner_type?: string;
+          payment_terms?: string | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Update: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          city?: string | null;
+          company_registration_number?: string | null;
+          contact_id?: string | null;
+          country?: string | null;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          delivery_terms?: string | null;
+          email?: string | null;
+          entity_type?: string;
+          first_name?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          last_name?: string | null;
+          name?: string;
+          notes?: string | null;
+          organization_id?: string;
+          partner_type?: string;
+          payment_terms?: string | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          tags?: string[] | null;
+          tax_number?: string | null;
+          updated_at?: string | null;
+          website?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "suppliers_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_participants: {
         Row: {
           branch_id: string;
@@ -384,6 +489,471 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_addresses: {
+        Row: {
+          address_line_1: string | null;
+          address_line_2: string | null;
+          address_type: string;
+          attention_to: string | null;
+          city: string | null;
+          contact_id: string;
+          country: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          fax_number: string | null;
+          id: string;
+          is_default: boolean | null;
+          phone: string | null;
+          postal_code: string | null;
+          state_province: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          address_type?: string;
+          attention_to?: string | null;
+          city?: string | null;
+          contact_id: string;
+          country?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          fax_number?: string | null;
+          id?: string;
+          is_default?: boolean | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          address_line_1?: string | null;
+          address_line_2?: string | null;
+          address_type?: string;
+          attention_to?: string | null;
+          city?: string | null;
+          contact_id?: string;
+          country?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          fax_number?: string | null;
+          id?: string;
+          is_default?: boolean | null;
+          phone?: string | null;
+          postal_code?: string | null;
+          state_province?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_addresses_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_custom_field_definitions: {
+        Row: {
+          applies_to: string[] | null;
+          created_at: string;
+          deleted_at: string | null;
+          display_order: number | null;
+          field_label: string;
+          field_name: string;
+          field_options: Json | null;
+          field_type: string;
+          help_text: string | null;
+          id: string;
+          is_active: boolean | null;
+          is_required: boolean | null;
+          organization_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          applies_to?: string[] | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          field_label: string;
+          field_name: string;
+          field_options?: Json | null;
+          field_type: string;
+          help_text?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_required?: boolean | null;
+          organization_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          applies_to?: string[] | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          display_order?: number | null;
+          field_label?: string;
+          field_name?: string;
+          field_options?: Json | null;
+          field_type?: string;
+          help_text?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_required?: boolean | null;
+          organization_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_custom_field_definitions_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_custom_field_values: {
+        Row: {
+          contact_id: string;
+          created_at: string;
+          field_definition_id: string;
+          id: string;
+          updated_at: string;
+          value_boolean: boolean | null;
+          value_date: string | null;
+          value_number: number | null;
+          value_text: string | null;
+        };
+        Insert: {
+          contact_id: string;
+          created_at?: string;
+          field_definition_id: string;
+          id?: string;
+          updated_at?: string;
+          value_boolean?: boolean | null;
+          value_date?: string | null;
+          value_number?: number | null;
+          value_text?: string | null;
+        };
+        Update: {
+          contact_id?: string;
+          created_at?: string;
+          field_definition_id?: string;
+          id?: string;
+          updated_at?: string;
+          value_boolean?: boolean | null;
+          value_date?: string | null;
+          value_number?: number | null;
+          value_text?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_custom_field_values_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_custom_field_values_field_definition_id_fkey";
+            columns: ["field_definition_id"];
+            isOneToOne: false;
+            referencedRelation: "contact_custom_field_definitions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_documents: {
+        Row: {
+          contact_id: string;
+          deleted_at: string | null;
+          description: string | null;
+          document_type: string | null;
+          file_name: string;
+          file_size: number | null;
+          file_type: string | null;
+          id: string;
+          storage_path: string;
+          uploaded_at: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          contact_id: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          document_type?: string | null;
+          file_name: string;
+          file_size?: number | null;
+          file_type?: string | null;
+          id?: string;
+          storage_path: string;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          contact_id?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          document_type?: string | null;
+          file_name?: string;
+          file_size?: number | null;
+          file_type?: string | null;
+          id?: string;
+          storage_path?: string;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_documents_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_persons: {
+        Row: {
+          contact_id: string;
+          created_at: string;
+          deleted_at: string | null;
+          department: string | null;
+          designation: string | null;
+          email: string | null;
+          first_name: string;
+          id: string;
+          is_active: boolean | null;
+          is_primary: boolean | null;
+          last_name: string;
+          mobile_phone: string | null;
+          notes: string | null;
+          salutation: string | null;
+          updated_at: string;
+          work_phone: string | null;
+        };
+        Insert: {
+          contact_id: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          department?: string | null;
+          designation?: string | null;
+          email?: string | null;
+          first_name: string;
+          id?: string;
+          is_active?: boolean | null;
+          is_primary?: boolean | null;
+          last_name: string;
+          mobile_phone?: string | null;
+          notes?: string | null;
+          salutation?: string | null;
+          updated_at?: string;
+          work_phone?: string | null;
+        };
+        Update: {
+          contact_id?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          department?: string | null;
+          designation?: string | null;
+          email?: string | null;
+          first_name?: string;
+          id?: string;
+          is_active?: boolean | null;
+          is_primary?: boolean | null;
+          last_name?: string;
+          mobile_phone?: string | null;
+          notes?: string | null;
+          salutation?: string | null;
+          updated_at?: string;
+          work_phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_persons_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contact_price_lists: {
+        Row: {
+          contact_id: string;
+          created_at: string;
+          id: string;
+          price_list_id: string;
+        };
+        Insert: {
+          contact_id: string;
+          created_at?: string;
+          id?: string;
+          price_list_id: string;
+        };
+        Update: {
+          contact_id?: string;
+          created_at?: string;
+          id?: string;
+          price_list_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_price_lists_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_price_lists_price_list_id_fkey";
+            columns: ["price_list_id"];
+            isOneToOne: false;
+            referencedRelation: "price_lists";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      contacts: {
+        Row: {
+          branch_id: string | null;
+          company_id_number: string | null;
+          company_name: string | null;
+          contact_type: string;
+          created_at: string;
+          created_by: string | null;
+          credit_limit: number | null;
+          currency_code: string | null;
+          deleted_at: string | null;
+          display_name: string;
+          entity_type: string;
+          fax: string | null;
+          first_name: string | null;
+          id: string;
+          language_code: string | null;
+          last_name: string | null;
+          metadata: Json | null;
+          mobile_phone: string | null;
+          notes: string | null;
+          opening_balance: number | null;
+          organization_id: string;
+          owner_user_id: string | null;
+          payment_terms: string | null;
+          portal_enabled: boolean | null;
+          portal_language: string | null;
+          price_list_id: string | null;
+          primary_email: string | null;
+          salutation: string | null;
+          tags: string[] | null;
+          tax_exempt: boolean | null;
+          tax_rate: number | null;
+          tax_registration_number: string | null;
+          updated_at: string;
+          visibility_scope: string;
+          website: string | null;
+          work_phone: string | null;
+        };
+        Insert: {
+          branch_id?: string | null;
+          company_id_number?: string | null;
+          company_name?: string | null;
+          contact_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          credit_limit?: number | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          display_name: string;
+          entity_type?: string;
+          fax?: string | null;
+          first_name?: string | null;
+          id?: string;
+          language_code?: string | null;
+          last_name?: string | null;
+          metadata?: Json | null;
+          mobile_phone?: string | null;
+          notes?: string | null;
+          opening_balance?: number | null;
+          organization_id: string;
+          owner_user_id?: string | null;
+          payment_terms?: string | null;
+          portal_enabled?: boolean | null;
+          portal_language?: string | null;
+          price_list_id?: string | null;
+          primary_email?: string | null;
+          salutation?: string | null;
+          tags?: string[] | null;
+          tax_exempt?: boolean | null;
+          tax_rate?: number | null;
+          tax_registration_number?: string | null;
+          updated_at?: string;
+          visibility_scope?: string;
+          website?: string | null;
+          work_phone?: string | null;
+        };
+        Update: {
+          branch_id?: string | null;
+          company_id_number?: string | null;
+          company_name?: string | null;
+          contact_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          credit_limit?: number | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          display_name?: string;
+          entity_type?: string;
+          fax?: string | null;
+          first_name?: string | null;
+          id?: string;
+          language_code?: string | null;
+          last_name?: string | null;
+          metadata?: Json | null;
+          mobile_phone?: string | null;
+          notes?: string | null;
+          opening_balance?: number | null;
+          organization_id?: string;
+          owner_user_id?: string | null;
+          payment_terms?: string | null;
+          portal_enabled?: boolean | null;
+          portal_language?: string | null;
+          price_list_id?: string | null;
+          primary_email?: string | null;
+          salutation?: string | null;
+          tags?: string[] | null;
+          tax_exempt?: boolean | null;
+          tax_rate?: number | null;
+          tax_registration_number?: string | null;
+          updated_at?: string;
+          visibility_scope?: string;
+          website?: string | null;
+          work_phone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contacts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contacts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fk_contacts_price_list";
+            columns: ["price_list_id"];
+            isOneToOne: false;
+            referencedRelation: "price_lists";
             referencedColumns: ["id"];
           },
         ];
@@ -1739,6 +2309,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      price_lists: {
+        Row: {
+          created_at: string;
+          currency_code: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          is_active: boolean | null;
+          name: string;
+          organization_id: string;
+          percentage_adjustment: number | null;
+          rounding_method: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name: string;
+          organization_id: string;
+          percentage_adjustment?: number | null;
+          rounding_method?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          name?: string;
+          organization_id?: string;
+          percentage_adjustment?: number | null;
+          rounding_method?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "price_lists_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_barcodes: {
         Row: {
           barcode: string;
@@ -2242,7 +2862,7 @@ export type Database = {
           opening_stock: number | null;
           opening_stock_rate: number | null;
           organization_id: string;
-          preferred_vendor_id: string | null;
+          preferred_business_account_id: string | null;
           product_type: string;
           purchase_account: string | null;
           purchase_description: string | null;
@@ -2282,7 +2902,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_rate?: number | null;
           organization_id: string;
-          preferred_vendor_id?: string | null;
+          preferred_business_account_id?: string | null;
           product_type: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
@@ -2322,7 +2942,7 @@ export type Database = {
           opening_stock?: number | null;
           opening_stock_rate?: number | null;
           organization_id?: string;
-          preferred_vendor_id?: string | null;
+          preferred_business_account_id?: string | null;
           product_type?: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
@@ -2363,10 +2983,10 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "products_preferred_vendor_id_fkey";
-            columns: ["preferred_vendor_id"];
+            foreignKeyName: "products_preferred_business_account_id_fkey";
+            columns: ["preferred_business_account_id"];
             isOneToOne: false;
-            referencedRelation: "suppliers";
+            referencedRelation: "business_accounts";
             referencedColumns: ["id"];
           },
         ];
@@ -3472,84 +4092,7 @@ export type Database = {
             foreignKeyName: "supplier_contacts_supplier_id_fkey";
             columns: ["supplier_id"];
             isOneToOne: false;
-            referencedRelation: "suppliers";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      suppliers: {
-        Row: {
-          address_line_1: string | null;
-          address_line_2: string | null;
-          city: string | null;
-          company_registration_number: string | null;
-          country: string | null;
-          created_at: string | null;
-          deleted_at: string | null;
-          delivery_terms: string | null;
-          id: string;
-          is_active: boolean | null;
-          name: string;
-          notes: string | null;
-          organization_id: string;
-          payment_terms: string | null;
-          postal_code: string | null;
-          state_province: string | null;
-          tags: string[] | null;
-          tax_number: string | null;
-          updated_at: string | null;
-          website: string | null;
-        };
-        Insert: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          city?: string | null;
-          company_registration_number?: string | null;
-          country?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          delivery_terms?: string | null;
-          id?: string;
-          is_active?: boolean | null;
-          name: string;
-          notes?: string | null;
-          organization_id: string;
-          payment_terms?: string | null;
-          postal_code?: string | null;
-          state_province?: string | null;
-          tags?: string[] | null;
-          tax_number?: string | null;
-          updated_at?: string | null;
-          website?: string | null;
-        };
-        Update: {
-          address_line_1?: string | null;
-          address_line_2?: string | null;
-          city?: string | null;
-          company_registration_number?: string | null;
-          country?: string | null;
-          created_at?: string | null;
-          deleted_at?: string | null;
-          delivery_terms?: string | null;
-          id?: string;
-          is_active?: boolean | null;
-          name?: string;
-          notes?: string | null;
-          organization_id?: string;
-          payment_terms?: string | null;
-          postal_code?: string | null;
-          state_province?: string | null;
-          tags?: string[] | null;
-          tax_number?: string | null;
-          updated_at?: string | null;
-          website?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "suppliers_organization_id_fkey";
-            columns: ["organization_id"];
-            isOneToOne: false;
-            referencedRelation: "organizations";
+            referencedRelation: "business_accounts";
             referencedColumns: ["id"];
           },
         ];
