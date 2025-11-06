@@ -276,8 +276,11 @@ export type Database = {
           created_at: string | null;
           deleted_at: string | null;
           delivery_terms: string | null;
+          entity_type: string;
+          first_name: string | null;
           id: string;
           is_active: boolean | null;
+          last_name: string | null;
           name: string;
           notes: string | null;
           organization_id: string;
@@ -300,8 +303,11 @@ export type Database = {
           created_at?: string | null;
           deleted_at?: string | null;
           delivery_terms?: string | null;
+          entity_type?: string;
+          first_name?: string | null;
           id?: string;
           is_active?: boolean | null;
+          last_name?: string | null;
           name: string;
           notes?: string | null;
           organization_id: string;
@@ -324,8 +330,11 @@ export type Database = {
           created_at?: string | null;
           deleted_at?: string | null;
           delivery_terms?: string | null;
+          entity_type?: string;
+          first_name?: string | null;
           id?: string;
           is_active?: boolean | null;
+          last_name?: string | null;
           name?: string;
           notes?: string | null;
           organization_id?: string;
