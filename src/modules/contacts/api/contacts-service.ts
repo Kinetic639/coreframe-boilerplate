@@ -39,8 +39,7 @@ export class ContactsService {
         *,
         addresses:contact_addresses(*),
         persons:contact_persons(*),
-        price_list:price_lists(*),
-        documents:contact_documents(*)
+        price_list:price_lists(*)
       `,
         { count: "exact" }
       )
@@ -122,8 +121,7 @@ export class ContactsService {
           *,
           field_definition:contact_custom_field_definitions(*)
         ),
-        price_list:price_lists(*),
-        documents:contact_documents(*)
+        price_list:price_lists(*)
       `
       )
       .eq("id", contactId)
