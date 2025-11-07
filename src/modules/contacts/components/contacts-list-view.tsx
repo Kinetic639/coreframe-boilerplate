@@ -62,7 +62,6 @@ export function ContactsListView() {
         setFilters({
           contact_type: "contact",
           visibility_scope: scopeFilter !== "all" ? scopeFilter : undefined,
-          entity_type: entityTypeFilter !== "all" ? entityTypeFilter : undefined,
           search: searchTerm || undefined,
         });
         loadContacts(activeOrgId);
@@ -71,7 +70,7 @@ export function ContactsListView() {
       return () => clearTimeout(delaySearch);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, scopeFilter, entityTypeFilter, activeOrgId]);
+  }, [searchTerm, scopeFilter, activeOrgId]);
 
   const handleCreateContact = async (data: ContactFormData) => {
     if (!activeOrgId) return;
