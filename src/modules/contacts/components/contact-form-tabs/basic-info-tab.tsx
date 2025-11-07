@@ -15,13 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ContactFormData,
-  ContactType,
-  SALUTATIONS,
-  VISIBILITY_SCOPES,
-  VisibilityScope,
-} from "../../types";
+import { ContactFormData, ContactType, SALUTATIONS, VisibilityScope } from "../../types";
 import { TagsInput } from "../tags-input";
 import { useTranslations } from "next-intl";
 
@@ -32,7 +26,26 @@ interface BasicInfoTabProps {
 
 export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
   const t = useTranslations("contacts.form");
+  const tScopes = useTranslations("contacts.visibilityScopes");
   const { register, watch, setValue } = form;
+
+  const visibilityScopes: { value: VisibilityScope; label: string; description: string }[] = [
+    {
+      value: "private",
+      label: tScopes("private"),
+      description: tScopes("privateDesc"),
+    },
+    {
+      value: "branch",
+      label: tScopes("branch"),
+      description: tScopes("branchDesc"),
+    },
+    {
+      value: "organization",
+      label: tScopes("organization"),
+      description: tScopes("organizationDesc"),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -49,7 +62,7 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {VISIBILITY_SCOPES.map((scope) => (
+            {visibilityScopes.map((scope) => (
               <SelectItem key={scope.value} value={scope.value}>
                 <div className="flex flex-col">
                   <span className="font-medium">{scope.label}</span>
