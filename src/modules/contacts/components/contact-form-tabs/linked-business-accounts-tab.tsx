@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Link2, Unlink, Search } from "lucide-react";
+import { Building2, Link2, Unlink, Search, Lock } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { contactsService } from "../../api/contacts-service";
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -27,15 +28,23 @@ import { toast } from "react-toastify";
 
 interface LinkedBusinessAccountsTabProps {
   contactId?: string;
+  contactVisibilityScope?: "private" | "organization";
+  onPromoteToOrganization?: () => void;
 }
 
-export function LinkedBusinessAccountsTab({ contactId }: LinkedBusinessAccountsTabProps) {
+export function LinkedBusinessAccountsTab({
+  contactId,
+  contactVisibilityScope,
+  onPromoteToOrganization,
+}: LinkedBusinessAccountsTabProps) {
   const [linkedAccounts, setLinkedAccounts] = React.useState<LinkedBusinessAccount[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [showLinkDialog, setShowLinkDialog] = React.useState(false);
   const [availableAccounts, setAvailableAccounts] = React.useState<any[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const { activeOrg } = useAppStore();
+
+  const isPrivateContact = contactVisibilityScope === "private";
 
   React.useEffect(() => {
     if (contactId) {
@@ -139,11 +148,35 @@ export function LinkedBusinessAccountsTab({ contactId }: LinkedBusinessAccountsT
 
   return (
     <div className="space-y-4">
+      {/* Warning for private contacts */}
+      {isPrivateContact && (
+        <Alert variant="destructive">
+          <Lock className="h-4 w-4" />
+          <AlertTitle>Private Contact - Linking Disabled</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              Private contacts cannot be linked to business accounts because other organization
+              members won't be able to view the contact information.
+            </p>
+            {onPromoteToOrganization && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={onPromoteToOrganization}
+              >
+                Change to Organization Contact
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <p className="text-sm text-muted-foreground">
           Link this contact to business accounts (clients or suppliers)
         </p>
-        <Button onClick={handleOpenLinkDialog} size="sm">
+        <Button onClick={handleOpenLinkDialog} size="sm" disabled={isPrivateContact}>
           <Link2 className="h-4 w-4 mr-2" />
           Link Business Account
         </Button>
@@ -158,12 +191,16 @@ export function LinkedBusinessAccountsTab({ contactId }: LinkedBusinessAccountsT
           <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h3 className="font-medium text-lg mb-1">No Linked Business Accounts</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            This contact is not currently linked to any clients or suppliers
+            {isPrivateContact
+              ? "Private contacts cannot be linked to business accounts"
+              : "This contact is not currently linked to any clients or suppliers"}
           </p>
-          <Button onClick={handleOpenLinkDialog} variant="outline">
-            <Link2 className="h-4 w-4 mr-2" />
-            Link First Account
-          </Button>
+          {!isPrivateContact && (
+            <Button onClick={handleOpenLinkDialog} variant="outline">
+              <Link2 className="h-4 w-4 mr-2" />
+              Link First Account
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -102,7 +102,14 @@ export function ContactForm({
         </TabsContent>
 
         <TabsContent value="linked-accounts" className="space-y-4 mt-6">
-          <LinkedBusinessAccountsTab contactId={(initialData as any)?.id} />
+          <LinkedBusinessAccountsTab
+            contactId={(initialData as any)?.id}
+            contactVisibilityScope={form.watch("visibility_scope")}
+            onPromoteToOrganization={() => {
+              form.setValue("visibility_scope", "organization");
+              setActiveTab("basic-info");
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="custom-fields" className="space-y-4 mt-6">

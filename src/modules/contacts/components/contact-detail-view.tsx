@@ -105,15 +105,8 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
           <div>
             <h1 className="text-3xl font-bold">{selectedContact.display_name}</h1>
             <div className="flex gap-2 mt-2">
-              <Badge variant="outline">{t(`entityTypes.${selectedContact.entity_type}`)}</Badge>
               <Badge
-                variant={
-                  selectedContact.visibility_scope === "private"
-                    ? "secondary"
-                    : selectedContact.visibility_scope === "branch"
-                      ? "default"
-                      : "outline"
-                }
+                variant={selectedContact.visibility_scope === "private" ? "secondary" : "outline"}
               >
                 {t(`scopes.${selectedContact.visibility_scope}`)}
               </Badge>
@@ -139,34 +132,21 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedContact.entity_type === "business" && selectedContact.company_name && (
+            {selectedContact.first_name && (
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">
-                  {t("form.fields.companyName")}
+                  {t("form.fields.firstName")}
                 </dt>
-                <dd>{selectedContact.company_name}</dd>
+                <dd>{selectedContact.first_name}</dd>
               </div>
             )}
-
-            {selectedContact.entity_type === "individual" && (
-              <>
-                {selectedContact.first_name && (
-                  <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                      {t("form.fields.firstName")}
-                    </dt>
-                    <dd>{selectedContact.first_name}</dd>
-                  </div>
-                )}
-                {selectedContact.last_name && (
-                  <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                      {t("form.fields.lastName")}
-                    </dt>
-                    <dd>{selectedContact.last_name}</dd>
-                  </div>
-                )}
-              </>
+            {selectedContact.last_name && (
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">
+                  {t("form.fields.lastName")}
+                </dt>
+                <dd>{selectedContact.last_name}</dd>
+              </div>
             )}
 
             {selectedContact.primary_email && (

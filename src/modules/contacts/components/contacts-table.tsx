@@ -71,15 +71,7 @@ export function ContactsTable({ contacts, isLoading, onEdit, onDelete }: Contact
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      contact.visibility_scope === "private"
-                        ? "secondary"
-                        : contact.visibility_scope === "branch"
-                          ? "default"
-                          : "outline"
-                    }
-                  >
+                  <Badge variant={contact.visibility_scope === "private" ? "secondary" : "outline"}>
                     {t(`scopes.${contact.visibility_scope}`)}
                   </Badge>
                 </TableCell>
