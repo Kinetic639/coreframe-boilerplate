@@ -704,6 +704,9 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Kontakty"
+    },
     "home": {
       "title": "Start",
       "items": {
@@ -1857,17 +1860,21 @@
       "saving": "Zapisywanie...",
       "tabs": {
         "basicInfo": "Podstawowe Informacje",
+        "info": "Informacje",
         "otherDetails": "Inne Szczegóły",
         "address": "Adres",
+        "linkedAccounts": "Powiązane Konta Biznesowe",
         "contactPersons": "Osoby Kontaktowe",
         "customFields": "Pola Niestandardowe",
-        "remarks": "Uwagi"
+        "remarks": "Uwagi",
+        "notes": "Notatki"
       },
       "entityTypes": {
         "business": "Firma",
         "individual": "Osoba prywatna"
       },
       "salutations": {
+        "label": "Tytuł",
         "mr": "Pan",
         "mrs": "Pani",
         "ms": "Pani",
@@ -1925,7 +1932,9 @@
         "internalNotes": "Notatki Wewnętrzne",
         "internalNotesHelp": "Te notatki są tylko do użytku wewnętrznego i nie będą widoczne dla kontaktu",
         "type": "Typ",
-        "location": "Lokalizacja"
+        "location": "Lokalizacja",
+        "tags": "Tagi",
+        "tagsHelp": "Użyj tagów do kategoryzowania i organizowania kontaktów"
       },
       "placeholders": {
         "salutation": "Wybierz tytuł",
@@ -1952,7 +1961,12 @@
         "postalCode": "Wprowadź kod pocztowy",
         "designation": "Stanowisko",
         "department": "Nazwa działu",
-        "notes": "Dodaj dodatkowe notatki tutaj..."
+        "notes": "Dodaj dodatkowe notatki tutaj...",
+        "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
+        "primaryEmail": "przyklad@firma.pl",
+        "workPhone": "+48 123 456 789",
+        "mobilePhone": "+48 123 456 789",
+        "website": "https://przyklad.pl"
       },
       "actions": {
         "addBillingAddress": "Dodaj Adres Fakturowy",
@@ -1994,8 +2008,10 @@
       "addShippingAddress": "Dodaj Adres Dostawy",
       "addContactPerson": "Dodaj Osobę Kontaktową",
       "add": "Dodaj",
+      "save": "Zapisz",
       "update": "Aktualizuj",
       "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
       "view": "Pokaż",
       "edit": "Edytuj",
       "delete": "Usuń",

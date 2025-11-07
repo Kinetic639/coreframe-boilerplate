@@ -4,14 +4,30 @@
 // Contact Detail View Component
 // =============================================
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useContactsStore } from "@/lib/stores/contacts-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Edit, Trash2, ArrowLeft, Mail, Phone, Globe } from "lucide-react";
+import { ContactForm } from "./contact-form";
+import { contactsService } from "../api/contacts-service";
+import { ContactFormData } from "../types";
+import { useAppStore } from "@/lib/stores/app-store";
+import { toast } from "react-toastify";
 
 interface ContactDetailViewProps {
   contactId: string;
@@ -20,12 +36,47 @@ interface ContactDetailViewProps {
 export function ContactDetailView({ contactId }: ContactDetailViewProps) {
   const t = useTranslations("contacts");
   const router = useRouter();
+  const { activeOrgId } = useAppStore();
   const { selectedContact, isLoadingContact, loadContactById } = useContactsStore();
+
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadContactById(contactId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactId]);
+
+  const handleUpdate = async (data: ContactFormData) => {
+    if (!selectedContact) return;
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { addresses, custom_fields, ...contactData } = data;
+      await contactsService.updateContact(selectedContact.id, contactData);
+      await loadContactById(contactId);
+      setIsEditOpen(false);
+      toast.success(t("messages.updateSuccess"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("messages.error"));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedContact || !activeOrgId) return;
+
+    setIsDeleting(true);
+    try {
+      await contactsService.deleteContact(selectedContact.id);
+      toast.success(t("messages.deleteSuccess"));
+      router.push("/dashboard/contacts");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("messages.error"));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoadingContact) {
     return (
@@ -70,12 +121,12 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setIsEditOpen(true)}>
             <Edit className="h-4 w-4 mr-2" />
             {t("actions.edit")}
           </Button>
-          <Button variant="outline">
-            <Trash2 className="h-4 w-4 mr-2 text-destructive" />
+          <Button variant="destructive" onClick={() => setIsDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4 mr-2" />
             {t("actions.delete")}
           </Button>
         </div>
@@ -288,6 +339,37 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <ContactForm
+            contactType="contact"
+            onSubmit={handleUpdate}
+            onCancel={() => setIsEditOpen(false)}
+            initialData={selectedContact as any}
+            isEditMode={true}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("messages.confirmDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("messages.confirmDeleteText", { name: selectedContact.display_name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>{t("actions.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? t("actions.deleting") : t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

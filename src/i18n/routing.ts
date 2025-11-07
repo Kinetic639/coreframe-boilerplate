@@ -46,6 +46,16 @@ export const routing = defineRouting({
       pl: "/dashboard/oddzial",
     },
 
+    // === Contacts module ===
+    "/dashboard/contacts": {
+      en: "/dashboard/contacts",
+      pl: "/dashboard/kontakty",
+    },
+    "/dashboard/contacts/[id]": {
+      en: "/dashboard/contacts/[id]",
+      pl: "/dashboard/kontakty/[id]",
+    },
+
     // === Warehouse module (uzupełnienia) ===
     "/dashboard/warehouse": {
       en: "/dashboard/warehouse",
@@ -161,6 +171,10 @@ export const routing = defineRouting({
     "/dashboard/warehouse/suppliers/list": {
       en: "/dashboard/warehouse/suppliers/list",
       pl: "/dashboard/magazyn/dostawcy/lista",
+    },
+    "/dashboard/warehouse/clients": {
+      en: "/dashboard/warehouse/clients",
+      pl: "/dashboard/magazyn/klienci",
     },
     "/dashboard/warehouse/deliveries": {
       en: "/dashboard/warehouse/deliveries",

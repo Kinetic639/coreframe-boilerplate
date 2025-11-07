@@ -7,7 +7,7 @@ import type { ModuleConfig } from "@/lib/types/module";
 export const contactsModule: ModuleConfig = {
   id: "contacts",
   slug: "contacts",
-  title: "Contacts",
+  title: "modules.contacts.title",
   icon: "Users",
   color: "#3b82f6", // blue
   description: "Manage personal and organizational contacts",

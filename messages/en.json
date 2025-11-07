@@ -749,6 +749,9 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Contacts"
+    },
     "home": {
       "title": "Home",
       "items": {
@@ -1877,17 +1880,21 @@
       "saving": "Saving...",
       "tabs": {
         "basicInfo": "Basic Info",
+        "info": "Info",
         "otherDetails": "Other Details",
         "address": "Address",
+        "linkedAccounts": "Linked Business Accounts",
         "contactPersons": "Contact Persons",
         "customFields": "Custom Fields",
-        "remarks": "Remarks"
+        "remarks": "Remarks",
+        "notes": "Notes"
       },
       "entityTypes": {
         "business": "Business",
         "individual": "Individual"
       },
       "salutations": {
+        "label": "Salutation",
         "mr": "Mr.",
         "mrs": "Mrs.",
         "ms": "Ms.",
@@ -1945,7 +1952,9 @@
         "internalNotes": "Internal Notes",
         "internalNotesHelp": "These notes are for internal use only and will not be visible to the contact",
         "type": "Type",
-        "location": "Location"
+        "location": "Location",
+        "tags": "Tags",
+        "tagsHelp": "Use tags to categorize and organize contacts"
       },
       "placeholders": {
         "salutation": "Select salutation",
@@ -1972,7 +1981,8 @@
         "postalCode": "Enter postal code",
         "designation": "Job title",
         "department": "Department name",
-        "notes": "Add any additional notes here..."
+        "notes": "Add any additional notes here...",
+        "tags": "Add tags (press Enter to add)"
       },
       "actions": {
         "addBillingAddress": "Add Billing Address",
@@ -2014,8 +2024,10 @@
       "addShippingAddress": "Add Shipping Address",
       "addContactPerson": "Add Contact Person",
       "add": "Add",
+      "save": "Save",
       "update": "Update",
       "cancel": "Cancel",
+      "saving": "Saving...",
       "view": "View",
       "edit": "Edit",
       "delete": "Delete",
@@ -2046,6 +2058,11 @@
       "deleteError": "Failed to delete contact",
       "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
       "error": "An error occurred"
+    },
+    "types": {
+      "contact": "Contact",
+      "lead": "Lead",
+      "other": "Other"
     },
     "filters": {
       "title": "Filters",

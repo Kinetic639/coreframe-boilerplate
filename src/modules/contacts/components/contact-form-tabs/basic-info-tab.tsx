@@ -1,7 +1,8 @@
 "use client";
 
 // =============================================
-// Contact Form - Basic Info Tab
+// Contact Form - Basic Info Tab (Simplified)
+// All contacts are people - no entity type selector
 // =============================================
 
 import { UseFormReturn } from "react-hook-form";
@@ -14,16 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  ContactFormData,
-  ContactType,
-  EntityType,
-  SALUTATIONS,
-  LANGUAGES,
-  VISIBILITY_SCOPES,
-  VisibilityScope,
-} from "../../types";
+import { ContactFormData, ContactType, SALUTATIONS, VisibilityScope } from "../../types";
+import { TagsInput } from "../tags-input";
 import { useTranslations } from "next-intl";
 
 interface BasicInfoTabProps {
@@ -33,21 +26,26 @@ interface BasicInfoTabProps {
 
 export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
   const t = useTranslations("contacts.form");
+  const tScopes = useTranslations("contacts.visibilityScopes");
   const { register, watch, setValue } = form;
 
-  const entityType = watch("entity_type");
-
-  const handleEntityTypeChange = (value: EntityType) => {
-    setValue("entity_type", value);
-    // Clear fields based on entity type
-    if (value === "business") {
-      setValue("salutation", null);
-      setValue("first_name", "");
-      setValue("last_name", "");
-    } else {
-      setValue("company_name", "");
-    }
-  };
+  const visibilityScopes: { value: VisibilityScope; label: string; description: string }[] = [
+    {
+      value: "private",
+      label: tScopes("private"),
+      description: tScopes("privateDesc"),
+    },
+    {
+      value: "branch",
+      label: tScopes("branch"),
+      description: tScopes("branchDesc"),
+    },
+    {
+      value: "organization",
+      label: tScopes("organization"),
+      description: tScopes("organizationDesc"),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -64,7 +62,7 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {VISIBILITY_SCOPES.map((scope) => (
+            {visibilityScopes.map((scope) => (
               <SelectItem key={scope.value} value={scope.value}>
                 <div className="flex flex-col">
                   <span className="font-medium">{scope.label}</span>
@@ -77,88 +75,45 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
         <p className="text-sm text-muted-foreground">{t("fields.visibilityScopeHelp")}</p>
       </div>
 
-      {/* Customer Type Toggle */}
-      <div className="space-y-2">
-        <Label>{t("fields.customerType")}</Label>
-        <RadioGroup
-          value={entityType}
-          onValueChange={handleEntityTypeChange}
-          className="flex gap-4"
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="business" id="business" />
-            <Label htmlFor="business" className="font-normal cursor-pointer">
-              {t("entityTypes.business")}
-            </Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="individual" id="individual" />
-            <Label htmlFor="individual" className="font-normal cursor-pointer">
-              {t("entityTypes.individual")}
-            </Label>
-          </div>
-        </RadioGroup>
-      </div>
-
-      {/* Primary Contact - Individual */}
-      {entityType === "individual" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="salutation">{t("fields.salutation")}</Label>
-            <Select
-              value={watch("salutation") || undefined}
-              onValueChange={(value) => setValue("salutation", value as any)}
-            >
-              <SelectTrigger id="salutation">
-                <SelectValue placeholder={t("placeholders.salutation")} />
-              </SelectTrigger>
-              <SelectContent>
-                {SALUTATIONS.map((sal) => (
-                  <SelectItem key={sal.value} value={sal.value}>
-                    {t(sal.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="first_name">
-              {t("fields.firstName")} <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="first_name"
-              {...register("first_name", { required: entityType === "individual" })}
-              placeholder={t("placeholders.firstName")}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="last_name">
-              {t("fields.lastName")} <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="last_name"
-              {...register("last_name", { required: entityType === "individual" })}
-              placeholder={t("placeholders.lastName")}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Company Name - Business */}
-      {entityType === "business" && (
+      {/* Person Fields - All contacts are people */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="company_name">
-            {t("fields.companyName")} <span className="text-red-500">*</span>
-          </Label>
+          <Label htmlFor="salutation">{t("fields.salutation")}</Label>
+          <Select
+            value={watch("salutation") || undefined}
+            onValueChange={(value) => setValue("salutation", value as any)}
+          >
+            <SelectTrigger id="salutation">
+              <SelectValue placeholder={t("placeholders.salutation")} />
+            </SelectTrigger>
+            <SelectContent>
+              {SALUTATIONS.map((sal) => (
+                <SelectItem key={sal.value} value={sal.value}>
+                  {t(sal.labelKey)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="first_name">{t("fields.firstName")}</Label>
           <Input
-            id="company_name"
-            {...register("company_name", { required: entityType === "business" })}
-            placeholder={t("placeholders.companyName")}
+            id="first_name"
+            {...register("first_name")}
+            placeholder={t("placeholders.firstName")}
           />
         </div>
-      )}
+
+        <div className="space-y-2">
+          <Label htmlFor="last_name">{t("fields.lastName")}</Label>
+          <Input
+            id="last_name"
+            {...register("last_name")}
+            placeholder={t("placeholders.lastName")}
+          />
+        </div>
+      </div>
 
       {/* Display Name */}
       <div className="space-y-2">
@@ -181,7 +136,7 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
             id="primary_email"
             type="email"
             {...register("primary_email")}
-            placeholder={t("placeholders.email")}
+            placeholder={t("placeholders.primaryEmail")}
           />
         </div>
 
@@ -189,8 +144,9 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
           <Label htmlFor="work_phone">{t("fields.workPhone")}</Label>
           <Input
             id="work_phone"
+            type="tel"
             {...register("work_phone")}
-            placeholder={t("placeholders.phone")}
+            placeholder={t("placeholders.workPhone")}
           />
         </div>
 
@@ -198,8 +154,9 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
           <Label htmlFor="mobile_phone">{t("fields.mobilePhone")}</Label>
           <Input
             id="mobile_phone"
+            type="tel"
             {...register("mobile_phone")}
-            placeholder={t("placeholders.phone")}
+            placeholder={t("placeholders.mobilePhone")}
           />
         </div>
 
@@ -214,24 +171,16 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
         </div>
       </div>
 
-      {/* Language */}
+      {/* Tags */}
       <div className="space-y-2">
-        <Label htmlFor="language_code">{t("fields.language")}</Label>
-        <Select
-          value={watch("language_code") || "en"}
-          onValueChange={(value) => setValue("language_code", value)}
-        >
-          <SelectTrigger id="language_code">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LANGUAGES.map((lang) => (
-              <SelectItem key={lang.value} value={lang.value}>
-                {lang.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="tags">{t("fields.tags")}</Label>
+        <TagsInput
+          value={watch("tags") || []}
+          onChange={(tags) => setValue("tags", tags)}
+          placeholder={t("placeholders.tags")}
+          suggestions={["partner", "vendor-contact", "client-contact", "vip", "supplier"]}
+        />
+        <p className="text-sm text-muted-foreground">{t("fields.tagsHelp")}</p>
       </div>
     </div>
   );

@@ -10,12 +10,10 @@ import type {
   ContactWithRelations,
   ContactAddress,
   ContactAddressInsert,
-  ContactPerson,
-  ContactPersonInsert,
-  ContactPersonUpdate,
   ContactFilters,
   ContactsListResponse,
   ContactType,
+  LinkedBusinessAccount,
 } from "../types";
 
 export class ContactsService {
@@ -37,10 +35,7 @@ export class ContactsService {
       .select(
         `
         *,
-        addresses:contact_addresses(*),
-        persons:contact_persons(*),
-        price_list:price_lists(*),
-        documents:contact_documents(*)
+        addresses:contact_addresses(*)
       `,
         { count: "exact" }
       )
@@ -68,22 +63,18 @@ export class ContactsService {
       }
     }
 
-    if (filters?.entity_type) {
-      query = query.eq("entity_type", filters.entity_type);
-    }
-
     if (filters?.visibility_scope) {
       query = query.eq("visibility_scope", filters.visibility_scope);
     }
 
     if (filters?.search) {
       query = query.or(
-        `display_name.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%,primary_email.ilike.%${filters.search}%`
+        `display_name.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,primary_email.ilike.%${filters.search}%`
       );
     }
 
-    if (filters?.has_portal_access !== undefined) {
-      query = query.eq("portal_enabled", filters.has_portal_access);
+    if (filters?.tags && filters.tags.length > 0) {
+      query = query.contains("tags", filters.tags);
     }
 
     // Pagination
@@ -108,7 +99,7 @@ export class ContactsService {
   }
 
   /**
-   * Get single contact by ID
+   * Get single contact by ID with linked business accounts
    */
   async getContactById(contactId: string): Promise<ContactWithRelations | null> {
     const { data, error } = await this.supabase
@@ -117,13 +108,10 @@ export class ContactsService {
         `
         *,
         addresses:contact_addresses(*),
-        persons:contact_persons(*),
         custom_field_values:contact_custom_field_values(
           *,
           field_definition:contact_custom_field_definitions(*)
-        ),
-        price_list:price_lists(*),
-        documents:contact_documents(*)
+        )
       `
       )
       .eq("id", contactId)
@@ -137,7 +125,31 @@ export class ContactsService {
       throw new Error(`Failed to fetch contact: ${error.message}`);
     }
 
-    return data as ContactWithRelations;
+    // Load linked business accounts
+    const linkedBusinessAccounts = await this.getLinkedBusinessAccounts(contactId);
+
+    return {
+      ...data,
+      linked_business_accounts: linkedBusinessAccounts,
+    } as ContactWithRelations;
+  }
+
+  /**
+   * Get business accounts linked to this contact
+   */
+  async getLinkedBusinessAccounts(contactId: string): Promise<LinkedBusinessAccount[]> {
+    const { data, error } = await this.supabase
+      .from("business_accounts")
+      .select("id, name, partner_type, entity_type, email, phone, is_active")
+      .eq("contact_id", contactId)
+      .is("deleted_at", null);
+
+    if (error) {
+      console.error("Failed to fetch linked business accounts:", error);
+      return [];
+    }
+
+    return (data || []) as LinkedBusinessAccount[];
   }
 
   /**
@@ -148,8 +160,7 @@ export class ContactsService {
     userId: string,
     branchId: string | null,
     contactData: Omit<ContactInsert, "organization_id">,
-    addresses?: Omit<ContactAddressInsert, "contact_id">[],
-    persons?: Omit<ContactPersonInsert, "contact_id">[]
+    addresses?: Omit<ContactAddressInsert, "contact_id">[]
   ): Promise<Contact> {
     // Set owner and branch based on visibility scope
     const dataToInsert = {
@@ -185,24 +196,6 @@ export class ContactsService {
         // Rollback contact creation
         await this.supabase.from("contacts").delete().eq("id", contact.id);
         throw new Error(`Failed to create addresses: ${addressError.message}`);
-      }
-    }
-
-    // Create contact persons if provided
-    if (persons && persons.length > 0) {
-      const personsWithContactId = persons.map((person) => ({
-        ...person,
-        contact_id: contact.id,
-      }));
-
-      const { error: personsError } = await this.supabase
-        .from("contact_persons")
-        .insert(personsWithContactId);
-
-      if (personsError) {
-        // Rollback
-        await this.supabase.from("contacts").delete().eq("id", contact.id);
-        throw new Error(`Failed to create contact persons: ${personsError.message}`);
       }
     }
 
@@ -293,113 +286,6 @@ export class ContactsService {
 
     if (error) {
       throw new Error(`Failed to delete address: ${error.message}`);
-    }
-  }
-
-  /**
-   * Add contact person
-   */
-  async addContactPerson(
-    contactId: string,
-    personData: ContactPersonInsert
-  ): Promise<ContactPerson> {
-    // If setting as primary, unset other primary contacts first
-    if (personData.is_primary) {
-      await this.supabase
-        .from("contact_persons")
-        .update({ is_primary: false })
-        .eq("contact_id", contactId)
-        .eq("is_primary", true);
-    }
-
-    const { data, error } = await this.supabase
-      .from("contact_persons")
-      .insert({
-        ...personData,
-        contact_id: contactId,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to add contact person: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  /**
-   * Update contact person
-   */
-  async updateContactPerson(
-    personId: string,
-    personData: ContactPersonUpdate
-  ): Promise<ContactPerson> {
-    // If setting as primary, get contact_id first
-    if (personData.is_primary) {
-      const { data: person } = await this.supabase
-        .from("contact_persons")
-        .select("contact_id")
-        .eq("id", personId)
-        .single();
-
-      if (person) {
-        await this.supabase
-          .from("contact_persons")
-          .update({ is_primary: false })
-          .eq("contact_id", person.contact_id)
-          .eq("is_primary", true)
-          .neq("id", personId);
-      }
-    }
-
-    const { data, error } = await this.supabase
-      .from("contact_persons")
-      .update(personData)
-      .eq("id", personId)
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to update contact person: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  /**
-   * Delete contact person
-   */
-  async deleteContactPerson(personId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("contact_persons")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", personId);
-
-    if (error) {
-      throw new Error(`Failed to delete contact person: ${error.message}`);
-    }
-  }
-
-  /**
-   * Set primary contact person
-   */
-  async setPrimaryContactPerson(contactId: string, personId: string): Promise<void> {
-    // Unset all primary flags for this contact
-    await this.supabase
-      .from("contact_persons")
-      .update({ is_primary: false })
-      .eq("contact_id", contactId)
-      .eq("is_primary", true);
-
-    // Set new primary
-    const { error } = await this.supabase
-      .from("contact_persons")
-      .update({ is_primary: true })
-      .eq("id", personId);
-
-    if (error) {
-      throw new Error(`Failed to set primary contact person: ${error.message}`);
     }
   }
 
