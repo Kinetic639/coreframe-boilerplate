@@ -46,10 +46,8 @@ interface ContactsState {
 
 const initialFilters: ContactFilters = {
   contact_type: undefined,
-  entity_type: undefined,
   search: undefined,
   tags: undefined,
-  has_portal_access: undefined,
   is_active: undefined,
 };
 

@@ -102,7 +102,7 @@ export function ContactForm({
         </TabsContent>
 
         <TabsContent value="linked-accounts" className="space-y-4 mt-6">
-          <LinkedBusinessAccountsTab contactId={initialData?.id} />
+          <LinkedBusinessAccountsTab contactId={(initialData as any)?.id} />
         </TabsContent>
 
         <TabsContent value="custom-fields" className="space-y-4 mt-6">
