@@ -16,7 +16,6 @@ import { LinkedBusinessAccountsTab } from "./contact-form-tabs/linked-business-a
 import { ContactCustomFieldsTab } from "./contact-form-tabs/custom-fields-tab";
 import { ContactRemarksTab } from "./contact-form-tabs/remarks-tab";
 import { useTranslations } from "next-intl";
-import { toast } from "react-toastify";
 
 interface ContactFormProps {
   initialData?: Partial<ContactFormData>;
@@ -54,9 +53,10 @@ export function ContactForm({
 
     try {
       await onSubmit(data);
-      toast.success(isEditMode ? t("messages.updateSuccess") : t("messages.createSuccess"));
+      // Toast is shown by parent component
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("messages.error"));
+      // Error is handled by parent component
+      throw error;
     } finally {
       setIsSubmitting(false);
     }

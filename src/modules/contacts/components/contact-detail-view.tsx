@@ -53,7 +53,7 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { addresses, persons, custom_fields, ...contactData } = data;
+      const { addresses, custom_fields, ...contactData } = data;
       await contactsService.updateContact(selectedContact.id, contactData);
       await loadContactById(contactId);
       setIsEditOpen(false);

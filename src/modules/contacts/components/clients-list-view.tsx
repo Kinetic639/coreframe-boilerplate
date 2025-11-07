@@ -110,17 +110,16 @@ export function ClientsListView() {
     // Get active branch from app store
     const { activeBranch } = useAppStore.getState();
 
-    // Extract addresses, persons, and custom_fields from the form data
+    // Extract addresses and custom_fields from the form data
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { addresses, persons, custom_fields, ...contactData } = data;
+    const { addresses, custom_fields, ...contactData } = data;
 
     await contactsService.createContact(
       activeOrgId,
       userData.user.id,
       activeBranch?.id || null,
       contactData,
-      addresses,
-      persons
+      addresses
     );
 
     await refreshContacts(activeOrgId);
@@ -130,9 +129,9 @@ export function ClientsListView() {
   const handleUpdateContact = async (data: ContactFormData) => {
     if (!editingContact) return;
 
-    // Extract addresses, persons, and custom_fields from the form data
+    // Extract addresses and custom_fields from the form data
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { addresses, persons, custom_fields, ...contactData } = data;
+    const { addresses, custom_fields, ...contactData } = data;
 
     const { updateContact } = useContactsStore.getState();
     await updateContact(editingContact.id, contactData);

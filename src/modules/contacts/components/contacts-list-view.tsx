@@ -89,15 +89,14 @@ export function ContactsListView() {
 
       const { activeBranch } = useAppStore.getState();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { addresses, persons, custom_fields, ...contactData } = data;
+      const { addresses, custom_fields, ...contactData } = data;
 
       await contactsService.createContact(
         activeOrgId,
         userData.user.id,
         activeBranch?.id || null,
         contactData,
-        addresses,
-        persons
+        addresses
       );
 
       await loadContacts(activeOrgId);
@@ -113,7 +112,7 @@ export function ContactsListView() {
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { addresses, persons, custom_fields, ...contactData } = data;
+      const { addresses, custom_fields, ...contactData } = data;
 
       await contactsService.updateContact(editingContact.id, contactData);
 
