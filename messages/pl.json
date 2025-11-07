@@ -1962,7 +1962,11 @@
         "designation": "Stanowisko",
         "department": "Nazwa działu",
         "notes": "Dodaj dodatkowe notatki tutaj...",
-        "tags": "Dodaj tagi (naciśnij Enter aby dodać)"
+        "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
+        "primaryEmail": "przyklad@firma.pl",
+        "workPhone": "+48 123 456 789",
+        "mobilePhone": "+48 123 456 789",
+        "website": "https://przyklad.pl"
       },
       "actions": {
         "addBillingAddress": "Dodaj Adres Fakturowy",

@@ -17,7 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, User, Mail, Phone, Eye, Edit, Trash2 } from "lucide-react";
+import { User, Mail, Phone, Eye, Edit, Trash2, Tag } from "lucide-react";
 import { ContactWithRelations } from "../types";
 
 interface ContactsTableProps {
@@ -54,8 +54,8 @@ export function ContactsTable({ contacts, isLoading, onEdit, onDelete }: Contact
           <TableHeader>
             <TableRow>
               <TableHead>{t("form.fields.displayName")}</TableHead>
-              <TableHead>{t("form.fields.customerType")}</TableHead>
               <TableHead>{t("form.fields.visibilityScope")}</TableHead>
+              <TableHead>{t("form.fields.tags")}</TableHead>
               <TableHead>{t("form.fields.email")}</TableHead>
               <TableHead>{t("form.fields.phone")}</TableHead>
               <TableHead className="text-right">{t("form.fields.actions")}</TableHead>
@@ -66,16 +66,9 @@ export function ContactsTable({ contacts, isLoading, onEdit, onDelete }: Contact
               <TableRow key={contact.id}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
-                    {contact.entity_type === "business" ? (
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <User className="h-4 w-4 text-muted-foreground" />
-                    )}
+                    <User className="h-4 w-4 text-muted-foreground" />
                     {contact.display_name}
                   </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{t(`entityTypes.${contact.entity_type}`)}</Badge>
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -89,6 +82,25 @@ export function ContactsTable({ contacts, isLoading, onEdit, onDelete }: Contact
                   >
                     {t(`scopes.${contact.visibility_scope}`)}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {contact.tags && contact.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {contact.tags.slice(0, 3).map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {tag}
+                        </Badge>
+                      ))}
+                      {contact.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{contact.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {contact.primary_email ? (
