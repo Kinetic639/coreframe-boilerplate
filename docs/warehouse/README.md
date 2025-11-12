@@ -4,10 +4,16 @@
 
 ### Active Documents
 
-- **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** ⭐ **Current Roadmap**
+- **[SALES_ORDERS_AND_RESERVATIONS_PLAN.md](SALES_ORDERS_AND_RESERVATIONS_PLAN.md)** 🚀 **CURRENTLY IMPLEMENTING**
+  - Phase 0: Product-Supplier Integration (1-2 days)
+  - Phase 1: Sales Orders Module (3-4 days)
+  - Phase 2: Stock Reservations (3-4 days)
+  - **Step-by-step implementation guide**
+
+- **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** ⭐ **Overall Roadmap**
   - Prioritized plan to complete remaining 60% of features
   - Detailed timelines and implementation steps (P1-P10)
-  - **Use this for planning next development work**
+  - **Use this for long-term planning**
 
 - **[STOCK_MOVEMENTS_SPECIFICATION.md](STOCK_MOVEMENTS_SPECIFICATION.md)** - Technical Specification
   - Source of truth for movement types (31 codes: 101-613)
@@ -68,29 +74,49 @@
 
 ## ❌ What's Missing (60%)
 
+### 🚀 Currently Implementing (IN PROGRESS)
+
+**Sales Orders & Reservations** - See [SALES_ORDERS_AND_RESERVATIONS_PLAN.md](SALES_ORDERS_AND_RESERVATIONS_PLAN.md)
+
+- **Phase 0:** Product-Supplier Integration (prerequisite for P2)
+- **Phase 1:** Sales Orders Module (enables meaningful reservations testing)
+- **Phase 2:** Stock Reservations UI (prevents overselling - P1 priority)
+
 ### Critical Gaps (Blocks Production Use)
 
-1. **🔴 No Stock Reservations UI** (Priority 1)
+1. **🔴 No Product-Supplier Relationships** (Phase 0 - IN PROGRESS)
+   - Products have no supplier associations
+   - Cannot track supplier SKU, pricing, lead times
+   - Required for automated purchase orders
+   - Estimated: 1-2 days
+
+2. **🔴 No Sales Orders Module** (Phase 1 - IN PROGRESS)
+   - No way to track customer orders
+   - Reservations have no context to reserve for
+   - Estimated: 3-4 days
+
+3. **🔴 No Stock Reservations UI** (Phase 2 - IN PROGRESS / Priority 1)
    - Tables exist but no user interface
    - Risk of overselling without reservation system
    - Estimated: 3-4 days
 
-2. **🔴 No Automated Purchase Orders** (Priority 2)
+4. **🔴 No Automated Purchase Orders** (Priority 2)
    - Manual spreadsheet tracking still required
    - No low stock alerts or reorder automation
+   - Depends on Phase 0 (product-suppliers)
    - Estimated: 1.5 weeks
 
-3. **🔴 No Warehouse Transfers** (Priority 3)
+5. **🔴 No Warehouse Transfers** (Priority 3)
    - Transfer tables DISABLED in migrations
    - Cannot move stock between locations
    - Estimated: 2 weeks
 
-4. **🔴 No PDF Document Generation** (Priority 4)
+6. **🔴 No PDF Document Generation** (Priority 4)
    - Cannot print legal warehouse documents (PZ, WZ, MM, etc.)
    - Polish legal requirement not met
    - Estimated: 1.5 weeks
 
-5. **🔴 No Row-Level Security** (Priority 10)
+7. **🔴 No Row-Level Security** (Priority 10)
    - RLS intentionally disabled for testing
    - **MUST BE IMPLEMENTED before production**
    - Estimated: 1 week
