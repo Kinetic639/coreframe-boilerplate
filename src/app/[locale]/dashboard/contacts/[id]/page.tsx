@@ -4,6 +4,7 @@
 
 import { ContactDetailView } from "@/modules/contacts/components/contact-detail-view";
 
-export default function ContactDetailPage({ params }: { params: { id: string } }) {
-  return <ContactDetailView contactId={params.id} />;
+export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ContactDetailView contactId={id} />;
 }
