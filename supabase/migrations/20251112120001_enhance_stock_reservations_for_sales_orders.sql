@@ -70,6 +70,27 @@ ON stock_reservations(sales_order_item_id) WHERE deleted_at IS NULL;
 -- Drop view if exists
 DROP VIEW IF EXISTS product_available_inventory;
 
+-- Ensure quantity tracking columns exist for reservations created before the
+-- stock movements revamp
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'stock_reservations' AND column_name = 'reserved_quantity'
+  ) THEN
+    ALTER TABLE stock_reservations
+    ADD COLUMN reserved_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'stock_reservations' AND column_name = 'released_quantity'
+  ) THEN
+    ALTER TABLE stock_reservations
+    ADD COLUMN released_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (released_quantity >= 0);
+  END IF;
+END $$;
+
 -- Create view that calculates available quantity (on_hand - reserved)
 CREATE OR REPLACE VIEW product_available_inventory AS
 WITH inventory AS (
