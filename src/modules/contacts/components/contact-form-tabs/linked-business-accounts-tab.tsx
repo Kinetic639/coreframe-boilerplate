@@ -3,6 +3,7 @@
 // =============================================
 // Linked Business Accounts Tab
 // Shows and manages which clients/suppliers are linked to this contact
+// Redesigned with inline select (no nested dialogs)
 // =============================================
 
 import * as React from "react";
@@ -10,15 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Building2, Link2, Unlink, Search, Lock } from "lucide-react";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Building2, Unlink, Lock, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { contactsService } from "../../api/contacts-service";
 import { createClient } from "@/utils/supabase/client";
@@ -39,9 +40,9 @@ export function LinkedBusinessAccountsTab({
 }: LinkedBusinessAccountsTabProps) {
   const [linkedAccounts, setLinkedAccounts] = React.useState<LinkedBusinessAccount[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [showLinkDialog, setShowLinkDialog] = React.useState(false);
   const [availableAccounts, setAvailableAccounts] = React.useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [open, setOpen] = React.useState(false);
+  const [isLinking, setIsLinking] = React.useState(false);
   const { activeOrg } = useAppStore();
 
   const isPrivateContact = contactVisibilityScope === "private";
@@ -49,6 +50,7 @@ export function LinkedBusinessAccountsTab({
   React.useEffect(() => {
     if (contactId) {
       loadLinkedAccounts();
+      loadAvailableAccounts();
     }
   }, [contactId]);
 
@@ -90,6 +92,7 @@ export function LinkedBusinessAccountsTab({
   const handleLinkAccount = async (accountId: string) => {
     if (!contactId) return;
 
+    setIsLinking(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
@@ -101,11 +104,13 @@ export function LinkedBusinessAccountsTab({
 
       toast.success("Business account linked successfully");
       await loadLinkedAccounts();
-      setShowLinkDialog(false);
-      setSearchQuery("");
+      await loadAvailableAccounts();
+      setOpen(false);
     } catch (error) {
       console.error("Failed to link account:", error);
       toast.error("Failed to link business account");
+    } finally {
+      setIsLinking(false);
     }
   };
 
@@ -121,20 +126,12 @@ export function LinkedBusinessAccountsTab({
 
       toast.success("Business account unlinked successfully");
       await loadLinkedAccounts();
+      await loadAvailableAccounts();
     } catch (error) {
       console.error("Failed to unlink account:", error);
       toast.error("Failed to unlink business account");
     }
   };
-
-  const handleOpenLinkDialog = () => {
-    loadAvailableAccounts();
-    setShowLinkDialog(true);
-  };
-
-  const filteredAccounts = availableAccounts.filter((account) =>
-    account.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (!contactId) {
     return (
@@ -172,16 +169,64 @@ export function LinkedBusinessAccountsTab({
         </Alert>
       )}
 
-      <div className="flex justify-between items-center">
-        <p className="text-sm text-muted-foreground">
-          Link this contact to business accounts (clients or suppliers)
-        </p>
-        <Button onClick={handleOpenLinkDialog} size="sm" disabled={isPrivateContact}>
-          <Link2 className="h-4 w-4 mr-2" />
-          Link Business Account
-        </Button>
-      </div>
+      {/* Add New Link Section */}
+      {!isPrivateContact && (
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-muted-foreground">
+            Link this contact to business accounts (clients or suppliers)
+          </p>
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" disabled={isPrivateContact || isLinking}>
+                <Plus className="h-4 w-4 mr-2" />
+                Link Business Account
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0" align="end">
+              <Command>
+                <CommandInput placeholder="Search business accounts..." />
+                <CommandList>
+                  <CommandEmpty>No available business accounts found.</CommandEmpty>
+                  <CommandGroup heading="Available Accounts">
+                    {availableAccounts.map((account) => (
+                      <CommandItem
+                        key={account.id}
+                        value={account.name}
+                        onSelect={() => handleLinkAccount(account.id)}
+                        className="cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <p className="font-medium">{account.name}</p>
+                            <div className="flex gap-2 mt-1">
+                              <Badge
+                                variant={
+                                  account.partner_type === "customer" ? "default" : "secondary"
+                                }
+                                className="text-xs"
+                              >
+                                {account.partner_type === "customer" ? "Client" : "Supplier"}
+                              </Badge>
+                              {account.email && (
+                                <span className="text-xs text-muted-foreground">
+                                  {account.email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
 
+      {/* Linked Accounts List */}
       {isLoading ? (
         <Card>
           <CardContent className="p-8 text-center">Loading...</CardContent>
@@ -195,12 +240,6 @@ export function LinkedBusinessAccountsTab({
               ? "Private contacts cannot be linked to business accounts"
               : "This contact is not currently linked to any clients or suppliers"}
           </p>
-          {!isPrivateContact && (
-            <Button onClick={handleOpenLinkDialog} variant="outline">
-              <Link2 className="h-4 w-4 mr-2" />
-              Link First Account
-            </Button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -244,65 +283,6 @@ export function LinkedBusinessAccountsTab({
           ))}
         </div>
       )}
-
-      {/* Link Dialog */}
-      <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Link Business Account</DialogTitle>
-            <DialogDescription>Select a business account to link to this contact</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Search Business Accounts</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto space-y-2">
-              {filteredAccounts.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground">
-                  No available business accounts found
-                </div>
-              ) : (
-                filteredAccounts.map((account) => (
-                  <Card
-                    key={account.id}
-                    className="p-3 cursor-pointer hover:border-primary transition-colors"
-                    onClick={() => handleLinkAccount(account.id)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-muted-foreground" />
-                      <div className="flex-1">
-                        <p className="font-medium">{account.name}</p>
-                        <div className="flex gap-2 mt-1">
-                          <Badge
-                            variant={account.partner_type === "customer" ? "default" : "secondary"}
-                            className="text-xs"
-                          >
-                            {account.partner_type === "customer" ? "Client" : "Supplier"}
-                          </Badge>
-                          {account.email && (
-                            <span className="text-xs text-muted-foreground">{account.email}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

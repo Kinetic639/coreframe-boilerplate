@@ -112,6 +112,7 @@ export function ContactsListView() {
       setEditingContact(null);
       toast.success(t("messages.updateSuccess"));
     } catch (error) {
+      console.error("Update contact error:", error);
       toast.error(error instanceof Error ? error.message : t("messages.error"));
     }
   };

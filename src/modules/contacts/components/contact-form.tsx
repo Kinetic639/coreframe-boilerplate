@@ -55,6 +55,7 @@ export function ContactForm({
       await onSubmit(data);
       // Toast is shown by parent component
     } catch (error) {
+      console.error("ContactForm onSubmit error:", error);
       // Error is handled by parent component
       throw error;
     } finally {

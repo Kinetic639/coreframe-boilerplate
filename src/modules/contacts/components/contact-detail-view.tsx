@@ -37,7 +37,7 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
   const t = useTranslations("contacts");
   const router = useRouter();
   const { activeOrgId } = useAppStore();
-  const { selectedContact, isLoadingContact, loadContactById } = useContactsStore();
+  const { selectedContact, isLoadingContact, loadContactById, error } = useContactsStore();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -88,8 +88,12 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
 
   if (!selectedContact) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-muted-foreground">Contact not found</p>
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-muted-foreground text-lg">{error || "Contact not found"}</p>
+        <Button variant="outline" onClick={() => router.push("/dashboard/contacts")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {t("actions.backToList")}
+        </Button>
       </div>
     );
   }

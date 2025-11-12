@@ -127,6 +127,15 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
 
       const contact = await contactsService.getContactById(contactId, user.id, activeOrgId);
 
+      if (!contact) {
+        set({
+          selectedContact: null,
+          error: "Contact not found or you don't have permission to view it",
+          isLoadingContact: false,
+        });
+        return;
+      }
+
       set({
         selectedContact: contact,
         isLoadingContact: false,
