@@ -1905,6 +1905,12 @@
       "fields": {
         "visibilityScope": "Visibility Scope",
         "visibilityScopeHelp": "Control who can see this contact",
+        "contactVisibility": "Contact Type",
+        "privateVisibilityDesc": "Only you can view and edit this contact",
+        "organizationVisibilityDesc": "All organization members can view and edit this contact",
+        "privateVisibilityInfo": "Private contacts cannot be linked to business accounts. Change to public to link this contact to clients or suppliers.",
+        "organizationVisibilityInfo": "Organization contacts can be linked to business accounts (clients/suppliers). Once set to public, it cannot be changed back to private.",
+        "organizationVisibilityLocked": "This contact is public and cannot be changed to private because it may already be linked to business accounts.",
         "customerType": "Customer Type",
         "salutation": "Salutation",
         "firstName": "First Name",

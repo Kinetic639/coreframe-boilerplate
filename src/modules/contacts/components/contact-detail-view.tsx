@@ -37,7 +37,7 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
   const t = useTranslations("contacts");
   const router = useRouter();
   const { activeOrgId } = useAppStore();
-  const { selectedContact, isLoadingContact, loadContactById } = useContactsStore();
+  const { selectedContact, isLoadingContact, loadContactById, error } = useContactsStore();
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -88,8 +88,12 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
 
   if (!selectedContact) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <p className="text-muted-foreground">Contact not found</p>
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-muted-foreground text-lg">{error || "Contact not found"}</p>
+        <Button variant="outline" onClick={() => router.push("/dashboard/contacts")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          {t("actions.backToList")}
+        </Button>
       </div>
     );
   }
@@ -105,15 +109,8 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
           <div>
             <h1 className="text-3xl font-bold">{selectedContact.display_name}</h1>
             <div className="flex gap-2 mt-2">
-              <Badge variant="outline">{t(`entityTypes.${selectedContact.entity_type}`)}</Badge>
               <Badge
-                variant={
-                  selectedContact.visibility_scope === "private"
-                    ? "secondary"
-                    : selectedContact.visibility_scope === "branch"
-                      ? "default"
-                      : "outline"
-                }
+                variant={selectedContact.visibility_scope === "private" ? "secondary" : "outline"}
               >
                 {t(`scopes.${selectedContact.visibility_scope}`)}
               </Badge>
@@ -139,34 +136,21 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedContact.entity_type === "business" && selectedContact.company_name && (
+            {selectedContact.first_name && (
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">
-                  {t("form.fields.companyName")}
+                  {t("form.fields.firstName")}
                 </dt>
-                <dd>{selectedContact.company_name}</dd>
+                <dd>{selectedContact.first_name}</dd>
               </div>
             )}
-
-            {selectedContact.entity_type === "individual" && (
-              <>
-                {selectedContact.first_name && (
-                  <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                      {t("form.fields.firstName")}
-                    </dt>
-                    <dd>{selectedContact.first_name}</dd>
-                  </div>
-                )}
-                {selectedContact.last_name && (
-                  <div>
-                    <dt className="text-sm font-medium text-muted-foreground">
-                      {t("form.fields.lastName")}
-                    </dt>
-                    <dd>{selectedContact.last_name}</dd>
-                  </div>
-                )}
-              </>
+            {selectedContact.last_name && (
+              <div>
+                <dt className="text-sm font-medium text-muted-foreground">
+                  {t("form.fields.lastName")}
+                </dt>
+                <dd>{selectedContact.last_name}</dd>
+              </div>
             )}
 
             {selectedContact.primary_email && (
@@ -271,55 +255,6 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
                     </p>
                     {address.country && (
                       <p className="text-sm text-muted-foreground">{address.country}</p>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Contact Persons */}
-      {selectedContact.persons && selectedContact.persons.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("form.tabs.contactPersons")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {selectedContact.persons
-                .filter((person) => !person.deleted_at)
-                .map((person) => (
-                  <div key={person.id} className="border-l-2 border-primary pl-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium">
-                        {person.first_name} {person.last_name}
-                      </p>
-                      {person.is_primary && (
-                        <Badge variant="default">{t("form.fields.primaryContact")}</Badge>
-                      )}
-                      {!person.is_active && <Badge variant="secondary">Inactive</Badge>}
-                    </div>
-                    {person.designation && (
-                      <p className="text-sm text-muted-foreground">{person.designation}</p>
-                    )}
-                    {person.email && (
-                      <a
-                        href={`mailto:${person.email}`}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Mail className="h-3 w-3" />
-                        {person.email}
-                      </a>
-                    )}
-                    {person.work_phone && (
-                      <a
-                        href={`tel:${person.work_phone}`}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Phone className="h-3 w-3" />
-                        {person.work_phone}
-                      </a>
                     )}
                   </div>
                 ))}

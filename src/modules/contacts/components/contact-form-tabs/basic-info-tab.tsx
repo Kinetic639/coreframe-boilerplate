@@ -15,64 +15,89 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContactFormData, ContactType, SALUTATIONS, VisibilityScope } from "../../types";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ContactFormData, ContactType, SALUTATIONS } from "../../types";
 import { TagsInput } from "../tags-input";
 import { useTranslations } from "next-intl";
+import { Lock, Users, Info } from "lucide-react";
 
 interface BasicInfoTabProps {
   form: UseFormReturn<ContactFormData>;
   contactType: ContactType;
+  isEditMode?: boolean;
 }
 
-export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
+export function ContactBasicInfoTab({ form, isEditMode = false }: BasicInfoTabProps) {
   const t = useTranslations("contacts.form");
-  const tScopes = useTranslations("contacts.visibilityScopes");
+  const tScopes = useTranslations("contacts.scopes");
   const { register, watch, setValue } = form;
 
-  const visibilityScopes: { value: VisibilityScope; label: string; description: string }[] = [
-    {
-      value: "private",
-      label: tScopes("private"),
-      description: tScopes("privateDesc"),
-    },
-    {
-      value: "branch",
-      label: tScopes("branch"),
-      description: tScopes("branchDesc"),
-    },
-    {
-      value: "organization",
-      label: tScopes("organization"),
-      description: tScopes("organizationDesc"),
-    },
-  ];
+  const isOrganizationScope = watch("visibility_scope") === "organization";
+
+  const handleVisibilityToggle = (checked: boolean) => {
+    // In edit mode with organization scope, prevent changing back to private
+    if (isEditMode && isOrganizationScope && !checked) {
+      return;
+    }
+
+    // In create mode or when promoting private to organization, allow toggle
+    setValue("visibility_scope", checked ? "organization" : "private");
+  };
 
   return (
     <div className="space-y-6">
-      {/* Visibility Scope */}
-      <div className="space-y-2">
-        <Label htmlFor="visibility_scope">
-          {t("fields.visibilityScope")} <span className="text-red-500">*</span>
+      {/* Visibility Scope Toggle */}
+      <div className="space-y-3">
+        <Label>
+          {t("fields.contactVisibility")} <span className="text-red-500">*</span>
         </Label>
-        <Select
-          value={watch("visibility_scope")}
-          onValueChange={(value) => setValue("visibility_scope", value as VisibilityScope)}
-        >
-          <SelectTrigger id="visibility_scope">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {visibilityScopes.map((scope) => (
-              <SelectItem key={scope.value} value={scope.value}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{scope.label}</span>
-                  <span className="text-xs text-muted-foreground">{scope.description}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-sm text-muted-foreground">{t("fields.visibilityScopeHelp")}</p>
+
+        <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div className="flex items-start gap-3 flex-1">
+            {isOrganizationScope ? (
+              <Users className="h-5 w-5 text-primary mt-0.5" />
+            ) : (
+              <Lock className="h-5 w-5 text-muted-foreground mt-0.5" />
+            )}
+            <div className="flex-1">
+              <div className="font-medium">
+                {isOrganizationScope ? tScopes("organization") : tScopes("private")}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {isOrganizationScope
+                  ? t("fields.organizationVisibilityDesc")
+                  : t("fields.privateVisibilityDesc")}
+              </div>
+            </div>
+          </div>
+          <Switch
+            checked={isOrganizationScope}
+            onCheckedChange={handleVisibilityToggle}
+            disabled={isEditMode && isOrganizationScope} // In edit mode, can't switch back from organization to private
+          />
+        </div>
+
+        {isEditMode && isOrganizationScope && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>{t("fields.organizationVisibilityLocked")}</AlertDescription>
+          </Alert>
+        )}
+
+        {!isEditMode && isOrganizationScope && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>{t("fields.organizationVisibilityInfo")}</AlertDescription>
+          </Alert>
+        )}
+
+        {!isOrganizationScope && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>{t("fields.privateVisibilityInfo")}</AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Person Fields - All contacts are people */}

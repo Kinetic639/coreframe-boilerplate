@@ -32,7 +32,7 @@ import {
 import { ContactForm } from "./contact-form";
 import { ContactsTable } from "./contacts-table";
 import { Plus, Search } from "lucide-react";
-import { VisibilityScope, EntityType, ContactFormData, ContactWithRelations } from "../types";
+import { VisibilityScope, ContactFormData, ContactWithRelations } from "../types";
 import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
 
@@ -47,7 +47,6 @@ export function ContactsListView() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [scopeFilter, setScopeFilter] = useState<VisibilityScope | "all">("all");
-  const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | "all">("all");
 
   useEffect(() => {
     if (activeOrgId) {
@@ -63,7 +62,6 @@ export function ContactsListView() {
         setFilters({
           contact_type: "contact",
           visibility_scope: scopeFilter !== "all" ? scopeFilter : undefined,
-          entity_type: entityTypeFilter !== "all" ? entityTypeFilter : undefined,
           search: searchTerm || undefined,
         });
         loadContacts(activeOrgId);
@@ -72,7 +70,7 @@ export function ContactsListView() {
       return () => clearTimeout(delaySearch);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, scopeFilter, entityTypeFilter, activeOrgId]);
+  }, [searchTerm, scopeFilter, activeOrgId]);
 
   const handleCreateContact = async (data: ContactFormData) => {
     if (!activeOrgId) return;
@@ -87,17 +85,10 @@ export function ContactsListView() {
         return;
       }
 
-      const { activeBranch } = useAppStore.getState();
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { addresses, custom_fields, ...contactData } = data;
 
-      await contactsService.createContact(
-        activeOrgId,
-        userData.user.id,
-        activeBranch?.id || null,
-        contactData,
-        addresses
-      );
+      await contactsService.createContact(activeOrgId, userData.user.id, contactData, addresses);
 
       await loadContacts(activeOrgId);
       setIsFormOpen(false);
@@ -121,6 +112,7 @@ export function ContactsListView() {
       setEditingContact(null);
       toast.success(t("messages.updateSuccess"));
     } catch (error) {
+      console.error("Update contact error:", error);
       toast.error(error instanceof Error ? error.message : t("messages.error"));
     }
   };
@@ -184,22 +176,7 @@ export function ContactsListView() {
             <SelectContent>
               <SelectItem value="all">{t("filters.allScopes")}</SelectItem>
               <SelectItem value="private">{t("scopes.private")}</SelectItem>
-              <SelectItem value="branch">{t("scopes.branch")}</SelectItem>
               <SelectItem value="organization">{t("scopes.organization")}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={entityTypeFilter}
-            onValueChange={(value) => setEntityTypeFilter(value as any)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filters.allTypes")}</SelectItem>
-              <SelectItem value="business">{t("entityTypes.business")}</SelectItem>
-              <SelectItem value="individual">{t("entityTypes.individual")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -208,7 +185,6 @@ export function ContactsListView() {
             onClick={() => {
               setSearchTerm("");
               setScopeFilter("all");
-              setEntityTypeFilter("all");
             }}
           >
             {t("filters.clearAll")}

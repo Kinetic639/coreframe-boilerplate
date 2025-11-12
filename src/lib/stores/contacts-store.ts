@@ -48,7 +48,6 @@ const initialFilters: ContactFilters = {
   contact_type: undefined,
   search: undefined,
   tags: undefined,
-  is_active: undefined,
 };
 
 export const useContactsStore = create<ContactsState>((set, get) => ({
@@ -81,14 +80,9 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
         throw new Error("User not authenticated");
       }
 
-      // Get user's branch from app store
-      const appStore = (await import("./app-store")).useAppStore;
-      const activeBranchId = appStore.getState().activeBranch?.id || null;
-
       const response: ContactsListResponse = await contactsService.getContacts(
         organizationId,
         user.id,
-        activeBranchId,
         get().filters,
         currentPage,
         get().pageSize
@@ -113,7 +107,34 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
     set({ isLoadingContact: true, error: null });
 
     try {
-      const contact = await contactsService.getContactById(contactId);
+      // Get user context
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Get active organization from app store
+      const appStore = (await import("./app-store")).useAppStore;
+      const activeOrgId = appStore.getState().activeOrgId;
+
+      if (!activeOrgId) {
+        throw new Error("No active organization");
+      }
+
+      const contact = await contactsService.getContactById(contactId, user.id, activeOrgId);
+
+      if (!contact) {
+        set({
+          selectedContact: null,
+          error: "Contact not found or you don't have permission to view it",
+          isLoadingContact: false,
+        });
+        return;
+      }
 
       set({
         selectedContact: contact,

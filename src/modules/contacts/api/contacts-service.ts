@@ -25,7 +25,6 @@ export class ContactsService {
   async getContacts(
     organizationId: string,
     userId: string,
-    userBranchId: string | null,
     filters?: ContactFilters,
     page: number = 1,
     pageSize: number = 50
@@ -43,14 +42,11 @@ export class ContactsService {
       .is("deleted_at", null);
 
     // Apply visibility scope filtering
-    // User can see: organization-wide, their branch, or their private contacts
-    const visibilityClauses: string[] = ["visibility_scope.eq.organization"];
-
-    if (userBranchId) {
-      visibilityClauses.push(`and(visibility_scope.eq.branch,branch_id.eq.${userBranchId})`);
-    }
-
-    visibilityClauses.push(`and(visibility_scope.eq.private,owner_user_id.eq.${userId})`);
+    // User can see: organization-wide or their private contacts
+    const visibilityClauses: string[] = [
+      "visibility_scope.eq.organization",
+      `and(visibility_scope.eq.private,owner_user_id.eq.${userId})`,
+    ];
 
     query = query.or(visibilityClauses.join(","));
 
@@ -100,8 +96,13 @@ export class ContactsService {
 
   /**
    * Get single contact by ID with linked business accounts
+   * Includes visibility scope filtering
    */
-  async getContactById(contactId: string): Promise<ContactWithRelations | null> {
+  async getContactById(
+    contactId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<ContactWithRelations | null> {
     const { data, error } = await this.supabase
       .from("contacts")
       .select(
@@ -115,6 +116,7 @@ export class ContactsService {
       `
       )
       .eq("id", contactId)
+      .eq("organization_id", organizationId)
       .is("deleted_at", null)
       .single();
 
@@ -123,6 +125,11 @@ export class ContactsService {
         return null;
       }
       throw new Error(`Failed to fetch contact: ${error.message}`);
+    }
+
+    // Check visibility scope (application-level since RLS is disabled for testing)
+    if (data.visibility_scope === "private" && data.owner_user_id !== userId) {
+      return null; // User cannot access this private contact
     }
 
     // Load linked business accounts
@@ -158,16 +165,15 @@ export class ContactsService {
   async createContact(
     organizationId: string,
     userId: string,
-    branchId: string | null,
     contactData: Omit<ContactInsert, "organization_id">,
     addresses?: Omit<ContactAddressInsert, "contact_id">[]
   ): Promise<Contact> {
-    // Set owner and branch based on visibility scope
+    // Set owner based on visibility scope (branch_id always null now)
     const dataToInsert = {
       ...contactData,
       organization_id: organizationId,
       owner_user_id: contactData.visibility_scope === "private" ? userId : null,
-      branch_id: contactData.visibility_scope === "branch" ? branchId : null,
+      branch_id: null,
     };
 
     // Create contact
@@ -295,7 +301,6 @@ export class ContactsService {
   async searchContacts(
     organizationId: string,
     userId: string,
-    userBranchId: string | null,
     searchTerm: string,
     contactTypes?: ContactType[],
     limit: number = 10
@@ -309,11 +314,10 @@ export class ContactsService {
       .limit(limit);
 
     // Apply visibility scope filtering
-    const visibilityClauses: string[] = ["visibility_scope.eq.organization"];
-    if (userBranchId) {
-      visibilityClauses.push(`and(visibility_scope.eq.branch,branch_id.eq.${userBranchId})`);
-    }
-    visibilityClauses.push(`and(visibility_scope.eq.private,owner_user_id.eq.${userId})`);
+    const visibilityClauses: string[] = [
+      "visibility_scope.eq.organization",
+      `and(visibility_scope.eq.private,owner_user_id.eq.${userId})`,
+    ];
     query = query.or(visibilityClauses.join(","));
 
     if (contactTypes && contactTypes.length > 0) {
@@ -335,19 +339,49 @@ export class ContactsService {
   async getContactsByType(
     organizationId: string,
     userId: string,
-    userBranchId: string | null,
     contactType: ContactType,
     page: number = 1,
     pageSize: number = 50
   ): Promise<ContactsListResponse> {
-    return this.getContacts(
-      organizationId,
-      userId,
-      userBranchId,
-      { contact_type: contactType },
-      page,
-      pageSize
-    );
+    return this.getContacts(organizationId, userId, { contact_type: contactType }, page, pageSize);
+  }
+
+  /**
+   * Promote private contact to organization scope
+   * Only the owner can perform this action
+   */
+  async promoteContactToOrganization(
+    contactId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<void> {
+    // First, get the contact to validate ownership
+    const contact = await this.getContactById(contactId, userId, organizationId);
+
+    if (!contact) {
+      throw new Error("Contact not found");
+    }
+
+    if (contact.visibility_scope === "organization") {
+      throw new Error("Contact is already organization-scoped");
+    }
+
+    if (contact.owner_user_id !== userId) {
+      throw new Error("Only the contact owner can promote to organization scope");
+    }
+
+    // Promote to organization: remove owner
+    const { error } = await this.supabase
+      .from("contacts")
+      .update({
+        visibility_scope: "organization",
+        owner_user_id: null,
+      })
+      .eq("id", contactId);
+
+    if (error) {
+      throw new Error(`Failed to promote contact: ${error.message}`);
+    }
   }
 }
 

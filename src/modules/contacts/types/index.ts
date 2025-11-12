@@ -25,7 +25,7 @@ export type BusinessAccount = Database["public"]["Tables"]["business_accounts"][
 export type ContactType = "contact" | "lead" | "other";
 export type Salutation = "Mr" | "Mrs" | "Ms" | "Dr" | "Prof" | "Mx";
 export type AddressType = "billing" | "shipping" | "both";
-export type VisibilityScope = "private" | "branch" | "organization";
+export type VisibilityScope = "private" | "organization";
 
 // Linked Business Account type (for display)
 export interface LinkedBusinessAccount {
@@ -130,13 +130,6 @@ export const VISIBILITY_SCOPES: {
     labelPl: "Prywatne",
     description: "Only visible to you",
     descriptionPl: "Widoczne tylko dla Ciebie",
-  },
-  {
-    value: "branch",
-    label: "Branch",
-    labelPl: "Oddział",
-    description: "Visible to branch members",
-    descriptionPl: "Widoczne dla członków oddziału",
   },
   {
     value: "organization",

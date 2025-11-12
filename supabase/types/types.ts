@@ -718,141 +718,25 @@ export type Database = {
           },
         ];
       };
-      contact_persons: {
-        Row: {
-          contact_id: string;
-          created_at: string;
-          deleted_at: string | null;
-          department: string | null;
-          designation: string | null;
-          email: string | null;
-          first_name: string;
-          id: string;
-          is_active: boolean | null;
-          is_primary: boolean | null;
-          last_name: string;
-          mobile_phone: string | null;
-          notes: string | null;
-          salutation: string | null;
-          updated_at: string;
-          work_phone: string | null;
-        };
-        Insert: {
-          contact_id: string;
-          created_at?: string;
-          deleted_at?: string | null;
-          department?: string | null;
-          designation?: string | null;
-          email?: string | null;
-          first_name: string;
-          id?: string;
-          is_active?: boolean | null;
-          is_primary?: boolean | null;
-          last_name: string;
-          mobile_phone?: string | null;
-          notes?: string | null;
-          salutation?: string | null;
-          updated_at?: string;
-          work_phone?: string | null;
-        };
-        Update: {
-          contact_id?: string;
-          created_at?: string;
-          deleted_at?: string | null;
-          department?: string | null;
-          designation?: string | null;
-          email?: string | null;
-          first_name?: string;
-          id?: string;
-          is_active?: boolean | null;
-          is_primary?: boolean | null;
-          last_name?: string;
-          mobile_phone?: string | null;
-          notes?: string | null;
-          salutation?: string | null;
-          updated_at?: string;
-          work_phone?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "contact_persons_contact_id_fkey";
-            columns: ["contact_id"];
-            isOneToOne: false;
-            referencedRelation: "contacts";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      contact_price_lists: {
-        Row: {
-          contact_id: string;
-          created_at: string;
-          id: string;
-          price_list_id: string;
-        };
-        Insert: {
-          contact_id: string;
-          created_at?: string;
-          id?: string;
-          price_list_id: string;
-        };
-        Update: {
-          contact_id?: string;
-          created_at?: string;
-          id?: string;
-          price_list_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "contact_price_lists_contact_id_fkey";
-            columns: ["contact_id"];
-            isOneToOne: false;
-            referencedRelation: "contacts";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "contact_price_lists_price_list_id_fkey";
-            columns: ["price_list_id"];
-            isOneToOne: false;
-            referencedRelation: "price_lists";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       contacts: {
         Row: {
           branch_id: string | null;
-          company_id_number: string | null;
-          company_name: string | null;
           contact_type: string;
           created_at: string;
           created_by: string | null;
-          credit_limit: number | null;
-          currency_code: string | null;
           deleted_at: string | null;
           display_name: string;
-          entity_type: string;
           fax: string | null;
           first_name: string | null;
           id: string;
-          language_code: string | null;
           last_name: string | null;
-          metadata: Json | null;
           mobile_phone: string | null;
           notes: string | null;
-          opening_balance: number | null;
           organization_id: string;
           owner_user_id: string | null;
-          payment_terms: string | null;
-          portal_enabled: boolean | null;
-          portal_language: string | null;
-          price_list_id: string | null;
           primary_email: string | null;
           salutation: string | null;
           tags: string[] | null;
-          tax_exempt: boolean | null;
-          tax_rate: number | null;
-          tax_registration_number: string | null;
           updated_at: string;
           visibility_scope: string;
           website: string | null;
@@ -860,37 +744,22 @@ export type Database = {
         };
         Insert: {
           branch_id?: string | null;
-          company_id_number?: string | null;
-          company_name?: string | null;
           contact_type?: string;
           created_at?: string;
           created_by?: string | null;
-          credit_limit?: number | null;
-          currency_code?: string | null;
           deleted_at?: string | null;
           display_name: string;
-          entity_type?: string;
           fax?: string | null;
           first_name?: string | null;
           id?: string;
-          language_code?: string | null;
           last_name?: string | null;
-          metadata?: Json | null;
           mobile_phone?: string | null;
           notes?: string | null;
-          opening_balance?: number | null;
           organization_id: string;
           owner_user_id?: string | null;
-          payment_terms?: string | null;
-          portal_enabled?: boolean | null;
-          portal_language?: string | null;
-          price_list_id?: string | null;
           primary_email?: string | null;
           salutation?: string | null;
           tags?: string[] | null;
-          tax_exempt?: boolean | null;
-          tax_rate?: number | null;
-          tax_registration_number?: string | null;
           updated_at?: string;
           visibility_scope?: string;
           website?: string | null;
@@ -898,37 +767,22 @@ export type Database = {
         };
         Update: {
           branch_id?: string | null;
-          company_id_number?: string | null;
-          company_name?: string | null;
           contact_type?: string;
           created_at?: string;
           created_by?: string | null;
-          credit_limit?: number | null;
-          currency_code?: string | null;
           deleted_at?: string | null;
           display_name?: string;
-          entity_type?: string;
           fax?: string | null;
           first_name?: string | null;
           id?: string;
-          language_code?: string | null;
           last_name?: string | null;
-          metadata?: Json | null;
           mobile_phone?: string | null;
           notes?: string | null;
-          opening_balance?: number | null;
           organization_id?: string;
           owner_user_id?: string | null;
-          payment_terms?: string | null;
-          portal_enabled?: boolean | null;
-          portal_language?: string | null;
-          price_list_id?: string | null;
           primary_email?: string | null;
           salutation?: string | null;
           tags?: string[] | null;
-          tax_exempt?: boolean | null;
-          tax_rate?: number | null;
-          tax_registration_number?: string | null;
           updated_at?: string;
           visibility_scope?: string;
           website?: string | null;
@@ -947,13 +801,6 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "fk_contacts_price_list";
-            columns: ["price_list_id"];
-            isOneToOne: false;
-            referencedRelation: "price_lists";
             referencedColumns: ["id"];
           },
         ];

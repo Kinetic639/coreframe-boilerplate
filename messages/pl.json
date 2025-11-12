@@ -1885,6 +1885,12 @@
       "fields": {
         "visibilityScope": "Zakres Widoczności",
         "visibilityScopeHelp": "Kontroluj, kto może zobaczyć ten kontakt",
+        "contactVisibility": "Typ Kontaktu",
+        "privateVisibilityDesc": "Tylko Ty możesz przeglądać i edytować ten kontakt",
+        "organizationVisibilityDesc": "Wszyscy członkowie organizacji mogą przeglądać i edytować ten kontakt",
+        "privateVisibilityInfo": "Prywatne kontakty nie mogą być powiązane z kontami biznesowymi. Zmień na publiczny, aby powiązać ten kontakt z klientami lub dostawcami.",
+        "organizationVisibilityInfo": "Kontakty organizacji mogą być powiązane z kontami biznesowymi (klienci/dostawcy). Po ustawieniu na publiczny, nie można zmienić z powrotem na prywatny.",
+        "organizationVisibilityLocked": "Ten kontakt jest publiczny i nie może być zmieniony na prywatny, ponieważ może być już powiązany z kontami biznesowymi.",
         "customerType": "Typ Klienta",
         "salutation": "Tytuł",
         "firstName": "Imię",
