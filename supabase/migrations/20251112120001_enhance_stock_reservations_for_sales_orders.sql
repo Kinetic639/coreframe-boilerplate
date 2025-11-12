@@ -72,43 +72,56 @@ DROP VIEW IF EXISTS product_available_inventory;
 
 -- Create view that calculates available quantity (on_hand - reserved)
 CREATE OR REPLACE VIEW product_available_inventory AS
+WITH inventory AS (
+  SELECT
+    organization_id,
+    branch_id,
+    product_id,
+    variant_id,
+    location_id,
+    available_quantity,
+    total_value,
+    average_cost,
+    last_movement_at,
+    total_movements
+  FROM stock_inventory
+),
+active_reservations AS (
+  SELECT
+    organization_id,
+    branch_id,
+    product_id,
+    variant_id,
+    location_id,
+    SUM(reserved_quantity - released_quantity) AS reserved_quantity,
+    MAX(updated_at) AS last_reservation_at
+  FROM stock_reservations
+  WHERE status IN ('active', 'partial')
+    AND deleted_at IS NULL
+    AND (expires_at IS NULL OR expires_at > NOW())
+  GROUP BY organization_id, branch_id, product_id, variant_id, location_id
+)
 SELECT
-  pls.product_id,
-  pls.variant_id,
-  pls.location_id,
-  pls.organization_id,
-  pls.branch_id,
-  pls.quantity_on_hand,
-
-  -- Calculate total reserved quantity (only active reservations)
-  COALESCE(
-    (SELECT SUM(sr.reserved_quantity - sr.released_quantity)
-     FROM stock_reservations sr
-     WHERE sr.product_id = pls.product_id
-       AND (sr.variant_id = pls.variant_id OR (sr.variant_id IS NULL AND pls.variant_id IS NULL))
-       AND sr.location_id = pls.location_id
-       AND sr.status IN ('active', 'partial')
-       AND sr.deleted_at IS NULL
-       AND (sr.expires_at IS NULL OR sr.expires_at > NOW())
-    ), 0
-  ) as reserved_quantity,
-
-  -- Calculate available quantity
-  pls.quantity_on_hand - COALESCE(
-    (SELECT SUM(sr.reserved_quantity - sr.released_quantity)
-     FROM stock_reservations sr
-     WHERE sr.product_id = pls.product_id
-       AND (sr.variant_id = pls.variant_id OR (sr.variant_id IS NULL AND pls.variant_id IS NULL))
-       AND sr.location_id = pls.location_id
-       AND sr.status IN ('active', 'partial')
-       AND sr.deleted_at IS NULL
-       AND (sr.expires_at IS NULL OR sr.expires_at > NOW())
-    ), 0
-  ) as available_quantity,
-
-  pls.updated_at
-FROM product_location_stock pls
-WHERE pls.deleted_at IS NULL;
+  COALESCE(inv.product_id, res.product_id) AS product_id,
+  COALESCE(inv.variant_id, res.variant_id) AS variant_id,
+  COALESCE(inv.location_id, res.location_id) AS location_id,
+  COALESCE(inv.organization_id, res.organization_id) AS organization_id,
+  COALESCE(inv.branch_id, res.branch_id) AS branch_id,
+  COALESCE(inv.available_quantity, 0)::DECIMAL AS quantity_on_hand,
+  COALESCE(res.reserved_quantity, 0)::DECIMAL AS reserved_quantity,
+  (COALESCE(inv.available_quantity, 0)::DECIMAL - COALESCE(res.reserved_quantity, 0)::DECIMAL) AS available_quantity,
+  inv.total_value,
+  inv.average_cost,
+  inv.last_movement_at,
+  inv.total_movements,
+  COALESCE(inv.last_movement_at, res.last_reservation_at, NOW()) AS updated_at
+FROM inventory inv
+FULL OUTER JOIN active_reservations res
+  ON inv.organization_id = res.organization_id
+ AND inv.branch_id = res.branch_id
+ AND inv.product_id = res.product_id
+ AND inv.location_id = res.location_id
+ AND inv.variant_id IS NOT DISTINCT FROM res.variant_id;
 
 -- Comment on view
 COMMENT ON VIEW product_available_inventory IS 'Real-time view of available inventory (on_hand - reserved) per product/variant/location';
@@ -141,6 +154,15 @@ BEGIN
     AND (pai.variant_id = p_variant_id OR (pai.variant_id IS NULL AND p_variant_id IS NULL))
     AND pai.location_id = p_location_id
   LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN QUERY
+    SELECT
+      FALSE,
+      0::DECIMAL,
+      0::DECIMAL,
+      0::DECIMAL;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -207,7 +229,9 @@ BEGIN
   FROM product_available_inventory
   WHERE product_id = p_product_id
     AND (variant_id = p_variant_id OR (variant_id IS NULL AND p_variant_id IS NULL))
-    AND location_id = p_location_id;
+    AND location_id = p_location_id
+    AND organization_id = p_organization_id
+    AND branch_id = p_branch_id;
 
   IF v_available IS NULL OR v_available < p_quantity THEN
     RAISE EXCEPTION 'Insufficient stock available. Available: %, Requested: %', COALESCE(v_available, 0), p_quantity;
