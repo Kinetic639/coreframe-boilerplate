@@ -67,14 +67,14 @@ export function LinkedBusinessAccountsTab({
   };
 
   const loadAvailableAccounts = async () => {
-    if (!activeOrg?.id) return;
+    if (!activeOrg?.organization_id) return;
 
     try {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("business_accounts")
         .select("id, name, partner_type, entity_type, email, phone")
-        .eq("organization_id", activeOrg.id)
+        .eq("organization_id", activeOrg.organization_id)
         .is("deleted_at", null)
         .is("contact_id", null)
         .order("name");

@@ -259,55 +259,6 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
         </Card>
       )}
 
-      {/* Contact Persons */}
-      {selectedContact.persons && selectedContact.persons.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("form.tabs.contactPersons")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {selectedContact.persons
-                .filter((person) => !person.deleted_at)
-                .map((person) => (
-                  <div key={person.id} className="border-l-2 border-primary pl-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-medium">
-                        {person.first_name} {person.last_name}
-                      </p>
-                      {person.is_primary && (
-                        <Badge variant="default">{t("form.fields.primaryContact")}</Badge>
-                      )}
-                      {!person.is_active && <Badge variant="secondary">Inactive</Badge>}
-                    </div>
-                    {person.designation && (
-                      <p className="text-sm text-muted-foreground">{person.designation}</p>
-                    )}
-                    {person.email && (
-                      <a
-                        href={`mailto:${person.email}`}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Mail className="h-3 w-3" />
-                        {person.email}
-                      </a>
-                    )}
-                    {person.work_phone && (
-                      <a
-                        href={`tel:${person.work_phone}`}
-                        className="text-sm text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Phone className="h-3 w-3" />
-                        {person.work_phone}
-                      </a>
-                    )}
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Notes */}
       {selectedContact.notes && (
         <Card>

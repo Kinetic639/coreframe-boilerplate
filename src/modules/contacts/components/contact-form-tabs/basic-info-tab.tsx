@@ -25,9 +25,10 @@ import { Lock, Users, Info } from "lucide-react";
 interface BasicInfoTabProps {
   form: UseFormReturn<ContactFormData>;
   contactType: ContactType;
+  isEditMode?: boolean;
 }
 
-export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
+export function ContactBasicInfoTab({ form, isEditMode = false }: BasicInfoTabProps) {
   const t = useTranslations("contacts.form");
   const tScopes = useTranslations("contacts.scopes");
   const { register, watch, setValue } = form;
@@ -35,17 +36,13 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
   const isOrganizationScope = watch("visibility_scope") === "organization";
 
   const handleVisibilityToggle = (checked: boolean) => {
-    // Can only change from private to organization, not the reverse
-    if (checked) {
-      setValue("visibility_scope", "organization");
-    } else {
-      // If unchecking and current is organization, show warning and keep as organization
-      if (isOrganizationScope) {
-        // Don't allow changing back to private
-        return;
-      }
-      setValue("visibility_scope", "private");
+    // In edit mode with organization scope, prevent changing back to private
+    if (isEditMode && isOrganizationScope && !checked) {
+      return;
     }
+
+    // In create mode or when promoting private to organization, allow toggle
+    setValue("visibility_scope", checked ? "organization" : "private");
   };
 
   return (
@@ -53,7 +50,7 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
       {/* Visibility Scope Toggle */}
       <div className="space-y-3">
         <Label>
-          {t("fields.visibilityScope")} <span className="text-red-500">*</span>
+          {t("fields.contactVisibility")} <span className="text-red-500">*</span>
         </Label>
 
         <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -69,35 +66,36 @@ export function ContactBasicInfoTab({ form }: BasicInfoTabProps) {
               </div>
               <div className="text-sm text-muted-foreground mt-1">
                 {isOrganizationScope
-                  ? "All organization members can view and edit this contact"
-                  : "Only you can view and edit this contact"}
+                  ? t("fields.organizationVisibilityDesc")
+                  : t("fields.privateVisibilityDesc")}
               </div>
             </div>
           </div>
           <Switch
             checked={isOrganizationScope}
             onCheckedChange={handleVisibilityToggle}
-            disabled={isOrganizationScope} // Can't switch back from organization to private
+            disabled={isEditMode && isOrganizationScope} // In edit mode, can't switch back from organization to private
           />
         </div>
 
-        {isOrganizationScope && (
+        {isEditMode && isOrganizationScope && (
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription>
-              Organization contacts can be linked to business accounts (clients/suppliers). Once set
-              to organization scope, it cannot be changed back to private.
-            </AlertDescription>
+            <AlertDescription>{t("fields.organizationVisibilityLocked")}</AlertDescription>
+          </Alert>
+        )}
+
+        {!isEditMode && isOrganizationScope && (
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>{t("fields.organizationVisibilityInfo")}</AlertDescription>
           </Alert>
         )}
 
         {!isOrganizationScope && (
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription>
-              Private contacts cannot be linked to business accounts. Enable organization visibility
-              to link this contact to clients or suppliers.
-            </AlertDescription>
+            <AlertDescription>{t("fields.privateVisibilityInfo")}</AlertDescription>
           </Alert>
         )}
       </div>

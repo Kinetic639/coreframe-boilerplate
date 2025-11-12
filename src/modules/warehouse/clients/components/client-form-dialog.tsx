@@ -90,7 +90,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
   const [searchTerm, setSearchTerm] = React.useState("");
   const isEditMode = !!client;
 
-  const { activeOrgId, activeBranchId } = useAppStore();
+  const { activeOrgId } = useAppStore();
   const { user } = useUserStore();
   const userId = user?.id;
 
@@ -135,7 +135,6 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       const result = await contactsService.getContacts(
         activeOrgId,
         userId,
-        activeBranchId,
         { contact_type: "contact" }, // Only load general contacts, not leads or others
         1,
         1000 // Load many contacts

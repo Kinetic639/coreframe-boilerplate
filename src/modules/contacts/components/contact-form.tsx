@@ -39,7 +39,7 @@ export function ContactForm({
   const form = useForm<ContactFormData>({
     defaultValues: {
       contact_type: contactType,
-      visibility_scope: "organization",
+      visibility_scope: "private", // Default to private (user must explicitly make it public)
       display_name: "",
       tags: [],
       addresses: [],
@@ -85,32 +85,40 @@ export function ContactForm({
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList
+          className={`grid w-full ${form.watch("visibility_scope") === "private" ? "grid-cols-4" : "grid-cols-5"}`}
+        >
           <TabsTrigger value="basic-info">{t("form.tabs.info")}</TabsTrigger>
           <TabsTrigger value="address">{t("form.tabs.address")}</TabsTrigger>
-          <TabsTrigger value="linked-accounts">{t("form.tabs.linkedAccounts")}</TabsTrigger>
+          {/* Hide linked accounts tab for private contacts */}
+          {form.watch("visibility_scope") === "organization" && (
+            <TabsTrigger value="linked-accounts">{t("form.tabs.linkedAccounts")}</TabsTrigger>
+          )}
           <TabsTrigger value="custom-fields">{t("form.tabs.customFields")}</TabsTrigger>
           <TabsTrigger value="remarks">{t("form.tabs.notes")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic-info" className="space-y-4 mt-6">
-          <ContactBasicInfoTab form={form} contactType={contactType} />
+          <ContactBasicInfoTab form={form} contactType={contactType} isEditMode={isEditMode} />
         </TabsContent>
 
         <TabsContent value="address" className="space-y-4 mt-6">
           <ContactAddressTab form={form} />
         </TabsContent>
 
-        <TabsContent value="linked-accounts" className="space-y-4 mt-6">
-          <LinkedBusinessAccountsTab
-            contactId={(initialData as any)?.id}
-            contactVisibilityScope={form.watch("visibility_scope")}
-            onPromoteToOrganization={() => {
-              form.setValue("visibility_scope", "organization");
-              setActiveTab("basic-info");
-            }}
-          />
-        </TabsContent>
+        {/* Only show linked accounts tab for organization contacts */}
+        {form.watch("visibility_scope") === "organization" && (
+          <TabsContent value="linked-accounts" className="space-y-4 mt-6">
+            <LinkedBusinessAccountsTab
+              contactId={(initialData as any)?.id}
+              contactVisibilityScope={form.watch("visibility_scope")}
+              onPromoteToOrganization={() => {
+                form.setValue("visibility_scope", "organization");
+                setActiveTab("basic-info");
+              }}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="custom-fields" className="space-y-4 mt-6">
           <ContactCustomFieldsTab form={form} />

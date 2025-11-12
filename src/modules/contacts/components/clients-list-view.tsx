@@ -8,13 +8,6 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -29,10 +22,10 @@ import {
 import { useContactsStore } from "@/lib/stores/contacts-store";
 import { useAppStore } from "@/lib/stores/app-store";
 import { ContactForm } from "./contact-form";
-import { ContactFormData, EntityType, ContactWithRelations } from "../types";
+import { ContactFormData, ContactWithRelations } from "../types";
 import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
-import { Plus, Search, Filter, Mail, Phone, Building2, User, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Filter, Mail, Phone, User, Edit, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,7 +58,6 @@ export function ClientsListView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<ContactWithRelations | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [entityTypeFilter, setEntityTypeFilter] = useState<EntityType | "all">("all");
 
   useEffect(() => {
     if (activeOrgId) {
@@ -82,7 +74,6 @@ export function ClientsListView() {
         setFilters({
           ...filters,
           contact_type: "contact",
-          entity_type: entityTypeFilter !== "all" ? entityTypeFilter : undefined,
           search: searchTerm || undefined,
         });
         loadContacts(activeOrgId);
@@ -91,7 +82,7 @@ export function ClientsListView() {
       return () => clearTimeout(delaySearch);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, entityTypeFilter]);
+  }, [searchTerm]);
 
   const handleCreateContact = async (data: ContactFormData) => {
     if (!activeOrgId) {
@@ -107,20 +98,11 @@ export function ClientsListView() {
       throw new Error("User not authenticated");
     }
 
-    // Get active branch from app store
-    const { activeBranch } = useAppStore.getState();
-
     // Extract addresses and custom_fields from the form data
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { addresses, custom_fields, ...contactData } = data;
 
-    await contactsService.createContact(
-      activeOrgId,
-      userData.user.id,
-      activeBranch?.id || null,
-      contactData,
-      addresses
-    );
+    await contactsService.createContact(activeOrgId, userData.user.id, contactData, addresses);
 
     await refreshContacts(activeOrgId);
     setIsFormOpen(false);
@@ -201,25 +183,10 @@ export function ClientsListView() {
               />
             </div>
 
-            <Select
-              value={entityTypeFilter}
-              onValueChange={(value) => setEntityTypeFilter(value as EntityType | "all")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("filters.allTypes")}</SelectItem>
-                <SelectItem value="business">{t("entityTypes.business")}</SelectItem>
-                <SelectItem value="individual">{t("entityTypes.individual")}</SelectItem>
-              </SelectContent>
-            </Select>
-
             <Button
               variant="outline"
               onClick={() => {
                 setSearchTerm("");
-                setEntityTypeFilter("all");
                 setFilters({ contact_type: "contact" });
                 if (activeOrgId) loadContacts(activeOrgId);
               }}
@@ -259,16 +226,12 @@ export function ClientsListView() {
                     <TableRow key={contact.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {contact.entity_type === "business" ? (
-                            <Building2 className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <User className="h-4 w-4 text-muted-foreground" />
-                          )}
+                          <User className="h-4 w-4 text-muted-foreground" />
                           {contact.display_name}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{t(`entityTypes.${contact.entity_type}`)}</Badge>
+                        <Badge variant="outline">{t(`types.${contact.contact_type}`)}</Badge>
                       </TableCell>
                       <TableCell>
                         {contact.primary_email ? (

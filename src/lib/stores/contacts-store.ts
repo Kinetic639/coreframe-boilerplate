@@ -119,7 +119,7 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
 
       // Get active organization from app store
       const appStore = (await import("./app-store")).useAppStore;
-      const activeOrgId = appStore.getState().activeOrg?.id;
+      const activeOrgId = appStore.getState().activeOrgId;
 
       if (!activeOrgId) {
         throw new Error("No active organization");
