@@ -70,24 +70,40 @@ ON stock_reservations(sales_order_item_id) WHERE deleted_at IS NULL;
 -- Drop view if exists
 DROP VIEW IF EXISTS product_available_inventory;
 
--- Ensure quantity tracking columns exist for reservations created before the
--- stock movements revamp
+-- Ensure required columns exist for reservations
 DO $$
 BEGIN
+  -- Add reservation_number if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'stock_reservations' AND column_name = 'reservation_number'
+  ) THEN
+    ALTER TABLE stock_reservations
+    ADD COLUMN reservation_number TEXT UNIQUE NOT NULL DEFAULT 'TEMP-' || gen_random_uuid()::text;
+
+    RAISE NOTICE 'Added reservation_number column to stock_reservations';
+  END IF;
+
+  -- Add reserved_quantity if it doesn't exist
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'stock_reservations' AND column_name = 'reserved_quantity'
   ) THEN
     ALTER TABLE stock_reservations
     ADD COLUMN reserved_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0);
+
+    RAISE NOTICE 'Added reserved_quantity column to stock_reservations';
   END IF;
 
+  -- Add released_quantity if it doesn't exist
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'stock_reservations' AND column_name = 'released_quantity'
   ) THEN
     ALTER TABLE stock_reservations
     ADD COLUMN released_quantity DECIMAL(15, 4) NOT NULL DEFAULT 0 CHECK (released_quantity >= 0);
+
+    RAISE NOTICE 'Added released_quantity column to stock_reservations';
   END IF;
 END $$;
 

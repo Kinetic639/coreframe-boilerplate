@@ -1098,6 +1098,7 @@
         },
         "sales": {
           "title": "Sales",
+          "orders": "Sales Orders",
           "clients": "Clients"
         },
         "purchases": {

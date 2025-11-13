@@ -1078,6 +1078,7 @@
         },
         "sales": {
           "title": "Sprzedaż",
+          "orders": "Zamówienia Sprzedaży",
           "clients": "Klienci"
         },
         "purchases": {
