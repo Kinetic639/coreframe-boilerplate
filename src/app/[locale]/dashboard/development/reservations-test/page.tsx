@@ -39,7 +39,7 @@ interface Location {
 }
 
 export default function ReservationsTestPage() {
-  const { activeOrgId, activeBranchId } = useAppStore();
+  const { activeOrgId, activeBranchId, locations: branchLocations } = useAppStore();
   const { user } = useUserStore();
   const supabase = createClient();
 
@@ -143,22 +143,17 @@ export default function ReservationsTestPage() {
         return;
       }
 
-      // Step 2: Fetch location details
-      const { data: locationsData, error: locationsError } = await supabase
-        .from("locations")
-        .select("id, name, code")
-        .in("id", locationIds)
-        .eq("organization_id", activeOrgId)
-        .is("deleted_at", null);
+      // Step 2: Filter locations from app store (already loaded for active branch)
+      const locs = branchLocations
+        .filter((loc) => locationIds.includes(loc.id))
+        .map((loc) => ({
+          id: loc.id,
+          name: loc.name,
+          code: loc.code,
+        }));
 
-      if (locationsError) {
-        console.error("Locations error:", locationsError);
-        throw locationsError;
-      }
+      console.log("Locations from app store:", locs);
 
-      console.log("Locations data:", locationsData);
-
-      const locs = locationsData || [];
       setLocations(locs);
 
       // Reset location selection if current location is not available
