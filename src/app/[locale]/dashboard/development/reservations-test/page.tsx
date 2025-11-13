@@ -61,21 +61,31 @@ export default function ReservationsTestPage() {
     if (!activeOrgId || !activeBranchId) return;
 
     try {
-      // Step 1: Get distinct product IDs from availability view
+      // Step 1: Get distinct product IDs from availability view where available > 0
       const { data: availabilityData, error: availabilityError } = await supabase
         .from("product_available_inventory")
-        .select("product_id")
+        .select("product_id, available_quantity")
         .eq("organization_id", activeOrgId)
         .eq("branch_id", activeBranchId)
         .gt("available_quantity", 0);
 
-      if (availabilityError) throw availabilityError;
+      if (availabilityError) {
+        console.error("Availability error:", availabilityError);
+        throw availabilityError;
+      }
+
+      console.log("Availability data:", availabilityData);
 
       // Get unique product IDs
-      const productIds = [...new Set(availabilityData?.map((item) => item.product_id))];
+      const productIds = [
+        ...new Set(availabilityData?.map((item) => item.product_id).filter(Boolean)),
+      ];
+
+      console.log("Product IDs with availability:", productIds);
 
       if (productIds.length === 0) {
         setProducts([]);
+        console.log("No products with available inventory found");
         return;
       }
 
@@ -84,10 +94,15 @@ export default function ReservationsTestPage() {
         .from("products")
         .select("id, name, sku")
         .in("id", productIds)
-        .eq("organization_id", activeOrgId);
+        .eq("organization_id", activeOrgId)
+        .is("deleted_at", null);
 
-      if (productsError) throw productsError;
+      if (productsError) {
+        console.error("Products error:", productsError);
+        throw productsError;
+      }
 
+      console.log("Products data:", productsData);
       setProducts(productsData || []);
     } catch (error) {
       console.error("Error loading products:", error);
@@ -100,23 +115,31 @@ export default function ReservationsTestPage() {
     if (!activeOrgId || !activeBranchId || !productId) return;
 
     try {
-      // Step 1: Get location IDs from availability view
+      // Step 1: Get location IDs from availability view where available > 0
       const { data: availabilityData, error: availabilityError } = await supabase
         .from("product_available_inventory")
-        .select("location_id")
+        .select("location_id, available_quantity")
         .eq("organization_id", activeOrgId)
         .eq("branch_id", activeBranchId)
         .eq("product_id", productId)
         .gt("available_quantity", 0);
 
-      if (availabilityError) throw availabilityError;
+      if (availabilityError) {
+        console.error("Location availability error:", availabilityError);
+        throw availabilityError;
+      }
 
-      const locationIds = availabilityData?.map((item) => item.location_id) || [];
+      console.log("Location availability data for product", productId, ":", availabilityData);
+
+      const locationIds = availabilityData?.map((item) => item.location_id).filter(Boolean) || [];
+
+      console.log("Location IDs with availability:", locationIds);
 
       if (locationIds.length === 0) {
         setLocations([]);
         setSelectedLocationId("");
         setAvailability(null);
+        console.log("No locations with available inventory for this product");
         return;
       }
 
@@ -128,7 +151,12 @@ export default function ReservationsTestPage() {
         .eq("organization_id", activeOrgId)
         .is("deleted_at", null);
 
-      if (locationsError) throw locationsError;
+      if (locationsError) {
+        console.error("Locations error:", locationsError);
+        throw locationsError;
+      }
+
+      console.log("Locations data:", locationsData);
 
       const locs = locationsData || [];
       setLocations(locs);
