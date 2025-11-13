@@ -1248,7 +1248,8 @@
         "richTextEditor": "Rich Text Editor",
         "subscriptionTest": "Subscription Test",
         "skuGenerator": "SKU Generator Test",
-        "deliveryDebugger": "Delivery Debugger"
+        "deliveryDebugger": "Delivery Debugger",
+        "reservationsTest": "Reservations Test"
       }
     }
   },

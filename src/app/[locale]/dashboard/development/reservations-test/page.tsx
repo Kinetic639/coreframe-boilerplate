@@ -61,33 +61,34 @@ export default function ReservationsTestPage() {
     if (!activeOrgId || !activeBranchId) return;
 
     try {
-      const { data, error } = await supabase
+      // Step 1: Get distinct product IDs from availability view
+      const { data: availabilityData, error: availabilityError } = await supabase
         .from("product_available_inventory")
-        .select(
-          `
-          product_id,
-          product:products!inner(id, name, sku)
-        `
-        )
+        .select("product_id")
         .eq("organization_id", activeOrgId)
         .eq("branch_id", activeBranchId)
         .gt("available_quantity", 0);
 
-      if (error) throw error;
+      if (availabilityError) throw availabilityError;
 
-      // Extract unique products
-      const uniqueProducts = new Map<string, Product>();
-      data?.forEach((item: any) => {
-        if (item.product && !uniqueProducts.has(item.product.id)) {
-          uniqueProducts.set(item.product.id, {
-            id: item.product.id,
-            name: item.product.name,
-            sku: item.product.sku,
-          });
-        }
-      });
+      // Get unique product IDs
+      const productIds = [...new Set(availabilityData?.map((item) => item.product_id))];
 
-      setProducts(Array.from(uniqueProducts.values()));
+      if (productIds.length === 0) {
+        setProducts([]);
+        return;
+      }
+
+      // Step 2: Fetch product details
+      const { data: productsData, error: productsError } = await supabase
+        .from("products")
+        .select("id, name, sku")
+        .in("id", productIds)
+        .eq("organization_id", activeOrgId);
+
+      if (productsError) throw productsError;
+
+      setProducts(productsData || []);
     } catch (error) {
       console.error("Error loading products:", error);
       toast.error("Failed to load products");
@@ -99,29 +100,37 @@ export default function ReservationsTestPage() {
     if (!activeOrgId || !activeBranchId || !productId) return;
 
     try {
-      const { data, error } = await supabase
+      // Step 1: Get location IDs from availability view
+      const { data: availabilityData, error: availabilityError } = await supabase
         .from("product_available_inventory")
-        .select(
-          `
-          location_id,
-          location:locations!inner(id, name, code),
-          available_quantity
-        `
-        )
+        .select("location_id")
         .eq("organization_id", activeOrgId)
         .eq("branch_id", activeBranchId)
         .eq("product_id", productId)
         .gt("available_quantity", 0);
 
-      if (error) throw error;
+      if (availabilityError) throw availabilityError;
 
-      const locs =
-        data?.map((item: any) => ({
-          id: item.location.id,
-          name: item.location.name,
-          code: item.location.code,
-        })) || [];
+      const locationIds = availabilityData?.map((item) => item.location_id) || [];
 
+      if (locationIds.length === 0) {
+        setLocations([]);
+        setSelectedLocationId("");
+        setAvailability(null);
+        return;
+      }
+
+      // Step 2: Fetch location details
+      const { data: locationsData, error: locationsError } = await supabase
+        .from("locations")
+        .select("id, name, code")
+        .in("id", locationIds)
+        .eq("organization_id", activeOrgId)
+        .is("deleted_at", null);
+
+      if (locationsError) throw locationsError;
+
+      const locs = locationsData || [];
       setLocations(locs);
 
       // Reset location selection if current location is not available
