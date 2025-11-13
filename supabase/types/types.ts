@@ -3854,6 +3854,9 @@ export type Database = {
         Row: {
           auto_release: boolean | null;
           branch_id: string;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           created_at: string | null;
           created_by: string | null;
           deleted_at: string | null;
@@ -3884,6 +3887,9 @@ export type Database = {
         Insert: {
           auto_release?: boolean | null;
           branch_id: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -3914,6 +3920,9 @@ export type Database = {
         Update: {
           auto_release?: boolean | null;
           branch_id?: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -5413,7 +5422,7 @@ export type Database = {
       };
     };
     Enums: {
-      [_ in never]: never;
+      movement_category: "physical" | "logical" | "adjustment";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -5538,6 +5547,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      movement_category: ["physical", "logical", "adjustment"],
+    },
   },
 } as const;

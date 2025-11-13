@@ -1,9 +1,11 @@
 // =============================================
 // Sales Orders Service
 // Handles CRUD operations for sales orders and order items
+// Integrates with reservations system for stock management
 // =============================================
 
 import { createClient } from "@/utils/supabase/client";
+import { reservationsService } from "./reservations-service";
 import type {
   SalesOrderWithItems,
   SalesOrderWithRelations,
@@ -522,8 +524,18 @@ class SalesOrdersService {
         };
       }
 
-      // TODO: When status changes to "confirmed", create stock reservations
-      // TODO: When status changes to "fulfilled" or "cancelled", release reservations
+      // Handle reservations based on status transition
+      if (newStatus === "confirmed" && order.status !== "confirmed") {
+        // Create reservations for all order items when order is confirmed
+        await this.createReservationsForOrder(order, userId);
+      } else if (newStatus === "cancelled") {
+        // Cancel all reservations when order is cancelled
+        await this.cancelReservationsForOrder(
+          orderId,
+          userId,
+          cancellationReason || "Order cancelled"
+        );
+      }
 
       // Fetch updated order
       const updatedOrder = await this.getSalesOrder(orderId, organizationId);
@@ -650,6 +662,180 @@ class SalesOrdersService {
     }
 
     return (data as SalesOrderWithItems[]) || [];
+  }
+
+  // ==========================================
+  // RESERVATION INTEGRATION
+  // ==========================================
+
+  /**
+   * Create reservations for all items in a sales order
+   * Called when order status transitions to "confirmed"
+   */
+  private async createReservationsForOrder(
+    order: SalesOrderWithItems,
+    userId: string
+  ): Promise<void> {
+    if (!order.items || order.items.length === 0) {
+      return;
+    }
+
+    const reservationPromises = order.items.map(async (item) => {
+      // Skip if no product or location
+      if (!item.product_id || !item.location_id) {
+        console.warn(`Skipping reservation for item ${item.id}: missing product_id or location_id`);
+        return;
+      }
+
+      try {
+        const result = await reservationsService.createReservation(
+          {
+            productId: item.product_id,
+            variantId: item.product_variant_id || undefined,
+            locationId: item.location_id,
+            quantity: item.quantity_ordered,
+            referenceType: "sales_order",
+            referenceId: order.id,
+            referenceNumber: order.order_number,
+            reservedFor: `Sales Order ${order.order_number} - ${order.customer_name}`,
+            salesOrderId: order.id,
+            salesOrderItemId: item.id,
+            priority: 1, // Sales orders have higher priority
+            autoRelease: false, // Manual release when fulfilled
+            expiresAt: order.expected_delivery_date || undefined,
+            notes: item.notes || undefined,
+          },
+          {
+            organizationId: order.organization_id,
+            branchId: order.branch_id || "",
+            userId,
+          }
+        );
+
+        if (!result.success) {
+          console.error(`Failed to create reservation for item ${item.id}:`, result.error);
+          // Continue with other items even if one fails
+        } else if (result.reservation) {
+          // Update sales_order_item with reservation_id
+          await this.supabase
+            .from("sales_order_items")
+            .update({ reservation_id: result.reservation.id })
+            .eq("id", item.id);
+        }
+      } catch (error) {
+        console.error(`Error creating reservation for item ${item.id}:`, error);
+      }
+    });
+
+    await Promise.all(reservationPromises);
+  }
+
+  /**
+   * Cancel all reservations for a sales order
+   * Called when order is cancelled
+   */
+  private async cancelReservationsForOrder(
+    orderId: string,
+    userId: string,
+    reason: string
+  ): Promise<void> {
+    try {
+      // Get all active reservations for this order
+      const reservations = await reservationsService.getReservations(
+        {
+          salesOrderId: orderId,
+          status: ["active", "partial"],
+        },
+        "", // organizationId will be filtered in the query
+        undefined
+      );
+
+      if (reservations.length === 0) {
+        return;
+      }
+
+      // Cancel each reservation
+      const cancellationPromises = reservations.map((reservation) =>
+        reservationsService.cancelReservation(
+          {
+            reservationId: reservation.id,
+            reason,
+          },
+          userId
+        )
+      );
+
+      await Promise.all(cancellationPromises);
+    } catch (error) {
+      console.error(`Error cancelling reservations for order ${orderId}:`, error);
+    }
+  }
+
+  /**
+   * Release reservation when order item is fulfilled
+   * Call this when creating fulfillment/shipment movements
+   */
+  async releaseReservationForItem(
+    itemId: string,
+    quantity: number,
+    userId: string,
+    notes?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get order item with reservation
+      const { data: item, error: itemError } = await this.supabase
+        .from("sales_order_items")
+        .select("*, reservation:stock_reservations!sales_order_items_reservation_id_fkey(*)")
+        .eq("id", itemId)
+        .single();
+
+      if (itemError || !item) {
+        return {
+          success: false,
+          error: "Order item not found",
+        };
+      }
+
+      if (!item.reservation_id) {
+        return {
+          success: false,
+          error: "No reservation found for this item",
+        };
+      }
+
+      // Release the reservation
+      const result = await reservationsService.releaseReservation(
+        {
+          reservationId: item.reservation_id,
+          quantity,
+          notes,
+        },
+        userId
+      );
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+        };
+      }
+
+      // Update order item fulfilled quantity
+      await this.supabase
+        .from("sales_order_items")
+        .update({
+          quantity_fulfilled: (item.quantity_fulfilled || 0) + quantity,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", itemId);
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 }
 

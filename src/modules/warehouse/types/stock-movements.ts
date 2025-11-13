@@ -22,6 +22,7 @@ export type ReferenceType =
   | "transfer_request"
   | "production_order"
   | "return_authorization"
+  | "reservation"
   | "manual"
   | "ecommerce_order";
 
@@ -490,6 +491,10 @@ export const REFERENCE_TYPE_CONFIG: Record<
   return_authorization: {
     label: { pl: "Autoryzacja zwrotu", en: "Return Authorization" },
     icon: "undo-2",
+  },
+  reservation: {
+    label: { pl: "Rezerwacja", en: "Reservation" },
+    icon: "clock",
   },
   manual: {
     label: { pl: "Ręczne", en: "Manual" },
