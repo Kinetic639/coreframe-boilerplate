@@ -1098,6 +1098,7 @@
         },
         "sales": {
           "title": "Sales",
+          "orders": "Sales Orders",
           "clients": "Clients"
         },
         "purchases": {
@@ -1247,7 +1248,8 @@
         "richTextEditor": "Rich Text Editor",
         "subscriptionTest": "Subscription Test",
         "skuGenerator": "SKU Generator Test",
-        "deliveryDebugger": "Delivery Debugger"
+        "deliveryDebugger": "Delivery Debugger",
+        "reservationsTest": "Reservations Test"
       }
     }
   },

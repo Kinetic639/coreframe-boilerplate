@@ -3229,6 +3229,253 @@ export type Database = {
           },
         ];
       };
+      sales_order_items: {
+        Row: {
+          created_at: string | null;
+          discount_amount: number | null;
+          discount_percent: number | null;
+          id: string;
+          line_total: number | null;
+          location_id: string | null;
+          notes: string | null;
+          product_id: string | null;
+          product_name: string;
+          product_sku: string | null;
+          product_variant_id: string | null;
+          quantity_fulfilled: number | null;
+          quantity_ordered: number;
+          reservation_id: string | null;
+          sales_order_id: string;
+          subtotal: number | null;
+          tax_amount: number | null;
+          tax_rate: number | null;
+          unit_of_measure: string | null;
+          unit_price: number;
+          updated_at: string | null;
+          variant_name: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          discount_amount?: number | null;
+          discount_percent?: number | null;
+          id?: string;
+          line_total?: number | null;
+          location_id?: string | null;
+          notes?: string | null;
+          product_id?: string | null;
+          product_name: string;
+          product_sku?: string | null;
+          product_variant_id?: string | null;
+          quantity_fulfilled?: number | null;
+          quantity_ordered: number;
+          reservation_id?: string | null;
+          sales_order_id: string;
+          subtotal?: number | null;
+          tax_amount?: number | null;
+          tax_rate?: number | null;
+          unit_of_measure?: string | null;
+          unit_price: number;
+          updated_at?: string | null;
+          variant_name?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          discount_amount?: number | null;
+          discount_percent?: number | null;
+          id?: string;
+          line_total?: number | null;
+          location_id?: string | null;
+          notes?: string | null;
+          product_id?: string | null;
+          product_name?: string;
+          product_sku?: string | null;
+          product_variant_id?: string | null;
+          quantity_fulfilled?: number | null;
+          quantity_ordered?: number;
+          reservation_id?: string | null;
+          sales_order_id?: string;
+          subtotal?: number | null;
+          tax_amount?: number | null;
+          tax_rate?: number | null;
+          unit_of_measure?: string | null;
+          unit_price?: number;
+          updated_at?: string | null;
+          variant_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_items_location_id_fkey";
+            columns: ["location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_order_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_order_items_product_variant_id_fkey";
+            columns: ["product_variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_order_items_reservation_id_fkey";
+            columns: ["reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "stock_reservations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_order_items_sales_order_id_fkey";
+            columns: ["sales_order_id"];
+            isOneToOne: false;
+            referencedRelation: "sales_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      sales_orders: {
+        Row: {
+          branch_id: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          currency_code: string | null;
+          customer_email: string | null;
+          customer_id: string | null;
+          customer_name: string;
+          customer_notes: string | null;
+          customer_phone: string | null;
+          deleted_at: string | null;
+          delivered_date: string | null;
+          delivery_address_line1: string | null;
+          delivery_address_line2: string | null;
+          delivery_city: string | null;
+          delivery_country: string | null;
+          delivery_postal_code: string | null;
+          delivery_state: string | null;
+          discount_amount: number | null;
+          expected_delivery_date: string | null;
+          id: string;
+          internal_notes: string | null;
+          order_date: string;
+          order_number: string;
+          organization_id: string;
+          shipped_date: string | null;
+          shipping_cost: number | null;
+          status: string;
+          subtotal: number | null;
+          tax_amount: number | null;
+          total_amount: number | null;
+          tracking_number: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          branch_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          customer_email?: string | null;
+          customer_id?: string | null;
+          customer_name: string;
+          customer_notes?: string | null;
+          customer_phone?: string | null;
+          deleted_at?: string | null;
+          delivered_date?: string | null;
+          delivery_address_line1?: string | null;
+          delivery_address_line2?: string | null;
+          delivery_city?: string | null;
+          delivery_country?: string | null;
+          delivery_postal_code?: string | null;
+          delivery_state?: string | null;
+          discount_amount?: number | null;
+          expected_delivery_date?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          order_date?: string;
+          order_number: string;
+          organization_id: string;
+          shipped_date?: string | null;
+          shipping_cost?: number | null;
+          status?: string;
+          subtotal?: number | null;
+          tax_amount?: number | null;
+          total_amount?: number | null;
+          tracking_number?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          branch_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          customer_email?: string | null;
+          customer_id?: string | null;
+          customer_name?: string;
+          customer_notes?: string | null;
+          customer_phone?: string | null;
+          deleted_at?: string | null;
+          delivered_date?: string | null;
+          delivery_address_line1?: string | null;
+          delivery_address_line2?: string | null;
+          delivery_city?: string | null;
+          delivery_country?: string | null;
+          delivery_postal_code?: string | null;
+          delivery_state?: string | null;
+          discount_amount?: number | null;
+          expected_delivery_date?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          order_date?: string;
+          order_number?: string;
+          organization_id?: string;
+          shipped_date?: string | null;
+          shipping_cost?: number | null;
+          status?: string;
+          subtotal?: number | null;
+          tax_amount?: number | null;
+          total_amount?: number | null;
+          tracking_number?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sales_orders_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       scanning_operation_items: {
         Row: {
           code_type: string;
@@ -3605,7 +3852,11 @@ export type Database = {
       };
       stock_reservations: {
         Row: {
+          auto_release: boolean | null;
           branch_id: string;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
           created_at: string | null;
           created_by: string | null;
           deleted_at: string | null;
@@ -3623,13 +3874,22 @@ export type Database = {
           reference_id: string | null;
           reference_number: string | null;
           reference_type: string;
+          released_quantity: number;
+          reservation_number: string;
           reserved_for: string;
+          reserved_quantity: number;
+          sales_order_id: string | null;
+          sales_order_item_id: string | null;
           status: string;
           updated_at: string | null;
           variant_id: string | null;
         };
         Insert: {
+          auto_release?: boolean | null;
           branch_id: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -3647,13 +3907,22 @@ export type Database = {
           reference_id?: string | null;
           reference_number?: string | null;
           reference_type?: string;
+          released_quantity?: number;
+          reservation_number?: string;
           reserved_for: string;
+          reserved_quantity?: number;
+          sales_order_id?: string | null;
+          sales_order_item_id?: string | null;
           status?: string;
           updated_at?: string | null;
           variant_id?: string | null;
         };
         Update: {
+          auto_release?: boolean | null;
           branch_id?: string;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           created_at?: string | null;
           created_by?: string | null;
           deleted_at?: string | null;
@@ -3671,7 +3940,12 @@ export type Database = {
           reference_id?: string | null;
           reference_number?: string | null;
           reference_type?: string;
+          released_quantity?: number;
+          reservation_number?: string;
           reserved_for?: string;
+          reserved_quantity?: number;
+          sales_order_id?: string | null;
+          sales_order_item_id?: string | null;
           status?: string;
           updated_at?: string | null;
           variant_id?: string | null;
@@ -3710,6 +3984,20 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_reservations_sales_order_id_fkey";
+            columns: ["sales_order_id"];
+            isOneToOne: false;
+            referencedRelation: "sales_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_reservations_sales_order_item_id_fkey";
+            columns: ["sales_order_item_id"];
+            isOneToOne: false;
+            referencedRelation: "sales_order_items";
             referencedColumns: ["id"];
           },
         ];
@@ -4536,6 +4824,24 @@ export type Database = {
       };
     };
     Views: {
+      product_available_inventory: {
+        Row: {
+          available_quantity: number | null;
+          average_cost: number | null;
+          branch_id: string | null;
+          last_movement_at: string | null;
+          location_id: string | null;
+          organization_id: string | null;
+          product_id: string | null;
+          quantity_on_hand: number | null;
+          reserved_quantity: number | null;
+          total_movements: number | null;
+          total_value: number | null;
+          updated_at: string | null;
+          variant_id: string | null;
+        };
+        Relationships: [];
+      };
       receipt_details: {
         Row: {
           batch_number: string | null;
@@ -4737,6 +5043,24 @@ export type Database = {
         };
         Returns: number;
       };
+      cancel_reservation: {
+        Args: { p_cancelled_by?: string; p_reservation_id: string };
+        Returns: boolean;
+      };
+      check_product_availability: {
+        Args: {
+          p_location_id: string;
+          p_product_id: string;
+          p_quantity: number;
+          p_variant_id: string;
+        };
+        Returns: {
+          available_quantity: number;
+          is_available: boolean;
+          on_hand_quantity: number;
+          reserved_quantity: number;
+        }[];
+      };
       check_stock_availability: {
         Args: {
           p_location_id: string;
@@ -4749,6 +5073,21 @@ export type Database = {
       compare_variants: { Args: { p_variant_ids: string[] }; Returns: Json };
       create_direct_chat: {
         Args: { br_id: string; org_id: string; other_user_id: string };
+        Returns: string;
+      };
+      create_sales_order_reservation: {
+        Args: {
+          p_branch_id: string;
+          p_created_by: string;
+          p_expires_at?: string;
+          p_location_id: string;
+          p_organization_id: string;
+          p_product_id: string;
+          p_quantity: number;
+          p_sales_order_id: string;
+          p_sales_order_item_id: string;
+          p_variant_id: string;
+        };
         Returns: string;
       };
       create_stock_movement: {
@@ -4784,6 +5123,7 @@ export type Database = {
       };
       custom_access_token_hook: { Args: { event: Json }; Returns: Json };
       debug_roles: { Args: { uid: string }; Returns: Json };
+      expire_old_reservations: { Args: never; Returns: number };
       generate_document_number: {
         Args: {
           p_branch_id: string;
@@ -5039,6 +5379,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      release_reservation: {
+        Args: { p_quantity_to_release?: number; p_reservation_id: string };
+        Returns: boolean;
+      };
       restore_movement_type: {
         Args: { p_movement_type_code: string };
         Returns: boolean;
@@ -5078,7 +5422,7 @@ export type Database = {
       };
     };
     Enums: {
-      [_ in never]: never;
+      movement_category: "physical" | "logical" | "adjustment";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -5203,6 +5547,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      movement_category: ["physical", "logical", "adjustment"],
+    },
   },
 } as const;

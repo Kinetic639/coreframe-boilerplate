@@ -9,24 +9,10 @@ export const teamsModule: ModuleConfig = {
   color: "#8b5cf6",
   items: [
     {
-      id: "contacts",
-      label: "modules.teams.items.contacts.title",
+      id: "organization-contacts",
+      label: "modules.teams.items.contacts.organization",
       path: "/dashboard/teams/contacts",
-      icon: "Users2",
-      submenu: [
-        {
-          id: "organization-contacts",
-          label: "modules.teams.items.contacts.organization",
-          path: "/dashboard/teams/contacts",
-          icon: "Building2",
-        },
-        {
-          id: "custom-contacts",
-          label: "modules.teams.items.contacts.custom",
-          path: "/dashboard/teams/contacts/custom",
-          icon: "UserPlus",
-        },
-      ],
+      icon: "Building2",
     },
     {
       id: "communication",

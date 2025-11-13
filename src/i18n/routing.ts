@@ -378,6 +378,10 @@ export const routing = defineRouting({
       en: "/dashboard/development/sku-generator",
       pl: "/dashboard/deweloperskie/generator-sku",
     },
+    "/dashboard/development/reservations-test": {
+      en: "/dashboard/development/reservations-test",
+      pl: "/dashboard/deweloperskie/test-rezerwacji",
+    },
     "/dashboard/dev/subscription-test": {
       en: "/dashboard/dev/subscription-test",
       pl: "/dashboard/dev/test-subskrypcji",
