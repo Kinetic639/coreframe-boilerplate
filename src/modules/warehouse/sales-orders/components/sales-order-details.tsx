@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { salesOrdersService } from "../../api/sales-orders-service";
 import type { SalesOrderWithRelations } from "../../types/sales-orders";
@@ -34,11 +34,7 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadOrder();
-  }, [orderId, activeOrg]);
-
-  async function loadOrder() {
+  const loadOrder = useCallback(async () => {
     if (!activeOrg?.organization_id || !orderId) return;
 
     try {
@@ -59,7 +55,11 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [orderId, activeOrg]);
+
+  useEffect(() => {
+    loadOrder();
+  }, [loadOrder]);
 
   async function handleDelete() {
     if (!activeOrg?.organization_id || !order) return;

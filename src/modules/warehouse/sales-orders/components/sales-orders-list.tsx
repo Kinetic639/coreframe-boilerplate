@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { salesOrdersService } from "../../api/sales-orders-service";
 import type { SalesOrderWithItems, SalesOrderStatus } from "../../types/sales-orders";
@@ -39,11 +39,7 @@ export function SalesOrdersList() {
   const [statusFilter, setStatusFilter] = useState<SalesOrderStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    loadOrders();
-  }, [activeOrg, activeBranch, statusFilter]);
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     if (!activeOrg?.organization_id) return;
 
     try {
@@ -66,7 +62,11 @@ export function SalesOrdersList() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [activeOrg, activeBranch, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
 
   function handleSearch() {
     loadOrders();
