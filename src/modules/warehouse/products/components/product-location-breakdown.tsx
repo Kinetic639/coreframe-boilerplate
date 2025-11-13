@@ -82,12 +82,15 @@ export function ProductLocationBreakdown({
     );
   }
 
+  const totalAvailable = locations.reduce((sum, loc) => sum + loc.available_quantity, 0);
+  const totalReserved = locations.reduce((sum, loc) => sum + loc.reserved_quantity, 0);
+
   return (
     <div className="rounded-lg border p-6">
       <h3 className="mb-4 text-base font-semibold">Stock by Location</h3>
       <div className="space-y-4">
         {locations.map((loc) => {
-          const percentage = totalQuantity > 0 ? (loc.available_quantity / totalQuantity) * 100 : 0;
+          const percentage = totalQuantity > 0 ? (loc.quantity_on_hand / totalQuantity) * 100 : 0;
           const IconComponent = (Icons as any)[loc.location.icon_name] || MapPin;
 
           return (
@@ -111,12 +114,17 @@ export function ProductLocationBreakdown({
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold">{loc.available_quantity}</div>
-                  <div className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground">
+                    Available • {percentage.toFixed(1)}%
+                  </div>
                 </div>
               </div>
               <Progress value={percentage} className="h-2" />
               <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>{loc.reserved_quantity > 0 && `Reserved: ${loc.reserved_quantity}`}</span>
+                <span>
+                  On hand: {loc.quantity_on_hand}
+                  {loc.reserved_quantity > 0 ? ` • Reserved: ${loc.reserved_quantity}` : ""}
+                </span>
                 <span>
                   {loc.total_value && loc.total_value > 0
                     ? `Value: ${loc.total_value.toFixed(2)} PLN`
@@ -129,13 +137,18 @@ export function ProductLocationBreakdown({
       </div>
 
       {/* Summary Footer */}
-      <div className="mt-4 flex items-center justify-between rounded-lg bg-muted/30 p-3 text-sm">
-        <span className="font-medium">Total</span>
-        <div className="flex items-center gap-4">
-          <span className="text-muted-foreground">
-            {locations.length} location{locations.length !== 1 ? "s" : ""}
-          </span>
-          <span className="font-bold">{totalQuantity} units</span>
+      <div className="mt-4 rounded-lg bg-muted/30 p-3 text-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <span className="font-medium">Total</span>
+          <div className="flex flex-col gap-1 text-sm sm:text-right">
+            <span className="text-muted-foreground">
+              {locations.length} location{locations.length !== 1 ? "s" : ""}
+            </span>
+            <span className="font-bold">{totalQuantity} units on hand</span>
+            <span className="text-muted-foreground">
+              Available: {totalAvailable} • Reserved: {totalReserved}
+            </span>
+          </div>
         </div>
       </div>
     </div>
