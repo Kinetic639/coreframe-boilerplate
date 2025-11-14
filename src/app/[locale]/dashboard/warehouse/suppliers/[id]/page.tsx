@@ -23,6 +23,7 @@ import {
 import Link from "next/link";
 import { SupplierWithContacts } from "@/modules/warehouse/suppliers/api";
 import { SupplierDetailsActions } from "./supplier-details-actions";
+import { SupplierProductsList } from "@/modules/warehouse/suppliers/components/supplier-products-list";
 
 interface SupplierDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -359,6 +360,19 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
           </Card>
         )}
       </div>
+
+      {/* Products from this Supplier */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Produkty od tego dostawcy
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SupplierProductsList supplierId={supplierId} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
