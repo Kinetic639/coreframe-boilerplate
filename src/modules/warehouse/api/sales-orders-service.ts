@@ -677,17 +677,36 @@ class SalesOrdersService {
     userId: string
   ): Promise<void> {
     if (!order.items || order.items.length === 0) {
+      console.log("[Reservations] No items in order");
       return;
     }
+
+    console.log("[Reservations] Creating reservations for order:", order.order_number);
+    console.log(
+      "[Reservations] Order items:",
+      order.items.map((i) => ({
+        id: i.id,
+        product_id: i.product_id,
+        product_name: i.product_name,
+        location_id: i.location_id,
+        quantity: i.quantity_ordered,
+      }))
+    );
 
     const reservationPromises = order.items.map(async (item) => {
       // Skip if no product or location
       if (!item.product_id || !item.location_id) {
-        console.warn(`Skipping reservation for item ${item.id}: missing product_id or location_id`);
+        const reason = !item.product_id ? "missing product_id" : "missing location_id";
+        console.warn(
+          `[Reservations] ⚠️ SKIPPING item ${item.id} (${item.product_name}): ${reason}`
+        );
         return;
       }
 
       try {
+        console.log(
+          `[Reservations] Creating reservation for item ${item.id} (${item.product_name})...`
+        );
         const result = await reservationsService.createReservation(
           {
             productId: item.product_id,
@@ -713,9 +732,15 @@ class SalesOrdersService {
         );
 
         if (!result.success) {
-          console.error(`Failed to create reservation for item ${item.id}:`, result.error);
+          console.error(
+            `[Reservations] ❌ Failed to create reservation for item ${item.id}:`,
+            result.error
+          );
           // Continue with other items even if one fails
         } else if (result.reservation) {
+          console.log(
+            `[Reservations] ✅ Created reservation ${result.reservation.reservation_number} for item ${item.id}`
+          );
           // Update sales_order_item with reservation_id
           await this.supabase
             .from("sales_order_items")
@@ -723,11 +748,12 @@ class SalesOrdersService {
             .eq("id", item.id);
         }
       } catch (error) {
-        console.error(`Error creating reservation for item ${item.id}:`, error);
+        console.error(`[Reservations] ❌ Error creating reservation for item ${item.id}:`, error);
       }
     });
 
     await Promise.all(reservationPromises);
+    console.log("[Reservations] Finished processing all items");
   }
 
   /**
@@ -740,34 +766,62 @@ class SalesOrdersService {
     reason: string
   ): Promise<void> {
     try {
+      console.log(`[Reservations] Cancelling reservations for order: ${orderId}`);
+
+      // Get the order to get organization_id
+      const { data: order, error: orderError } = await this.supabase
+        .from("sales_orders")
+        .select("organization_id, branch_id")
+        .eq("id", orderId)
+        .single();
+
+      if (orderError || !order) {
+        console.error(`[Reservations] ❌ Failed to get order ${orderId}:`, orderError);
+        return;
+      }
+
       // Get all active reservations for this order
       const reservations = await reservationsService.getReservations(
         {
           salesOrderId: orderId,
           status: ["active", "partial"],
         },
-        "", // organizationId will be filtered in the query
-        undefined
+        order.organization_id,
+        order.branch_id || undefined
       );
 
+      console.log(`[Reservations] Found ${reservations.length} active reservations to cancel`);
+
       if (reservations.length === 0) {
+        console.log(`[Reservations] No active reservations found for order ${orderId}`);
         return;
       }
 
       // Cancel each reservation
-      const cancellationPromises = reservations.map((reservation) =>
-        reservationsService.cancelReservation(
+      const cancellationPromises = reservations.map(async (reservation) => {
+        console.log(`[Reservations] Cancelling reservation: ${reservation.reservation_number}`);
+        const result = await reservationsService.cancelReservation(
           {
             reservationId: reservation.id,
             reason,
           },
           userId
-        )
-      );
+        );
+        if (result.success) {
+          console.log(`[Reservations] ✅ Cancelled reservation ${reservation.reservation_number}`);
+        } else {
+          console.error(
+            `[Reservations] ❌ Failed to cancel reservation ${reservation.reservation_number}:`,
+            result.error
+          );
+        }
+        return result;
+      });
 
       await Promise.all(cancellationPromises);
+      console.log(`[Reservations] Finished cancelling all reservations for order ${orderId}`);
     } catch (error) {
-      console.error(`Error cancelling reservations for order ${orderId}:`, error);
+      console.error(`[Reservations] ❌ Error cancelling reservations for order ${orderId}:`, error);
     }
   }
 

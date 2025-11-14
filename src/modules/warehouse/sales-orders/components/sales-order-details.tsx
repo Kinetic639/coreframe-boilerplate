@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { salesOrdersService } from "../../api/sales-orders-service";
-import type { SalesOrderWithRelations } from "../../types/sales-orders";
+import type { SalesOrderWithRelations, SalesOrderStatus } from "../../types/sales-orders";
 import { SALES_ORDER_STATUS_LABELS, SALES_ORDER_STATUS_COLORS } from "../../types/sales-orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,10 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Edit, Trash2 } from "lucide-react";
 import { useAppStore } from "@/lib/stores/app-store";
+import { useUserStore } from "@/lib/stores/user-store";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
+import { OrderStatusActions } from "./order-status-actions";
 
 interface SalesOrderDetailsProps {
   orderId: string;
@@ -29,6 +31,7 @@ interface SalesOrderDetailsProps {
 export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
   const router = useRouter();
   const { activeOrg } = useAppStore();
+  const { user } = useUserStore();
 
   const [order, setOrder] = useState<SalesOrderWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
@@ -134,6 +137,18 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
           <Badge variant={SALES_ORDER_STATUS_COLORS[order.status]} className="text-sm">
             {SALES_ORDER_STATUS_LABELS[order.status]}
           </Badge>
+
+          {/* Status Transition Actions */}
+          {activeOrg?.organization_id && user?.id && (
+            <OrderStatusActions
+              orderId={order.id}
+              organizationId={activeOrg.organization_id}
+              userId={user.id}
+              currentStatus={order.status as SalesOrderStatus}
+              onStatusChanged={loadOrder}
+            />
+          )}
+
           {canEdit && (
             <Button variant="outline" size="sm" disabled>
               <Edit className="h-4 w-4 mr-2" />
