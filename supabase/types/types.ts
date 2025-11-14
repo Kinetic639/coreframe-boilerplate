@@ -2588,6 +2588,143 @@ export type Database = {
           },
         ];
       };
+      product_supplier_price_history: {
+        Row: {
+          change_reason: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          currency_code: string | null;
+          effective_date: string;
+          end_date: string | null;
+          id: string;
+          product_supplier_id: string;
+          unit_price: number;
+        };
+        Insert: {
+          change_reason?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          effective_date?: string;
+          end_date?: string | null;
+          id?: string;
+          product_supplier_id: string;
+          unit_price: number;
+        };
+        Update: {
+          change_reason?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          effective_date?: string;
+          end_date?: string | null;
+          id?: string;
+          product_supplier_id?: string;
+          unit_price?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_supplier_price_history_product_supplier_id_fkey";
+            columns: ["product_supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "product_suppliers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_suppliers: {
+        Row: {
+          created_at: string | null;
+          created_by: string | null;
+          currency_code: string | null;
+          deleted_at: string | null;
+          id: string;
+          is_active: boolean | null;
+          is_preferred: boolean | null;
+          last_order_date: string | null;
+          last_order_price: number | null;
+          lead_time_days: number | null;
+          min_order_qty: number | null;
+          notes: string | null;
+          order_multiple: number | null;
+          price_valid_from: string | null;
+          price_valid_until: string | null;
+          priority_rank: number | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_product_description: string | null;
+          supplier_product_name: string | null;
+          supplier_sku: string | null;
+          unit_price: number;
+          updated_at: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_preferred?: boolean | null;
+          last_order_date?: string | null;
+          last_order_price?: number | null;
+          lead_time_days?: number | null;
+          min_order_qty?: number | null;
+          notes?: string | null;
+          order_multiple?: number | null;
+          price_valid_from?: string | null;
+          price_valid_until?: string | null;
+          priority_rank?: number | null;
+          product_id: string;
+          supplier_id: string;
+          supplier_product_description?: string | null;
+          supplier_product_name?: string | null;
+          supplier_sku?: string | null;
+          unit_price: number;
+          updated_at?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          is_active?: boolean | null;
+          is_preferred?: boolean | null;
+          last_order_date?: string | null;
+          last_order_price?: number | null;
+          lead_time_days?: number | null;
+          min_order_qty?: number | null;
+          notes?: string | null;
+          order_multiple?: number | null;
+          price_valid_from?: string | null;
+          price_valid_until?: string | null;
+          priority_rank?: number | null;
+          product_id?: string;
+          supplier_id?: string;
+          supplier_product_description?: string | null;
+          supplier_product_name?: string | null;
+          supplier_sku?: string | null;
+          unit_price?: number;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_suppliers_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_suppliers_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_variant_options: {
         Row: {
           created_at: string | null;

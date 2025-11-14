@@ -53,6 +53,7 @@ import {
   getProductSummary,
   type ProductSummary,
 } from "@/app/actions/warehouse/get-product-summary";
+import { ProductSuppliersTab } from "./product-suppliers-tab";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -421,6 +422,12 @@ export function ProductsAdvancedTable({
               >
                 History
               </TabsTrigger>
+              <TabsTrigger
+                value="suppliers"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Suppliers
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -729,6 +736,11 @@ export function ProductsAdvancedTable({
                 setIsMovementDetailsOpen(true);
               }}
             />
+          </TabsContent>
+
+          {/* Suppliers Tab */}
+          <TabsContent value="suppliers" className="flex-1 overflow-auto bg-white p-6">
+            <ProductSuppliersTab productId={product.id} />
           </TabsContent>
         </Tabs>
       </div>

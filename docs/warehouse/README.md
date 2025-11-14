@@ -9,6 +9,21 @@
   - Detailed timelines and implementation steps (P1-P10)
   - **Use this for long-term planning**
 
+- **[PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)** 🚀 **CURRENT IMPLEMENTATION** (Priority 2)
+  - Product-Supplier Integration (Phase 0)
+  - Low Stock Monitoring & Alerts (Phase 1)
+  - Purchase Orders Module (Phase 2)
+  - **Estimated: 1.5-2 weeks total**
+  - **Use this for current development work**
+
+- **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** 💡 **Post-Production Features**
+  - Automated Reorder System
+  - Advanced PDF Generation
+  - Batch Purchase Orders
+  - Supplier Analytics & Reporting
+  - Mobile Warehouse App
+  - E-commerce Integration Enhancements
+
 - **[STOCK_MOVEMENTS_SPECIFICATION.md](STOCK_MOVEMENTS_SPECIFICATION.md)** - Technical Specification
   - Source of truth for movement types (31 codes: 101-613)
   - Database schema and Polish legal compliance
@@ -103,31 +118,65 @@
 - Product details page shows reserved quantities
 - Sales order form validates availability before submission
 
+### 🚀 Currently Implementing (Priority 2)
+
+**Purchase Orders & Low Stock Alerts** - See [PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)
+
+**Status:** Planning Complete - Ready for Implementation
+
+**Scope:** Manual purchase order management with automated alerts (production-ready MVP)
+
+**3-Phase Approach (1.5-2 weeks total):**
+
+1. **Phase 0: Product-Supplier Integration** (1-2 days) - NEXT
+   - `product_suppliers` table with many-to-many relationships
+   - Supplier SKU, pricing, lead times, min order quantities
+   - Preferred supplier designation and priority ranking
+   - Price history tracking
+
+2. **Phase 1: Low Stock Monitoring & Alerts** (2-3 days)
+   - `stock_alerts` table with configurable thresholds
+   - Reorder point calculation (reorder_point, reorder_quantity)
+   - Alert severity levels (info, warning, critical)
+   - Real-time monitoring service
+   - UI notifications for low stock
+
+3. **Phase 2: Purchase Orders Module** (5-7 days)
+   - `purchase_orders` and `purchase_order_items` tables
+   - Full workflow: draft → pending → approved → received → closed
+   - Manual supplier selection and PO creation
+   - Expected delivery tracking
+   - Integration with movement type 101 (Goods Receipt from PO)
+   - UI: list, create, edit, approve pages
+
+**Key Features:**
+
+- ✅ Eliminate manual spreadsheet tracking
+- ✅ Proactive low stock notifications
+- ✅ Manual reorder workflow with supplier management
+- ✅ Supplier comparison and selection
+- ✅ Full purchase order lifecycle management
+- ✅ Integration with existing movement types
+
+**Deferred to Post-Production:**
+
+- ❌ Automated PO generation from alerts → See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)
+- ❌ Smart automated supplier selection
+- ❌ Batch processing for multiple low-stock items
+
 ### Critical Gaps (Blocks Production Use)
 
-1. **🔴 No Automated Purchase Orders** (Priority 2 - NEXT UP ⭐⭐⭐⭐⭐)
-   - Manual spreadsheet tracking still required
-   - No low stock alerts or reorder automation
-   - May need Phase 0 (product-suppliers) for advanced features
-   - Estimated: 1.5 weeks
-
-2. **🟡 No Product-Supplier Relationships** (Phase 0 - Optional for P2)
-   - Products have basic supplier field only
-   - Cannot track supplier SKU, pricing, lead times
-   - May be needed for automated purchase orders
-   - Estimated: 1-2 days
-
-3. **🔴 No Warehouse Transfers** (Priority 3)
+1. **🔴 No Warehouse Transfers** (Priority 3)
    - Transfer tables DISABLED in migrations
    - Cannot move stock between locations
    - Estimated: 2 weeks
 
-4. **🔴 No PDF Document Generation** (Priority 4)
+2. **🔴 No PDF Document Generation** (Priority 4)
    - Cannot print legal warehouse documents (PZ, WZ, MM, etc.)
    - Polish legal requirement not met
    - Estimated: 1.5 weeks
 
-5. **🔴 No Row-Level Security** (Priority 10)
+3. **🔴 No Row-Level Security** (Priority 10)
    - RLS intentionally disabled for testing
    - **MUST BE IMPLEMENTED before production**
    - Estimated: 1 week
@@ -150,10 +199,15 @@
 
 Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md) roadmap:
 
-### Phase 1: Critical MVP (4-5 weeks remaining)
+### Phase 1: Critical MVP (3-4 weeks remaining)
 
 1. ✅ **P1:** Stock Reservations (501-502) - COMPLETED ⭐⭐⭐⭐⭐
-2. **P2:** Low Stock Alerts & Purchase Orders - 1.5 weeks ⭐⭐⭐⭐⭐ **← NEXT**
+2. 🚀 **P2:** Purchase Orders & Low Stock Alerts - 1.5-2 weeks ⭐⭐⭐⭐⭐ **← IN PROGRESS**
+   - See [PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)
+   - Phase 0: Product-Supplier Integration (1-2 days)
+   - Phase 1: Low Stock Monitoring (2-3 days)
+   - Phase 2: Purchase Orders Module (5-7 days)
+   - **Note:** Automated reordering deferred to post-production
 3. **P3:** Warehouse Transfers (301-312) - 2 weeks ⭐⭐⭐⭐⭐
 4. **P4:** PDF Document Generation - 1.5 weeks ⭐⭐⭐⭐
 
@@ -172,7 +226,9 @@ Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPL
 9. **P9:** JPK_MAG Export - 1 week ⭐⭐⭐⭐⭐
 10. **P10:** Row-Level Security - 1 week ⭐⭐⭐⭐⭐
 
-**Total Timeline:** 11-12 weeks remaining to 100% completion
+**Total Timeline:** 8-9 weeks remaining to 100% completion (P2 in progress)
+
+**Post-Production Enhancements:** See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md) for features planned after initial release
 
 ---
 
@@ -276,8 +332,9 @@ Write UNRES Movement (type 502)
 
 1. Read [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)
 2. Check current priority (P1-P10)
-3. Review [STOCK_MOVEMENTS_SPECIFICATION.md](STOCK_MOVEMENTS_SPECIFICATION.md) for technical details
-4. Check archive for context on completed phases
+3. **For P2 (Current):** Read [PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)
+4. Review [STOCK_MOVEMENTS_SPECIFICATION.md](STOCK_MOVEMENTS_SPECIFICATION.md) for technical details
+5. Check archive for context on completed phases
 
 ### When Completing a Feature
 
