@@ -145,16 +145,13 @@ export function ProductsAdvancedTable({
     if (activeOrgId && products.length > 0) {
       // Load summaries for products that don't have them yet
       products.forEach((product) => {
-        if (
-          !productSummaryMap[product.id] &&
-          product.product_type === "goods" &&
-          product.track_inventory
-        ) {
+        if (product.product_type === "goods" && product.track_inventory) {
           loadProductSummary(product.id);
         }
       });
     }
-  }, [activeOrgId, products, loadProductSummary, productSummaryMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrgId, products]);
 
   // Load custom field values for all products
   React.useEffect(() => {
