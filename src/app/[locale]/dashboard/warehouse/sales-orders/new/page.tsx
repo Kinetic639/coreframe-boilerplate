@@ -1,3 +1,5 @@
+import { SalesOrderForm } from "@/modules/warehouse/sales-orders/components/sales-order-form";
+
 export default function NewSalesOrderPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -6,12 +8,7 @@ export default function NewSalesOrderPage() {
         <p className="text-muted-foreground mt-1">Create a new sales order for a customer</p>
       </div>
 
-      <div className="border rounded-lg p-8 text-center text-muted-foreground">
-        <p>Order creation form will be implemented here.</p>
-        <p className="text-sm mt-2">
-          This will include customer selection, product line items, pricing, and delivery details.
-        </p>
-      </div>
+      <SalesOrderForm />
     </div>
   );
 }
