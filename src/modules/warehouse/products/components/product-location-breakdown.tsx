@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getProductLocations,
   type ProductLocation,
 } from "@/app/actions/warehouse/get-product-locations";
-import { MapPin } from "lucide-react";
+import { MapPin, RefreshCw, Package, Lock } from "lucide-react";
 import * as Icons from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 
 interface ProductLocationBreakdownProps {
@@ -22,31 +24,40 @@ export function ProductLocationBreakdown({
   const [locations, setLocations] = useState<ProductLocation[]>([]);
   const [totalQuantity, setTotalQuantity] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const loadLocations = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getProductLocations(productId, organizationId);
+
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setLocations(result.data);
+        setTotalQuantity(result.totalQuantity);
+        setLastUpdated(new Date());
+      }
+    } catch (err) {
+      setError("Failed to load location breakdown");
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [productId, organizationId]);
 
   useEffect(() => {
-    async function loadLocations() {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await getProductLocations(productId, organizationId);
-
-        if (result.error) {
-          setError(result.error);
-        } else {
-          setLocations(result.data);
-          setTotalQuantity(result.totalQuantity);
-        }
-      } catch (err) {
-        setError("Failed to load location breakdown");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadLocations();
-  }, [productId, organizationId]);
+  }, [loadLocations]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadLocations();
+  };
 
   if (loading) {
     return (
@@ -87,11 +98,33 @@ export function ProductLocationBreakdown({
 
   return (
     <div className="rounded-lg border p-6">
-      <h3 className="mb-4 text-base font-semibold">Stock by Location</h3>
+      {/* Header with Refresh */}
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-base font-semibold">Stock by Location</h3>
+        <div className="flex items-center gap-2">
+          {lastUpdated && (
+            <span className="text-xs text-muted-foreground">
+              Updated {lastUpdated.toLocaleTimeString()}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </div>
+
       <div className="space-y-4">
         {locations.map((loc) => {
           const percentage = totalQuantity > 0 ? (loc.quantity_on_hand / totalQuantity) * 100 : 0;
           const IconComponent = (Icons as any)[loc.location.icon_name] || MapPin;
+          const reservationPercentage =
+            loc.quantity_on_hand > 0 ? (loc.reserved_quantity / loc.quantity_on_hand) * 100 : 0;
 
           return (
             <Link
@@ -113,41 +146,90 @@ export function ProductLocationBreakdown({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold">{loc.available_quantity}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-lg font-bold text-green-600">{loc.available_quantity}</div>
+                    {loc.reserved_quantity > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Lock className="mr-1 h-3 w-3" />
+                        {loc.reserved_quantity}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     Available • {percentage.toFixed(1)}%
                   </div>
                 </div>
               </div>
               <Progress value={percentage} className="h-2" />
-              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  On hand: {loc.quantity_on_hand}
-                  {loc.reserved_quantity > 0 ? ` • Reserved: ${loc.reserved_quantity}` : ""}
-                </span>
-                <span>
-                  {loc.total_value && loc.total_value > 0
-                    ? `Value: ${loc.total_value.toFixed(2)} PLN`
-                    : ""}
-                </span>
+
+              {/* Detailed Breakdown */}
+              <div className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-muted/30 p-2">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    <span>On Hand</span>
+                  </div>
+                  <div className="text-sm font-semibold">{loc.quantity_on_hand}</div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                    <Lock className="h-3 w-3" />
+                    <span>Reserved</span>
+                  </div>
+                  <div className="text-sm font-semibold text-orange-600">
+                    {loc.reserved_quantity}
+                    {reservationPercentage > 0 && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({reservationPercentage.toFixed(0)}%)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                    <span>Available</span>
+                  </div>
+                  <div className="text-sm font-semibold text-green-600">
+                    {loc.available_quantity}
+                  </div>
+                </div>
               </div>
+
+              {loc.total_value && loc.total_value > 0 && (
+                <div className="mt-2 text-right text-xs text-muted-foreground">
+                  Value: {loc.total_value.toFixed(2)} PLN
+                </div>
+              )}
             </Link>
           );
         })}
       </div>
 
       {/* Summary Footer */}
-      <div className="mt-4 rounded-lg bg-muted/30 p-3 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-medium">Total</span>
-          <div className="flex flex-col gap-1 text-sm sm:text-right">
-            <span className="text-muted-foreground">
-              {locations.length} location{locations.length !== 1 ? "s" : ""}
-            </span>
-            <span className="font-bold">{totalQuantity} units on hand</span>
-            <span className="text-muted-foreground">
-              Available: {totalAvailable} • Reserved: {totalReserved}
-            </span>
+      <div className="mt-4 rounded-lg bg-muted/30 p-4">
+        <div className="mb-2 font-medium">Summary</div>
+        <div className="grid grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-xs text-muted-foreground">Locations</div>
+            <div className="text-lg font-bold">{locations.length}</div>
+          </div>
+          <div>
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+              <Package className="h-3 w-3" />
+              <span>On Hand</span>
+            </div>
+            <div className="text-lg font-bold">{totalQuantity}</div>
+          </div>
+          <div>
+            <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              <span>Reserved</span>
+            </div>
+            <div className="text-lg font-bold text-orange-600">{totalReserved}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Available</div>
+            <div className="text-lg font-bold text-green-600">{totalAvailable}</div>
           </div>
         </div>
       </div>
