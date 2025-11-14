@@ -600,9 +600,7 @@ class SalesOrdersService {
   async removeItem(itemId: string): Promise<void>;
 
   // Availability check
-  async checkAvailability(
-    orderId: string
-  ): Promise<{
+  async checkAvailability(orderId: string): Promise<{
     available: boolean;
     unavailableItems: { itemId: string; requested: number; available: number }[];
   }>;

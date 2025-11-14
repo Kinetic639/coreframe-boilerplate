@@ -111,7 +111,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       city: client?.city || "",
       postal_code: client?.postal_code || "",
       country: client?.country || "",
-      contact_id: client?.contact_id || "",
+      contact_id: client?.contact_id || undefined, // Use undefined instead of empty string for UUID field
       notes: client?.notes || "",
       is_active: client?.is_active ?? true,
     },
@@ -162,11 +162,17 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
   const onSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
     try {
+      // Clean up data - convert empty strings to null for UUID fields
+      const cleanedData = {
+        ...data,
+        contact_id: data.contact_id && data.contact_id.trim() !== "" ? data.contact_id : null,
+      };
+
       if (isEditMode && client) {
-        await clientService.updateClient(client.id, data as any);
+        await clientService.updateClient(client.id, cleanedData as any);
         toast.success("Client updated successfully");
       } else {
-        await clientService.createClient(data as any);
+        await clientService.createClient(cleanedData as any);
         toast.success("Client created successfully");
       }
       onSuccess();
@@ -491,7 +497,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => form.setValue("contact_id", "")}
+                            onClick={() => form.setValue("contact_id", undefined)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
