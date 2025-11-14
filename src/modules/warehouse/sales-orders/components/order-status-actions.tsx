@@ -113,7 +113,7 @@ export function OrderStatusActions({
   const getStatusDescription = (status: SalesOrderStatus) => {
     switch (status) {
       case "confirmed":
-        return "This will create stock reservations for all order items. Make sure all items have locations assigned.";
+        return "⚠️ IMPORTANT: This will create stock reservations for all order items. Items without assigned locations will be SKIPPED and will NOT be reserved. Make sure all items have locations assigned before confirming.";
       case "processing":
         return "Mark this order as being processed. Inventory will remain reserved.";
       case "fulfilled":

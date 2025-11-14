@@ -677,17 +677,36 @@ class SalesOrdersService {
     userId: string
   ): Promise<void> {
     if (!order.items || order.items.length === 0) {
+      console.log("[Reservations] No items in order");
       return;
     }
+
+    console.log("[Reservations] Creating reservations for order:", order.order_number);
+    console.log(
+      "[Reservations] Order items:",
+      order.items.map((i) => ({
+        id: i.id,
+        product_id: i.product_id,
+        product_name: i.product_name,
+        location_id: i.location_id,
+        quantity: i.quantity_ordered,
+      }))
+    );
 
     const reservationPromises = order.items.map(async (item) => {
       // Skip if no product or location
       if (!item.product_id || !item.location_id) {
-        console.warn(`Skipping reservation for item ${item.id}: missing product_id or location_id`);
+        const reason = !item.product_id ? "missing product_id" : "missing location_id";
+        console.warn(
+          `[Reservations] ⚠️ SKIPPING item ${item.id} (${item.product_name}): ${reason}`
+        );
         return;
       }
 
       try {
+        console.log(
+          `[Reservations] Creating reservation for item ${item.id} (${item.product_name})...`
+        );
         const result = await reservationsService.createReservation(
           {
             productId: item.product_id,
@@ -713,9 +732,15 @@ class SalesOrdersService {
         );
 
         if (!result.success) {
-          console.error(`Failed to create reservation for item ${item.id}:`, result.error);
+          console.error(
+            `[Reservations] ❌ Failed to create reservation for item ${item.id}:`,
+            result.error
+          );
           // Continue with other items even if one fails
         } else if (result.reservation) {
+          console.log(
+            `[Reservations] ✅ Created reservation ${result.reservation.reservation_number} for item ${item.id}`
+          );
           // Update sales_order_item with reservation_id
           await this.supabase
             .from("sales_order_items")
@@ -723,11 +748,12 @@ class SalesOrdersService {
             .eq("id", item.id);
         }
       } catch (error) {
-        console.error(`Error creating reservation for item ${item.id}:`, error);
+        console.error(`[Reservations] ❌ Error creating reservation for item ${item.id}:`, error);
       }
     });
 
     await Promise.all(reservationPromises);
+    console.log("[Reservations] Finished processing all items");
   }
 
   /**
