@@ -181,6 +181,8 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
   const loadAvailability = async (productId: string, locationId: string) => {
     if (!activeOrgId || !activeBranchId || !productId || !locationId) return;
 
+    const key = `${productId}-${locationId}`;
+
     try {
       const avail = await reservationsService.getAvailableInventory(
         activeOrgId,
@@ -190,18 +192,46 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
         locationId
       );
 
-      const key = `${productId}-${locationId}`;
+      // Check if avail is null or undefined
+      if (!avail) {
+        console.warn(
+          `No availability data returned for product ${productId} at location ${locationId}`
+        );
+        // Set zero availability if no data returned
+        setAvailability((prev) => {
+          const newMap = new Map(prev);
+          newMap.set(key, {
+            available: 0,
+            onHand: 0,
+            reserved: 0,
+          });
+          return newMap;
+        });
+        return;
+      }
+
       setAvailability((prev) => {
         const newMap = new Map(prev);
         newMap.set(key, {
-          available: avail.availableQuantity,
-          onHand: avail.quantityOnHand,
-          reserved: avail.reservedQuantity,
+          available: avail.availableQuantity ?? 0,
+          onHand: avail.quantityOnHand ?? 0,
+          reserved: avail.reservedQuantity ?? 0,
         });
         return newMap;
       });
     } catch (error) {
       console.error("Error loading availability:", error);
+      // On error, set zero availability to prevent crashes
+      setAvailability((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(key, {
+          available: 0,
+          onHand: 0,
+          reserved: 0,
+        });
+        return newMap;
+      });
+      toast.error("Failed to load product availability");
     }
   };
 
