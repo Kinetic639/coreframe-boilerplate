@@ -766,34 +766,62 @@ class SalesOrdersService {
     reason: string
   ): Promise<void> {
     try {
+      console.log(`[Reservations] Cancelling reservations for order: ${orderId}`);
+
+      // Get the order to get organization_id
+      const { data: order, error: orderError } = await this.supabase
+        .from("sales_orders")
+        .select("organization_id, branch_id")
+        .eq("id", orderId)
+        .single();
+
+      if (orderError || !order) {
+        console.error(`[Reservations] ❌ Failed to get order ${orderId}:`, orderError);
+        return;
+      }
+
       // Get all active reservations for this order
       const reservations = await reservationsService.getReservations(
         {
           salesOrderId: orderId,
           status: ["active", "partial"],
         },
-        "", // organizationId will be filtered in the query
-        undefined
+        order.organization_id,
+        order.branch_id || undefined
       );
 
+      console.log(`[Reservations] Found ${reservations.length} active reservations to cancel`);
+
       if (reservations.length === 0) {
+        console.log(`[Reservations] No active reservations found for order ${orderId}`);
         return;
       }
 
       // Cancel each reservation
-      const cancellationPromises = reservations.map((reservation) =>
-        reservationsService.cancelReservation(
+      const cancellationPromises = reservations.map(async (reservation) => {
+        console.log(`[Reservations] Cancelling reservation: ${reservation.reservation_number}`);
+        const result = await reservationsService.cancelReservation(
           {
             reservationId: reservation.id,
             reason,
           },
           userId
-        )
-      );
+        );
+        if (result.success) {
+          console.log(`[Reservations] ✅ Cancelled reservation ${reservation.reservation_number}`);
+        } else {
+          console.error(
+            `[Reservations] ❌ Failed to cancel reservation ${reservation.reservation_number}:`,
+            result.error
+          );
+        }
+        return result;
+      });
 
       await Promise.all(cancellationPromises);
+      console.log(`[Reservations] Finished cancelling all reservations for order ${orderId}`);
     } catch (error) {
-      console.error(`Error cancelling reservations for order ${orderId}:`, error);
+      console.error(`[Reservations] ❌ Error cancelling reservations for order ${orderId}:`, error);
     }
   }
 
