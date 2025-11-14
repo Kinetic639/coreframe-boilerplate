@@ -378,6 +378,22 @@ export const routing = defineRouting({
       en: "/dashboard/development/sku-generator",
       pl: "/dashboard/deweloperskie/generator-sku",
     },
+    "/dashboard/development/table-preview/products": {
+      en: "/dashboard/development/table-preview/products",
+      pl: "/dashboard/deweloperskie/podglad-tabel/produkty",
+    },
+    "/dashboard/development/table-preview/products/[id]": {
+      en: "/dashboard/development/table-preview/products/[id]",
+      pl: "/dashboard/deweloperskie/podglad-tabel/produkty/[id]",
+    },
+    "/dashboard/development/table-preview/contacts": {
+      en: "/dashboard/development/table-preview/contacts",
+      pl: "/dashboard/deweloperskie/podglad-tabel/kontakty",
+    },
+    "/dashboard/development/table-preview/contacts/[id]": {
+      en: "/dashboard/development/table-preview/contacts/[id]",
+      pl: "/dashboard/deweloperskie/podglad-tabel/kontakty/[id]",
+    },
     "/dashboard/development/reservations-test": {
       en: "/dashboard/development/reservations-test",
       pl: "/dashboard/deweloperskie/test-rezerwacji",

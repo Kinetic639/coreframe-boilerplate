@@ -1229,7 +1229,9 @@
         "subscriptionTest": "Test Subskrypcji",
         "skuGenerator": "Test Generatora SKU",
         "deliveryDebugger": "Debugger Dostaw",
-        "reservationsTest": "Test Rezerwacji"
+        "reservationsTest": "Test Rezerwacji",
+        "tablePreviewProducts": "Podgląd tabel — produkty",
+        "tablePreviewContacts": "Podgląd tabel — kontakty"
       }
     }
   },

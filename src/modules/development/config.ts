@@ -75,6 +75,18 @@ export const developmentModule: ModuleConfig = {
       icon: "Truck",
     },
     {
+      id: "table-preview-products",
+      label: "modules.development.items.tablePreviewProducts",
+      path: "/dashboard/development/table-preview/products",
+      icon: "Table2",
+    },
+    {
+      id: "table-preview-contacts",
+      label: "modules.development.items.tablePreviewContacts",
+      path: "/dashboard/development/table-preview/contacts",
+      icon: "IdCard",
+    },
+    {
       id: "status-stepper",
       label: "Status Stepper",
       path: "/dashboard/development/status-stepper",
