@@ -12,7 +12,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, Package } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Package, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -260,6 +260,30 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
   const onSubmit = async (values: SalesOrderFormValues) => {
     if (!activeOrgId || !activeBranchId || !user?.id) {
       toast.error("Missing required context");
+      return;
+    }
+
+    // Validate items have locations and quantities
+    const itemsWithoutLocation = values.items.filter((item) => !item.location_id);
+    if (itemsWithoutLocation.length > 0) {
+      toast.error(
+        `${itemsWithoutLocation.length} item(s) are missing locations. Please select a location for all items.`
+      );
+      return;
+    }
+
+    // Validate quantities against availability
+    const itemsExceedingStock = values.items.filter((item) => {
+      if (!item.location_id || !item.product_id) return false;
+      const key = `${item.product_id}-${item.location_id}`;
+      const avail = availability.get(key);
+      return avail && item.quantity_ordered > avail.available;
+    });
+
+    if (itemsExceedingStock.length > 0) {
+      toast.error(
+        `${itemsExceedingStock.length} item(s) exceed available stock. Please reduce quantities.`
+      );
       return;
     }
 
@@ -637,7 +661,9 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
                       name={`items.${index}.location_id`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Location</FormLabel>
+                          <FormLabel>
+                            Location <span className="text-red-500">*</span>
+                          </FormLabel>
                           <Select
                             onValueChange={(value) => {
                               field.onChange(value);
@@ -649,7 +675,7 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
                             disabled={!item.product_id}
                           >
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className={!field.value ? "border-orange-500" : ""}>
                                 <SelectValue placeholder="Select location" />
                               </SelectTrigger>
                             </FormControl>
@@ -661,6 +687,16 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
                               ))}
                             </SelectContent>
                           </Select>
+                          {!item.product_id && (
+                            <FormDescription className="text-xs">
+                              Select a product first
+                            </FormDescription>
+                          )}
+                          {item.product_id && !field.value && (
+                            <FormDescription className="text-xs text-orange-600 font-medium">
+                              ⚠️ Location is required for reservations
+                            </FormDescription>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -676,15 +712,51 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
                             <Input
                               type="number"
                               min="1"
+                              max={avail ? avail.available : undefined}
                               {...field}
                               onChange={(e) => field.onChange(Number(e.target.value))}
+                              className={
+                                avail && item.quantity_ordered > avail.available
+                                  ? "border-red-500"
+                                  : ""
+                              }
                             />
                           </FormControl>
                           {avail && (
-                            <FormDescription className="text-xs">
-                              Available: {avail.available} (On hand: {avail.onHand}, Reserved:{" "}
-                              {avail.reserved})
+                            <FormDescription className="text-xs space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span>Available:</span>
+                                <span
+                                  className={`font-semibold ${
+                                    avail.available === 0
+                                      ? "text-red-600"
+                                      : avail.available < 10
+                                        ? "text-orange-600"
+                                        : "text-green-600"
+                                  }`}
+                                >
+                                  {avail.available}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span>On hand:</span>
+                                <span>{avail.onHand}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span>Reserved:</span>
+                                <span>{avail.reserved}</span>
+                              </div>
                             </FormDescription>
+                          )}
+                          {!item.location_id && (
+                            <FormDescription className="text-xs text-orange-600">
+                              Select a location to see availability
+                            </FormDescription>
+                          )}
+                          {avail && item.quantity_ordered > avail.available && (
+                            <p className="text-xs text-red-600 font-medium">
+                              ⚠️ Quantity exceeds available stock! Only {avail.available} available.
+                            </p>
                           )}
                           <FormMessage />
                         </FormItem>
@@ -927,6 +999,48 @@ export function SalesOrderForm({ orderId: _orderId, onSuccess }: SalesOrderFormP
             />
           </CardContent>
         </Card>
+
+        {/* Validation Summary */}
+        {(() => {
+          const items = form.watch("items");
+          const itemsWithoutLocation = items.filter((item) => item.product_id && !item.location_id);
+          const itemsExceedingStock = items.filter((item) => {
+            if (!item.location_id || !item.product_id) return false;
+            const key = `${item.product_id}-${item.location_id}`;
+            const avail = availability.get(key);
+            return avail && item.quantity_ordered > avail.available;
+          });
+
+          if (itemsWithoutLocation.length > 0 || itemsExceedingStock.length > 0) {
+            return (
+              <Card className="border-orange-500 bg-orange-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                    <div className="space-y-2 flex-1">
+                      <h4 className="font-semibold text-orange-900">Validation Issues</h4>
+                      {itemsWithoutLocation.length > 0 && (
+                        <p className="text-sm text-orange-800">
+                          • {itemsWithoutLocation.length} item(s) missing location assignment
+                        </p>
+                      )}
+                      {itemsExceedingStock.length > 0 && (
+                        <p className="text-sm text-orange-800">
+                          • {itemsExceedingStock.length} item(s) quantity exceeds available stock
+                        </p>
+                      )}
+                      <p className="text-xs text-orange-700">
+                        Fix these issues before creating the order. Orders without locations cannot
+                        create reservations.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
 
         {/* Form Actions */}
         <div className="flex items-center justify-end gap-4">
