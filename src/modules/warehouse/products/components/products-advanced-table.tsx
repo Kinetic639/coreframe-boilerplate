@@ -140,6 +140,22 @@ export function ProductsAdvancedTable({
     }
   }, [activeOrgId, products]);
 
+  // Load product summaries for all products (on-demand loading)
+  React.useEffect(() => {
+    if (activeOrgId && products.length > 0) {
+      // Load summaries for products that don't have them yet
+      products.forEach((product) => {
+        if (
+          !productSummaryMap[product.id] &&
+          product.product_type === "goods" &&
+          product.track_inventory
+        ) {
+          loadProductSummary(product.id);
+        }
+      });
+    }
+  }, [activeOrgId, products, loadProductSummary, productSummaryMap]);
+
   // Load custom field values for all products
   React.useEffect(() => {
     if (products.length > 0) {
@@ -337,11 +353,6 @@ export function ProductsAdvancedTable({
 
   // Custom detail panel renderer - PROPER InFlow/Zoho style
   const renderDetail = (product: ProductWithDetails, onClose: () => void) => {
-    // Load product summary when detail panel opens
-    if (!productSummaryMap[product.id]) {
-      loadProductSummary(product.id);
-    }
-
     const productSummary = productSummaryMap[product.id] || {
       quantity_on_hand: 0,
       reserved_quantity: 0,
