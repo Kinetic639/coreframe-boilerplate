@@ -2975,6 +2975,273 @@ export type Database = {
           },
         ];
       };
+      purchase_order_items: {
+        Row: {
+          created_at: string | null;
+          deleted_at: string | null;
+          discount_amount: number | null;
+          discount_percent: number | null;
+          expected_location_id: string | null;
+          id: string;
+          line_total: number | null;
+          notes: string | null;
+          product_id: string | null;
+          product_name: string;
+          product_sku: string | null;
+          product_supplier_id: string | null;
+          product_variant_id: string | null;
+          purchase_order_id: string;
+          quantity_ordered: number;
+          quantity_pending: number | null;
+          quantity_received: number | null;
+          subtotal: number | null;
+          supplier_sku: string | null;
+          tax_amount: number | null;
+          tax_rate: number | null;
+          unit_of_measure: string | null;
+          unit_price: number;
+          updated_at: string | null;
+          variant_name: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          discount_amount?: number | null;
+          discount_percent?: number | null;
+          expected_location_id?: string | null;
+          id?: string;
+          line_total?: number | null;
+          notes?: string | null;
+          product_id?: string | null;
+          product_name: string;
+          product_sku?: string | null;
+          product_supplier_id?: string | null;
+          product_variant_id?: string | null;
+          purchase_order_id: string;
+          quantity_ordered: number;
+          quantity_pending?: number | null;
+          quantity_received?: number | null;
+          subtotal?: number | null;
+          supplier_sku?: string | null;
+          tax_amount?: number | null;
+          tax_rate?: number | null;
+          unit_of_measure?: string | null;
+          unit_price: number;
+          updated_at?: string | null;
+          variant_name?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          deleted_at?: string | null;
+          discount_amount?: number | null;
+          discount_percent?: number | null;
+          expected_location_id?: string | null;
+          id?: string;
+          line_total?: number | null;
+          notes?: string | null;
+          product_id?: string | null;
+          product_name?: string;
+          product_sku?: string | null;
+          product_supplier_id?: string | null;
+          product_variant_id?: string | null;
+          purchase_order_id?: string;
+          quantity_ordered?: number;
+          quantity_pending?: number | null;
+          quantity_received?: number | null;
+          subtotal?: number | null;
+          supplier_sku?: string | null;
+          tax_amount?: number | null;
+          tax_rate?: number | null;
+          unit_of_measure?: string | null;
+          unit_price?: number;
+          updated_at?: string | null;
+          variant_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_order_items_expected_location_id_fkey";
+            columns: ["expected_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_supplier_id_fkey";
+            columns: ["product_supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "product_suppliers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_variant_id_fkey";
+            columns: ["product_variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_order_items_purchase_order_id_fkey";
+            columns: ["purchase_order_id"];
+            isOneToOne: false;
+            referencedRelation: "purchase_orders_summary";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      purchase_orders: {
+        Row: {
+          amount_paid: number | null;
+          approved_at: string | null;
+          approved_by: string | null;
+          branch_id: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          currency_code: string | null;
+          deleted_at: string | null;
+          delivery_location_id: string | null;
+          discount_amount: number | null;
+          expected_delivery_date: string | null;
+          id: string;
+          internal_notes: string | null;
+          notes: string | null;
+          organization_id: string;
+          payment_status: string | null;
+          payment_terms: string | null;
+          po_date: string;
+          po_number: string;
+          shipping_cost: number | null;
+          status: string;
+          subtotal: number | null;
+          supplier_email: string | null;
+          supplier_id: string;
+          supplier_name: string;
+          supplier_phone: string | null;
+          supplier_reference: string | null;
+          tax_amount: number | null;
+          total_amount: number | null;
+          tracking_number: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          amount_paid?: number | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          branch_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          delivery_location_id?: string | null;
+          discount_amount?: number | null;
+          expected_delivery_date?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          notes?: string | null;
+          organization_id: string;
+          payment_status?: string | null;
+          payment_terms?: string | null;
+          po_date?: string;
+          po_number: string;
+          shipping_cost?: number | null;
+          status?: string;
+          subtotal?: number | null;
+          supplier_email?: string | null;
+          supplier_id: string;
+          supplier_name: string;
+          supplier_phone?: string | null;
+          supplier_reference?: string | null;
+          tax_amount?: number | null;
+          total_amount?: number | null;
+          tracking_number?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          amount_paid?: number | null;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          branch_id?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          created_at?: string | null;
+          created_by?: string | null;
+          currency_code?: string | null;
+          deleted_at?: string | null;
+          delivery_location_id?: string | null;
+          discount_amount?: number | null;
+          expected_delivery_date?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          notes?: string | null;
+          organization_id?: string;
+          payment_status?: string | null;
+          payment_terms?: string | null;
+          po_date?: string;
+          po_number?: string;
+          shipping_cost?: number | null;
+          status?: string;
+          subtotal?: number | null;
+          supplier_email?: string | null;
+          supplier_id?: string;
+          supplier_name?: string;
+          supplier_phone?: string | null;
+          supplier_reference?: string | null;
+          tax_amount?: number | null;
+          total_amount?: number | null;
+          tracking_number?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_delivery_location_id_fkey";
+            columns: ["delivery_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       qr_labels: {
         Row: {
           assigned_at: string | null;
@@ -4979,6 +5246,53 @@ export type Database = {
         };
         Relationships: [];
       };
+      purchase_orders_summary: {
+        Row: {
+          amount_paid: number | null;
+          branch_id: string | null;
+          created_at: string | null;
+          created_by: string | null;
+          currency_code: string | null;
+          expected_delivery_date: string | null;
+          id: string | null;
+          is_fully_received: boolean | null;
+          item_count: number | null;
+          organization_id: string | null;
+          payment_status: string | null;
+          po_date: string | null;
+          po_number: string | null;
+          status: string | null;
+          supplier_id: string | null;
+          supplier_name: string | null;
+          total_amount: number | null;
+          total_quantity_ordered: number | null;
+          total_quantity_pending: number | null;
+          total_quantity_received: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purchase_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_supplier_id_fkey";
+            columns: ["supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       receipt_details: {
         Row: {
           batch_number: string | null;
@@ -5394,6 +5708,10 @@ export type Database = {
           role: Json;
           status_id: string;
         }[];
+      };
+      get_pending_po_quantity: {
+        Args: { p_product_id: string; p_variant_id?: string };
+        Returns: number;
       };
       get_permissions_for_roles: {
         Args: { role_ids: string[] };
