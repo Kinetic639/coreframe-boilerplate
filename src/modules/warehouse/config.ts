@@ -112,6 +112,12 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
         icon: "ShoppingBag",
         submenu: [
           {
+            id: "purchase-orders",
+            label: "modules.warehouse.items.purchases.orders",
+            path: "/dashboard/warehouse/purchases",
+            icon: "FileText",
+          },
+          {
             id: "deliveries",
             label: "modules.warehouse.items.deliveries.title",
             path: "/dashboard/warehouse/deliveries",

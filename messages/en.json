@@ -1102,7 +1102,8 @@
           "clients": "Clients"
         },
         "purchases": {
-          "title": "Purchases"
+          "title": "Purchases",
+          "orders": "Purchase Orders"
         }
       }
     },

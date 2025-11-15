@@ -4,7 +4,7 @@
  * Manages many-to-many relationships between products and suppliers
  */
 
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../../../supabase/types/types";
 import type {
   ProductSupplier,
@@ -15,10 +15,8 @@ import type {
   PriceHistoryResponse,
 } from "../types/product-suppliers";
 
-type SupabaseClient = ReturnType<typeof createClient<Database>>;
-
 export class ProductSuppliersService {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient<Database>) {}
 
   // =====================================================
   // Get Product Suppliers
@@ -249,6 +247,13 @@ export class ProductSuppliersService {
       .single();
 
     if (error) {
+      // Check for duplicate supplier constraint
+      if (
+        error.code === "23505" &&
+        error.message.includes("product_suppliers_product_id_supplier_id_key")
+      ) {
+        throw new Error("This supplier is already added to this product");
+      }
       throw new Error(`Failed to add supplier: ${error.message}`);
     }
 
