@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "@/i18n/navigation";
+import { usePathname, useRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
 
 import {
   AdvancedDataTable,
@@ -10,6 +11,8 @@ import {
 import { useTableStore } from "@/components/ui/advanced-data-table/store/table-store";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { isFilterActive } from "@/components/ui/advanced-data-table/utils/filter-utils";
+import type { ActiveFilters, FilterValue } from "@/components/ui/advanced-data-table/types";
 
 export interface PreviewableTableHeader {
   title?: string;
@@ -47,6 +50,69 @@ export interface PreviewableTableProps<T>
 
 const defaultGetRowId = (row: any) => String(row.id);
 
+const FILTER_QUERY_PREFIX = "ft.";
+const SEARCH_QUERY_KEY = "sq";
+
+function serializeFilterState(filters: ActiveFilters, searchQuery: string) {
+  const params = new URLSearchParams();
+
+  if (searchQuery) {
+    params.set(SEARCH_QUERY_KEY, searchQuery);
+  }
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (isFilterActive(value)) {
+      params.set(`${FILTER_QUERY_PREFIX}${key}`, JSON.stringify(value));
+    }
+  });
+
+  return params.toString();
+}
+
+function extractFiltersFromParams(params: URLSearchParams): ActiveFilters {
+  const result: ActiveFilters = {};
+
+  params.forEach((rawValue, key) => {
+    if (!key.startsWith(FILTER_QUERY_PREFIX)) {
+      return;
+    }
+
+    const columnKey = key.slice(FILTER_QUERY_PREFIX.length);
+
+    try {
+      const parsed = JSON.parse(rawValue) as FilterValue;
+      if (parsed && typeof parsed === "object" && "type" in parsed) {
+        result[columnKey] = parsed;
+      }
+    } catch {
+      // Ignore malformed filter values.
+    }
+  });
+
+  return result;
+}
+
+function extractSearchQueryFromParams(params: URLSearchParams) {
+  return params.get(SEARCH_QUERY_KEY) ?? "";
+}
+
+function mergePathWithQuery(path: string, queryString: string) {
+  if (!queryString) {
+    return path;
+  }
+
+  const [pathname, existingQuery = ""] = path.split("?");
+  const mergedParams = new URLSearchParams(existingQuery);
+  const additionalParams = new URLSearchParams(queryString);
+
+  additionalParams.forEach((value, key) => {
+    mergedParams.set(key, value);
+  });
+
+  const mergedQuery = mergedParams.toString();
+  return mergedQuery ? `${pathname}?${mergedQuery}` : pathname;
+}
+
 export function PreviewableTable<T>({
   basePath,
   selectedId: controlledSelectedId,
@@ -66,14 +132,122 @@ export function PreviewableTable<T>({
   ...tableProps
 }: PreviewableTableProps<T>) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const openDetail = useTableStore((state) => state.openDetail) as (row: T) => void;
   const closeDetail = useTableStore((state) => state.closeDetail);
   const setLayoutMode = useTableStore((state) => state.setLayoutMode);
+  const filters = useTableStore((state) => state.filters);
+  const setFilters = useTableStore((state) => state.setFilters);
+  const searchQuery = useTableStore((state) => state.searchQuery);
+  const setSearchQuery = useTableStore((state) => state.setSearchQuery);
 
   const [internalSelectedId, setInternalSelectedId] = React.useState<string | null>(
     controlledSelectedId ?? null
   );
+
+  const { className: tableClassName, persistFiltersInUrl = false, ...restTableProps } = tableProps;
+
+  const filterStateKey = React.useMemo(() => {
+    if (!persistFiltersInUrl) {
+      return "";
+    }
+
+    return serializeFilterState(filters, searchQuery);
+  }, [filters, persistFiltersInUrl, searchQuery]);
+
+  const lastSyncedStateRef = React.useRef<string>("");
+  const lastUpdateSourceRef = React.useRef<"store" | "url" | null>(null);
+  const skipInitialCleanupRef = React.useRef(process.env.NODE_ENV !== "production");
+  const cleanupActionsRef = React.useRef({
+    closeDetail,
+    setLayoutMode,
+    shouldResetInternal: controlledSelectedId === undefined,
+  });
+
+  React.useEffect(() => {
+    cleanupActionsRef.current = {
+      closeDetail,
+      setLayoutMode,
+      shouldResetInternal: controlledSelectedId === undefined,
+    };
+  }, [closeDetail, controlledSelectedId, setLayoutMode]);
+
+  React.useEffect(() => {
+    if (!persistFiltersInUrl) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    const filterParams = new URLSearchParams();
+
+    params.forEach((value, key) => {
+      if (key.startsWith(FILTER_QUERY_PREFIX) || key === SEARCH_QUERY_KEY) {
+        filterParams.set(key, value);
+      }
+    });
+
+    const urlStateKey = filterParams.toString();
+
+    if (urlStateKey === lastSyncedStateRef.current && lastUpdateSourceRef.current === "store") {
+      lastUpdateSourceRef.current = null;
+      return;
+    }
+
+    if (urlStateKey === filterStateKey) {
+      lastSyncedStateRef.current = urlStateKey;
+      lastUpdateSourceRef.current = "url";
+      return;
+    }
+
+    lastSyncedStateRef.current = urlStateKey;
+    lastUpdateSourceRef.current = "url";
+
+    const nextFilters = extractFiltersFromParams(filterParams);
+    const nextSearchQuery = extractSearchQueryFromParams(filterParams);
+
+    setFilters(nextFilters);
+    setSearchQuery(nextSearchQuery);
+  }, [filterStateKey, persistFiltersInUrl, searchParams, setFilters, setSearchQuery]);
+
+  React.useEffect(() => {
+    if (!persistFiltersInUrl) {
+      return;
+    }
+
+    if (filterStateKey === lastSyncedStateRef.current && lastUpdateSourceRef.current === "url") {
+      lastUpdateSourceRef.current = null;
+      return;
+    }
+
+    lastSyncedStateRef.current = filterStateKey;
+    lastUpdateSourceRef.current = "store";
+
+    const currentParams = new URLSearchParams(searchParams?.toString() ?? "");
+    Array.from(currentParams.keys()).forEach((key) => {
+      if (key.startsWith(FILTER_QUERY_PREFIX) || key === SEARCH_QUERY_KEY) {
+        currentParams.delete(key);
+      }
+    });
+
+    if (filterStateKey) {
+      const nextFilterParams = new URLSearchParams(filterStateKey);
+      nextFilterParams.forEach((value, key) => {
+        currentParams.set(key, value);
+      });
+    }
+
+    const currentSearchString = searchParams?.toString() ?? "";
+    const nextSearchString = currentParams.toString();
+
+    if (nextSearchString === currentSearchString) {
+      return;
+    }
+
+    const nextHref = nextSearchString ? `${pathname}?${nextSearchString}` : pathname;
+    router.replace(nextHref, { scroll: false });
+  }, [filterStateKey, pathname, persistFiltersInUrl, router, searchParams]);
 
   // Keep the internal state in sync when the selection is controlled by the route.
   React.useEffect(() => {
@@ -115,13 +289,19 @@ export function PreviewableTable<T>({
 
   React.useEffect(() => {
     return () => {
-      if (controlledSelectedId === undefined) {
+      if (skipInitialCleanupRef.current) {
+        skipInitialCleanupRef.current = false;
+        return;
+      }
+
+      const { closeDetail, setLayoutMode, shouldResetInternal } = cleanupActionsRef.current;
+      if (shouldResetInternal) {
         setInternalSelectedId(null);
       }
       closeDetail();
       setLayoutMode("full");
     };
-  }, [closeDetail, controlledSelectedId, setLayoutMode]);
+  }, []);
 
   const handleRowClick = React.useCallback(
     (row: T) => {
@@ -133,16 +313,21 @@ export function PreviewableTable<T>({
         navigateToDetail(row, id);
         return;
       }
-      const targetPath = detailPathBuilder ? detailPathBuilder(row, id) : `${basePath}/${id}`;
+      const baseTarget = detailPathBuilder ? detailPathBuilder(row, id) : `${basePath}/${id}`;
+      const targetPath = persistFiltersInUrl
+        ? mergePathWithQuery(baseTarget, filterStateKey)
+        : baseTarget;
       router[navigationMode](targetPath, { scroll: false });
     },
     [
       basePath,
       controlledSelectedId,
+      filterStateKey,
       detailPathBuilder,
       getRowId,
       navigateToDetail,
       navigationMode,
+      persistFiltersInUrl,
       router,
     ]
   );
@@ -156,8 +341,20 @@ export function PreviewableTable<T>({
       navigateToBase();
       return;
     }
-    router[navigationMode](basePath, { scroll: false });
-  }, [basePath, closeDetail, controlledSelectedId, navigateToBase, navigationMode, router]);
+    const baseTarget = persistFiltersInUrl
+      ? mergePathWithQuery(basePath, filterStateKey)
+      : basePath;
+    router[navigationMode](baseTarget, { scroll: false });
+  }, [
+    basePath,
+    closeDetail,
+    controlledSelectedId,
+    filterStateKey,
+    navigateToBase,
+    navigationMode,
+    persistFiltersInUrl,
+    router,
+  ]);
 
   const wrappedRenderDetail = React.useMemo(() => {
     if (!renderDetail) return undefined;
@@ -182,8 +379,6 @@ export function PreviewableTable<T>({
     </Alert>
   );
 
-  const { className: tableClassName, ...restTableProps } = tableProps;
-
   return (
     <div className={cn("flex h-full flex-col gap-4", layoutClassName)}>
       {header ? (
@@ -207,6 +402,7 @@ export function PreviewableTable<T>({
         onRowClick={handleRowClick}
         renderDetail={wrappedRenderDetail}
         className={cn("flex-1", tableClassName)}
+        persistFiltersInUrl={persistFiltersInUrl}
       />
     </div>
   );

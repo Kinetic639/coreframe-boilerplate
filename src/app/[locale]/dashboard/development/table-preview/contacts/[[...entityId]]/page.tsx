@@ -100,7 +100,7 @@ export default function ContactTablePreviewPage({ params }: PageProps) {
       renderDetail={(row, onClose) => <ContactPreviewCard contact={row} onClose={onClose} />}
       emptyMessage="No contacts found"
       responsive
-      persistFiltersInUrl={false}
+      persistFiltersInUrl
       defaultSort={{ key: "lastInteraction", direction: "desc" }}
       navigationMode="replace"
       detailPathBuilder={(_, id) =>

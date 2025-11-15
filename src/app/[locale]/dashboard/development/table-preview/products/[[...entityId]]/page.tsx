@@ -115,7 +115,7 @@ export default function ProductTablePreviewPage({ params }: PageProps) {
       renderDetail={(row, onClose) => <ProductPreviewCard product={row} onClose={onClose} />}
       emptyMessage="No products found"
       responsive
-      persistFiltersInUrl={false}
+      persistFiltersInUrl
       defaultSort={{ key: "updatedAt", direction: "desc" }}
     />
   );
