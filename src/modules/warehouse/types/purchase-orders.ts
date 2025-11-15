@@ -57,10 +57,16 @@ export interface PurchaseOrderWithRelations extends PurchaseOrder {
   created_by_user?: {
     id: string;
     email: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
   };
   approved_by_user?: {
     id: string;
     email: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
   };
 }
 

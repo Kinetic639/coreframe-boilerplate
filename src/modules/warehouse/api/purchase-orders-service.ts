@@ -50,9 +50,12 @@ export class PurchaseOrdersService {
           name,
           code
         ),
-        created_by_user:auth.users!created_by (
+        created_by_user:users!created_by (
           id,
-          email
+          email,
+          first_name,
+          last_name,
+          avatar_url
         )
       `,
         { count: "exact" }
@@ -154,13 +157,19 @@ export class PurchaseOrdersService {
           name,
           code
         ),
-        created_by_user:auth.users!created_by (
+        created_by_user:users!created_by (
           id,
-          email
+          email,
+          first_name,
+          last_name,
+          avatar_url
         ),
-        approved_by_user:auth.users!approved_by (
+        approved_by_user:users!approved_by (
           id,
-          email
+          email,
+          first_name,
+          last_name,
+          avatar_url
         )
       `
       )
