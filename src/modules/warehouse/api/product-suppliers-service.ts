@@ -40,8 +40,11 @@ export class ProductSuppliersService {
           email,
           phone,
           is_active,
-          address,
+          address_line_1,
+          address_line_2,
           city,
+          state_province,
+          postal_code,
           country
         ),
         product:products!product_id (
@@ -87,8 +90,11 @@ export class ProductSuppliersService {
           email,
           phone,
           is_active,
-          address,
+          address_line_1,
+          address_line_2,
           city,
+          state_province,
+          postal_code,
           country
         ),
         product:products!product_id (
@@ -177,8 +183,11 @@ export class ProductSuppliersService {
           email,
           phone,
           is_active,
-          address,
+          address_line_1,
+          address_line_2,
           city,
+          state_province,
+          postal_code,
           country
         ),
         product:products!product_id (

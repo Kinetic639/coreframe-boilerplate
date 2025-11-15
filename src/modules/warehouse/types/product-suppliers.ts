@@ -44,8 +44,11 @@ export interface ProductSupplierWithRelations extends ProductSupplier {
     email: string | null;
     phone: string | null;
     is_active: boolean;
-    address: string | null;
+    address_line_1: string | null;
+    address_line_2: string | null;
     city: string | null;
+    state_province: string | null;
+    postal_code: string | null;
     country: string | null;
   };
   product: {
