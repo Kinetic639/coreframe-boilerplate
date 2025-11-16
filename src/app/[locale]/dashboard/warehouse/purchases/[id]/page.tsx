@@ -16,7 +16,7 @@ interface PageProps {
 }
 
 export default async function PurchaseOrderDetailPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">

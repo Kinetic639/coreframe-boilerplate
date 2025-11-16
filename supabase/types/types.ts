@@ -3213,10 +3213,31 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "purchase_orders_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "purchase_orders_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
             referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_cancelled_by_fkey";
+            columns: ["cancelled_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
@@ -5275,6 +5296,13 @@ export type Database = {
             columns: ["branch_id"];
             isOneToOne: false;
             referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
