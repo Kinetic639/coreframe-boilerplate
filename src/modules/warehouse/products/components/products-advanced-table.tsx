@@ -54,6 +54,7 @@ import {
   type ProductSummary,
 } from "@/app/actions/warehouse/get-product-summary";
 import { ProductSuppliersTab } from "./product-suppliers-tab";
+import { ProductPurchaseOrdersTab } from "./product-purchase-orders-tab";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -355,6 +356,7 @@ export function ProductsAdvancedTable({
       quantity_on_hand: 0,
       reserved_quantity: 0,
       available_quantity: 0,
+      pending_po_quantity: 0,
     };
 
     return (
@@ -427,6 +429,12 @@ export function ProductsAdvancedTable({
                 className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
               >
                 Suppliers
+              </TabsTrigger>
+              <TabsTrigger
+                value="purchase-orders"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Purchase Orders
               </TabsTrigger>
             </TabsList>
           </div>
@@ -642,7 +650,9 @@ export function ProductsAdvancedTable({
                       <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
                         <div className="mb-1 text-xs opacity-90">Qty</div>
                         <div className="text-sm font-medium">To be Invoiced</div>
-                        <div className="mt-2 text-3xl font-bold">0</div>
+                        <div className="mt-2 text-3xl font-bold">
+                          {productSummary.pending_po_quantity}
+                        </div>
                       </div>
 
                       {/* To be Billed */}
@@ -741,6 +751,11 @@ export function ProductsAdvancedTable({
           {/* Suppliers Tab */}
           <TabsContent value="suppliers" className="flex-1 overflow-auto bg-white p-6">
             <ProductSuppliersTab productId={product.id} />
+          </TabsContent>
+
+          {/* Purchase Orders Tab */}
+          <TabsContent value="purchase-orders" className="flex-1 overflow-auto bg-white p-6">
+            <ProductPurchaseOrdersTab productId={product.id} />
           </TabsContent>
         </Tabs>
       </div>
