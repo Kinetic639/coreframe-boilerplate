@@ -397,6 +397,17 @@ export function PurchaseOrderDetails({ purchaseOrderId }: PurchaseOrderDetailsPr
                 <span>{po.supplier_reference}</span>
               </div>
             )}
+            {po.status === "cancelled" && po.cancellation_reason && (
+              <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                <div className="text-sm font-medium text-red-900">Cancellation Reason:</div>
+                <div className="text-sm text-red-700">{po.cancellation_reason}</div>
+                {po.cancelled_at && (
+                  <div className="text-xs text-red-600">
+                    Cancelled on {new Date(po.cancelled_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
