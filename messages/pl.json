@@ -1082,7 +1082,8 @@
           "clients": "Klienci"
         },
         "purchases": {
-          "title": "Zakupy"
+          "title": "Zakupy",
+          "orders": "Zamówienia Zakupu"
         }
       }
     },

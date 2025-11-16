@@ -98,7 +98,7 @@ export function AddProductSupplierDialog({
     if (open && activeOrgId && !isEditMode) {
       setLoadingSuppliers(true);
       supplierService
-        .getSuppliers({ active: true, partner_type: "vendor" }) // Active suppliers only
+        .getSuppliers({ active: true, partner_type: "vendor" }, activeOrgId) // Pass organizationId explicitly
         .then((result) => setSuppliers(result.suppliers))
         .catch((error) => {
           console.error("Failed to load suppliers:", error);

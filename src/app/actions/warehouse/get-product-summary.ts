@@ -6,6 +6,7 @@ export interface ProductSummary {
   quantity_on_hand: number;
   reserved_quantity: number;
   available_quantity: number;
+  pending_po_quantity: number; // Qty to be received from approved POs
 }
 
 export async function getProductSummary(
@@ -27,12 +28,28 @@ export async function getProductSummary(
       return { data: null, error: inventoryError.message };
     }
 
+    // Get pending PO quantity using database function
+    const { data: pendingPoData, error: pendingPoError } = await supabase.rpc(
+      "get_pending_po_quantity",
+      {
+        p_product_id: productId,
+        p_variant_id: null,
+      }
+    );
+
+    if (pendingPoError) {
+      console.error("Error fetching pending PO quantity:", pendingPoError);
+    }
+
+    const pendingPoQuantity = Number(pendingPoData) || 0;
+
     if (!inventoryData || inventoryData.length === 0) {
       return {
         data: {
           quantity_on_hand: 0,
           reserved_quantity: 0,
           available_quantity: 0,
+          pending_po_quantity: pendingPoQuantity,
         },
         error: null,
       };
@@ -44,11 +61,13 @@ export async function getProductSummary(
         quantity_on_hand: acc.quantity_on_hand + (item.quantity_on_hand || 0),
         reserved_quantity: acc.reserved_quantity + (item.reserved_quantity || 0),
         available_quantity: acc.available_quantity + (item.available_quantity || 0),
+        pending_po_quantity: pendingPoQuantity,
       }),
       {
         quantity_on_hand: 0,
         reserved_quantity: 0,
         available_quantity: 0,
+        pending_po_quantity: pendingPoQuantity,
       }
     );
 

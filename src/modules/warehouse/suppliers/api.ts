@@ -53,8 +53,11 @@ class SupplierService {
     return activeOrgId;
   }
 
-  async getSuppliers(filters: SupplierFilters = {}): Promise<SuppliersResponse> {
-    const organizationId = this.getOrganizationId();
+  async getSuppliers(
+    filters: SupplierFilters = {},
+    organizationId?: string
+  ): Promise<SuppliersResponse> {
+    const orgId = organizationId || this.getOrganizationId();
 
     let query = this.supabase
       .from("business_accounts")
@@ -79,7 +82,7 @@ class SupplierService {
       `,
         { count: "exact" }
       )
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .is("deleted_at", null);
 
     // Filter by partner_type - default to 'vendor' for suppliers
