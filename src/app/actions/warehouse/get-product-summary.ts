@@ -56,7 +56,7 @@ export async function getProductSummary(
     }
 
     // Aggregate across all locations for this product
-    const summary: ProductSummary = inventoryData.reduce(
+    const summary: ProductSummary = inventoryData.reduce<ProductSummary>(
       (acc, item) => ({
         quantity_on_hand: acc.quantity_on_hand + (item.quantity_on_hand || 0),
         reserved_quantity: acc.reserved_quantity + (item.reserved_quantity || 0),
