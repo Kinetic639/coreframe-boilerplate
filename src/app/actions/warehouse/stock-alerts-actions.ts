@@ -166,7 +166,7 @@ export async function getAlertsAction(
         ),
         product_variant:product_variants (
           id,
-          variant_name,
+          name,
           sku
         )
       `
@@ -269,7 +269,7 @@ export async function getAlertByIdAction(
         ),
         product_variant:product_variants (
           id,
-          variant_name,
+          name,
           sku
         ),
         supplier:business_accounts!stock_alerts_suggested_supplier_id_fkey (

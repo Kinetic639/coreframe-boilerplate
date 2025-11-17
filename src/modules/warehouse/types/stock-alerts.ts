@@ -94,7 +94,7 @@ export interface StockAlertWithProduct extends StockAlert {
   };
   product_variant?: {
     id: string;
-    variant_name: string;
+    name: string;
     sku: string;
   } | null;
 }

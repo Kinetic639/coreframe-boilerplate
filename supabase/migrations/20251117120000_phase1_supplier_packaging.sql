@@ -34,8 +34,8 @@ COMMENT ON COLUMN product_suppliers.package_unit IS
    Used for display and packaging calculations.';
 
 COMMENT ON COLUMN product_suppliers.package_quantity IS
-  'How many base units (from products.base_unit) are in one package.
-   Example: If base_unit=piece and package_unit=box, this might be 100 (100 pieces per box).';
+  'How many base units (from products.unit) are in one package.
+   Example: If unit=piece and package_unit=box, this might be 100 (100 pieces per box).';
 
 COMMENT ON COLUMN product_suppliers.allow_partial_package IS
   'Can order partial packages?
@@ -45,7 +45,7 @@ COMMENT ON COLUMN product_suppliers.allow_partial_package IS
 
 COMMENT ON COLUMN product_suppliers.min_order_quantity IS
   'Minimum quantity that can be ordered from this supplier (in base units).
-   Example: If base_unit=piece and min_order_quantity=50, cannot order less than 50 pieces.
+   Example: If unit=piece and min_order_quantity=50, cannot order less than 50 pieces.
    Applied before packaging constraints.';
 
 COMMENT ON COLUMN product_suppliers.order_in_multiples_of IS

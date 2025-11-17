@@ -367,7 +367,7 @@ BEGIN
         'product_id', p.id,
         'product_name', p.name,
         'sku', p.sku,
-        'base_unit', p.base_unit,
+        'unit', p.unit,
         'available_stock', sa.available_stock,
         'reorder_point', sa.reorder_point,
         'suggested_quantity', sa.suggested_order_quantity,

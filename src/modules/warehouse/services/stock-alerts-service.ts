@@ -132,7 +132,7 @@ export async function getAlerts(
       ),
       product_variant:product_variants (
         id,
-        variant_name,
+        name,
         sku
       )
     `
@@ -226,7 +226,7 @@ export async function getAlertById(alertId: string): Promise<StockAlertWithRelat
       ),
       product_variant:product_variants (
         id,
-        variant_name,
+        name,
         sku
       ),
       supplier:business_accounts!stock_alerts_suggested_supplier_id_fkey (
@@ -286,7 +286,7 @@ export async function getActiveAlertsForProduct(
       ),
       product_variant:product_variants (
         id,
-        variant_name,
+        name,
         sku
       )
     `
@@ -555,7 +555,7 @@ export async function getAlertsNeedingNotification(
       ),
       product_variant:product_variants (
         id,
-        variant_name,
+        name,
         sku
       )
     `
