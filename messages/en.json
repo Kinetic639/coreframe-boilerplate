@@ -942,6 +942,10 @@
           "batches": "Label Batches",
           "history": "Assignment History"
         },
+        "alerts": {
+          "title": "Stock Alerts",
+          "description": "Low stock monitoring and replenishment alerts"
+        },
         "scanning": {
           "title": "Code Scanning",
           "delivery": "Delivery Scanning",

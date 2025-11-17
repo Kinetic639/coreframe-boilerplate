@@ -897,6 +897,10 @@
           "batches": "Partie etykiet",
           "history": "Historia przypisań"
         },
+        "alerts": {
+          "title": "Alerty Stanów Magazynowych",
+          "description": "Monitorowanie niskich stanów i alerty uzupełnienia"
+        },
         "scanning": {
           "title": "Skanowanie kodów",
           "delivery": "Skanowanie dostaw",
