@@ -1,6 +1,7 @@
 /**
  * Product Suppliers Tab
  * Phase 0: Purchase Orders Implementation
+ * Phase 1: Packaging & Ordering Constraints (Updated)
  * Displays all suppliers for a product with pricing and ordering information
  */
 
@@ -23,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Star, Edit, Trash2, TrendingUp, Clock } from "lucide-react";
+import { Plus, MoreVertical, Star, Edit, Trash2, TrendingUp, Clock, Package } from "lucide-react";
 import { toast } from "react-toastify";
 import type { ProductSupplierWithRelations } from "../../types/product-suppliers";
 import {
@@ -167,7 +168,7 @@ export function ProductSuppliersTab({ productId }: ProductSuppliersTabProps) {
                 <TableHead>Supplier SKU</TableHead>
                 <TableHead className="text-right">Unit Price</TableHead>
                 <TableHead className="text-center">Lead Time</TableHead>
-                <TableHead className="text-right">MOQ</TableHead>
+                <TableHead className="text-center">Packaging</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="w-[70px]"></TableHead>
               </TableRow>
@@ -203,14 +204,29 @@ export function ProductSuppliersTab({ productId }: ProductSuppliersTabProps) {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3 w-3" />
-                      {supplier.lead_time_days} days
+                      {supplier.supplier_lead_time_days || supplier.lead_time_days} days
                     </div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <span className="text-sm text-muted-foreground">
-                      {supplier.min_order_qty}
-                      {supplier.order_multiple > 1 && ` (×${supplier.order_multiple})`}
-                    </span>
+                  <TableCell className="text-center">
+                    {supplier.package_unit && supplier.package_quantity ? (
+                      <div className="flex items-center justify-center gap-1 text-sm">
+                        <Package className="h-3 w-3 text-green-600" />
+                        <span className="font-medium">
+                          {supplier.package_quantity} / {supplier.package_unit}
+                        </span>
+                        {!supplier.allow_partial_package && (
+                          <Badge variant="outline" className="ml-1 text-xs">
+                            Full only
+                          </Badge>
+                        )}
+                      </div>
+                    ) : supplier.min_order_quantity ? (
+                      <span className="text-xs text-muted-foreground">
+                        MOQ: {supplier.min_order_quantity}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant={supplier.is_active ? "default" : "secondary"}>

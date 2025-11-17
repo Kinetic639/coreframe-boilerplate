@@ -2634,6 +2634,7 @@ export type Database = {
       };
       product_suppliers: {
         Row: {
+          allow_partial_package: boolean | null;
           created_at: string | null;
           created_by: string | null;
           currency_code: string | null;
@@ -2645,13 +2646,19 @@ export type Database = {
           last_order_price: number | null;
           lead_time_days: number | null;
           min_order_qty: number | null;
+          min_order_quantity: number | null;
           notes: string | null;
+          order_in_multiples_of: number | null;
           order_multiple: number | null;
+          package_quantity: number | null;
+          package_unit: string | null;
           price_valid_from: string | null;
           price_valid_until: string | null;
           priority_rank: number | null;
           product_id: string;
           supplier_id: string;
+          supplier_lead_time_days: number | null;
+          supplier_price: number | null;
           supplier_product_description: string | null;
           supplier_product_name: string | null;
           supplier_sku: string | null;
@@ -2659,6 +2666,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
+          allow_partial_package?: boolean | null;
           created_at?: string | null;
           created_by?: string | null;
           currency_code?: string | null;
@@ -2670,13 +2678,19 @@ export type Database = {
           last_order_price?: number | null;
           lead_time_days?: number | null;
           min_order_qty?: number | null;
+          min_order_quantity?: number | null;
           notes?: string | null;
+          order_in_multiples_of?: number | null;
           order_multiple?: number | null;
+          package_quantity?: number | null;
+          package_unit?: string | null;
           price_valid_from?: string | null;
           price_valid_until?: string | null;
           priority_rank?: number | null;
           product_id: string;
           supplier_id: string;
+          supplier_lead_time_days?: number | null;
+          supplier_price?: number | null;
           supplier_product_description?: string | null;
           supplier_product_name?: string | null;
           supplier_sku?: string | null;
@@ -2684,6 +2698,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
+          allow_partial_package?: boolean | null;
           created_at?: string | null;
           created_by?: string | null;
           currency_code?: string | null;
@@ -2695,13 +2710,19 @@ export type Database = {
           last_order_price?: number | null;
           lead_time_days?: number | null;
           min_order_qty?: number | null;
+          min_order_quantity?: number | null;
           notes?: string | null;
+          order_in_multiples_of?: number | null;
           order_multiple?: number | null;
+          package_quantity?: number | null;
+          package_unit?: string | null;
           price_valid_from?: string | null;
           price_valid_until?: string | null;
           priority_rank?: number | null;
           product_id?: string;
           supplier_id?: string;
+          supplier_lead_time_days?: number | null;
+          supplier_price?: number | null;
           supplier_product_description?: string | null;
           supplier_product_name?: string | null;
           supplier_sku?: string | null;
@@ -2841,6 +2862,7 @@ export type Database = {
           inventory_account: string | null;
           isbn: string | null;
           manufacturer: string | null;
+          max_stock_level: number | null;
           mpn: string | null;
           name: string;
           opening_stock: number | null;
@@ -2850,11 +2872,14 @@ export type Database = {
           product_type: string;
           purchase_account: string | null;
           purchase_description: string | null;
+          reorder_calculation_method: string | null;
           reorder_point: number | null;
+          reorder_quantity: number | null;
           returnable_item: boolean | null;
           sales_account: string | null;
           sales_description: string | null;
           selling_price: number | null;
+          send_low_stock_alerts: boolean | null;
           sku: string | null;
           status: string | null;
           track_inventory: boolean | null;
@@ -2881,6 +2906,7 @@ export type Database = {
           inventory_account?: string | null;
           isbn?: string | null;
           manufacturer?: string | null;
+          max_stock_level?: number | null;
           mpn?: string | null;
           name: string;
           opening_stock?: number | null;
@@ -2890,11 +2916,14 @@ export type Database = {
           product_type: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
+          reorder_calculation_method?: string | null;
           reorder_point?: number | null;
+          reorder_quantity?: number | null;
           returnable_item?: boolean | null;
           sales_account?: string | null;
           sales_description?: string | null;
           selling_price?: number | null;
+          send_low_stock_alerts?: boolean | null;
           sku?: string | null;
           status?: string | null;
           track_inventory?: boolean | null;
@@ -2921,6 +2950,7 @@ export type Database = {
           inventory_account?: string | null;
           isbn?: string | null;
           manufacturer?: string | null;
+          max_stock_level?: number | null;
           mpn?: string | null;
           name?: string;
           opening_stock?: number | null;
@@ -2930,11 +2960,14 @@ export type Database = {
           product_type?: string;
           purchase_account?: string | null;
           purchase_description?: string | null;
+          reorder_calculation_method?: string | null;
           reorder_point?: number | null;
+          reorder_quantity?: number | null;
           returnable_item?: boolean | null;
           sales_account?: string | null;
           sales_description?: string | null;
           selling_price?: number | null;
+          send_low_stock_alerts?: boolean | null;
           sku?: string | null;
           status?: string | null;
           track_inventory?: boolean | null;
@@ -4058,6 +4091,153 @@ export type Database = {
           message?: string | null;
         };
         Relationships: [];
+      };
+      stock_alerts: {
+        Row: {
+          acknowledged_at: string | null;
+          acknowledged_by: string | null;
+          alert_type: string;
+          available_stock: number;
+          branch_id: string | null;
+          calculation_method: string | null;
+          calculation_notes: string | null;
+          created_at: string | null;
+          current_stock: number;
+          id: string;
+          location_id: string | null;
+          notification_sent: boolean | null;
+          notification_sent_at: string | null;
+          notification_type: string | null;
+          organization_id: string;
+          product_id: string;
+          product_variant_id: string | null;
+          reorder_point: number;
+          resolution_notes: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          severity: string;
+          status: string | null;
+          suggested_order_quantity: number | null;
+          suggested_packages: number | null;
+          suggested_supplier_id: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          alert_type: string;
+          available_stock: number;
+          branch_id?: string | null;
+          calculation_method?: string | null;
+          calculation_notes?: string | null;
+          created_at?: string | null;
+          current_stock: number;
+          id?: string;
+          location_id?: string | null;
+          notification_sent?: boolean | null;
+          notification_sent_at?: string | null;
+          notification_type?: string | null;
+          organization_id: string;
+          product_id: string;
+          product_variant_id?: string | null;
+          reorder_point: number;
+          resolution_notes?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          severity: string;
+          status?: string | null;
+          suggested_order_quantity?: number | null;
+          suggested_packages?: number | null;
+          suggested_supplier_id?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          acknowledged_at?: string | null;
+          acknowledged_by?: string | null;
+          alert_type?: string;
+          available_stock?: number;
+          branch_id?: string | null;
+          calculation_method?: string | null;
+          calculation_notes?: string | null;
+          created_at?: string | null;
+          current_stock?: number;
+          id?: string;
+          location_id?: string | null;
+          notification_sent?: boolean | null;
+          notification_sent_at?: string | null;
+          notification_type?: string | null;
+          organization_id?: string;
+          product_id?: string;
+          product_variant_id?: string | null;
+          reorder_point?: number;
+          resolution_notes?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          severity?: string;
+          status?: string | null;
+          suggested_order_quantity?: number | null;
+          suggested_packages?: number | null;
+          suggested_supplier_id?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_alerts_acknowledged_by_fkey";
+            columns: ["acknowledged_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_location_id_fkey";
+            columns: ["location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_product_variant_id_fkey";
+            columns: ["product_variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_suggested_supplier_id_fkey";
+            columns: ["suggested_supplier_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       stock_movements: {
         Row: {
@@ -5492,6 +5672,14 @@ export type Database = {
       };
     };
     Functions: {
+      adjust_for_packaging: {
+        Args: { p_product_supplier_id: string; p_raw_quantity: number };
+        Returns: {
+          adjusted_quantity: number;
+          adjustment_reason: string;
+          packages: number;
+        }[];
+      };
       authorize: {
         Args: {
           branch_id?: string;
@@ -5511,6 +5699,20 @@ export type Database = {
           p_variant_id: string;
         };
         Returns: number;
+      };
+      calculate_order_quantity: {
+        Args: {
+          p_available_stock?: number;
+          p_product_id: string;
+          p_supplier_id: string;
+        };
+        Returns: {
+          adjusted_quantity: number;
+          adjustment_reason: string;
+          calculation_method: string;
+          packages: number;
+          raw_quantity: number;
+        }[];
       };
       calculate_reserved_stock: {
         Args: {
@@ -5548,6 +5750,14 @@ export type Database = {
           p_variant_id: string;
         };
         Returns: boolean;
+      };
+      check_stock_levels_and_alert: {
+        Args: { p_organization_id?: string };
+        Returns: {
+          alerts_created: number;
+          alerts_resolved: number;
+          notifications_pending: number;
+        }[];
       };
       compare_variants: { Args: { p_variant_ids: string[] }; Returns: Json };
       create_direct_chat: {
@@ -5630,6 +5840,18 @@ export type Database = {
           variant_id: string;
         }[];
       };
+      get_alert_summary: {
+        Args: { p_organization_id: string };
+        Returns: {
+          critical_count: number;
+          info_count: number;
+          notification_enabled_count: number;
+          out_of_stock_count: number;
+          pending_notifications: number;
+          total_active: number;
+          warning_count: number;
+        }[];
+      };
       get_all_templates_for_org: {
         Args: { p_organization_id?: string };
         Returns: {
@@ -5648,6 +5870,17 @@ export type Database = {
         }[];
       };
       get_invitation_stats: { Args: { org_id: string }; Returns: Json };
+      get_low_stock_by_supplier: {
+        Args: { p_organization_id: string };
+        Returns: {
+          product_count: number;
+          products: Json;
+          supplier_id: string;
+          supplier_name: string;
+          total_packages: number;
+          total_suggested_quantity: number;
+        }[];
+      };
       get_movement_types_by_category: {
         Args: { p_category: string };
         Returns: {

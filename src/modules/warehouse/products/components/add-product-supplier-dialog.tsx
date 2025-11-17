@@ -1,6 +1,7 @@
 /**
  * Add/Edit Product Supplier Dialog
  * Phase 0: Purchase Orders Implementation
+ * Phase 1: Packaging & Ordering Constraints (Updated)
  */
 
 "use client";
@@ -28,11 +29,13 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "react-toastify";
-import { Loader2 } from "lucide-react";
+import { Loader2, Package, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type {
   ProductSupplierFormData,
   ProductSupplierWithRelations,
 } from "../../types/product-suppliers";
+import { PACKAGE_UNITS } from "../../types/packaging";
 import {
   addSupplierToProductAction,
   updateSupplierAction,
@@ -87,11 +90,21 @@ export function AddProductSupplierDialog({
       is_active: supplier?.is_active ?? true,
       priority_rank: supplier?.priority_rank ?? 0,
       notes: supplier?.notes || "",
+      // Phase 1: Packaging fields
+      package_unit: supplier?.package_unit || "",
+      package_quantity: supplier?.package_quantity || undefined,
+      allow_partial_package: supplier?.allow_partial_package ?? true,
+      min_order_quantity: supplier?.min_order_quantity || undefined,
+      order_in_multiples_of: supplier?.order_in_multiples_of || undefined,
+      supplier_lead_time_days: supplier?.supplier_lead_time_days || undefined,
+      supplier_price: supplier?.supplier_price || undefined,
     },
   });
 
   const selectedSupplierId = watch("supplier_id");
   const isPreferred = watch("is_preferred");
+  const packageQuantity = watch("package_quantity");
+  const allowPartialPackage = watch("allow_partial_package");
 
   // Load suppliers (vendors)
   React.useEffect(() => {
@@ -127,6 +140,14 @@ export function AddProductSupplierDialog({
         is_active: supplier?.is_active ?? true,
         priority_rank: supplier?.priority_rank ?? 0,
         notes: supplier?.notes || "",
+        // Phase 1: Packaging fields
+        package_unit: supplier?.package_unit || "",
+        package_quantity: supplier?.package_quantity || undefined,
+        allow_partial_package: supplier?.allow_partial_package ?? true,
+        min_order_quantity: supplier?.min_order_quantity || undefined,
+        order_in_multiples_of: supplier?.order_in_multiples_of || undefined,
+        supplier_lead_time_days: supplier?.supplier_lead_time_days || undefined,
+        supplier_price: supplier?.supplier_price || undefined,
       });
     }
   }, [open, supplier, reset]);
@@ -277,7 +298,7 @@ export function AddProductSupplierDialog({
 
           {/* Ordering Parameters */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium">Ordering Parameters</h3>
+            <h3 className="text-sm font-medium">Ordering Parameters (Legacy)</h3>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="lead_time_days">Lead Time (days)</Label>
@@ -288,7 +309,7 @@ export function AddProductSupplierDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="min_order_qty">Min Order Qty</Label>
+                <Label htmlFor="min_order_qty">Min Order Qty (Legacy)</Label>
                 <Input
                   id="min_order_qty"
                   type="number"
@@ -297,13 +318,144 @@ export function AddProductSupplierDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="order_multiple">Order Multiple</Label>
+                <Label htmlFor="order_multiple">Order Multiple (Legacy)</Label>
                 <Input
                   id="order_multiple"
                   type="number"
                   step="0.001"
                   {...register("order_multiple", { valueAsNumber: true })}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Phase 1: Packaging & Ordering Constraints */}
+          <div className="space-y-4 rounded-lg border border-green-200 bg-green-50/50 p-4">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <h3 className="text-sm font-medium text-green-900">
+                Packaging & Ordering Constraints
+              </h3>
+            </div>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Configure supplier-specific packaging rules. These constraints will be automatically
+                applied when calculating order quantities.
+              </AlertDescription>
+            </Alert>
+
+            {/* Packaging Information */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="package_unit">Package Unit</Label>
+                <Select
+                  value={watch("package_unit") || ""}
+                  onValueChange={(value) => setValue("package_unit", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select package type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {Object.entries(PACKAGE_UNITS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">E.g., Box, Case, Pallet, Drum</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="package_quantity">Units per Package</Label>
+                <Input
+                  id="package_quantity"
+                  type="number"
+                  step="0.001"
+                  placeholder="E.g., 12"
+                  {...register("package_quantity", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">How many base units in one package?</p>
+              </div>
+            </div>
+
+            {/* Partial Package Option */}
+            {packageQuantity && packageQuantity > 0 && (
+              <div className="flex items-center space-x-2 rounded-md border border-green-200 bg-white p-3">
+                <Checkbox
+                  id="allow_partial_package"
+                  checked={allowPartialPackage}
+                  onCheckedChange={(checked) => setValue("allow_partial_package", !!checked)}
+                />
+                <div className="flex-1">
+                  <Label htmlFor="allow_partial_package" className="cursor-pointer font-normal">
+                    Allow partial packages
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {allowPartialPackage
+                      ? "Can order individual units (e.g., 15 pieces instead of 2 full boxes)"
+                      : "Must order full packages only"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Ordering Constraints */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="min_order_quantity">Minimum Order Quantity</Label>
+                <Input
+                  id="min_order_quantity"
+                  type="number"
+                  step="0.001"
+                  placeholder="E.g., 50"
+                  {...register("min_order_quantity", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">Minimum units that must be ordered</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="order_in_multiples_of">Order in Multiples Of</Label>
+                <Input
+                  id="order_in_multiples_of"
+                  type="number"
+                  step="0.001"
+                  placeholder="E.g., 10"
+                  {...register("order_in_multiples_of", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">E.g., must order in multiples of 10</p>
+              </div>
+            </div>
+
+            {/* Supplier-Specific Lead Time and Price */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="supplier_lead_time_days">Supplier Lead Time (days)</Label>
+                <Input
+                  id="supplier_lead_time_days"
+                  type="number"
+                  placeholder="Optional"
+                  {...register("supplier_lead_time_days", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Overrides product's global lead time
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="supplier_price">Supplier Price (optional)</Label>
+                <Input
+                  id="supplier_price"
+                  type="number"
+                  step="0.01"
+                  placeholder="Optional"
+                  {...register("supplier_price", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Price per base unit (if different from unit_price)
+                </p>
               </div>
             </div>
           </div>
