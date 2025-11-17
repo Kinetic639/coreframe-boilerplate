@@ -160,7 +160,7 @@ export async function getAlertsAction(
           id,
           name,
           sku,
-          base_unit,
+          unit,
           description,
           send_low_stock_alerts
         ),
@@ -263,7 +263,7 @@ export async function getAlertByIdAction(
           id,
           name,
           sku,
-          base_unit,
+          unit,
           description,
           send_low_stock_alerts
         ),

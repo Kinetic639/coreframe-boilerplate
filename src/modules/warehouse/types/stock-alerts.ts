@@ -88,7 +88,7 @@ export interface StockAlertWithProduct extends StockAlert {
     id: string;
     name: string;
     sku: string;
-    base_unit: string;
+    unit: string;
     description: string | null;
     send_low_stock_alerts: boolean;
   };
@@ -163,7 +163,7 @@ export interface AlertProductInfo {
   product_id: string;
   product_name: string;
   sku: string;
-  base_unit: string;
+  unit: string;
   available_stock: number;
   reorder_point: number;
   suggested_quantity: number | null;
@@ -368,7 +368,7 @@ export function groupAlertsBySupplier(alerts: StockAlertWithRelations[]): Alerts
       product_id: alert.product_id,
       product_name: alert.product.name,
       sku: alert.product.sku,
-      base_unit: alert.product.base_unit,
+      unit: alert.product.unit,
       available_stock: alert.available_stock,
       reorder_point: alert.reorder_point,
       suggested_quantity: alert.suggested_order_quantity,

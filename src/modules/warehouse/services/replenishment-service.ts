@@ -81,7 +81,7 @@ export async function getReplenishmentSettings(
       reorder_quantity,
       max_stock_level,
       reorder_calculation_method,
-      base_unit,
+      unit,
       lead_time_days,
       send_low_stock_alerts
     `
@@ -101,7 +101,7 @@ export async function getReplenishmentSettings(
     max_stock_level: data.max_stock_level,
     reorder_calculation_method:
       (data.reorder_calculation_method as ReorderCalculationMethod) || "min_max",
-    base_unit: data.base_unit || "piece",
+    unit: data.unit || "piece",
     lead_time_days: data.lead_time_days,
     send_low_stock_alerts: data.send_low_stock_alerts || false,
   };
@@ -272,7 +272,7 @@ export async function checkIfNeedsReorder(productId: string): Promise<{
   // Get product settings and current stock
   const { data: product, error: productError } = await supabase
     .from("products")
-    .select("reorder_point, base_unit")
+    .select("reorder_point, unit")
     .eq("id", productId)
     .is("deleted_at", null)
     .single();
@@ -335,7 +335,7 @@ export async function getProductsNeedingReorder(
     product_id: string;
     product_name: string;
     sku: string;
-    base_unit: string;
+    unit: string;
     available_stock: number;
     reorder_point: number;
     max_stock_level: number | null;
@@ -352,7 +352,7 @@ export async function getProductsNeedingReorder(
       id,
       name,
       sku,
-      base_unit,
+      unit,
       reorder_point,
       max_stock_level,
       reorder_calculation_method,
@@ -397,7 +397,7 @@ export async function getProductsNeedingReorder(
         product_id: product.id,
         product_name: product.name,
         sku: product.sku,
-        base_unit: product.base_unit || "piece",
+        unit: product.unit || "piece",
         available_stock: inventory.available_quantity || 0,
         reorder_point: product.reorder_point,
         max_stock_level: product.max_stock_level,

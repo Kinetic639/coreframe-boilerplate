@@ -126,7 +126,7 @@ export async function getAlerts(
         id,
         name,
         sku,
-        base_unit,
+        unit,
         description,
         send_low_stock_alerts
       ),
@@ -220,7 +220,7 @@ export async function getAlertById(alertId: string): Promise<StockAlertWithRelat
         id,
         name,
         sku,
-        base_unit,
+        unit,
         description,
         send_low_stock_alerts
       ),
@@ -280,7 +280,7 @@ export async function getActiveAlertsForProduct(
         id,
         name,
         sku,
-        base_unit,
+        unit,
         description,
         send_low_stock_alerts
       ),
@@ -549,7 +549,7 @@ export async function getAlertsNeedingNotification(
         id,
         name,
         sku,
-        base_unit,
+        unit,
         description,
         send_low_stock_alerts
       ),

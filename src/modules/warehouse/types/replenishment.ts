@@ -19,7 +19,7 @@ export interface ProductReplenishmentSettings {
   reorder_quantity: number | null; // For fixed method: always order this amount
   max_stock_level: number | null; // For min_max method: order up to this level
   reorder_calculation_method: ReorderCalculationMethod; // Which method to use
-  base_unit: string; // Unit of measure (piece, kg, liter, etc.)
+  unit: string; // Unit of measure (piece, kg, liter, etc.)
   lead_time_days: number | null; // Global lead time (can be overridden by supplier)
   send_low_stock_alerts: boolean; // Tier 2: Send notifications when low?
 }
@@ -157,16 +157,16 @@ export function explainCalculationMethod(
 
   switch (method) {
     case "fixed":
-      return `Fixed method: Always order ${settings.reorder_quantity} ${settings.base_unit}s when stock falls below ${settings.reorder_point}`;
+      return `Fixed method: Always order ${settings.reorder_quantity} ${settings.unit}s when stock falls below ${settings.reorder_point}`;
 
     case "min_max":
       const maxLevel = settings.max_stock_level || settings.reorder_point * 2;
-      return `Min/Max method: Order ${rawQty} ${settings.base_unit}s to reach maximum level of ${maxLevel}`;
+      return `Min/Max method: Order ${rawQty} ${settings.unit}s to reach maximum level of ${maxLevel}`;
 
     case "auto":
       return `Auto method: Calculate from demand history (currently using min/max logic)`;
 
     default:
-      return `Order to bring stock to reorder point (${settings.reorder_point} ${settings.base_unit}s)`;
+      return `Order to bring stock to reorder point (${settings.reorder_point} ${settings.unit}s)`;
   }
 }
