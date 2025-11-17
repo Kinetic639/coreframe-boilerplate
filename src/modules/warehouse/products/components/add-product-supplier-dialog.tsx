@@ -350,14 +350,13 @@ export function AddProductSupplierDialog({
               <div className="space-y-2">
                 <Label htmlFor="package_unit">Package Unit</Label>
                 <Select
-                  value={watch("package_unit") || ""}
+                  value={watch("package_unit") || undefined}
                   onValueChange={(value) => setValue("package_unit", value)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select package type" />
+                    <SelectValue placeholder="Select package type (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     {Object.entries(PACKAGE_UNITS).map(([key, label]) => (
                       <SelectItem key={key} value={key}>
                         {label}
