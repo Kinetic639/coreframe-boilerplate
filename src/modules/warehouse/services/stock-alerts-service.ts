@@ -45,6 +45,7 @@ export async function checkStockLevelsAndAlert(
     return {
       alerts_created: 0,
       alerts_resolved: 0,
+      alerts_updated: 0,
       notifications_pending: 0,
     };
   }
@@ -52,6 +53,7 @@ export async function checkStockLevelsAndAlert(
   return {
     alerts_created: data[0].alerts_created,
     alerts_resolved: data[0].alerts_resolved,
+    alerts_updated: data[0].alerts_updated || 0,
     notifications_pending: data[0].notifications_pending,
   };
 }
@@ -80,6 +82,8 @@ export async function getAlertSummary(organizationId: string): Promise<AlertSumm
       out_of_stock_count: 0,
       notification_enabled_count: 0,
       pending_notifications: 0,
+      affected_branches: 0,
+      affected_products: 0,
     };
   }
 

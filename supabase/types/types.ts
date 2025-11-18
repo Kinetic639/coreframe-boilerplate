@@ -81,6 +81,13 @@ export type Database = {
             foreignKeyName: "activities_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "activities_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -406,6 +413,13 @@ export type Database = {
             foreignKeyName: "chat_participants_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "chat_participants_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -470,6 +484,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "chats_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "chats_branch_id_fkey";
             columns: ["branch_id"];
@@ -793,6 +814,13 @@ export type Database = {
             foreignKeyName: "contacts_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "contacts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -992,6 +1020,13 @@ export type Database = {
             foreignKeyName: "invitations_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "invitations_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -1074,6 +1109,13 @@ export type Database = {
           sheet_layout?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "label_batches_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "label_batches_branch_id_fkey";
             columns: ["branch_id"];
@@ -1166,6 +1208,13 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "label_batches_extended_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "label_batches_extended_branch_id_fkey";
             columns: ["branch_id"];
@@ -1488,7 +1537,7 @@ export type Database = {
       };
       locations: {
         Row: {
-          branch_id: string | null;
+          branch_id: string;
           code: string | null;
           color: string | null;
           created_at: string | null;
@@ -1501,7 +1550,7 @@ export type Database = {
           is_virtual: boolean;
           level: number;
           name: string;
-          organization_id: string | null;
+          organization_id: string;
           parent_id: string | null;
           qr_assigned_at: string | null;
           qr_assigned_by: string | null;
@@ -1510,7 +1559,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
-          branch_id?: string | null;
+          branch_id: string;
           code?: string | null;
           color?: string | null;
           created_at?: string | null;
@@ -1523,7 +1572,7 @@ export type Database = {
           is_virtual?: boolean;
           level?: number;
           name: string;
-          organization_id?: string | null;
+          organization_id: string;
           parent_id?: string | null;
           qr_assigned_at?: string | null;
           qr_assigned_by?: string | null;
@@ -1532,7 +1581,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
-          branch_id?: string | null;
+          branch_id?: string;
           code?: string | null;
           color?: string | null;
           created_at?: string | null;
@@ -1545,7 +1594,7 @@ export type Database = {
           is_virtual?: boolean;
           level?: number;
           name?: string;
-          organization_id?: string | null;
+          organization_id?: string;
           parent_id?: string | null;
           qr_assigned_at?: string | null;
           qr_assigned_by?: string | null;
@@ -1606,6 +1655,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "message_status_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "message_status_branch_id_fkey";
             columns: ["branch_id"];
@@ -1683,6 +1739,13 @@ export type Database = {
           sender_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "messages_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "messages_branch_id_fkey";
             columns: ["branch_id"];
@@ -1872,6 +1935,13 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "news_posts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "news_posts_branch_id_fkey";
             columns: ["branch_id"];
@@ -2244,6 +2314,99 @@ export type Database = {
             columns: ["variant_id"];
             isOneToOne: false;
             referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      product_branch_settings: {
+        Row: {
+          branch_id: string;
+          created_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          lead_time_days: number | null;
+          max_stock_level: number | null;
+          min_stock_level: number | null;
+          organization_id: string;
+          preferred_receiving_location_id: string | null;
+          product_id: string;
+          reorder_calculation_method: string | null;
+          reorder_point: number | null;
+          reorder_quantity: number | null;
+          send_low_stock_alerts: boolean | null;
+          track_inventory: boolean | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          branch_id: string;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          lead_time_days?: number | null;
+          max_stock_level?: number | null;
+          min_stock_level?: number | null;
+          organization_id: string;
+          preferred_receiving_location_id?: string | null;
+          product_id: string;
+          reorder_calculation_method?: string | null;
+          reorder_point?: number | null;
+          reorder_quantity?: number | null;
+          send_low_stock_alerts?: boolean | null;
+          track_inventory?: boolean | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          branch_id?: string;
+          created_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          lead_time_days?: number | null;
+          max_stock_level?: number | null;
+          min_stock_level?: number | null;
+          organization_id?: string;
+          preferred_receiving_location_id?: string | null;
+          product_id?: string;
+          reorder_calculation_method?: string | null;
+          reorder_point?: number | null;
+          reorder_quantity?: number | null;
+          send_low_stock_alerts?: boolean | null;
+          track_inventory?: boolean | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "product_branch_settings_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "product_branch_settings_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_branch_settings_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_branch_settings_preferred_receiving_location_id_fkey";
+            columns: ["preferred_receiving_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "product_branch_settings_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
             referencedColumns: ["id"];
           },
         ];
@@ -3256,6 +3419,13 @@ export type Database = {
             foreignKeyName: "purchase_orders_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "purchase_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -3379,6 +3549,13 @@ export type Database = {
             foreignKeyName: "qr_labels_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "qr_labels_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -3448,6 +3625,13 @@ export type Database = {
           user_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "qr_scan_logs_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "qr_scan_logs_branch_id_fkey";
             columns: ["branch_id"];
@@ -3536,6 +3720,13 @@ export type Database = {
           updated_at?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "receipt_documents_branch_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "receipt_documents_branch_fkey";
             columns: ["branch_id"];
@@ -3915,6 +4106,13 @@ export type Database = {
             foreignKeyName: "sales_orders_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "sales_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -4052,6 +4250,13 @@ export type Database = {
             foreignKeyName: "scanning_operations_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "scanning_operations_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -4098,7 +4303,7 @@ export type Database = {
           acknowledged_by: string | null;
           alert_type: string;
           available_stock: number;
-          branch_id: string | null;
+          branch_id: string;
           calculation_method: string | null;
           calculation_notes: string | null;
           created_at: string | null;
@@ -4129,7 +4334,7 @@ export type Database = {
           acknowledged_by?: string | null;
           alert_type: string;
           available_stock: number;
-          branch_id?: string | null;
+          branch_id: string;
           calculation_method?: string | null;
           calculation_notes?: string | null;
           created_at?: string | null;
@@ -4160,7 +4365,7 @@ export type Database = {
           acknowledged_by?: string | null;
           alert_type?: string;
           available_stock?: number;
-          branch_id?: string | null;
+          branch_id?: string;
           calculation_method?: string | null;
           calculation_notes?: string | null;
           created_at?: string | null;
@@ -4193,6 +4398,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_alerts_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
           },
           {
             foreignKeyName: "stock_alerts_branch_id_fkey";
@@ -4393,6 +4605,13 @@ export type Database = {
             foreignKeyName: "stock_movements_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -4566,6 +4785,13 @@ export type Database = {
             foreignKeyName: "stock_reservations_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "stock_reservations_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -4663,6 +4889,13 @@ export type Database = {
           variant_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "stock_snapshots_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "stock_snapshots_branch_id_fkey";
             columns: ["branch_id"];
@@ -4866,6 +5099,13 @@ export type Database = {
           name?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "teams_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "teams_branch_id_fkey";
             columns: ["branch_id"];
@@ -5140,8 +5380,22 @@ export type Database = {
             foreignKeyName: "user_preferences_default_branch_id_fkey";
             columns: ["default_branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "user_preferences_default_branch_id_fkey";
+            columns: ["default_branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_preferences_last_branch_id_fkey";
+            columns: ["last_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
           },
           {
             foreignKeyName: "user_preferences_last_branch_id_fkey";
@@ -5254,6 +5508,13 @@ export type Database = {
           status_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "users_default_branch_id_fkey";
+            columns: ["default_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "users_default_branch_id_fkey";
             columns: ["default_branch_id"];
@@ -5435,6 +5696,30 @@ export type Database = {
       };
     };
     Views: {
+      branch_stock_summary: {
+        Row: {
+          avg_locations_per_product: number | null;
+          branch_id: string | null;
+          branch_name: string | null;
+          last_movement_at: string | null;
+          organization_id: string | null;
+          total_available_quantity: number | null;
+          total_inventory_value: number | null;
+          total_products: number | null;
+          total_quantity_on_hand: number | null;
+          total_reserved_quantity: number | null;
+          total_variants: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "branches_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       product_available_inventory: {
         Row: {
           available_quantity: number | null;
@@ -5449,6 +5734,23 @@ export type Database = {
           total_movements: number | null;
           total_value: number | null;
           updated_at: string | null;
+          variant_id: string | null;
+        };
+        Relationships: [];
+      };
+      product_available_inventory_by_branch: {
+        Row: {
+          active_reservations_count: number | null;
+          available_quantity: number | null;
+          branch_id: string | null;
+          last_movement_at: string | null;
+          latest_reservation_expiry: string | null;
+          locations_count: number | null;
+          organization_id: string | null;
+          product_id: string | null;
+          quantity_on_hand: number | null;
+          reserved_quantity: number | null;
+          total_value: number | null;
           variant_id: string | null;
         };
         Relationships: [];
@@ -5477,6 +5779,13 @@ export type Database = {
           total_quantity_received: number | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "purchase_orders_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "purchase_orders_branch_id_fkey";
             columns: ["branch_id"];
@@ -5551,6 +5860,13 @@ export type Database = {
           variant_id: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "receipt_documents_branch_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
           {
             foreignKeyName: "receipt_documents_branch_fkey";
             columns: ["branch_id"];
@@ -5650,6 +5966,63 @@ export type Database = {
             foreignKeyName: "stock_movements_branch_id_fkey";
             columns: ["branch_id"];
             isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      stock_inventory_by_branch: {
+        Row: {
+          branch_id: string | null;
+          last_movement_at: string | null;
+          locations_count: number | null;
+          organization_id: string | null;
+          product_id: string | null;
+          quantity_on_hand: number | null;
+          total_movements: number | null;
+          total_value: number | null;
+          variant_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "stock_movements_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
             referencedRelation: "branches";
             referencedColumns: ["id"];
           },
@@ -5708,16 +6081,17 @@ export type Database = {
       };
       calculate_order_quantity: {
         Args: {
-          p_available_stock?: number;
+          p_branch_id?: string;
           p_product_id: string;
-          p_supplier_id: string;
+          p_supplier_id?: string;
         };
         Returns: {
           adjusted_quantity: number;
-          adjustment_reason: string;
-          calculation_method: string;
+          base_quantity: number;
+          calculation_notes: string;
+          final_quantity: number;
+          package_unit: string;
           packages: number;
-          raw_quantity: number;
         }[];
       };
       calculate_reserved_stock: {
@@ -5850,6 +6224,8 @@ export type Database = {
       get_alert_summary: {
         Args: { p_organization_id: string };
         Returns: {
+          affected_branches: number;
+          affected_products: number;
           critical_count: number;
           info_count: number;
           notification_enabled_count: number;

@@ -444,6 +444,11 @@ export const MOVEMENT_STATUS_CONFIG: Record<
   MovementStatus,
   { label: { pl: string; en: string }; color: string; icon: string }
 > = {
+  draft: {
+    label: { pl: "Szkic", en: "Draft" },
+    color: "secondary",
+    icon: "file-edit",
+  },
   pending: {
     label: { pl: "Oczekuje", en: "Pending" },
     color: "warning",

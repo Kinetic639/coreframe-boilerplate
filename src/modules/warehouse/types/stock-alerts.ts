@@ -33,21 +33,26 @@ export type NotificationType = "email" | "push" | "both";
 
 /**
  * Stock alert record from database
+ *
+ * IMPORTANT: After warehouse refactoring, alerts are WAREHOUSE-LEVEL:
+ * - branch_id is NOT NULL (required)
+ * - location_id is NULL (warehouse-level alerts, not bin-level)
+ * - Stock values represent WAREHOUSE TOTALS (all bins aggregated)
  */
 export interface StockAlert {
   id: string;
   organization_id: string;
-  branch_id: string | null;
+  branch_id: string; // ✅ NOT NULL - required (warehouse-level)
   product_id: string;
   product_variant_id: string | null;
-  location_id: string | null;
+  location_id: string | null; // ✅ NULL for warehouse-level alerts
 
-  // Stock levels (snapshot at alert creation)
+  // Stock levels (WAREHOUSE TOTALS - aggregated across all bins)
   current_stock: number; // Available stock (quantity_on_hand - reserved_quantity)
-  reorder_point: number;
+  reorder_point: number; // Per-warehouse threshold (from product_branch_settings)
   available_stock: number; // Same as current_stock (for compatibility)
-  quantity_on_hand: number | null; // Physical stock in warehouse
-  reserved_quantity: number | null; // Stock reserved for orders
+  quantity_on_hand: number | null; // Total physical stock in warehouse
+  reserved_quantity: number | null; // Total reserved stock in warehouse
 
   // Suggested replenishment (from Phase 2 calculation)
   suggested_order_quantity: number | null;
@@ -134,6 +139,8 @@ export interface StockAlertWithRelations extends StockAlertWithProduct {
 
 /**
  * Alert summary for dashboard widget
+ *
+ * Updated after warehouse refactoring to include warehouse/product metrics
  */
 export interface AlertSummary {
   total_active: number;
@@ -143,6 +150,8 @@ export interface AlertSummary {
   out_of_stock_count: number;
   notification_enabled_count: number; // Tier 2
   pending_notifications: number; // Tier 2
+  affected_branches: number; // ✅ NEW: How many warehouses have alerts
+  affected_products: number; // ✅ NEW: How many unique products have alerts
 }
 
 /**

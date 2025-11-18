@@ -275,7 +275,7 @@ export default function AlertsPage() {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Active Alerts</CardDescription>
@@ -317,7 +317,33 @@ export default function AlertsPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardDescription>Notifications Enabled</CardDescription>
+              <CardDescription>Affected Warehouses</CardDescription>
+              <CardTitle className="text-3xl">{summary.affected_branches}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Package className="h-4 w-4" />
+                <span>With alerts</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>Affected Products</CardDescription>
+              <CardTitle className="text-3xl">{summary.affected_products}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Package className="h-4 w-4" />
+                <span>Unique products</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription>Notifications</CardDescription>
               <CardTitle className="text-3xl">{summary.notification_enabled_count}</CardTitle>
             </CardHeader>
             <CardContent>
