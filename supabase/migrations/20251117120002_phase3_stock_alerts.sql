@@ -57,9 +57,9 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
   location_id UUID REFERENCES locations(id) ON DELETE SET NULL,
 
   -- Stock Levels (snapshot at time of alert creation)
-  current_stock DECIMAL(15,3) NOT NULL,
+  current_stock DECIMAL(15,3) NOT NULL,  -- Available stock (after reservations) at alert creation
   reorder_point DECIMAL(15,3) NOT NULL,
-  available_stock DECIMAL(15,3) NOT NULL,  -- After reservations
+  available_stock DECIMAL(15,3) NOT NULL,  -- Same as current_stock (kept for clarity)
 
   -- Suggested Replenishment (from Phase 2 calculation)
   suggested_order_quantity DECIMAL(15,3),
@@ -230,7 +230,7 @@ BEGIN
         product_record.branch_id,
         product_record.product_id,
         product_record.location_id,
-        product_record.quantity_on_hand,
+        product_record.available_quantity,  -- Fixed: Use available_quantity instead of quantity_on_hand
         product_record.reorder_point,
         product_record.available_quantity,
         suggested_qty.adjusted_quantity,

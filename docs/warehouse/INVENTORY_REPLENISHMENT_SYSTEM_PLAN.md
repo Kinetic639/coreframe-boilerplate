@@ -38,6 +38,8 @@
 - ✅ Module config updated with alerts route
 - ✅ i18n translations added (English & Polish)
 - ✅ All `base_unit` references fixed to `unit`
+- ✅ All `variant_name` references fixed to `name`
+- ✅ **CRITICAL FIX:** Alert `current_stock` now uses `available_quantity` (not `quantity_on_hand`)
 - ✅ All type-check and lint errors fixed
 
 ### ⏳ Phase 4: PO Creation from Alerts (PENDING)
@@ -46,7 +48,17 @@
 - ⏳ Supplier-grouped product display
 - ⏳ Multi-supplier PO workflow
 
-**Note:** Column name correction - Changed all references from `base_unit` to `unit` to match actual database schema.
+**Important Fixes:**
+
+1. **Column name corrections:**
+   - Changed all `base_unit` → `unit` (products table)
+   - Changed all `variant_name` → `name` (product_variants table)
+
+2. **Critical alert calculation fix:**
+   - Alert `current_stock` field now correctly stores `available_quantity` (usable stock after reservations)
+   - Previously incorrectly stored `quantity_on_hand` (total physical stock)
+   - This ensures alerts show the actual stock available for sale/use, not just physical inventory
+   - Example: If you have 150 units on-hand but 100 reserved for orders, alerts now correctly show 50 units available
 
 ---
 
