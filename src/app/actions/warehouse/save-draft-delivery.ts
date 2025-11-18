@@ -95,10 +95,16 @@ export async function saveDraftDelivery(
     }
 
     for (const item of data.items) {
+      // Generate unique movement number for this draft item
+      // Format: DRAFT-{UUID} (will be replaced with proper number when finalized)
+      const draftMovementNumber = `DRAFT-${crypto.randomUUID()}`;
+
       const { data: movement, error: movementError } = await supabase
         .from("stock_movements")
         .insert({
+          movement_number: draftMovementNumber, // Required field
           movement_type_code: "101",
+          category: "receipt", // Required field for movement type 101
           organization_id: data.organization_id,
           branch_id: data.branch_id,
           product_id: item.product_id,
@@ -123,7 +129,10 @@ export async function saveDraftDelivery(
         .single();
 
       if (movementError || !movement) {
-        errors.push(`Failed to save item for product ${item.product_id}`);
+        console.error("Error creating draft movement:", movementError);
+        errors.push(
+          `Failed to save item for product ${item.product_id}: ${movementError?.message || "Unknown error"}`
+        );
         continue;
       }
 

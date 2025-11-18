@@ -40,6 +40,8 @@
 - ✅ All `base_unit` references fixed to `unit`
 - ✅ All `variant_name` references fixed to `name`
 - ✅ **CRITICAL FIX:** Alert `current_stock` now uses `available_quantity` (not `quantity_on_hand`)
+- ✅ Enhanced visibility: Alerts table shows on-hand, reserved, and available stock breakdown
+- ✅ Database columns added: `quantity_on_hand`, `reserved_quantity` to stock_alerts table
 - ✅ All type-check and lint errors fixed
 
 ### ⏳ Phase 4: PO Creation from Alerts (PENDING)
@@ -59,6 +61,17 @@
    - Previously incorrectly stored `quantity_on_hand` (total physical stock)
    - This ensures alerts show the actual stock available for sale/use, not just physical inventory
    - Example: If you have 150 units on-hand but 100 reserved for orders, alerts now correctly show 50 units available
+
+3. **Enhanced stock visibility in alerts:**
+   - Added `quantity_on_hand` and `reserved_quantity` columns to `stock_alerts` table
+   - UI now displays complete stock breakdown: On Hand - Reserved = Available
+   - Allows verification of stock calculations at a glance
+
+4. **Delivery creation fix:**
+   - Fixed `stock_movements` table to allow `'draft'` status
+   - Fixed `save-draft-delivery` action to provide required `movement_number` field
+   - Draft movements now use `DRAFT-{UUID}` format for movement numbers
+   - Resolves "Failed to save item" error when creating deliveries
 
 ---
 
