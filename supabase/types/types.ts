@@ -4111,7 +4111,9 @@ export type Database = {
           organization_id: string;
           product_id: string;
           product_variant_id: string | null;
+          quantity_on_hand: number | null;
           reorder_point: number;
+          reserved_quantity: number | null;
           resolution_notes: string | null;
           resolved_at: string | null;
           resolved_by: string | null;
@@ -4140,7 +4142,9 @@ export type Database = {
           organization_id: string;
           product_id: string;
           product_variant_id?: string | null;
+          quantity_on_hand?: number | null;
           reorder_point: number;
+          reserved_quantity?: number | null;
           resolution_notes?: string | null;
           resolved_at?: string | null;
           resolved_by?: string | null;
@@ -4169,7 +4173,9 @@ export type Database = {
           organization_id?: string;
           product_id?: string;
           product_variant_id?: string | null;
+          quantity_on_hand?: number | null;
           reorder_point?: number;
+          reserved_quantity?: number | null;
           resolution_notes?: string | null;
           resolved_at?: string | null;
           resolved_by?: string | null;

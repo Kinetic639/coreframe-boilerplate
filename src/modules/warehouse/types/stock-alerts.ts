@@ -43,9 +43,11 @@ export interface StockAlert {
   location_id: string | null;
 
   // Stock levels (snapshot at alert creation)
-  current_stock: number;
+  current_stock: number; // Available stock (quantity_on_hand - reserved_quantity)
   reorder_point: number;
-  available_stock: number;
+  available_stock: number; // Same as current_stock (for compatibility)
+  quantity_on_hand: number | null; // Physical stock in warehouse
+  reserved_quantity: number | null; // Stock reserved for orders
 
   // Suggested replenishment (from Phase 2 calculation)
   suggested_order_quantity: number | null;

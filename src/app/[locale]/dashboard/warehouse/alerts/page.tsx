@@ -385,7 +385,9 @@ export default function AlertsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Current Stock</TableHead>
+                    <TableHead className="text-right">On Hand</TableHead>
+                    <TableHead className="text-right">Reserved</TableHead>
+                    <TableHead className="text-right">Available</TableHead>
                     <TableHead className="text-right">Reorder Point</TableHead>
                     <TableHead className="text-right">Suggested Order</TableHead>
                     <TableHead>Severity</TableHead>
@@ -406,11 +408,32 @@ export default function AlertsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={alert.current_stock <= 0 ? "text-red-600 font-bold" : ""}>
-                          {alert.current_stock}
+                        <span className="text-muted-foreground">
+                          {alert.quantity_on_hand ?? "-"}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">{alert.reorder_point}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-yellow-600">{alert.reserved_quantity ?? 0}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end">
+                          <span
+                            className={
+                              alert.current_stock <= 0 ? "text-red-600 font-bold" : "font-semibold"
+                            }
+                          >
+                            {alert.current_stock}
+                          </span>
+                          {alert.quantity_on_hand != null && alert.reserved_quantity != null && (
+                            <span className="text-xs text-muted-foreground">
+                              ({alert.quantity_on_hand} - {alert.reserved_quantity})
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {alert.reorder_point}
+                      </TableCell>
                       <TableCell className="text-right">
                         {alert.suggested_order_quantity ? (
                           <div>

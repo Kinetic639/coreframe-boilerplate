@@ -167,6 +167,7 @@ BEGIN
       p.reorder_point,
       p.send_low_stock_alerts,
       pai.quantity_on_hand,
+      pai.reserved_quantity,
       pai.available_quantity,
       pai.location_id,
       pai.branch_id
@@ -215,6 +216,8 @@ BEGIN
         current_stock,
         reorder_point,
         available_stock,
+        quantity_on_hand,
+        reserved_quantity,
         suggested_order_quantity,
         suggested_packages,
         suggested_supplier_id,
@@ -230,9 +233,11 @@ BEGIN
         product_record.branch_id,
         product_record.product_id,
         product_record.location_id,
-        product_record.available_quantity,  -- Fixed: Use available_quantity instead of quantity_on_hand
+        product_record.available_quantity,  -- Available stock (after reservations)
         product_record.reorder_point,
-        product_record.available_quantity,
+        product_record.available_quantity,  -- Same as current_stock
+        product_record.quantity_on_hand,    -- Physical stock
+        product_record.reserved_quantity,   -- Reserved stock
         suggested_qty.adjusted_quantity,
         suggested_qty.packages,
         preferred_supplier,
