@@ -11,7 +11,13 @@ export type { MovementCategory, MovementType };
 /**
  * Stock movement status
  */
-export type MovementStatus = "pending" | "approved" | "completed" | "cancelled" | "reversed";
+export type MovementStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "completed"
+  | "cancelled"
+  | "reversed";
 
 /**
  * Reference types for movements

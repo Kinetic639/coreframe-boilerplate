@@ -1772,6 +1772,7 @@
     "completedAt": "Completed At",
     "cancelledAt": "Cancelled At",
     "statuses": {
+      "draft": "Draft",
       "pending": "Pending",
       "approved": "Approved",
       "completed": "Completed",

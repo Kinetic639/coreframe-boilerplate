@@ -1752,6 +1752,7 @@
     "completedAt": "Data Zakończenia",
     "cancelledAt": "Data Anulowania",
     "statuses": {
+      "draft": "Szkic",
       "pending": "Oczekujący",
       "approved": "Zatwierdzony",
       "completed": "Zakończony",
