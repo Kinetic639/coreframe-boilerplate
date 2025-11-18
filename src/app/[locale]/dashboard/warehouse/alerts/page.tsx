@@ -135,9 +135,18 @@ export default function AlertsPage() {
       const result = await runStockLevelCheckAction(activeOrg.organization_id);
 
       if (result.success && result.result) {
-        toast.success(
-          `Stock check complete. Created ${result.result.alerts_created} new alerts, resolved ${result.result.alerts_resolved}.`
-        );
+        const parts = [];
+        if (result.result.alerts_created > 0) parts.push(`${result.result.alerts_created} created`);
+        if (result.result.alerts_resolved > 0)
+          parts.push(`${result.result.alerts_resolved} resolved`);
+        if (result.result.alerts_updated > 0) parts.push(`${result.result.alerts_updated} updated`);
+
+        const message =
+          parts.length > 0
+            ? `Stock check complete: ${parts.join(", ")}`
+            : "Stock check complete. No changes.";
+
+        toast.success(message);
         loadAlerts();
         loadSummary();
       } else {

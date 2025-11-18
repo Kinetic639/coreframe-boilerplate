@@ -46,6 +46,7 @@ export async function runStockLevelCheckAction(organizationId: string): Promise<
     const result: AlertDetectionResult = {
       alerts_created: data[0]?.alerts_created || 0,
       alerts_resolved: data[0]?.alerts_resolved || 0,
+      alerts_updated: data[0]?.alerts_updated || 0,
       notifications_pending: data[0]?.notifications_pending || 0,
     };
 

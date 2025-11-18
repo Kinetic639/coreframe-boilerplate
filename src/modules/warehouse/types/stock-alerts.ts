@@ -202,6 +202,7 @@ export interface ResolveAlertData {
 export interface AlertDetectionResult {
   alerts_created: number;
   alerts_resolved: number;
+  alerts_updated: number;
   notifications_pending: number;
 }
 

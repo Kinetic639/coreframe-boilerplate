@@ -5762,6 +5762,7 @@ export type Database = {
         Returns: {
           alerts_created: number;
           alerts_resolved: number;
+          alerts_updated: number;
           notifications_pending: number;
         }[];
       };
