@@ -1456,6 +1456,7 @@
       "category": "Kategoria",
       "selectCategory": "Wybierz kategorię",
       "categoryPlaceholder": "Wybierz kategorię",
+      "noCategories": "Brak dostępnych kategorii. Dodaj kategorie w ustawieniach magazynu.",
       "brand": "Marka",
       "brandPlaceholder": "Wprowadź markę",
       "manufacturer": "Producent",
@@ -1497,7 +1498,12 @@
       "costPrice": "Cena Zakupu",
       "purchaseAccount": "Konto Zakupu",
       "purchaseDescription": "Opis Zakupowy",
-      "preferredVendor": "Preferowany Dostawca"
+      "preferredVendor": "Preferowany Dostawca",
+      "preferredVendorPlaceholder": "Wybierz preferowanego dostawcę",
+      "preferredVendorDescription": "Opcjonalne. Używane do uzupełniania zamówień zakupu i cenników dostawcy.",
+      "loadingVendors": "Ładowanie dostawców...",
+      "noVendorsAvailable": "Brak dostępnych dostawców",
+      "clearPreferredVendor": "Wyczyść preferowanego dostawcę"
     },
     "inventorySettings": {
       "title": "Ustawienia Magazynowe",
@@ -1583,6 +1589,7 @@
       "createError": "Nie udało się utworzyć produktu",
       "updateError": "Nie udało się zaktualizować produktu",
       "deleteError": "Nie udało się usunąć produktu",
+      "failedToLoadVendors": "Nie udało się załadować dostawców",
       "cannotRemoveCustomField": "Nie można usunąć pola niestandardowego w tym trybie.",
       "customFieldRemoved": "Pole niestandardowe usunięte pomyślnie.",
       "customFieldRemoveFailed": "Nie udało się usunąć pola niestandardowego."
