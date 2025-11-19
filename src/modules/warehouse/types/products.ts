@@ -56,7 +56,7 @@ export interface Product {
   cost_price: number;
   purchase_account: string | null;
   purchase_description: string | null;
-  preferred_vendor_id: string | null;
+  preferred_business_account_id: string | null;
 
   // Inventory Settings
   track_inventory: boolean;
@@ -262,7 +262,7 @@ export interface CreateProductFormData {
   cost_price: number;
   purchase_account?: string;
   purchase_description?: string;
-  preferred_vendor_id?: string;
+  preferred_business_account_id?: string;
 
   // Inventory Settings
   track_inventory: boolean;
@@ -327,7 +327,7 @@ export interface ProductFilters {
   has_stock?: boolean;
   min_price?: number;
   max_price?: number;
-  preferred_vendor_id?: string[];
+  preferred_business_account_id?: string[];
   limit?: number;
   offset?: number;
 }

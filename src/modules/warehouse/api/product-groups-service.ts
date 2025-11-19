@@ -60,7 +60,7 @@ class ProductGroupsService {
         cost_price: data.costPrice, // Default for variants
         purchase_account: data.purchaseAccount || null,
         purchase_description: data.purchaseDescription || null,
-        preferred_vendor_id: data.preferredVendorId || null,
+        preferred_business_account_id: data.preferredVendorId || null,
         track_inventory: data.trackInventory,
         inventory_account: data.inventoryAccount || null,
         reorder_point: data.reorderPoint, // Default for variants

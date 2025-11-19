@@ -178,7 +178,7 @@ export function CreateProductDialog({
     cost_price: z.number().min(0).default(0),
     purchase_account: z.string().optional(),
     purchase_description: z.string().optional(),
-    preferred_vendor_id: z.string().optional(),
+    preferred_business_account_id: z.string().optional(),
 
     // Inventory Settings
     track_inventory: z.boolean().default(true),
@@ -263,12 +263,12 @@ export function CreateProductDialog({
           let fetchedVendors = result.suppliers;
 
           if (
-            product?.preferred_vendor_id &&
-            !fetchedVendors.some((vendor) => vendor.id === product.preferred_vendor_id)
+            product?.preferred_business_account_id &&
+            !fetchedVendors.some((vendor) => vendor.id === product.preferred_business_account_id)
           ) {
             try {
               const preferredVendor = await supplierService.getSupplierById(
-                product.preferred_vendor_id
+                product.preferred_business_account_id
               );
               if (preferredVendor) {
                 fetchedVendors = [...fetchedVendors, preferredVendor];
@@ -297,7 +297,7 @@ export function CreateProductDialog({
     return () => {
       isMounted = false;
     };
-  }, [open, activeOrgId, product?.preferred_vendor_id, t]);
+  }, [open, activeOrgId, product?.preferred_business_account_id, t]);
 
   // Load custom field values when editing
   React.useEffect(() => {
@@ -355,7 +355,7 @@ export function CreateProductDialog({
         cost_price: product.cost_price || 0,
         purchase_account: product.purchase_account || "",
         purchase_description: product.purchase_description || "",
-        preferred_vendor_id: product.preferred_vendor_id || undefined,
+        preferred_business_account_id: product.preferred_business_account_id || undefined,
         track_inventory: product.track_inventory,
         inventory_account: product.inventory_account || "",
         reorder_point: product.reorder_point || 0,
@@ -414,7 +414,9 @@ export function CreateProductDialog({
         ...(values.sales_description && { sales_description: values.sales_description }),
         ...(values.purchase_account && { purchase_account: values.purchase_account }),
         ...(values.purchase_description && { purchase_description: values.purchase_description }),
-        ...(values.preferred_vendor_id && { preferred_vendor_id: values.preferred_vendor_id }),
+        ...(values.preferred_business_account_id && {
+          preferred_business_account_id: values.preferred_business_account_id,
+        }),
         ...(values.inventory_account && { inventory_account: values.inventory_account }),
         ...(values.opening_stock_rate && { opening_stock_rate: values.opening_stock_rate }),
         ...(barcodes.length > 0 && { barcodes }),
@@ -935,7 +937,7 @@ export function CreateProductDialog({
 
                   <FormField
                     control={form.control}
-                    name="preferred_vendor_id"
+                    name="preferred_business_account_id"
                     render={({ field }) => (
                       <FormItem className="col-span-2">
                         <FormLabel>{t("purchaseInfo.preferredVendor")}</FormLabel>
