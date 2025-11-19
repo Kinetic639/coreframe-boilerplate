@@ -58,6 +58,8 @@ import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/
 import { CustomFieldsRenderer } from "@/modules/warehouse/products/components/custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
+import { supplierService } from "@/modules/warehouse/suppliers/api";
+import type { BusinessAccount } from "@/modules/warehouse/suppliers/api";
 
 interface CreateProductDialogProps {
   open: boolean;
@@ -83,6 +85,8 @@ export function CreateProductDialog({
   const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
   const [categories, setCategories] = React.useState<CategoryTreeItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = React.useState(false);
+  const [vendors, setVendors] = React.useState<BusinessAccount[]>([]);
+  const [isLoadingVendors, setIsLoadingVendors] = React.useState(false);
 
   // All available custom field definitions for the organization
   const [allCustomFieldDefinitions, setAllCustomFieldDefinitions] = React.useState<
@@ -244,6 +248,57 @@ export function CreateProductDialog({
     }
   }, [open, activeOrgId]);
 
+  // Load vendors (suppliers) when dialog opens
+  React.useEffect(() => {
+    let isMounted = true;
+
+    if (open && activeOrgId) {
+      const loadVendors = async () => {
+        setIsLoadingVendors(true);
+        try {
+          const result = await supplierService.getSuppliers(
+            { active: true, partner_type: "vendor" },
+            activeOrgId
+          );
+          let fetchedVendors = result.suppliers;
+
+          if (
+            product?.preferred_vendor_id &&
+            !fetchedVendors.some((vendor) => vendor.id === product.preferred_vendor_id)
+          ) {
+            try {
+              const preferredVendor = await supplierService.getSupplierById(
+                product.preferred_vendor_id
+              );
+              if (preferredVendor) {
+                fetchedVendors = [...fetchedVendors, preferredVendor];
+              }
+            } catch (error) {
+              console.error("Failed to load preferred vendor:", error);
+            }
+          }
+
+          if (isMounted) {
+            setVendors(fetchedVendors);
+          }
+        } catch (error) {
+          console.error("Failed to load vendors:", error);
+          toast.error(t("messages.failedToLoadVendors"));
+        } finally {
+          if (isMounted) {
+            setIsLoadingVendors(false);
+          }
+        }
+      };
+
+      loadVendors();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [open, activeOrgId, product?.preferred_vendor_id, t]);
+
   // Load custom field values when editing
   React.useEffect(() => {
     if (open && product?.id) {
@@ -300,7 +355,7 @@ export function CreateProductDialog({
         cost_price: product.cost_price || 0,
         purchase_account: product.purchase_account || "",
         purchase_description: product.purchase_description || "",
-        preferred_vendor_id: product.preferred_vendor_id || "",
+        preferred_vendor_id: product.preferred_vendor_id || undefined,
         track_inventory: product.track_inventory,
         inventory_account: product.inventory_account || "",
         reorder_point: product.reorder_point || 0,
@@ -873,6 +928,56 @@ export function CreateProductDialog({
                         <FormControl>
                           <Textarea rows={3} {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="preferred_vendor_id"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>{t("purchaseInfo.preferredVendor")}</FormLabel>
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={(value) =>
+                            field.onChange(value === "__clear_vendor" ? "" : value)
+                          }
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue
+                                placeholder={t("purchaseInfo.preferredVendorPlaceholder")}
+                              />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {isLoadingVendors ? (
+                              <SelectItem value="loading" disabled>
+                                {t("purchaseInfo.loadingVendors")}
+                              </SelectItem>
+                            ) : vendors.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                {t("purchaseInfo.noVendorsAvailable")}
+                              </SelectItem>
+                            ) : (
+                              vendors.map((vendor) => (
+                                <SelectItem key={vendor.id} value={vendor.id}>
+                                  {vendor.name}
+                                </SelectItem>
+                              ))
+                            )}
+                            {field.value && (
+                              <SelectItem value="__clear_vendor">
+                                {t("purchaseInfo.clearPreferredVendor")}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {t("purchaseInfo.preferredVendorDescription")}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

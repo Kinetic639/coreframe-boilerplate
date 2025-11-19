@@ -1517,7 +1517,12 @@
       "costPrice": "Cost Price",
       "purchaseAccount": "Purchase Account",
       "purchaseDescription": "Purchase Description",
-      "preferredVendor": "Preferred Vendor"
+      "preferredVendor": "Preferred Vendor",
+      "preferredVendorPlaceholder": "Select preferred vendor",
+      "preferredVendorDescription": "Optional. Used to prefill purchase orders and supplier pricing.",
+      "loadingVendors": "Loading vendors...",
+      "noVendorsAvailable": "No vendors available",
+      "clearPreferredVendor": "Clear preferred vendor"
     },
     "inventorySettings": {
       "title": "Inventory Settings",
@@ -1603,6 +1608,7 @@
       "createError": "Failed to create product",
       "updateError": "Failed to update product",
       "deleteError": "Failed to delete product",
+      "failedToLoadVendors": "Failed to load vendors",
       "cannotRemoveCustomField": "Cannot remove custom field in this mode.",
       "customFieldRemoved": "Custom field removed successfully.",
       "customFieldRemoveFailed": "Failed to remove custom field."
