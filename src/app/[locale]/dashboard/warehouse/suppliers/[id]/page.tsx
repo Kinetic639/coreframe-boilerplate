@@ -9,7 +9,6 @@ import {
   Building,
   ArrowLeft,
   FileText,
-  Users,
   MapPin,
   Globe,
   CreditCard,
@@ -17,7 +16,6 @@ import {
   Phone,
   Mail,
   User,
-  Star,
   Package,
 } from "lucide-react";
 import Link from "next/link";
@@ -47,13 +45,13 @@ function LoadingSkeleton() {
 async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
   const supabase = await createClient();
 
-  // Fetch supplier with contacts
+  // Fetch supplier with linked contact
   const { data: supplierData, error: supplierError } = await supabase
     .from("business_accounts")
     .select(
       `
       *,
-      supplier_contacts (*)
+      contact:contact_id (*)
     `
     )
     .eq("id", supplierId)
@@ -66,11 +64,14 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
   }
 
   // Transform data to match our type
+  const { contact, ...rest } = supplierData as SupplierWithContacts & {
+    contact?: SupplierWithContacts["contact"];
+  };
+
   const supplier: SupplierWithContacts = {
-    ...supplierData,
-    supplier_contacts: supplierData.supplier_contacts || [],
-    primary_contact:
-      supplierData.supplier_contacts?.find((contact: any) => contact.is_primary) || null,
+    ...(rest as SupplierWithContacts),
+    contact: contact || null,
+    primary_contact: contact || null,
   };
 
   // Get total number of products from this supplier
@@ -108,7 +109,10 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
               {supplier.primary_contact && (
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  {supplier.primary_contact.first_name} {supplier.primary_contact.last_name}
+                  {supplier.primary_contact.display_name ||
+                    [supplier.primary_contact.first_name, supplier.primary_contact.last_name]
+                      .filter(Boolean)
+                      .join(" ")}
                 </Badge>
               )}
             </div>
@@ -267,96 +271,97 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
                 <div className="text-sm text-muted-foreground">Produktów</div>
               </div>
               <div className="rounded-lg bg-muted/20 p-4 text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {supplier.supplier_contacts?.length || 0}
-                </div>
-                <div className="text-sm text-muted-foreground">Kontaktów</div>
+                <div className="text-sm font-medium text-muted-foreground">Powiązany kontakt</div>
+                {supplier.primary_contact ? (
+                  <div className="mt-2 text-sm">
+                    <p className="font-semibold">
+                      {supplier.primary_contact.display_name ||
+                        [supplier.primary_contact.first_name, supplier.primary_contact.last_name]
+                          .filter(Boolean)
+                          .join(" ")}
+                    </p>
+                    {supplier.primary_contact.primary_email && (
+                      <p className="text-xs text-muted-foreground">
+                        {supplier.primary_contact.primary_email}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">Brak kontaktu</p>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Contacts */}
-        {supplier.supplier_contacts && supplier.supplier_contacts.length > 0 && (
+        {supplier.primary_contact && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Kontakty ({supplier.supplier_contacts.length})
+                <User className="h-5 w-5" />
+                Dane kontaktowe
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {supplier.supplier_contacts.map((contact: any) => (
-                <div
-                  key={contact.id}
-                  className={`rounded-lg border p-4 ${contact.is_primary ? "border-primary bg-primary/5" : "border-muted"}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">
-                          {contact.first_name} {contact.last_name}
-                        </p>
-                        {contact.is_primary && (
-                          <Badge variant="default" className="flex items-center gap-1 text-xs">
-                            <Star className="h-3 w-3" />
-                            Główny
-                          </Badge>
-                        )}
-                        {!contact.is_active && (
-                          <Badge variant="secondary" className="text-xs">
-                            Nieaktywny
-                          </Badge>
-                        )}
-                      </div>
-
-                      {(contact.position || contact.department) && (
-                        <div className="text-sm text-muted-foreground">
-                          {contact.position && contact.department
-                            ? `${contact.position} • ${contact.department}`
-                            : contact.position || contact.department}
-                        </div>
-                      )}
-
-                      <div className="space-y-1">
-                        {contact.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
-                            <a
-                              href={`mailto:${contact.email}`}
-                              className="text-blue-600 hover:underline"
-                            >
-                              {contact.email}
-                            </a>
-                          </div>
-                        )}
-                        {contact.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <a href={`tel:${contact.phone}`} className="hover:underline">
-                              {contact.phone}
-                            </a>
-                          </div>
-                        )}
-                        {contact.mobile && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            <a href={`tel:${contact.mobile}`} className="hover:underline">
-                              {contact.mobile} (mobile)
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
-                      {contact.notes && (
-                        <p className="rounded bg-muted/20 p-2 text-sm text-muted-foreground">
-                          {contact.notes}
-                        </p>
-                      )}
-                    </div>
+              <div>
+                <p className="text-lg font-semibold">
+                  {supplier.primary_contact.display_name ||
+                    [supplier.primary_contact.first_name, supplier.primary_contact.last_name]
+                      .filter(Boolean)
+                      .join(" ")}
+                </p>
+                {supplier.primary_contact.tags && supplier.primary_contact.tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {supplier.primary_contact.tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {supplier.primary_contact.primary_email && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`mailto:${supplier.primary_contact.primary_email}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {supplier.primary_contact.primary_email}
+                    </a>
+                  </div>
+                )}
+                {supplier.primary_contact.work_phone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`tel:${supplier.primary_contact.work_phone}`}
+                      className="hover:underline"
+                    >
+                      {supplier.primary_contact.work_phone}
+                    </a>
+                  </div>
+                )}
+                {supplier.primary_contact.mobile_phone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a
+                      href={`tel:${supplier.primary_contact.mobile_phone}`}
+                      className="hover:underline"
+                    >
+                      {supplier.primary_contact.mobile_phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {supplier.primary_contact.notes && (
+                <p className="rounded bg-muted/20 p-3 text-sm text-muted-foreground">
+                  {supplier.primary_contact.notes}
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

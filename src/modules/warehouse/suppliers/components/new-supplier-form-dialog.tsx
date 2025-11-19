@@ -16,18 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "react-toastify";
 import { supplierService } from "../api";
-import {
-  Supplier,
-  SupplierInsert,
-  SupplierContact,
-  SupplierContactInsert,
-  SupplierContactUpdate,
-  SupplierWithContacts,
-} from "../api";
+import { SupplierInsert, SupplierWithContacts } from "../api";
 import { Loader2, Building2, MapPin, Tag } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SupplierContactForm } from "./supplier-contact-form";
 import { useAppStore } from "@/lib/stores/app-store";
 
 interface NewSupplierFormDialogProps {
@@ -61,7 +53,6 @@ export function NewSupplierFormDialog({
     is_active: true,
     tags: [] as string[],
   });
-  const [contacts, setContacts] = React.useState<SupplierContact[]>([]);
   const [newTag, setNewTag] = React.useState("");
   const { activeOrgId } = useAppStore();
 
@@ -88,7 +79,6 @@ export function NewSupplierFormDialog({
           is_active: supplier.is_active ?? true,
           tags: supplier.tags || [],
         });
-        setContacts(supplier.supplier_contacts || []);
       } else {
         setFormData({
           name: "",
@@ -107,7 +97,6 @@ export function NewSupplierFormDialog({
           is_active: true,
           tags: [],
         });
-        setContacts([]);
       }
     }
   }, [open, supplier]);
@@ -168,36 +157,12 @@ export function NewSupplierFormDialog({
         tags: formData.tags.length > 0 ? formData.tags : null,
       };
 
-      let savedSupplier: Supplier;
-
       if (isEditing && supplier) {
-        savedSupplier = await supplierService.updateSupplier(supplier.id, supplierData);
+        await supplierService.updateSupplier(supplier.id, supplierData);
         toast.success("Dostawca został zaktualizowany");
       } else {
-        savedSupplier = await supplierService.createSupplier(supplierData);
+        await supplierService.createSupplier(supplierData);
         toast.success("Dostawca został dodany");
-      }
-
-      // Handle contacts for new suppliers
-      if (!isEditing && contacts.length > 0) {
-        for (const contact of contacts) {
-          if (contact.id.startsWith("temp-")) {
-            const contactData: SupplierContactInsert = {
-              supplier_id: savedSupplier.id,
-              first_name: contact.first_name,
-              last_name: contact.last_name,
-              email: contact.email,
-              phone: contact.phone,
-              mobile: contact.mobile,
-              position: contact.position,
-              department: contact.department,
-              is_primary: contact.is_primary,
-              is_active: contact.is_active,
-              notes: contact.notes,
-            };
-            await supplierService.createSupplierContact(contactData);
-          }
-        }
       }
 
       onSuccess?.();
@@ -210,28 +175,6 @@ export function NewSupplierFormDialog({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAddContact = async (contact: SupplierContactInsert): Promise<SupplierContact> => {
-    if (!supplier?.id) {
-      throw new Error("Supplier ID is required");
-    }
-    return await supplierService.createSupplierContact(contact);
-  };
-
-  const handleUpdateContact = async (
-    id: string,
-    contact: SupplierContactUpdate
-  ): Promise<SupplierContact> => {
-    return await supplierService.updateSupplierContact(id, contact);
-  };
-
-  const handleDeleteContact = async (id: string): Promise<void> => {
-    await supplierService.deleteSupplierContact(id);
-  };
-
-  const handleSetPrimary = async (id: string): Promise<SupplierContact> => {
-    return await supplierService.setPrimaryContact(id);
   };
 
   return (
@@ -249,7 +192,7 @@ export function NewSupplierFormDialog({
         <ScrollArea className="max-h-[70vh]">
           <form onSubmit={handleSubmit} className="space-y-6">
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="basic" className="flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   Podstawowe
@@ -257,9 +200,6 @@ export function NewSupplierFormDialog({
                 <TabsTrigger value="address" className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   Adres
-                </TabsTrigger>
-                <TabsTrigger value="contacts" className="flex items-center gap-2">
-                  Kontakty
                 </TabsTrigger>
               </TabsList>
 
@@ -449,20 +389,6 @@ export function NewSupplierFormDialog({
                     />
                   </div>
                 </div>
-              </TabsContent>
-
-              {/* Contacts Tab */}
-              <TabsContent value="contacts" className="space-y-4">
-                <SupplierContactForm
-                  supplierId={supplier?.id}
-                  contacts={contacts}
-                  onContactsChange={setContacts}
-                  onAddContact={handleAddContact}
-                  onUpdateContact={handleUpdateContact}
-                  onDeleteContact={handleDeleteContact}
-                  onSetPrimary={handleSetPrimary}
-                  disabled={loading}
-                />
               </TabsContent>
             </Tabs>
 

@@ -6,9 +6,7 @@ import { Database } from "../../../../supabase/types/types";
 export type BusinessAccount = Database["public"]["Tables"]["business_accounts"]["Row"];
 export type BusinessAccountInsert = Database["public"]["Tables"]["business_accounts"]["Insert"];
 export type BusinessAccountUpdate = Database["public"]["Tables"]["business_accounts"]["Update"];
-export type SupplierContact = Database["public"]["Tables"]["supplier_contacts"]["Row"];
-export type SupplierContactInsert = Database["public"]["Tables"]["supplier_contacts"]["Insert"];
-export type SupplierContactUpdate = Database["public"]["Tables"]["supplier_contacts"]["Update"];
+export type SupplierContact = Database["public"]["Tables"]["contacts"]["Row"];
 
 // Backward compatibility aliases
 export type Supplier = BusinessAccount;
@@ -17,7 +15,7 @@ export type SupplierUpdate = BusinessAccountUpdate;
 
 // Custom type for supplier with contacts
 export type SupplierWithContacts = Supplier & {
-  supplier_contacts: SupplierContact[];
+  contact?: SupplierContact | null;
   primary_contact?: SupplierContact | null;
 };
 
@@ -34,11 +32,6 @@ export interface SupplierFilters {
 
 export interface SuppliersResponse {
   suppliers: SupplierWithContacts[];
-  total: number;
-}
-
-export interface SupplierContactsResponse {
-  contacts: SupplierContact[];
   total: number;
 }
 
@@ -61,7 +54,7 @@ class SupplierService {
 
     let query = this.supabase
       .from("business_accounts")
-      .select("*", { count: "exact" })
+      .select("*, contact:contact_id (*)", { count: "exact" })
       .eq("organization_id", orgId)
       .is("deleted_at", null);
 
@@ -104,43 +97,15 @@ class SupplierService {
       throw new Error(`Failed to fetch suppliers: ${error.message}`);
     }
 
-    const supplierIds = (data || []).map((supplier) => supplier.id);
-    let contactsBySupplier: Record<string, SupplierContact[]> = {};
-
-    if (supplierIds.length > 0) {
-      const { data: contactsData, error: contactsError } = await this.supabase
-        .from("supplier_contacts")
-        .select("*")
-        .in("supplier_id", supplierIds)
-        .is("deleted_at", null)
-        .order("is_primary", { ascending: false })
-        .order("first_name", { ascending: true });
-
-      if (contactsError) {
-        console.error("Error fetching supplier contacts:", contactsError);
-        throw new Error(`Failed to fetch supplier contacts: ${contactsError.message}`);
-      }
-
-      contactsBySupplier = (contactsData || []).reduce<Record<string, SupplierContact[]>>(
-        (acc, contact) => {
-          if (!acc[contact.supplier_id]) {
-            acc[contact.supplier_id] = [];
-          }
-          acc[contact.supplier_id].push(contact);
-          return acc;
-        },
-        {}
-      );
-    }
-
-    // Transform data to include primary_contact
     const suppliersWithContacts: SupplierWithContacts[] = (data || []).map((supplier) => {
-      const contacts = contactsBySupplier[supplier.id] || [];
+      const { contact, ...rest } = supplier as Supplier & {
+        contact?: SupplierContact | null;
+      };
+
       return {
-        ...supplier,
-        supplier_contacts: contacts,
-        primary_contact:
-          contacts.find((contact) => contact.is_primary && !contact.deleted_at) || null,
+        ...rest,
+        contact: contact || null,
+        primary_contact: contact || null,
       };
     });
 
@@ -155,7 +120,7 @@ class SupplierService {
 
     const { data, error } = await this.supabase
       .from("business_accounts")
-      .select("*")
+      .select("*, contact:contact_id (*)")
       .eq("id", id)
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
@@ -171,26 +136,12 @@ class SupplierService {
 
     if (!data) return null;
 
-    const { data: contactsData, error: contactsError } = await this.supabase
-      .from("supplier_contacts")
-      .select("*")
-      .eq("supplier_id", data.id)
-      .is("deleted_at", null)
-      .order("is_primary", { ascending: false })
-      .order("first_name", { ascending: true });
-
-    if (contactsError) {
-      console.error("Error fetching supplier contacts:", contactsError);
-      throw new Error(`Failed to fetch supplier contacts: ${contactsError.message}`);
-    }
-
-    const contacts = contactsData || [];
+    const { contact, ...rest } = data as Supplier & { contact?: SupplierContact | null };
 
     return {
-      ...data,
-      supplier_contacts: contacts,
-      primary_contact:
-        contacts.find((contact) => contact.is_primary && !contact.deleted_at) || null,
+      ...rest,
+      contact: contact || null,
+      primary_contact: contact || null,
     };
   }
 
@@ -273,143 +224,6 @@ class SupplierService {
     if (error) {
       console.error("Error restoring supplier:", error);
       throw new Error(`Failed to restore supplier: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  // Supplier Contacts Methods
-  async getSupplierContacts(supplierId: string): Promise<SupplierContactsResponse> {
-    const { data, error, count } = await this.supabase
-      .from("supplier_contacts")
-      .select("*", { count: "exact" })
-      .eq("supplier_id", supplierId)
-      .is("deleted_at", null)
-      .order("is_primary", { ascending: false })
-      .order("first_name", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching supplier contacts:", error);
-      throw new Error(`Failed to fetch supplier contacts: ${error.message}`);
-    }
-
-    return {
-      contacts: data || [],
-      total: count || 0,
-    };
-  }
-
-  async createSupplierContact(contact: SupplierContactInsert): Promise<SupplierContact> {
-    // If this contact is set as primary, remove primary from other contacts
-    if (contact.is_primary) {
-      await this.supabase
-        .from("supplier_contacts")
-        .update({ is_primary: false })
-        .eq("supplier_id", contact.supplier_id)
-        .neq("deleted_at", null);
-    }
-
-    const { data, error } = await this.supabase
-      .from("supplier_contacts")
-      .insert(contact)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating supplier contact:", error);
-      throw new Error(`Failed to create supplier contact: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  async updateSupplierContact(
-    id: string,
-    contact: SupplierContactUpdate
-  ): Promise<SupplierContact> {
-    // If this contact is set as primary, remove primary from other contacts
-    if (contact.is_primary) {
-      const currentContact = await this.supabase
-        .from("supplier_contacts")
-        .select("supplier_id")
-        .eq("id", id)
-        .single();
-
-      if (currentContact.data) {
-        await this.supabase
-          .from("supplier_contacts")
-          .update({ is_primary: false })
-          .eq("supplier_id", currentContact.data.supplier_id)
-          .neq("id", id)
-          .is("deleted_at", null);
-      }
-    }
-
-    const { data, error } = await this.supabase
-      .from("supplier_contacts")
-      .update({
-        ...contact,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error updating supplier contact:", error);
-      throw new Error(`Failed to update supplier contact: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  async deleteSupplierContact(id: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("supplier_contacts")
-      .update({
-        deleted_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error deleting supplier contact:", error);
-      throw new Error(`Failed to delete supplier contact: ${error.message}`);
-    }
-  }
-
-  async setPrimaryContact(contactId: string): Promise<SupplierContact> {
-    // First get the contact to find the supplier_id
-    const { data: contactData, error: contactError } = await this.supabase
-      .from("supplier_contacts")
-      .select("supplier_id")
-      .eq("id", contactId)
-      .single();
-
-    if (contactError || !contactData) {
-      throw new Error("Contact not found");
-    }
-
-    // Remove primary from all other contacts for this supplier
-    await this.supabase
-      .from("supplier_contacts")
-      .update({ is_primary: false })
-      .eq("supplier_id", contactData.supplier_id)
-      .is("deleted_at", null);
-
-    // Set this contact as primary
-    const { data, error } = await this.supabase
-      .from("supplier_contacts")
-      .update({
-        is_primary: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", contactId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error setting primary contact:", error);
-      throw new Error(`Failed to set primary contact: ${error.message}`);
     }
 
     return data;
