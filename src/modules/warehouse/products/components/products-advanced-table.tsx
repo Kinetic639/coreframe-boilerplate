@@ -55,6 +55,8 @@ import {
 } from "@/app/actions/warehouse/get-product-summary";
 import { ProductSuppliersTab } from "./product-suppliers-tab";
 import { ProductPurchaseOrdersTab } from "./product-purchase-orders-tab";
+import { ProductBranchSettingsList } from "@/modules/warehouse/components/ProductBranchSettingsList";
+import { ProductAvailabilityTab } from "./product-availability-tab";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -97,11 +99,37 @@ export function ProductsAdvancedTable({
   const [productSummaryMap, setProductSummaryMap] = React.useState<Record<string, ProductSummary>>(
     {}
   );
+  const [branches, setBranches] = React.useState<Array<{ id: string; name: string }>>([]);
 
   // Load categories
   React.useEffect(() => {
     if (activeOrgId) {
       categoriesService.getCategories(activeOrgId).then(setCategoryTree);
+    }
+  }, [activeOrgId]);
+
+  // Load branches
+  React.useEffect(() => {
+    if (activeOrgId) {
+      const loadBranches = async () => {
+        try {
+          const { createClient } = await import("@/utils/supabase/client");
+          const supabase = createClient();
+          const { data } = await supabase
+            .from("branches")
+            .select("id, name")
+            .eq("organization_id", activeOrgId)
+            .is("deleted_at", null)
+            .order("name");
+
+          if (data) {
+            setBranches(data);
+          }
+        } catch (error) {
+          console.error("Failed to load branches:", error);
+        }
+      };
+      loadBranches();
     }
   }, [activeOrgId]);
 
@@ -436,6 +464,18 @@ export function ProductsAdvancedTable({
               >
                 Purchase Orders
               </TabsTrigger>
+              <TabsTrigger
+                value="availability"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Availability
+              </TabsTrigger>
+              <TabsTrigger
+                value="settings"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Settings
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -756,6 +796,20 @@ export function ProductsAdvancedTable({
           {/* Purchase Orders Tab */}
           <TabsContent value="purchase-orders" className="flex-1 overflow-auto bg-white p-6">
             <ProductPurchaseOrdersTab productId={product.id} />
+          </TabsContent>
+
+          {/* Availability Tab - Show stock across all branches */}
+          <TabsContent value="availability" className="flex-1 overflow-auto bg-white p-6">
+            <ProductAvailabilityTab productId={product.id} productName={product.name} />
+          </TabsContent>
+
+          {/* Settings Tab - Per-branch settings */}
+          <TabsContent value="settings" className="flex-1 overflow-auto bg-white p-6">
+            <ProductBranchSettingsList
+              productId={product.id}
+              productName={product.name}
+              branches={branches}
+            />
           </TabsContent>
         </Tabs>
       </div>
