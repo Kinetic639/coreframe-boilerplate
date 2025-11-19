@@ -1456,6 +1456,7 @@
       "category": "Kategoria",
       "selectCategory": "Wybierz kategorię",
       "categoryPlaceholder": "Wybierz kategorię",
+      "noCategories": "Brak dostępnych kategorii. Dodaj kategorie w ustawieniach magazynu.",
       "brand": "Marka",
       "brandPlaceholder": "Wprowadź markę",
       "manufacturer": "Producent",

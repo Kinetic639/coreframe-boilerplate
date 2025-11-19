@@ -1476,6 +1476,7 @@
       "category": "Category",
       "selectCategory": "Select a category",
       "categoryPlaceholder": "Select category",
+      "noCategories": "No categories available. Add categories in warehouse settings.",
       "brand": "Brand",
       "brandPlaceholder": "Enter brand",
       "manufacturer": "Manufacturer",

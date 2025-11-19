@@ -61,27 +61,7 @@ class SupplierService {
 
     let query = this.supabase
       .from("business_accounts")
-      .select(
-        `
-        *,
-        supplier_contacts(
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          mobile,
-          position,
-          department,
-          is_primary,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        )
-      `,
-        { count: "exact" }
-      )
+      .select("*", { count: "exact" })
       .eq("organization_id", orgId)
       .is("deleted_at", null);
 
@@ -124,13 +104,45 @@ class SupplierService {
       throw new Error(`Failed to fetch suppliers: ${error.message}`);
     }
 
+    const supplierIds = (data || []).map((supplier) => supplier.id);
+    let contactsBySupplier: Record<string, SupplierContact[]> = {};
+
+    if (supplierIds.length > 0) {
+      const { data: contactsData, error: contactsError } = await this.supabase
+        .from("supplier_contacts")
+        .select("*")
+        .in("supplier_id", supplierIds)
+        .is("deleted_at", null)
+        .order("is_primary", { ascending: false })
+        .order("first_name", { ascending: true });
+
+      if (contactsError) {
+        console.error("Error fetching supplier contacts:", contactsError);
+        throw new Error(`Failed to fetch supplier contacts: ${contactsError.message}`);
+      }
+
+      contactsBySupplier = (contactsData || []).reduce<Record<string, SupplierContact[]>>(
+        (acc, contact) => {
+          if (!acc[contact.supplier_id]) {
+            acc[contact.supplier_id] = [];
+          }
+          acc[contact.supplier_id].push(contact);
+          return acc;
+        },
+        {}
+      );
+    }
+
     // Transform data to include primary_contact
-    const suppliersWithContacts: SupplierWithContacts[] = (data || []).map((supplier: any) => ({
-      ...supplier,
-      primary_contact: supplier.supplier_contacts?.find(
-        (contact: any) => contact.is_primary && !contact.deleted_at
-      ),
-    }));
+    const suppliersWithContacts: SupplierWithContacts[] = (data || []).map((supplier) => {
+      const contacts = contactsBySupplier[supplier.id] || [];
+      return {
+        ...supplier,
+        supplier_contacts: contacts,
+        primary_contact:
+          contacts.find((contact) => contact.is_primary && !contact.deleted_at) || null,
+      };
+    });
 
     return {
       suppliers: suppliersWithContacts,
@@ -143,26 +155,7 @@ class SupplierService {
 
     const { data, error } = await this.supabase
       .from("business_accounts")
-      .select(
-        `
-        *,
-        supplier_contacts(
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          mobile,
-          position,
-          department,
-          is_primary,
-          is_active,
-          notes,
-          created_at,
-          updated_at
-        )
-      `
-      )
+      .select("*")
       .eq("id", id)
       .eq("organization_id", organizationId)
       .is("deleted_at", null)
@@ -178,11 +171,26 @@ class SupplierService {
 
     if (!data) return null;
 
+    const { data: contactsData, error: contactsError } = await this.supabase
+      .from("supplier_contacts")
+      .select("*")
+      .eq("supplier_id", data.id)
+      .is("deleted_at", null)
+      .order("is_primary", { ascending: false })
+      .order("first_name", { ascending: true });
+
+    if (contactsError) {
+      console.error("Error fetching supplier contacts:", contactsError);
+      throw new Error(`Failed to fetch supplier contacts: ${contactsError.message}`);
+    }
+
+    const contacts = contactsData || [];
+
     return {
       ...data,
-      primary_contact: (data as any).supplier_contacts?.find(
-        (contact: any) => contact.is_primary && !contact.deleted_at
-      ),
+      supplier_contacts: contacts,
+      primary_contact:
+        contacts.find((contact) => contact.is_primary && !contact.deleted_at) || null,
     };
   }
 
