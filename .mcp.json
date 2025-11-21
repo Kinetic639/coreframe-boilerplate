@@ -5,18 +5,11 @@
       "args": [
         "-y",
         "@supabase/mcp-server-supabase@latest",
-        "--",
-        "--access-token",
-        "sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e",
-        "--project-url",
-        "https://zlcnlalwfmmtusigeuyk.supabase.co"
+        "--read-only",
+        "--project-ref=zlcnlalwfmmtusigeuyk"
       ],
       "env": {
-        "SUPABASE_URL": "https://zlcnlalwfmmtusigeuyk.supabase.co",
         "SUPABASE_ACCESS_TOKEN": "sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e"
-      },
-      "headers": {
-        "Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"
       }
     }
   }
