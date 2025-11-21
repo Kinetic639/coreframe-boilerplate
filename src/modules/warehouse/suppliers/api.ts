@@ -311,10 +311,16 @@ class SupplierService {
   async updateSupplier(id: string, supplier: SupplierUpdate): Promise<Supplier> {
     const organizationId = this.getOrganizationId();
 
+    // Sanitize data: convert empty strings to null to avoid database type errors
+    const sanitizedData: any = {};
+    Object.entries(supplier).forEach(([key, value]) => {
+      sanitizedData[key] = value === "" ? null : value;
+    });
+
     const { data, error } = await this.supabase
       .from("business_accounts")
       .update({
-        ...supplier,
+        ...sanitizedData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
