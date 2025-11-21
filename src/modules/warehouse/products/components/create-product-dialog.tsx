@@ -47,6 +47,7 @@ import { productsService } from "@/modules/warehouse/api/products-service";
 import { unitsService } from "@/modules/warehouse/api/units-service";
 import { categoriesService } from "@/modules/warehouse/api/categories-service";
 import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { supplierService } from "@/modules/warehouse/suppliers/api";
 import type {
   CreateProductFormData,
   UpdateProductFormData,
@@ -55,6 +56,7 @@ import type {
 import type { UnitOfMeasure } from "@/modules/warehouse/types/units";
 import type { CategoryTreeItem } from "@/modules/warehouse/types/categories";
 import type { CustomFieldDefinitionWithValues } from "@/modules/warehouse/types/custom-fields";
+import type { BusinessAccount } from "@/modules/warehouse/suppliers/api";
 import { CustomFieldsRenderer } from "@/modules/warehouse/products/components/custom-fields-renderer";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
@@ -83,6 +85,8 @@ export function CreateProductDialog({
   const [isLoadingUnits, setIsLoadingUnits] = React.useState(false);
   const [categories, setCategories] = React.useState<CategoryTreeItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = React.useState(false);
+  const [suppliers, setSuppliers] = React.useState<BusinessAccount[]>([]);
+  const [isLoadingSuppliers, setIsLoadingSuppliers] = React.useState(false);
 
   // All available custom field definitions for the organization
   const [allCustomFieldDefinitions, setAllCustomFieldDefinitions] = React.useState<
@@ -241,6 +245,21 @@ export function CreateProductDialog({
           toast.error("Failed to load categories");
         })
         .finally(() => setIsLoadingCategories(false));
+    }
+  }, [open, activeOrgId]);
+
+  // Load suppliers (vendors) when dialog opens
+  React.useEffect(() => {
+    if (open && activeOrgId) {
+      setIsLoadingSuppliers(true);
+      supplierService
+        .getSuppliers({ active: true, partner_type: "vendor" }, activeOrgId)
+        .then((result) => setSuppliers(result.suppliers))
+        .catch((error) => {
+          console.error("Failed to load suppliers:", error);
+          toast.error("Failed to load suppliers");
+        })
+        .finally(() => setIsLoadingSuppliers(false));
     }
   }, [open, activeOrgId]);
 
@@ -859,6 +878,45 @@ export function CreateProductDialog({
                         <FormControl>
                           <Input {...field} />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="preferred_vendor_id"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Preferred Supplier</FormLabel>
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                          disabled={isLoadingSuppliers}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue
+                                placeholder={
+                                  isLoadingSuppliers
+                                    ? "Loading suppliers..."
+                                    : "Select preferred supplier (optional)"
+                                }
+                              />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {suppliers.map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Select the default supplier for this product
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

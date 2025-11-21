@@ -15,7 +15,8 @@ export type BusinessAccountContactUpdate =
   Database["public"]["Tables"]["business_account_contacts"]["Update"];
 
 // Combined type for contact with link metadata
-export type ContactWithMetadata = Contact & {
+export type ContactWithMetadata = Partial<Contact> & {
+  id: string; // ID is required
   link_id?: string; // business_account_contacts.id
   is_primary?: boolean | null;
   position?: string | null;
@@ -25,6 +26,8 @@ export type ContactWithMetadata = Contact & {
   phone?: string | null; // Maps to work_phone
   mobile?: string | null; // Maps to mobile_phone
   email?: string | null; // Maps to primary_email
+  is_active?: boolean | null; // Derived from !deleted_at
+  supplier_id?: string; // Legacy field for backward compatibility
 };
 
 // Backward compatibility aliases
@@ -32,16 +35,27 @@ export type Supplier = BusinessAccount;
 export type SupplierInsert = BusinessAccountInsert;
 export type SupplierUpdate = BusinessAccountUpdate;
 export type SupplierContact = ContactWithMetadata;
-export type SupplierContactInsert = BusinessAccountContactInsert & {
+export type SupplierContactInsert = Partial<BusinessAccountContactInsert> & {
   // Support legacy field names
   supplier_id?: string; // Maps to business_account_id
+  business_account_id?: string;
+  contact_id?: string;
   first_name?: string;
   last_name?: string;
   email?: string | null;
   phone?: string | null;
   mobile?: string | null;
+  is_active?: boolean | null;
 };
-export type SupplierContactUpdate = BusinessAccountContactUpdate;
+export type SupplierContactUpdate = BusinessAccountContactUpdate & {
+  // Support legacy field names for updates
+  first_name?: string;
+  last_name?: string;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  is_active?: boolean | null;
+};
 
 // Custom type for supplier with contacts
 export type SupplierWithContacts = Supplier & {
@@ -178,6 +192,7 @@ class SupplierService {
           phone: link.contact.work_phone,
           mobile: link.contact.mobile_phone,
           email: link.contact.primary_email,
+          is_active: !link.contact.deleted_at,
         }));
 
       const primaryContact = contacts.find((c) => c.is_primary) || contacts[0] || null;
@@ -257,6 +272,7 @@ class SupplierService {
         phone: link.contact.work_phone,
         mobile: link.contact.mobile_phone,
         email: link.contact.primary_email,
+        is_active: !link.contact.deleted_at,
       }));
 
     const primaryContact = contacts.find((c) => c.is_primary) || contacts[0] || null;
@@ -390,6 +406,7 @@ class SupplierService {
         phone: link.contact.work_phone,
         mobile: link.contact.mobile_phone,
         email: link.contact.primary_email,
+        is_active: !link.contact.deleted_at,
       }));
 
     return {
@@ -475,6 +492,7 @@ class SupplierService {
       phone: newContact.work_phone,
       mobile: newContact.mobile_phone,
       email: newContact.primary_email,
+      is_active: !newContact.deleted_at,
     };
   }
 
