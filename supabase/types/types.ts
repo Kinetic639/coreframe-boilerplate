@@ -272,6 +272,60 @@ export type Database = {
           },
         ];
       };
+      business_account_contacts: {
+        Row: {
+          business_account_id: string;
+          contact_id: string;
+          created_at: string;
+          deleted_at: string | null;
+          department: string | null;
+          id: string;
+          is_primary: boolean | null;
+          notes: string | null;
+          position: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          business_account_id: string;
+          contact_id: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          department?: string | null;
+          id?: string;
+          is_primary?: boolean | null;
+          notes?: string | null;
+          position?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          business_account_id?: string;
+          contact_id?: string;
+          created_at?: string;
+          deleted_at?: string | null;
+          department?: string | null;
+          id?: string;
+          is_primary?: boolean | null;
+          notes?: string | null;
+          position?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_account_contacts_business_account_id_fkey";
+            columns: ["business_account_id"];
+            isOneToOne: false;
+            referencedRelation: "business_accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "business_account_contacts_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       business_accounts: {
         Row: {
           address_line_1: string | null;
@@ -5010,68 +5064,6 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      supplier_contacts: {
-        Row: {
-          created_at: string | null;
-          deleted_at: string | null;
-          department: string | null;
-          email: string | null;
-          first_name: string;
-          id: string;
-          is_active: boolean | null;
-          is_primary: boolean | null;
-          last_name: string;
-          mobile: string | null;
-          notes: string | null;
-          phone: string | null;
-          position: string | null;
-          supplier_id: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          created_at?: string | null;
-          deleted_at?: string | null;
-          department?: string | null;
-          email?: string | null;
-          first_name: string;
-          id?: string;
-          is_active?: boolean | null;
-          is_primary?: boolean | null;
-          last_name: string;
-          mobile?: string | null;
-          notes?: string | null;
-          phone?: string | null;
-          position?: string | null;
-          supplier_id: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          created_at?: string | null;
-          deleted_at?: string | null;
-          department?: string | null;
-          email?: string | null;
-          first_name?: string;
-          id?: string;
-          is_active?: boolean | null;
-          is_primary?: boolean | null;
-          last_name?: string;
-          mobile?: string | null;
-          notes?: string | null;
-          phone?: string | null;
-          position?: string | null;
-          supplier_id?: string;
-          updated_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "supplier_contacts_supplier_id_fkey";
-            columns: ["supplier_id"];
-            isOneToOne: false;
-            referencedRelation: "business_accounts";
             referencedColumns: ["id"];
           },
         ];
