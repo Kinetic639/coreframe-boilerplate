@@ -890,8 +890,8 @@ export function CreateProductDialog({
                       <FormItem className="col-span-2">
                         <FormLabel>Preferred Supplier</FormLabel>
                         <Select
-                          value={field.value || ""}
-                          onValueChange={field.onChange}
+                          value={field.value || "none"}
+                          onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
                           disabled={isLoadingSuppliers}
                         >
                           <FormControl>
@@ -906,7 +906,7 @@ export function CreateProductDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="none">None</SelectItem>
                             {suppliers.map((supplier) => (
                               <SelectItem key={supplier.id} value={supplier.id}>
                                 {supplier.name}
