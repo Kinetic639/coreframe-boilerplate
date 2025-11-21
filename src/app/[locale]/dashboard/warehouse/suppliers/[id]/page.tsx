@@ -49,7 +49,7 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
 
   // Fetch supplier with contacts
   const { data: supplierData, error: supplierError } = await supabase
-    .from("suppliers")
+    .from("business_accounts")
     .select(
       `
       *,
@@ -57,6 +57,7 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
     `
     )
     .eq("id", supplierId)
+    .eq("partner_type", "vendor")
     .single();
 
   if (supplierError || !supplierData) {
