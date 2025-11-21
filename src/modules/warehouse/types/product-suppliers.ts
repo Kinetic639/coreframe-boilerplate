@@ -1,6 +1,7 @@
 /**
  * Product-Supplier Integration Types
  * Phase 0: Purchase Orders Implementation
+ * Phase 1: Supplier Packaging & Ordering Constraints (NEW)
  */
 
 // =====================================================
@@ -27,6 +28,15 @@ export interface ProductSupplier {
   notes: string | null;
   last_order_date: string | null;
   last_order_price: number | null;
+  // Phase 1: Packaging & Ordering Constraints (NEW)
+  package_unit: string | null;
+  package_quantity: number | null;
+  allow_partial_package: boolean;
+  min_order_quantity: number | null;
+  order_in_multiples_of: number | null;
+  supplier_lead_time_days: number | null;
+  supplier_price: number | null;
+  // Timestamps
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -80,6 +90,14 @@ export interface ProductSupplierFormData {
   is_active?: boolean;
   priority_rank?: number;
   notes?: string;
+  // Phase 1: Packaging & Ordering Constraints (NEW)
+  package_unit?: string;
+  package_quantity?: number;
+  allow_partial_package?: boolean;
+  min_order_quantity?: number;
+  order_in_multiples_of?: number;
+  supplier_lead_time_days?: number;
+  supplier_price?: number;
 }
 
 export interface ProductSupplierUpdateData extends Partial<ProductSupplierFormData> {

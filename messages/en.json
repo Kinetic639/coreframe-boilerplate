@@ -942,6 +942,10 @@
           "batches": "Label Batches",
           "history": "Assignment History"
         },
+        "alerts": {
+          "title": "Stock Alerts",
+          "description": "Low stock monitoring and replenishment alerts"
+        },
         "scanning": {
           "title": "Code Scanning",
           "delivery": "Delivery Scanning",
@@ -1770,6 +1774,7 @@
     "completedAt": "Completed At",
     "cancelledAt": "Cancelled At",
     "statuses": {
+      "draft": "Draft",
       "pending": "Pending",
       "approved": "Approved",
       "completed": "Completed",

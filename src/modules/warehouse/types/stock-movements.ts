@@ -11,7 +11,13 @@ export type { MovementCategory, MovementType };
 /**
  * Stock movement status
  */
-export type MovementStatus = "pending" | "approved" | "completed" | "cancelled" | "reversed";
+export type MovementStatus =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "completed"
+  | "cancelled"
+  | "reversed";
 
 /**
  * Reference types for movements
@@ -438,6 +444,11 @@ export const MOVEMENT_STATUS_CONFIG: Record<
   MovementStatus,
   { label: { pl: string; en: string }; color: string; icon: string }
 > = {
+  draft: {
+    label: { pl: "Szkic", en: "Draft" },
+    color: "secondary",
+    icon: "file-edit",
+  },
   pending: {
     label: { pl: "Oczekuje", en: "Pending" },
     color: "warning",

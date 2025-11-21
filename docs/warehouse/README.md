@@ -4,20 +4,20 @@
 
 ### Active Documents
 
+- **[INVENTORY_REPLENISHMENT_SYSTEM_PLAN.md](INVENTORY_REPLENISHMENT_SYSTEM_PLAN.md)** 🎯 **CURRENT WORK** ✨ **NEW**
+  - Comprehensive inventory replenishment system implementation plan
+  - 4-phase approach: Supplier Packaging → Replenishment Logic → Alerts → PO Creation
+  - Enterprise-grade 3-domain pipeline architecture
+  - Estimated: 5 days implementation
+  - **Use this for current development**
+
 - **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** ⭐ **Overall Roadmap & Next Steps**
   - Prioritized plan to complete remaining features
   - Detailed timelines and implementation steps (P1-P10)
+  - **Priority 3: Warehouse Transfers - AFTER replenishment system**
   - **Use this for long-term planning**
 
-- **[PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)** 🚀 **CURRENT IMPLEMENTATION** (Priority 2)
-  - Product-Supplier Integration (Phase 0)
-  - Low Stock Monitoring & Alerts (Phase 1)
-  - Purchase Orders Module (Phase 2)
-  - **Estimated: 1.5-2 weeks total**
-  - **Use this for current development work**
-
 - **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** 💡 **Post-Production Features**
-  - Automated Reorder System
   - Advanced PDF Generation
   - Batch Purchase Orders
   - Supplier Analytics & Reporting
@@ -35,9 +35,12 @@
 - **[archive/](archive/)** - Completed phase summaries and old plans
   - PHASE_1_COMPLETION_SUMMARY.md (Movement types - Oct 24, 2024)
   - PHASE_2_IMPLEMENTATION_SUMMARY.md (Stock movements system - Oct 26, 2024)
-  - SALES_ORDERS_AND_RESERVATIONS_COMPLETION_SUMMARY.md (Sales orders & reservations - Nov 14, 2024) ✨ **NEW**
+  - SALES_ORDERS_AND_RESERVATIONS_COMPLETION_SUMMARY.md (Sales orders & reservations - Nov 14, 2024)
+  - PURCHASE_ORDERS_COMPLETION_SUMMARY.md (Purchase orders & suppliers - Nov 16, 2024)
+  - PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md (Original plan)
   - SALES_ORDERS_AND_RESERVATIONS_PLAN.md (Original implementation plan)
   - STOCK_MOVEMENTS_IMPLEMENTATION_PLAN.md (Original detailed plan)
+  - LOW_STOCK_MONITORING_IMPLEMENTATION_PLAN.md (Superseded by INVENTORY_REPLENISHMENT_SYSTEM_PLAN.md) ✨ **NEW**
 
 ---
 
@@ -70,10 +73,14 @@
 - ✅ `stock_movements` - Movement transactions with reservation events (501-502)
 - ✅ `stock_movement_items` - Line items with product/variant/quantity
 - ✅ `stock_inventory` - Calculated inventory view
-- ✅ `stock_reservations` - Active reservation tracking (hybrid model) ✨ **NEW**
-- ✅ `product_available_inventory` - Real-time available quantity view ✨ **NEW**
-- ✅ `sales_orders` - Customer orders with status workflow ✨ **NEW**
-- ✅ `sales_order_items` - Order line items with reservation links ✨ **NEW**
+- ✅ `stock_reservations` - Active reservation tracking (hybrid model)
+- ✅ `product_available_inventory` - Real-time available quantity view
+- ✅ `sales_orders` - Customer orders with status workflow
+- ✅ `sales_order_items` - Order line items with reservation links
+- ✅ `product_suppliers` - Product-supplier relationships with pricing ✨ **NEW**
+- ✅ `product_supplier_price_history` - Price change tracking ✨ **NEW**
+- ✅ `purchase_orders` - Purchase orders with approval workflow ✨ **NEW**
+- ✅ `purchase_order_items` - PO line items with receipt tracking ✨ **NEW**
 - ✅ `receipt_documents` - Receipt document system (no PDF generation)
 - ⚠️ Transfer tables exist but migrations are DISABLED
 
@@ -83,17 +90,22 @@
 - ✅ Stock movements service (create, approve, complete)
 - ✅ Movement validation service
 - ✅ Receipt processing service
-- ✅ Sales orders service (full CRUD, status workflow, reservation integration) ✨ **NEW**
-- ✅ Reservations service (hybrid model, availability validation) ✨ **NEW**
+- ✅ Sales orders service (full CRUD, status workflow, reservation integration)
+- ✅ Reservations service (hybrid model, availability validation)
+- ✅ Product suppliers service (many-to-many relationships, pricing) ✨ **NEW**
+- ✅ Purchase orders service (full CRUD, approval workflow, receipts) ✨ **NEW**
 - ✅ Server actions with authentication
 
 **UI Pages**
 
 - ✅ `/dashboard/warehouse/movements` - Stock movements list and management
 - ✅ `/dashboard/warehouse/inventory` - Real-time inventory dashboard
-- ✅ `/dashboard/warehouse/sales-orders` - Sales orders list ✨ **NEW**
-- ✅ `/dashboard/warehouse/sales-orders/new` - Create sales order ✨ **NEW**
-- ✅ `/dashboard/warehouse/sales-orders/[id]` - Order details ✨ **NEW**
+- ✅ `/dashboard/warehouse/sales-orders` - Sales orders list
+- ✅ `/dashboard/warehouse/sales-orders/new` - Create sales order
+- ✅ `/dashboard/warehouse/sales-orders/[id]` - Order details
+- ✅ `/dashboard/warehouse/purchases` - Purchase orders list ✨ **NEW**
+- ✅ `/dashboard/warehouse/purchases/new` - Create purchase order ✨ **NEW**
+- ✅ `/dashboard/warehouse/purchases/[id]` - PO details with approval ✨ **NEW**
 
 ---
 
@@ -106,7 +118,6 @@
 - ✅ **Phase 1:** Sales Orders Module - Full UI and workflow
 - ✅ **Phase 2:** Stock Reservations - Hybrid model with auto-reserve/release
 - ✅ **Integration:** Real-time availability, overselling prevention
-- ⏭️ **Phase 0:** Product-Supplier Integration - Skipped (not required yet)
 
 **Key Features Delivered:**
 
@@ -118,51 +129,24 @@
 - Product details page shows reserved quantities
 - Sales order form validates availability before submission
 
-### 🚀 Currently Implementing (Priority 2)
+### ✅ Recently Completed (November 16, 2024) ✨ **NEW**
 
-**Purchase Orders & Low Stock Alerts** - See [PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)
+**Purchase Orders & Product-Supplier Integration** - See [archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md](archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md)
 
-**Status:** Planning Complete - Ready for Implementation
+- ✅ **Phase 0:** Product-Supplier Integration - Complete
+- ✅ **Phase 2:** Purchase Orders Module - Complete
+- ⏭️ **Phase 1:** Low Stock Monitoring & Alerts - Deferred (not required yet)
 
-**Scope:** Manual purchase order management with automated alerts (production-ready MVP)
+**Key Features Delivered:**
 
-**3-Phase Approach (1.5-2 weeks total):**
-
-1. **Phase 0: Product-Supplier Integration** (1-2 days) - NEXT
-   - `product_suppliers` table with many-to-many relationships
-   - Supplier SKU, pricing, lead times, min order quantities
-   - Preferred supplier designation and priority ranking
-   - Price history tracking
-
-2. **Phase 1: Low Stock Monitoring & Alerts** (2-3 days)
-   - `stock_alerts` table with configurable thresholds
-   - Reorder point calculation (reorder_point, reorder_quantity)
-   - Alert severity levels (info, warning, critical)
-   - Real-time monitoring service
-   - UI notifications for low stock
-
-3. **Phase 2: Purchase Orders Module** (5-7 days)
-   - `purchase_orders` and `purchase_order_items` tables
-   - Full workflow: draft → pending → approved → received → closed
-   - Manual supplier selection and PO creation
-   - Expected delivery tracking
-   - Integration with movement type 101 (Goods Receipt from PO)
-   - UI: list, create, edit, approve pages
-
-**Key Features:**
-
-- ✅ Eliminate manual spreadsheet tracking
-- ✅ Proactive low stock notifications
-- ✅ Manual reorder workflow with supplier management
-- ✅ Supplier comparison and selection
-- ✅ Full purchase order lifecycle management
-- ✅ Integration with existing movement types
-
-**Deferred to Post-Production:**
-
-- ❌ Automated PO generation from alerts → See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)
-- ❌ Smart automated supplier selection
-- ❌ Batch processing for multiple low-stock items
+- Product-supplier many-to-many relationships with pricing/lead times
+- Purchase order management with full lifecycle (draft → approved → received → closed)
+- Automatic PO number generation and total calculation
+- Item-level tracking with partial receipt support
+- Cancellation tracking with reason display
+- Product details integration showing pending PO quantities
+- "Purchase Orders" tab in product details
+- "Qty To be Invoiced" now functional with real data
 
 ### Critical Gaps (Blocks Production Use)
 
@@ -199,16 +183,15 @@
 
 Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md) roadmap:
 
-### Phase 1: Critical MVP (3-4 weeks remaining)
+### Phase 1: Critical MVP (2-3 weeks remaining)
 
 1. ✅ **P1:** Stock Reservations (501-502) - COMPLETED ⭐⭐⭐⭐⭐
-2. 🚀 **P2:** Purchase Orders & Low Stock Alerts - 1.5-2 weeks ⭐⭐⭐⭐⭐ **← IN PROGRESS**
-   - See [PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md](PURCHASE_ORDERS_AND_REORDER_IMPLEMENTATION_PLAN.md)
-   - Phase 0: Product-Supplier Integration (1-2 days)
-   - Phase 1: Low Stock Monitoring (2-3 days)
-   - Phase 2: Purchase Orders Module (5-7 days)
-   - **Note:** Automated reordering deferred to post-production
-3. **P3:** Warehouse Transfers (301-312) - 2 weeks ⭐⭐⭐⭐⭐
+2. ✅ **P2:** Purchase Orders & Product-Supplier Integration - COMPLETED ⭐⭐⭐⭐⭐
+   - See [archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md](archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md)
+   - Phase 0: Product-Supplier Integration ✅
+   - Phase 1: Low Stock Monitoring (deferred)
+   - Phase 2: Purchase Orders Module ✅
+3. 🚀 **P3:** Warehouse Transfers (301-312) - 2 weeks ⭐⭐⭐⭐⭐ **← NEXT**
 4. **P4:** PDF Document Generation - 1.5 weeks ⭐⭐⭐⭐
 
 ### Phase 2: Full Operations (2 weeks)
@@ -226,7 +209,7 @@ Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPL
 9. **P9:** JPK_MAG Export - 1 week ⭐⭐⭐⭐⭐
 10. **P10:** Row-Level Security - 1 week ⭐⭐⭐⭐⭐
 
-**Total Timeline:** 8-9 weeks remaining to 100% completion (P2 in progress)
+**Total Timeline:** 6-7 weeks remaining to 100% completion (P2 complete, P3 next)
 
 **Post-Production Enhancements:** See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md) for features planned after initial release
 

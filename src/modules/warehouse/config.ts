@@ -64,6 +64,12 @@ export async function getWarehouseModule(): Promise<ModuleConfig> {
             path: "/dashboard/warehouse/labels",
           },
           {
+            id: "alerts",
+            label: "modules.warehouse.items.alerts.title",
+            icon: "AlertTriangle",
+            path: "/dashboard/warehouse/alerts",
+          },
+          {
             id: "inventory-adjustments",
             label: "modules.warehouse.items.inventory.adjustments.title",
             path: "/dashboard/warehouse/inventory/adjustments",

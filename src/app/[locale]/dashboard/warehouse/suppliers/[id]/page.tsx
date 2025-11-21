@@ -49,14 +49,22 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
 
   // Fetch supplier with contacts
   const { data: supplierData, error: supplierError } = await supabase
-    .from("suppliers")
+    .from("business_accounts")
     .select(
       `
       *,
-      supplier_contacts (*)
+      business_account_contacts!business_account_contacts_business_account_id_fkey(
+        id,
+        is_primary,
+        position,
+        department,
+        notes,
+        contact:contacts!business_account_contacts_contact_id_fkey(*)
+      )
     `
     )
     .eq("id", supplierId)
+    .eq("partner_type", "vendor")
     .single();
 
   if (supplierError || !supplierData) {
@@ -65,11 +73,26 @@ async function SupplierDetailsContent({ supplierId }: { supplierId: string }) {
   }
 
   // Transform data to match our type
+  const links = (supplierData as any).business_account_contacts || [];
+  const contacts = links
+    .filter((link: any) => link.contact && !link.contact.deleted_at)
+    .map((link: any) => ({
+      ...link.contact,
+      link_id: link.id,
+      is_primary: link.is_primary,
+      position: link.position,
+      department: link.department,
+      link_notes: link.notes,
+      phone: link.contact.work_phone,
+      mobile: link.contact.mobile_phone,
+      email: link.contact.primary_email,
+    }));
+
   const supplier: SupplierWithContacts = {
     ...supplierData,
-    supplier_contacts: supplierData.supplier_contacts || [],
-    primary_contact:
-      supplierData.supplier_contacts?.find((contact: any) => contact.is_primary) || null,
+    business_account_contacts: contacts,
+    supplier_contacts: contacts,
+    primary_contact: contacts.find((c: any) => c.is_primary) || contacts[0] || null,
   };
 
   // Get total number of products from this supplier
