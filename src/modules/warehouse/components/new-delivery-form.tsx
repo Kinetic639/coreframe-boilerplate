@@ -44,8 +44,8 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const currentUser = useUserStore((state) => state.user);
   const loadBranchData = useAppStore((state) => state.loadBranchData);
 
-  // Wizard state - simplified to 2 steps
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  // Wizard state - 3 steps: details, verification (optional), confirmation
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [deliveryId, setDeliveryId] = useState<string | undefined>(draftId || undefined);
 
   // Form state - Step 1
@@ -114,7 +114,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
       // Restore wizard step
       if (metadata?.wizard_step) {
-        setCurrentStep(metadata.wizard_step as 1 | 2);
+        setCurrentStep(metadata.wizard_step as 1 | 2 | 3);
       } else {
         setCurrentStep(1); // Default to step 1 for old drafts
       }
@@ -195,8 +195,15 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         return;
       }
 
-      // Just move to confirmation step without auto-saving
-      setCurrentStep(2);
+      // Move to verification step if enabled, otherwise skip to confirmation
+      if (requiresVerification) {
+        setCurrentStep(2); // Go to verification
+      } else {
+        setCurrentStep(3); // Skip verification, go directly to confirmation
+      }
+    } else if (currentStep === 2) {
+      // From verification to confirmation
+      setCurrentStep(3);
     }
   };
 
@@ -256,10 +263,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     }
   };
 
-  const deliverySteps: Step[] = [
-    { label: t("wizard.step1"), value: "step1" },
-    { label: t("wizard.step2"), value: "step2" },
-  ];
+  const deliverySteps: Step[] = requiresVerification
+    ? [
+        { label: t("wizard.step1"), value: "step1" },
+        { label: t("wizard.step2"), value: "step2" },
+        { label: t("wizard.step3"), value: "step3" },
+      ]
+    : [
+        { label: t("wizard.step1"), value: "step1" },
+        { label: t("wizard.step3"), value: "step3" }, // Skip step 2 label
+      ];
 
   return (
     <div className="space-y-6">
@@ -272,7 +285,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               <h1 className="text-3xl font-bold">{t("new")}</h1>
               {deliveryId && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("statuses.draft")} - Step {currentStep}/2
+                  {t("statuses.draft")} - Step {currentStep}/{requiresVerification ? 3 : 2}
                 </p>
               )}
             </div>
@@ -294,7 +307,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               {t("actions.next")} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
-          {currentStep === 2 && (
+          {currentStep === 2 && requiresVerification && (
+            <Button
+              onClick={handleNext}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {t("actions.verify")}
+            </Button>
+          )}
+          {currentStep === 3 && (
             <Button
               onClick={handleCompleteDelivery}
               disabled={loading}
@@ -317,7 +339,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
       <div className="w-full">
         <StatusStepper
           steps={deliverySteps}
-          activeStep={currentStep === 1 ? "step1" : "step2"}
+          activeStep={currentStep === 1 ? "step1" : currentStep === 2 ? "step2" : "step3"}
           size="md"
         />
       </div>
@@ -584,8 +606,75 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         </>
       )}
 
-      {/* Step 2: Final Confirmation */}
-      {currentStep === 2 && (
+      {/* Step 2: Verification (only if verification enabled) */}
+      {currentStep === 2 && requiresVerification && (
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-2 space-y-6">
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">{t("wizard.verificationTitle")}</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                {t("wizard.verificationDescription")}
+              </p>
+
+              <DeliveryLineItems
+                items={items}
+                onChange={setItems}
+                organizationId={organizationId}
+              />
+            </Card>
+
+            <Card className="p-6">
+              <div className="space-y-2">
+                <Label>{t("fields.notes.label")}</Label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full min-h-[150px] p-3 border rounded-md"
+                  placeholder={t("form.notesPlaceholder")}
+                />
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Column - Summary */}
+          <div className="space-y-4">
+            <Card className="p-4">
+              <h3 className="font-semibold mb-4">{t("wizard.deliverySummary")}</h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">{t("fields.supplier")}</p>
+                  <p className="font-medium">{selectedSupplier?.name || "Not specified"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("fields.invoiceNumber")}</p>
+                  <p className="font-medium">{sourceDocument || "Not specified"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("fields.destinationLocation")}</p>
+                  <p className="font-medium">
+                    {destinationLocationId && destinationLocationId !== "none"
+                      ? locations.find((l) => l.id === destinationLocationId)?.name
+                      : "No location"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("wizard.products")}</p>
+                  <p className="font-medium">{items.length} items</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("wizard.totalQuantity")}</p>
+                  <p className="font-medium">
+                    {items.reduce((sum, item) => sum + item.expected_quantity, 0)} units
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Final Confirmation */}
+      {currentStep === 3 && (
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2 space-y-6">
             <Card className="p-6">
