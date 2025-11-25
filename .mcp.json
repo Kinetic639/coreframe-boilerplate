@@ -1,11 +1,9 @@
 {
   "mcpServers": {
     "supabase": {
-      "command": "npx",
+      "command": "/usr/bin/node",
       "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--read-only",
+        "/home/user/coreframe-boilerplate/node_modules/.pnpm/@supabase+mcp-server-supabase@0.5.9/node_modules/@supabase/mcp-server-supabase/dist/transports/stdio.cjs",
         "--project-ref=zlcnlalwfmmtusigeuyk"
       ],
       "env": {

@@ -1,9 +1,14 @@
 # Inventory Replenishment System - Implementation Plan
 
-**Version:** 1.1
+**Version:** 1.2
 **Created:** November 17, 2024
-**Updated:** November 17, 2024
+**Updated:** November 25, 2024
 **Status:** ✅ Phases 1-3 Complete | Phase 4 Pending
+
+**IMPORTANT UPDATE (Nov 25, 2025):**
+✅ **Warehouse Architecture Validated** - Database now enforces branches = warehouses, locations = bins
+✅ **Stock Alerts Enhanced** - Validation ensures alert locations belong to correct warehouse branches
+✅ **Polish WMS Compliance** - Full compliance with warehouse boundary separation requirements
 **Priority:** P2.1 (Core Enhancement)
 **Estimated Timeline:** 5 days
 
@@ -72,6 +77,15 @@
    - Fixed `save-draft-delivery` action to provide required `movement_number` field
    - Draft movements now use `DRAFT-{UUID}` format for movement numbers
    - Resolves "Failed to save item" error when creating deliveries
+
+5. **Warehouse boundary validation (Nov 25, 2025):**
+   - Database-level validation ensures branches serve as warehouses and locations serve as bins
+   - Trigger: `validate_stock_reservation_location()` validates reservation locations
+   - Trigger: `validate_stock_snapshot_location()` validates snapshot locations
+   - Function: `validate_location_branch()` validates location belongs to specific branch
+   - Polish WMS Compliance: Alert and replenishment system now respects warehouse separation requirements
+   - Migration: `20251125093150_add_cross_branch_location_validation.sql`
+   - Ensures stock alerts, reservations, and snapshots only reference locations within correct warehouse branches
 
 ---
 

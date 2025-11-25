@@ -1,8 +1,8 @@
 # Stock Movements & Transfers - Technical Specification
 
 **Version:** 1.0
-**Last Updated:** 2025-10-24 | **Status Updated:** 2025-11-12
-**Implementation Status:** 40% Complete (Phase 1 & 2 Done)
+**Last Updated:** 2025-11-25 | **Status Updated:** 2025-11-25
+**Implementation Status:** 42% Complete (Phase 1 & 2 Done + Validation Layer)
 
 ---
 
@@ -10,7 +10,7 @@
 
 **Current State:** The stock movements system is partially implemented with a solid foundation.
 
-### ✅ Completed Features (40%)
+### ✅ Completed Features (42%)
 
 - **Movement Types System** (Phase 1 - Oct 24, 2024)
   - 31 SAP-style movement types (codes 101-613)
@@ -25,6 +25,14 @@
   - Basic UI (list, detail, create pages)
   - Server actions and API
   - See: [PHASE_2_IMPLEMENTATION_SUMMARY.md](archive/PHASE_2_IMPLEMENTATION_SUMMARY.md)
+
+- **Warehouse Boundary Validation** (Nov 25, 2024)
+  - ✅ Cross-branch location validation at database level
+  - ✅ `validate_location_branch()` function enforces warehouse boundaries
+  - ✅ Triggers on stock_movements, stock_reservations, stock_snapshots
+  - ✅ Allows inter-branch transfers (311-312) while enforcing intra-branch rules
+  - ✅ **Polish WMS Compliance**: Database ensures branches = warehouses, locations = bins
+  - Migration: `supabase/migrations/20251125093150_add_cross_branch_location_validation.sql`
 
 - **Working Movement Types**
   - ✅ 101: Goods Receipt from Purchase Order (with delivery workflow)
@@ -95,15 +103,37 @@ This specification defines a comprehensive, enterprise-grade inventory movement 
 
 ## System Architecture
 
+### Warehouse Structure (Polish WMS Compliance)
+
+**CRITICAL ARCHITECTURAL DESIGN:**
+
+- **Branches = Warehouses** - Each `branch` record represents a physical warehouse location
+- **Locations = Bins** - Each `location` record represents a storage bin/shelf/rack within a warehouse
+- **Hierarchy**: Organization → Branch (Warehouse) → Location (Bin)
+
+**Database Enforcement (Migration: `20251125093150_add_cross_branch_location_validation`):**
+
+✅ All `locations` have **REQUIRED** `branch_id` field (cannot be NULL)
+✅ Database-level validation ensures locations belong to correct branches
+✅ Intra-branch movements (codes 101-206, 303, 401-411, 501-502, 601-613) enforce same-branch locations
+✅ Inter-branch transfers (codes 311-312) allow cross-branch movements with proper approval
+✅ Polish warehouse law compliance: proper separation of warehouse boundaries
+
+**Column Comments:**
+
+- `locations.branch_id`: _"Branch (warehouse) that this location belongs to. REQUIRED: Every location (bin/shelf/rack) must belong to a branch (warehouse). This enforces the hierarchy: Organization → Branch (Warehouse) → Location (Bin)."_
+
 ### Current State
 
 The system already includes:
 
-- ✅ `stock_movements` - Core movement tracking
+- ✅ `stock_movements` - Core movement tracking with cross-branch validation
 - ✅ `transfer_requests` - Inter-branch transfers
 - ✅ `stock_snapshots` - Current inventory levels
 - ✅ `stock_reservations` - Order commitments
-- ✅ `movement_types` - 15 system movement types
+- ✅ `movement_types` - 31 system movement types (101-613)
+- ✅ `validate_location_branch()` - Database function for warehouse boundary enforcement
+- ✅ Triggers on stock_movements, stock_reservations, stock_snapshots tables
 
 ### Architecture Diagram
 

@@ -255,6 +255,9 @@ importers:
       '@next/eslint-plugin-next':
         specifier: ^15.5.6
         version: 15.5.6
+      '@supabase/mcp-server-supabase':
+        specifier: ^0.5.9
+        version: 0.5.9
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -1359,6 +1362,12 @@ packages:
     peerDependencies:
       yjs: '>=13.5.22'
 
+  '@mjackson/headers@0.11.1':
+    resolution: {integrity: sha512-uXXhd4rtDdDwkqAuGef1nuafkCa1NlTmEc1Jzc0NL4YiA1yON1NFXuqJ3hOuKvNKQwkiDwdD+JJlKVyz4dunFA==}
+
+  '@mjackson/multipart-parser@0.10.1':
+    resolution: {integrity: sha512-cHMD6+ErH/DrEfC0N6Ru/+1eAdavxdV0C35PzSb5/SD7z3XoaDMc16xPJcb8CahWjSpqHY+Too9sAb6/UNuq7A==}
+
   '@modelcontextprotocol/sdk@1.20.2':
     resolution: {integrity: sha512-6rqTdFt67AAAzln3NOKsXRmv5ZzPkgbfaebKBqUbts7vK1GZudqnrun5a8d3M/h955cam9RHZ6Jb4Y1XhnmFPg==}
     engines: {node: '>=18'}
@@ -2417,6 +2426,13 @@ packages:
   '@supabase/functions-js@2.76.1':
     resolution: {integrity: sha512-+zJym/GC1sofm5QYKGxHSszCpMW4Ao2dj/WC3YlffAGuIlIhUtWTJvKsv5q7sWaSKUKdDhGpWhZ2OD++fW5BtQ==}
 
+  '@supabase/mcp-server-supabase@0.5.9':
+    resolution: {integrity: sha512-+gXSucJ9f4c8CqUqXyfQ92kJhdrOaveP122IVRba9quykF+il1zIrdooAPR6yVwz7J8+xoiCbJ1mey1lm00kxQ==}
+    hasBin: true
+
+  '@supabase/mcp-utils@0.2.4':
+    resolution: {integrity: sha512-oFLse3fDFDAY/Ahhzju1kJ0A22evVPCeMi0bIu8aNam+5KNKeWhgDrRp1v5Q7b17OH63Z1Rp7zwSmQXoKa1dRQ==}
+
   '@supabase/node-fetch@2.6.15':
     resolution: {integrity: sha512-1ibVeYUacxWYi9i0cf5efil6adJ9WRyZBLivgjs+AUpewx1F3xPi7gLgaASI2SmIQxPoCEjAsLAzKPgMJVgOUQ==}
     engines: {node: 4.x || >=6.0.0}
@@ -3345,6 +3361,10 @@ packages:
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
     engines: {node: '>= 6'}
+
+  common-tags@1.8.2:
+    resolution: {integrity: sha512-gk/Z852D2Wtb//0I+kRFNKKE9dIIVirjoqPoA1wJU+XePVXZfGeBpk45+A1rKO4Q43prqWBNY/MiIeRLbPWUaA==}
+    engines: {node: '>=4.0.0'}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -5325,6 +5345,12 @@ packages:
   open@10.2.0:
     resolution: {integrity: sha512-YgBpdJHPyQ2UE5x+hlSXcnejzAvD0b22U2OuAP+8OnlJT+PjWPxtgmGqKKc+RgTM63U9gN0YzrYc71R2WT/hTA==}
     engines: {node: '>=18'}
+
+  openapi-fetch@0.13.8:
+    resolution: {integrity: sha512-yJ4QKRyNxE44baQ9mY5+r/kAzZ8yXMemtNAOFwOzRXJscdjSxxzWSNlyBAr+o5JjkUw9Lc3W7OIoca0cY3PYnQ==}
+
+  openapi-typescript-helpers@0.0.15:
+    resolution: {integrity: sha512-opyTPaunsklCBpTK8JGef6mfPhLSnyy5a0IN9vKtx3+4aExf+KxEqYwIy3hqkedXIB97u357uLMJsOnm3GVjsw==}
 
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
@@ -8133,6 +8159,12 @@ snapshots:
       lexical: 0.34.0
       yjs: 13.6.27
 
+  '@mjackson/headers@0.11.1': {}
+
+  '@mjackson/multipart-parser@0.10.1':
+    dependencies:
+      '@mjackson/headers': 0.11.1
+
   '@modelcontextprotocol/sdk@1.20.2':
     dependencies:
       ajv: 6.12.6
@@ -9298,6 +9330,26 @@ snapshots:
       '@supabase/node-fetch': 2.6.15
       tslib: 2.8.1
 
+  '@supabase/mcp-server-supabase@0.5.9':
+    dependencies:
+      '@mjackson/multipart-parser': 0.10.1
+      '@modelcontextprotocol/sdk': 1.20.2
+      '@supabase/mcp-utils': 0.2.4
+      common-tags: 1.8.2
+      graphql: 16.11.0
+      openapi-fetch: 0.13.8
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - supports-color
+
+  '@supabase/mcp-utils@0.2.4':
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.20.2
+      zod: 3.25.76
+      zod-to-json-schema: 3.24.6(zod@3.25.76)
+    transitivePeerDependencies:
+      - supports-color
+
   '@supabase/node-fetch@2.6.15':
     dependencies:
       whatwg-url: 5.0.0
@@ -10329,6 +10381,8 @@ snapshots:
   commander@13.1.0: {}
 
   commander@4.1.1: {}
+
+  common-tags@1.8.2: {}
 
   concat-map@0.0.1: {}
 
@@ -12713,6 +12767,12 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
+
+  openapi-fetch@0.13.8:
+    dependencies:
+      openapi-typescript-helpers: 0.0.15
+
+  openapi-typescript-helpers@0.0.15: {}
 
   optionator@0.9.4:
     dependencies:
