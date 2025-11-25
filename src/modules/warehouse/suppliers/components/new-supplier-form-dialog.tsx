@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import {
   Dialog,
   DialogContent,
@@ -8,33 +11,76 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "react-toastify";
-import { supplierService } from "../api";
 import {
-  Supplier,
-  SupplierInsert,
-  SupplierContact,
-  SupplierContactInsert,
-  SupplierContactUpdate,
-  SupplierWithContacts,
-} from "../api";
-import { Loader2, Building2, MapPin, Tag } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SupplierContactForm } from "./supplier-contact-form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { supplierService, type Supplier } from "../api";
+import { contactsService } from "@/modules/contacts/api/contacts-service";
 import { useAppStore } from "@/lib/stores/app-store";
+import { useUserStore } from "@/lib/stores/user-store";
+import { toast } from "react-toastify";
+import { Building2, User, UserPlus, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+// Form schema for supplier (vendor)
+const supplierFormSchema = z.object({
+  // Entity type - business or individual
+  entity_type: z.enum(["business", "individual"]),
+
+  // Business fields
+  name: z.string().min(1, "Name is required"),
+  company_registration_number: z.string().optional(),
+  tax_number: z.string().optional(),
+
+  // Individual fields
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+
+  // Contact info
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  website: z.string().url().optional().or(z.literal("")),
+
+  // Address
+  address_line_1: z.string().optional(),
+  address_line_2: z.string().optional(),
+  city: z.string().optional(),
+  postal_code: z.string().optional(),
+  country: z.string().optional(),
+
+  // Contact person (link to contacts table)
+  contact_id: z.string().optional(),
+
+  // Additional info
+  notes: z.string().optional(),
+  is_active: z.boolean().default(true),
+});
+
+type SupplierFormValues = z.infer<typeof supplierFormSchema>;
 
 interface NewSupplierFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  supplier?: SupplierWithContacts;
-  onSuccess?: () => void;
+  supplier?: Supplier;
+  onSuccess: () => void;
 }
 
 export function NewSupplierFormDialog({
@@ -43,446 +89,571 @@ export function NewSupplierFormDialog({
   supplier,
   onSuccess,
 }: NewSupplierFormDialogProps) {
-  const [loading, setLoading] = React.useState(false);
-  const [formData, setFormData] = React.useState({
-    name: "",
-    company_registration_number: "",
-    tax_number: "",
-    website: "",
-    address_line_1: "",
-    address_line_2: "",
-    city: "",
-    state_province: "",
-    postal_code: "",
-    country: "Poland",
-    payment_terms: "",
-    delivery_terms: "",
-    notes: "",
-    is_active: true,
-    tags: [] as string[],
-  });
-  const [contacts, setContacts] = React.useState<SupplierContact[]>([]);
-  const [newTag, setNewTag] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [contacts, setContacts] = React.useState<any[]>([]);
+  const [loadingContacts, setLoadingContacts] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const isEditMode = !!supplier;
+
   const { activeOrgId } = useAppStore();
+  const { user } = useUserStore();
+  const userId = user?.id;
 
-  const isEditing = !!supplier;
+  const form = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierFormSchema),
+    defaultValues: {
+      entity_type: (supplier?.entity_type as "business" | "individual") || "business",
+      name: supplier?.name || "",
+      company_registration_number: supplier?.company_registration_number || "",
+      tax_number: supplier?.tax_number || "",
+      first_name: supplier?.first_name || "",
+      last_name: supplier?.last_name || "",
+      email: supplier?.email || "",
+      phone: supplier?.phone || "",
+      website: supplier?.website || "",
+      address_line_1: supplier?.address_line_1 || "",
+      address_line_2: supplier?.address_line_2 || "",
+      city: supplier?.city || "",
+      postal_code: supplier?.postal_code || "",
+      country: supplier?.country || "",
+      contact_id: supplier?.contact_id || undefined,
+      notes: supplier?.notes || "",
+      is_active: supplier?.is_active ?? true,
+    },
+  });
 
-  // Reset form when dialog opens/closes or supplier changes
+  const entityType = form.watch("entity_type");
+  const selectedContactId = form.watch("contact_id");
+
+  // Load contacts when dialog opens
   React.useEffect(() => {
     if (open) {
-      if (supplier) {
-        setFormData({
-          name: supplier.name || "",
-          company_registration_number: supplier.company_registration_number || "",
-          tax_number: supplier.tax_number || "",
-          website: supplier.website || "",
-          address_line_1: supplier.address_line_1 || "",
-          address_line_2: supplier.address_line_2 || "",
-          city: supplier.city || "",
-          state_province: supplier.state_province || "",
-          postal_code: supplier.postal_code || "",
-          country: supplier.country || "Poland",
-          payment_terms: supplier.payment_terms || "",
-          delivery_terms: supplier.delivery_terms || "",
-          notes: supplier.notes || "",
-          is_active: supplier.is_active ?? true,
-          tags: supplier.tags || [],
-        });
-        setContacts(supplier.supplier_contacts || []);
-      } else {
-        setFormData({
-          name: "",
-          company_registration_number: "",
-          tax_number: "",
-          website: "",
-          address_line_1: "",
-          address_line_2: "",
-          city: "",
-          state_province: "",
-          postal_code: "",
-          country: "Poland",
-          payment_terms: "",
-          delivery_terms: "",
-          notes: "",
-          is_active: true,
-          tags: [],
-        });
-        setContacts([]);
-      }
+      loadContacts();
     }
-  }, [open, supplier]);
+  }, [open]);
 
-  const handleInputChange = (field: string, value: string | boolean | string[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const loadContacts = async () => {
+    if (!activeOrgId || !userId) return;
 
-  const handleAddTag = () => {
-    if (newTag.trim() && !formData.tags.includes(newTag.trim())) {
-      handleInputChange("tags", [...formData.tags, newTag.trim()]);
-      setNewTag("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    handleInputChange(
-      "tags",
-      formData.tags.filter((tag) => tag !== tagToRemove)
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name.trim()) {
-      toast.error("Nazwa dostawcy jest wymagana");
-      return;
-    }
-
-    if (!activeOrgId) {
-      toast.error("Brak aktywnej organizacji");
-      return;
-    }
-
-    setLoading(true);
-
+    setLoadingContacts(true);
     try {
-      const supplierData: SupplierInsert = {
-        name: formData.name.trim(),
-        organization_id: activeOrgId,
-        company_registration_number: formData.company_registration_number.trim() || null,
-        tax_number: formData.tax_number.trim() || null,
-        website: formData.website.trim() || null,
-        address_line_1: formData.address_line_1.trim() || null,
-        address_line_2: formData.address_line_2.trim() || null,
-        city: formData.city.trim() || null,
-        state_province: formData.state_province.trim() || null,
-        postal_code: formData.postal_code.trim() || null,
-        country: formData.country.trim() || null,
-        payment_terms: formData.payment_terms.trim() || null,
-        delivery_terms: formData.delivery_terms.trim() || null,
-        notes: formData.notes.trim() || null,
-        is_active: formData.is_active,
-        tags: formData.tags.length > 0 ? formData.tags : null,
+      const result = await contactsService.getContacts(
+        activeOrgId,
+        userId,
+        { contact_type: "contact" }, // Only load general contacts
+        1,
+        1000 // Load many contacts
+      );
+      setContacts(result.contacts);
+    } catch (error) {
+      console.error("Error loading contacts:", error);
+      toast.error("Failed to load contacts");
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const filteredContacts = React.useMemo(() => {
+    if (!searchTerm) return contacts;
+    return contacts.filter(
+      (contact: any) =>
+        contact.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contact.primary_email?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [contacts, searchTerm]);
+
+  const selectedContact = contacts.find((c: any) => c.id === selectedContactId);
+
+  const onSubmit = async (data: SupplierFormValues) => {
+    setIsSubmitting(true);
+    try {
+      // Clean up data - convert empty strings to null for UUID fields
+      const cleanedData = {
+        ...data,
+        contact_id: data.contact_id && data.contact_id.trim() !== "" ? data.contact_id : null,
+        partner_type: "vendor", // CRITICAL: Explicitly set partner_type for suppliers
       };
 
-      let savedSupplier: Supplier;
-
-      if (isEditing && supplier) {
-        savedSupplier = await supplierService.updateSupplier(supplier.id, supplierData);
-        toast.success("Dostawca został zaktualizowany");
+      if (isEditMode && supplier) {
+        await supplierService.updateSupplier(supplier.id, cleanedData as any);
+        toast.success("Supplier updated successfully");
       } else {
-        savedSupplier = await supplierService.createSupplier(supplierData);
-        toast.success("Dostawca został dodany");
+        await supplierService.createSupplier(cleanedData as any);
+        toast.success("Supplier created successfully");
       }
-
-      // Handle contacts for new suppliers
-      if (!isEditing && contacts.length > 0) {
-        for (const contact of contacts) {
-          if (contact.id.startsWith("temp-")) {
-            const contactData: SupplierContactInsert = {
-              supplier_id: savedSupplier.id,
-              first_name: contact.first_name,
-              last_name: contact.last_name,
-              email: contact.email,
-              phone: contact.phone,
-              mobile: contact.mobile,
-              position: contact.position,
-              department: contact.department,
-              is_primary: contact.is_primary,
-              is_active: contact.is_active,
-              notes: contact.notes,
-            };
-            await supplierService.createSupplierContact(contactData);
-          }
-        }
-      }
-
-      onSuccess?.();
+      onSuccess();
       onOpenChange(false);
+      form.reset();
     } catch (error) {
       console.error("Error saving supplier:", error);
-      toast.error(
-        isEditing ? "Błąd podczas aktualizacji dostawcy" : "Błąd podczas dodawania dostawcy"
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to save supplier");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
-  };
-
-  const handleAddContact = async (contact: SupplierContactInsert): Promise<SupplierContact> => {
-    if (!supplier?.id) {
-      throw new Error("Supplier ID is required");
-    }
-    return await supplierService.createSupplierContact(contact);
-  };
-
-  const handleUpdateContact = async (
-    id: string,
-    contact: SupplierContactUpdate
-  ): Promise<SupplierContact> => {
-    return await supplierService.updateSupplierContact(id, contact);
-  };
-
-  const handleDeleteContact = async (id: string): Promise<void> => {
-    await supplierService.deleteSupplierContact(id);
-  };
-
-  const handleSetPrimary = async (id: string): Promise<SupplierContact> => {
-    return await supplierService.setPrimaryContact(id);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-[900px]">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edytuj dostawcę" : "Dodaj nowego dostawcę"}</DialogTitle>
+          <DialogTitle>{isEditMode ? "Edit Supplier" : "Add New Supplier"}</DialogTitle>
           <DialogDescription>
-            {isEditing
-              ? "Zaktualizuj informacje o dostawcy."
-              : "Wprowadź informacje o nowym dostawcy."}
+            {isEditMode
+              ? "Update supplier information"
+              : "Add a new supplier - business or individual"}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[70vh]">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Entity Type Selection */}
+            <FormField
+              control={form.control}
+              name="entity_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Supplier Type</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="business">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          <span>Business</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="individual">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>Individual</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {entityType === "business" ? "Company or organization" : "Individual person"}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="basic" className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  Podstawowe
-                </TabsTrigger>
-                <TabsTrigger value="address" className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Adres
-                </TabsTrigger>
-                <TabsTrigger value="contacts" className="flex items-center gap-2">
-                  Kontakty
-                </TabsTrigger>
+              <TabsList
+                className={`grid w-full ${entityType === "business" ? "grid-cols-4" : "grid-cols-3"}`}
+              >
+                <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                <TabsTrigger value="address">Address</TabsTrigger>
+                {entityType === "business" && (
+                  <TabsTrigger value="contact">Contact Person</TabsTrigger>
+                )}
+                <TabsTrigger value="additional">Additional</TabsTrigger>
               </TabsList>
 
-              {/* Basic Information Tab */}
+              {/* Basic Info Tab */}
               <TabsContent value="basic" className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nazwa dostawcy *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange("name", e.target.value)}
-                      placeholder="np. ABC Sp. z o.o."
-                      required
+                {entityType === "business" ? (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Company name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="website">Strona internetowa</Label>
-                    <Input
-                      id="website"
-                      value={formData.website}
-                      onChange={(e) => handleInputChange("website", e.target.value)}
-                      placeholder="https://www.dostawca.pl"
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="company_registration_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Registration Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="KRS/REGON" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="tax_number"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tax Number (NIP)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="XXX-XXX-XX-XX" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="first_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="last_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Display Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            How this supplier will be displayed in lists
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
+                  </>
+                )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="company_registration_number">NIP/REGON</Label>
-                    <Input
-                      id="company_registration_number"
-                      value={formData.company_registration_number}
-                      onChange={(e) =>
-                        handleInputChange("company_registration_number", e.target.value)
-                      }
-                      placeholder="1234567890"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="email@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="tax_number">Numer VAT</Label>
-                    <Input
-                      id="tax_number"
-                      value={formData.tax_number}
-                      onChange={(e) => handleInputChange("tax_number", e.target.value)}
-                      placeholder="PL1234567890"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="payment_terms">Warunki płatności</Label>
-                    <Input
-                      id="payment_terms"
-                      value={formData.payment_terms}
-                      onChange={(e) => handleInputChange("payment_terms", e.target.value)}
-                      placeholder="np. 30 dni"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="delivery_terms">Warunki dostawy</Label>
-                    <Input
-                      id="delivery_terms"
-                      value={formData.delivery_terms}
-                      onChange={(e) => handleInputChange("delivery_terms", e.target.value)}
-                      placeholder="np. FCA, DDP"
-                    />
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div className="space-y-2">
-                  <Label>Tagi</Label>
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    {formData.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                        <Tag className="h-3 w-3" />
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 text-xs hover:text-destructive"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      placeholder="Dodaj tag"
-                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
-                    />
-                    <Button type="button" onClick={handleAddTag} variant="outline" size="sm">
-                      Dodaj
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notatki</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange("notes", e.target.value)}
-                    placeholder="Dodatkowe informacje..."
-                    rows={3}
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+48 XXX XXX XXX" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_active"
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) =>
-                      handleInputChange("is_active", checked as boolean)
-                    }
-                  />
-                  <Label htmlFor="is_active">Aktywny dostawca</Label>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Website</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </TabsContent>
 
               {/* Address Tab */}
               <TabsContent value="address" className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="address_line_1">Adres - linia 1</Label>
-                    <Input
-                      id="address_line_1"
-                      value={formData.address_line_1}
-                      onChange={(e) => handleInputChange("address_line_1", e.target.value)}
-                      placeholder="ul. Przykładowa 123"
-                    />
-                  </div>
+                <FormField
+                  control={form.control}
+                  name="address_line_1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 1</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="address_line_2">Adres - linia 2</Label>
-                    <Input
-                      id="address_line_2"
-                      value={formData.address_line_2}
-                      onChange={(e) => handleInputChange("address_line_2", e.target.value)}
-                      placeholder="Budynek, apartament"
-                    />
-                  </div>
+                <FormField
+                  control={form.control}
+                  name="address_line_2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address Line 2</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Apartment, suite, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="city">Miasto</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => handleInputChange("city", e.target.value)}
-                      placeholder="Warszawa"
-                    />
-                  </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Warsaw" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="postal_code">Kod pocztowy</Label>
-                    <Input
-                      id="postal_code"
-                      value={formData.postal_code}
-                      onChange={(e) => handleInputChange("postal_code", e.target.value)}
-                      placeholder="00-000"
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="postal_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Postal Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="00-000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="state_province">Województwo</Label>
-                    <Input
-                      id="state_province"
-                      value={formData.state_province}
-                      onChange={(e) => handleInputChange("state_province", e.target.value)}
-                      placeholder="Mazowieckie"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Kraj</Label>
-                    <Input
-                      id="country"
-                      value={formData.country}
-                      onChange={(e) => handleInputChange("country", e.target.value)}
-                      placeholder="Polska"
-                    />
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Poland" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </TabsContent>
 
-              {/* Contacts Tab */}
-              <TabsContent value="contacts" className="space-y-4">
-                <SupplierContactForm
-                  supplierId={supplier?.id}
-                  contacts={contacts}
-                  onContactsChange={setContacts}
-                  onAddContact={handleAddContact}
-                  onUpdateContact={handleUpdateContact}
-                  onDeleteContact={handleDeleteContact}
-                  onSetPrimary={handleSetPrimary}
-                  disabled={loading}
+              {/* Contact Person Tab - Only for Business */}
+              {entityType === "business" && (
+                <TabsContent value="contact" className="space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Link Contact Person</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Select an existing contact from your contacts list or create a new one
+                      </p>
+                    </div>
+
+                    {/* Selected Contact Display */}
+                    {selectedContact && (
+                      <div className="p-4 border rounded-lg bg-muted/50">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{selectedContact.display_name}</p>
+                              {selectedContact.primary_email && (
+                                <p className="text-sm text-muted-foreground">
+                                  {selectedContact.primary_email}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => form.setValue("contact_id", undefined)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contact Search and Selection */}
+                    {!selectedContact && (
+                      <div className="space-y-3">
+                        <Input
+                          placeholder="Search contacts by name or email..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+
+                        <div className="border rounded-lg max-h-64 overflow-y-auto">
+                          {loadingContacts ? (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                              Loading contacts...
+                            </div>
+                          ) : filteredContacts.length === 0 ? (
+                            <div className="p-4 text-center">
+                              <p className="text-sm text-muted-foreground mb-2">
+                                No contacts found
+                              </p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  window.open("/dashboard/contacts", "_blank");
+                                }}
+                              >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Create New Contact
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="divide-y">
+                              {filteredContacts.map((contact: any) => (
+                                <button
+                                  key={contact.id}
+                                  type="button"
+                                  className="w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between"
+                                  onClick={() => form.setValue("contact_id", contact.id)}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                      <User className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-sm">{contact.display_name}</p>
+                                      {contact.primary_email && (
+                                        <p className="text-xs text-muted-foreground">
+                                          {contact.primary_email}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {contact.entity_type && (
+                                    <Badge variant="outline" className="text-xs">
+                                      {contact.entity_type}
+                                    </Badge>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              window.open("/dashboard/contacts", "_blank");
+                            }}
+                          >
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Create New Contact
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              )}
+
+              {/* Additional Info Tab */}
+              <TabsContent value="additional" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Additional notes about this supplier"
+                          className="resize-none"
+                          rows={5}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Active</FormLabel>
+                        <FormDescription>Inactive suppliers are hidden from lists</FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                    </FormItem>
+                  )}
                 />
               </TabsContent>
             </Tabs>
 
-            {/* Actions */}
-            <div className="flex justify-end space-x-2 border-t pt-4">
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
+                onClick={() => {
+                  onOpenChange(false);
+                  form.reset();
+                }}
+                disabled={isSubmitting}
               >
-                Anuluj
+                Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Zaktualizuj" : "Dodaj dostawcę"}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : isEditMode ? "Update Supplier" : "Create Supplier"}
               </Button>
             </div>
           </form>
-        </ScrollArea>
+        </Form>
       </DialogContent>
     </Dialog>
   );
