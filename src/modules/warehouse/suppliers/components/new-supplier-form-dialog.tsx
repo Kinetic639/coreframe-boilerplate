@@ -66,8 +66,9 @@ const supplierFormSchema = z.object({
   postal_code: z.string().optional(),
   country: z.string().optional(),
 
-  // Contact person (link to contacts table)
-  contact_id: z.string().optional(),
+  // Contact persons (multiple, link to contacts table)
+  contact_ids: z.array(z.string()).optional(),
+  primary_contact_id: z.string().optional(),
 
   // Additional info
   notes: z.string().optional(),
