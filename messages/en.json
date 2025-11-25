@@ -1109,6 +1109,10 @@
           "title": "Purchases",
           "orders": "Purchase Orders"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Supplier",
+        "customer": "Client"
       }
     },
     "teams": {
@@ -2072,11 +2076,6 @@
       "deleteError": "Failed to delete contact",
       "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
       "error": "An error occurred"
-    },
-    "types": {
-      "contact": "Contact",
-      "lead": "Lead",
-      "other": "Other"
     },
     "filters": {
       "title": "Filters",

@@ -125,6 +125,52 @@ export function NewSupplierFormDialog({
   const entityType = form.watch("entity_type");
   const selectedContactId = form.watch("contact_id");
 
+  // Reset form when supplier changes (for edit mode)
+  React.useEffect(() => {
+    if (supplier) {
+      form.reset({
+        entity_type: (supplier.entity_type as "business" | "individual") || "business",
+        name: supplier.name || "",
+        company_registration_number: supplier.company_registration_number || "",
+        tax_number: supplier.tax_number || "",
+        first_name: supplier.first_name || "",
+        last_name: supplier.last_name || "",
+        email: supplier.email || "",
+        phone: supplier.phone || "",
+        website: supplier.website || "",
+        address_line_1: supplier.address_line_1 || "",
+        address_line_2: supplier.address_line_2 || "",
+        city: supplier.city || "",
+        postal_code: supplier.postal_code || "",
+        country: supplier.country || "",
+        contact_id: supplier.contact_id || undefined,
+        notes: supplier.notes || "",
+        is_active: supplier.is_active ?? true,
+      });
+    } else {
+      // Reset to empty form for create mode
+      form.reset({
+        entity_type: "business",
+        name: "",
+        company_registration_number: "",
+        tax_number: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        website: "",
+        address_line_1: "",
+        address_line_2: "",
+        city: "",
+        postal_code: "",
+        country: "",
+        contact_id: undefined,
+        notes: "",
+        is_active: true,
+      });
+    }
+  }, [supplier, form]);
+
   // Load contacts when dialog opens
   React.useEffect(() => {
     if (open) {

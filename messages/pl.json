@@ -981,13 +981,13 @@
             "enterUnitCost": "Wprowadź cenę jednostkową"
           },
           "form": {
-            "optional": "(Opcjonalnie)",
+            "optional": "(opcjonalne)",
             "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "selectLocationPlaceholder": "Wybierz lokalizację, aby od razu przypisać produkty (opcjonalnie)",
-            "receiveWithoutLocation": "Brak (przyjmij bez lokalizacji)",
-            "noLocationsFound": "Nie znaleziono lokalizacji. Przejdź do menu Lokalizacje, aby ją utworzyć.",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do tej lokalizacji po przyjęciu dostawy",
-            "receiveWithoutLocationInfo": "Produkty zostaną przyjęte, ale jeszcze nie przypisane do lokalizacji",
+            "selectLocationPlaceholder": "Wybierz lokalizację...",
+            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
+            "noLocationsFound": "Nie znaleziono lokalizacji",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
+            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
             "deliveryAddressPlaceholder": "np. Lumber Inc",
             "sourceDocumentPlaceholder": "np. PO0032",
             "invoiceNumberPlaceholder": "np. FV/2024/001",
@@ -1002,16 +1002,7 @@
             "noSuppliersFound": "Nie znaleziono dostawców",
             "addNewSupplier": "Dodaj nowego dostawcę",
             "noLocationSet": "Nie ustawiono lokalizacji",
-            "noNotes": "Brak notatek",
-            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
-            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
-            "selectLocationPlaceholder": "Wybierz lokalizację...",
-            "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "noLocationsFound": "Nie znaleziono lokalizacji",
-            "sourceDocumentPlaceholder": "np. PO0032",
-            "notesPlaceholder": "Dodaj notatki...",
-            "optional": "(opcjonalne)"
+            "noNotes": "Brak notatek"
           },
           "tabs": {
             "operations": "Operacje",
@@ -1089,6 +1080,10 @@
           "title": "Zakupy",
           "orders": "Zamówienia Zakupu"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Dostawca",
+        "customer": "Klient"
       }
     },
     "teams": {
@@ -1958,7 +1953,7 @@
         "displayName": "Wprowadź nazwę wyświetlaną",
         "email": "przykład@firma.pl",
         "phone": "+48 123 456 789",
-        "website": "https://przykład.pl",
+        "website": "https://przyklad.pl",
         "paymentTerms": "Wybierz warunki płatności",
         "taxNumber": "Wprowadź NIP",
         "companyId": "Wprowadź REGON",
@@ -1979,8 +1974,7 @@
         "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
         "primaryEmail": "przyklad@firma.pl",
         "workPhone": "+48 123 456 789",
-        "mobilePhone": "+48 123 456 789",
-        "website": "https://przyklad.pl"
+        "mobilePhone": "+48 123 456 789"
       },
       "actions": {
         "addBillingAddress": "Dodaj Adres Fakturowy",
