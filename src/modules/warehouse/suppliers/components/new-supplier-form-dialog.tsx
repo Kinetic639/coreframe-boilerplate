@@ -37,8 +37,9 @@ import { contactsService } from "@/modules/contacts/api/contacts-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { toast } from "react-toastify";
-import { Building2, User, UserPlus, X } from "lucide-react";
+import { Building2, User, UserPlus, X, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Form schema for supplier (vendor)
 const supplierFormSchema = z.object({
@@ -103,32 +104,43 @@ export function NewSupplierFormDialog({
   const form = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierFormSchema),
     defaultValues: {
-      entity_type: (supplier?.entity_type as "business" | "individual") || "business",
-      name: supplier?.name || "",
-      company_registration_number: supplier?.company_registration_number || "",
-      tax_number: supplier?.tax_number || "",
-      first_name: supplier?.first_name || "",
-      last_name: supplier?.last_name || "",
-      email: supplier?.email || "",
-      phone: supplier?.phone || "",
-      website: supplier?.website || "",
-      address_line_1: supplier?.address_line_1 || "",
-      address_line_2: supplier?.address_line_2 || "",
-      city: supplier?.city || "",
-      postal_code: supplier?.postal_code || "",
-      country: supplier?.country || "",
-      contact_id: supplier?.contact_id || undefined,
-      notes: supplier?.notes || "",
-      is_active: supplier?.is_active ?? true,
+      entity_type: "business",
+      name: "",
+      company_registration_number: "",
+      tax_number: "",
+      first_name: "",
+      last_name: "",
+      email: "",
+      phone: "",
+      website: "",
+      address_line_1: "",
+      address_line_2: "",
+      city: "",
+      postal_code: "",
+      country: "",
+      contact_ids: [],
+      primary_contact_id: undefined,
+      notes: "",
+      is_active: true,
     },
   });
 
   const entityType = form.watch("entity_type");
-  const selectedContactId = form.watch("contact_id");
+  const selectedContactIds = form.watch("contact_ids") || [];
 
   // Reset form when supplier changes (for edit mode)
   React.useEffect(() => {
     if (supplier) {
+      // Extract contact IDs from business_account_contacts
+      const supplierWithContacts = supplier as any;
+      const contactIds =
+        supplierWithContacts.business_account_contacts
+          ?.map((link: any) => link.contact?.id)
+          .filter(Boolean) || [];
+      const primaryContact = supplierWithContacts.business_account_contacts?.find(
+        (link: any) => link.is_primary
+      );
+
       form.reset({
         entity_type: (supplier.entity_type as "business" | "individual") || "business",
         name: supplier.name || "",
@@ -144,7 +156,8 @@ export function NewSupplierFormDialog({
         city: supplier.city || "",
         postal_code: supplier.postal_code || "",
         country: supplier.country || "",
-        contact_id: supplier.contact_id || undefined,
+        contact_ids: contactIds,
+        primary_contact_id: primaryContact?.contact?.id,
         notes: supplier.notes || "",
         is_active: supplier.is_active ?? true,
       });
@@ -165,21 +178,15 @@ export function NewSupplierFormDialog({
         city: "",
         postal_code: "",
         country: "",
-        contact_id: undefined,
+        contact_ids: [],
+        primary_contact_id: undefined,
         notes: "",
         is_active: true,
       });
     }
   }, [supplier, form]);
 
-  // Load contacts when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      loadContacts();
-    }
-  }, [open]);
-
-  const loadContacts = async () => {
+  const loadContacts = React.useCallback(async () => {
     if (!activeOrgId || !userId) return;
 
     setLoadingContacts(true);
@@ -198,7 +205,14 @@ export function NewSupplierFormDialog({
     } finally {
       setLoadingContacts(false);
     }
-  };
+  }, [activeOrgId, userId]);
+
+  // Load contacts when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      loadContacts();
+    }
+  }, [open, loadContacts]);
 
   const filteredContacts = React.useMemo(() => {
     if (!searchTerm) return contacts;
@@ -209,25 +223,114 @@ export function NewSupplierFormDialog({
     );
   }, [contacts, searchTerm]);
 
-  const selectedContact = contacts.find((c: any) => c.id === selectedContactId);
+  const selectedContacts = React.useMemo(() => {
+    return contacts.filter((c: any) => selectedContactIds.includes(c.id));
+  }, [contacts, selectedContactIds]);
+
+  // Helper function to toggle contact selection
+  const handleToggleContact = (contactId: string) => {
+    const currentIds = form.getValues("contact_ids") || [];
+    const newIds = currentIds.includes(contactId)
+      ? currentIds.filter((id) => id !== contactId)
+      : [...currentIds, contactId];
+
+    form.setValue("contact_ids", newIds);
+
+    // If removing a contact that is primary, clear primary
+    if (!newIds.includes(contactId) && form.getValues("primary_contact_id") === contactId) {
+      form.setValue("primary_contact_id", undefined);
+    }
+  };
+
+  // Helper function to set primary contact
+  const handleSetPrimary = (contactId: string) => {
+    form.setValue("primary_contact_id", contactId);
+  };
+
+  // Helper function to remove contact
+  const handleRemoveContact = (contactId: string) => {
+    const currentIds = form.getValues("contact_ids") || [];
+    form.setValue(
+      "contact_ids",
+      currentIds.filter((id) => id !== contactId)
+    );
+
+    // If removing the primary contact, clear it
+    if (form.getValues("primary_contact_id") === contactId) {
+      form.setValue("primary_contact_id", undefined);
+    }
+  };
 
   const onSubmit = async (data: SupplierFormValues) => {
     setIsSubmitting(true);
     try {
+      // Extract contact data separately
+      const { contact_ids, primary_contact_id, ...supplierData } = data;
+
       // Clean up data - convert empty strings to null for UUID fields
       const cleanedData = {
-        ...data,
-        contact_id: data.contact_id && data.contact_id.trim() !== "" ? data.contact_id : null,
+        ...supplierData,
         partner_type: "vendor", // CRITICAL: Explicitly set partner_type for suppliers
       };
 
+      // Save or update supplier
+      let savedSupplier;
       if (isEditMode && supplier) {
-        await supplierService.updateSupplier(supplier.id, cleanedData as any);
+        savedSupplier = await supplierService.updateSupplier(supplier.id, cleanedData as any);
         toast.success("Supplier updated successfully");
       } else {
-        await supplierService.createSupplier(cleanedData as any);
+        savedSupplier = await supplierService.createSupplier(cleanedData as any);
         toast.success("Supplier created successfully");
       }
+
+      // Handle contact links
+      if (contact_ids && contact_ids.length > 0) {
+        const supplierId = savedSupplier.id;
+
+        // Get existing contact links if in edit mode
+        const supplierWithContacts = supplier as any;
+        const existingLinks = supplierWithContacts?.business_account_contacts || [];
+        const existingContactIds = existingLinks
+          .map((link: any) => link.contact?.id)
+          .filter(Boolean);
+
+        // Find contacts to add and remove
+        const contactsToAdd = contact_ids.filter((id) => !existingContactIds.includes(id));
+        const contactsToRemove = existingContactIds.filter((id) => !contact_ids.includes(id));
+
+        // Remove old contact links
+        for (const contactId of contactsToRemove) {
+          const linkToRemove = existingLinks.find((link: any) => link.contact?.id === contactId);
+          if (linkToRemove?.id) {
+            await supplierService.deleteSupplierContact(linkToRemove.id);
+          }
+        }
+
+        // Add new contact links
+        for (const contactId of contactsToAdd) {
+          await supplierService.createSupplierContact({
+            business_account_id: supplierId,
+            contact_id: contactId,
+            is_primary: contactId === primary_contact_id,
+          });
+        }
+
+        // Update primary contact if needed
+        if (primary_contact_id) {
+          // Find the link for the primary contact
+          const primaryLink = isEditMode
+            ? existingLinks.find((link: any) => link.contact?.id === primary_contact_id)
+            : null;
+
+          if (primaryLink?.id) {
+            await supplierService.setPrimaryContact(primaryLink.id);
+          } else if (contactsToAdd.includes(primary_contact_id)) {
+            // Primary was just added, need to find its new link ID
+            // The createSupplierContact above already set is_primary: true, so we're good
+          }
+        }
+      }
+
       onSuccess();
       onOpenChange(false);
       form.reset();
@@ -525,86 +628,115 @@ export function NewSupplierFormDialog({
                 <TabsContent value="contact" className="space-y-4">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-medium mb-2">Link Contact Person</h3>
+                      <h3 className="text-sm font-medium mb-2">Link Contact Persons</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Select an existing contact from your contacts list or create a new one
+                        Select one or more contacts and mark one as primary
                       </p>
                     </div>
 
-                    {/* Selected Contact Display */}
-                    {selectedContact && (
-                      <div className="p-4 border rounded-lg bg-muted/50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{selectedContact.display_name}</p>
-                              {selectedContact.primary_email && (
-                                <p className="text-sm text-muted-foreground">
-                                  {selectedContact.primary_email}
-                                </p>
-                              )}
+                    {/* Selected Contacts Display */}
+                    {selectedContacts.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Selected Contacts ({selectedContacts.length})
+                        </p>
+                        {selectedContacts.map((contact: any) => (
+                          <div
+                            key={contact.id}
+                            className="p-3 border rounded-lg bg-muted/50 space-y-2"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <User className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{contact.display_name}</p>
+                                  {contact.primary_email && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {contact.primary_email}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {form.watch("primary_contact_id") === contact.id ? (
+                                  <Badge variant="default" className="bg-yellow-500">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Primary
+                                  </Badge>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSetPrimary(contact.id)}
+                                  >
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Set as Primary
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveContact(contact.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => form.setValue("contact_id", undefined)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        ))}
                       </div>
                     )}
 
-                    {/* Contact Search and Selection */}
-                    {!selectedContact && (
-                      <div className="space-y-3">
-                        <Input
-                          placeholder="Search contacts by name or email..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    {/* Contact Search and Multi-Selection */}
+                    <div className="space-y-3">
+                      <Input
+                        placeholder="Search contacts by name or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
 
-                        <div className="border rounded-lg max-h-64 overflow-y-auto">
-                          {loadingContacts ? (
-                            <div className="p-4 text-center text-sm text-muted-foreground">
-                              Loading contacts...
-                            </div>
-                          ) : filteredContacts.length === 0 ? (
-                            <div className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground mb-2">
-                                No contacts found
-                              </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  window.open("/dashboard/contacts", "_blank");
-                                }}
-                              >
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Create New Contact
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="divide-y">
-                              {filteredContacts.map((contact: any) => (
-                                <button
+                      <div className="border rounded-lg max-h-64 overflow-y-auto">
+                        {loadingContacts ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            Loading contacts...
+                          </div>
+                        ) : filteredContacts.length === 0 ? (
+                          <div className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground mb-2">No contacts found</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                window.open("/dashboard/contacts", "_blank");
+                              }}
+                            >
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Create New Contact
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="divide-y">
+                            {filteredContacts.map((contact: any) => {
+                              const isSelected = selectedContactIds.includes(contact.id);
+                              return (
+                                <div
                                   key={contact.id}
-                                  type="button"
-                                  className="w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between"
-                                  onClick={() => form.setValue("contact_id", contact.id)}
+                                  className="p-3 hover:bg-muted/50 transition-colors"
                                 >
                                   <div className="flex items-center gap-3">
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={() => handleToggleContact(contact.id)}
+                                    />
                                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                                       <User className="h-4 w-4 text-primary" />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                       <p className="font-medium text-sm">{contact.display_name}</p>
                                       {contact.primary_email && (
                                         <p className="text-xs text-muted-foreground">
@@ -612,34 +744,34 @@ export function NewSupplierFormDialog({
                                         </p>
                                       )}
                                     </div>
+                                    {contact.entity_type && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {contact.entity_type}
+                                      </Badge>
+                                    )}
                                   </div>
-                                  {contact.entity_type && (
-                                    <Badge variant="outline" className="text-xs">
-                                      {contact.entity_type}
-                                    </Badge>
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              window.open("/dashboard/contacts", "_blank");
-                            }}
-                          >
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            Create New Contact
-                          </Button>
-                        </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            window.open("/dashboard/contacts", "_blank");
+                          }}
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Create New Contact
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
               )}

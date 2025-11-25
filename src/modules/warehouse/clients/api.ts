@@ -58,6 +58,19 @@ class ClientService {
   async restoreClient(id: string): Promise<Client> {
     return supplierService.restoreSupplier(id);
   }
+
+  // Contact management methods
+  async createSupplierContact(contact: any): Promise<any> {
+    return supplierService.createSupplierContact(contact);
+  }
+
+  async deleteSupplierContact(id: string): Promise<void> {
+    return supplierService.deleteSupplierContact(id);
+  }
+
+  async setPrimaryContact(linkId: string): Promise<void> {
+    return supplierService.setPrimaryContact(linkId);
+  }
 }
 
 export const clientService = new ClientService();
