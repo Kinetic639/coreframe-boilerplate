@@ -433,37 +433,46 @@ class SupplierService {
       throw new Error("business_account_id or supplier_id is required");
     }
 
-    const orgId = this.getOrganizationId();
+    let contactId: string;
 
-    // Step 1: Create the contact in contacts table
-    const contactData = {
-      organization_id: orgId,
-      contact_type: "vendor",
-      display_name:
-        contact.first_name && contact.last_name
-          ? `${contact.first_name} ${contact.last_name}`
-          : contact.first_name || contact.last_name || "Unknown",
-      first_name: contact.first_name || null,
-      last_name: contact.last_name || null,
-      primary_email: contact.email || null,
-      work_phone: contact.phone || null,
-      mobile_phone: contact.mobile || null,
-      notes: null, // Link notes go in business_account_contacts
-      visibility_scope: "organization",
-    };
+    // Check if we're linking an existing contact or creating a new one
+    if (contact.contact_id) {
+      // Link existing contact
+      contactId = contact.contact_id;
+    } else {
+      // Create new contact in contacts table
+      const orgId = this.getOrganizationId();
+      const contactData = {
+        organization_id: orgId,
+        contact_type: "contact", // Use "contact" instead of "vendor"
+        display_name:
+          contact.first_name && contact.last_name
+            ? `${contact.first_name} ${contact.last_name}`
+            : contact.first_name || contact.last_name || "Unknown",
+        first_name: contact.first_name || null,
+        last_name: contact.last_name || null,
+        primary_email: contact.email || null,
+        work_phone: contact.phone || null,
+        mobile_phone: contact.mobile || null,
+        notes: null, // Link notes go in business_account_contacts
+        visibility_scope: "organization",
+      };
 
-    const { data: newContact, error: contactError } = await this.supabase
-      .from("contacts")
-      .insert(contactData)
-      .select()
-      .single();
+      const { data: newContact, error: contactError } = await this.supabase
+        .from("contacts")
+        .insert(contactData)
+        .select()
+        .single();
 
-    if (contactError) {
-      console.error("Error creating contact:", contactError);
-      throw new Error(`Failed to create contact: ${contactError.message}`);
+      if (contactError) {
+        console.error("Error creating contact:", contactError);
+        throw new Error(`Failed to create contact: ${contactError.message}`);
+      }
+
+      contactId = newContact.id;
     }
 
-    // Step 2: If this contact is set as primary, remove primary from other contacts
+    // If this contact is set as primary, remove primary from other contacts
     if (contact.is_primary) {
       await this.supabase
         .from("business_account_contacts")
@@ -472,10 +481,10 @@ class SupplierService {
         .is("deleted_at", null);
     }
 
-    // Step 3: Create the link in business_account_contacts
+    // Create the link in business_account_contacts
     const linkData = {
       business_account_id: businessAccountId,
-      contact_id: newContact.id,
+      contact_id: contactId,
       is_primary: contact.is_primary || false,
       position: contact.position || null,
       department: contact.department || null,
