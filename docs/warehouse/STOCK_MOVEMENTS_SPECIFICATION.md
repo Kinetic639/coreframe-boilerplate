@@ -1,16 +1,19 @@
 # Stock Movements & Transfers - Technical Specification
 
-**Version:** 1.0
-**Last Updated:** 2025-11-25 | **Status Updated:** 2025-11-25
-**Implementation Status:** 42% Complete (Phase 1 & 2 Done + Validation Layer)
+**Version:** 1.1
+**Last Updated:** 2025-11-26 | **Status Updated:** 2025-11-26
+**Implementation Status:** 65% Complete (Phases 1-5 Done + Warehouse Architecture)
+**Comprehensive Status:** See [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)
 
 ---
 
 ## 🎯 Implementation Status Overview
 
-**Current State:** The stock movements system is partially implemented with a solid foundation.
+**Current State:** The stock movements system is well-developed and operational for core warehouse functions.
 
-### ✅ Completed Features (42%)
+**Detailed Status:** See [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md) for complete analysis.
+
+### ✅ Completed Features (65%)
 
 - **Movement Types System** (Phase 1 - Oct 24, 2024)
   - 31 SAP-style movement types (codes 101-613)
@@ -34,33 +37,75 @@
   - ✅ **Polish WMS Compliance**: Database ensures branches = warehouses, locations = bins
   - Migration: `supabase/migrations/20251125093150_add_cross_branch_location_validation.sql`
 
-- **Working Movement Types**
+- **Sales Orders & Reservations** (Phase 3 - Nov 14, 2024)
+  - Complete order lifecycle with automatic reservations
+  - Overselling prevention via real-time availability
+  - See: [archive/SALES_ORDERS_AND_RESERVATIONS_COMPLETION_SUMMARY.md](archive/SALES_ORDERS_AND_RESERVATIONS_COMPLETION_SUMMARY.md)
+
+- **Purchase Orders & Suppliers** (Phase 4 - Nov 16, 2024)
+  - Product-supplier relationships with pricing and lead times
+  - PO workflow with approval and receiving
+  - See: [archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md](archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md)
+
+- **Stock Alerts & Replenishment** (Phase 5 - Verified Nov 26, 2024)
+  - ✅ Per-warehouse product settings (reorder points, min/max levels)
+  - ✅ Automated stock alerts with severity levels and status workflow
+  - ✅ Alert dashboard with metrics and suggested quantities
+  - ✅ Integration with purchase orders for automated reordering
+
+- **Working Movement Types** (7 of 31 codes functional)
   - ✅ 101: Goods Receipt from Purchase Order (with delivery workflow)
-  - ✅ 201: Goods Issue for Sales Order
+  - ✅ 201: Goods Issue for Sales Order (with fulfillment)
   - ✅ 401-403: Inventory adjustments (increase, decrease, revaluation)
+  - ✅ 501-502: Stock reservations (reserve, unreserve)
 
-### 🚧 Partially Implemented
+### ❌ Critical Gaps (35% remaining for production-ready)
 
-- **Deliveries System** - Basic workflow exists, needs "Receive Delivery" button
-- **Receipt Documents** - Database ready, PDF generation pending
+**Priority 1: Warehouse Transfers** (301-312)
 
-### ❌ Not Yet Implemented (60%)
+- Tables exist but migrations DISABLED
+- Cannot move stock between locations/warehouses
+- Estimated: 2 weeks
 
-- **Stock Reservations** (501-502) - Tables exist, no UI
-- **Warehouse Transfers** (301-312) - Migrations disabled
-- **Returns** (102-103, 202-203)
-- **Internal Operations** (105, 205, 206, 411)
-- **Production Movements** (104, 204)
-- **E-commerce Integration** (601-613)
-- **JPK_MAG Export System**
-- **PDF Document Generation**
-- **Purchase Orders System**
-- **Low Stock Alerts**
-- **Row-Level Security** (intentionally disabled for testing)
+**Priority 2: PDF Document Generation**
+
+- All documents ready, no PDF output implementation
+- Polish legal requirement not met
+- Estimated: 1.5 weeks
+
+**Priority 3: Returns & Reversals** (102-103, 202-203)
+
+- Cannot process customer/supplier returns
+- Cannot reverse movements
+- Estimated: 1 week
+
+**Priority 4: Row-Level Security** (MANDATORY before production)
+
+- Intentionally disabled for testing
+- Security risk - no data isolation
+- Estimated: 1 week
+
+### ❌ Optional Features (for 100% completion)
+
+- **Internal Operations** (105, 205, 206, 411) - 1 week
+- **E-commerce Integration** (601-613) - 2-3 weeks
+- **Production Movements** (104, 204) - 1 week (if manufacturing)
+- **JPK_MAG Export** - 1 week (Polish tax compliance)
 
 ### 📋 Next Steps
 
-**See:** [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md) for detailed roadmap with priorities P1-P10 and estimated timelines (6-12 weeks to 100% completion).
+**Critical Path to Production (4-6 weeks):**
+
+1. Week 1: Enable and implement warehouse transfers
+2. Weeks 2-3: PDF document generation for all 7 Polish document types
+3. Week 4: Returns and reversals processing
+4. Week 5: Enable RLS and implement security policies
+5. Week 6: JPK_MAG export (Polish compliance)
+
+**Complete Plans:**
+
+- **[WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)** - Current status and immediate roadmap
+- **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** - Detailed technical implementation guide
 
 ---
 
