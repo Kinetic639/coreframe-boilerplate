@@ -6502,6 +6502,10 @@ export type Database = {
         Args: { permission_slug: string; user_id: string };
         Returns: boolean;
       };
+      validate_location_branch: {
+        Args: { p_expected_branch_id: string; p_location_id: string };
+        Returns: boolean;
+      };
       validate_movement_requirements: {
         Args: {
           p_has_destination_location: boolean;

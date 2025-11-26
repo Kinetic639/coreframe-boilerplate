@@ -1,8 +1,12 @@
-import { MDXComponents } from "mdx/types";
-import { ReactNode } from "react";
+import { ReactNode, ReactElement } from "react";
+
+// MDX Components type (simplified for react-markdown compatibility)
+type MDXComponentsType = {
+  [key: string]: (props: any) => ReactElement;
+};
 
 // Custom MDX components for documentation
-export const mdxComponents: MDXComponents = {
+export const mdxComponents: MDXComponentsType = {
   // Headings
   h1: ({ children }: { children: ReactNode }) => (
     <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">

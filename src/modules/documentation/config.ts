@@ -1,97 +1,76 @@
-import { ModuleConfig } from "@/lib/types/module";
-import { FileText, BookOpen, Code, Settings, FileCode } from "lucide-react";
+import type { ModuleConfig } from "@/lib/types/module";
+import { Widget } from "@/lib/types/widgets";
+
+const widgets: Widget[] = [
+  {
+    id: "doc-search",
+    title: "Documentation Search",
+    type: "custom",
+    componentName: "DocSearchWidget",
+    config: {
+      placeholder: "Search documentation...",
+      className: "col-span-2",
+    },
+  },
+  {
+    id: "recent-docs",
+    title: "Recently Viewed",
+    type: "custom",
+    componentName: "RecentDocsWidget",
+    config: {
+      limit: 5,
+      className: "col-span-2",
+    },
+  },
+];
 
 export const documentationModuleConfig: ModuleConfig = {
   id: "documentation",
-  name: "Documentation",
-  description: "Knowledge center with user guides, developer docs, and specifications",
-  icon: BookOpen,
+  slug: "documentation",
+  title: "modules.documentation.title",
+  icon: "BookOpen",
   color: "#0ea5e9", // sky-500
-  enabled: true,
-  order: 100, // Show at end of modules list
-
-  routes: [
+  description: "modules.documentation.description",
+  items: [
     {
-      path: "/docs",
-      name: "Documentation Home",
-      icon: BookOpen,
-      allowedUsers: ["all"], // Public access to documentation
+      id: "docs-home",
+      label: "modules.documentation.items.home",
+      icon: "BookOpen",
+      type: "link",
+      path: "/dashboard/docs",
     },
     {
-      path: "/docs/user",
-      name: "User Guide",
-      icon: FileText,
-      allowedUsers: ["all"],
+      id: "docs-user",
+      label: "modules.documentation.items.user",
+      icon: "FileText",
+      type: "link",
+      path: "/dashboard/docs/user",
     },
     {
-      path: "/docs/dev",
-      name: "Developer Docs",
-      icon: Code,
+      id: "docs-dev",
+      label: "modules.documentation.items.dev",
+      icon: "Code",
+      type: "link",
+      path: "/dashboard/docs/dev",
       allowedUsers: [
-        { role: "developer", scope: "organization" },
-        { role: "org_admin", scope: "organization" },
+        { role: "developer", scope: "org" },
+        { role: "org_admin", scope: "org" },
       ],
     },
     {
-      path: "/docs/spec",
-      name: "Specifications",
-      icon: FileCode,
+      id: "docs-spec",
+      label: "modules.documentation.items.spec",
+      icon: "FileCode",
+      type: "link",
+      path: "/dashboard/docs/spec",
       allowedUsers: [
-        { role: "developer", scope: "organization" },
-        { role: "org_admin", scope: "organization" },
-        { role: "branch_admin", scope: "branch" },
-      ],
-    },
-    {
-      path: "/docs/internal",
-      name: "Internal Docs",
-      icon: Settings,
-      allowedUsers: [
-        { role: "org_admin", scope: "organization" },
+        { role: "developer", scope: "org" },
+        { role: "org_admin", scope: "org" },
         { role: "branch_admin", scope: "branch" },
       ],
     },
   ],
-
-  widgets: [
-    {
-      id: "doc-search",
-      name: "Documentation Search",
-      description: "Quick search across all documentation",
-      component: "DocSearchWidget",
-      defaultSize: { width: 2, height: 1 },
-      allowedUsers: ["all"],
-    },
-    {
-      id: "recent-docs",
-      name: "Recently Viewed",
-      description: "Your recently viewed documentation",
-      component: "RecentDocsWidget",
-      defaultSize: { width: 2, height: 2 },
-      allowedUsers: ["all"],
-    },
-  ],
-
-  permissions: [
-    {
-      code: "documentation.view",
-      name: "View Documentation",
-      description: "Access documentation pages",
-      scope: "organization",
-    },
-    {
-      code: "documentation.edit",
-      name: "Edit Documentation",
-      description: "Edit and create documentation",
-      scope: "organization",
-    },
-    {
-      code: "documentation.manage",
-      name: "Manage Documentation",
-      description: "Full documentation management including deletion",
-      scope: "organization",
-    },
-  ],
+  widgets,
 };
 
 export default documentationModuleConfig;

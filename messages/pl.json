@@ -707,6 +707,16 @@
     "contacts": {
       "title": "Kontakty"
     },
+    "documentation": {
+      "title": "Dokumentacja",
+      "description": "Centrum wiedzy z przewodnikami i referencjami",
+      "items": {
+        "home": "Dokumentacja",
+        "user": "Przewodnik Użytkownika",
+        "dev": "Dokumentacja Deweloperska",
+        "spec": "Specyfikacje"
+      }
+    },
     "home": {
       "title": "Start",
       "items": {

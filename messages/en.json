@@ -752,6 +752,16 @@
     "contacts": {
       "title": "Contacts"
     },
+    "documentation": {
+      "title": "Documentation",
+      "description": "Knowledge center with guides and references",
+      "items": {
+        "home": "Documentation",
+        "user": "User Guide",
+        "dev": "Developer Docs",
+        "spec": "Specifications"
+      }
+    },
     "home": {
       "title": "Home",
       "items": {
