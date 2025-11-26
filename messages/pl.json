@@ -2068,5 +2068,84 @@
       "previous": "Poprzednia",
       "next": "Następna"
     }
+  },
+  "documentation": {
+    "title": "Dokumentacja",
+    "description": "Centrum wiedzy z przewodnikami, specyfikacjami i referencjami",
+    "sections": {
+      "user": "Przewodnik Użytkownika",
+      "dev": "Dokumentacja Deweloperska",
+      "spec": "Specyfikacje",
+      "internal": "Dokumentacja Wewnętrzna",
+      "api": "Dokumentacja API",
+      "meta": "Dokumentacja Systemowa"
+    },
+    "navigation": {
+      "home": "Strona Główna Dokumentacji",
+      "back": "Wstecz",
+      "tableOfContents": "Spis Treści",
+      "onThisPage": "Na Tej Stronie",
+      "quickLinks": "Szybkie Linki"
+    },
+    "search": {
+      "placeholder": "Szukaj w dokumentacji...",
+      "noResults": "Nie znaleziono wyników",
+      "searching": "Wyszukiwanie...",
+      "results": "Znaleziono {count} wyników"
+    },
+    "actions": {
+      "edit": "Edytuj",
+      "print": "Drukuj",
+      "download": "Pobierz PDF",
+      "share": "Udostępnij",
+      "feedback": "Wyślij Opinię",
+      "createTranslation": "Utwórz Tłumaczenie"
+    },
+    "language": {
+      "switchLanguage": "Zmień Język",
+      "notTranslated": "Ten dokument nie został jeszcze przetłumaczony na {language}.",
+      "viewOriginal": "Zobacz w języku {language}",
+      "helpTranslate": "Pomóż przetłumaczyć ten dokument"
+    },
+    "metadata": {
+      "lastUpdated": "Ostatnia aktualizacja",
+      "version": "Wersja",
+      "author": "Autor",
+      "difficulty": "Poziom trudności",
+      "estimatedTime": "Szacowany czas czytania",
+      "minutes": "{count} min",
+      "prerequisites": "Wymagania wstępne",
+      "relatedDocs": "Powiązana Dokumentacja"
+    },
+    "difficulty": {
+      "beginner": "Początkujący",
+      "intermediate": "Średniozaawansowany",
+      "advanced": "Zaawansowany",
+      "expert": "Ekspert"
+    },
+    "status": {
+      "draft": "Szkic",
+      "review": "W Recenzji",
+      "published": "Opublikowane",
+      "archived": "Zarchiwizowane"
+    },
+    "messages": {
+      "loading": "Ładowanie dokumentacji...",
+      "notFound": "Nie znaleziono dokumentacji",
+      "error": "Nie udało się załadować dokumentacji",
+      "saved": "Zmiany zostały zapisane",
+      "published": "Dokument został opublikowany"
+    },
+    "widgets": {
+      "search": {
+        "title": "Szukaj w Dokumentacji",
+        "description": "Szybkie wyszukiwanie w całej dokumentacji"
+      },
+      "recent": {
+        "title": "Ostatnio Przeglądane",
+        "description": "Twoje ostatnio przeglądane dokumenty",
+        "empty": "Brak ostatnio przeglądanych dokumentów"
+      }
+    }
   }
 }

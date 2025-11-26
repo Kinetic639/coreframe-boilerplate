@@ -2094,5 +2094,84 @@
       "previous": "Previous",
       "next": "Next"
     }
+  },
+  "documentation": {
+    "title": "Documentation",
+    "description": "Knowledge center with guides, specs, and references",
+    "sections": {
+      "user": "User Guide",
+      "dev": "Developer Docs",
+      "spec": "Specifications",
+      "internal": "Internal Docs",
+      "api": "API Reference",
+      "meta": "System Docs"
+    },
+    "navigation": {
+      "home": "Documentation Home",
+      "back": "Back",
+      "tableOfContents": "Table of Contents",
+      "onThisPage": "On This Page",
+      "quickLinks": "Quick Links"
+    },
+    "search": {
+      "placeholder": "Search documentation...",
+      "noResults": "No results found",
+      "searching": "Searching...",
+      "results": "{count} results found"
+    },
+    "actions": {
+      "edit": "Edit",
+      "print": "Print",
+      "download": "Download PDF",
+      "share": "Share",
+      "feedback": "Give Feedback",
+      "createTranslation": "Create Translation"
+    },
+    "language": {
+      "switchLanguage": "Switch Language",
+      "notTranslated": "This document is not yet translated to {language}.",
+      "viewOriginal": "View in {language}",
+      "helpTranslate": "Help translate this document"
+    },
+    "metadata": {
+      "lastUpdated": "Last updated",
+      "version": "Version",
+      "author": "Author",
+      "difficulty": "Difficulty",
+      "estimatedTime": "Estimated reading time",
+      "minutes": "{count} min",
+      "prerequisites": "Prerequisites",
+      "relatedDocs": "Related Documentation"
+    },
+    "difficulty": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "status": {
+      "draft": "Draft",
+      "review": "In Review",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "messages": {
+      "loading": "Loading documentation...",
+      "notFound": "Documentation not found",
+      "error": "Failed to load documentation",
+      "saved": "Changes saved successfully",
+      "published": "Document published successfully"
+    },
+    "widgets": {
+      "search": {
+        "title": "Search Documentation",
+        "description": "Quick search across all docs"
+      },
+      "recent": {
+        "title": "Recently Viewed",
+        "description": "Your recently viewed docs",
+        "empty": "No recently viewed documents"
+      }
+    }
   }
 }
