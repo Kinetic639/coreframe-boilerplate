@@ -2090,6 +2090,14 @@
       "api": "Dokumentacja API",
       "meta": "Dokumentacja Systemowa"
     },
+    "sectionDescriptions": {
+      "user": "Naucz się efektywnie używać AmbraWMS",
+      "dev": "Dokumentacja techniczna dla programistów",
+      "spec": "Szczegółowe specyfikacje techniczne",
+      "internal": "Dokumentacja wewnętrzna zespołu",
+      "api": "Endpointy API i przewodniki integracji",
+      "meta": "Architektura systemu i dokumenty projektowe"
+    },
     "navigation": {
       "home": "Strona Główna Dokumentacji",
       "back": "Wstecz",
@@ -2115,7 +2123,9 @@
       "switchLanguage": "Zmień Język",
       "notTranslated": "Ten dokument nie został jeszcze przetłumaczony na {language}.",
       "viewOriginal": "Zobacz w języku {language}",
-      "helpTranslate": "Pomóż przetłumaczyć ten dokument"
+      "helpTranslate": "Pomóż przetłumaczyć ten dokument",
+      "notAvailable": "Ten dokument nie jest dostępny w Twoim języku.",
+      "showingFallback": "Pokazywanie wersji angielskiej."
     },
     "metadata": {
       "lastUpdated": "Ostatnia aktualizacja",
