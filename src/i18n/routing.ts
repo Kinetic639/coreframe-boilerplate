@@ -310,6 +310,22 @@ export const routing = defineRouting({
       en: "/dashboard/teams/calendar",
       pl: "/dashboard/zespoly/kalendarz",
     },
+    "/dashboard/docs/user/getting-started": {
+      en: "/dashboard/docs/user/getting-started",
+      pl: "/dashboard/docs/user/getting-started",
+    },
+    "/dashboard/docs/user/api-introduction": {
+      en: "/dashboard/docs/user/api-introduction",
+      pl: "/dashboard/docs/user/api-introduction",
+    },
+    "/dashboard/docs/user/warehouse-basics": {
+      en: "/dashboard/docs/user/warehouse-basics",
+      pl: "/dashboard/docs/user/warehouse-basics",
+    },
+    "/dashboard/docs/user/products-guide": {
+      en: "/dashboard/docs/user/products-guide",
+      pl: "/dashboard/docs/user/products-guide",
+    },
 
     // === Support module ===
     "/dashboard/support": {
