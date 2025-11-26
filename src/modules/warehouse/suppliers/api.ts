@@ -502,18 +502,30 @@ class SupplierService {
       throw new Error(`Failed to link contact: ${linkError.message}`);
     }
 
+    // Fetch the contact data to return
+    const { data: contactData, error: fetchError } = await this.supabase
+      .from("contacts")
+      .select()
+      .eq("id", contactId)
+      .single();
+
+    if (fetchError || !contactData) {
+      console.error("Error fetching contact:", fetchError);
+      throw new Error(`Failed to fetch contact: ${fetchError?.message}`);
+    }
+
     // Return the combined result
     return {
-      ...newContact,
+      ...contactData,
       link_id: link.id,
       is_primary: link.is_primary,
       position: link.position,
       department: link.department,
       link_notes: link.notes,
-      phone: newContact.work_phone,
-      mobile: newContact.mobile_phone,
-      email: newContact.primary_email,
-      is_active: !newContact.deleted_at,
+      phone: contactData.work_phone,
+      mobile: contactData.mobile_phone,
+      email: contactData.primary_email,
+      is_active: !contactData.deleted_at,
     };
   }
 
