@@ -20,13 +20,14 @@ export interface ProductLocation {
 
 export async function getProductLocations(
   productId: string,
-  organizationId: string
+  organizationId: string,
+  branchId?: string
 ): Promise<{ data: ProductLocation[]; error: string | null; totalQuantity: number }> {
   try {
     const supabase = await createClient();
 
-    // Step 1: Get stock inventory data
-    const { data: inventoryData, error: inventoryError } = await supabase
+    // Step 1: Get stock inventory data (filtered by branch if provided)
+    let query = supabase
       .from("product_available_inventory")
       .select(
         "location_id, organization_id, branch_id, quantity_on_hand, reserved_quantity, available_quantity, total_value, average_cost"
@@ -35,6 +36,13 @@ export async function getProductLocations(
       .eq("organization_id", organizationId)
       .or("quantity_on_hand.gt.0,reserved_quantity.gt.0")
       .order("quantity_on_hand", { ascending: false });
+
+    // Filter by branch if provided (for current warehouse only)
+    if (branchId) {
+      query = query.eq("branch_id", branchId);
+    }
+
+    const { data: inventoryData, error: inventoryError } = await query;
 
     if (inventoryError) {
       console.error("Error fetching inventory:", inventoryError);
