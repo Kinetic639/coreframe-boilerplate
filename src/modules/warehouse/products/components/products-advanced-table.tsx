@@ -79,7 +79,7 @@ export function ProductsAdvancedTable({
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
   const router = useRouter();
-  const { activeOrgId } = useAppStore();
+  const { activeOrgId, activeBranch } = useAppStore();
   const [customFieldsProduct, setCustomFieldsProduct] = React.useState<ProductWithDetails | null>(
     null
   );
@@ -145,21 +145,40 @@ export function ProductsAdvancedTable({
     }
   }, [activeOrgId]);
 
-  // Load stock levels for all products
+  // Load stock levels for all products (BRANCH-SPECIFIC + OTHER BRANCHES)
   React.useEffect(() => {
-    if (activeOrgId && products.length > 0) {
+    if (activeOrgId && activeBranch?.id && products.length > 0 && branches.length > 0) {
       const loadStockLevels = async () => {
         try {
-          const stockLevels = await stockMovementsService.getInventoryLevels(activeOrgId);
           const stockMap: Record<string, number> = {};
 
-          stockLevels.forEach((stock) => {
-            const key = stock.product_id;
-            if (!stockMap[key]) {
-              stockMap[key] = 0;
-            }
-            stockMap[key] += stock.available_quantity || 0;
+          // Load stock for current branch
+          const currentBranchStock = await stockMovementsService.getInventoryLevels(
+            activeOrgId,
+            activeBranch.id
+          );
+          currentBranchStock.forEach((stock) => {
+            stockMap[stock.product_id] =
+              (stockMap[stock.product_id] || 0) + (stock.available_quantity || 0);
           });
+
+          // Load stock for other branches
+          for (const branch of branches) {
+            if (branch.id !== activeBranch.id) {
+              try {
+                const branchStock = await stockMovementsService.getInventoryLevels(
+                  activeOrgId,
+                  branch.id
+                );
+                branchStock.forEach((stock) => {
+                  const key = `${stock.product_id}_${branch.id}`;
+                  stockMap[key] = (stockMap[key] || 0) + (stock.available_quantity || 0);
+                });
+              } catch (error) {
+                console.error(`Failed to load stock for branch ${branch.id}:`, error);
+              }
+            }
+          }
 
           setProductStockMap(stockMap);
         } catch (error) {
@@ -168,7 +187,7 @@ export function ProductsAdvancedTable({
       };
       loadStockLevels();
     }
-  }, [activeOrgId, products]);
+  }, [activeOrgId, activeBranch, products, branches]);
 
   // Load product summaries for all products (on-demand loading)
   React.useEffect(() => {
@@ -281,7 +300,12 @@ export function ProductsAdvancedTable({
       render: (value, row) =>
         row.product_type === "goods" && row.track_inventory ? (
           <div className="text-sm">
-            {value || 0} {row.unit}
+            <div className="font-medium">
+              {productStockMap[row.id] !== undefined ? productStockMap[row.id] : "..."} {row.unit}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {activeBranch?.name || "Current warehouse"}
+            </div>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>
@@ -664,16 +688,26 @@ export function ProductsAdvancedTable({
                   </div>
                 )}
 
-                {/* Quantity Cards - 2x2 Grid with blue background */}
+                {/* Quantity Cards - Current Warehouse (Branch-Specific) */}
                 {product.product_type === "goods" && product.track_inventory && (
-                  <div className="rounded-lg bg-[#0066CC] p-6">
+                  <div className="rounded-lg bg-[#10b981] p-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-white">
+                        Current Warehouse: {activeBranch?.name || "—"}
+                      </h3>
+                      <Badge variant="secondary" className="bg-white/20 text-white">
+                        Branch Stock
+                      </Badge>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Quantity on hand */}
+                      {/* Quantity on hand - BRANCH SPECIFIC */}
                       <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
                         <div className="mb-1 text-xs opacity-90">Qty</div>
                         <div className="text-sm font-medium">On Hand</div>
                         <div className="mt-2 text-3xl font-bold">
-                          {productSummary.quantity_on_hand}
+                          {productStockMap[product.id] !== undefined
+                            ? productStockMap[product.id]
+                            : "..."}
                         </div>
                       </div>
 
@@ -705,10 +739,54 @@ export function ProductsAdvancedTable({
                   </div>
                 )}
 
-                {/* Stock by Location */}
+                {/* Stock by Location - Current Warehouse */}
                 {product.product_type === "goods" && product.track_inventory && (
-                  <ProductLocationBreakdown productId={product.id} organizationId={activeOrgId} />
+                  <div>
+                    <h3 className="mb-4 text-base font-semibold">
+                      Stock by Location ({activeBranch?.name || "Current Warehouse"})
+                    </h3>
+                    <ProductLocationBreakdown
+                      productId={product.id}
+                      organizationId={activeOrgId}
+                      branchId={activeBranch?.id}
+                    />
+                  </div>
                 )}
+
+                {/* Stock in Other Warehouses */}
+                {product.product_type === "goods" &&
+                  product.track_inventory &&
+                  branches.length > 1 && (
+                    <div>
+                      <h3 className="mb-4 text-base font-semibold">Stock in Other Warehouses</h3>
+                      <div className="space-y-3">
+                        {branches
+                          .filter((branch) => branch.id !== activeBranch?.id)
+                          .map((branch) => (
+                            <div
+                              key={branch.id}
+                              className="flex items-center justify-between rounded-lg border p-3"
+                            >
+                              <div>
+                                <div className="font-medium">{branch.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Branch Warehouse
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-lg font-semibold">
+                                  {productStockMap[`${product.id}_${branch.id}`] !== undefined
+                                    ? productStockMap[`${product.id}_${branch.id}`]
+                                    : "—"}{" "}
+                                  {product.unit}
+                                </div>
+                                <div className="text-xs text-muted-foreground">Available</div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
 
                 {/* Pricing & Cost - Clean layout like Zoho */}
                 <div>
