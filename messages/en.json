@@ -1859,6 +1859,109 @@
       "approve": "Approve"
     }
   },
+  "transfers": {
+    "title": "Warehouse Transfers",
+    "description": "Manage transfers between warehouses and locations",
+    "createTransfer": "Create Transfer",
+    "transferDetails": "Transfer Details",
+    "transferNumber": "Transfer Number",
+    "fromBranch": "From Warehouse",
+    "toBranch": "To Warehouse",
+    "fromLocation": "From Location",
+    "toLocation": "To Location",
+    "priority": "Priority",
+    "expectedDate": "Expected Date",
+    "shippingMethod": "Shipping Method",
+    "carrier": "Carrier",
+    "trackingNumber": "Tracking Number",
+    "requestedBy": "Requested By",
+    "approvedBy": "Approved By",
+    "shippedBy": "Shipped By",
+    "receivedBy": "Received By",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "shippedAt": "Shipped At",
+    "receivedAt": "Received At",
+    "items": "Items",
+    "itemCount": "{count} items",
+    "totalQuantity": "Total Quantity",
+    "receivedQuantity": "Received Quantity",
+    "statuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "approved": "Approved",
+      "in_transit": "In Transit",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected"
+    },
+    "priorities": {
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "actions": {
+      "submit": "Submit for Approval",
+      "approve": "Approve Transfer",
+      "reject": "Reject Transfer",
+      "ship": "Mark as Shipped",
+      "receive": "Receive Transfer",
+      "cancel": "Cancel Transfer",
+      "edit": "Edit",
+      "viewDetails": "View Details",
+      "refresh": "Refresh"
+    },
+    "messages": {
+      "transferCreated": "Transfer created successfully",
+      "transferSubmitted": "Transfer submitted for approval",
+      "transferApproved": "Transfer approved successfully",
+      "transferRejected": "Transfer rejected",
+      "transferShipped": "Transfer marked as shipped",
+      "transferReceived": "Transfer received successfully",
+      "transferCancelled": "Transfer cancelled",
+      "transferUpdated": "Transfer updated successfully",
+      "loadError": "Failed to load transfers",
+      "createError": "Failed to create transfer",
+      "updateError": "Failed to update transfer",
+      "noTransfers": "No transfers found",
+      "noItems": "No items in transfer",
+      "sameWarehouseError": "Source and destination warehouses must be different"
+    },
+    "filters": {
+      "allStatuses": "All Statuses",
+      "allPriorities": "All Priorities",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "search": "Search by number or notes..."
+    },
+    "workflow": {
+      "title": "Workflow",
+      "created": "Created",
+      "submitted": "Submitted for approval",
+      "approved": "Approved",
+      "shipped": "Shipped",
+      "received": "Received",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "All Transfers",
+      "pending": "Pending",
+      "inTransit": "In Transit",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "form": {
+      "selectBranch": "Select warehouse",
+      "selectLocation": "Select location",
+      "selectProduct": "Select product",
+      "addItem": "Add Item",
+      "removeItem": "Remove Item",
+      "notes": "Notes",
+      "enterNotes": "Enter notes...",
+      "reasonRequired": "Reason required",
+      "enterReason": "Enter reason..."
+    }
+  },
   "contacts": {
     "clients": {
       "title": "Clients",

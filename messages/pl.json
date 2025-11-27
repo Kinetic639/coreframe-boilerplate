@@ -1830,6 +1830,109 @@
       "approve": "Zatwierdź"
     }
   },
+  "transfers": {
+    "title": "Transfery Magazynowe",
+    "description": "Zarządzaj transferami między magazynami i lokalizacjami",
+    "createTransfer": "Utwórz Transfer",
+    "transferDetails": "Szczegóły Transferu",
+    "transferNumber": "Numer Transferu",
+    "fromBranch": "Z Magazynu",
+    "toBranch": "Do Magazynu",
+    "fromLocation": "Z Lokalizacji",
+    "toLocation": "Do Lokalizacji",
+    "priority": "Priorytet",
+    "expectedDate": "Oczekiwana Data",
+    "shippingMethod": "Metoda Wysyłki",
+    "carrier": "Przewoźnik",
+    "trackingNumber": "Numer Śledzenia",
+    "requestedBy": "Zgłoszone Przez",
+    "approvedBy": "Zatwierdzone Przez",
+    "shippedBy": "Wysłane Przez",
+    "receivedBy": "Odebrane Przez",
+    "createdAt": "Data Utworzenia",
+    "approvedAt": "Data Zatwierdzenia",
+    "shippedAt": "Data Wysyłki",
+    "receivedAt": "Data Odbioru",
+    "items": "Pozycje",
+    "itemCount": "{count} pozycji",
+    "totalQuantity": "Całkowita Ilość",
+    "receivedQuantity": "Ilość Odebrana",
+    "statuses": {
+      "draft": "Szkic",
+      "pending": "Oczekujący",
+      "approved": "Zatwierdzony",
+      "in_transit": "W Transporcie",
+      "completed": "Zakończony",
+      "cancelled": "Anulowany",
+      "rejected": "Odrzucony"
+    },
+    "priorities": {
+      "normal": "Normalny",
+      "high": "Wysoki",
+      "urgent": "Pilny"
+    },
+    "actions": {
+      "submit": "Wyślij do Zatwierdzenia",
+      "approve": "Zatwierdź Transfer",
+      "reject": "Odrzuć Transfer",
+      "ship": "Oznacz jako Wysłane",
+      "receive": "Odbierz Transfer",
+      "cancel": "Anuluj Transfer",
+      "edit": "Edytuj",
+      "viewDetails": "Zobacz Szczegóły",
+      "refresh": "Odśwież"
+    },
+    "messages": {
+      "transferCreated": "Transfer został utworzony pomyślnie",
+      "transferSubmitted": "Transfer został wysłany do zatwierdzenia",
+      "transferApproved": "Transfer został zatwierdzony",
+      "transferRejected": "Transfer został odrzucony",
+      "transferShipped": "Transfer został oznaczony jako wysłany",
+      "transferReceived": "Transfer został odebrany",
+      "transferCancelled": "Transfer został anulowany",
+      "transferUpdated": "Transfer został zaktualizowany",
+      "loadError": "Nie udało się załadować transferów",
+      "createError": "Nie udało się utworzyć transferu",
+      "updateError": "Nie udało się zaktualizować transferu",
+      "noTransfers": "Nie znaleziono transferów",
+      "noItems": "Brak pozycji w transferze",
+      "sameWarehouseError": "Magazyn źródłowy i docelowy muszą być różne"
+    },
+    "filters": {
+      "allStatuses": "Wszystkie Statusy",
+      "allPriorities": "Wszystkie Priorytety",
+      "fromDate": "Od Daty",
+      "toDate": "Do Daty",
+      "search": "Szukaj po numerze lub uwagach..."
+    },
+    "workflow": {
+      "title": "Przepływ Pracy",
+      "created": "Utworzono",
+      "submitted": "Wysłano do zatwierdzenia",
+      "approved": "Zatwierdzono",
+      "shipped": "Wysłano",
+      "received": "Odebrano",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "Wszystkie Transfery",
+      "pending": "Oczekujące",
+      "inTransit": "W Transporcie",
+      "completed": "Zakończone",
+      "overdue": "Opóźnione"
+    },
+    "form": {
+      "selectBranch": "Wybierz magazyn",
+      "selectLocation": "Wybierz lokalizację",
+      "selectProduct": "Wybierz produkt",
+      "addItem": "Dodaj Pozycję",
+      "removeItem": "Usuń Pozycję",
+      "notes": "Uwagi",
+      "enterNotes": "Wprowadź uwagi...",
+      "reasonRequired": "Wymagany powód",
+      "enterReason": "Wprowadź powód..."
+    }
+  },
   "contacts": {
     "clients": {
       "title": "Klienci",

@@ -227,6 +227,20 @@ export const routing = defineRouting({
       pl: "/dashboard/magazyn/skanowanie/dostawa",
     },
 
+    // === Transfers (Warehouse module) ===
+    "/dashboard/warehouse/transfers": {
+      en: "/dashboard/warehouse/transfers",
+      pl: "/dashboard/magazyn/transfery",
+    },
+    "/dashboard/warehouse/transfers/new": {
+      en: "/dashboard/warehouse/transfers/new",
+      pl: "/dashboard/magazyn/transfery/nowy",
+    },
+    "/dashboard/warehouse/transfers/[id]": {
+      en: "/dashboard/warehouse/transfers/[id]",
+      pl: "/dashboard/magazyn/transfery/[id]",
+    },
+
     // === Org Management module ===
     "/dashboard/organization": {
       en: "/dashboard/organization",
