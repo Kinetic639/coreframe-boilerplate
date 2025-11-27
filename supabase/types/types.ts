@@ -4551,6 +4551,7 @@ export type Database = {
           source_location_id: string | null;
           status: string;
           total_cost: number | null;
+          transfer_request_id: string | null;
           unit_cost: number | null;
           unit_of_measure: string | null;
           updated_at: string | null;
@@ -4596,6 +4597,7 @@ export type Database = {
           source_location_id?: string | null;
           status?: string;
           total_cost?: number | null;
+          transfer_request_id?: string | null;
           unit_cost?: number | null;
           unit_of_measure?: string | null;
           updated_at?: string | null;
@@ -4641,6 +4643,7 @@ export type Database = {
           source_location_id?: string | null;
           status?: string;
           total_cost?: number | null;
+          transfer_request_id?: string | null;
           unit_cost?: number | null;
           unit_of_measure?: string | null;
           updated_at?: string | null;
@@ -4723,6 +4726,13 @@ export type Database = {
             columns: ["source_location_id"];
             isOneToOne: false;
             referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stock_movements_transfer_request_id_fkey";
+            columns: ["transfer_request_id"];
+            isOneToOne: false;
+            referencedRelation: "transfer_requests";
             referencedColumns: ["id"];
           },
           {
@@ -5113,35 +5123,71 @@ export type Database = {
           created_at: string | null;
           from_location_id: string | null;
           id: string;
+          item_notes: string | null;
+          item_status: string | null;
+          product_id: string | null;
           product_variant_id: string;
           quantity: number;
+          received_quantity: number | null;
           to_location_id: string | null;
           transfer_request_id: string;
           unit_id: string;
+          variant_id: string | null;
         };
         Insert: {
           comment?: string | null;
           created_at?: string | null;
           from_location_id?: string | null;
           id?: string;
+          item_notes?: string | null;
+          item_status?: string | null;
+          product_id?: string | null;
           product_variant_id: string;
           quantity: number;
+          received_quantity?: number | null;
           to_location_id?: string | null;
           transfer_request_id: string;
           unit_id: string;
+          variant_id?: string | null;
         };
         Update: {
           comment?: string | null;
           created_at?: string | null;
           from_location_id?: string | null;
           id?: string;
+          item_notes?: string | null;
+          item_status?: string | null;
+          product_id?: string | null;
           product_variant_id?: string;
           quantity?: number;
+          received_quantity?: number | null;
           to_location_id?: string | null;
           transfer_request_id?: string;
           unit_id?: string;
+          variant_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "transfer_request_items_from_location_id_fkey";
+            columns: ["from_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_request_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_request_items_to_location_id_fkey";
+            columns: ["to_location_id"];
+            isOneToOne: false;
+            referencedRelation: "locations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "transfer_request_items_transfer_request_id_fkey";
             columns: ["transfer_request_id"];
@@ -5149,49 +5195,169 @@ export type Database = {
             referencedRelation: "transfer_requests";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "transfer_request_items_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "product_variants";
+            referencedColumns: ["id"];
+          },
         ];
       };
       transfer_requests: {
         Row: {
+          approved_at: string | null;
+          approved_by: string | null;
+          carrier: string | null;
           comment: string | null;
           created_at: string | null;
+          expected_date: string | null;
           from_branch_id: string;
           id: string;
+          metadata: Json | null;
+          notes: string | null;
           organization_id: string;
+          priority: string | null;
+          received_at: string | null;
+          received_by: string | null;
           requested_by: string | null;
           requires_confirmation: boolean;
           reviewed_at: string | null;
           reviewed_by: string | null;
+          shipped_at: string | null;
+          shipped_by: string | null;
+          shipping_method: string | null;
           status: string;
           to_branch_id: string;
+          tracking_number: string | null;
+          transfer_number: string | null;
         };
         Insert: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          carrier?: string | null;
           comment?: string | null;
           created_at?: string | null;
+          expected_date?: string | null;
           from_branch_id: string;
           id?: string;
+          metadata?: Json | null;
+          notes?: string | null;
           organization_id: string;
+          priority?: string | null;
+          received_at?: string | null;
+          received_by?: string | null;
           requested_by?: string | null;
           requires_confirmation?: boolean;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          shipped_at?: string | null;
+          shipped_by?: string | null;
+          shipping_method?: string | null;
           status: string;
           to_branch_id: string;
+          tracking_number?: string | null;
+          transfer_number?: string | null;
         };
         Update: {
+          approved_at?: string | null;
+          approved_by?: string | null;
+          carrier?: string | null;
           comment?: string | null;
           created_at?: string | null;
+          expected_date?: string | null;
           from_branch_id?: string;
           id?: string;
+          metadata?: Json | null;
+          notes?: string | null;
           organization_id?: string;
+          priority?: string | null;
+          received_at?: string | null;
+          received_by?: string | null;
           requested_by?: string | null;
           requires_confirmation?: boolean;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          shipped_at?: string | null;
+          shipped_by?: string | null;
+          shipping_method?: string | null;
           status?: string;
           to_branch_id?: string;
+          tracking_number?: string | null;
+          transfer_number?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "transfer_requests_approved_by_fkey";
+            columns: ["approved_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_from_branch_id_fkey";
+            columns: ["from_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_from_branch_id_fkey";
+            columns: ["from_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_received_by_fkey";
+            columns: ["received_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_shipped_by_fkey";
+            columns: ["shipped_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_to_branch_id_fkey";
+            columns: ["to_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "transfer_requests_to_branch_id_fkey";
+            columns: ["to_branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       units: {
         Row: {
@@ -6200,6 +6366,10 @@ export type Database = {
       };
       generate_receipt_number: {
         Args: { p_branch_id: string; p_organization_id: string };
+        Returns: string;
+      };
+      generate_transfer_number: {
+        Args: { p_branch_id: string; p_date?: string; p_org_id: string };
         Returns: string;
       };
       generate_variant_combinations: {

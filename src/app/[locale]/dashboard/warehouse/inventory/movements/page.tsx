@@ -10,6 +10,8 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus, Filter, LayoutGrid, List } from "lucide-react";
 import { CreateMovementDialog } from "@/modules/warehouse/components/create-movement-dialog";
+import { CreateTransferRequestDialog } from "@/modules/warehouse/components/create-transfer-request-dialog";
+import { TransferRequestsTable } from "@/modules/warehouse/components/transfer-requests-table";
 import { StockMovementCard } from "@/modules/warehouse/components/stock-movement-card";
 import { StockMovementsTable } from "@/modules/warehouse/components/stock-movements-table";
 import { MovementFilters } from "@/modules/warehouse/components/movement-filters";
@@ -30,18 +32,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMovements } from "@/app/actions/warehouse/get-movements";
 import { approveMovement } from "@/app/actions/warehouse/approve-movement";
 import { cancelMovement } from "@/app/actions/warehouse/cancel-movement";
+import { getTransferRequests } from "@/app/actions/warehouse/get-transfer-requests";
 import { toast } from "react-toastify";
 import { useAppStore } from "@/lib/stores/app-store";
 import type {
   StockMovementWithRelations,
   StockMovementFilters,
 } from "@/modules/warehouse/types/stock-movements";
+import type { TransferRequestWithRelations } from "@/modules/warehouse/types/inter-warehouse-transfers";
 
 export default function InventoryMovementsPage() {
   const t = useTranslations("stockMovements");
   const { activeOrg, activeBranch } = useAppStore();
 
   const [movements, setMovements] = useState<StockMovementWithRelations[]>([]);
+  const [transfers, setTransfers] = useState<TransferRequestWithRelations[]>([]);
   const [filters, setFilters] = useState<StockMovementFilters>({
     organization_id: activeOrg?.organization_id,
     branch_id: activeBranch?.id,
@@ -50,12 +55,17 @@ export default function InventoryMovementsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [transfersLoading, setTransfersLoading] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<StockMovementWithRelations | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [pendingCount, setPendingCount] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [locations, setLocations] = useState<
+    Array<{ id: string; name: string; code: string; branch_id: string }>
+  >([]);
 
   useEffect(() => {
     if (activeOrg?.organization_id && activeBranch?.id) {
@@ -68,8 +78,13 @@ export default function InventoryMovementsPage() {
   }, [activeOrg, activeBranch]);
 
   useEffect(() => {
-    loadMovements();
-    loadPendingCount();
+    if (activeTab === "transfers") {
+      loadTransfers();
+      loadBranchesAndLocations();
+    } else {
+      loadMovements();
+      loadPendingCount();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, page, activeTab]);
 
@@ -171,9 +186,49 @@ export default function InventoryMovementsPage() {
     }
   };
 
+  const loadTransfers = async () => {
+    if (!activeOrg?.organization_id || !activeBranch?.id) return;
+
+    try {
+      setTransfersLoading(true);
+      const result = await getTransferRequests(activeOrg.organization_id, activeBranch.id);
+
+      if (result.success) {
+        setTransfers(result.data);
+      } else {
+        toast.error(result.error || "Failed to load transfers");
+      }
+    } catch (error) {
+      console.error("Error loading transfers:", error);
+      toast.error("Failed to load transfers");
+    } finally {
+      setTransfersLoading(false);
+    }
+  };
+
+  const loadBranchesAndLocations = async () => {
+    if (!activeOrg?.organization_id) return;
+
+    try {
+      // Load branches - in a real app, this would come from an API
+      // For now, we'll use a mock implementation
+      // You should create a proper action for this
+      setBranches([{ id: activeBranch?.id || "", name: activeBranch?.name || "Current Branch" }]);
+
+      // Load locations - same as above
+      setLocations([]);
+    } catch (error) {
+      console.error("Error loading branches/locations:", error);
+    }
+  };
+
   const handleCreateSuccess = () => {
     loadMovements();
     loadPendingCount();
+  };
+
+  const handleTransferSuccess = () => {
+    loadTransfers();
   };
 
   const handleResetFilters = () => {
@@ -323,6 +378,12 @@ export default function InventoryMovementsPage() {
           </TabsTrigger>
           <TabsTrigger value="approved">{t("statuses.approved")}</TabsTrigger>
           <TabsTrigger value="completed">{t("statuses.completed")}</TabsTrigger>
+          <TabsTrigger value="transfers">
+            Inter-Warehouse Transfers
+            <Badge variant="outline" className="ml-2">
+              {transfers.length}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
@@ -567,6 +628,104 @@ export default function InventoryMovementsPage() {
               )}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="transfers" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Transfer Requests</CardTitle>
+                  <CardDescription>
+                    Manage inter-warehouse stock transfers with approval workflow
+                  </CardDescription>
+                </div>
+                <CreateTransferRequestDialog
+                  organizationId={activeOrg.organization_id}
+                  branchId={activeBranch.id}
+                  branches={branches}
+                  locations={locations}
+                  onSuccess={handleTransferSuccess}
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              {transfersLoading ? (
+                <div className="text-center py-12">
+                  <div className="text-muted-foreground">Loading transfers...</div>
+                </div>
+              ) : (
+                <TransferRequestsTable transfers={transfers} onRefresh={loadTransfers} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Transfer Workflow Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Transfer Workflow</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold">1</span>
+                    </div>
+                    <h4 className="font-semibold">Draft</h4>
+                    <p className="text-sm text-muted-foreground">Create transfer request</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold">2</span>
+                    </div>
+                    <h4 className="font-semibold">Pending</h4>
+                    <p className="text-sm text-muted-foreground">Submit for approval</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold">3</span>
+                    </div>
+                    <h4 className="font-semibold">Approved</h4>
+                    <p className="text-sm text-muted-foreground">Warehouse manager approves</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold">4</span>
+                    </div>
+                    <h4 className="font-semibold">In Transit</h4>
+                    <p className="text-sm text-muted-foreground">Ship (creates OUT movement 311)</p>
+                  </div>
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold">5</span>
+                    </div>
+                    <h4 className="font-semibold">Completed</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Receive (creates IN movement 312)
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <h5 className="font-semibold mb-2">Movement Types</h5>
+                  <ul className="text-sm space-y-1 text-muted-foreground">
+                    <li>
+                      • <strong>301:</strong> Transfer Out (same warehouse)
+                    </li>
+                    <li>
+                      • <strong>302:</strong> Transfer In (same warehouse)
+                    </li>
+                    <li>
+                      • <strong>311:</strong> Inter-Branch Transfer Out
+                    </li>
+                    <li>
+                      • <strong>312:</strong> Inter-Branch Transfer In
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
