@@ -1827,6 +1827,8 @@
       "hide": "Hide Filters",
       "allCategories": "All Categories",
       "allStatuses": "All Statuses",
+      "allMovements": "All Movements",
+      "requiresApproval": "Requires Approval",
       "fromDate": "From Date",
       "toDate": "To Date",
       "selectDate": "Select date"

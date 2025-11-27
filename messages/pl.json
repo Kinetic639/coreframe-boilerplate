@@ -1797,6 +1797,8 @@
       "show": "Pokaż Filtry",
       "hide": "Ukryj Filtry",
       "allCategories": "Wszystkie Kategorie",
+      "allMovements": "Wszystkie Ruchy",
+      "requiresApproval": "Wymaga Zatwierdzenia",
       "allStatuses": "Wszystkie Statusy",
       "fromDate": "Od Daty",
       "toDate": "Do Daty",
