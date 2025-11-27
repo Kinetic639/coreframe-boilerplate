@@ -8,12 +8,14 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Plus, Filter } from "lucide-react";
+import { RefreshCw, Plus, Filter, LayoutGrid, List } from "lucide-react";
 import { CreateMovementDialog } from "@/modules/warehouse/components/create-movement-dialog";
 import { StockMovementCard } from "@/modules/warehouse/components/stock-movement-card";
+import { StockMovementsTable } from "@/modules/warehouse/components/stock-movements-table";
 import { MovementFilters } from "@/modules/warehouse/components/movement-filters";
 import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
 import { ApprovalQueue } from "@/modules/warehouse/components/approval-queue";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Pagination,
   PaginationContent,
@@ -53,6 +55,7 @@ export default function InventoryMovementsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
   const [pendingCount, setPendingCount] = useState(0);
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   useEffect(() => {
     if (activeOrg?.organization_id && activeBranch?.id) {
@@ -207,6 +210,18 @@ export default function InventoryMovementsPage() {
           <p className="text-muted-foreground mt-1">{t("description")}</p>
         </div>
         <div className="flex gap-2">
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(value) => value && setViewMode(value as "card" | "list")}
+          >
+            <ToggleGroupItem value="card" aria-label="Card view" size="sm">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label="List view" size="sm">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <Filter className="h-4 w-4 mr-2" />
             {showFilters ? t("filters.hide") : t("filters.show")}
@@ -330,15 +345,19 @@ export default function InventoryMovementsPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {movements.map((movement) => (
-                  <StockMovementCard
-                    key={movement.id}
-                    movement={movement}
-                    onClick={() => handleMovementClick(movement)}
-                  />
-                ))}
-              </div>
+              {viewMode === "card" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {movements.map((movement) => (
+                    <StockMovementCard
+                      key={movement.id}
+                      movement={movement}
+                      onClick={() => handleMovementClick(movement)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <StockMovementsTable movements={movements} onMovementClick={handleMovementClick} />
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
@@ -425,15 +444,19 @@ export default function InventoryMovementsPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {movements.map((movement) => (
-                  <StockMovementCard
-                    key={movement.id}
-                    movement={movement}
-                    onClick={() => handleMovementClick(movement)}
-                  />
-                ))}
-              </div>
+              {viewMode === "card" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {movements.map((movement) => (
+                    <StockMovementCard
+                      key={movement.id}
+                      movement={movement}
+                      onClick={() => handleMovementClick(movement)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <StockMovementsTable movements={movements} onMovementClick={handleMovementClick} />
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
@@ -493,15 +516,19 @@ export default function InventoryMovementsPage() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {movements.map((movement) => (
-                  <StockMovementCard
-                    key={movement.id}
-                    movement={movement}
-                    onClick={() => handleMovementClick(movement)}
-                  />
-                ))}
-              </div>
+              {viewMode === "card" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {movements.map((movement) => (
+                    <StockMovementCard
+                      key={movement.id}
+                      movement={movement}
+                      onClick={() => handleMovementClick(movement)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <StockMovementsTable movements={movements} onMovementClick={handleMovementClick} />
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
