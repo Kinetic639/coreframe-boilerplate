@@ -707,6 +707,16 @@
     "contacts": {
       "title": "Kontakty"
     },
+    "documentation": {
+      "title": "Dokumentacja",
+      "description": "Centrum wiedzy z przewodnikami i referencjami",
+      "items": {
+        "home": "Dokumentacja",
+        "user": "Przewodnik Użytkownika",
+        "dev": "Dokumentacja Deweloperska",
+        "spec": "Specyfikacje"
+      }
+    },
     "home": {
       "title": "Start",
       "items": {
@@ -981,13 +991,13 @@
             "enterUnitCost": "Wprowadź cenę jednostkową"
           },
           "form": {
-            "optional": "(Opcjonalnie)",
+            "optional": "(opcjonalne)",
             "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "selectLocationPlaceholder": "Wybierz lokalizację, aby od razu przypisać produkty (opcjonalnie)",
-            "receiveWithoutLocation": "Brak (przyjmij bez lokalizacji)",
-            "noLocationsFound": "Nie znaleziono lokalizacji. Przejdź do menu Lokalizacje, aby ją utworzyć.",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do tej lokalizacji po przyjęciu dostawy",
-            "receiveWithoutLocationInfo": "Produkty zostaną przyjęte, ale jeszcze nie przypisane do lokalizacji",
+            "selectLocationPlaceholder": "Wybierz lokalizację...",
+            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
+            "noLocationsFound": "Nie znaleziono lokalizacji",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
+            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
             "deliveryAddressPlaceholder": "np. Lumber Inc",
             "sourceDocumentPlaceholder": "np. PO0032",
             "invoiceNumberPlaceholder": "np. FV/2024/001",
@@ -1002,16 +1012,7 @@
             "noSuppliersFound": "Nie znaleziono dostawców",
             "addNewSupplier": "Dodaj nowego dostawcę",
             "noLocationSet": "Nie ustawiono lokalizacji",
-            "noNotes": "Brak notatek",
-            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
-            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
-            "selectLocationPlaceholder": "Wybierz lokalizację...",
-            "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "noLocationsFound": "Nie znaleziono lokalizacji",
-            "sourceDocumentPlaceholder": "np. PO0032",
-            "notesPlaceholder": "Dodaj notatki...",
-            "optional": "(opcjonalne)"
+            "noNotes": "Brak notatek"
           },
           "tabs": {
             "operations": "Operacje",
@@ -1089,6 +1090,10 @@
           "title": "Zakupy",
           "orders": "Zamówienia Zakupu"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Dostawca",
+        "customer": "Klient"
       }
     },
     "teams": {
@@ -1794,6 +1799,8 @@
       "show": "Pokaż Filtry",
       "hide": "Ukryj Filtry",
       "allCategories": "Wszystkie Kategorie",
+      "allMovements": "Wszystkie Ruchy",
+      "requiresApproval": "Wymaga Zatwierdzenia",
       "allStatuses": "Wszystkie Statusy",
       "fromDate": "Od Daty",
       "toDate": "Do Daty",
@@ -1960,7 +1967,7 @@
         "displayName": "Wprowadź nazwę wyświetlaną",
         "email": "przykład@firma.pl",
         "phone": "+48 123 456 789",
-        "website": "https://przykład.pl",
+        "website": "https://przyklad.pl",
         "paymentTerms": "Wybierz warunki płatności",
         "taxNumber": "Wprowadź NIP",
         "companyId": "Wprowadź REGON",
@@ -1981,8 +1988,7 @@
         "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
         "primaryEmail": "przyklad@firma.pl",
         "workPhone": "+48 123 456 789",
-        "mobilePhone": "+48 123 456 789",
-        "website": "https://przyklad.pl"
+        "mobilePhone": "+48 123 456 789"
       },
       "actions": {
         "addBillingAddress": "Dodaj Adres Fakturowy",
@@ -2075,6 +2081,95 @@
       "showing": "Pokazuję {start} do {end} z {total}",
       "previous": "Poprzednia",
       "next": "Następna"
+    }
+  },
+  "documentation": {
+    "title": "Dokumentacja",
+    "description": "Centrum wiedzy z przewodnikami, specyfikacjami i referencjami",
+    "sections": {
+      "user": "Przewodnik Użytkownika",
+      "dev": "Dokumentacja Deweloperska",
+      "spec": "Specyfikacje",
+      "internal": "Dokumentacja Wewnętrzna",
+      "api": "Dokumentacja API",
+      "meta": "Dokumentacja Systemowa"
+    },
+    "sectionDescriptions": {
+      "user": "Naucz się efektywnie używać AmbraWMS",
+      "dev": "Dokumentacja techniczna dla programistów",
+      "spec": "Szczegółowe specyfikacje techniczne",
+      "internal": "Dokumentacja wewnętrzna zespołu",
+      "api": "Endpointy API i przewodniki integracji",
+      "meta": "Architektura systemu i dokumenty projektowe"
+    },
+    "navigation": {
+      "home": "Strona Główna Dokumentacji",
+      "back": "Wstecz",
+      "tableOfContents": "Spis Treści",
+      "onThisPage": "Na Tej Stronie",
+      "quickLinks": "Szybkie Linki"
+    },
+    "search": {
+      "placeholder": "Szukaj w dokumentacji...",
+      "noResults": "Nie znaleziono wyników",
+      "searching": "Wyszukiwanie...",
+      "results": "Znaleziono {count} wyników"
+    },
+    "actions": {
+      "edit": "Edytuj",
+      "print": "Drukuj",
+      "download": "Pobierz PDF",
+      "share": "Udostępnij",
+      "feedback": "Wyślij Opinię",
+      "createTranslation": "Utwórz Tłumaczenie"
+    },
+    "language": {
+      "switchLanguage": "Zmień Język",
+      "notTranslated": "Ten dokument nie został jeszcze przetłumaczony na {language}.",
+      "viewOriginal": "Zobacz w języku {language}",
+      "helpTranslate": "Pomóż przetłumaczyć ten dokument",
+      "notAvailable": "Ten dokument nie jest dostępny w Twoim języku.",
+      "showingFallback": "Pokazywanie wersji angielskiej."
+    },
+    "metadata": {
+      "lastUpdated": "Ostatnia aktualizacja",
+      "version": "Wersja",
+      "author": "Autor",
+      "difficulty": "Poziom trudności",
+      "estimatedTime": "Szacowany czas czytania",
+      "minutes": "{count} min",
+      "prerequisites": "Wymagania wstępne",
+      "relatedDocs": "Powiązana Dokumentacja"
+    },
+    "difficulty": {
+      "beginner": "Początkujący",
+      "intermediate": "Średniozaawansowany",
+      "advanced": "Zaawansowany",
+      "expert": "Ekspert"
+    },
+    "status": {
+      "draft": "Szkic",
+      "review": "W Recenzji",
+      "published": "Opublikowane",
+      "archived": "Zarchiwizowane"
+    },
+    "messages": {
+      "loading": "Ładowanie dokumentacji...",
+      "notFound": "Nie znaleziono dokumentacji",
+      "error": "Nie udało się załadować dokumentacji",
+      "saved": "Zmiany zostały zapisane",
+      "published": "Dokument został opublikowany"
+    },
+    "widgets": {
+      "search": {
+        "title": "Szukaj w Dokumentacji",
+        "description": "Szybkie wyszukiwanie w całej dokumentacji"
+      },
+      "recent": {
+        "title": "Ostatnio Przeglądane",
+        "description": "Twoje ostatnio przeglądane dokumenty",
+        "empty": "Brak ostatnio przeglądanych dokumentów"
+      }
     }
   }
 }

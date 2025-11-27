@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { AdvancedDataTable, ColumnConfig } from "@/components/ui/advanced-data-table";
 import { SupplierWithContacts } from "../api";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -40,6 +41,8 @@ export function SuppliersAdvancedTable({
   onDelete,
   onAdd,
 }: SuppliersAdvancedTableProps) {
+  const t = useTranslations("modules.warehouse");
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -48,6 +51,10 @@ export function SuppliersAdvancedTable({
       .toUpperCase()
       .slice(0, 2);
   };
+
+  // Determine if this is showing clients or vendors based on the data
+  const isClientView = suppliers.length > 0 && suppliers[0]?.partner_type === "customer";
+  const partnerTypeLabel = isClientView ? t("partnerTypes.customer") : t("partnerTypes.vendor");
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "—";
@@ -77,7 +84,7 @@ export function SuppliersAdvancedTable({
             <div className="text-sm text-muted-foreground">
               {row.primary_contact
                 ? `${row.primary_contact.first_name} ${row.primary_contact.last_name}`
-                : "Dostawca"}
+                : partnerTypeLabel}
             </div>
           </div>
         </div>
@@ -88,7 +95,7 @@ export function SuppliersAdvancedTable({
           <div className="text-xs text-muted-foreground">
             {row.primary_contact
               ? `${row.primary_contact.first_name} ${row.primary_contact.last_name}`
-              : "Dostawca"}
+              : partnerTypeLabel}
           </div>
         </div>
       ),
@@ -198,7 +205,7 @@ export function SuppliersAdvancedTable({
             <p className="text-sm text-muted-foreground">
               {supplier.primary_contact
                 ? `${supplier.primary_contact.first_name} ${supplier.primary_contact.last_name}`
-                : "Dostawca"}
+                : partnerTypeLabel}
             </p>
           </div>
         </div>

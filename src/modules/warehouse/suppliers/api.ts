@@ -15,7 +15,8 @@ export type BusinessAccountContactUpdate =
   Database["public"]["Tables"]["business_account_contacts"]["Update"];
 
 // Combined type for contact with link metadata
-export type ContactWithMetadata = Contact & {
+export type ContactWithMetadata = Partial<Contact> & {
+  id: string; // ID is required
   link_id?: string; // business_account_contacts.id
   is_primary?: boolean | null;
   position?: string | null;
@@ -25,6 +26,8 @@ export type ContactWithMetadata = Contact & {
   phone?: string | null; // Maps to work_phone
   mobile?: string | null; // Maps to mobile_phone
   email?: string | null; // Maps to primary_email
+  is_active?: boolean | null; // Derived from !deleted_at
+  supplier_id?: string; // Legacy field for backward compatibility
 };
 
 // Backward compatibility aliases
@@ -32,16 +35,27 @@ export type Supplier = BusinessAccount;
 export type SupplierInsert = BusinessAccountInsert;
 export type SupplierUpdate = BusinessAccountUpdate;
 export type SupplierContact = ContactWithMetadata;
-export type SupplierContactInsert = BusinessAccountContactInsert & {
+export type SupplierContactInsert = Partial<BusinessAccountContactInsert> & {
   // Support legacy field names
   supplier_id?: string; // Maps to business_account_id
+  business_account_id?: string;
+  contact_id?: string;
   first_name?: string;
   last_name?: string;
   email?: string | null;
   phone?: string | null;
   mobile?: string | null;
+  is_active?: boolean | null;
 };
-export type SupplierContactUpdate = BusinessAccountContactUpdate;
+export type SupplierContactUpdate = BusinessAccountContactUpdate & {
+  // Support legacy field names for updates
+  first_name?: string;
+  last_name?: string;
+  email?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  is_active?: boolean | null;
+};
 
 // Custom type for supplier with contacts
 export type SupplierWithContacts = Supplier & {
@@ -178,6 +192,7 @@ class SupplierService {
           phone: link.contact.work_phone,
           mobile: link.contact.mobile_phone,
           email: link.contact.primary_email,
+          is_active: !link.contact.deleted_at,
         }));
 
       const primaryContact = contacts.find((c) => c.is_primary) || contacts[0] || null;
@@ -257,6 +272,7 @@ class SupplierService {
         phone: link.contact.work_phone,
         mobile: link.contact.mobile_phone,
         email: link.contact.primary_email,
+        is_active: !link.contact.deleted_at,
       }));
 
     const primaryContact = contacts.find((c) => c.is_primary) || contacts[0] || null;
@@ -295,10 +311,22 @@ class SupplierService {
   async updateSupplier(id: string, supplier: SupplierUpdate): Promise<Supplier> {
     const organizationId = this.getOrganizationId();
 
+    // Sanitize data: convert empty strings to null to avoid database type errors
+    // Also remove fields that shouldn't be manually updated (timestamps, system fields)
+    const sanitizedData: any = {};
+    Object.entries(supplier).forEach(([key, value]) => {
+      // Skip system-managed timestamp fields
+      if (key === "created_at" || key === "deleted_at" || key === "updated_at") {
+        return;
+      }
+      // Convert empty strings to null
+      sanitizedData[key] = value === "" ? null : value;
+    });
+
     const { data, error } = await this.supabase
       .from("business_accounts")
       .update({
-        ...supplier,
+        ...sanitizedData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -390,6 +418,7 @@ class SupplierService {
         phone: link.contact.work_phone,
         mobile: link.contact.mobile_phone,
         email: link.contact.primary_email,
+        is_active: !link.contact.deleted_at,
       }));
 
     return {
@@ -404,37 +433,46 @@ class SupplierService {
       throw new Error("business_account_id or supplier_id is required");
     }
 
-    const orgId = this.getOrganizationId();
+    let contactId: string;
 
-    // Step 1: Create the contact in contacts table
-    const contactData = {
-      organization_id: orgId,
-      contact_type: "vendor",
-      display_name:
-        contact.first_name && contact.last_name
-          ? `${contact.first_name} ${contact.last_name}`
-          : contact.first_name || contact.last_name || "Unknown",
-      first_name: contact.first_name || null,
-      last_name: contact.last_name || null,
-      primary_email: contact.email || null,
-      work_phone: contact.phone || null,
-      mobile_phone: contact.mobile || null,
-      notes: null, // Link notes go in business_account_contacts
-      visibility_scope: "organization",
-    };
+    // Check if we're linking an existing contact or creating a new one
+    if (contact.contact_id) {
+      // Link existing contact
+      contactId = contact.contact_id;
+    } else {
+      // Create new contact in contacts table
+      const orgId = this.getOrganizationId();
+      const contactData = {
+        organization_id: orgId,
+        contact_type: "contact", // Use "contact" instead of "vendor"
+        display_name:
+          contact.first_name && contact.last_name
+            ? `${contact.first_name} ${contact.last_name}`
+            : contact.first_name || contact.last_name || "Unknown",
+        first_name: contact.first_name || null,
+        last_name: contact.last_name || null,
+        primary_email: contact.email || null,
+        work_phone: contact.phone || null,
+        mobile_phone: contact.mobile || null,
+        notes: null, // Link notes go in business_account_contacts
+        visibility_scope: "organization",
+      };
 
-    const { data: newContact, error: contactError } = await this.supabase
-      .from("contacts")
-      .insert(contactData)
-      .select()
-      .single();
+      const { data: newContact, error: contactError } = await this.supabase
+        .from("contacts")
+        .insert(contactData)
+        .select()
+        .single();
 
-    if (contactError) {
-      console.error("Error creating contact:", contactError);
-      throw new Error(`Failed to create contact: ${contactError.message}`);
+      if (contactError) {
+        console.error("Error creating contact:", contactError);
+        throw new Error(`Failed to create contact: ${contactError.message}`);
+      }
+
+      contactId = newContact.id;
     }
 
-    // Step 2: If this contact is set as primary, remove primary from other contacts
+    // If this contact is set as primary, remove primary from other contacts
     if (contact.is_primary) {
       await this.supabase
         .from("business_account_contacts")
@@ -443,10 +481,10 @@ class SupplierService {
         .is("deleted_at", null);
     }
 
-    // Step 3: Create the link in business_account_contacts
+    // Create the link in business_account_contacts
     const linkData = {
       business_account_id: businessAccountId,
-      contact_id: newContact.id,
+      contact_id: contactId,
       is_primary: contact.is_primary || false,
       position: contact.position || null,
       department: contact.department || null,
@@ -464,17 +502,30 @@ class SupplierService {
       throw new Error(`Failed to link contact: ${linkError.message}`);
     }
 
+    // Fetch the contact data to return
+    const { data: contactData, error: fetchError } = await this.supabase
+      .from("contacts")
+      .select()
+      .eq("id", contactId)
+      .single();
+
+    if (fetchError || !contactData) {
+      console.error("Error fetching contact:", fetchError);
+      throw new Error(`Failed to fetch contact: ${fetchError?.message}`);
+    }
+
     // Return the combined result
     return {
-      ...newContact,
+      ...contactData,
       link_id: link.id,
       is_primary: link.is_primary,
       position: link.position,
       department: link.department,
       link_notes: link.notes,
-      phone: newContact.work_phone,
-      mobile: newContact.mobile_phone,
-      email: newContact.primary_email,
+      phone: contactData.work_phone,
+      mobile: contactData.mobile_phone,
+      email: contactData.primary_email,
+      is_active: !contactData.deleted_at,
     };
   }
 

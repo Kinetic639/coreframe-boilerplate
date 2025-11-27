@@ -6,6 +6,7 @@ import {
   type SupplierWithContacts,
   type SuppliersResponse,
   type SupplierFilters,
+  type SupplierContact,
 } from "../suppliers/api";
 
 // Client is just a business_account with partner_type = 'customer'
@@ -57,6 +58,19 @@ class ClientService {
 
   async restoreClient(id: string): Promise<Client> {
     return supplierService.restoreSupplier(id);
+  }
+
+  // Contact management methods
+  async createSupplierContact(contact: any): Promise<any> {
+    return supplierService.createSupplierContact(contact);
+  }
+
+  async deleteSupplierContact(id: string): Promise<void> {
+    return supplierService.deleteSupplierContact(id);
+  }
+
+  async setPrimaryContact(linkId: string): Promise<SupplierContact> {
+    return supplierService.setPrimaryContact(linkId);
   }
 }
 

@@ -752,6 +752,16 @@
     "contacts": {
       "title": "Contacts"
     },
+    "documentation": {
+      "title": "Documentation",
+      "description": "Knowledge center with guides and references",
+      "items": {
+        "home": "Documentation",
+        "user": "User Guide",
+        "dev": "Developer Docs",
+        "spec": "Specifications"
+      }
+    },
     "home": {
       "title": "Home",
       "items": {
@@ -1109,6 +1119,10 @@
           "title": "Purchases",
           "orders": "Purchase Orders"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Supplier",
+        "customer": "Client"
       }
     },
     "teams": {
@@ -1815,6 +1829,8 @@
       "hide": "Hide Filters",
       "allCategories": "All Categories",
       "allStatuses": "All Statuses",
+      "allMovements": "All Movements",
+      "requiresApproval": "Requires Approval",
       "fromDate": "From Date",
       "toDate": "To Date",
       "selectDate": "Select date"
@@ -2075,11 +2091,6 @@
       "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
       "error": "An error occurred"
     },
-    "types": {
-      "contact": "Contact",
-      "lead": "Lead",
-      "other": "Other"
-    },
     "filters": {
       "title": "Filters",
       "searchPlaceholder": "Search by name, email, or phone...",
@@ -2096,6 +2107,95 @@
       "showing": "Showing {start} to {end} of {total}",
       "previous": "Previous",
       "next": "Next"
+    }
+  },
+  "documentation": {
+    "title": "Documentation",
+    "description": "Knowledge center with guides, specs, and references",
+    "sections": {
+      "user": "User Guide",
+      "dev": "Developer Docs",
+      "spec": "Specifications",
+      "internal": "Internal Docs",
+      "api": "API Reference",
+      "meta": "System Docs"
+    },
+    "sectionDescriptions": {
+      "user": "Learn how to use AmbraWMS effectively",
+      "dev": "Technical documentation for developers",
+      "spec": "Detailed technical specifications",
+      "internal": "Internal team documentation",
+      "api": "API endpoints and integration guides",
+      "meta": "System architecture and design docs"
+    },
+    "navigation": {
+      "home": "Documentation Home",
+      "back": "Back",
+      "tableOfContents": "Table of Contents",
+      "onThisPage": "On This Page",
+      "quickLinks": "Quick Links"
+    },
+    "search": {
+      "placeholder": "Search documentation...",
+      "noResults": "No results found",
+      "searching": "Searching...",
+      "results": "{count} results found"
+    },
+    "actions": {
+      "edit": "Edit",
+      "print": "Print",
+      "download": "Download PDF",
+      "share": "Share",
+      "feedback": "Give Feedback",
+      "createTranslation": "Create Translation"
+    },
+    "language": {
+      "switchLanguage": "Switch Language",
+      "notTranslated": "This document is not yet translated to {language}.",
+      "viewOriginal": "View in {language}",
+      "helpTranslate": "Help translate this document",
+      "notAvailable": "This document is not available in your language.",
+      "showingFallback": "Showing English version instead."
+    },
+    "metadata": {
+      "lastUpdated": "Last updated",
+      "version": "Version",
+      "author": "Author",
+      "difficulty": "Difficulty",
+      "estimatedTime": "Estimated reading time",
+      "minutes": "{count} min",
+      "prerequisites": "Prerequisites",
+      "relatedDocs": "Related Documentation"
+    },
+    "difficulty": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "status": {
+      "draft": "Draft",
+      "review": "In Review",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "messages": {
+      "loading": "Loading documentation...",
+      "notFound": "Documentation not found",
+      "error": "Failed to load documentation",
+      "saved": "Changes saved successfully",
+      "published": "Document published successfully"
+    },
+    "widgets": {
+      "search": {
+        "title": "Search Documentation",
+        "description": "Quick search across all docs"
+      },
+      "recent": {
+        "title": "Recently Viewed",
+        "description": "Your recently viewed docs",
+        "empty": "No recently viewed documents"
+      }
     }
   }
 }

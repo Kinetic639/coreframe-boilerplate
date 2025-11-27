@@ -216,6 +216,7 @@ export interface StockMovementFilters {
   created_by?: string;
   date_from?: string;
   date_to?: string;
+  requires_approval?: boolean;
   search?: string; // Search in movement_number, document_number, notes
 }
 

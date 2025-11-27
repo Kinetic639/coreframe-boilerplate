@@ -37,8 +37,9 @@ import { contactsService } from "@/modules/contacts/api/contacts-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { toast } from "react-toastify";
-import { Building2, User, UserPlus, X } from "lucide-react";
+import { Building2, User, UserPlus, X, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Form schema for client
 const clientFormSchema = z.object({
@@ -66,8 +67,9 @@ const clientFormSchema = z.object({
   postal_code: z.string().optional(),
   country: z.string().optional(),
 
-  // Contact person (link to contacts table)
-  contact_id: z.string().optional(),
+  // Contact persons (multiple, link to contacts table)
+  contact_ids: z.array(z.string()).optional(),
+  primary_contact_id: z.string().optional(),
 
   // Additional info
   notes: z.string().optional(),
@@ -111,23 +113,75 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
       city: client?.city || "",
       postal_code: client?.postal_code || "",
       country: client?.country || "",
-      contact_id: client?.contact_id || undefined, // Use undefined instead of empty string for UUID field
+      contact_ids: [],
+      primary_contact_id: undefined,
       notes: client?.notes || "",
       is_active: client?.is_active ?? true,
     },
   });
 
   const entityType = form.watch("entity_type");
-  const selectedContactId = form.watch("contact_id");
+  const selectedContactIds = form.watch("contact_ids") || [];
 
-  // Load contacts when dialog opens
+  // Reset form when client changes (for edit mode)
   React.useEffect(() => {
-    if (open) {
-      loadContacts();
-    }
-  }, [open]);
+    if (client) {
+      // Extract contact IDs from business_account_contacts
+      const clientWithContacts = client as any;
+      const contactIds =
+        clientWithContacts.business_account_contacts
+          ?.map((link: any) => link.contact?.id)
+          .filter(Boolean) || [];
+      const primaryContact = clientWithContacts.business_account_contacts?.find(
+        (link: any) => link.is_primary
+      );
 
-  const loadContacts = async () => {
+      form.reset({
+        entity_type: (client.entity_type as "business" | "individual") || "business",
+        name: client.name || "",
+        company_registration_number: client.company_registration_number || "",
+        tax_number: client.tax_number || "",
+        first_name: client.first_name || "",
+        last_name: client.last_name || "",
+        email: client.email || "",
+        phone: client.phone || "",
+        website: client.website || "",
+        address_line_1: client.address_line_1 || "",
+        address_line_2: client.address_line_2 || "",
+        city: client.city || "",
+        postal_code: client.postal_code || "",
+        country: client.country || "",
+        contact_ids: contactIds,
+        primary_contact_id: primaryContact?.contact?.id,
+        notes: client.notes || "",
+        is_active: client.is_active ?? true,
+      });
+    } else {
+      // Reset to empty form for create mode
+      form.reset({
+        entity_type: "business",
+        name: "",
+        company_registration_number: "",
+        tax_number: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        website: "",
+        address_line_1: "",
+        address_line_2: "",
+        city: "",
+        postal_code: "",
+        country: "",
+        contact_ids: [],
+        primary_contact_id: undefined,
+        notes: "",
+        is_active: true,
+      });
+    }
+  }, [client, form]);
+
+  const loadContacts = React.useCallback(async () => {
     if (!activeOrgId || !userId) return;
 
     setLoadingContacts(true);
@@ -146,7 +200,14 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
     } finally {
       setLoadingContacts(false);
     }
-  };
+  }, [activeOrgId, userId]);
+
+  // Load contacts when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      loadContacts();
+    }
+  }, [open, loadContacts]);
 
   const filteredContacts = React.useMemo(() => {
     if (!searchTerm) return contacts;
@@ -157,24 +218,107 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
     );
   }, [contacts, searchTerm]);
 
-  const selectedContact = contacts.find((c: any) => c.id === selectedContactId);
+  const selectedContacts = contacts.filter((c: any) => selectedContactIds.includes(c.id));
+
+  const handleToggleContact = (contactId: string) => {
+    const currentIds = form.getValues("contact_ids") || [];
+    const newIds = currentIds.includes(contactId)
+      ? currentIds.filter((id) => id !== contactId)
+      : [...currentIds, contactId];
+
+    form.setValue("contact_ids", newIds);
+
+    // If removing the primary contact, clear primary selection
+    if (!newIds.includes(form.getValues("primary_contact_id") || "")) {
+      form.setValue("primary_contact_id", undefined);
+    }
+  };
+
+  const handleSetPrimary = (contactId: string) => {
+    form.setValue("primary_contact_id", contactId);
+  };
+
+  const handleRemoveContact = (contactId: string) => {
+    const currentIds = form.getValues("contact_ids") || [];
+    form.setValue(
+      "contact_ids",
+      currentIds.filter((id) => id !== contactId)
+    );
+
+    if (form.getValues("primary_contact_id") === contactId) {
+      form.setValue("primary_contact_id", undefined);
+    }
+  };
 
   const onSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
     try {
-      // Clean up data - convert empty strings to null for UUID fields
-      const cleanedData = {
-        ...data,
-        contact_id: data.contact_id && data.contact_id.trim() !== "" ? data.contact_id : null,
-      };
+      // Clean up data - remove contact-related fields from main record
+      const { contact_ids, primary_contact_id, ...clientData } = data;
+
+      let savedClient: any;
 
       if (isEditMode && client) {
-        await clientService.updateClient(client.id, cleanedData as any);
+        await clientService.updateClient(client.id, clientData as any);
+        savedClient = client;
         toast.success("Client updated successfully");
       } else {
-        await clientService.createClient(cleanedData as any);
+        savedClient = await clientService.createClient(clientData as any);
         toast.success("Client created successfully");
       }
+
+      // Handle contact links
+      if (contact_ids && contact_ids.length > 0) {
+        // Get existing contact links for this client
+        const clientWithContacts = client as any;
+        const existingLinks = clientWithContacts?.business_account_contacts || [];
+        const existingContactIds = existingLinks.map((link: any) => link.contact?.id);
+
+        // Determine which contacts to add and which to remove
+        const contactsToAdd = contact_ids.filter((id: string) => !existingContactIds.includes(id));
+        const contactsToRemove = existingContactIds.filter(
+          (id: string) => !contact_ids.includes(id)
+        );
+
+        // Remove old contact links
+        for (const contactId of contactsToRemove) {
+          const linkToRemove = existingLinks.find((link: any) => link.contact?.id === contactId);
+          if (linkToRemove?.id) {
+            await clientService.deleteSupplierContact(linkToRemove.id);
+          }
+        }
+
+        // Add new contact links
+        for (const contactId of contactsToAdd) {
+          await clientService.createSupplierContact({
+            business_account_id: savedClient.id,
+            contact_id: contactId,
+            is_primary: contactId === primary_contact_id,
+          });
+        }
+
+        // Update primary contact if it changed
+        if (primary_contact_id) {
+          const primaryLink = existingLinks.find(
+            (link: any) => link.contact?.id === primary_contact_id
+          );
+          if (primaryLink?.id) {
+            await clientService.setPrimaryContact(primaryLink.id);
+          } else {
+            // If it's a new contact that was just added, find its link and set it as primary
+            // We need to refetch to get the new link ID
+            const updatedClient = await clientService.getClientById(savedClient.id);
+            const updatedWithContacts = updatedClient as any;
+            const newPrimaryLink = updatedWithContacts?.business_account_contacts?.find(
+              (link: any) => link.contact?.id === primary_contact_id
+            );
+            if (newPrimaryLink?.id) {
+              await clientService.setPrimaryContact(newPrimaryLink.id);
+            }
+          }
+        }
+      }
+
       onSuccess();
       onOpenChange(false);
       form.reset();
@@ -465,91 +609,117 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                 </div>
               </TabsContent>
 
-              {/* Contact Person Tab - Only for Business */}
+              {/* Contact Persons Tab - Only for Business */}
               {entityType === "business" && (
                 <TabsContent value="contact" className="space-y-4">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-medium mb-2">Link Contact Person</h3>
+                      <h3 className="text-sm font-medium mb-2">Link Contact Persons</h3>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Select an existing contact from your contacts list or create a new one
+                        Select multiple contacts and mark one as primary
                       </p>
                     </div>
 
-                    {/* Selected Contact Display */}
-                    {selectedContact && (
-                      <div className="p-4 border rounded-lg bg-muted/50">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{selectedContact.display_name}</p>
-                              {selectedContact.primary_email && (
-                                <p className="text-sm text-muted-foreground">
-                                  {selectedContact.primary_email}
-                                </p>
-                              )}
+                    {/* Selected Contacts Display */}
+                    {selectedContacts.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">
+                          Selected Contacts ({selectedContacts.length})
+                        </p>
+                        {selectedContacts.map((contact: any) => (
+                          <div key={contact.id} className="p-3 border rounded-lg bg-muted/50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <User className="h-5 w-5 text-primary" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium">{contact.display_name}</p>
+                                  {contact.primary_email && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {contact.primary_email}
+                                    </p>
+                                  )}
+                                </div>
+                                {form.watch("primary_contact_id") === contact.id && (
+                                  <Badge variant="default" className="bg-yellow-500">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Primary
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {form.watch("primary_contact_id") !== contact.id && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSetPrimary(contact.id)}
+                                  >
+                                    <Star className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveContact(contact.id)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => form.setValue("contact_id", undefined)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        ))}
                       </div>
                     )}
 
                     {/* Contact Search and Selection */}
-                    {!selectedContact && (
-                      <div className="space-y-3">
-                        <Input
-                          placeholder="Search contacts by name or email..."
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="space-y-3">
+                      <Input
+                        placeholder="Search contacts by name or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
 
-                        <div className="border rounded-lg max-h-64 overflow-y-auto">
-                          {loadingContacts ? (
-                            <div className="p-4 text-center text-sm text-muted-foreground">
-                              Loading contacts...
-                            </div>
-                          ) : filteredContacts.length === 0 ? (
-                            <div className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground mb-2">
-                                No contacts found
-                              </p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  window.open("/dashboard/contacts", "_blank");
-                                }}
-                              >
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Create New Contact
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="divide-y">
-                              {filteredContacts.map((contact: any) => (
-                                <button
+                      <div className="border rounded-lg max-h-64 overflow-y-auto">
+                        {loadingContacts ? (
+                          <div className="p-4 text-center text-sm text-muted-foreground">
+                            Loading contacts...
+                          </div>
+                        ) : filteredContacts.length === 0 ? (
+                          <div className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground mb-2">No contacts found</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                window.open("/dashboard/contacts", "_blank");
+                              }}
+                            >
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Create New Contact
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="divide-y">
+                            {filteredContacts.map((contact: any) => {
+                              const isSelected = selectedContactIds.includes(contact.id);
+                              return (
+                                <div
                                   key={contact.id}
-                                  type="button"
-                                  className="w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between"
-                                  onClick={() => form.setValue("contact_id", contact.id)}
+                                  className="p-3 hover:bg-muted/50 transition-colors flex items-center gap-3"
                                 >
-                                  <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleToggleContact(contact.id)}
+                                  />
+                                  <div className="flex items-center gap-3 flex-1">
                                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                                       <User className="h-4 w-4 text-primary" />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                       <p className="font-medium text-sm">{contact.display_name}</p>
                                       {contact.primary_email && (
                                         <p className="text-xs text-muted-foreground">
@@ -563,28 +733,28 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                                       {contact.entity_type}
                                     </Badge>
                                   )}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 pt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              window.open("/dashboard/contacts", "_blank");
-                            }}
-                          >
-                            <UserPlus className="mr-2 h-4 w-4" />
-                            Create New Contact
-                          </Button>
-                        </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            window.open("/dashboard/contacts", "_blank");
+                          }}
+                        >
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Create New Contact
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
               )}

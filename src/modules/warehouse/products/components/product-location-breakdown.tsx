@@ -15,11 +15,13 @@ import Link from "next/link";
 interface ProductLocationBreakdownProps {
   productId: string;
   organizationId: string;
+  branchId?: string;
 }
 
 export function ProductLocationBreakdown({
   productId,
   organizationId,
+  branchId,
 }: ProductLocationBreakdownProps) {
   const [locations, setLocations] = useState<ProductLocation[]>([]);
   const [totalQuantity, setTotalQuantity] = useState(0);
@@ -32,7 +34,7 @@ export function ProductLocationBreakdown({
     try {
       setLoading(true);
       setError(null);
-      const result = await getProductLocations(productId, organizationId);
+      const result = await getProductLocations(productId, organizationId, branchId);
 
       if (result.error) {
         setError(result.error);
@@ -48,7 +50,7 @@ export function ProductLocationBreakdown({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [productId, organizationId]);
+  }, [productId, organizationId, branchId]);
 
   useEffect(() => {
     loadLocations();

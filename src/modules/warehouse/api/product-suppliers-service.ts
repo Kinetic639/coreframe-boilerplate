@@ -286,8 +286,25 @@ export class ProductSuppliersService {
     data: Partial<ProductSupplierFormData>,
     _userId: string
   ): Promise<ProductSupplier> {
+    // Sanitize data: convert empty strings to null to avoid database type errors
+    // Also remove fields that shouldn't be manually updated (timestamps, system fields)
+    const sanitizedData: any = {};
+    Object.entries(data).forEach(([key, value]) => {
+      // Skip system-managed timestamp fields
+      if (
+        key === "created_at" ||
+        key === "deleted_at" ||
+        key === "updated_at" ||
+        key === "created_by"
+      ) {
+        return;
+      }
+      // Convert empty strings to null
+      sanitizedData[key] = value === "" ? null : value;
+    });
+
     const updateData: any = {
-      ...data,
+      ...sanitizedData,
       updated_at: new Date().toISOString(),
     };
 

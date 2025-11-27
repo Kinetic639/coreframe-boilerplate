@@ -21,14 +21,51 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAppStore } from "@/lib/stores/app-store";
+import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 
 interface SimpleProductCardProps {
   product: ProductWithDetails;
 }
 
 export function SimpleProductCard({ product }: SimpleProductCardProps) {
+  const { activeOrg, activeBranch } = useAppStore();
+  const [branchStock, setBranchStock] = React.useState<number | null>(null);
+  const [loadingStock, setLoadingStock] = React.useState(true);
+
   const primaryImage = product.images?.find((img) => img.is_primary) || product.images?.[0];
   const primaryBarcode = product.barcodes?.find((b) => b.is_primary) || product.barcodes?.[0];
+
+  React.useEffect(() => {
+    if (
+      product.product_type === "goods" &&
+      product.track_inventory &&
+      activeOrg?.organization_id &&
+      activeBranch?.id
+    ) {
+      const fetchBranchStock = async () => {
+        try {
+          setLoadingStock(true);
+          const level = await stockMovementsService.getStockLevel(
+            product.id,
+            undefined,
+            undefined,
+            activeOrg.organization_id,
+            activeBranch.id
+          );
+          setBranchStock(level);
+        } catch (error) {
+          console.error("Error fetching branch stock:", error);
+          setBranchStock(0);
+        } finally {
+          setLoadingStock(false);
+        }
+      };
+      fetchBranchStock();
+    } else {
+      setLoadingStock(false);
+    }
+  }, [product.id, product.product_type, product.track_inventory, activeOrg, activeBranch]);
 
   return (
     <Card className="relative flex h-full flex-col overflow-hidden rounded-lg shadow-md transition-all hover:shadow-lg">
@@ -106,10 +143,14 @@ export function SimpleProductCard({ product }: SimpleProductCardProps) {
         {product.product_type === "goods" && product.track_inventory && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Package className="h-4 w-4" />
-            <span>Stan:</span>
-            <span className="font-medium text-foreground">
-              {product.opening_stock || 0} {product.unit}
-            </span>
+            <span>Stan magazynowy:</span>
+            {loadingStock ? (
+              <span className="font-medium text-muted-foreground">Ładowanie...</span>
+            ) : (
+              <span className="font-medium text-foreground">
+                {branchStock ?? 0} {product.unit}
+              </span>
+            )}
           </div>
         )}
         {product.brand && (

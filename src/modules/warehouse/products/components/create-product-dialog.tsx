@@ -174,7 +174,6 @@ export function CreateProductDialog({
     cost_price: z.number().min(0).default(0),
     purchase_account: z.string().optional(),
     purchase_description: z.string().optional(),
-    preferred_vendor_id: z.string().optional(),
 
     // Inventory Settings
     track_inventory: z.boolean().default(true),
@@ -300,7 +299,6 @@ export function CreateProductDialog({
         cost_price: product.cost_price || 0,
         purchase_account: product.purchase_account || "",
         purchase_description: product.purchase_description || "",
-        preferred_vendor_id: product.preferred_vendor_id || "",
         track_inventory: product.track_inventory,
         inventory_account: product.inventory_account || "",
         reorder_point: product.reorder_point || 0,
@@ -359,7 +357,6 @@ export function CreateProductDialog({
         ...(values.sales_description && { sales_description: values.sales_description }),
         ...(values.purchase_account && { purchase_account: values.purchase_account }),
         ...(values.purchase_description && { purchase_description: values.purchase_description }),
-        ...(values.preferred_vendor_id && { preferred_vendor_id: values.preferred_vendor_id }),
         ...(values.inventory_account && { inventory_account: values.inventory_account }),
         ...(values.opening_stock_rate && { opening_stock_rate: values.opening_stock_rate }),
         ...(barcodes.length > 0 && { barcodes }),

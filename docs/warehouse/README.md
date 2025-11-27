@@ -2,20 +2,20 @@
 
 ## 📖 Quick Navigation
 
-### Active Documents
+### 🎯 Current Status & Next Steps
 
-- **[INVENTORY_REPLENISHMENT_SYSTEM_PLAN.md](INVENTORY_REPLENISHMENT_SYSTEM_PLAN.md)** 🎯 **CURRENT WORK** ✨ **NEW**
-  - Comprehensive inventory replenishment system implementation plan
-  - 4-phase approach: Supplier Packaging → Replenishment Logic → Alerts → PO Creation
-  - Enterprise-grade 3-domain pipeline architecture
-  - Estimated: 5 days implementation
-  - **Use this for current development**
+- **[WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)** ⭐ **START HERE** ✨ **UPDATED Nov 26, 2025**
+  - **Overall completion: 65%**
+  - Complete implementation status review
+  - Critical blockers identified (transfers, PDFs, returns, RLS)
+  - 4-week plan to production readiness
+  - **Use this to understand what's done and what's next**
 
-- **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** ⭐ **Overall Roadmap & Next Steps**
-  - Prioritized plan to complete remaining features
-  - Detailed timelines and implementation steps (P1-P10)
-  - **Priority 3: Warehouse Transfers - AFTER replenishment system**
-  - **Use this for long-term planning**
+- **[REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md)** 📋 **Detailed Technical Roadmap**
+  - Detailed implementation steps for each priority (P1-P10)
+  - Technical specifications and code examples
+  - Testing requirements and deliverables
+  - **Use this when implementing specific features**
 
 - **[FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md)** 💡 **Post-Production Features**
   - Advanced PDF Generation
@@ -46,7 +46,10 @@
 
 ## 🎯 Current Implementation Status
 
-**Overall Progress:** 50% Complete (as of November 14, 2024)
+**Overall Progress:** 65% Complete (as of November 26, 2025)
+**Status:** Operational for core functions, missing critical features for production
+
+**See [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md) for complete details.**
 
 ### ✅ What Works Today
 
@@ -129,13 +132,22 @@
 - Product details page shows reserved quantities
 - Sales order form validates availability before submission
 
-### ✅ Recently Completed (November 16, 2024) ✨ **NEW**
+### ✅ Recently Completed (November 16, 2024)
 
 **Purchase Orders & Product-Supplier Integration** - See [archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md](archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md)
 
 - ✅ **Phase 0:** Product-Supplier Integration - Complete
 - ✅ **Phase 2:** Purchase Orders Module - Complete
-- ⏭️ **Phase 1:** Low Stock Monitoring & Alerts - Deferred (not required yet)
+
+### ✅ Verified Complete (November 26, 2025) ✨ **NEW**
+
+**Stock Alerts & Replenishment System** - See [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)
+
+- ✅ **Per-warehouse product settings** (reorder points, min/max levels)
+- ✅ **Automated stock alerts** with severity levels and status workflow
+- ✅ **Alert dashboard** with metrics and suggested quantities
+- ✅ **Warehouse-level monitoring** (branches = warehouses, locations = bins)
+- ✅ **Integration with purchase orders** for replenishment
 
 **Key Features Delivered:**
 
@@ -148,22 +160,29 @@
 - "Purchase Orders" tab in product details
 - "Qty To be Invoiced" now functional with real data
 
-### Critical Gaps (Blocks Production Use)
+### 🚨 Critical Gaps (Blocks Production Use)
 
-1. **🔴 No Warehouse Transfers** (Priority 3)
+**See [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md) for complete gap analysis.**
+
+1. **🔴 Warehouse Transfers** (Priority 1) - 2 weeks
    - Transfer tables DISABLED in migrations
-   - Cannot move stock between locations
-   - Estimated: 2 weeks
+   - Cannot move stock between locations/warehouses
+   - Movement types 301-312 not functional
 
-2. **🔴 No PDF Document Generation** (Priority 4)
-   - Cannot print legal warehouse documents (PZ, WZ, MM, etc.)
+2. **🔴 PDF Document Generation** (Priority 2) - 1.5 weeks
+   - Cannot print legal warehouse documents (PZ, WZ, MM, RW, INW, KP, KN)
    - Polish legal requirement not met
-   - Estimated: 1.5 weeks
+   - Documents ready but no PDF generation
 
-3. **🔴 No Row-Level Security** (Priority 10)
+3. **🔴 Returns & Reversals** (Priority 3) - 1 week
+   - Cannot process customer returns
+   - Cannot reverse movements
+   - Movement types 102, 103, 202, 203 not functional
+
+4. **🔴 Row-Level Security** (Priority 4) - 1 week
    - RLS intentionally disabled for testing
-   - **MUST BE IMPLEMENTED before production**
-   - Estimated: 1 week
+   - **MANDATORY before production deployment**
+   - Security risk - no data isolation
 
 ### Important Features (Needed for Full Operations)
 
@@ -179,20 +198,37 @@
 
 ---
 
-## 🚀 Next Steps (Prioritized)
+## 🚀 Next Steps (Immediate Actions)
 
-Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md) roadmap:
+**Full Roadmap:** [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)
 
-### Phase 1: Critical MVP (2-3 weeks remaining)
+### 🎯 Phase A: Critical MVP (4 weeks to production-ready)
 
-1. ✅ **P1:** Stock Reservations (501-502) - COMPLETED ⭐⭐⭐⭐⭐
-2. ✅ **P2:** Purchase Orders & Product-Supplier Integration - COMPLETED ⭐⭐⭐⭐⭐
-   - See [archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md](archive/PURCHASE_ORDERS_COMPLETION_SUMMARY.md)
-   - Phase 0: Product-Supplier Integration ✅
-   - Phase 1: Low Stock Monitoring (deferred)
-   - Phase 2: Purchase Orders Module ✅
-3. 🚀 **P3:** Warehouse Transfers (301-312) - 2 weeks ⭐⭐⭐⭐⭐ **← NEXT**
-4. **P4:** PDF Document Generation - 1.5 weeks ⭐⭐⭐⭐
+1. 🚀 **Week 1: Warehouse Transfers** (Priority 1) **← START HERE**
+   - Enable disabled migrations
+   - Build transfer service and UI
+   - Movement types: 301-312
+
+2. **Weeks 2-3: PDF Document Generation** (Priority 2)
+   - Install Puppeteer + Handlebars
+   - Create 7 Polish document templates
+   - Auto-generate on movement completion
+
+3. **Week 4: Returns & Reversals** (Priority 3)
+   - Returns processing (customer/supplier)
+   - Movement reversals (102, 103, 202, 203)
+   - Quality assessment workflow
+
+### 🔒 Phase B: Security & Compliance (2 weeks before production)
+
+4. **Week 5: Row-Level Security** (Priority 4 - MANDATORY)
+   - Enable RLS on all tables
+   - Create policies for org/branch isolation
+   - Permission system implementation
+
+5. **Week 6: JPK_MAG Export** (Priority 8)
+   - Polish tax compliance
+   - XML export per Ministry specification
 
 ### Phase 2: Full Operations (2 weeks)
 
@@ -209,7 +245,11 @@ Follow the [REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md](REMAINING_MOVEMENTS_IMPL
 9. **P9:** JPK_MAG Export - 1 week ⭐⭐⭐⭐⭐
 10. **P10:** Row-Level Security - 1 week ⭐⭐⭐⭐⭐
 
-**Total Timeline:** 6-7 weeks remaining to 100% completion (P2 complete, P3 next)
+**Total Timeline:**
+
+- **4 weeks to production-ready** (Phase A - core operations)
+- **6 weeks to fully secure and compliant** (Phase A + B)
+- **7+ weeks to 100% complete** (all features)
 
 **Post-Production Enhancements:** See [FUTURE_ENHANCEMENTS.md](FUTURE_ENHANCEMENTS.md) for features planned after initial release
 
@@ -384,6 +424,7 @@ When working on stock movements:
 
 ---
 
-**Last Updated:** November 14, 2024
+**Last Updated:** November 26, 2025
+**Status Document:** [WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md](WAREHOUSE_IMPLEMENTATION_STATUS_AND_NEXT_STEPS.md)
 **Maintained By:** Development Team
 **Questions?** See REMAINING_MOVEMENTS_IMPLEMENTATION_PLAN.md or STOCK_MOVEMENTS_SPECIFICATION.md
