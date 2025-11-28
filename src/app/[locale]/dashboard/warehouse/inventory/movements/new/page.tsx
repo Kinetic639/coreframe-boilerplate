@@ -232,44 +232,42 @@ export default function NewMovementPage() {
 
           <CardContent>
             <TabsContent value="basic" className="space-y-6">
-              {/* Source Warehouse/Branch */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="source-branch">
-                    Source Warehouse / Branch <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                    <SelectTrigger id="source-branch">
-                      <SelectValue placeholder="Select source warehouse..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableBranches.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Movement Type - FIRST */}
+              <div className="space-y-2">
+                <Label htmlFor="movement-type">
+                  Movement Type <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedMovementType} onValueChange={setSelectedMovementType}>
+                  <SelectTrigger id="movement-type">
+                    <SelectValue placeholder="Select movement type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {movementTypes.map((type) => (
+                      <SelectItem key={type.code} value={type.code}>
+                        {type.polish_document_type} - {locale === "pl" ? type.name_pl : type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                {/* Movement Type */}
-                <div className="space-y-2">
-                  <Label htmlFor="movement-type">
-                    Movement Type <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={selectedMovementType} onValueChange={setSelectedMovementType}>
-                    <SelectTrigger id="movement-type">
-                      <SelectValue placeholder="Select movement type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {movementTypes.map((type) => (
-                        <SelectItem key={type.code} value={type.code}>
-                          {type.polish_document_type} - {locale === "pl" ? type.name_pl : type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Source Warehouse/Branch - Auto-selected and Disabled */}
+              <div className="space-y-2">
+                <Label htmlFor="source-branch">
+                  Source Warehouse / Branch <span className="text-red-500">*</span>
+                </Label>
+                <Select value={selectedBranch} onValueChange={setSelectedBranch} disabled>
+                  <SelectTrigger id="source-branch">
+                    <SelectValue placeholder="Select source warehouse..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBranches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Destination Warehouse/Branch (if required) */}
