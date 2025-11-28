@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus, Filter, LayoutGrid, List } from "lucide-react";
 import { StockMovementCard } from "@/modules/warehouse/components/stock-movement-card";

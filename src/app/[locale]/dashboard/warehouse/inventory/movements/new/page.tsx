@@ -7,7 +7,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,10 @@ import { toast } from "react-toastify";
 import { useAppStore } from "@/lib/stores/app-store";
 import { MovementPositionsTable } from "@/modules/warehouse/components/movement-positions-table";
 import { getMovementTypes } from "@/app/actions/warehouse/get-movement-types";
-import { getBranches } from "@/app/actions/warehouse/get-branches";
 import type { Database } from "@/../supabase/types/types";
+import { useLocale } from "next-intl";
 
 type MovementType = Database["public"]["Tables"]["movement_types"]["Row"];
-type Branch = { id: string; name: string };
 
 interface MovementPosition {
   product_id: string;
@@ -45,14 +44,13 @@ interface MovementPosition {
 
 export default function NewMovementPage() {
   const router = useRouter();
-  const { activeOrg, activeBranch } = useAppStore();
+  const locale = useLocale();
+  const { activeBranch, availableBranches } = useAppStore();
 
   // Form state
   const [activeTab, setActiveTab] = useState("basic");
   const [loading, setLoading] = useState(false);
   const [movementTypes, setMovementTypes] = useState<MovementType[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-
   // Basic data
   const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [selectedMovementType, setSelectedMovementType] = useState<string>("");
@@ -78,8 +76,6 @@ export default function NewMovementPage() {
 
   useEffect(() => {
     loadMovementTypes();
-    loadBranches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMovementTypes = async () => {
@@ -93,22 +89,6 @@ export default function NewMovementPage() {
     } catch (error) {
       console.error("Error loading movement types:", error);
       toast.error("Failed to load movement types");
-    }
-  };
-
-  const loadBranches = async () => {
-    try {
-      if (!activeOrg?.organization_id) return;
-
-      const result = await getBranches(activeOrg.organization_id);
-      if (result.success) {
-        setBranches(result.data.map((b: any) => ({ id: b.id, name: b.name })));
-      } else {
-        toast.error(result.error || "Failed to load branches");
-      }
-    } catch (error) {
-      console.error("Error loading branches:", error);
-      toast.error("Failed to load branches");
     }
   };
 
@@ -208,10 +188,8 @@ export default function NewMovementPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  {selectedType.code} - {selectedType.name}
-                  {selectedType.name_pl && (
-                    <span className="text-muted-foreground text-sm">({selectedType.name_pl})</span>
-                  )}
+                  {selectedType.polish_document_type} -{" "}
+                  {locale === "pl" ? selectedType.name_pl : selectedType.name}
                 </CardTitle>
                 <CardDescription>{selectedType.description}</CardDescription>
               </div>
@@ -265,7 +243,7 @@ export default function NewMovementPage() {
                       <SelectValue placeholder="Select source warehouse..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches.map((branch) => (
+                      {availableBranches.map((branch) => (
                         <SelectItem key={branch.id} value={branch.id}>
                           {branch.name}
                         </SelectItem>
@@ -286,7 +264,7 @@ export default function NewMovementPage() {
                     <SelectContent>
                       {movementTypes.map((type) => (
                         <SelectItem key={type.code} value={type.code}>
-                          {type.code} - {type.name}
+                          {type.polish_document_type} - {locale === "pl" ? type.name_pl : type.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -305,7 +283,7 @@ export default function NewMovementPage() {
                       <SelectValue placeholder="Select destination warehouse..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {branches
+                      {availableBranches
                         .filter((b) => b.id !== selectedBranch)
                         .map((branch) => (
                           <SelectItem key={branch.id} value={branch.id}>
