@@ -1876,6 +1876,7 @@ export type Database = {
           code: string;
           cost_impact: string | null;
           created_at: string | null;
+          creates_reservation: boolean | null;
           deleted_at: string | null;
           deleted_by: string | null;
           description: string | null;
@@ -1889,6 +1890,7 @@ export type Database = {
           polish_document_type: string | null;
           requires_approval: boolean | null;
           requires_destination_location: boolean | null;
+          requires_movement_request: boolean | null;
           requires_reference: boolean | null;
           requires_source_location: boolean | null;
           updated_at: string | null;
@@ -1901,6 +1903,7 @@ export type Database = {
           code: string;
           cost_impact?: string | null;
           created_at?: string | null;
+          creates_reservation?: boolean | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           description?: string | null;
@@ -1914,6 +1917,7 @@ export type Database = {
           polish_document_type?: string | null;
           requires_approval?: boolean | null;
           requires_destination_location?: boolean | null;
+          requires_movement_request?: boolean | null;
           requires_reference?: boolean | null;
           requires_source_location?: boolean | null;
           updated_at?: string | null;
@@ -1926,6 +1930,7 @@ export type Database = {
           code?: string;
           cost_impact?: string | null;
           created_at?: string | null;
+          creates_reservation?: boolean | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           description?: string | null;
@@ -1939,6 +1944,7 @@ export type Database = {
           polish_document_type?: string | null;
           requires_approval?: boolean | null;
           requires_destination_location?: boolean | null;
+          requires_movement_request?: boolean | null;
           requires_reference?: boolean | null;
           requires_source_location?: boolean | null;
           updated_at?: string | null;

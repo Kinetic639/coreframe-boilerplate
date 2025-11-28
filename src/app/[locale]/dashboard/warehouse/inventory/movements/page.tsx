@@ -7,9 +7,9 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus, Filter, LayoutGrid, List } from "lucide-react";
-import { CreateMovementDialog } from "@/modules/warehouse/components/create-movement-dialog";
 import { StockMovementCard } from "@/modules/warehouse/components/stock-movement-card";
 import { StockMovementsTable } from "@/modules/warehouse/components/stock-movements-table";
 import { MovementFilters } from "@/modules/warehouse/components/movement-filters";
@@ -39,6 +39,7 @@ import type {
 
 export default function InventoryMovementsPage() {
   const t = useTranslations("stockMovements");
+  const router = useRouter();
   const { activeOrg, activeBranch } = useAppStore();
 
   const [movements, setMovements] = useState<StockMovementWithRelations[]>([]);
@@ -171,11 +172,6 @@ export default function InventoryMovementsPage() {
     }
   };
 
-  const handleCreateSuccess = () => {
-    loadMovements();
-    loadPendingCount();
-  };
-
   const handleResetFilters = () => {
     setFilters({
       organization_id: activeOrg?.organization_id,
@@ -230,17 +226,13 @@ export default function InventoryMovementsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             {t("actions.refresh")}
           </Button>
-          <CreateMovementDialog
-            organizationId={activeOrg.organization_id}
-            branchId={activeBranch.id}
-            onSuccess={handleCreateSuccess}
-            trigger={
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                {t("actions.create")}
-              </Button>
-            }
-          />
+          <Button
+            size="sm"
+            onClick={() => router.push("/dashboard/warehouse/inventory/movements/new")}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {t("actions.create")}
+          </Button>
         </div>
       </div>
 
