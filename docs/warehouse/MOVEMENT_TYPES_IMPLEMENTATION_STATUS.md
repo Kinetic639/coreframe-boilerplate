@@ -1,9 +1,9 @@
 # Movement Types - Implementation Status
 
 **Last Updated:** 2025-11-28
-**Total Movement Types:** 28 (existing in database) + 35 (planned from AmbraWMS spec) = 63 total
-**Database Status:** ✅ 28 types defined in `movement_types` table
-**Frontend Status:** 🟡 Partially implemented (7/63 working)
+**Total Movement Types:** 28 (existing in database) + 35 (planned from AmbraWMS spec) + 2 (reservation types) = 65 total
+**Database Status:** ✅ 30 types defined in `movement_types` table (28 + 2 reservation types)
+**Frontend Status:** 🟡 Partially implemented (7/65 working)
 
 ---
 
@@ -117,11 +117,20 @@
 | **511** | KOR+     | Manual Stock Correction (+) | Zwiększenie stanu poza inwentaryzacją           | No          | Optional                   | No               | ❌  | ❌  |
 | **512** | KOR-     | Manual Stock Correction (-) | Zmniejszenie stanu poza inwentaryzacją          | No          | Optional                   | No               | ❌  | ❌  |
 
-**Note:** Movements 501/502 currently used for Reservations in DB. AmbraWMS spec uses different codes for inventory adjustments vs reservations.
+---
+
+## **3.7 Rezerwacje - Reservations (AutoStacja Logic)**
+
+| Code    | Document | Name                | Description                                                                         | Reservation | Requires Approval | Movement Request | BE  | FE  |
+| ------- | -------- | ------------------- | ----------------------------------------------------------------------------------- | ----------- | ----------------- | ---------------- | --- | --- |
+| **572** | RZ+      | Reservation Create  | Creates a soft reservation. Decreases available stock, increases reserved quantity. | **Yes**     | No                | No               | ✅  | ❌  |
+| **573** | RZ-      | Reservation Release | Releases or cancels reservation. Frees available stock.                             | **Yes**     | No                | No               | ✅  | ❌  |
+
+**Note:** These reservation movements (572/573) manage soft reservations separately from physical stock movements. They affect only the reserved quantity, not physical inventory.
 
 ---
 
-## **3.7 Likwidacja / Utylizacja - Disposal**
+## **3.8 Likwidacja / Utylizacja - Disposal**
 
 | Code    | Document | Name                | Description                        | Reservation | Requires Approval | Movement Request | BE  | FE  |
 | ------- | -------- | ------------------- | ---------------------------------- | ----------- | ----------------- | ---------------- | --- | --- |
@@ -132,7 +141,7 @@
 
 ---
 
-## **3.8 Zwroty / Reklamacje - Returns**
+## **3.9 Zwroty / Reklamacje - Returns**
 
 | Code    | Document    | Name                          | Description           | Reservation | Requires Approval | Movement Request | BE  | FE  |
 | ------- | ----------- | ----------------------------- | --------------------- | ----------- | ----------------- | ---------------- | --- | --- |
@@ -141,7 +150,7 @@
 
 ---
 
-## **3.9 Quality Control (QC)**
+## **3.10 Quality Control (QC)**
 
 | Code    | Document | Name            | Description                                         | Reservation    | Requires Approval | Movement Request | BE  | FE  |
 | ------- | -------- | --------------- | --------------------------------------------------- | -------------- | ----------------- | ---------------- | --- | --- |
@@ -151,7 +160,7 @@
 
 ---
 
-## **3.10 Ruchy wewnątrz magazynu (BIN→BIN) - Internal Bin Movements**
+## **3.11 Ruchy wewnątrz magazynu (BIN→BIN) - Internal Bin Movements**
 
 | Code    | Document | Name                     | Description                                         | Reservation | Requires Approval | Movement Request | BE  | FE  |
 | ------- | -------- | ------------------------ | --------------------------------------------------- | ----------- | ----------------- | ---------------- | --- | --- |
@@ -166,7 +175,7 @@
 
 ---
 
-## **3.11 Konsygnacja / Zmiana Właściciela - Consignment**
+## **3.12 Konsygnacja / Zmiana Właściciela - Consignment**
 
 | Code    | Document | Name                | Description                              | Reservation | Requires Approval | Movement Request | BE  | FE  |
 | ------- | -------- | ------------------- | ---------------------------------------- | ----------- | ----------------- | ---------------- | --- | --- |
@@ -176,7 +185,7 @@
 
 ---
 
-## **3.12 E-Commerce Integration (Current DB Implementation)**
+## **3.13 E-Commerce Integration (Current DB Implementation)**
 
 | Code    | Document | Name               | Description            | Reservation | Requires Approval | Movement Request | BE  | FE  |
 | ------- | -------- | ------------------ | ---------------------- | ----------- | ----------------- | ---------------- | --- | --- |
@@ -201,6 +210,8 @@ These movements reserve stock before execution to ensure availability:
 - **301** - Inter-Warehouse Issue
 - **311** - Inter-Branch Transfer Out
 - **411** - Production Issue
+- **572** - Reservation Create (soft reservation)
+- **573** - Reservation Release (soft reservation)
 - **621** - Return to Supplier
 - **701** - Quality Hold
 - **703** - Quality Sampling
