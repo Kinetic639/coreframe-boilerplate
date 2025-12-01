@@ -34,7 +34,7 @@ import { QRScanner } from "@/components/ui/qr-scanner";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 interface Product {
   id: string;

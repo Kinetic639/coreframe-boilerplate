@@ -2,7 +2,7 @@
 // Contacts Module - TypeScript Types
 // =============================================
 
-import { Database } from "../../../../supabase/types/types";
+import { Database } from "@/types/supabase";
 
 // Database types
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"];

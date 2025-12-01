@@ -1,6 +1,6 @@
 // This file will only contain helpers if needed. User actions are now in src/app/actions/users/.
 
-import { createClient } from "../supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 // Local type definition since Tables is not available
 type User = {

@@ -4,7 +4,7 @@ import {
   fetchUserPermissionOverrides,
   PermissionOverride,
 } from "@/lib/api/roles";
-import { Database } from "../../supabase/types/types";
+import { Database } from "@/types/supabase";
 import { useAppStore } from "@/lib/stores/app-store";
 
 type Permission = Database["public"]["Tables"]["permissions"]["Row"];

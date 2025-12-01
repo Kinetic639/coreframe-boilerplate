@@ -8,7 +8,7 @@ import type {
   ProductTemplate as TemplateProductTemplate,
   ProductAttributeDefinition as TemplateAttributeDefinition,
 } from "@/modules/warehouse/types/template";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 // Types for the store - Use the template interface from the template module
 export interface TemplateWithAttributes {

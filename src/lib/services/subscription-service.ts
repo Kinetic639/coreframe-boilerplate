@@ -1,5 +1,5 @@
-import { createClient } from "@/utils/supabase/client";
-import type { Tables } from "../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@/types/supabase";
 
 // Type definitions
 export type SubscriptionPlan = Tables<"subscription_plans">;

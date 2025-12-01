@@ -23,7 +23,7 @@ import { toast } from "react-toastify";
 import { reservationsService } from "@/modules/warehouse/api/reservations-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { StockReservation, AvailableInventory } from "@/modules/warehouse/types/reservations";
 
 interface Product {

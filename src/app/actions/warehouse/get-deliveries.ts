@@ -5,7 +5,7 @@
 // Fetches deliveries list with pagination and filters
 // =============================================
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type {
   DeliveryFilters,
   PaginatedDeliveries,

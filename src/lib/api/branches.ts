@@ -1,5 +1,5 @@
-import { createClient } from "@/utils/supabase/client";
-import { Database } from "../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/client";
+import { Database } from "@/types/supabase";
 import { BranchData } from "@/lib/stores/app-store";
 
 type Tables = Database["public"]["Tables"];

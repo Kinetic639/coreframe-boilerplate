@@ -2,7 +2,7 @@
 // Contacts Service - Complete CRUD Operations
 // =============================================
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type {
   Contact,
   ContactInsert,

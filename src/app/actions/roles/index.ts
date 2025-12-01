@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
 import { hasMatchingRole } from "@/utils/auth/hasMatchingRole";
@@ -66,7 +66,7 @@ export async function getRolesForOrganization(organizationId: string) {
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   const { data: roles, error } = await serviceSupabase
@@ -98,7 +98,7 @@ export async function getAllPermissions() {
   }
 
   // Use service role client to bypass RLS policies for permissions table
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   const { data: permissions, error } = await serviceSupabase
@@ -123,7 +123,7 @@ export async function getUserRoleAssignments(organizationId: string) {
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   const { data: assignments, error } = await serviceSupabase
@@ -387,7 +387,7 @@ export async function getUserPermissionOverrides(userId: string, organizationId:
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   const { data: overrides, error } = await (serviceSupabase as any)
@@ -468,7 +468,7 @@ export async function fetchRolesWithUserCountsServer(organizationId: string) {
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   // Fetch roles
@@ -542,7 +542,7 @@ export async function fetchRoleStatisticsServer(organizationId: string) {
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   // Get total roles count

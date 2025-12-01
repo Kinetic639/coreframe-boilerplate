@@ -1,7 +1,7 @@
 "use server";
 
 import { encodedRedirect } from "@/utils/utils";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export const resetPasswordAction = async (formData: FormData) => {
   const supabase = await createClient();

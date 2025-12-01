@@ -1,7 +1,7 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
-import { TablesUpdate } from "../../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/server";
+import { TablesUpdate } from "@/types/supabase";
 
 export async function updateOrganizationProfile(data: TablesUpdate<"organization_profiles">) {
   const supabase = await createClient();

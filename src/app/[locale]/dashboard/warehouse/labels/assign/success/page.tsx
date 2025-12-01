@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ExternalLink, ArrowLeft, Package, MapPin } from "lucide-react";
 import { Link } from "@/i18n/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 interface EntityDetails {
   id: string;

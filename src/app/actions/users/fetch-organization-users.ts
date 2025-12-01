@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
 import { hasMatchingRole } from "@/utils/auth/hasMatchingRole";
 
@@ -58,7 +58,7 @@ export async function fetchOrganizationUsersServer(
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   // Get all user role assignments for this organization
@@ -198,7 +198,7 @@ export async function fetchOrganizationUserStatisticsServer(organizationId: stri
   }
 
   // Use service role client to bypass RLS policies since we've already verified permissions
-  const { createServiceClient } = await import("@/utils/supabase/service");
+  const { createServiceClient } = await import("@/lib/supabase/server");
   const serviceSupabase = createServiceClient();
 
   // Get total users count

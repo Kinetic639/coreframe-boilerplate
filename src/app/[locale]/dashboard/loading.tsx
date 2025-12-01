@@ -1,5 +1,5 @@
 import Loader from "@/components/ui/Loader";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function Loading() {
   const supabase = await createClient();

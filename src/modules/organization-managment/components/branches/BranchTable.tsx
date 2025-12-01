@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
-import { Tables } from "../../../../../supabase/types/types";
+import { Tables } from "@/types/supabase";
 import BranchSearch from "./BranchSearch";
 import BranchFormDialog from "./BranchFormDialog";
 import BranchDeleteDialog from "./BranchDeleteDialog";

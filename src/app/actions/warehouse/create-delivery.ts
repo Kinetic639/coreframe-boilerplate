@@ -7,7 +7,7 @@
 
 import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { movementValidationService } from "@/modules/warehouse/api/movement-validation-service";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type {
   CreateDeliveryData,
   CreateDeliveryResponse,

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "@/../supabase/types/types";
+import { createClient } from "@/lib/supabase/server";
 import { routing } from "@/i18n/routing";
 
 interface QRRedirectPageProps {
@@ -13,10 +12,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
   const { token } = await params;
 
   // Create a public Supabase client (no auth required for QR lookups)
-  const supabase = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = await createClient();
 
   try {
     // Look up the QR code token

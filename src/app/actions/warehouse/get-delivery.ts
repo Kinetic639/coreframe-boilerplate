@@ -5,7 +5,7 @@
 // Fetches single delivery with all details
 // =============================================
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type { DeliveryWithRelations, DeliveryStatus } from "@/modules/warehouse/types/deliveries";
 
 export async function getDelivery(deliveryId: string): Promise<DeliveryWithRelations | null> {
