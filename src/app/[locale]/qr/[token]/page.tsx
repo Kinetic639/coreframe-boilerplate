@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { QrCode, Package, MapPin, AlertCircle, ArrowLeft } from "lucide-react";
 import { Link } from "@/i18n/navigation";
+import { getQrLookupResult } from "./_actions";
 
 interface QRPageProps {
   params: Promise<{
@@ -13,92 +14,9 @@ interface QRPageProps {
   }>;
 }
 
-async function getQRLabelData(token: string) {
-  // Create a public Supabase client (no auth required for QR lookups)
-  const supabase = await createClient();
-
-  try {
-    // First check if the QR token exists and get its details
-    const { data: qrLabel, error: qrError } = await supabase
-      .from("qr_labels")
-      .select("*")
-      .eq("qr_token", token)
-      .eq("is_active", true)
-      .single();
-
-    if (qrError) {
-      console.error("QR label not found:", qrError);
-      return { error: "QR_NOT_FOUND" };
-    }
-
-    if (!qrLabel) {
-      return { error: "QR_NOT_FOUND" };
-    }
-
-    // Log the scan
-    await supabase.from("qr_scan_logs").insert({
-      qr_token: token,
-      scan_type: "redirect",
-      scanner_type: "manual",
-      scan_result: "success",
-      organization_id: qrLabel.organization_id,
-      branch_id: qrLabel.branch_id,
-    });
-
-    // If the label is not assigned to any entity, return unassigned state
-    if (!qrLabel.entity_id || !qrLabel.entity_type) {
-      return {
-        qrLabel,
-        error: "QR_UNASSIGNED",
-      };
-    }
-
-    // Get the assigned entity details
-    let entityData = null;
-    let entityError = null;
-
-    if (qrLabel.entity_type === "product") {
-      const { data: product, error: prodError } = await supabase
-        .from("products")
-        .select("id, name, description, code, sku")
-        .eq("id", qrLabel.entity_id)
-        .single();
-
-      entityData = product;
-      entityError = prodError;
-    } else if (qrLabel.entity_type === "location") {
-      const { data: location, error: locError } = await supabase
-        .from("locations")
-        .select("id, name, description, code, level")
-        .eq("id", qrLabel.entity_id)
-        .single();
-
-      entityData = location;
-      entityError = locError;
-    }
-
-    if (entityError || !entityData) {
-      // Entity was deleted or doesn't exist
-      return {
-        qrLabel,
-        error: "ENTITY_NOT_FOUND",
-      };
-    }
-
-    return {
-      qrLabel,
-      entity: entityData,
-      entityType: qrLabel.entity_type,
-    };
-  } catch (error) {
-    console.error("Error processing QR scan:", error);
-    return { error: "GENERAL_ERROR" };
-  }
-}
-
 export default async function QRPage({ params }: QRPageProps) {
   const { token, locale } = await params;
-  const result = await getQRLabelData(token);
+  const result = await getQrLookupResult(token);
 
   // If QR code is unassigned, check authentication before showing assignment interface
   if (result.error === "QR_UNASSIGNED") {
