@@ -7,7 +7,7 @@
  * - Tier 2: Active notifications for selected products
  */
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type {
   StockAlertWithProduct,
   StockAlertWithRelations,

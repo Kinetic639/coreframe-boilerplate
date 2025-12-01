@@ -44,7 +44,7 @@ import {
   Users,
   Globe,
 } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { updateUserProfile, fetchAvailablePermissions } from "@/lib/api/user-detail";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";

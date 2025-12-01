@@ -23,7 +23,7 @@ import {
   Move,
   GripVertical,
 } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { buildLocationTree } from "@/modules/warehouse/utils/buildLocationstree";
 import { LocationTree } from "@/modules/warehouse/locations/location-tree";

@@ -7,7 +7,7 @@
 
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { PurchaseOrdersService } from "../../api/purchase-orders-service";
 import type {
   PurchaseOrderFormData,

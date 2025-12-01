@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
 
 interface Supplier {

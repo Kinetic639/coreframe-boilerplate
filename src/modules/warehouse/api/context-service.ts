@@ -1,5 +1,5 @@
-import { createClient } from "@/utils/supabase/client";
-import type { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/client";
+import type { Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
 import { subscriptionService } from "@/lib/services/subscription-service";
 
 // Context management types

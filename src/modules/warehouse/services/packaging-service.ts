@@ -5,7 +5,7 @@
  * This service handles supplier-specific packaging constraints and adjustments.
  */
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { ProductSupplierPackaging, PackagingAdjustment } from "../types/packaging";
 import { validatePackagingConstraints, calculatePackages } from "../types/packaging";
 

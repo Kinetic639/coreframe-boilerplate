@@ -113,7 +113,7 @@ export function ProductsAdvancedTable({
     if (activeOrgId) {
       const loadBranches = async () => {
         try {
-          const { createClient } = await import("@/utils/supabase/client");
+          const { createClient } = await import("@/lib/supabase/client");
           const supabase = createClient();
           const { data } = await supabase
             .from("branches")

@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { UnitOfMeasure, CreateUnitData, UpdateUnitData } from "../types/units";
 
 export class UnitsService {

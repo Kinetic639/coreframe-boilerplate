@@ -28,7 +28,7 @@
       "@app/*": ["./src/app/*"],
       "@components/*": ["./src/components/*"],
       "@utils/*": ["./src/utils/*"],
-      "@supabase/*": ["./src/utils/supabase/*"],
+      "@supabase/*": ["./src/lib/supabase/*"],
       "@actions/*": ["./src/app/actions/*"],
       "@modules/*": ["./src/modules/*"]
     }

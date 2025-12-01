@@ -5,7 +5,7 @@
  * It includes types for purchase orders, items, filters, forms, and related entities.
  */
 
-import type { Database } from "../../../../supabase/types/types";
+import type { Database } from "@/types/supabase";
 
 // =====================================================
 // DATABASE TYPES

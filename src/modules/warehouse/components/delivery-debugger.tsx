@@ -19,7 +19,7 @@ import type {
   DeliveryWithRelations,
   CreateDeliveryData,
 } from "@/modules/warehouse/types/deliveries";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 interface DeliveryDebuggerProps {
   organizationId: string;

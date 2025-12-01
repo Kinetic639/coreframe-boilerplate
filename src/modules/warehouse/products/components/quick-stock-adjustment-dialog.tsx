@@ -93,7 +93,7 @@ export function QuickStockAdjustmentDialog({
     if (!variant) return;
 
     try {
-      const { createClient } = await import("@/utils/supabase/client");
+      const { createClient } = await import("@/lib/supabase/client");
       const { useAppStore } = await import("@/lib/stores/app-store");
       const { useUserStore } = await import("@/lib/stores/user-store");
 

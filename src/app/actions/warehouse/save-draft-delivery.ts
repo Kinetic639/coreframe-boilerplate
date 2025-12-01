@@ -5,7 +5,7 @@
 // Saves delivery progress as draft with wizard state
 // =============================================
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import type {
   CreateDeliveryData,
   CreateDeliveryResponse,

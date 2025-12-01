@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 // Simple test function to check roles access without complex permission logic
 export async function testRolesAccess() {

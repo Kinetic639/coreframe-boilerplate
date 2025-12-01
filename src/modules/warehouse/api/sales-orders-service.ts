@@ -4,7 +4,7 @@
 // Integrates with reservations system for stock management
 // =============================================
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { reservationsService } from "./reservations-service";
 import type {
   SalesOrderWithItems,

@@ -1,4 +1,4 @@
-import type { Tables } from "../../../../supabase/types/types";
+import type { Tables } from "@/types/supabase";
 
 // Database type
 export type UnitOfMeasure = Tables<"units_of_measure">;

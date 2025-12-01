@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { generateDashboardMetadata, MetadataProps } from "@/lib/metadata";
 import { getTranslations } from "next-intl/server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import {
   ArrowLeft,

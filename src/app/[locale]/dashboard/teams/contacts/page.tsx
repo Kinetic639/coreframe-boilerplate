@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { generateDashboardMetadata, MetadataProps } from "@/lib/metadata";
 import { getTranslations } from "next-intl/server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import { Building2, Mail, Search, Users2 } from "lucide-react";
 import Link from "next/link";

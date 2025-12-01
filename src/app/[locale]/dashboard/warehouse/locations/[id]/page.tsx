@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { LocationProductsTable } from "@/modules/warehouse/locations/components/location-products-table";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";

@@ -77,7 +77,7 @@ export function EditVariantDialog({
     if (!variant) return;
 
     try {
-      const { createClient } = await import("@/utils/supabase/client");
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
       const { error } = await supabase

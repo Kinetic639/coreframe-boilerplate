@@ -7,7 +7,7 @@
 
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { ReceiptService } from "@/modules/warehouse/api/receipt-service";
 import { ProcessDeliveryReceiptInput, ProcessReceiptResult } from "@/lib/types/receipt-documents";
 

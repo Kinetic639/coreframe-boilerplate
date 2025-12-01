@@ -1,4 +1,4 @@
-import { Database } from "../../../supabase/types/types";
+import { Database } from "@/types/supabase";
 
 export type User = Pick<
   Database["public"]["Tables"]["users"]["Row"],

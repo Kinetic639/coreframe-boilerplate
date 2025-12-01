@@ -1,7 +1,7 @@
 "use server";
 
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function debugAppContext() {
   const supabase = await createClient();

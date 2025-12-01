@@ -90,7 +90,7 @@ export function ClientsListView() {
     }
 
     // Get user context
-    const { createClient } = await import("@/utils/supabase/client");
+    const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
     const { data: userData } = await supabase.auth.getUser();
 

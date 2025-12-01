@@ -14,7 +14,7 @@ import {
 import { QrCode, Eye, Copy, Scan, Link as LinkIcon, Trash2, Loader2 } from "lucide-react";
 import { LabelAssignmentDialog } from "@/modules/warehouse/components/labels/LabelAssignmentDialog";
 import { toast } from "react-toastify";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 interface LocationQrActionsProps {
   locationId: string;

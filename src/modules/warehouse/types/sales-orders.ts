@@ -1,7 +1,7 @@
 // Sales Orders Types
 // Based on database tables: sales_orders, sales_order_items
 
-import type { Database } from "../../../../supabase/types/types";
+import type { Database } from "@/types/supabase";
 
 // =============================================
 // Database Types (from Supabase generated types)

@@ -5,7 +5,7 @@
 // Fetches all receipts associated with a delivery
 // =============================================
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export interface DeliveryReceipt {
   id: string;

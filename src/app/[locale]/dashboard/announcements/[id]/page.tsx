@@ -15,7 +15,7 @@ import {
 import { Link } from "@/i18n/navigation";
 import HasAnyRoleServer from "@/components/auth/HasAnyRoleServer";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { formatDistanceToNow } from "date-fns";
 import { enUS, pl } from "date-fns/locale";
 import { getLocale } from "next-intl/server";

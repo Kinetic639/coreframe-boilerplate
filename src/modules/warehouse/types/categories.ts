@@ -1,4 +1,4 @@
-import type { Tables } from "../../../../supabase/types/types";
+import type { Tables } from "@/types/supabase";
 
 // Database types
 export type ProductCategory = Tables<"product_categories">;

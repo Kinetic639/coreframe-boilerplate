@@ -1,7 +1,7 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
-import { Tables } from "../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/server";
+import { Tables } from "@/types/supabase";
 import { cache } from "react";
 import { AppContext, BranchData } from "@/lib/stores/app-store";
 import { subscriptionService } from "@/lib/services/subscription-service";

@@ -1,4 +1,4 @@
-import { Tables } from "../../../../supabase/types/types";
+import { Tables } from "@/types/supabase";
 import { LocationTreeItem } from "../types/location-tree";
 
 export function buildLocationTree(locations: Tables<"locations">[]): LocationTreeItem[] {

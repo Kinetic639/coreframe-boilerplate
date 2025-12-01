@@ -8,7 +8,7 @@ import type {
   GeneratedVariant,
   SKUGeneratorConfig,
 } from "../types/product-groups";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 class VariantGenerationService {
   /**

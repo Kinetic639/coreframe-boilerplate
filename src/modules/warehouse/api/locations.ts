@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient as createServerClient } from "@/utils/supabase/server";
-import { createClient as createClientClient } from "@/utils/supabase/client";
-import { Tables, TablesInsert, TablesUpdate } from "../../../../supabase/types/types";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient as createClientClient } from "@/lib/supabase/client";
+import { Tables, TablesInsert, TablesUpdate } from "@/types/supabase";
 
 export async function loadLocationsServer(
   orgId: string,

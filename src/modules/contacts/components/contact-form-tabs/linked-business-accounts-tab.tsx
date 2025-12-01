@@ -22,7 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Building2, Unlink, Lock, Plus } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { contactsService } from "../../api/contacts-service";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
 import type { LinkedBusinessAccount } from "../../types";
 import { toast } from "react-toastify";

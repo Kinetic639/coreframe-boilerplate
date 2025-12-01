@@ -9,7 +9,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { DeliveryItem } from "@/modules/warehouse/types/deliveries";
 import {
   Command,

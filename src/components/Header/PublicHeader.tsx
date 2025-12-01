@@ -11,7 +11,7 @@ import SolutionsMenu from "./SolutionsMenu";
 import EducationalMenu from "./EducationalMenu";
 import MobileMenu from "./MobileMenu";
 import { useUserStore } from "@/lib/stores/user-store";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 const PublicHeader = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

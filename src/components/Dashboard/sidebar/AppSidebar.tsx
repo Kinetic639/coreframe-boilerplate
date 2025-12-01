@@ -8,7 +8,7 @@ import { appVersion } from "@/lib/version";
 import { AppSidebarWrapper } from "./AppSidebarWrapper";
 import ModuleSectionWrapper from "./ModuleSectionWrapper";
 import { SidebarInitializer } from "./SidebarInitializer";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { getAccessibleModules } from "@/modules";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";

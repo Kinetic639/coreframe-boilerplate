@@ -14,7 +14,7 @@ import {
 import { Loader2, AlertTriangle } from "lucide-react";
 import { deleteBranchAction } from "@/app/actions/branches";
 import { toast } from "react-toastify";
-import { Tables } from "../../../../../supabase/types/types";
+import { Tables } from "@/types/supabase";
 
 type Branch = Tables<"branches">;
 
