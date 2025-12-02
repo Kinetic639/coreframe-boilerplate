@@ -82,25 +82,24 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 1. ✅ products-service.ts (DONE)
 2. ✅ locations-service.ts (DONE)
 3. ✅ stock-movements-service.ts (DONE)
-4. ⏳ suppliers-service.ts (PRIORITY)
-5. ⏳ inventory-service.ts
-6. ⏳ categories-service.ts
-7. ⏳ units-service.ts
-8. ⏳ movement-types-service.ts
-9. ⏳ movement-validation-service.ts
-10. ⏳ reservations-service.ts
-11. ⏳ purchase-orders-service.ts
-12. ⏳ sales-orders-service.ts
-13. ⏳ receipt-service.ts
-14. ⏳ product-branch-settings-service.ts
-15. ⏳ product-groups-service.ts
-16. ⏳ product-suppliers-service.ts
-17. ⏳ variant-generation-service.ts
-18. ⏳ option-groups-service.ts
-19. ⏳ custom-fields-service.ts
-20. ⏳ inter-warehouse-transfer-service.ts
-21. ⏳ template-service.ts
-22. ⏳ context-service.ts
+4. ✅ product-suppliers-service.ts (DONE)
+5. ⏳ categories-service.ts (PRIORITY)
+6. ⏳ units-service.ts
+7. ⏳ movement-types-service.ts
+8. ⏳ movement-validation-service.ts
+9. ⏳ reservations-service.ts
+10. ⏳ purchase-orders-service.ts
+11. ⏳ sales-orders-service.ts
+12. ⏳ receipt-service.ts
+13. ⏳ product-branch-settings-service.ts
+14. ⏳ product-groups-service.ts
+15. ⏳ product-suppliers-service.ts
+16. ⏳ variant-generation-service.ts
+17. ⏳ option-groups-service.ts
+18. ⏳ custom-fields-service.ts
+19. ⏳ inter-warehouse-transfer-service.ts
+20. ⏳ template-service.ts
+21. ⏳ context-service.ts
 
 **Additional Services:**
 
@@ -353,5 +352,74 @@ src/
 
 ---
 
+### ✅ Day 4 (continued): Product-Suppliers Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/product-suppliers.schema.ts`)
+   - Product-supplier form data validation
+   - Add/update supplier schemas
+   - Update price schema with reason tracking
+   - Best price supplier calculation input
+   - Set preferred supplier validation
+   - Comprehensive filters for product-supplier queries
+
+2. **Service** (`src/server/services/product-suppliers.service.ts`)
+   - **14 methods** managing many-to-many relationships:
+     - `getProductSuppliers()` - Get all suppliers for a product
+     - `getPreferredSupplier()` - Get preferred supplier
+     - `getBestPriceSupplier()` - Calculate best price considering MOQ and multiples
+     - `getSupplierProducts()` - Get all products for a supplier
+     - `addSupplier()` - Add new supplier to product with price history
+     - `updateSupplier()` - Update existing relationship
+     - `removeSupplier()` - Soft delete relationship
+     - `setPreferredSupplier()` - Set preferred (unsets others automatically)
+     - `updatePrice()` - Update price with automatic history tracking
+     - `getPriceHistory()` - Get price history with trend analysis
+     - `createPriceHistory()` - Private method for history creation
+     - `hasSuppliers()` - Check if product has suppliers
+     - `getSupplierCount()` - Get supplier count for product
+   - Price history with trend analysis (increasing/decreasing/stable)
+   - MOQ (minimum order quantity) and order multiple calculations
+   - Preferred supplier management
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/products/suppliers/_actions.ts`)
+   - 12 server action functions
+   - Co-located with products/suppliers route
+   - Comprehensive validation for all operations
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-product-suppliers.ts`)
+   - 12 React Query hooks:
+     - `useProductSuppliers()` - Query product suppliers
+     - `usePreferredSupplier()` - Query preferred supplier
+     - `useGetBestPriceSupplier()` - Mutation for price calculation
+     - `useSupplierProducts()` - Query supplier products
+     - `useAddSupplier()`, `useUpdateSupplier()`, `useRemoveSupplier()` - CRUD mutations
+     - `useSetPreferredSupplier()` - Preferred supplier mutation
+     - `useUpdatePrice()` - Price update with history
+     - `usePriceHistory()` - Historical price data query
+     - `useHasSuppliers()`, `useSupplierCount()` - Utility queries
+   - Cross-entity cache invalidation (products, suppliers, price history)
+   - Toast notifications for all mutations
+
+**Status:** ✅ Complete - All type checks passing
+
+**Technical Notes:**
+
+- Manages many-to-many relationship between products and suppliers
+- Automatic price history tracking via database triggers
+- Business logic for MOQ and order multiples
+- Preferred supplier management with automatic unset of others
+- Price trend analysis (increasing/decreasing/stable)
+- Soft delete with `deleted_at` field
+
+**Complexity:**
+
+- Original: 520 lines, 14 methods
+- Migrated: Schema (80+ lines), Service (550+ lines), Actions (12), Hooks (12)
+- Enhanced with full type safety and validation
+
+---
+
 **Last Updated:** December 2, 2025
-**Status:** Week 1 Day 4 Complete - Products, Locations & Stock Movements Modules Migrated Successfully
+**Status:** Week 1 Day 4 Complete - Products, Locations, Stock Movements & Product-Suppliers Migrated Successfully
