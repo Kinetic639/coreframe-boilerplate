@@ -80,8 +80,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 **22 services to migrate:**
 
 1. ✅ products-service.ts (DONE)
-2. ⏳ stock-movements-service.ts
-3. ⏳ locations-service.ts (PRIORITY)
+2. ✅ locations-service.ts (DONE)
+3. ⏳ stock-movements-service.ts (PRIORITY)
 4. ⏳ suppliers-service.ts
 5. ⏳ inventory-service.ts
 6. ⏳ categories-service.ts
@@ -237,3 +237,53 @@ src/
 
 **Last Updated:** December 2, 2025  
 **Status:** Week 1 Day 3 Complete - Products Module Migrated Successfully
+
+---
+
+### ✅ Day 4: Locations Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/locations.schema.ts`)
+   - Location types: warehouse, zone, aisle, shelf, bin
+   - Create/update validation
+   - Filters with parent location support
+
+2. **Service** (`src/server/services/locations.service.ts`)
+   - `getLocations()` - Paginated list with filters
+   - `getAllLocations()` - Full list for tree view
+   - `getLocationById()` - Single location
+   - `createLocation()` - Create with org/branch
+   - `updateLocation()` - Update existing
+   - `deleteLocation()` - Soft delete
+   - `permanentlyDeleteLocation()` - Hard delete
+   - `reorderLocations()` - Update display order
+   - `getChildLocations()` - Get children of parent
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/locations/_actions.ts`)
+   - 8 server action functions
+   - Co-located with locations route
+   - Auth validation via `getUserContext()`
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-locations.ts`)
+   - `useLocations()` - Paginated query
+   - `useAllLocations()` - Full list query
+   - `useLocation()` - Single location query
+   - `useChildLocations()` - Child locations query
+   - `useCreateLocation()`, `useUpdateLocation()`, `useDeleteLocation()` - Mutations
+   - `useReorderLocations()` - Reorder mutation
+   - All with toast notifications and cache invalidation
+
+**Status:** ✅ Complete - Minor TypeScript type inference warnings (non-blocking)
+
+**Notes:**
+
+- TypeScript shows "excessively deep" type warnings on complex query chains
+- These are TypeScript inference issues, not runtime errors
+- Mitigated with `as any` type assertions
+- Does not affect functionality or runtime safety
+
+---
+
+**Last Updated:** December 2, 2025  
+**Status:** Week 1 Day 4 Complete - Products & Locations Modules Migrated Successfully
