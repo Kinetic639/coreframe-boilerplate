@@ -83,8 +83,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 2. ✅ locations-service.ts (DONE)
 3. ✅ stock-movements-service.ts (DONE)
 4. ✅ product-suppliers-service.ts (DONE)
-5. ⏳ categories-service.ts (PRIORITY)
-6. ⏳ units-service.ts
+5. ✅ categories-service.ts (DONE)
+6. ✅ units-service.ts (DONE)
 7. ⏳ movement-types-service.ts
 8. ⏳ movement-validation-service.ts
 9. ⏳ reservations-service.ts
@@ -93,13 +93,12 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 12. ⏳ receipt-service.ts
 13. ⏳ product-branch-settings-service.ts
 14. ⏳ product-groups-service.ts
-15. ⏳ product-suppliers-service.ts
-16. ⏳ variant-generation-service.ts
-17. ⏳ option-groups-service.ts
-18. ⏳ custom-fields-service.ts
-19. ⏳ inter-warehouse-transfer-service.ts
-20. ⏳ template-service.ts
-21. ⏳ context-service.ts
+15. ⏳ variant-generation-service.ts
+16. ⏳ option-groups-service.ts
+17. ⏳ custom-fields-service.ts
+18. ⏳ inter-warehouse-transfer-service.ts
+19. ⏳ template-service.ts
+20. ⏳ context-service.ts
 
 **Additional Services:**
 
@@ -109,12 +108,12 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 
 **Priority Order:**
 
-1. Locations (core inventory management)
-2. Stock Movements (core transactions)
-3. Suppliers (purchasing)
-4. Inventory (stock tracking)
-5. Categories & Units (supporting data)
-6. Others as needed
+1. ✅ Locations (core inventory management)
+2. ✅ Stock Movements (core transactions)
+3. ✅ Suppliers (purchasing)
+4. ✅ Categories & Units (supporting data)
+5. ⏳ Movement Types & Validation (transaction rules)
+6. ⏳ Others as needed
 
 ---
 
@@ -421,5 +420,145 @@ src/
 
 ---
 
+### ✅ Day 4 (continued): Categories Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/categories.schema.ts`)
+   - Create/update category validation
+   - Reorder categories schema with sort order
+   - Move category schema for parent changes
+   - Color validation (HEX format)
+
+2. **Service** (`src/server/services/categories.service.ts`)
+   - **19 methods** managing hierarchical tree structure:
+     - `getCategories()` - Get all as tree (excludes default category)
+     - `getCategoryById()` - Single category
+     - `getDefaultCategory()` - Get "Uncategorized" category
+     - `getFirstCategory()` - First non-default category (fallback target)
+     - `createCategory()` - Create with level calculation
+     - `updateCategory()` - Update existing
+     - `checkDeletion()` - InFlow-style deletion check with reassignment info
+     - `deleteCategory()` - Soft delete with product/child reassignment
+     - `moveProductsToCategory()` - Bulk product move
+     - `moveChildrenToCategory()` - Move all children to new parent
+     - `countProducts()` - Count products in category
+     - `countChildren()` - Count child categories
+     - `reorderCategories()` - Update sort order at same level
+     - `moveCategory()` - Move to different parent with level recalculation
+     - `isDescendant()` - Check if target is descendant (prevents cycles)
+     - `updateChildrenLevels()` - Recursive level update for all descendants
+     - `togglePreferred()` - Star/unstar category (only one at a time)
+     - `getPreferredCategories()` - Get all starred categories
+     - `buildCategoryTree()` - Convert flat list to hierarchical tree
+   - InFlow-style deletion behavior (reassign products to target category)
+   - Hierarchical tree with unlimited depth
+   - Level calculation and validation
+   - Cycle prevention in tree operations
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/categories/_actions.ts`)
+   - 14 server action functions
+   - Co-located with categories route
+   - Full validation for all tree operations
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-categories.ts`)
+   - 14 React Query hooks:
+     - `useCategories()` - Query category tree
+     - `useCategory()` - Query single category
+     - `useDefaultCategory()` - Query default category
+     - `useFirstCategory()` - Query first non-default
+     - `usePreferredCategories()` - Query starred categories
+     - `useCreateCategory()`, `useUpdateCategory()`, `useDeleteCategory()` - CRUD mutations
+     - `useCheckDeletion()` - Check deletion requirements
+     - `useReorderCategories()` - Reorder mutation
+     - `useMoveCategory()` - Move to different parent mutation
+     - `useTogglePreferred()` - Toggle starred status
+     - `useCountProducts()`, `useCountChildren()` - Count queries
+   - Longer stale times (10-30 minutes) due to infrequent changes
+   - Cross-entity cache invalidation for tree consistency
+   - Toast notifications for all mutations
+
+**Status:** ✅ Complete - All type checks passing
+
+**Technical Notes:**
+
+- Hierarchical tree structure with parent-child relationships
+- InFlow-style deletion (reassign products to parent or first category)
+- Level calculation for tree depth
+- Cycle prevention with `isDescendant()` check
+- Recursive updates for level changes
+- Preferred category management (only one at a time)
+- Tree building from flat list with sorting
+
+**Known Issues (To Be Fixed Post-Migration):**
+
+- Issue #90: Missing `organization_id` filtering (CRITICAL - security hole)
+- Issue #91: No transactions for multi-step operations (CRITICAL)
+- Issue #92: Recursive SELECTs should use SQL CTEs (HIGH - performance)
+- Issue #93: Incomplete child movement during deletion (HIGH)
+- Issue #94: No optimistic concurrency control (MEDIUM)
+- Issue #95: Tree building should use SQL CTE (MEDIUM)
+- Issue #96: Standardized error handling needed (LOW)
+
+**Complexity:**
+
+- Original: 473 lines, 19 methods
+- Migrated: Schema (70+ lines), Service (600+ lines), Actions (14), Hooks (14)
+- Full feature parity with enhanced type safety
+
+---
+
+### ✅ Day 4 (continued): Units Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/units.schema.ts`)
+   - Create/update unit validation
+   - Simple structure: name + symbol + organization_id
+   - Symbol validation (max 20 chars)
+
+2. **Service** (`src/server/services/units.service.ts`)
+   - **5 methods** for basic CRUD:
+     - `getUnits()` - Get all units for organization
+     - `getUnit()` - Single unit by ID
+     - `createUnit()` - Create new unit
+     - `updateUnit()` - Update existing unit
+     - `deleteUnit()` - Soft delete unit
+   - Simple supporting data service
+   - Organization-scoped units
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/units/_actions.ts`)
+   - 5 server action functions
+   - Co-located with warehouse/units route
+   - Standard validation pattern
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-units.ts`)
+   - 5 React Query hooks:
+     - `useUnits()` - Query all units
+     - `useUnit()` - Query single unit
+     - `useCreateUnit()` - Create mutation
+     - `useUpdateUnit()` - Update mutation
+     - `useDeleteUnit()` - Delete mutation
+   - 10 minute stale time (rarely changes)
+   - Standard cache invalidation
+   - Toast notifications for all mutations
+
+**Status:** ✅ Complete - All type checks passing (no new errors)
+
+**Technical Notes:**
+
+- Simple supporting data service (no complex business logic)
+- Organization-scoped (multi-tenant ready)
+- Soft delete with `deleted_at` field
+- Used for product measurement units (kg, piece, liter, etc.)
+
+**Complexity:**
+
+- Original: 89 lines, 5 methods
+- Migrated: Schema (30 lines), Service (120 lines), Actions (5), Hooks (5)
+- Straightforward migration with full type safety
+
+---
+
 **Last Updated:** December 2, 2025
-**Status:** Week 1 Day 4 Complete - Products, Locations, Stock Movements & Product-Suppliers Migrated Successfully
+**Status:** Week 1 Day 4 Complete - 6 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units)
