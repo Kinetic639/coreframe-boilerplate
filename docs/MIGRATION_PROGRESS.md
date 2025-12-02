@@ -81,8 +81,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 
 1. ✅ products-service.ts (DONE)
 2. ✅ locations-service.ts (DONE)
-3. ⏳ stock-movements-service.ts (PRIORITY)
-4. ⏳ suppliers-service.ts
+3. ✅ stock-movements-service.ts (DONE)
+4. ⏳ suppliers-service.ts (PRIORITY)
 5. ⏳ inventory-service.ts
 6. ⏳ categories-service.ts
 7. ⏳ units-service.ts
@@ -285,5 +285,73 @@ src/
 
 ---
 
-**Last Updated:** December 2, 2025  
-**Status:** Week 1 Day 4 Complete - Products & Locations Modules Migrated Successfully
+### ✅ Day 4 (continued): Stock Movements Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/stock-movements.schema.ts`)
+   - Movement statuses: draft, pending, approved, completed, cancelled, reversed
+   - Reference types: purchase_order, sales_order, transfer_request, etc.
+   - Movement categories: receipt, issue, transfer, adjustment, reservation, ecommerce
+   - Comprehensive filters with 15+ filter fields
+   - SAP-style movement type codes (101-613)
+   - Financial tracking (unit_cost, total_cost)
+   - Batch/serial number support
+
+2. **Service** (`src/server/services/stock-movements.service.ts`)
+   - **13 methods** (500+ lines - most complex service):
+     - `getMovements()` - Basic paginated list
+     - `getMovementsWithRelations()` - With full joins (products, locations, users)
+     - `getMovementById()` - Single movement with relations
+     - `createMovement()` - Uses RPC `create_stock_movement` for DB-level validation
+     - `updateMovement()` - Only draft movements can be updated
+     - `approveMovement()` - Approval workflow
+     - `completeMovement()` - Mark as completed
+     - `cancelMovement()` - Cancel with reason
+     - `getPendingApprovals()` - List movements requiring approval
+     - `getStatistics()` - Movement statistics (total, by category, by status, total value)
+     - `getInventoryLevels()` - Stock levels by location
+     - `checkStockAvailability()` - Check if quantity available
+     - `getStockLevel()` - Specific product/location stock level
+   - Uses `stock_inventory` database view for inventory queries
+   - Approval workflow: draft → pending → approved → completed
+   - Full business logic with validation
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/movements/_actions.ts`)
+   - 13 server action functions matching all service methods
+   - Complex validation with nested input schemas
+   - Co-located with movements route
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-stock-movements.ts`)
+   - 13 React Query hooks:
+     - `useMovements()`, `useMovementsWithRelations()`, `useMovement()` - Query hooks
+     - `usePendingApprovals()`, `useStatistics()`, `useInventoryLevels()`, `useStockLevel()` - Stats queries
+     - `useCreateMovement()`, `useUpdateMovement()` - CRUD mutations
+     - `useApproveMovement()`, `useCompleteMovement()`, `useCancelMovement()` - Workflow mutations
+     - `useCheckStockAvailability()` - Availability check mutation
+   - Sophisticated cache invalidation (mutations invalidate multiple related queries)
+   - Shorter stale times (1-2 minutes) due to frequent inventory changes
+   - Toast notifications for all mutations
+
+**Status:** ✅ Complete - All type checks passing
+
+**Technical Notes:**
+
+- Fixed table name: uses `stock_inventory` view (not `stock_inventory_levels`)
+- Updated `StockInventoryLevel` interface to match database view columns:
+  - `available_quantity`, `reserved_quantity`, `available_to_promise`
+  - Includes financial fields: `average_cost`, `total_value`
+  - Includes metadata: `total_movements`, `last_movement_at`
+- RPC-based creation for database-level business rule enforcement
+- Complex approval workflow with status transitions
+
+**Complexity:**
+
+- Original: 627 lines, 13 methods
+- Migrated: Schema (100+ lines), Service (500+ lines), Actions (13), Hooks (13)
+- Full feature parity with enhanced type safety
+
+---
+
+**Last Updated:** December 2, 2025
+**Status:** Week 1 Day 4 Complete - Products, Locations & Stock Movements Modules Migrated Successfully
