@@ -85,7 +85,7 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 4. ✅ product-suppliers-service.ts (DONE)
 5. ✅ categories-service.ts (DONE)
 6. ✅ units-service.ts (DONE)
-7. ⏳ movement-types-service.ts
+7. ✅ movement-types-service.ts (DONE)
 8. ⏳ movement-validation-service.ts
 9. ⏳ reservations-service.ts
 10. ⏳ purchase-orders-service.ts
@@ -560,5 +560,96 @@ src/
 
 ---
 
+---
+
+### ✅ Day 4 (continued): Movement Types Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/movement-types.schema.ts`)
+   - Movement category enum (receipt, issue, transfer, adjustment, reservation, ecommerce)
+   - Polish document type enum (PZ, WZ, MM, RW, INW, KP, KN variants)
+   - Movement type filters schema
+   - Movement validation input schema
+
+2. **Service** (`src/server/services/movement-types.service.ts`)
+   - **23 methods** for read-only access to system movement types:
+     - `getMovementTypes()` - Get all with optional filters
+     - `getMovementTypesByCategory()` - Filter by category
+     - `getMovementTypeByCode()` - Single type by SAP code
+     - `getManualEntryTypes()` - Types users can manually create
+     - `getDocumentGeneratingTypes()` - Types that generate documents
+     - `getMovementTypesGroupedByCategory()` - Group by category for UI
+     - `getMovementTypeSummaries()` - Simplified data for dropdowns
+     - `validateMovementRequirements()` - Validate movement business rules
+     - `requiresApproval()` - Check if approval needed
+     - `generatesDocument()` - Check if document generated
+     - `getPolishDocumentType()` - Get Polish doc type
+     - `searchMovementTypes()` - Search by name (PL/EN)
+     - `getReceiptTypes()`, `getIssueTypes()`, `getTransferTypes()` - Category shortcuts
+     - `getAdjustmentTypes()`, `getReservationTypes()`, `getEcommerceTypes()` - Category shortcuts
+     - `getStatistics()` - Movement type statistics
+   - SAP-style movement codes (101-613)
+   - Polish warehouse document compliance
+   - Bilingual support (Polish/English)
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/movement-types/_actions.ts`)
+   - 20 server action functions
+   - Co-located with movement-types route
+   - Full validation for all operations
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-movement-types.ts`)
+   - 23 React Query hooks:
+     - `useMovementTypes()` - Query all types with filters
+     - `useMovementTypesByCategory()` - Query by category
+     - `useMovementTypeByCode()` - Query single type
+     - `useManualEntryTypes()` - Query manual entry types
+     - `useDocumentGeneratingTypes()` - Query document types
+     - `useMovementTypesGroupedByCategory()` - Grouped query
+     - `useMovementTypeSummaries()` - Summary query
+     - `useValidateMovementRequirements()` - Validation mutation
+     - `useRequiresApproval()`, `useGeneratesDocument()`, `usePolishDocumentType()` - Helper queries
+     - `useSearchMovementTypes()` - Search query
+     - `useReceiptTypes()`, `useIssueTypes()`, `useTransferTypes()` - Category queries
+     - `useAdjustmentTypes()`, `useReservationTypes()`, `useEcommerceTypes()` - Category queries
+     - `useStatistics()` - Statistics query
+   - 30-minute stale times (system data, rarely changes)
+   - No mutations (read-only reference data)
+
+**Status:** ✅ Complete - All type checks passing (no new errors)
+
+**Technical Notes:**
+
+- Read-only service (movement types are system-managed)
+- SAP-style numeric codes (101-613) across 6 categories
+- Polish warehouse compliance with document types
+- Bilingual support for international users
+- Business rule validation for movements
+- No CRUD operations (system data only)
+
+**Complexity:**
+
+- Original: 387 lines, 23 methods
+- Migrated: Schema (70 lines), Service (400+ lines), Actions (20), Hooks (23)
+- Full feature parity with enhanced type safety
+
+---
+
+**Post-Migration Issues Created:**
+
+The following issues were created to track improvements to be made after migration is complete:
+
+- **Issue #97**: Add multi-tenant isolation checking to ALL services (CRITICAL)
+- **Issue #98**: Add Postgres RPC transactions for multi-step operations (CRITICAL)
+- **Issue #99**: Standardize Error Normalization Layer (HIGH)
+- **Issue #100**: Add optimistic concurrency control to mutation updates (MEDIUM)
+- **Issue #101**: Add missing SQL indexes for migrated modules (MEDIUM)
+- **Issue #102**: Create unified "Paginated Query Helper" (LOW)
+- **Issue #103**: Create unified "buildFilterQuery" helper (LOW)
+- **Issue #104**: Update AppContext AFTER all services are migrated (BLOCKED)
+- **Issue #105**: Remove old legacy API folders after migration completion (TODO)
+
+---
+
 **Last Updated:** December 2, 2025
-**Status:** Week 1 Day 4 Complete - 6 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units)
+**Status:** Week 1 Day 4 Complete - 7 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types)
