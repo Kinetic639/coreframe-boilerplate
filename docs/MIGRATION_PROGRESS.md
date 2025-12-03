@@ -86,19 +86,20 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 5. ✅ categories-service.ts (DONE)
 6. ✅ units-service.ts (DONE)
 7. ✅ movement-types-service.ts (DONE)
-8. ⏳ movement-validation-service.ts
-9. ⏳ reservations-service.ts
-10. ⏳ purchase-orders-service.ts
-11. ⏳ sales-orders-service.ts
-12. ⏳ receipt-service.ts
-13. ⏳ product-branch-settings-service.ts
-14. ⏳ product-groups-service.ts
-15. ⏳ variant-generation-service.ts
-16. ⏳ option-groups-service.ts
-17. ⏳ custom-fields-service.ts
-18. ⏳ inter-warehouse-transfer-service.ts
-19. ⏳ template-service.ts
-20. ⏳ context-service.ts
+8. ✅ movement-validation-service.ts (DONE)
+9. ⏳ product-groups-service.ts (NEXT - complex with variants)
+10. ⏳ reservations-service.ts
+11. ⏳ purchase-orders-service.ts
+12. ⏳ sales-orders-service.ts
+13. ⏳ receipt-service.ts
+14. ⏳ product-branch-settings-service.ts
+15. ⏳ product-groups-service.ts
+16. ⏳ variant-generation-service.ts
+17. ⏳ option-groups-service.ts
+18. ⏳ custom-fields-service.ts
+19. ⏳ inter-warehouse-transfer-service.ts
+20. ⏳ template-service.ts
+21. ⏳ context-service.ts
 
 **Additional Services:**
 
@@ -635,6 +636,57 @@ src/
 
 ---
 
+### ✅ Day 4 (continued): Movement Validation Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/movement-validation.schema.ts`)
+   - Quick validation input schema
+   - Batch validation input schema
+
+2. **Service** (`src/server/services/movement-validation.service.ts`)
+   - **3 methods** for movement validation:
+     - `validateMovement()` - Full validation with stock availability checks
+     - `validateBatch()` - Batch validation for multiple movements
+     - `quickValidate()` - Fast validation without stock checks
+   - Comprehensive business rule validation
+   - Validation constants (quantity limits, cost limits, thresholds)
+   - Private helper methods for specific validations
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/movements/validation/_actions.ts`)
+   - 3 server action functions
+   - Co-located with movements/validation route
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-movement-validation.ts`)
+   - 3 React Query mutation hooks:
+     - `useValidateMovement()` - Validate single movement
+     - `useValidateBatch()` - Validate multiple movements
+     - `useQuickValidate()` - Quick validation
+   - All mutations (no queries - validation is on-demand)
+
+**Status:** ✅ Complete - All type checks passing (no new errors)
+
+**Technical Notes:**
+
+- Validation-only service (no database mutations)
+- Integrates with Movement Types and Stock Movements services
+- Stock availability checking for issue movements
+- Quantity validation (0.0001 to 999,999.9999)
+- Cost validation (0 to 9,999,999,999.99)
+- Date validation with warnings for future/old dates
+- Batch/serial/lot tracking validation
+- Location validation (prevents same source/destination for transfers)
+- Required field validation based on movement type requirements
+- Manufacturing date vs expiry date validation
+
+**Complexity:**
+
+- Original: 361 lines, 3 public methods + 6 private helpers
+- Migrated: Schema (20 lines), Service (395 lines), Actions (3), Hooks (3)
+- Full feature parity with enhanced type safety
+
+---
+
 **Post-Migration Issues Created:**
 
 The following issues were created to track improvements to be made after migration is complete:
@@ -651,5 +703,5 @@ The following issues were created to track improvements to be made after migrati
 
 ---
 
-**Last Updated:** December 2, 2025
-**Status:** Week 1 Day 4 Complete - 7 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types)
+**Last Updated:** December 3, 2025
+**Status:** Week 1 Day 4 Complete - 8 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation)
