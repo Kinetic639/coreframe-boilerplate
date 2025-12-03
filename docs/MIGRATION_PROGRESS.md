@@ -87,8 +87,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 6. ✅ units-service.ts (DONE)
 7. ✅ movement-types-service.ts (DONE)
 8. ✅ movement-validation-service.ts (DONE)
-9. ⏳ product-groups-service.ts (NEXT - complex with variants)
-10. ⏳ reservations-service.ts
+9. ✅ product-groups-service.ts (DONE)
+10. ⏳ reservations-service.ts (NEXT)
 11. ⏳ purchase-orders-service.ts
 12. ⏳ sales-orders-service.ts
 13. ⏳ receipt-service.ts
@@ -687,6 +687,77 @@ src/
 
 ---
 
+### ✅ Day 4 (continued): Product Groups Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/product-groups.schema.ts`)
+   - Create product group input schema with variants
+   - Update variant input schema
+   - Bulk update variants schema
+   - Stock adjustment schema (deprecated)
+   - Generated variant and selected attribute schemas
+
+2. **Service** (`src/server/services/product-groups.service.ts`)
+   - **8 methods** for product group management:
+     - `createProductGroup()` - Create product group with all variants (complex transaction)
+     - `getProductGroupById()` - Get product group with variants and details
+     - `updateVariant()` - Update a specific variant
+     - `deleteVariant()` - Soft delete variant
+     - `deleteProductGroup()` - Soft delete product group
+     - `adjustVariantStock()` - Stock adjustment (deprecated - use stock movements)
+     - `bulkUpdateVariants()` - Bulk update multiple variants
+     - `getVariantsByProductId()` - Get all variants for a product group
+   - Complex transaction handling with rollback
+   - Option groups creation and mapping
+   - Variant attribute values linking
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/products/groups/_actions.ts`)
+   - 8 server action functions
+   - Co-located with products/groups route
+   - Organization context from user metadata
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-product-groups.ts`)
+   - 2 Query hooks:
+     - `useProductGroup()` - Get product group by ID
+     - `useProductGroupVariants()` - Get all variants
+   - 6 Mutation hooks:
+     - `useCreateProductGroup()` - Create product group
+     - `useUpdateVariant()` - Update variant
+     - `useDeleteVariant()` - Delete variant
+     - `useDeleteProductGroup()` - Delete product group
+     - `useAdjustVariantStock()` - Adjust stock (deprecated)
+     - `useBulkUpdateVariants()` - Bulk update variants
+   - All mutations include toast notifications (react-toastify)
+   - Proper cache invalidation after mutations
+
+**Status:** ✅ Complete - All type checks passing (no new errors)
+
+**Technical Notes:**
+
+- Complex multi-step transaction for product group creation:
+  1. Create parent product (type = item_group)
+  2. Create new option groups if needed (IDs starting with "new-")
+  3. Create product_group_attributes links
+  4. Batch insert all variants
+  5. Fetch real option values
+  6. Create variant_attribute_values mappings
+  7. Rollback on failure (cascade delete)
+- Option group ID mapping (temporary IDs to real UUIDs)
+- Batch variant creation with attribute value linking
+- Aggregate stats calculation (total variants, active variants, stock)
+- Stock adjustment marked as deprecated (use stock movements service)
+- Supports 1-3 attributes per product group
+- Variant generation from attribute combinations
+
+**Complexity:**
+
+- Original: 492 lines, 8 methods
+- Migrated: Schema (145 lines), Service (450 lines), Actions (8), Hooks (8)
+- Full feature parity with enhanced type safety and transaction rollback
+
+---
+
 **Post-Migration Issues Created:**
 
 The following issues were created to track improvements to be made after migration is complete:
@@ -700,8 +771,16 @@ The following issues were created to track improvements to be made after migrati
 - **Issue #103**: Create unified "buildFilterQuery" helper (LOW)
 - **Issue #104**: Update AppContext AFTER all services are migrated (BLOCKED)
 - **Issue #105**: Remove old legacy API folders after migration completion (TODO)
+- **Issue #106**: CRITICAL - Multi-tenant security broken in Product Groups service
+- **Issue #107**: CRITICAL - Product Groups createProductGroup() lacks real DB transaction
+- **Issue #108**: HIGH - Variant attribute linking logic is extremely brittle
+- **Issue #109**: HIGH - Product Groups service violates "services must not create client" rule
+- **Issue #110**: MEDIUM - Missing branch_id support for variant stock in Product Groups
+- **Issue #111**: HIGH - Normalize error handling for Product Group actions
+- **Issue #112**: MEDIUM - SSR-safe refactor of Product Group hooks
+- **Issue #113**: LOW - Remove deprecated adjustVariantStock() method
 
 ---
 
 **Last Updated:** December 3, 2025
-**Status:** Week 1 Day 4 Complete - 8 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation)
+**Status:** Week 1 Day 4 Complete - 9 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups)
