@@ -88,8 +88,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 7. ✅ movement-types-service.ts (DONE)
 8. ✅ movement-validation-service.ts (DONE)
 9. ✅ product-groups-service.ts (DONE)
-10. ⏳ reservations-service.ts (NEXT)
-11. ⏳ purchase-orders-service.ts
+10. ✅ reservations-service.ts (DONE)
+11. ⏳ purchase-orders-service.ts (NEXT)
 12. ⏳ sales-orders-service.ts
 13. ⏳ receipt-service.ts
 14. ⏳ product-branch-settings-service.ts
@@ -782,5 +782,79 @@ The following issues were created to track improvements to be made after migrati
 
 ---
 
+### ✅ Day 4 (continued): Reservations Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/reservations.schema.ts`)
+   - Create reservation input schema
+   - Release reservation input schema
+   - Cancel reservation input schema
+   - Reservation filters schema
+   - Validate availability input schema
+
+2. **Service** (`src/server/services/reservations.service.ts`)
+   - **10 methods** for stock reservation management:
+     - `validateAvailability()` - Check stock availability for reservation
+     - `createReservation()` - Create new reservation with RES movement (double-write pattern)
+     - `releaseReservation()` - Release/fulfill reservation with UNRES movement
+     - `cancelReservation()` - Cancel reservation
+     - `getReservation()` - Get reservation by ID
+     - `getReservationWithDetails()` - Get reservation with related data (joins)
+     - `getReservations()` - Get reservations with filters
+     - `getExpiredReservations()` - Get expired reservations for auto-release
+     - `getAvailableInventory()` - Get available inventory for product/location
+     - `generateReservationNumber()` - Private helper for reservation numbers (RES-YYYYMMDD-XXXXX)
+   - Hybrid reservation model (stock_reservations + stock_movements)
+   - Validation with available inventory view
+   - Partial release support
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/inventory/reservations/_actions.ts`)
+   - 9 server action functions
+   - Co-located with warehouse/inventory/reservations route
+   - Organization and branch context from user metadata
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-reservations.ts`)
+   - 6 Query hooks:
+     - `useValidateAvailability()` - Validate stock availability
+     - `useReservation()` - Get reservation by ID
+     - `useReservationWithDetails()` - Get reservation with details
+     - `useReservations()` - Get reservations with filters
+     - `useExpiredReservations()` - Get expired reservations
+     - `useAvailableInventory()` - Get available inventory
+   - 3 Mutation hooks:
+     - `useCreateReservation()` - Create reservation
+     - `useReleaseReservation()` - Release/fulfill reservation
+     - `useCancelReservation()` - Cancel reservation
+   - All mutations include toast notifications (react-toastify)
+   - Proper cache invalidation after mutations
+
+**Status:** ✅ Complete - All type checks passing (no new errors)
+
+**Technical Notes:**
+
+- **Double-write pattern**:
+  - Writes to `stock_reservations` table for operational state
+  - Writes to `stock_movements` (RES/UNRES codes 501/502) for event log
+  - Ensures data consistency with transaction-like patterns
+- **Reservation lifecycle**:
+  - active → partial (partial release) → fulfilled (full release)
+  - active → cancelled (cancellation)
+- Availability validation using `product_available_inventory` view
+- Auto-release support with expiration dates
+- Partial release tracking (reserved_quantity vs released_quantity)
+- Low stock warnings (< 120% of requested quantity)
+- Reference tracking (sales_order, transfer, production, manual, other)
+- Priority-based reservations
+- Comprehensive filtering and search
+
+**Complexity:**
+
+- Original: 610 lines, 10 methods
+- Migrated: Schema (90 lines), Service (650 lines), Actions (9), Hooks (9)
+- Full feature parity with enhanced type safety
+
+---
+
 **Last Updated:** December 3, 2025
-**Status:** Week 1 Day 4 Complete - 9 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups)
+**Status:** Week 1 Day 4 Complete - 10 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations)

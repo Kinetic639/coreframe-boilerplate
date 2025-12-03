@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   CreateProductGroupInput,
   UpdateVariantInput,
@@ -25,12 +25,11 @@ export class ProductGroupsService {
    * 5. Initial stock movements (if opening stock > 0)
    */
   static async createProductGroup(
+    supabase: SupabaseClient<Database>,
     data: CreateProductGroupInput,
     organizationId: string,
     userId: string
   ) {
-    const supabase = await createClient();
-
     // 1. Create parent product (type = item_group, sku = NULL)
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -226,7 +225,7 @@ export class ProductGroupsService {
       if (attrValuesError) throw attrValuesError;
 
       // 7. Fetch and return complete product group
-      const productGroup = await this.getProductGroupById(product.id);
+      const productGroup = await ProductGroupsService.getProductGroupById(supabase, product.id);
       if (!productGroup) {
         throw new Error("Failed to fetch created product group");
       }
@@ -242,9 +241,7 @@ export class ProductGroupsService {
   /**
    * Get product group by ID with all variants and full details
    */
-  static async getProductGroupById(productId: string) {
-    const supabase = await createClient();
-
+  static async getProductGroupById(supabase: SupabaseClient<Database>, productId: string) {
     // Fetch parent product
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -334,9 +331,11 @@ export class ProductGroupsService {
   /**
    * Update a specific variant
    */
-  static async updateVariant(variantId: string, data: UpdateVariantInput) {
-    const supabase = await createClient();
-
+  static async updateVariant(
+    supabase: SupabaseClient<Database>,
+    variantId: string,
+    data: UpdateVariantInput
+  ) {
     const updateData: any = {};
 
     if (data.name !== undefined) updateData.name = data.name;
@@ -375,9 +374,7 @@ export class ProductGroupsService {
   /**
    * Soft delete a variant
    */
-  static async deleteVariant(variantId: string): Promise<void> {
-    const supabase = await createClient();
-
+  static async deleteVariant(supabase: SupabaseClient<Database>, variantId: string): Promise<void> {
     const { error } = await supabase
       .from("product_variants")
       .update({ deleted_at: new Date().toISOString() })
@@ -391,9 +388,10 @@ export class ProductGroupsService {
   /**
    * Soft delete a product group (and all its variants via cascade)
    */
-  static async deleteProductGroup(productId: string): Promise<void> {
-    const supabase = await createClient();
-
+  static async deleteProductGroup(
+    supabase: SupabaseClient<Database>,
+    productId: string
+  ): Promise<void> {
     const { error } = await supabase
       .from("products")
       .update({ deleted_at: new Date().toISOString() })
@@ -431,9 +429,10 @@ export class ProductGroupsService {
   /**
    * Bulk update variants (e.g., set all prices, activate/deactivate all)
    */
-  static async bulkUpdateVariants(input: BulkUpdateVariantsInput): Promise<void> {
-    const supabase = await createClient();
-
+  static async bulkUpdateVariants(
+    supabase: SupabaseClient<Database>,
+    input: BulkUpdateVariantsInput
+  ): Promise<void> {
     const { variantIds, updates } = input;
     const updateData: any = {};
 
@@ -455,9 +454,7 @@ export class ProductGroupsService {
   /**
    * Get all variants for a product group
    */
-  static async getVariantsByProductId(productId: string) {
-    const supabase = await createClient();
-
+  static async getVariantsByProductId(supabase: SupabaseClient<Database>, productId: string) {
     const { data, error } = await supabase
       .from("product_variants")
       .select("*")

@@ -22,7 +22,7 @@ import { getUserContext } from "@/lib/utils/assert-auth";
  */
 export async function createProductGroupAction(input: CreateProductGroupInput) {
   try {
-    const { user } = await getUserContext();
+    const { user, supabase } = await getUserContext();
 
     // Validate input
     const validatedData = createProductGroupSchema.parse(input);
@@ -37,6 +37,7 @@ export async function createProductGroupAction(input: CreateProductGroupInput) {
     }
 
     const productGroup = await ProductGroupsService.createProductGroup(
+      supabase,
       validatedData,
       organizationId,
       user.id
@@ -60,9 +61,9 @@ export async function createProductGroupAction(input: CreateProductGroupInput) {
  */
 export async function getProductGroupByIdAction(productId: string) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
-    const productGroup = await ProductGroupsService.getProductGroupById(productId);
+    const productGroup = await ProductGroupsService.getProductGroupById(supabase, productId);
 
     if (!productGroup) {
       return {
@@ -89,12 +90,12 @@ export async function getProductGroupByIdAction(productId: string) {
  */
 export async function updateVariantAction(variantId: string, input: UpdateVariantInput) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
     // Validate input
     const validatedData = updateVariantSchema.parse(input);
 
-    const variant = await ProductGroupsService.updateVariant(variantId, validatedData);
+    const variant = await ProductGroupsService.updateVariant(supabase, variantId, validatedData);
 
     return {
       success: true,
@@ -114,9 +115,9 @@ export async function updateVariantAction(variantId: string, input: UpdateVarian
  */
 export async function deleteVariantAction(variantId: string) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
-    await ProductGroupsService.deleteVariant(variantId);
+    await ProductGroupsService.deleteVariant(supabase, variantId);
 
     return {
       success: true,
@@ -135,9 +136,9 @@ export async function deleteVariantAction(variantId: string) {
  */
 export async function deleteProductGroupAction(productId: string) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
-    await ProductGroupsService.deleteProductGroup(productId);
+    await ProductGroupsService.deleteProductGroup(supabase, productId);
 
     return {
       success: true,
@@ -181,12 +182,12 @@ export async function adjustVariantStockAction(input: StockAdjustmentInput) {
  */
 export async function bulkUpdateVariantsAction(input: BulkUpdateVariantsInput) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
     // Validate input
     const validatedData = bulkUpdateVariantsSchema.parse(input);
 
-    await ProductGroupsService.bulkUpdateVariants(validatedData);
+    await ProductGroupsService.bulkUpdateVariants(supabase, validatedData);
 
     return {
       success: true,
@@ -205,9 +206,9 @@ export async function bulkUpdateVariantsAction(input: BulkUpdateVariantsInput) {
  */
 export async function getVariantsByProductIdAction(productId: string) {
   try {
-    await getUserContext();
+    const { supabase } = await getUserContext();
 
-    const variants = await ProductGroupsService.getVariantsByProductId(productId);
+    const variants = await ProductGroupsService.getVariantsByProductId(supabase, productId);
 
     return {
       success: true,
