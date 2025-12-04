@@ -92,7 +92,7 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 11. ✅ purchase-orders-service.ts (DONE)
 12. ✅ sales-orders-service.ts (DONE)
 13. ✅ receipt-service.ts (DONE)
-14. ⏳ product-branch-settings-service.ts (NEXT)
+14. ✅ product-branch-settings-service.ts (DONE)
 15. ⏳ product-groups-service.ts
 16. ⏳ variant-generation-service.ts
 17. ⏳ option-groups-service.ts
@@ -1189,5 +1189,84 @@ The following issues were created to track improvements to be made after migrati
 
 ---
 
+### ✅ Product Branch Settings Service Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/product-branch-settings.schema.ts`)
+   - Reorder calculation method enum (fixed, min_max, auto)
+   - Create product branch settings schema with validation
+   - Update product branch settings schema
+   - Initialize for all branches schema
+   - Cross-field validation (min <= max, reorder point between min/max)
+   - Comprehensive threshold validation
+
+2. **Service** (`src/server/services/product-branch-settings.service.ts`)
+   - **7 methods** (270 lines) for per-warehouse product configuration:
+     - `getSettings()` - Get settings for product in specific branch
+     - `getSettingsForProduct()` - Get all branch settings for a product (all warehouses)
+     - `getProductsForBranch()` - Get all products with settings for specific branch
+     - `upsertSettings()` - Create or update settings with conflict resolution
+     - `updateSettings()` - Update existing settings
+     - `deleteSettings()` - Soft delete settings
+     - `initializeForAllBranches()` - Initialize settings across all org branches
+   - **Per-warehouse inventory thresholds**: reorder point, min/max stock levels, reorder quantity
+   - **Warehouse preferences**: track inventory, low stock alerts, lead time
+   - **Preferred receiving location**: optional default location for receipts
+   - **Reorder calculation methods**: fixed, min/max, auto
+   - **Bulk initialization**: create settings for all branches when adding new product
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/products/branch-settings/_actions.ts`)
+   - 6 server action functions
+   - Co-located with warehouse/products/branch-settings route
+   - Organization context from getUserContext()
+   - Query actions: getProductBranchSettingsAction, getSettingsForProductAction, getProductsForBranchAction
+   - Mutation actions: upsertProductBranchSettingsAction, updateProductBranchSettingsAction, deleteProductBranchSettingsAction, initializeForAllBranchesAction
+   - No explicit return type annotations (inferred by TypeScript)
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-product-branch-settings.ts`)
+   - 3 Query hooks:
+     - `useProductBranchSettings()` - Query single branch settings (5 min stale time)
+     - `useSettingsForProduct()` - Query all branch settings for product (5 min stale time)
+     - `useProductsForBranch()` - Query all products for branch (3 min stale time)
+   - 4 Mutation hooks:
+     - `useUpsertProductBranchSettings()` - Upsert settings
+     - `useUpdateProductBranchSettings()` - Update settings
+     - `useDeleteProductBranchSettings()` - Delete settings
+     - `useInitializeForAllBranches()` - Initialize for all branches
+   - All mutations include toast notifications (react-toastify)
+   - Sophisticated cache invalidation (detail, forProduct, forBranch, lists)
+
+**Status:** ✅ Complete - ESLint and type-check passing
+
+**Technical Notes:**
+
+- **Per-warehouse configuration**: Each product can have different inventory thresholds per branch
+- **Reorder calculation methods**:
+  - `fixed`: Use fixed reorder point
+  - `min_max`: Calculate based on min/max levels
+  - `auto`: Automatic calculation based on demand
+- **Inventory thresholds**:
+  - `reorder_point`: When to reorder
+  - `min_stock_level`: Minimum safety stock
+  - `max_stock_level`: Maximum storage capacity
+  - `reorder_quantity`: How much to order
+- **Warehouse preferences**:
+  - `track_inventory`: Enable/disable inventory tracking per branch
+  - `send_low_stock_alerts`: Enable/disable alerts
+  - `lead_time_days`: Expected delivery time
+  - `preferred_receiving_location_id`: Default location for receipts
+- **Cross-field validation**: Ensures min <= reorder point <= max
+- **Bulk initialization**: When creating new product, can initialize settings for all branches at once
+- **Upsert conflict resolution**: Uses `onConflict: "product_id,branch_id"` for safe updates
+
+**Complexity:**
+
+- Original: 223 lines, 7 methods
+- Migrated: Schema (145 lines), Service (270 lines), Actions (6), Hooks (7)
+- Full feature parity with enhanced type safety and cross-field validation
+
+---
+
 **Last Updated:** December 4, 2025
-**Status:** Week 1 Day 5 Complete - 13 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts)
+**Status:** Week 1 Day 5 Complete - 14 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings)
