@@ -30,7 +30,7 @@ export class LocationsService {
     branchId: string,
     filters: LocationFilters
   ): Promise<LocationListResponse> {
-    let query = supabase
+    let query: any = supabase
       .from("locations")
       .select("*", { count: "exact" })
       .eq("organization_id", organizationId)
@@ -46,18 +46,18 @@ export class LocationsService {
 
     if (filters.parent_location_id !== undefined) {
       if (filters.parent_location_id === null) {
-        query = query.is("parent_location_id", null) as any;
+        query = query.is("parent_location_id", null);
       } else {
-        query = query.eq("parent_location_id", filters.parent_location_id) as any;
+        query = query.eq("parent_location_id", filters.parent_location_id);
       }
     }
 
     if (filters.location_type) {
-      query = query.eq("location_type", filters.location_type) as any;
+      query = query.eq("location_type", filters.location_type);
     }
 
     if (filters.is_active !== undefined) {
-      query = query.eq("is_active", filters.is_active) as any;
+      query = query.eq("is_active", filters.is_active);
     }
 
     // Pagination
@@ -249,13 +249,13 @@ export class LocationsService {
     supabase: SupabaseClient<Database>,
     parentLocationId: string
   ): Promise<Location[]> {
-    const { data, error } = await supabase
-      .from("locations")
-      .select("*")
-      .eq("parent_location_id", parentLocationId)
-      .is("deleted_at", null)
-      .order("display_order", { ascending: true })
-      .order("name", { ascending: true });
+    let query: any = supabase.from("locations").select("*");
+    query = query.eq("parent_location_id", parentLocationId);
+    query = query.is("deleted_at", null);
+    query = query.order("display_order", { ascending: true });
+    query = query.order("name", { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch child locations: ${error.message}`);

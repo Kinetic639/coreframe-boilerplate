@@ -573,7 +573,7 @@ export class SalesOrdersService {
     await ReservationsService.releaseReservation(
       supabase,
       {
-        reservation_id: item.reservation_id,
+        reservationId: item.reservation_id,
         quantity: input.quantity,
         notes: input.notes,
       },
@@ -624,25 +624,27 @@ export class SalesOrdersService {
 
         const result = await ReservationsService.createReservation(
           supabase,
-          order.organization_id,
-          order.branch_id || null,
           {
-            product_id: item.product_id,
-            variant_id: item.product_variant_id || undefined,
-            location_id: item.location_id,
+            productId: item.product_id,
+            variantId: item.product_variant_id || undefined,
+            locationId: item.location_id,
             quantity: item.quantity_ordered,
-            reference_type: "sales_order",
-            reference_id: order.id,
-            reference_number: order.order_number,
-            reserved_for: `Sales Order ${order.order_number} - ${order.customer_name}`,
-            sales_order_id: order.id,
-            sales_order_item_id: item.id,
+            referenceType: "sales_order",
+            referenceId: order.id,
+            referenceNumber: order.order_number,
+            reservedFor: `Sales Order ${order.order_number} - ${order.customer_name}`,
+            salesOrderId: order.id,
+            salesOrderItemId: item.id,
             priority: 1, // Sales orders have higher priority
-            auto_release: false, // Manual release when fulfilled
-            expires_at: order.expected_delivery_date || undefined,
+            autoRelease: false, // Manual release when fulfilled
+            expiresAt: order.expected_delivery_date || undefined,
             notes: item.notes || undefined,
           },
-          userId
+          {
+            organizationId: order.organization_id,
+            branchId: order.branch_id || "",
+            userId,
+          }
         );
 
         console.log(
@@ -683,12 +685,12 @@ export class SalesOrdersService {
       // Get all active reservations for this order
       const reservations = await ReservationsService.getReservations(
         supabase,
-        organizationId,
-        branchId,
         {
-          sales_order_id: orderId,
+          salesOrderId: orderId,
           status: ["active", "partial"],
-        }
+        },
+        organizationId,
+        branchId
       );
 
       console.log(`[Reservations] Found ${reservations.length} active reservations to cancel`);
@@ -704,7 +706,7 @@ export class SalesOrdersService {
         await ReservationsService.cancelReservation(
           supabase,
           {
-            reservation_id: reservation.id,
+            reservationId: reservation.id,
             reason,
           },
           userId
