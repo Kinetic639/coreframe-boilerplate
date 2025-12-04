@@ -1270,3 +1270,145 @@ The following issues were created to track improvements to be made after migrati
 
 **Last Updated:** December 4, 2025
 **Status:** Week 1 Day 5 Complete - 14 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings)
+
+### ✅ Variant Generation Service Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/variant-generation.schema.ts`)
+   - Selected attribute schema for variant generation
+   - Generated variant schema with attribute values
+   - SKU generator configuration schema (format, case, separator)
+   - Generate variant combinations input schema
+   - Generate SKU input schema
+   - Validate SKU uniqueness input schema
+   - Calculate combinations count input schema
+
+2. **Service** (`src/server/services/variant-generation.service.ts`)
+   - **7 pure business logic methods** (270+ lines):
+     - `generateVariantCombinations()` - Generate all variant combinations using Cartesian product
+     - `cartesianProduct()` - Core algorithm for generating all combinations
+     - `generateSKU()` - Generate SKU based on configuration pattern
+     - `formatTextPart()` - Format text part (first 3, last 3, full) with case transformation
+     - `generateSKUsForAllVariants()` - Generate SKUs for all variants in batch
+     - `validateSKUUniqueness()` - Validate SKU uniqueness in organization (DB call)
+     - `calculateCombinationsCount()` - Calculate total combinations count
+     - `generatePreviewSKU()` - Generate preview SKU for live preview
+   - **Cartesian product algorithm**: Generates all possible combinations from multiple arrays
+   - **SKU generation**: Configurable format with base name, separator, case transformation
+   - **Uniqueness validation**: Checks both products and product_variants tables
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/products/variants/_actions.ts`)
+   - 6 server action functions
+   - Co-located with warehouse/products/variants route
+   - Pure business logic actions (no auth needed except validateSKUUniqueness)
+   - Actions: generateVariantCombinationsAction, generateSKUAction, generateSKUsForAllVariantsAction, validateSKUUniquenessAction, calculateCombinationsCountAction, generatePreviewSKUAction
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-variant-generation.ts`)
+   - 6 Mutation hooks (no queries - pure business logic):
+     - `useGenerateVariantCombinations()` - Generate variant combinations
+     - `useGenerateSKU()` - Generate single SKU
+     - `useGenerateSKUsForAllVariants()` - Generate SKUs for all variants
+     - `useValidateSKUUniqueness()` - Validate SKU uniqueness
+     - `useCalculateCombinationsCount()` - Calculate combinations count
+     - `useGeneratePreviewSKU()` - Generate preview SKU
+   - No cache needed - pure calculations executed on demand
+
+**Status:** ✅ Complete - type-check passing
+
+**Technical Notes:**
+
+- **Mostly pure business logic**: Only validateSKUUniqueness touches the database
+- **Cartesian product algorithm**: Generates all possible variant combinations
+  - Example: Color [Red, Blue] × Size [S, M, L] = 6 variants
+- **SKU generation**: Highly configurable
+  - Include/exclude base name
+  - Include/exclude each attribute
+  - Format options: first 3 chars, last 3 chars, or full
+  - Case transformation: upper, lower, title case
+  - Custom separator (-, \_, etc.)
+  - Example: T-Shirt + Red + Medium → TSH-RED-MED
+- **Preview functionality**: Live SKU preview in dialogs
+- **Uniqueness validation**: Checks global SKU uniqueness across products and variants
+- **Combination count calculation**: Shows "This will create X variants" preview
+
+**Complexity:**
+
+- Original: 328 lines, 9 methods
+- Migrated: Schema (119 lines), Service (293 lines), Actions (6), Hooks (6)
+- Full feature parity with enhanced type safety and validation
+
+---
+
+### ✅ Option Groups Service Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/option-groups.schema.ts`)
+   - Create option group schema with optional values array
+   - Update option group schema
+   - Create option value schema
+   - Update option value schema
+   - Option group filters schema
+
+2. **Service** (`src/server/services/option-groups.service.ts`)
+   - **10 methods** (270+ lines) for variant option management:
+     - `getOptionGroups()` - Get all option groups with values for organization
+     - `getOptionGroup()` - Get single option group by ID with values
+     - `createOptionGroup()` - Create new option group with optional values
+     - `updateOptionGroup()` - Update existing option group
+     - `deleteOptionGroup()` - Soft delete option group
+     - `getOptionValues()` - Get all values for an option group
+     - `createOptionValue()` - Add value to option group
+     - `updateOptionValue()` - Update existing option value
+     - `deleteOptionValue()` - Soft delete option value
+   - **Nested data loading**: Fetches groups with their values in single query
+   - **Sorted values**: Values sorted by display_order within each group
+   - **Transaction-like behavior**: Rollback group creation if values fail
+   - **Soft delete**: Both groups and values support soft delete
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/settings/option-groups/_actions.ts`)
+   - 10 server action functions
+   - Co-located with warehouse/settings/option-groups route
+   - Organization context from getUserContext()
+   - Group actions: getOptionGroupsAction, getOptionGroupAction, createOptionGroupAction, updateOptionGroupAction, deleteOptionGroupAction
+   - Value actions: getOptionValuesAction, createOptionValueAction, updateOptionValueAction, deleteOptionValueAction
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-option-groups.ts`)
+   - 3 Query hooks:
+     - `useOptionGroups()` - Query all option groups (5 min stale time)
+     - `useOptionGroup()` - Query single option group (5 min stale time)
+     - `useOptionValues()` - Query values for a group (5 min stale time)
+   - 7 Mutation hooks:
+     - `useCreateOptionGroup()` - Create option group
+     - `useUpdateOptionGroup()` - Update option group
+     - `useDeleteOptionGroup()` - Delete option group
+     - `useCreateOptionValue()` - Create option value
+     - `useUpdateOptionValue()` - Update option value
+     - `useDeleteOptionValue()` - Delete option value
+   - All mutations include toast notifications (react-toastify)
+   - Smart cache invalidation (lists, detail, values)
+
+**Status:** ✅ Complete - type-check passing
+
+**Technical Notes:**
+
+- **Variant option groups**: Define product attributes (Color, Size, Material, etc.)
+- **Option values**: Specific values within each group (Red, Blue, Small, Medium, etc.)
+- **Display ordering**: Values can be manually ordered within groups
+- **Nested creation**: Can create group with values in single operation
+- **Soft delete**: Maintains data integrity while hiding deleted items
+- **Transaction-like behavior**: If value creation fails, group creation is rolled back
+- **Filtered deleted values**: Automatically filters out soft-deleted values from results
+- **Used in variant generation**: Option groups and values feed into variant generation service
+
+**Complexity:**
+
+- Original: 214 lines, 10 methods
+- Migrated: Schema (59 lines), Service (273 lines), Actions (10), Hooks (10)
+- Full feature parity with enhanced type safety and transaction-like behavior
+
+---
+
+**Last Updated:** December 4, 2025
+**Status:** Week 1 Day 5 Complete - 16 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings, Variant Generation, Option Groups)
