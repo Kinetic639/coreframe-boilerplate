@@ -91,8 +91,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 10. ✅ reservations-service.ts (DONE)
 11. ✅ purchase-orders-service.ts (DONE)
 12. ✅ sales-orders-service.ts (DONE)
-13. ⏳ receipt-service.ts (NEXT)
-14. ⏳ product-branch-settings-service.ts
+13. ✅ receipt-service.ts (DONE)
+14. ⏳ product-branch-settings-service.ts (NEXT)
 15. ⏳ product-groups-service.ts
 16. ⏳ variant-generation-service.ts
 17. ⏳ option-groups-service.ts
@@ -1088,5 +1088,106 @@ The following issues were created to track improvements to be made after migrati
 
 ---
 
-**Last Updated:** December 3, 2025
-**Status:** Week 1 Day 5 Complete - 12 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders)
+---
+
+### ✅ Day 5 (continued): Receipt Service Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/receipts.schema.ts`)
+   - Receipt status enum (draft, completed, cancelled)
+   - Receipt type enum (full, partial, final_partial)
+   - Damage reason enum (damaged_in_transit, wrong_product, expired, quality_issue, packaging_damaged, incomplete_order, other)
+   - Receipt item schema with damage tracking (quantity_received, quantity_damaged, damage_reason, damage_notes)
+   - Process delivery receipt schema for multi-item receiving
+   - Cancel receipt schema with reason tracking
+   - Receipt filters schema for search and filtering
+   - Comprehensive validation for all workflows
+
+2. **Service** (`src/server/services/receipts.service.ts`)
+   - **6 methods** (550+ lines) for receipt document management:
+     - `getReceiptById()` - Single receipt with relations (users, movements)
+     - `getReceipts()` - Paginated list with comprehensive filtering
+     - `processDeliveryReceipt()` - Complex multi-step receipt processing workflow
+     - `getPartialReceiptStatus()` - Track partial receipts for a delivery
+     - `cancelReceipt()` - Cancel receipt and linked movements
+     - `generatePZDocument()` - Private placeholder for PDF generation
+   - **Solution B architecture**: receipt_documents (metadata) + receipt_movements (junction) + stock_movements (truth)
+   - **Complex receipt processing flow** (7 steps):
+     1. Fetch original delivery movement
+     2. Generate receipt number via RPC (REC-YYYYMMDD-XXXXX)
+     3. Create receipt_document
+     4. For each line item:
+        - Create accepted movement (quantity_received - quantity_damaged)
+        - Create damage movement (type 206) if quantity_damaged > 0
+        - Link movements to receipt via receipt_movements
+     5. Update receipt status to completed
+     6. Update original delivery status (partial vs full)
+     7. Generate PZ document (placeholder)
+   - **Parent/child movement pattern** for partial receipts
+   - **Damage tracking** with movement type 206 for rejected goods
+   - **PZ document compliance** for Polish warehouse regulations
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/receipts/_actions.ts`)
+   - 5 server action functions
+   - Co-located with warehouse/receipts route
+   - Organization and branch context from getUserContext()
+   - Query actions: getReceiptByIdAction, getReceiptsAction, getPartialReceiptStatusAction
+   - Mutation actions: processDeliveryReceiptAction, cancelReceiptAction
+   - No explicit return type annotations (inferred by TypeScript)
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-receipts.ts`)
+   - 3 Query hooks:
+     - `useReceipts()` - Query receipts with filters (2 min stale time)
+     - `useReceipt()` - Query single receipt (2 min stale time)
+     - `usePartialReceiptStatus()` - Query partial receipt status (1 min stale time)
+   - 2 Mutation hooks:
+     - `useProcessDeliveryReceipt()` - Process delivery receipt
+     - `useCancelReceipt()` - Cancel receipt
+   - All mutations include toast notifications (react-toastify)
+   - Sophisticated cache invalidation (receipts, stock-movements, stock-inventory)
+   - Follows Sales Orders pattern (no explicit return types in actions)
+
+**Status:** ✅ Complete - ESLint and type-check passing
+
+**Technical Notes:**
+
+- **Solution B architecture** separates concerns:
+  - `receipt_documents` = compliance/audit layer (who, when, QC notes, PZ doc)
+  - `receipt_movements` = junction table linking receipts to movements
+  - `stock_movements` = quantitative truth (what, how much, where)
+- **Multi-step receipt processing**:
+  - Validates original delivery movement
+  - Generates unique receipt number
+  - Creates receipt document with metadata
+  - Creates stock movements for accepted/damaged quantities
+  - Links movements to receipt
+  - Updates delivery status
+  - Placeholder for PZ document generation
+- **Damage movement pattern**:
+  - Movement type 206 for damaged/rejected goods
+  - Tracks damage reason and notes
+  - Separate movement for damaged quantity
+- **Partial receipt support**:
+  - Child movements linked to parent delivery via parent_movement_id
+  - Tracks cumulative received quantity
+  - Marks delivery as "partial" or "fully_received"
+- **Receipt workflow**: draft → completed / cancelled
+- **PZ document** (Polish compliance): Placeholder for PDF generation
+
+**Complexity:**
+
+- Original: 492 lines, 6 methods
+- Migrated: Schema (100+ lines), Service (550+ lines), Actions (5), Hooks (5)
+- Full feature parity with enhanced type safety and workflow management
+
+**Key Learning:**
+
+- Fixed TypeScript discriminated union errors by **removing explicit return type annotations** from server actions (following Sales Orders pattern)
+- TypeScript's control flow analysis works better with inferred types than explicit union types
+- Pattern: `if (!result.success) throw new Error(result.error);` followed by `return result.data;`
+
+---
+
+**Last Updated:** December 4, 2025
+**Status:** Week 1 Day 5 Complete - 13 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts)
