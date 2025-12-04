@@ -77,7 +77,7 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 
 #### Days 4-5: Complete Warehouse Module Migration
 
-**22 services to migrate:**
+**21 services to migrate:**
 
 1. ✅ products-service.ts (DONE)
 2. ✅ locations-service.ts (DONE)
@@ -93,19 +93,21 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 12. ✅ sales-orders-service.ts (DONE)
 13. ✅ receipt-service.ts (DONE)
 14. ✅ product-branch-settings-service.ts (DONE)
-15. ⏳ product-groups-service.ts
-16. ⏳ variant-generation-service.ts
-17. ⏳ option-groups-service.ts
-18. ⏳ custom-fields-service.ts
-19. ⏳ inter-warehouse-transfer-service.ts
-20. ⏳ template-service.ts
-21. ⏳ context-service.ts
+15. ✅ variant-generation-service.ts (DONE)
+16. ✅ option-groups-service.ts (DONE)
+17. ✅ custom-fields-service.ts (DONE)
+18. ⏳ inter-warehouse-transfer-service.ts
+19. ⏳ template-service.ts (FILES CREATED - requires database tables from disabled migrations)
+20. ⏳ context-service.ts
+21. ⏳ load-product-types.ts (small utility)
 
-**Additional Services:**
+**Additional Services (not in original folder):**
 
-- ⏳ packaging-service.ts
-- ⏳ replenishment-service.ts
-- ⏳ stock-alerts-service.ts
+- ❌ packaging-service.ts (does not exist)
+- ❌ replenishment-service.ts (does not exist)
+- ❌ stock-alerts-service.ts (does not exist)
+
+**Note:** locations.ts exists in the old API folder but appears to be a small utility, different from locations.service.ts
 
 **Priority Order:**
 
@@ -1410,5 +1412,112 @@ The following issues were created to track improvements to be made after migrati
 
 ---
 
+### ✅ Custom Fields Service Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/custom-fields.schema.ts`)
+   - Field type enum (text, number, boolean, date, dropdown)
+   - Create field definition schema with organization_id
+   - Update field definition schema
+   - Create field value schema with product/variant linking
+   - Update field value schema
+   - Reorder field definitions schema with display_order array
+
+2. **Service** (`src/server/services/custom-fields.service.ts`)
+   - **11 methods** (263 lines) for dynamic custom field management:
+     - `getFieldDefinitions()` - Get all field definitions for organization
+     - `createFieldDefinition()` - Create new custom field definition
+     - `updateFieldDefinition()` - Update existing field definition
+     - `deleteFieldDefinition()` - Soft delete field definition
+     - `reorderFieldDefinitions()` - Update display order for multiple definitions
+     - `getProductFieldValues()` - Get all field values for a product
+     - `getVariantFieldValues()` - Get all field values for a variant
+     - `setFieldValue()` - Create or update field value (upsert with conflict resolution)
+     - `deleteFieldValue()` - Soft delete field value
+     - `getProductFieldValuesWithDefinitions()` - Get field values with their definitions
+   - **Type-based value storage**: Uses value_text, value_number, value_boolean, value_date columns
+   - **Upsert pattern**: Conflict resolution on (product_id, field_definition_id) or (variant_id, field_definition_id)
+   - **Display order management**: Manual ordering of fields in UI
+   - **Product and variant support**: Fields can be attached to either products or variants
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/settings/custom-fields/_actions.ts`)
+   - 11 server action functions
+   - Co-located with warehouse/settings/custom-fields route
+   - Organization context from getUserContext()
+   - Definition actions: getFieldDefinitionsAction, createFieldDefinitionAction, updateFieldDefinitionAction, deleteFieldDefinitionAction, reorderFieldDefinitionsAction
+   - Value actions: getProductFieldValuesAction, getVariantFieldValuesAction, setFieldValueAction, deleteFieldValueAction, getProductFieldValuesWithDefinitionsAction
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-custom-fields.ts`)
+   - 4 Query hooks:
+     - `useFieldDefinitions()` - Query all field definitions (5 min stale time)
+     - `useProductFieldValues()` - Query field values for product (5 min stale time)
+     - `useVariantFieldValues()` - Query field values for variant (5 min stale time)
+     - `useProductFieldValuesWithDefinitions()` - Query values with definitions (5 min stale time)
+   - 7 Mutation hooks:
+     - `useCreateFieldDefinition()` - Create field definition
+     - `useUpdateFieldDefinition()` - Update field definition
+     - `useDeleteFieldDefinition()` - Delete field definition
+     - `useReorderFieldDefinitions()` - Reorder field definitions
+     - `useSetFieldValue()` - Set field value (upsert)
+     - `useDeleteFieldValue()` - Delete field value
+   - All mutations include toast notifications (react-toastify)
+   - Smart cache invalidation (definitions, product values, variant values)
+
+**Status:** ✅ Complete - type-check and lint passing (no new errors)
+
+**Technical Notes:**
+
+- **Dynamic custom fields**: Organizations can define custom fields for products/variants
+- **Field types**: text, number, boolean, date, dropdown (with dropdown_options array)
+- **Type-based storage**: Values stored in appropriate columns based on type
+  - Text values → value_text
+  - Numbers → value_number
+  - Booleans → value_boolean
+  - Dates → value_date (ISO 8601 string)
+  - Dropdowns → value_text (selected option)
+- **Upsert pattern**: Uses onConflict to safely update existing values
+- **Display ordering**: Fields can be manually reordered in UI via display_order
+- **Product vs Variant fields**: Fields can be attached to either entity
+- **Joined query optimization**: getProductFieldValuesWithDefinitions() returns values with their definitions in single query
+- **Soft delete pattern**: Both definitions and values support soft delete
+
+**Complexity:**
+
+- Original: N/A (new service)
+- Migrated: Schema (59 lines), Service (263 lines), Actions (11), Hooks (11)
+- Full type safety with Zod validation and TypeScript
+
+---
+
+### ⏳ Templates Service (FILES CREATED - REQUIRES DATABASE TABLES)
+
+**Status:** ⏳ Implementation files created but **cannot be completed** until database migrations are enabled
+
+**Files Created (Non-Functional):**
+
+1. **Schema** (`src/server/schemas/templates.schema.ts`) - 95 lines
+2. **Service** (`src/server/services/templates.service.ts`) - 495 lines
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/settings/templates/_actions.ts`) - 189 lines
+4. **React Query Hooks** (`src/lib/hooks/queries/use-templates.ts`) - 178 lines
+
+**Blockers:**
+
+- Tables `product_templates` and `template_attribute_definitions` do not exist in database
+- Migrations are disabled: `20250915140000_product_templates_system.sql.disabled`
+- Cannot complete type-check due to missing table types in Supabase schema
+
+**Next Steps:**
+
+1. Enable template migrations in `supabase/migrations/`
+2. Apply migrations to remote database
+3. Regenerate TypeScript types with `pnpm run supabase:gen:types`
+4. Verify type-check passes
+5. Mark as complete
+
+**Note:** Template service files are kept in codebase for future implementation. The old template service exists at `src/modules/warehouse/api/template-service.ts` and can be used as reference when tables are ready.
+
+---
+
 **Last Updated:** December 4, 2025
-**Status:** Week 1 Day 5 Complete - 16 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings, Variant Generation, Option Groups)
+**Status:** Week 1 Day 5+ Complete - 17 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings, Variant Generation, Option Groups, Custom Fields)
