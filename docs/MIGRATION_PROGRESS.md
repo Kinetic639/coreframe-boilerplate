@@ -90,8 +90,8 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 9. ✅ product-groups-service.ts (DONE)
 10. ✅ reservations-service.ts (DONE)
 11. ✅ purchase-orders-service.ts (DONE)
-12. ⏳ sales-orders-service.ts (NEXT)
-13. ⏳ receipt-service.ts
+12. ✅ sales-orders-service.ts (DONE)
+13. ⏳ receipt-service.ts (NEXT)
 14. ⏳ product-branch-settings-service.ts
 15. ⏳ product-groups-service.ts
 16. ⏳ variant-generation-service.ts
@@ -973,7 +973,120 @@ The following issues were created to track improvements to be made after migrati
 - Migrated: Schema (130 lines), Service (750 lines), Actions (17), Hooks (17)
 - Full feature parity with enhanced type safety and workflow management
 
+**Post-Migration Issues Created:**
+
+The following issues were created to track improvements to be made after migration is complete:
+
+- **Issue #123**: HIGH - Replace user_metadata org/branch with AppContext in Purchase Orders
+- **Issue #124**: HIGH - Harden multi-tenant isolation for Purchase Order Items
+- **Issue #125**: HIGH - Refactor receiveItems to validate PO ownership and schema contract
+- **Issue #126**: HIGH - Integrate receiveItems with stock movement engine
+- **Issue #127**: MEDIUM - Wrap purchase order create + items into transactional RPC
+- **Issue #128**: LOW - Split PurchaseOrdersService into smaller modules
+- **Issue #129**: MEDIUM - Add unit/integration tests for Purchase Orders
+- **Issue #130**: LOW - Normalize error shape across Purchase Orders actions
+
+---
+
+### ✅ Day 5 (continued): Sales Orders Module Migration (COMPLETED)
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/sales-orders.schema.ts`)
+   - Sales order status enum (draft, pending, confirmed, processing, fulfilled, cancelled)
+   - Create sales order schema with items (min 1 item required)
+   - Update sales order schema
+   - Update order status schema with cancellation reason
+   - Sales order filters schema with search and date range filtering
+   - Sales order item form validation
+   - Release reservation schema for fulfillment workflow
+
+2. **Service** (`src/server/services/sales-orders.service.ts`)
+   - **14 methods** (720+ lines) for sales order management:
+     - `canTransitionStatus()` - Validate status transitions
+     - `getSalesOrders()` - Paginated list with comprehensive filtering
+     - `getSalesOrderById()` - Single order with full relations (customer, items)
+     - `getSalesOrderByNumber()` - Get order by order_number
+     - `createSalesOrder()` - Create order with items (multi-step operation)
+     - `updateSalesOrder()` - Update order details and items
+     - `updateOrderStatus()` - Update status with reservation integration
+     - `deleteSalesOrder()` - Soft delete order (only draft/pending)
+     - `getOrdersByCustomer()` - Get all orders for a customer
+     - `getOrdersByStatus()` - Get orders by status
+     - `releaseReservationForItem()` - Release reservation when item fulfilled
+     - `createReservationsForOrder()` - Private: Create reservations on confirm
+     - `cancelReservationsForOrder()` - Private: Cancel reservations on cancel
+   - Status workflow: draft → pending → confirmed → processing → fulfilled / cancelled
+   - Reservation integration: Auto-create on confirm, auto-cancel on cancel
+   - Item fulfillment tracking with reservation release
+
+3. **Server Actions** (`src/app/[locale]/dashboard/warehouse/sales-orders/_actions.ts`)
+   - 10 server action functions
+   - Co-located with warehouse/sales-orders route
+   - Organization and branch context from user metadata
+   - Query actions: getSalesOrdersAction, getSalesOrderByIdAction, getSalesOrderByNumberAction, getOrdersByCustomerAction, getOrdersByStatusAction
+   - CRUD actions: createSalesOrderAction, updateSalesOrderAction, deleteSalesOrderAction
+   - Status action: updateOrderStatusAction
+   - Reservation action: releaseReservationForItemAction
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-sales-orders.ts`)
+   - 5 Query hooks:
+     - `useSalesOrders()` - Query orders with filters (2 min stale time)
+     - `useSalesOrder()` - Query single order (2 min stale time)
+     - `useSalesOrderByNumber()` - Query by order number (2 min stale time)
+     - `useOrdersByCustomer()` - Query customer orders (2 min stale time)
+     - `useOrdersByStatus()` - Query orders by status (2 min stale time)
+   - 5 Mutation hooks:
+     - `useCreateSalesOrder()` - Create order with items
+     - `useUpdateSalesOrder()` - Update order
+     - `useDeleteSalesOrder()` - Soft delete order
+     - `useUpdateOrderStatus()` - Update status (with reservation integration)
+     - `useReleaseReservationForItem()` - Release reservation on fulfillment
+   - All mutations include toast notifications (react-toastify)
+   - Sophisticated cache invalidation (lists, details, by-customer, by-status)
+   - Cross-entity invalidation for reservations and stock inventory
+
+**Status:** ✅ Complete - ESLint passing (no errors, debug console warnings only)
+
+**Technical Notes:**
+
+- **Status workflow state machine**:
+  - draft → pending (submit for approval)
+  - pending → confirmed (confirm order)
+  - confirmed → processing (start processing)
+  - processing → fulfilled (complete order)
+  - any → cancelled (cancel with reason)
+- **Reservation integration**:
+  - When order status changes to "confirmed", automatically creates reservations for all items
+  - Reservations link to sales order and specific items
+  - When order cancelled, automatically cancels all active reservations
+  - Reservation release when items fulfilled (integrated with fulfillment workflow)
+- **Multi-step order creation**:
+  1. Create sales_orders record
+  2. Batch insert sales_order_items
+  3. Rollback on failure (delete order if items fail)
+  4. Fetch complete order with relations
+- **Delivery address tracking**:
+  - Full address fields (line1, line2, city, state, postal_code, country)
+  - Expected delivery date tracking
+  - Shipping cost and discount calculations
+- **Customer management**:
+  - Links to business_accounts (customers)
+  - Customer name/email/phone stored directly on order
+  - Customer-specific order history queries
+- **Status-based queries**:
+  - Efficient filtering by order status
+  - Branch-level filtering
+  - Date range filtering
+- **Soft delete pattern** for audit trail (only draft/pending can be deleted)
+
+**Complexity:**
+
+- Original: 898 lines, 14 methods
+- Migrated: Schema (140 lines), Service (720 lines), Actions (10), Hooks (10)
+- Full feature parity with enhanced type safety and reservation integration
+
 ---
 
 **Last Updated:** December 3, 2025
-**Status:** Week 1 Day 5 Complete - 11 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders)
+**Status:** Week 1 Day 5 Complete - 12 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders)
