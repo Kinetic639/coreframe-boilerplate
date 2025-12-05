@@ -43,10 +43,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
-import { productsService } from "@/modules/warehouse/api/products-service";
-import { unitsService } from "@/modules/warehouse/api/units-service";
-import { categoriesService } from "@/modules/warehouse/api/categories-service";
-import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { unitsService } from "@/server/services/units.service";
+import { categoriesService } from "@/server/services/categories.service";
+import { customFieldsService } from "@/server/services/custom-fields.service";
 import type {
   CreateProductFormData,
   UpdateProductFormData,

@@ -36,8 +36,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { contextService } from "@/modules/warehouse/api/context-service";
-import type { Context } from "@/modules/warehouse/api/context-service";
+import { contextService } from "@/server/services/context.service";
+import type { Context } from "@/server/services/context.service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
 

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useAppStore } from "@/lib/stores/app-store";
-import { optionGroupsService } from "../../api/option-groups-service";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { CreateOptionGroupDialog } from "./create-option-group-dialog";

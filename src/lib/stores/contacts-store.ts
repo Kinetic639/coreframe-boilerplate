@@ -8,7 +8,7 @@ import type {
   ContactFilters,
   ContactsListResponse,
 } from "@/modules/contacts/types";
-import { contactsService } from "@/modules/contacts/api/contacts-service";
+import { contactsService } from "@/server/services/contacts.service";
 import { createClient } from "@/utils/supabase/client";
 
 interface ContactsState {

@@ -7,7 +7,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../../../supabase/types/types";
 import { MovementTypesService, type MovementType } from "@/server/services/movement-types.service";
-import { StockMovementsService } from "@/server/services/stock-movements.service";
 import type { CreateStockMovementInput } from "@/server/schemas/stock-movements.schema";
 
 // Validation constants

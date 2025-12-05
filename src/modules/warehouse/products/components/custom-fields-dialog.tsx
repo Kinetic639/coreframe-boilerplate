@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { customFieldsService } from "@/server/services/custom-fields.service";
 import type { ProductCustomFieldDefinition } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 

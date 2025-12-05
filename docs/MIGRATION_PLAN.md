@@ -300,23 +300,9 @@ TO DELETE:
 
 ---
 
-### **Week 3: Support, Cleanup, SSR Optimization**
+### **Week 3: Cleanup, SSR Optimization**
 
-**Days 1-2: Support Module**
-
-1. **Create Schemas**
-   - `src/server/schemas/support.ts`
-
-2. **Migrate Service**
-   - `src/server/services/support.service.ts`
-
-3. **Create Server Actions**
-   - `src/app/actions/support.ts`
-
-4. **Create React Query Hooks**
-   - `src/lib/hooks/queries/use-support.ts`
-
-**Days 3-4: Cleanup**
+**Days 1-3: Cleanup**
 
 5. **Remove Custom SWR**
    - Delete `src/lib/hooks/use-simple-swr.ts`
@@ -339,7 +325,7 @@ TO DELETE:
    npm run format
    ```
 
-**Day 5: SSR Optimization**
+**Days 4-5: SSR Optimization**
 
 9. **Add Server-Side Prefetching**
    - Warehouse dashboard page
@@ -849,7 +835,6 @@ echo "✅ Architecture validation passed!"
 
 ### Week 3 Checklist
 
-- [ ] Migrate support module
 - [ ] Remove useSimpleSWR
 - [ ] Remove client-side Supabase calls
 - [ ] Delete old API folders

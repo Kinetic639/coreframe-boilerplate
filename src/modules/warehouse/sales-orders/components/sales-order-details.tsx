@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { salesOrdersService } from "../../api/sales-orders-service";
 import type { SalesOrderWithRelations, SalesOrderStatus } from "../../types/sales-orders";
 import { SALES_ORDER_STATUS_LABELS, SALES_ORDER_STATUS_COLORS } from "../../types/sales-orders";
 import { Badge } from "@/components/ui/badge";

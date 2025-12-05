@@ -5,7 +5,6 @@
 // Handles server-side order creation with authentication
 // =============================================
 
-import { salesOrdersService } from "@/modules/warehouse/api/sales-orders-service";
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import type { SalesOrderFormData } from "@/modules/warehouse/types/sales-orders";

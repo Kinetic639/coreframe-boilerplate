@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
+import { customFieldsService } from "@/server/services/custom-fields.service";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";

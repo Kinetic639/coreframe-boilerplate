@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { InterWarehouseTransferService } from "@/modules/warehouse/api/inter-warehouse-transfer-service";
 import type { CreateTransferRequestInput } from "@/modules/warehouse/types/inter-warehouse-transfers";
 
 export async function createTransferRequest(input: CreateTransferRequestInput) {

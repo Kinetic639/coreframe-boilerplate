@@ -5,8 +5,6 @@
 // Handles server-side movement creation with validation
 // =============================================
 
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
-import { movementValidationService } from "@/modules/warehouse/api/movement-validation-service";
 import { createClient } from "@/utils/supabase/server";
 import type { CreateStockMovementData } from "@/modules/warehouse/types/stock-movements";
 

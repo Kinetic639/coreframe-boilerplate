@@ -42,8 +42,6 @@ import { toast } from "react-toastify";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { createClient } from "@/utils/supabase/client";
-import { salesOrdersService } from "../../api/sales-orders-service";
-import { reservationsService } from "../../api/reservations-service";
 
 import type { SalesOrderFormData } from "../../types/sales-orders";
 
