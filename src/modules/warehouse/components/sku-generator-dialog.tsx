@@ -76,17 +76,15 @@ export function SKUGeneratorDialog({
 
   const handleGenerate = () => {
     // Import the service to generate SKUs for all variants
-    import("@/modules/warehouse/api/variant-generation-service").then(
-      ({ variantGenerationService }) => {
-        const updatedVariants = variantGenerationService.generateSKUsForAllVariants(
-          baseName,
-          variants,
-          config
-        );
-        onApply(updatedVariants);
-        onOpenChange(false);
-      }
-    );
+    import("@/server/services/variant-generation.service").then(({ variantGenerationService }) => {
+      const updatedVariants = variantGenerationService.generateSKUsForAllVariants(
+        baseName,
+        variants,
+        config
+      );
+      onApply(updatedVariants);
+      onOpenChange(false);
+    });
   };
 
   const handleClose = () => {

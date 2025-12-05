@@ -2,7 +2,7 @@
 
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { updateOrganizationProfile } from "@/modules/organization-managment/api/updateProfile";
+import { updateOrganizationProfile } from "@/lib/api/user-detail";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";

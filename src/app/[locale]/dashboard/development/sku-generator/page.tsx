@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Wand2 } from "lucide-react";
 import { SKUGeneratorDialog } from "@/modules/warehouse/components/sku-generator-dialog";
-import { variantGenerationService } from "@/modules/warehouse/api/variant-generation-service";
 import type { GeneratedVariant, SelectedAttribute } from "@/modules/warehouse/types/product-groups";
 import type { OptionGroupWithValues } from "@/modules/warehouse/types/option-groups";
 

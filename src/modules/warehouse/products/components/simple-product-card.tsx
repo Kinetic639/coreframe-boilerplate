@@ -22,7 +22,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/lib/stores/app-store";
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 
 interface SimpleProductCardProps {
   product: ProductWithDetails;

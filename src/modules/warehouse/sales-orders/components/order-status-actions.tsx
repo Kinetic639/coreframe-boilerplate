@@ -22,7 +22,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "react-toastify";
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 
-import { salesOrdersService } from "../../api/sales-orders-service";
 import { VALID_STATUS_TRANSITIONS, SALES_ORDER_STATUS_LABELS } from "../../types/sales-orders";
 import type { SalesOrderStatus } from "../../types/sales-orders";
 

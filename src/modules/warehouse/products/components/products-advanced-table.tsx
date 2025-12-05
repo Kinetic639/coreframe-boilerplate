@@ -28,13 +28,12 @@ import {
 import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
 import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
-import { customFieldsService } from "@/modules/warehouse/api/custom-fields-service";
-import { categoriesService } from "@/modules/warehouse/api/categories-service";
+import { customFieldsService } from "@/server/services/custom-fields.service";
+import { categoriesService } from "@/server/services/categories.service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { MovementHistoryList } from "@/modules/warehouse/components/movement-history-list";
 import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
 import type { StockMovementWithRelations } from "@/modules/warehouse/types/stock-movements";
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { ProductLocationBreakdown } from "./product-location-breakdown";
 import type {
   CustomFieldDefinition,

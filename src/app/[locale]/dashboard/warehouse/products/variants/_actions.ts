@@ -1,7 +1,6 @@
 "use server";
 
 import { getUserContext } from "@/lib/utils/assert-auth";
-import { VariantGenerationService } from "@/server/services/variant-generation.service";
 import {
   generateVariantCombinationsSchema,
   generateSKUSchema,

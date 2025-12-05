@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Clock, Package, User } from "lucide-react";
 import { toast } from "react-toastify";
-import { stockMovementsService } from "../api/stock-movements-service";
 import type { StockMovementWithRelations } from "../types/stock-movements";
 import { formatDate } from "@/lib/utils";
 

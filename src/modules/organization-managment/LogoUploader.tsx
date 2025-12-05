@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Image from "next/image";
 import { toast } from "react-toastify";
-import { uploadOrganizationLogo } from "./api/uploadLogo";
+// TODO: Migrate uploadLogo to server action or client-side upload utility
+// import { uploadOrganizationLogo } from "./api/uploadLogo";
 
 export default function LogoUploader({
-  organizationId,
+  organizationId: _organizationId,
   currentUrl,
-  onUpload,
+  onUpload: _onUpload,
 }: {
   organizationId: string;
   currentUrl?: string;
@@ -35,22 +36,23 @@ export default function LogoUploader({
     setUploading(true);
 
     try {
-      // Use server action for upload with proper authorization
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("organizationId", organizationId);
+      // TODO: Implement server action for upload with proper authorization
+      toast.error("❌ Logo upload temporarily disabled during migration");
+      // const formData = new FormData();
+      // formData.append("file", file);
+      // formData.append("organizationId", organizationId);
 
-      const result = await uploadOrganizationLogo(formData);
+      // const result = await uploadOrganizationLogo(formData);
 
-      if (result.error) {
-        toast.error(`❌ ${result.error.message}`);
-        return;
-      }
+      // if (result.error) {
+      //   toast.error(`❌ ${result.error.message}`);
+      //   return;
+      // }
 
-      if (result.success && result.url) {
-        onUpload(result.url);
-        toast.success("✅ Logo zaktualizowane");
-      }
+      // if (result.success && result.url) {
+      //   onUpload(result.url);
+      //   toast.success("✅ Logo zaktualizowane");
+      // }
     } catch (error) {
       toast.error(
         `❌ Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`

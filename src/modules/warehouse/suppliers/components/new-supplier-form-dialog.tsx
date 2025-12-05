@@ -33,7 +33,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { supplierService, type Supplier } from "../api";
-import { contactsService } from "@/modules/contacts/api/contacts-service";
+import { contactsService } from "@/server/services/contacts.service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { toast } from "react-toastify";

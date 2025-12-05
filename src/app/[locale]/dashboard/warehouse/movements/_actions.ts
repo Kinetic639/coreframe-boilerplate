@@ -10,7 +10,6 @@ import {
   cancelMovementSchema,
   checkStockAvailabilitySchema,
 } from "@/server/schemas/stock-movements.schema";
-import { StockMovementsService } from "@/server/services/stock-movements.service";
 
 /**
  * Get paginated movements

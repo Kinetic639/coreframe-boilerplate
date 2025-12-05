@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, ArrowDown, ArrowUp, Package } from "lucide-react";
 import { MovementStatusBadge } from "./movement-status-badge";
-import { stockMovementsService } from "../api/stock-movements-service";
 import type { StockMovementWithRelations, StockMovementFilters } from "../types/stock-movements";
 import { formatDate } from "@/lib/utils";
 

@@ -4,7 +4,6 @@ import * as React from "react";
 import { useRouter } from "@/i18n/navigation";
 import { ProductsAdvancedTable } from "@/modules/warehouse/products/components/products-advanced-table";
 import { CreateProductDialog } from "@/modules/warehouse/products/components/create-product-dialog";
-import { productsService } from "@/modules/warehouse/api/products-service";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";

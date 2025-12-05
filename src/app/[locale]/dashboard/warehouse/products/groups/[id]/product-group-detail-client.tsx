@@ -39,7 +39,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-import { productGroupsService } from "@/modules/warehouse/api/product-groups-service";
 import type { ProductGroupDetail } from "@/modules/warehouse/types/product-groups";
 import type { ProductVariantWithDetails } from "@/modules/warehouse/types/products";
 import { EditVariantDialog } from "@/modules/warehouse/products/components/edit-variant-dialog";

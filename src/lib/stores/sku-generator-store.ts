@@ -5,7 +5,6 @@
 
 import { create } from "zustand";
 import type { SKUGeneratorConfig } from "@/modules/warehouse/types/product-groups";
-import { variantGenerationService } from "@/modules/warehouse/api/variant-generation-service";
 
 interface SKUGeneratorState {
   config: SKUGeneratorConfig;

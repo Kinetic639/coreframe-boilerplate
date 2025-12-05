@@ -29,9 +29,6 @@ import {
 
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
-import { optionGroupsService } from "@/modules/warehouse/api/option-groups-service";
-import { variantGenerationService } from "@/modules/warehouse/api/variant-generation-service";
-import { productGroupsService } from "@/modules/warehouse/api/product-groups-service";
 import { SKUGeneratorDialog } from "@/modules/warehouse/components/sku-generator-dialog";
 
 import type { OptionGroupWithValues } from "@/modules/warehouse/types/option-groups";
@@ -271,7 +268,7 @@ export function CreateProductGroupClient() {
 
     // Import the service dynamically
     const { variantGenerationService } = await import(
-      "@/modules/warehouse/api/variant-generation-service"
+      "@/server/services/variant-generation.service"
     );
 
     // Use default config: base name + all attributes, uppercase, dash separator

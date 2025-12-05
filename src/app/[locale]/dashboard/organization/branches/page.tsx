@@ -1,5 +1,4 @@
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { getBranchesWithStatsFromDb } from "@/modules/organization-managment/api/getBranchesWithStatsFromDb";
 import BranchHeader from "@/modules/organization-managment/components/branches/BranchHeader";
 import BranchStats from "@/modules/organization-managment/components/branches/BranchStats";
 import BranchTable from "@/modules/organization-managment/components/branches/BranchTable";

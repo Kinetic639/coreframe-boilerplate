@@ -46,10 +46,7 @@ import { SKUGeneratorDialog } from "../../components/sku-generator-dialog";
 
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
-import { optionGroupsService } from "../../api/option-groups-service";
 import { unitsService } from "../../api/units-service";
-import { productGroupsService } from "../../api/product-groups-service";
-import { variantGenerationService } from "../../api/variant-generation-service";
 
 import type { OptionGroupWithValues } from "../../types/option-groups";
 import type { UnitOfMeasure } from "../../types/units";

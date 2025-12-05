@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "react-toastify";
-import { reservationsService } from "@/modules/warehouse/api/reservations-service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
 import { createClient } from "@/utils/supabase/client";
