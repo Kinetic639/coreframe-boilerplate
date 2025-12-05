@@ -120,11 +120,153 @@ This document tracks the progress of migrating the coreframe-boilerplate applica
 
 ---
 
-## Week 2: Teams, Organization, News (PENDING)
+## Week 2: Teams, Organization, News ✅ COMPLETED
 
-- Teams/Contacts module
-- Organization module
-- News module
+### ✅ Day 3-5: News, Contacts, Organization Modules (COMPLETED)
+
+**Migration Date:** January 15, 2025
+
+#### 1. News Module ✅
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/news.schema.ts`) - 60 lines
+   - Priority enum (low, medium, high, urgent)
+   - Badge enum (new, important, update, announcement, feature, bugfix)
+   - Create/update/filter schemas
+
+2. **Service** (`src/server/services/news.service.ts`) - 220 lines, 5 methods
+   - `getNewsPosts()` - List with filters (branch-specific or org-wide)
+   - `getNewsPost()` - Single post
+   - `createNewsPost()` - Create new post
+   - `updateNewsPost()` - Update existing post
+   - `deleteNewsPost()` - Soft delete
+   - Author enrichment pattern (avoiding N+1 queries)
+
+3. **Server Actions** (`src/app/[locale]/dashboard/news/_actions.ts`) - 130 lines, 5 actions
+   - Co-located with news route
+   - Path revalidation for `/dashboard/start` and `/dashboard/news`
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-news.ts`) - 160 lines, 5 hooks
+   - Queries: `useNewsPosts()`, `useNewsPost()`
+   - Mutations: `useCreateNewsPost()`, `useUpdateNewsPost()`, `useDeleteNewsPost()`
+   - Proper cache management with toast notifications
+
+**Key Features:**
+
+- Branch-specific and organization-wide news
+- Priority levels with badges
+- Author information enrichment (single query, avoiding N+1)
+- Lexical editor content support
+
+---
+
+#### 2. Teams/Contacts Module ✅
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/contacts.schema.ts`) - 120 lines
+   - Contact types (customer, vendor, lead, employee, other, contact)
+   - Entity types (business, individual)
+   - Visibility scope (private/organization)
+   - Business account linking schema
+
+2. **Service** (`src/server/services/contacts.service.ts`) - 250 lines, 8 methods
+   - `getContacts()` - List with visibility filtering
+   - `getContact()` - Single contact
+   - `createContact()` - Create new contact
+   - `updateContact()` - Update existing contact (with permission checks)
+   - `deleteContact()` - Soft delete (with permission checks)
+   - `linkContactToBusinessAccount()` - Link organization contacts to business accounts
+   - `unlinkContactFromBusinessAccount()` - Unlink contact
+   - `getBusinessAccountContacts()` - Get linked contact
+   - Visibility-based filtering (private vs organization)
+   - Permission validation for private contacts
+
+3. **Server Actions** (`src/app/[locale]/dashboard/teams/contacts/_actions.ts`) - 200 lines, 8 actions
+   - Co-located with teams/contacts route
+   - Path revalidation for contacts and business accounts pages
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-contacts.ts`) - 230 lines, 8 hooks
+   - Queries: `useContacts()`, `useContact()`, `useBusinessAccountContact()`
+   - Mutations: `useCreateContact()`, `useUpdateContact()`, `useDeleteContact()`
+   - Business account mutations: `useLinkContactToBusinessAccount()`, `useUnlinkContactFromBusinessAccount()`
+   - Cross-entity cache invalidation for business accounts
+
+**Key Features:**
+
+- Private vs Organization visibility scopes
+- Owner-based permissions for private contacts
+- Business account linking (organization contacts only, enforced by DB trigger)
+- Full contact information (emails, phones, addresses, tax info)
+- Portal access configuration
+
+**Visibility Control Pattern:**
+
+```typescript
+// Show organization contacts + user's private contacts
+query = query.or(
+  `visibility_scope.eq.organization,and(visibility_scope.eq.private,owner_user_id.eq.${userId})`
+);
+```
+
+---
+
+#### 3. Organization Module (Branches) ✅
+
+**Files Created:**
+
+1. **Schema** (`src/server/schemas/organization.schema.ts`) - 60 lines
+   - Branch and organization update schemas
+   - Slug validation (lowercase alphanumeric with hyphens)
+
+2. **Service** (`src/server/services/organization.service.ts`) - 250 lines, 8 methods
+   - `getOrganization()` - Get organization details
+   - `updateOrganization()` - Update profile
+   - `getBranches()` - List all branches
+   - `getBranch()` - Single branch
+   - `createBranch()` - Create new branch
+   - `updateBranch()` - Update existing branch
+   - `deleteBranch()` - Soft delete (with user assignment check)
+   - Slug uniqueness validation within organization
+
+3. **Server Actions** (`src/app/[locale]/dashboard/organization/_actions.ts`) - 170 lines, 7 actions
+   - Co-located with organization route
+   - Path revalidation for organization and branch pages
+
+4. **React Query Hooks** (`src/lib/hooks/queries/use-organization.ts`) - 200 lines, 7 hooks
+   - Queries: `useOrganization()`, `useBranches()`, `useBranch()`
+   - Mutations: `useUpdateOrganization()`, `useCreateBranch()`, `useUpdateBranch()`, `useDeleteBranch()`
+   - Proper invalidation after mutations
+
+**Key Features:**
+
+- Organization profile management (name, slug, description, logo)
+- Branch CRUD operations
+- Slug uniqueness within organization
+- Prevents branch deletion if users are assigned
+- Multi-tenant architecture support
+
+**User Assignment Check:**
+
+```typescript
+// Check if branch has users assigned
+const { data: users } = await supabase
+  .from("users")
+  .select("id")
+  .eq("default_branch_id", branchId)
+  .is("deleted_at", null);
+
+if (users && users.length > 0) {
+  throw new Error(`Cannot delete branch with ${users.length} assigned user(s)`);
+}
+```
+
+---
+
+**Status:** ✅ All three modules complete
+**Type-Check:** ✅ Passing (no new errors)
+**Lint:** ✅ Passing (no errors in new modules)
 
 ---
 
@@ -1777,8 +1919,8 @@ useDeleteProductType();
 
 ---
 
-**Last Updated:** December 4, 2025
-**Status:** Week 1 Day 5+ Complete - 20 Services Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings, Variant Generation, Option Groups, Custom Fields, Inter-Warehouse Transfers, Context Service, Product Types)
+**Last Updated:** January 15, 2025
+**Status:** Week 1 + Week 2 Complete - 23 Modules Migrated (Products, Locations, Stock Movements, Product-Suppliers, Categories, Units, Movement Types, Movement Validation, Product Groups, Reservations, Purchase Orders, Sales Orders, Receipts, Product Branch Settings, Variant Generation, Option Groups, Custom Fields, Inter-Warehouse Transfers, Context Service, Product Types, News, Contacts, Organization)
 
 **Type-Check Status:** ❌ BLOCKED - Missing database tables:
 
