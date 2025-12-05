@@ -124,6 +124,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/zapasy/ruchy",
     },
+    "/dashboard/warehouse/inventory/movements/new": {
+      en: "/dashboard/warehouse/inventory/movements/new",
+      pl: "/dashboard/magazyn/zapasy/ruchy/nowy",
+    },
     "/dashboard/warehouse/inventory/adjustments": {
       en: "/dashboard/warehouse/inventory/adjustments",
       pl: "/dashboard/magazyn/zapasy/korekty",
@@ -225,6 +229,20 @@ export const routing = defineRouting({
     "/dashboard/warehouse/scanning/delivery": {
       en: "/dashboard/warehouse/scanning/delivery",
       pl: "/dashboard/magazyn/skanowanie/dostawa",
+    },
+
+    // === Transfers (Warehouse module) ===
+    "/dashboard/warehouse/transfers": {
+      en: "/dashboard/warehouse/transfers",
+      pl: "/dashboard/magazyn/transfery",
+    },
+    "/dashboard/warehouse/transfers/new": {
+      en: "/dashboard/warehouse/transfers/new",
+      pl: "/dashboard/magazyn/transfery/nowy",
+    },
+    "/dashboard/warehouse/transfers/[id]": {
+      en: "/dashboard/warehouse/transfers/[id]",
+      pl: "/dashboard/magazyn/transfery/[id]",
     },
 
     // === Org Management module ===
