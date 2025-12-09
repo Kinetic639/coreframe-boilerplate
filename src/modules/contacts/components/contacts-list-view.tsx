@@ -33,7 +33,7 @@ import { ContactForm } from "./contact-form";
 import { ContactsTable } from "./contacts-table";
 import { Plus, Search } from "lucide-react";
 import { VisibilityScope, ContactFormData, ContactWithRelations } from "../types";
-import { contactsService } from "../api/contacts-service";
+// FIXME: import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
 
 export function ContactsListView() {

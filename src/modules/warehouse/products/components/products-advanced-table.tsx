@@ -28,8 +28,9 @@ import {
 import { useTranslations } from "next-intl";
 import { ManageCustomFieldsDialog } from "./manage-custom-fields-dialog";
 import { CustomFieldsInlineEditor } from "./custom-fields-inline-editor";
-import { customFieldsService } from "@/server/services/custom-fields.service";
-import { categoriesService } from "@/server/services/categories.service";
+import { CustomFieldsService } from "@/server/services/custom-fields.service";
+import { CategoriesService } from "@/server/services/categories.service";
+import { StockMovementsService } from "@/server/services/stock-movements.service";
 import { useAppStore } from "@/lib/stores/app-store";
 import { MovementHistoryList } from "@/modules/warehouse/components/movement-history-list";
 import { MovementDetailsModal } from "@/modules/warehouse/components/movement-details-modal";
@@ -103,7 +104,7 @@ export function ProductsAdvancedTable({
   // Load categories
   React.useEffect(() => {
     if (activeOrgId) {
-      categoriesService.getCategories(activeOrgId).then(setCategoryTree);
+      CategoriesService.getCategories(activeOrgId).then(setCategoryTree);
     }
   }, [activeOrgId]);
 
@@ -135,8 +136,7 @@ export function ProductsAdvancedTable({
   // Load custom field definitions
   React.useEffect(() => {
     if (activeOrgId) {
-      customFieldsService
-        .getFieldDefinitions(activeOrgId)
+      CustomFieldsService.getFieldDefinitions(activeOrgId)
         .then(setCustomFieldDefinitions)
         .catch((error) => {
           console.error("Failed to load custom field definitions:", error);
@@ -152,7 +152,7 @@ export function ProductsAdvancedTable({
           const stockMap: Record<string, number> = {};
 
           // Load stock for current branch
-          const currentBranchStock = await stockMovementsService.getInventoryLevels(
+          const currentBranchStock = await StockMovementsService.getInventoryLevels(
             activeOrgId,
             activeBranch.id
           );
@@ -165,7 +165,7 @@ export function ProductsAdvancedTable({
           for (const branch of branches) {
             if (branch.id !== activeBranch.id) {
               try {
-                const branchStock = await stockMovementsService.getInventoryLevels(
+                const branchStock = await StockMovementsService.getInventoryLevels(
                   activeOrgId,
                   branch.id
                 );
@@ -208,7 +208,7 @@ export function ProductsAdvancedTable({
         const valuesMap: Record<string, CustomFieldValue[]> = {};
         for (const product of products) {
           try {
-            const values = await customFieldsService.getProductFieldValues(product.id);
+            const values = await CustomFieldsService.getProductFieldValues(product.id);
             valuesMap[product.id] = values;
           } catch (error) {
             console.error(`Failed to load custom fields for product ${product.id}:`, error);
@@ -666,13 +666,13 @@ export function ProductsAdvancedTable({
                       fieldValues={customFieldValuesMap[product.id] || []}
                       onValueChange={async (fieldId, value) => {
                         try {
-                          await customFieldsService.setFieldValue({
+                          await CustomFieldsService.setFieldValue({
                             product_id: product.id,
                             field_definition_id: fieldId,
                             value,
                           });
                           // Reload values
-                          const values = await customFieldsService.getProductFieldValues(
+                          const values = await CustomFieldsService.getProductFieldValues(
                             product.id
                           );
                           setCustomFieldValuesMap((prev) => ({
@@ -934,7 +934,7 @@ export function ProductsAdvancedTable({
           onSave={async () => {
             // Reload custom field definitions for the organization
             try {
-              const definitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+              const definitions = await CustomFieldsService.getFieldDefinitions(activeOrgId);
               setCustomFieldDefinitions(definitions);
             } catch (error) {
               console.error("Failed to reload custom field definitions:", error);
@@ -942,7 +942,7 @@ export function ProductsAdvancedTable({
 
             // Reload custom field values for this product
             try {
-              const values = await customFieldsService.getProductFieldValues(
+              const values = await CustomFieldsService.getProductFieldValues(
                 customFieldsProduct.id
               );
               setCustomFieldValuesMap((prev) => ({

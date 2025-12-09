@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Wand2 } from "lucide-react";
 import { SKUGeneratorDialog } from "@/modules/warehouse/components/sku-generator-dialog";
+import { VariantGenerationService } from "@/server/services/variant-generation.service";
 import type { GeneratedVariant, SelectedAttribute } from "@/modules/warehouse/types/product-groups";
 import type { OptionGroupWithValues } from "@/modules/warehouse/types/option-groups";
 
@@ -74,7 +75,7 @@ export default function SKUGeneratorTestingPage() {
       selectedValueIds: attr.values.map((_, idx) => `mock-${attr.name}-${idx}`),
     }));
 
-    const variants = variantGenerationService.generateVariantCombinations(
+    const variants = VariantGenerationService.generateVariantCombinations(
       productName,
       selectedAttributes,
       { selling: 19.99, cost: 10.0, reorder: 10 }

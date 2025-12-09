@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useAppStore } from "@/lib/stores/app-store";
-import { customFieldsService } from "../../api/custom-fields-service";
+// FIXME: import { CustomFieldsService } from "../../api/custom-fields-service";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { CreateCustomFieldDialog } from "./create-custom-field-dialog";
@@ -30,7 +30,7 @@ export function CustomFieldsPage() {
 
     try {
       setIsLoading(true);
-      const data = await customFieldsService.getFieldDefinitions(activeOrgId);
+      const data = await CustomFieldsService.getFieldDefinitions(activeOrgId);
       setFields(data);
     } catch (error) {
       console.error("Failed to load custom fields:", error);
@@ -48,7 +48,7 @@ export function CustomFieldsPage() {
     if (!activeOrgId) return;
 
     try {
-      const newField = await customFieldsService.createFieldDefinition({
+      const newField = await CustomFieldsService.createFieldDefinition({
         organization_id: activeOrgId,
         field_name: data.field_name,
         field_type: data.field_type,
@@ -69,7 +69,7 @@ export function CustomFieldsPage() {
     updates: { field_name?: string; dropdown_options?: string[] }
   ) {
     try {
-      const updatedField = await customFieldsService.updateFieldDefinition(fieldId, updates);
+      const updatedField = await CustomFieldsService.updateFieldDefinition(fieldId, updates);
       setFields((prev) => prev.map((f) => (f.id === fieldId ? updatedField : f)));
       toast.success("Custom field updated");
     } catch (error) {
@@ -85,7 +85,7 @@ export function CustomFieldsPage() {
     }
 
     try {
-      await customFieldsService.deleteFieldDefinition(fieldId);
+      await CustomFieldsService.deleteFieldDefinition(fieldId);
       setFields((prev) => prev.filter((f) => f.id !== fieldId));
       toast.success("Custom field deleted");
     } catch (error) {

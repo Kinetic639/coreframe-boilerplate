@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { InterWarehouseTransfersService } from "@/server/services/inter-warehouse-transfers.service";
 import type { ReceiveTransferInput } from "@/modules/warehouse/types/inter-warehouse-transfers";
 
 export async function receiveTransfer(transferId: string, input: ReceiveTransferInput) {
@@ -23,8 +24,12 @@ export async function receiveTransfer(transferId: string, input: ReceiveTransfer
     // TODO: Check if user has permission to receive transfers
     // await checkPermission(user.id, 'warehouse.transfers.receive');
 
-    const service = new InterWarehouseTransferService();
-    const result = await service.receiveTransfer(transferId, input, user.id);
+    const result = await InterWarehouseTransfersService.receiveTransfer(
+      supabase,
+      transferId,
+      input,
+      user.id
+    );
 
     return result;
   } catch (error) {

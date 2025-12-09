@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { SalesOrdersService } from "@/server/services/sales-orders.service";
 
 export async function deleteSalesOrder(orderId: string) {
   try {
@@ -26,7 +27,8 @@ export async function deleteSalesOrder(orderId: string) {
       };
     }
 
-    const result = await salesOrdersService.deleteSalesOrder(
+    const result = await SalesOrdersService.deleteSalesOrder(
+      supabase,
       orderId,
       context.activeOrg.organization_id
     );

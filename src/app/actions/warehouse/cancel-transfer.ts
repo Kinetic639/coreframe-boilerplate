@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { InterWarehouseTransfersService } from "@/server/services/inter-warehouse-transfers.service";
 
 export async function cancelTransfer(transferId: string, reason: string) {
   try {
@@ -19,8 +20,11 @@ export async function cancelTransfer(transferId: string, reason: string) {
       };
     }
 
-    const service = new InterWarehouseTransferService();
-    const result = await service.cancelTransfer(transferId, user.id, reason);
+    const result = await InterWarehouseTransfersService.cancelTransfer(
+      supabase,
+      transferId,
+      reason
+    );
 
     return result;
   } catch (error) {

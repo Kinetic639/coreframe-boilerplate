@@ -6,6 +6,7 @@
 // =============================================
 
 import { createClient } from "@/utils/supabase/server";
+import { StockMovementsService } from "@/server/services/stock-movements.service";
 
 interface CancelMovementParams {
   movementId: string;
@@ -37,7 +38,12 @@ export async function cancelMovement({ movementId, reason }: CancelMovementParam
     }
 
     // Cancel the movement
-    const success = await stockMovementsService.cancelMovement(movementId, reason, user.id);
+    const success = await StockMovementsService.cancelMovement(
+      supabase,
+      movementId,
+      reason,
+      user.id
+    );
 
     if (!success) {
       return {

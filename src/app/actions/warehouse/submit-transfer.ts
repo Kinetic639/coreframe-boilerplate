@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { InterWarehouseTransfersService } from "@/server/services/inter-warehouse-transfers.service";
 
 export async function submitTransfer(transferId: string) {
   try {
@@ -19,8 +20,7 @@ export async function submitTransfer(transferId: string) {
       };
     }
 
-    const service = new InterWarehouseTransferService();
-    const result = await service.submitTransfer(transferId);
+    const result = await InterWarehouseTransfersService.submitTransfer(supabase, transferId);
 
     return result;
   } catch (error) {

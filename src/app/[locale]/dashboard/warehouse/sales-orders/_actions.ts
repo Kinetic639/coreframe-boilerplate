@@ -5,6 +5,7 @@
  * Co-located with /dashboard/warehouse/sales-orders route
  */
 
+import { SalesOrdersService } from "@/server/services/sales-orders.service";
 import { getUserContext } from "@/lib/utils/assert-auth";
 import {
   createSalesOrderSchema,

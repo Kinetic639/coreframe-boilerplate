@@ -43,9 +43,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
-import { unitsService } from "@/server/services/units.service";
-import { categoriesService } from "@/server/services/categories.service";
-import { customFieldsService } from "@/server/services/custom-fields.service";
 import type {
   CreateProductFormData,
   UpdateProductFormData,

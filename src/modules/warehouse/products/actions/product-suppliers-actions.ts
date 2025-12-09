@@ -6,7 +6,7 @@
 "use server";
 
 import { createClient } from "@supabase/server";
-import { ProductSuppliersService } from "../../api/product-suppliers-service";
+// FIXME: import { ProductSuppliersService } from "../../api/product-suppliers-service";
 import type {
   ProductSupplierFormData,
   ProductSupplierWithRelations,

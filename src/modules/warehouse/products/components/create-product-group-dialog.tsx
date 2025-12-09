@@ -46,7 +46,7 @@ import { SKUGeneratorDialog } from "../../components/sku-generator-dialog";
 
 import { useAppStore } from "@/lib/stores/app-store";
 import { useUserStore } from "@/lib/stores/user-store";
-import { unitsService } from "../../api/units-service";
+// FIXME: import { unitsService } from "../../api/units-service";
 
 import type { OptionGroupWithValues } from "../../types/option-groups";
 import type { UnitOfMeasure } from "../../types/units";

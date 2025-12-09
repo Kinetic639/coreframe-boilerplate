@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { movementTypesService } from "../api/movement-types-service";
+// FIXME: import { movementTypesService } from "../api/movement-types-service";
 import type { MovementType, MovementCategory } from "../types/movement-types";
 import { MOVEMENT_CATEGORY_LABELS } from "../types/movement-types";
 

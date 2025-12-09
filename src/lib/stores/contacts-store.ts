@@ -8,7 +8,7 @@ import type {
   ContactFilters,
   ContactsListResponse,
 } from "@/modules/contacts/types";
-import { contactsService } from "@/server/services/contacts.service";
+import { ContactsService } from "@/server/services/contacts.service";
 import { createClient } from "@/utils/supabase/client";
 
 interface ContactsState {
@@ -80,7 +80,7 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
         throw new Error("User not authenticated");
       }
 
-      const response: ContactsListResponse = await contactsService.getContacts(
+      const response: ContactsListResponse = await ContactsService.getContacts(
         organizationId,
         user.id,
         get().filters,
@@ -125,7 +125,7 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
         throw new Error("No active organization");
       }
 
-      const contact = await contactsService.getContactById(contactId, user.id, activeOrgId);
+      const contact = await ContactsService.getContactById(contactId, user.id, activeOrgId);
 
       if (!contact) {
         set({
@@ -178,7 +178,7 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
     set({ isSaving: true, error: null });
 
     try {
-      const updatedContact = await contactsService.updateContact(contactId, contactData);
+      const updatedContact = await ContactsService.updateContact(contactId, contactData);
 
       // Update in local state
       set((state) => ({
@@ -208,7 +208,7 @@ export const useContactsStore = create<ContactsState>((set, get) => ({
     set({ isSaving: true, error: null });
 
     try {
-      await contactsService.deleteContact(contactId);
+      await ContactsService.deleteContact(contactId);
 
       // Remove from local state
       set((state) => ({

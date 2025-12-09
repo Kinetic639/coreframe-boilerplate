@@ -7,6 +7,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { SalesOrdersService } from "@/server/services/sales-orders.service";
 import type { SalesOrderFormData } from "@/modules/warehouse/types/sales-orders";
 
 export async function createSalesOrder(data: SalesOrderFormData) {
@@ -35,7 +36,8 @@ export async function createSalesOrder(data: SalesOrderFormData) {
     }
 
     // Create order
-    const result = await salesOrdersService.createSalesOrder(
+    const result = await SalesOrdersService.createSalesOrder(
+      supabase,
       data,
       context.activeOrg.organization_id,
       context.activeBranch?.branch_id || null,

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useAppStore } from "@/lib/stores/app-store";
-import { unitsService } from "../../api/units-service";
+// FIXME: import { UnitsService } from "../../api/units-service";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { AddUnitDialog } from "./add-unit-dialog";
@@ -29,7 +29,7 @@ export function UnitsOfMeasurePage() {
 
     try {
       setIsLoading(true);
-      const data = await unitsService.getUnits(activeOrgId);
+      const data = await UnitsService.getUnits(activeOrgId);
       setUnits(data);
     } catch (error) {
       console.error("Failed to load units:", error);
@@ -43,7 +43,7 @@ export function UnitsOfMeasurePage() {
     if (!activeOrgId) return;
 
     try {
-      const newUnit = await unitsService.createUnit({
+      const newUnit = await UnitsService.createUnit({
         organization_id: activeOrgId,
         name: data.name,
         symbol: data.symbol,
@@ -85,7 +85,7 @@ export function UnitsOfMeasurePage() {
     }
 
     try {
-      await unitsService.deleteUnit(unitId);
+      await UnitsService.deleteUnit(unitId);
       toast.success("Unit deleted successfully");
       loadUnits();
     } catch (error) {

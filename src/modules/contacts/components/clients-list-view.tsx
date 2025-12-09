@@ -23,7 +23,7 @@ import { useContactsStore } from "@/lib/stores/contacts-store";
 import { useAppStore } from "@/lib/stores/app-store";
 import { ContactForm } from "./contact-form";
 import { ContactFormData, ContactWithRelations } from "../types";
-import { contactsService } from "../api/contacts-service";
+// FIXME: import { contactsService } from "../api/contacts-service";
 import { toast } from "react-toastify";
 import { Plus, Search, Filter, Mail, Phone, User, Edit, Trash2 } from "lucide-react";
 import {

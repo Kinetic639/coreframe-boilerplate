@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { SalesOrdersService } from "@/server/services/sales-orders.service";
 import type { SalesOrderFormData } from "@/modules/warehouse/types/sales-orders";
 
 export async function updateSalesOrder(orderId: string, data: Partial<SalesOrderFormData>) {
@@ -27,7 +28,8 @@ export async function updateSalesOrder(orderId: string, data: Partial<SalesOrder
       };
     }
 
-    const result = await salesOrdersService.updateSalesOrder(
+    const result = await SalesOrdersService.updateSalesOrder(
+      supabase,
       orderId,
       data,
       context.activeOrg.organization_id,

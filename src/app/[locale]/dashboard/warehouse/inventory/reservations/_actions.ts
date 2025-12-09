@@ -1,5 +1,6 @@
 "use server";
 
+import { ReservationsService } from "@/server/services/reservations.service";
 import {
   createReservationSchema,
   releaseReservationSchema,

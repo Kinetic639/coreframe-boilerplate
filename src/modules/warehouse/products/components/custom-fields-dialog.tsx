@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { customFieldsService } from "@/server/services/custom-fields.service";
+import { CustomFieldsService } from "@/server/services/custom-fields.service";
 import type { ProductCustomFieldDefinition } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 
@@ -83,7 +83,7 @@ export function CustomFieldsDialog({
 
     setIsLoading(true);
     try {
-      const definitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+      const definitions = await CustomFieldsService.getFieldDefinitions(activeOrgId);
       setFields(definitions);
     } catch (error) {
       console.error("Error loading custom fields:", error);
@@ -118,7 +118,7 @@ export function CustomFieldsDialog({
 
       if (editingField) {
         // Update existing field
-        await customFieldsService.updateFieldDefinition(editingField.id, {
+        await CustomFieldsService.updateFieldDefinition(editingField.id, {
           field_name: values.field_name,
           field_type: values.field_type,
           dropdown_options: dropdownOptions,
@@ -126,7 +126,7 @@ export function CustomFieldsDialog({
         toast.success("Custom field updated successfully");
       } else {
         // Create new field
-        await customFieldsService.createFieldDefinition({
+        await CustomFieldsService.createFieldDefinition({
           organization_id: activeOrgId,
           field_name: values.field_name,
           field_type: values.field_type,
@@ -165,7 +165,7 @@ export function CustomFieldsDialog({
     if (!confirm("Are you sure you want to delete this custom field?")) return;
 
     try {
-      await customFieldsService.deleteFieldDefinition(fieldId);
+      await CustomFieldsService.deleteFieldDefinition(fieldId);
       toast.success("Custom field deleted successfully");
       loadFields();
       onFieldsUpdated?.();

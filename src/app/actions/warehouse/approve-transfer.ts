@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { InterWarehouseTransfersService } from "@/server/services/inter-warehouse-transfers.service";
 import type { ApproveTransferInput } from "@/modules/warehouse/types/inter-warehouse-transfers";
 
 export async function approveTransfer(transferId: string, input: ApproveTransferInput) {
@@ -23,8 +24,12 @@ export async function approveTransfer(transferId: string, input: ApproveTransfer
     // TODO: Check if user has permission to approve transfers
     // await checkPermission(user.id, 'warehouse.transfers.approve');
 
-    const service = new InterWarehouseTransferService();
-    const result = await service.approveTransfer(transferId, input, user.id);
+    const result = await InterWarehouseTransfersService.approveTransfer(
+      supabase,
+      transferId,
+      input,
+      user.id
+    );
 
     return result;
   } catch (error) {

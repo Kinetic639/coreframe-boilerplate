@@ -1,5 +1,6 @@
 "use server";
 
+import { ProductGroupsService } from "@/server/services/product-groups.service";
 import {
   createProductGroupSchema,
   updateVariantSchema,

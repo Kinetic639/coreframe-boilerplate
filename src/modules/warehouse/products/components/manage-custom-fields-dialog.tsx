@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { customFieldsService } from "@/server/services/custom-fields.service";
+import { CustomFieldsService } from "@/server/services/custom-fields.service";
 import type { ProductWithDetails } from "@/modules/warehouse/types/products";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
@@ -57,8 +57,7 @@ export function ManageCustomFieldsDialog({
   React.useEffect(() => {
     if (open && activeOrgId) {
       setLoading(true);
-      customFieldsService
-        .getFieldDefinitions(activeOrgId)
+      CustomFieldsService.getFieldDefinitions(activeOrgId)
         .then((definitions) => {
           const configs: CustomFieldConfig[] = definitions.map((def) => ({
             id: def.id,
@@ -140,7 +139,7 @@ export function ManageCustomFieldsDialog({
 
     setSaving(true);
     try {
-      const existingDefinitions = await customFieldsService.getFieldDefinitions(activeOrgId);
+      const existingDefinitions = await CustomFieldsService.getFieldDefinitions(activeOrgId);
       const existingDefinitionMap = new Map(existingDefinitions.map((def) => [def.id, def]));
 
       const createPromises: Promise<any>[] = [];
@@ -154,7 +153,7 @@ export function ManageCustomFieldsDialog({
         if (field.id.startsWith("temp_")) {
           // New field
           createPromises.push(
-            customFieldsService.createFieldDefinition({
+            CustomFieldsService.createFieldDefinition({
               organization_id: activeOrgId,
               field_name: field.field_name,
               field_type: field.field_type,
@@ -174,7 +173,7 @@ export function ManageCustomFieldsDialog({
               currentDropdownOptions !== existingDropdownOptions
             ) {
               updatePromises.push(
-                customFieldsService.updateFieldDefinition(field.id, {
+                CustomFieldsService.updateFieldDefinition(field.id, {
                   field_name: field.field_name,
                   field_type: field.field_type,
                   dropdown_options: field.dropdown_options,
@@ -188,7 +187,7 @@ export function ManageCustomFieldsDialog({
 
       // Any remaining in existingDefinitionMap were deleted
       for (const [id] of existingDefinitionMap) {
-        deletePromises.push(customFieldsService.deleteFieldDefinition(id));
+        deletePromises.push(CustomFieldsService.deleteFieldDefinition(id));
       }
 
       await Promise.all([...createPromises, ...updatePromises, ...deletePromises]);

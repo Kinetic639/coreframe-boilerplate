@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Warehouse, Settings, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { ProductBranchSettingsDialog } from "./ProductBranchSettingsDialog";
-import { productBranchSettingsService } from "../api/product-branch-settings-service";
+// FIXME: import { productBranchSettingsService } from "../api/product-branch-settings-service";
 import type { ProductBranchSettings } from "../types/product-branch-settings";
 
 interface ProductBranchSettingsListProps {

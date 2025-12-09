@@ -6,6 +6,7 @@
 // =============================================
 
 import { createClient } from "@/utils/supabase/server";
+import { StockMovementsService } from "@/server/services/stock-movements.service";
 
 export async function approveMovement(movementId: string) {
   try {
@@ -28,7 +29,7 @@ export async function approveMovement(movementId: string) {
     // For now, we'll allow any authenticated user
 
     // Approve the movement
-    const success = await stockMovementsService.approveMovement(movementId, user.id);
+    const success = await StockMovementsService.approveMovement(supabase, movementId, user.id);
 
     if (!success) {
       return {

@@ -24,7 +24,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Edit, Trash2, ArrowLeft, Mail, Phone, Globe } from "lucide-react";
 import { ContactForm } from "./contact-form";
-import { contactsService } from "../api/contacts-service";
+// FIXME: import { contactsService } from "../api/contacts-service";
 import { ContactFormData } from "../types";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";

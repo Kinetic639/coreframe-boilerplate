@@ -2,6 +2,7 @@ import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import BranchHeader from "@/modules/organization-managment/components/branches/BranchHeader";
 import BranchStats from "@/modules/organization-managment/components/branches/BranchStats";
 import BranchTable from "@/modules/organization-managment/components/branches/BranchTable";
+import { getBranchesAction } from "../_actions";
 
 export default async function BranchesPage() {
   const context = await loadAppContextServer();
@@ -10,7 +11,8 @@ export default async function BranchesPage() {
     return <div>Brak aktywnej organizacji</div>;
   }
 
-  const branchesWithStats = await getBranchesWithStatsFromDb(context.activeOrgId);
+  const result = await getBranchesAction();
+  const branchesWithStats = result.success ? result.data : [];
 
   return (
     <div className="space-y-6">

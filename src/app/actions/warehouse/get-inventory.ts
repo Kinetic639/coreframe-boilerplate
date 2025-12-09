@@ -6,6 +6,7 @@
 // =============================================
 
 import { createClient } from "@/utils/supabase/server";
+import { StockMovementsService } from "@/server/services/stock-movements.service";
 
 interface GetInventoryParams {
   organizationId: string;
@@ -37,7 +38,8 @@ export async function getInventoryLevels({
     }
 
     // Fetch inventory levels
-    const levels = await stockMovementsService.getInventoryLevels(
+    const levels = await StockMovementsService.getInventoryLevels(
+      supabase,
       organizationId,
       branchId,
       productId,

@@ -6,7 +6,7 @@ import { Plus, GripVertical } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { useAppStore } from "@/lib/stores/app-store";
-import { categoriesService } from "../../api/categories-service";
+// FIXME: import { CategoriesService } from "../../api/categories-service";
 import type { CategoryTreeItem, DeleteCategoryInfo } from "../../types/categories";
 import { AddCategoryDialog } from "./add-category-dialog";
 import { MoveCategoryDialog } from "./move-category-dialog";
@@ -48,7 +48,7 @@ export function CategoriesPage() {
 
     setIsLoading(true);
     try {
-      const data = await categoriesService.getCategories(activeOrgId);
+      const data = await CategoriesService.getCategories(activeOrgId);
       setCategories(data);
     } catch (error) {
       console.error("Failed to load categories:", error);
@@ -68,7 +68,7 @@ export function CategoriesPage() {
     if (!activeOrgId) return;
 
     try {
-      await categoriesService.createCategory({
+      await CategoriesService.createCategory({
         organization_id: activeOrgId,
         name: data.name,
         description: data.description,
@@ -95,7 +95,7 @@ export function CategoriesPage() {
     if (!editCategory) return;
 
     try {
-      await categoriesService.updateCategory(editCategory.id, {
+      await CategoriesService.updateCategory(editCategory.id, {
         id: editCategory.id,
         name: data.name,
         description: data.description,
@@ -121,7 +121,7 @@ export function CategoriesPage() {
       }
 
       // Get deletion info
-      const info = await categoriesService.checkDeletion(category.id);
+      const info = await CategoriesService.checkDeletion(category.id);
       setDeleteInfo(info);
       setCategoryToDelete(category);
       setDeleteDialogOpen(true);
@@ -139,7 +139,7 @@ export function CategoriesPage() {
     if (!categoryToDelete) return;
 
     try {
-      await categoriesService.deleteCategory(categoryToDelete.id);
+      await CategoriesService.deleteCategory(categoryToDelete.id);
       toast.success(t("success.deleted"));
       await loadCategories();
       setDeleteDialogOpen(false);
@@ -184,7 +184,7 @@ export function CategoriesPage() {
     if (!categoryToMove) return;
 
     try {
-      await categoriesService.moveCategory(categoryToMove.id, targetParentId);
+      await CategoriesService.moveCategory(categoryToMove.id, targetParentId);
       toast.success(t("success.moved"));
       await loadCategories();
     } catch (error: any) {
@@ -200,7 +200,7 @@ export function CategoriesPage() {
 
   async function handleTogglePreferred(category: CategoryTreeItem) {
     try {
-      const newStatus = await categoriesService.togglePreferred(category.id);
+      const newStatus = await CategoriesService.togglePreferred(category.id);
       toast.success(newStatus ? t("success.markedPreferred") : t("success.unmarkedPreferred"));
       await loadCategories();
     } catch (error) {
