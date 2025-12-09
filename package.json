@@ -80,7 +80,7 @@
     "jwt-decode": "^4.0.0",
     "lexical": "^0.34.0",
     "lucide-react": "^0.468.0",
-    "next": "latest",
+    "next": "15.5.7",
     "next-intl": "^4.4.0",
     "next-themes": "^0.4.6",
     "puppeteer": "^24.26.1",
