@@ -5,7 +5,6 @@
 // Handles movement approval with authorization
 // =============================================
 
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { createClient } from "@/utils/supabase/server";
 
 export async function approveMovement(movementId: string) {

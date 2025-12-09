@@ -5,7 +5,6 @@
 // Fetches movements with filters and pagination
 // =============================================
 
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { createClient } from "@/utils/supabase/server";
 import type { StockMovementFilters } from "@/modules/warehouse/types/stock-movements";
 

@@ -5,7 +5,6 @@
 // Handles movement cancellation with reason
 // =============================================
 
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { createClient } from "@/utils/supabase/server";
 
 interface CancelMovementParams {
