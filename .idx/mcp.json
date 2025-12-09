@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "/usr/bin/node",
+      "args": [
+        "/home/user/coreframe-boilerplate/node_modules/.pnpm/@supabase+mcp-server-supabase@0.5.9/node_modules/@supabase/mcp-server-supabase/dist/transports/stdio.cjs",
+        "--project-ref=zlcnlalwfmmtusigeuyk"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_0508242e76569db2ccee3f664d40b8ab25d3ff5e"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-3bf0cf65-5160-4087-8628-373c4fb6dec7"
+      }
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp",
+      "headers": {
+        "Authorization": "Bearer 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"
+      }
+    }
+  }
+}
