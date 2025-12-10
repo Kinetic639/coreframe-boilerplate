@@ -5,7 +5,10 @@
 // Creates delivery with multiple product lines (movement type 101)
 // =============================================
 
-import { createClient } from "@/utils/supabase/server";
+import { getUserContext } from "@/lib/utils/assert-auth";
+import { MovementValidationService } from "@/server/services/movement-validation.service";
+import { StockMovementsService } from "@/server/services/stock-movements.service";
+import type { CreateStockMovementInput } from "@/server/schemas/stock-movements.schema";
 import type {
   CreateDeliveryData,
   CreateDeliveryResponse,
@@ -13,17 +16,12 @@ import type {
 
 export async function createDelivery(data: CreateDeliveryData): Promise<CreateDeliveryResponse> {
   try {
-    // Get current user
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getUserContext();
 
-    if (authError || !user) {
+    if (!data.organization_id || !data.branch_id) {
       return {
         success: false,
-        errors: ["Authentication required"],
+        errors: ["Organization and branch are required"],
       };
     }
 
@@ -35,10 +33,7 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       };
     }
 
-    // Determine if verification is required (default: true)
     const requiresVerification = data.requires_verification !== false;
-
-    // Generate a unique reference ID (UUID) for this delivery batch
     const deliveryReferenceId = crypto.randomUUID();
 
     // Generate receipt number first (will be used as delivery number)
@@ -58,44 +53,38 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       };
     }
 
-    // Use receipt number as delivery number
     const deliveryNumber = receiptNumber;
-
-    // Create stock movements for each item (all using movement type 101 - GR from PO)
     const movementIds: string[] = [];
     const errors: string[] = [];
     const warnings: string[] = [];
 
     for (const item of data.items) {
-      const movementData = {
-        movement_type_code: "101", // GR from PO - creates PZ document
-        organization_id: data.organization_id,
-        branch_id: data.branch_id,
+      const movementInput: CreateStockMovementInput = {
+        movement_type_code: "101",
         product_id: item.product_id,
         variant_id: item.variant_id || undefined,
         quantity: item.expected_quantity,
         destination_location_id: data.destination_location_id,
         unit_cost: item.unit_cost,
         currency: "PLN",
-        reference_type: "purchase_order" as const,
-        reference_id: deliveryReferenceId, // Use generated UUID as reference_id
+        reference_type: "purchase_order",
+        reference_id: deliveryReferenceId,
         reference_number: data.source_document || deliveryNumber,
         batch_number: item.batch_number,
         serial_number: item.serial_number,
-        expiry_date: item.expiry_date,
+        expiry_date: item.expiry_date || undefined,
         notes: item.notes || data.notes,
         occurred_at: data.scheduled_date || new Date().toISOString(),
         metadata: {
           delivery_address: data.delivery_address,
           responsible_user_id: data.responsible_user_id,
           supplier_id: data.supplier_id,
-          requires_verification: requiresVerification, // Store verification flag
-          delivery_number: deliveryNumber, // Store the PZ receipt number as delivery number
+          requires_verification: requiresVerification,
+          delivery_number: deliveryNumber,
         },
       };
 
-      // Validate movement
-      const validation = await movementValidationService.validateMovement(movementData);
+      const validation = await MovementValidationService.validateMovement(supabase, movementInput);
 
       if (!validation.isValid) {
         errors.push(...validation.errors.map((e) => `Product ${item.product_id}: ${e}`));
@@ -106,8 +95,13 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
         warnings.push(...validation.warnings);
       }
 
-      // Create movement with status "pending" (draft in Odoo terms)
-      const result = await stockMovementsService.createMovement(movementData, user.id);
+      const result = await StockMovementsService.createMovement(
+        supabase,
+        data.organization_id,
+        data.branch_id,
+        user.id,
+        movementInput
+      );
 
       if (!result.success) {
         errors.push(
@@ -121,7 +115,6 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       }
     }
 
-    // If no movements were created successfully, return error
     if (movementIds.length === 0) {
       return {
         success: false,
@@ -130,34 +123,24 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
       };
     }
 
-    // Get the first movement ID as the primary delivery ID
     const deliveryId = movementIds[0];
 
-    // ALWAYS approve and complete the movements to generate receipt
-    // When user clicks "Przyjmij dostawę" in Step 3, they have already verified (if needed)
-    // Flow: pending → approved → completed
     for (const movementId of movementIds) {
       try {
-        // First approve the movement (pending → approved)
-        await stockMovementsService.approveMovement(movementId, user.id);
-        // Then complete it (approved → completed)
-        await stockMovementsService.completeMovement(movementId);
+        await StockMovementsService.approveMovement(supabase, movementId, user.id);
+        await StockMovementsService.completeMovement(supabase, movementId);
       } catch (completeError) {
         console.error(`Failed to complete movement ${movementId}:`, completeError);
         warnings.push(`Movement ${movementId} created but not auto-completed`);
       }
     }
 
-    // Create receipt document automatically
     try {
-      // Calculate total value
       const totalValue = data.items.reduce(
         (sum, item) => sum + (item.unit_cost || 0) * item.expected_quantity,
         0
       );
 
-      // Create receipt document with the already-generated receipt number
-      // Note: receipt_number format is PZ/MAG1/2025/11/0001 (branch code, year, month, sequence)
       const { data: receipt, error: receiptError } = await supabase
         .from("receipt_documents")
         .insert({
@@ -174,7 +157,7 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
           total_movements: movementIds.length,
           total_value: totalValue,
           completed_at: new Date().toISOString(),
-          pz_document_number: receiptNumber, // Use the generated receipt number as PZ document number
+          pz_document_number: receiptNumber,
         })
         .select()
         .single();
@@ -183,7 +166,6 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
         console.error("Failed to create receipt document:", receiptError);
         warnings.push("Receipt document creation failed");
       } else {
-        // Link all movements to the receipt
         const receiptMovements = movementIds.map((movementId) => ({
           receipt_id: receipt.id,
           movement_id: movementId,
@@ -206,7 +188,7 @@ export async function createDelivery(data: CreateDeliveryData): Promise<CreateDe
     return {
       success: true,
       delivery_id: deliveryId,
-      delivery_number: deliveryNumber, // Returns the PZ receipt number (e.g., PZ/MAG1/2025/11/0001)
+      delivery_number: deliveryNumber,
       movement_ids: movementIds,
       errors: errors.length > 0 ? errors : undefined,
       warnings: warnings.length > 0 ? warnings : undefined,

@@ -1,12 +1,8 @@
 "use server";
 
-// =============================================
-// Get Inventory Server Action
-// Fetches inventory levels and statistics
-// =============================================
-
-import { createClient } from "@/utils/supabase/server";
+import { getUserContext } from "@/lib/utils/assert-auth";
 import { StockMovementsService } from "@/server/services/stock-movements.service";
+import type { CheckStockAvailabilityInput } from "@/server/schemas/stock-movements.schema";
 
 interface GetInventoryParams {
   organizationId: string;
@@ -22,22 +18,8 @@ export async function getInventoryLevels({
   locationId,
 }: GetInventoryParams) {
   try {
-    // Get current user for context
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { supabase } = await getUserContext();
 
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-        data: [],
-      };
-    }
-
-    // Fetch inventory levels
     const levels = await StockMovementsService.getInventoryLevels(
       supabase,
       organizationId,
@@ -64,38 +46,19 @@ export async function getStockLevel({
   productId,
   variantId,
   locationId,
-  organizationId,
-  branchId,
 }: {
   productId: string;
-  variantId?: string;
-  locationId?: string;
-  organizationId: string;
-  branchId: string;
+  variantId?: string | null;
+  locationId: string;
 }) {
   try {
-    // Get current user for context
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { supabase } = await getUserContext();
 
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-        level: 0,
-      };
-    }
-
-    // Fetch stock level
-    const level = await stockMovementsService.getStockLevel(
+    const level = await StockMovementsService.getStockLevel(
+      supabase,
       productId,
-      variantId,
       locationId,
-      organizationId,
-      branchId
+      variantId
     );
 
     return {
@@ -107,53 +70,21 @@ export async function getStockLevel({
     return {
       success: false,
       error: error instanceof Error ? error.message : "An unexpected error occurred",
-      level: 0,
+      level: null,
     };
   }
 }
 
-export async function checkStockAvailability({
-  productId,
-  locationId,
-  quantity,
-  variantId,
-}: {
-  productId: string;
-  locationId: string;
-  quantity: number;
-  variantId?: string;
-}) {
+export async function checkStockAvailability(input: CheckStockAvailabilityInput) {
   try {
-    // Get current user for context
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Authentication required",
-        available: false,
-        currentStock: 0,
-        requiredStock: quantity,
-      };
-    }
-
-    // Check availability
-    const result = await stockMovementsService.checkStockAvailability(
-      productId,
-      locationId,
-      quantity,
-      variantId
-    );
+    const { supabase } = await getUserContext();
+    const result = await StockMovementsService.checkStockAvailability(supabase, input);
 
     return {
       success: true,
-      available: result,
-      currentStock: result ? quantity : 0,
-      requiredStock: quantity,
+      available: result.available,
+      currentStock: result.available_quantity,
+      requiredStock: input.quantity,
     };
   } catch (error) {
     console.error("Error in checkStockAvailability action:", error);
