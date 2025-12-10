@@ -1,42 +1,8 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
-import { InterWarehouseTransfersService } from "@/server/services/inter-warehouse-transfers.service";
-import type { ReceiveTransferInput } from "@/modules/warehouse/types/inter-warehouse-transfers";
+import { receiveTransferAction } from "@/app/[locale]/dashboard/warehouse/transfers/_actions";
+import type { ReceiveTransferInput } from "@/server/schemas/inter-warehouse-transfers.schema";
 
-export async function receiveTransfer(transferId: string, input: ReceiveTransferInput) {
-  try {
-    const supabase = await createClient();
-
-    // Get current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return {
-        success: false,
-        error: "Unauthorized",
-      };
-    }
-
-    // TODO: Check if user has permission to receive transfers
-    // await checkPermission(user.id, 'warehouse.transfers.receive');
-
-    const result = await InterWarehouseTransfersService.receiveTransfer(
-      supabase,
-      transferId,
-      input,
-      user.id
-    );
-
-    return result;
-  } catch (error) {
-    console.error("Error in receiveTransfer action:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+export async function receiveTransfer(input: ReceiveTransferInput) {
+  return receiveTransferAction(input);
 }
