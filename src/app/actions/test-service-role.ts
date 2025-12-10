@@ -1,6 +1,6 @@
 "use server";
 
-import { createServiceClient } from "@/utils/supabase/service";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export async function testServiceRoleConnection() {
   try {

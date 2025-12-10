@@ -1,4 +1,4 @@
-import { Tables } from "../../../../supabase/types/types";
+import { Tables } from "@/types/supabase";
 
 export interface LocationTreeItem {
   id: string;

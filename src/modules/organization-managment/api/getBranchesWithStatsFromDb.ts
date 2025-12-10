@@ -1,7 +1,7 @@
 // lib/data/branches.ts
 
-import { createClient } from "@/utils/supabase/server";
-import { Tables } from "../../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/server";
+import { Tables } from "@/types/supabase";
 
 type BranchWithStats = Tables<"branches"> & {
   userCount: number;

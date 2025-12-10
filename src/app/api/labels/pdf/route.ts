@@ -6,7 +6,7 @@ export const maxDuration = 60; // 60 sekund timeout dla generowania PDF
 
 import { renderLabelsReactPDF } from "@/lib/labels/react-pdf-generator";
 import { GeneratePdfPayload, PAGE_PRESETS } from "@/lib/labels/types";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {

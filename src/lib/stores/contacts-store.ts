@@ -9,7 +9,7 @@ import type {
   ContactsListResponse,
 } from "@/modules/contacts/types";
 import { contactsService } from "@/modules/contacts/api/contacts-service";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 interface ContactsState {
   // Current state

@@ -1,4 +1,4 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { jwtDecode } from "jwt-decode";
 import { CustomJwtPayload } from "@/lib/api/load-user-context-server";
 

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/utils/supabase/server";
-import { Database } from "../../../supabase/types/types";
+import { createClient } from "@/lib/supabase/server";
+import { Database } from "@/types/supabase";
 import { refreshBranchContext } from "@/lib/api/refresh-branch-context";
 
 type Tables = Database["public"]["Tables"];

@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { RoleCheck } from "@/lib/types/user";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
 import { hasMatchingRole } from "@/utils/auth/hasMatchingRole";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 type Props = {
   checks: RoleCheck[];

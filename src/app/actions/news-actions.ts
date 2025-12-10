@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import type { NewsFormData } from "@/components/news/NewsForm";
 

@@ -140,7 +140,7 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
     if (selectedVariantIds.size === 0) return;
 
     try {
-      const { createClient } = await import("@/utils/supabase/client");
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
       const { error } = await supabase
@@ -163,7 +163,7 @@ export function ProductGroupDetailClient({ productGroupId }: ProductGroupDetailC
     if (selectedVariantIds.size === 0) return;
 
     try {
-      const { createClient } = await import("@/utils/supabase/client");
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
       const { error } = await supabase

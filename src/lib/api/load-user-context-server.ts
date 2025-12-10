@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { jwtDecode } from "jwt-decode";
 
 // 🔸 Typy JWT
@@ -82,11 +82,8 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     console.warn("⚠️ No roles found in JWT - fetching directly from database");
 
     // Use service role to bypass RLS policies
-    const { createClient: createServiceClient } = await import("@supabase/supabase-js");
-    const serviceSupabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const { createServiceClient } = await import("@/lib/supabase/server");
+    const serviceSupabase = createServiceClient();
 
     const { data: roleAssignments } = await serviceSupabase
       .from("user_role_assignments")

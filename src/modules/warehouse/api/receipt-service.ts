@@ -14,7 +14,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { Database } from "../../../../supabase/types/types";
+import { Database } from "@/types/supabase";
 import {
   ReceiptDocumentWithRelations,
   ReceiptFilters,

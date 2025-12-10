@@ -6,7 +6,7 @@
 // =============================================
 
 import { salesOrdersService } from "@/modules/warehouse/api/sales-orders-service";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
 import type { SalesOrderFormData } from "@/modules/warehouse/types/sales-orders";
 

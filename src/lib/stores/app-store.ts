@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Tables } from "../../../supabase/types/types";
+import type { Tables } from "@/types/supabase";
 import { UserLocation } from "../types";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { OrganizationSubscriptionWithPlan } from "@/lib/services/subscription-service";
 
 // 🔸 Typ jednego modułu użytkownika

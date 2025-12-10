@@ -1,6 +1,6 @@
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/stores/app-store";
-import { Database } from "../../../../supabase/types/types";
+import { Database } from "@/types/supabase";
 
 // Type aliases for cleaner usage
 export type BusinessAccount = Database["public"]["Tables"]["business_accounts"]["Row"];

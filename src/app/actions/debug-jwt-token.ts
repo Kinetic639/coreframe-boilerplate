@@ -1,17 +1,13 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { jwtDecode } from "jwt-decode";
 
 export async function debugJwtToken() {
   try {
     const supabase = await createClient();
     // Use service role for debug queries to bypass RLS
-    const serviceSupabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const serviceSupabase = createServiceClient();
 
     const {
       data: { session },

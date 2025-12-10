@@ -7,7 +7,7 @@
  * - Ensures data consistency with transaction-like patterns
  */
 
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type {
   StockReservation,
   StockReservationInsert,

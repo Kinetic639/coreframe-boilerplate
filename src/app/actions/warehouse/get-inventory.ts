@@ -6,7 +6,7 @@
 // =============================================
 
 import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 interface GetInventoryParams {
   organizationId: string;

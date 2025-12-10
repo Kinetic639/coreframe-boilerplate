@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import { fetchInvitationByToken, type InvitationWithDetails } from "@/lib/api/invitations";
 import { acceptInvitationAction, rejectInvitationAction } from "@/app/actions/invitations";
 import { formatDistanceToNow } from "date-fns";

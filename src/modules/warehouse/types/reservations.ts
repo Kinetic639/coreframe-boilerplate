@@ -6,7 +6,7 @@
  * - RES/UNRES movement types in stock_movements for event log
  */
 
-import { Database } from "../../../../supabase/types/types";
+import { Database } from "@/types/supabase";
 
 // Database types
 export type StockReservation = Database["public"]["Tables"]["stock_reservations"]["Row"];

@@ -74,7 +74,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const loadDraftDelivery = async (id: string) => {
     setLoading(true);
     try {
-      const { createClient } = await import("@/utils/supabase/client");
+      const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
 
       // Load draft movements
