@@ -1,12 +1,10 @@
 {
   "compilerOptions": {
-    "target": "es2015",
+    "target": "ES2020",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    "allowJs": false,
     "skipLibCheck": true,
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strict": true,
     "strictPropertyInitialization": false,
     "noImplicitReturns": false,
     "forceConsistentCasingInFileNames": true,
@@ -18,11 +16,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "types": ["vitest/globals", "@testing-library/jest-dom", "node"],
     "paths": {
       "@/*": ["./src/*"],
       "@app/*": ["./src/app/*"],
@@ -31,15 +25,21 @@
       "@supabase/*": ["./src/utils/supabase/*"],
       "@actions/*": ["./src/app/actions/*"],
       "@modules/*": ["./src/modules/*"]
-    }
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/*.ts",
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": ["node_modules", "supabase/functions/**/*", "backup/**/*"]
+  "include": ["src", "vitest.setup.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "backup",
+    ".next",
+    "coverage",
+    "dist",
+    "test-results"
+  ]
 }

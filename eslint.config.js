@@ -36,6 +36,8 @@ export default [
       'dist/**',
       'build/**',
       'coverage/**',
+      'test-results/**',
+      'src/NEW_MIGRATIONS/**',
       'public/**',
       'backup/**',
       'supabase/functions/**',

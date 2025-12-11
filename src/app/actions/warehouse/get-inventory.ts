@@ -5,7 +5,6 @@
 // Fetches inventory levels and statistics
 // =============================================
 
-import { stockMovementsService } from "@/modules/warehouse/api/stock-movements-service";
 import { createClient } from "@/utils/supabase/server";
 
 interface GetInventoryParams {
