@@ -71,10 +71,6 @@ class ProductsService {
       query = query.in("manufacturer", filters.manufacturer);
     }
 
-    if (filters?.preferred_vendor_id && filters.preferred_vendor_id.length > 0) {
-      query = query.in("preferred_vendor_id", filters.preferred_vendor_id);
-    }
-
     if (filters?.min_price !== undefined) {
       query = query.gte("selling_price", filters.min_price);
     }
@@ -173,7 +169,6 @@ class ProductsService {
         cost_price: data.cost_price || 0,
         purchase_account: data.purchase_account || null,
         purchase_description: data.purchase_description || null,
-        preferred_vendor_id: data.preferred_vendor_id || null,
         track_inventory: data.track_inventory ?? true,
         inventory_account: data.inventory_account || null,
         reorder_point: data.reorder_point || 0,
@@ -281,8 +276,6 @@ class ProductsService {
     if (data.purchase_account !== undefined) updateData.purchase_account = data.purchase_account;
     if (data.purchase_description !== undefined)
       updateData.purchase_description = data.purchase_description;
-    if (data.preferred_vendor_id !== undefined)
-      updateData.preferred_vendor_id = data.preferred_vendor_id;
     if (data.track_inventory !== undefined) updateData.track_inventory = data.track_inventory;
     if (data.inventory_account !== undefined) updateData.inventory_account = data.inventory_account;
     if (data.reorder_point !== undefined) updateData.reorder_point = data.reorder_point;

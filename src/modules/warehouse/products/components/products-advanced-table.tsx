@@ -49,6 +49,14 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  getProductSummary,
+  type ProductSummary,
+} from "@/app/actions/warehouse/get-product-summary";
+import { ProductSuppliersTab } from "./product-suppliers-tab";
+import { ProductPurchaseOrdersTab } from "./product-purchase-orders-tab";
+import { ProductBranchSettingsList } from "@/modules/warehouse/components/ProductBranchSettingsList";
+import { ProductAvailabilityTab } from "./product-availability-tab";
 
 interface ProductsAdvancedTableProps {
   products: ProductWithDetails[];
@@ -71,7 +79,7 @@ export function ProductsAdvancedTable({
 }: ProductsAdvancedTableProps) {
   const t = useTranslations("productsModule");
   const router = useRouter();
-  const { activeOrgId } = useAppStore();
+  const { activeOrgId, activeBranch } = useAppStore();
   const [customFieldsProduct, setCustomFieldsProduct] = React.useState<ProductWithDetails | null>(
     null
   );
@@ -88,11 +96,40 @@ export function ProductsAdvancedTable({
   );
   const [isMovementDetailsOpen, setIsMovementDetailsOpen] = React.useState(false);
   const [productStockMap, setProductStockMap] = React.useState<Record<string, number>>({});
+  const [productSummaryMap, setProductSummaryMap] = React.useState<Record<string, ProductSummary>>(
+    {}
+  );
+  const [branches, setBranches] = React.useState<Array<{ id: string; name: string }>>([]);
 
   // Load categories
   React.useEffect(() => {
     if (activeOrgId) {
       categoriesService.getCategories(activeOrgId).then(setCategoryTree);
+    }
+  }, [activeOrgId]);
+
+  // Load branches
+  React.useEffect(() => {
+    if (activeOrgId) {
+      const loadBranches = async () => {
+        try {
+          const { createClient } = await import("@/utils/supabase/client");
+          const supabase = createClient();
+          const { data } = await supabase
+            .from("branches")
+            .select("id, name")
+            .eq("organization_id", activeOrgId)
+            .is("deleted_at", null)
+            .order("name");
+
+          if (data) {
+            setBranches(data);
+          }
+        } catch (error) {
+          console.error("Failed to load branches:", error);
+        }
+      };
+      loadBranches();
     }
   }, [activeOrgId]);
 
@@ -108,21 +145,40 @@ export function ProductsAdvancedTable({
     }
   }, [activeOrgId]);
 
-  // Load stock levels for all products
+  // Load stock levels for all products (BRANCH-SPECIFIC + OTHER BRANCHES)
   React.useEffect(() => {
-    if (activeOrgId && products.length > 0) {
+    if (activeOrgId && activeBranch?.id && products.length > 0 && branches.length > 0) {
       const loadStockLevels = async () => {
         try {
-          const stockLevels = await stockMovementsService.getInventoryLevels(activeOrgId);
           const stockMap: Record<string, number> = {};
 
-          stockLevels.forEach((stock) => {
-            const key = stock.product_id;
-            if (!stockMap[key]) {
-              stockMap[key] = 0;
-            }
-            stockMap[key] += stock.available_quantity || 0;
+          // Load stock for current branch
+          const currentBranchStock = await stockMovementsService.getInventoryLevels(
+            activeOrgId,
+            activeBranch.id
+          );
+          currentBranchStock.forEach((stock) => {
+            stockMap[stock.product_id] =
+              (stockMap[stock.product_id] || 0) + (stock.available_quantity || 0);
           });
+
+          // Load stock for other branches
+          for (const branch of branches) {
+            if (branch.id !== activeBranch.id) {
+              try {
+                const branchStock = await stockMovementsService.getInventoryLevels(
+                  activeOrgId,
+                  branch.id
+                );
+                branchStock.forEach((stock) => {
+                  const key = `${stock.product_id}_${branch.id}`;
+                  stockMap[key] = (stockMap[key] || 0) + (stock.available_quantity || 0);
+                });
+              } catch (error) {
+                console.error(`Failed to load stock for branch ${branch.id}:`, error);
+              }
+            }
+          }
 
           setProductStockMap(stockMap);
         } catch (error) {
@@ -131,6 +187,19 @@ export function ProductsAdvancedTable({
       };
       loadStockLevels();
     }
+  }, [activeOrgId, activeBranch, products, branches]);
+
+  // Load product summaries for all products (on-demand loading)
+  React.useEffect(() => {
+    if (activeOrgId && products.length > 0) {
+      // Load summaries for products that don't have them yet
+      products.forEach((product) => {
+        if (product.product_type === "goods" && product.track_inventory) {
+          loadProductSummary(product.id);
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeOrgId, products]);
 
   // Load custom field values for all products
@@ -231,7 +300,12 @@ export function ProductsAdvancedTable({
       render: (value, row) =>
         row.product_type === "goods" && row.track_inventory ? (
           <div className="text-sm">
-            {value || 0} {row.unit}
+            <div className="font-medium">
+              {productStockMap[row.id] !== undefined ? productStockMap[row.id] : "..."} {row.unit}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {activeBranch?.name || "Current warehouse"}
+            </div>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">—</span>
@@ -260,6 +334,26 @@ export function ProductsAdvancedTable({
       ),
     },
   ];
+
+  // Load product summary data
+  const loadProductSummary = React.useCallback(
+    async (productId: string) => {
+      if (!activeOrgId) return;
+
+      try {
+        const result = await getProductSummary(productId, activeOrgId);
+        if (result.data) {
+          setProductSummaryMap((prev) => ({
+            ...prev,
+            [productId]: result.data!,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load product summary:", error);
+      }
+    },
+    [activeOrgId]
+  );
 
   const findCategoryPath = (tree: CategoryTreeItem[], categoryId: string): ProductCategory[] => {
     for (const category of tree) {
@@ -309,377 +403,496 @@ export function ProductsAdvancedTable({
   };
 
   // Custom detail panel renderer - PROPER InFlow/Zoho style
-  const renderDetail = (product: ProductWithDetails, onClose: () => void) => (
-    <div className="flex h-full flex-col">
-      {/* Header - Product name with badges and actions */}
-      <div className="border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
-            {product.returnable_item && (
-              <Badge variant="outline" className="text-xs">
-                Returnable Item
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {onEdit && (
-              <Button variant="ghost" size="icon" onClick={() => onEdit(product)}>
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
-                {onDelete && (
-                  <DropdownMenuItem className="text-red-600" onClick={() => onDelete(product)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        {renderBreadcrumbs(product.category)}
-      </div>
+  const renderDetail = (product: ProductWithDetails, onClose: () => void) => {
+    const productSummary = productSummaryMap[product.id] || {
+      quantity_on_hand: 0,
+      reserved_quantity: 0,
+      available_quantity: 0,
+      pending_po_quantity: 0,
+    };
 
-      {/* Tabs - InFlow rounded pill style */}
-      <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden bg-white">
-        <div className="border-b px-6 py-3">
-          <TabsList className="h-auto rounded-full bg-transparent p-0">
-            <TabsTrigger
-              value="overview"
-              className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
-            >
-              Overview
-            </TabsTrigger>
-            <TabsTrigger
-              value="transactions"
-              className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
-            >
-              Transactions
-            </TabsTrigger>
-            <TabsTrigger
-              value="history"
-              className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
-            >
-              History
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Overview Tab - InFlow layout with image and 2-column grid */}
-        <TabsContent value="overview" className="flex-1 overflow-auto bg-white p-6">
-          <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-            {/* Left Column: Image + Brand + Manufacturer + Description */}
-            <div className="space-y-4">
-              {/* Product Image */}
-              <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed bg-muted/30">
-                <div className="text-center">
-                  <Package className="mx-auto mb-2 h-12 w-12 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">Drag image(s) here or</p>
-                  <button className="mt-1 text-sm text-[#0066CC] hover:underline">
-                    Browse images
-                  </button>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    You can add up to 15 images, each not exceeding 5 MB
-                  </p>
-                </div>
-              </div>
-
-              {/* Brand */}
-              {product.brand && (
-                <div>
-                  <div className="mb-1 text-xs font-medium text-muted-foreground">Brand</div>
-                  <div className="text-sm">{product.brand}</div>
-                </div>
+    return (
+      <div className="flex h-full flex-col">
+        {/* Header - Product name with badges and actions */}
+        <div className="border-b bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold text-[#0066CC]">{product.name}</h1>
+              {product.returnable_item && (
+                <Badge variant="outline" className="text-xs">
+                  Returnable Item
+                </Badge>
               )}
-
-              {/* Manufacturer */}
-              {product.manufacturer && (
-                <div>
-                  <div className="mb-1 text-xs font-medium text-muted-foreground">Manufacturer</div>
-                  <div className="text-sm">{product.manufacturer}</div>
-                </div>
-              )}
-
-              {/* Description */}
-              <div>
-                <div className="mb-2 text-xs font-medium text-muted-foreground">Description</div>
-                <Textarea
-                  value={product.description || ""}
-                  readOnly
-                  className="min-h-[100px] resize-none text-sm"
-                  placeholder="No description"
-                />
-              </div>
             </div>
-
-            {/* Right Column: Product Information */}
-            <div className="space-y-6">
-              {/* Product Information - 2 columns side by side like InFlow */}
-              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                {/* Column 1 */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-muted-foreground">SKU</div>
-                    <div className="text-sm">{product.sku || "—"}</div>
-                  </div>
-
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-muted-foreground">Barcode</div>
-                    {product.barcodes && product.barcodes.length > 0 ? (
-                      <>
-                        <div className="space-y-1">
-                          {product.barcodes.map((barcode, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm">
-                              <code className="font-mono">{barcode.barcode}</code>
-                              {barcode.is_primary && (
-                                <Badge variant="outline" className="text-xs">
-                                  Primary
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <button className="mt-1 text-xs text-[#0066CC] hover:underline">
-                          Manage barcodes
-                        </button>
-                      </>
-                    ) : (
-                      <button className="mt-1 flex items-center gap-1 text-xs text-[#0066CC] hover:underline">
-                        <Plus className="h-3 w-3" />
-                        Add barcode
-                      </button>
-                    )}
-                  </div>
-
-                  {product.dimensions_length && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">
-                        Dimensions
-                      </div>
-                      <div className="text-sm">
-                        {product.dimensions_length} × {product.dimensions_width} ×{" "}
-                        {product.dimensions_height} {product.dimensions_unit}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {product.weight && `${product.weight} ${product.weight_unit}`}
-                      </div>
-                    </div>
+            <div className="flex items-center gap-2">
+              {onEdit && (
+                <Button variant="ghost" size="icon" onClick={() => onEdit(product)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Adjust Stock</DropdownMenuItem>
+                  {onDelete && (
+                    <DropdownMenuItem className="text-red-600" onClick={() => onDelete(product)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
                   )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          {renderBreadcrumbs(product.category)}
+        </div>
 
-                  <div>
-                    <div className="mb-1 text-xs font-medium text-muted-foreground">Unit</div>
-                    <div className="text-sm">{product.unit}</div>
+        {/* Tabs - InFlow rounded pill style */}
+        <Tabs defaultValue="overview" className="flex flex-1 flex-col overflow-hidden bg-white">
+          <div className="border-b px-6 py-3">
+            <TabsList className="h-auto rounded-full bg-transparent p-0">
+              <TabsTrigger
+                value="overview"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Overview
+              </TabsTrigger>
+              <TabsTrigger
+                value="transactions"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Transactions
+              </TabsTrigger>
+              <TabsTrigger
+                value="history"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                History
+              </TabsTrigger>
+              <TabsTrigger
+                value="suppliers"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Suppliers
+              </TabsTrigger>
+              <TabsTrigger
+                value="purchase-orders"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Purchase Orders
+              </TabsTrigger>
+              <TabsTrigger
+                value="availability"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Availability
+              </TabsTrigger>
+              <TabsTrigger
+                value="settings"
+                className="rounded-full data-[state=active]:bg-[#0066CC] data-[state=active]:text-white"
+              >
+                Settings
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Overview Tab - InFlow layout with image and 2-column grid */}
+          <TabsContent value="overview" className="flex-1 overflow-auto bg-white p-6">
+            <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+              {/* Left Column: Image + Brand + Manufacturer + Description */}
+              <div className="space-y-4">
+                {/* Product Image */}
+                <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed bg-muted/30">
+                  <div className="text-center">
+                    <Package className="mx-auto mb-2 h-12 w-12 text-muted-foreground/50" />
+                    <p className="text-sm text-muted-foreground">Drag image(s) here or</p>
+                    <button className="mt-1 text-sm text-[#0066CC] hover:underline">
+                      Browse images
+                    </button>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      You can add up to 15 images, each not exceeding 5 MB
+                    </p>
                   </div>
                 </div>
 
-                {/* Column 2 */}
-                <div className="space-y-4">
-                  {product.upc && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">UPC</div>
-                      <div className="text-sm">{product.upc}</div>
-                    </div>
-                  )}
+                {/* Brand */}
+                {product.brand && (
+                  <div>
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">Brand</div>
+                    <div className="text-sm">{product.brand}</div>
+                  </div>
+                )}
 
-                  {product.ean && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">EAN</div>
-                      <div className="text-sm">{product.ean}</div>
+                {/* Manufacturer */}
+                {product.manufacturer && (
+                  <div>
+                    <div className="mb-1 text-xs font-medium text-muted-foreground">
+                      Manufacturer
                     </div>
-                  )}
+                    <div className="text-sm">{product.manufacturer}</div>
+                  </div>
+                )}
 
-                  {product.mpn && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">MPN</div>
-                      <div className="text-sm">{product.mpn}</div>
-                    </div>
-                  )}
-
-                  {product.isbn && (
-                    <div>
-                      <div className="mb-1 text-xs font-medium text-muted-foreground">ISBN</div>
-                      <div className="text-sm">{product.isbn}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Custom Fields - InFlow Style with Inline Editing */}
-              {customFieldDefinitions.length > 0 && (
+                {/* Description */}
                 <div>
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-base font-semibold">{t("customFields.title")}</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setCustomFieldsProduct(product);
-                        setIsCustomFieldsDialogOpen(true);
-                      }}
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      {t("customFields.manageCustomFields")}
-                    </Button>
-                  </div>
-                  <CustomFieldsInlineEditor
-                    productId={product.id}
-                    fieldDefinitions={customFieldDefinitions}
-                    fieldValues={customFieldValuesMap[product.id] || []}
-                    onValueChange={async (fieldId, value) => {
-                      try {
-                        await customFieldsService.setFieldValue({
-                          product_id: product.id,
-                          field_definition_id: fieldId,
-                          value,
-                        });
-                        // Reload values
-                        const values = await customFieldsService.getProductFieldValues(product.id);
-                        setCustomFieldValuesMap((prev) => ({
-                          ...prev,
-                          [product.id]: values,
-                        }));
-                      } catch (error) {
-                        console.error("Failed to save custom field value:", error);
-                      }
-                    }}
+                  <div className="mb-2 text-xs font-medium text-muted-foreground">Description</div>
+                  <Textarea
+                    value={product.description || ""}
+                    readOnly
+                    className="min-h-[100px] resize-none text-sm"
+                    placeholder="No description"
                   />
                 </div>
-              )}
-
-              {/* Quantity Cards - 2x2 Grid with blue background */}
-              {product.product_type === "goods" && product.track_inventory && (
-                <div className="rounded-lg bg-[#0066CC] p-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Quantity on hand */}
-                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
-                      <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">On Hand</div>
-                      <div className="mt-2 text-3xl font-bold">
-                        {productStockMap[product.id] || 0}
-                      </div>
-                    </div>
-
-                    {/* To be Received */}
-                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
-                      <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">To be Received</div>
-                      <div className="mt-2 text-3xl font-bold">0</div>
-                    </div>
-
-                    {/* To be Invoiced */}
-                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
-                      <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">To be Invoiced</div>
-                      <div className="mt-2 text-3xl font-bold">0</div>
-                    </div>
-
-                    {/* To be Billed */}
-                    <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
-                      <div className="mb-1 text-xs opacity-90">Qty</div>
-                      <div className="text-sm font-medium">To be Billed</div>
-                      <div className="mt-2 text-3xl font-bold">0</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Stock by Location */}
-              {product.product_type === "goods" && product.track_inventory && (
-                <ProductLocationBreakdown productId={product.id} organizationId={activeOrgId} />
-              )}
-
-              {/* Pricing & Cost - Clean layout like Zoho */}
-              <div>
-                <h3 className="mb-4 text-base font-semibold">Pricing & Cost</h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Selling Price</div>
-                    <div className="text-2xl font-semibold text-green-600">
-                      {product.selling_price?.toFixed(2) || "0.00"} PLN
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Cost Price</div>
-                    <div className="text-2xl font-semibold">
-                      {product.cost_price?.toFixed(2) || "0.00"} PLN
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              {/* Reorder Settings */}
-              {product.product_type === "goods" && product.track_inventory && (
-                <div>
-                  <h3 className="mb-4 text-base font-semibold">Reorder Settings</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Reorder Point</span>
-                      <span className="text-sm font-medium">
-                        {product.reorder_point || 0} {product.unit}
-                      </span>
+              {/* Right Column: Product Information */}
+              <div className="space-y-6">
+                {/* Product Information - 2 columns side by side like InFlow */}
+                <div className="grid grid-cols-2 gap-x-12 gap-y-4">
+                  {/* Column 1 */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">SKU</div>
+                      <div className="text-sm">{product.sku || "—"}</div>
                     </div>
-                    {product.reorder_point && (
-                      <div className="rounded-lg bg-amber-50 p-3">
-                        <div className="text-sm text-amber-900">
-                          {(productStockMap[product.id] || 0) < product.reorder_point ? (
-                            <>
-                              <span className="font-semibold">Reorder needed:</span> Order at least{" "}
-                              {product.reorder_point - (productStockMap[product.id] || 0)}{" "}
-                              {product.unit} to reach reorder point
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-semibold">Stock level OK:</span> Current stock
-                              is above reorder point
-                            </>
-                          )}
+
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">Barcode</div>
+                      {product.barcodes && product.barcodes.length > 0 ? (
+                        <>
+                          <div className="space-y-1">
+                            {product.barcodes.map((barcode, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm">
+                                <code className="font-mono">{barcode.barcode}</code>
+                                {barcode.is_primary && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Primary
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <button className="mt-1 text-xs text-[#0066CC] hover:underline">
+                            Manage barcodes
+                          </button>
+                        </>
+                      ) : (
+                        <button className="mt-1 flex items-center gap-1 text-xs text-[#0066CC] hover:underline">
+                          <Plus className="h-3 w-3" />
+                          Add barcode
+                        </button>
+                      )}
+                    </div>
+
+                    {product.dimensions_length && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-muted-foreground">
+                          Dimensions
                         </div>
+                        <div className="text-sm">
+                          {product.dimensions_length} × {product.dimensions_width} ×{" "}
+                          {product.dimensions_height} {product.dimensions_unit}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {product.weight && `${product.weight} ${product.weight_unit}`}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="mb-1 text-xs font-medium text-muted-foreground">Unit</div>
+                      <div className="text-sm">{product.unit}</div>
+                    </div>
+                  </div>
+
+                  {/* Column 2 */}
+                  <div className="space-y-4">
+                    {product.upc && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-muted-foreground">UPC</div>
+                        <div className="text-sm">{product.upc}</div>
+                      </div>
+                    )}
+
+                    {product.ean && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-muted-foreground">EAN</div>
+                        <div className="text-sm">{product.ean}</div>
+                      </div>
+                    )}
+
+                    {product.mpn && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-muted-foreground">MPN</div>
+                        <div className="text-sm">{product.mpn}</div>
+                      </div>
+                    )}
+
+                    {product.isbn && (
+                      <div>
+                        <div className="mb-1 text-xs font-medium text-muted-foreground">ISBN</div>
+                        <div className="text-sm">{product.isbn}</div>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+
+                {/* Custom Fields - InFlow Style with Inline Editing */}
+                {customFieldDefinitions.length > 0 && (
+                  <div>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-base font-semibold">{t("customFields.title")}</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCustomFieldsProduct(product);
+                          setIsCustomFieldsDialogOpen(true);
+                        }}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        {t("customFields.manageCustomFields")}
+                      </Button>
+                    </div>
+                    <CustomFieldsInlineEditor
+                      productId={product.id}
+                      fieldDefinitions={customFieldDefinitions}
+                      fieldValues={customFieldValuesMap[product.id] || []}
+                      onValueChange={async (fieldId, value) => {
+                        try {
+                          await customFieldsService.setFieldValue({
+                            product_id: product.id,
+                            field_definition_id: fieldId,
+                            value,
+                          });
+                          // Reload values
+                          const values = await customFieldsService.getProductFieldValues(
+                            product.id
+                          );
+                          setCustomFieldValuesMap((prev) => ({
+                            ...prev,
+                            [product.id]: values,
+                          }));
+                        } catch (error) {
+                          console.error("Failed to save custom field value:", error);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Quantity Cards - Current Warehouse (Branch-Specific) */}
+                {product.product_type === "goods" && product.track_inventory && (
+                  <div className="rounded-lg bg-[#10b981] p-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-white">
+                        Current Warehouse: {activeBranch?.name || "—"}
+                      </h3>
+                      <Badge variant="secondary" className="bg-white/20 text-white">
+                        Branch Stock
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Quantity on hand - BRANCH SPECIFIC */}
+                      <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                        <div className="mb-1 text-xs opacity-90">Qty</div>
+                        <div className="text-sm font-medium">On Hand</div>
+                        <div className="mt-2 text-3xl font-bold">
+                          {productStockMap[product.id] !== undefined
+                            ? productStockMap[product.id]
+                            : "..."}
+                        </div>
+                      </div>
+
+                      {/* Reserved */}
+                      <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                        <div className="mb-1 text-xs opacity-90">Qty</div>
+                        <div className="text-sm font-medium">Reserved</div>
+                        <div className="mt-2 text-3xl font-bold">
+                          {productSummary.reserved_quantity}
+                        </div>
+                      </div>
+
+                      {/* To be Invoiced */}
+                      <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                        <div className="mb-1 text-xs opacity-90">Qty</div>
+                        <div className="text-sm font-medium">To be Invoiced</div>
+                        <div className="mt-2 text-3xl font-bold">
+                          {productSummary.pending_po_quantity}
+                        </div>
+                      </div>
+
+                      {/* To be Billed */}
+                      <div className="rounded-lg bg-white/10 p-4 text-white backdrop-blur">
+                        <div className="mb-1 text-xs opacity-90">Qty</div>
+                        <div className="text-sm font-medium">To be Billed</div>
+                        <div className="mt-2 text-3xl font-bold">0</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Stock by Location - Current Warehouse */}
+                {product.product_type === "goods" && product.track_inventory && (
+                  <div>
+                    <h3 className="mb-4 text-base font-semibold">
+                      Stock by Location ({activeBranch?.name || "Current Warehouse"})
+                    </h3>
+                    <ProductLocationBreakdown
+                      productId={product.id}
+                      organizationId={activeOrgId}
+                      branchId={activeBranch?.id}
+                    />
+                  </div>
+                )}
+
+                {/* Stock in Other Warehouses */}
+                {product.product_type === "goods" &&
+                  product.track_inventory &&
+                  branches.length > 1 && (
+                    <div>
+                      <h3 className="mb-4 text-base font-semibold">Stock in Other Warehouses</h3>
+                      <div className="space-y-3">
+                        {branches
+                          .filter((branch) => branch.id !== activeBranch?.id)
+                          .map((branch) => (
+                            <div
+                              key={branch.id}
+                              className="flex items-center justify-between rounded-lg border p-3"
+                            >
+                              <div>
+                                <div className="font-medium">{branch.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Branch Warehouse
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-lg font-semibold">
+                                  {productStockMap[`${product.id}_${branch.id}`] !== undefined
+                                    ? productStockMap[`${product.id}_${branch.id}`]
+                                    : "—"}{" "}
+                                  {product.unit}
+                                </div>
+                                <div className="text-xs text-muted-foreground">Available</div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Pricing & Cost - Clean layout like Zoho */}
+                <div>
+                  <h3 className="mb-4 text-base font-semibold">Pricing & Cost</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <div className="mb-1 text-xs text-muted-foreground">Selling Price</div>
+                      <div className="text-2xl font-semibold text-green-600">
+                        {product.selling_price?.toFixed(2) || "0.00"} PLN
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-xs text-muted-foreground">Cost Price</div>
+                      <div className="text-2xl font-semibold">
+                        {product.cost_price?.toFixed(2) || "0.00"} PLN
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reorder Settings */}
+                {product.product_type === "goods" && product.track_inventory && (
+                  <div>
+                    <h3 className="mb-4 text-base font-semibold">Reorder Settings</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Reorder Point</span>
+                        <span className="text-sm font-medium">
+                          {product.reorder_point || 0} {product.unit}
+                        </span>
+                      </div>
+                      {product.reorder_point && (
+                        <div className="rounded-lg bg-amber-50 p-3">
+                          <div className="text-sm text-amber-900">
+                            {(productStockMap[product.id] || 0) < product.reorder_point ? (
+                              <>
+                                <span className="font-semibold">Reorder needed:</span> Order at
+                                least {product.reorder_point - (productStockMap[product.id] || 0)}{" "}
+                                {product.unit} to reach reorder point
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-semibold">Stock level OK:</span> Current stock
+                                is above reorder point
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        {/* Transactions Tab */}
-        <TabsContent value="transactions" className="flex-1 overflow-auto p-4">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <ArrowRightLeft className="mb-3 h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mb-1 text-sm font-medium">No transactions yet</h3>
-            <p className="text-xs text-muted-foreground">
-              Product transactions will appear here once you start managing inventory
-            </p>
-          </div>
-        </TabsContent>
+          {/* Transactions Tab */}
+          <TabsContent value="transactions" className="flex-1 overflow-auto p-4">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <ArrowRightLeft className="mb-3 h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mb-1 text-sm font-medium">No transactions yet</h3>
+              <p className="text-xs text-muted-foreground">
+                Product transactions will appear here once you start managing inventory
+              </p>
+            </div>
+          </TabsContent>
 
-        {/* History Tab */}
-        <TabsContent value="history" className="flex-1 overflow-auto">
-          <MovementHistoryList
-            filters={{ product_id: product.id }}
-            maxHeight="600px"
-            onMovementClick={(movement) => {
-              setSelectedMovement(movement);
-              setIsMovementDetailsOpen(true);
-            }}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+          {/* History Tab */}
+          <TabsContent value="history" className="flex-1 overflow-auto">
+            <MovementHistoryList
+              filters={{ product_id: product.id }}
+              maxHeight="600px"
+              onMovementClick={(movement) => {
+                setSelectedMovement(movement);
+                setIsMovementDetailsOpen(true);
+              }}
+            />
+          </TabsContent>
+
+          {/* Suppliers Tab */}
+          <TabsContent value="suppliers" className="flex-1 overflow-auto bg-white p-6">
+            <ProductSuppliersTab productId={product.id} />
+          </TabsContent>
+
+          {/* Purchase Orders Tab */}
+          <TabsContent value="purchase-orders" className="flex-1 overflow-auto bg-white p-6">
+            <ProductPurchaseOrdersTab productId={product.id} />
+          </TabsContent>
+
+          {/* Availability Tab - Show stock across all branches */}
+          <TabsContent value="availability" className="flex-1 overflow-auto bg-white p-6">
+            <ProductAvailabilityTab productId={product.id} productName={product.name} />
+          </TabsContent>
+
+          {/* Settings Tab - Per-branch settings */}
+          <TabsContent value="settings" className="flex-1 overflow-auto bg-white p-6">
+            <ProductBranchSettingsList
+              productId={product.id}
+              productName={product.name}
+              branches={branches}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    );
+  };
 
   return (
     <>

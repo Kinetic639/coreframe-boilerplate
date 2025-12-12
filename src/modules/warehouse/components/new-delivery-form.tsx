@@ -44,7 +44,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   const currentUser = useUserStore((state) => state.user);
   const loadBranchData = useAppStore((state) => state.loadBranchData);
 
-  // Wizard state
+  // Wizard state - 3 steps: details, verification (optional), confirmation
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [deliveryId, setDeliveryId] = useState<string | undefined>(draftId || undefined);
 
@@ -114,7 +114,9 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
       // Restore wizard step
       if (metadata?.wizard_step) {
-        setCurrentStep(metadata.wizard_step as 1 | 2);
+        setCurrentStep(metadata.wizard_step as 1 | 2 | 3);
+      } else {
+        setCurrentStep(1); // Default to step 1 for old drafts
       }
 
       // Restore items
@@ -187,61 +189,20 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      // Validate step 1 - only require items if verification is enabled
-      if (requiresVerification && items.length === 0) {
+      // Validate step 1 - require items
+      if (items.length === 0) {
         toast.error(t("products.noProducts"));
         return;
       }
 
-      // Auto-save as draft before moving to next step (only if we have items)
-      if (items.length > 0) {
-        if (!currentUser?.id) {
-          toast.error("User not logged in");
-          return;
-        }
-
-        setLoading(true);
-
-        const supplierAddress = selectedSupplier
-          ? `${selectedSupplier.name}${selectedSupplier.address_line_1 ? `, ${selectedSupplier.address_line_1}` : ""}${selectedSupplier.city ? `, ${selectedSupplier.city}` : ""}${selectedSupplier.country ? `, ${selectedSupplier.country}` : ""}`
-          : "";
-
-        const result = await saveDraftDelivery({
-          delivery_id: deliveryId,
-          organization_id: organizationId,
-          branch_id: branchId,
-          destination_location_id:
-            destinationLocationId !== "none" ? destinationLocationId : undefined,
-          scheduled_date: new Date(scheduledDate).toISOString(),
-          source_document: sourceDocument,
-          delivery_address: supplierAddress,
-          responsible_user_id: currentUser.id,
-          notes,
-          items,
-          supplier_id: selectedSupplierId || undefined,
-          requires_verification: requiresVerification,
-          wizard_step: 2, // Moving to step 2
-        });
-
-        setLoading(false);
-
-        if (result.success && result.delivery_id) {
-          setDeliveryId(result.delivery_id);
-          setCurrentStep(2);
-
-          // Update URL with draft ID if new draft
-          if (!draftId) {
-            router.replace(`/dashboard/warehouse/deliveries/new?draft=${result.delivery_id}`);
-          }
-        } else {
-          toast.error(result.errors?.[0] || t("messages.error"));
-        }
+      // Move to verification step if enabled, otherwise skip to confirmation
+      if (requiresVerification) {
+        setCurrentStep(2); // Go to verification
       } else {
-        // No items yet, just move to next step
-        setCurrentStep(2);
+        setCurrentStep(3); // Skip verification, go directly to confirmation
       }
     } else if (currentStep === 2) {
-      // Step 2 -> Step 3: Just verify and move to final confirmation
+      // From verification to confirmation
       setCurrentStep(3);
     }
   };
@@ -302,11 +263,16 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
     }
   };
 
-  const deliverySteps: Step[] = [
-    { label: t("wizard.step1"), value: "step1" },
-    { label: t("wizard.step2"), value: "step2" },
-    { label: t("wizard.step3"), value: "step3" },
-  ];
+  const deliverySteps: Step[] = requiresVerification
+    ? [
+        { label: t("wizard.step1"), value: "step1" },
+        { label: t("wizard.step2"), value: "step2" },
+        { label: t("wizard.step3"), value: "step3" },
+      ]
+    : [
+        { label: t("wizard.step1"), value: "step1" },
+        { label: t("wizard.step3"), value: "step3" }, // Skip step 2 label
+      ];
 
   return (
     <div className="space-y-6">
@@ -319,7 +285,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               <h1 className="text-3xl font-bold">{t("new")}</h1>
               {deliveryId && (
                 <p className="text-sm text-muted-foreground mt-1">
-                  {t("statuses.draft")} - {currentStep === 1 ? "Step 1/2" : "Step 2/2"}
+                  {t("statuses.draft")} - Step {currentStep}/{requiresVerification ? 3 : 2}
                 </p>
               )}
             </div>
@@ -341,7 +307,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
               {t("actions.next")} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           )}
-          {currentStep === 2 && (
+          {currentStep === 2 && requiresVerification && (
             <Button
               onClick={handleNext}
               disabled={loading}
@@ -640,18 +606,14 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
         </>
       )}
 
-      {/* Step 2: Physical Registration/Verification */}
-      {currentStep === 2 && (
+      {/* Step 2: Verification (only if verification enabled) */}
+      {currentStep === 2 && requiresVerification && (
         <div className="grid grid-cols-3 gap-6">
           <div className="col-span-2 space-y-6">
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                {requiresVerification ? "Verification & Registration" : "Physical Registration"}
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">{t("wizard.verificationTitle")}</h3>
               <p className="text-sm text-muted-foreground mb-6">
-                {requiresVerification
-                  ? "Compare physical quantities with expected quantities and report any discrepancies."
-                  : "Enter the physical quantities and items received."}
+                {t("wizard.verificationDescription")}
               </p>
 
               <DeliveryLineItems
@@ -677,18 +639,18 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
           {/* Right Column - Summary */}
           <div className="space-y-4">
             <Card className="p-4">
-              <h3 className="font-semibold mb-4">Delivery Summary</h3>
+              <h3 className="font-semibold mb-4">{t("wizard.deliverySummary")}</h3>
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Supplier</p>
+                  <p className="text-muted-foreground">{t("fields.supplier")}</p>
                   <p className="font-medium">{selectedSupplier?.name || "Not specified"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Invoice Number</p>
+                  <p className="text-muted-foreground">{t("fields.invoiceNumber")}</p>
                   <p className="font-medium">{sourceDocument || "Not specified"}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Location</p>
+                  <p className="text-muted-foreground">{t("fields.destinationLocation")}</p>
                   <p className="font-medium">
                     {destinationLocationId && destinationLocationId !== "none"
                       ? locations.find((l) => l.id === destinationLocationId)?.name
@@ -696,11 +658,11 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Products</p>
+                  <p className="text-muted-foreground">{t("wizard.products")}</p>
                   <p className="font-medium">{items.length} items</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Total Quantity</p>
+                  <p className="text-muted-foreground">{t("wizard.totalQuantity")}</p>
                   <p className="font-medium">
                     {items.reduce((sum, item) => sum + item.expected_quantity, 0)} units
                   </p>

@@ -8,6 +8,7 @@ import { getTranslations, setRequestLocale, getMessages } from "next-intl/server
 import { notFound } from "next/navigation";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Providers } from "@/app/providers";
 
 type Props = {
   children: ReactNode;
@@ -49,28 +50,30 @@ export default async function RootLayout({ children, params }: Props) {
   return (
     <html lang={locale} className={geistSans.className} suppressHydrationWarning>
       <body className="bg-background text-foreground">
-        <NextIntlClientProvider messages={messages}>
-          <ToastContainer
-            position="top-right"
-            autoClose={4000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-          </ThemeProvider>
-        </NextIntlClientProvider>
+        <Providers>
+          <NextIntlClientProvider messages={messages}>
+            <ToastContainer
+              position="top-right"
+              autoClose={4000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+            />
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </NextIntlClientProvider>
+        </Providers>
       </body>
     </html>
   );

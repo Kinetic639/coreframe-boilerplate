@@ -7,7 +7,7 @@
 
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Clock, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, RotateCcw, FileEdit } from "lucide-react";
 import type { MovementStatus } from "../types/stock-movements";
 
 interface MovementStatusBadgeProps {
@@ -25,6 +25,12 @@ const STATUS_CONFIG: Record<
     icon: typeof Clock;
   }
 > = {
+  draft: {
+    labelKey: "draft",
+    variant: "secondary",
+    className: "border-gray-400 text-gray-600 bg-gray-100",
+    icon: FileEdit,
+  },
   pending: {
     labelKey: "pending",
     variant: "outline",
