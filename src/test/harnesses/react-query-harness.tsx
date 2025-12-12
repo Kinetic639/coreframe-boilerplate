@@ -55,12 +55,6 @@ export function createTestQueryClient(): QueryClient {
         retry: false,
       },
     },
-    logger: {
-      // Suppress console logs in tests unless debugging
-      log: () => {},
-      warn: () => {},
-      error: () => {},
-    },
   });
 }
 

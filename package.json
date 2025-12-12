@@ -132,7 +132,7 @@
     "eslint-plugin-tailwindcss": "^3.18.2",
     "eslint-plugin-vitest": "^0.5.4",
     "husky": "^8.0.3",
-    "jsdom": "^27.3.0",
+    "jsdom": "20.0.3",
     "lint-staged": "^15.5.2",
     "msw": "^2.12.4",
     "postcss": "8.4.49",
