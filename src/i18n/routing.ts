@@ -46,6 +46,16 @@ export const routing = defineRouting({
       pl: "/dashboard/oddzial",
     },
 
+    // === Contacts module ===
+    "/dashboard/contacts": {
+      en: "/dashboard/contacts",
+      pl: "/dashboard/kontakty",
+    },
+    "/dashboard/contacts/[id]": {
+      en: "/dashboard/contacts/[id]",
+      pl: "/dashboard/kontakty/[id]",
+    },
+
     // === Warehouse module (uzupełnienia) ===
     "/dashboard/warehouse": {
       en: "/dashboard/warehouse",
@@ -114,6 +124,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/zapasy/ruchy",
     },
+    "/dashboard/warehouse/inventory/movements/new": {
+      en: "/dashboard/warehouse/inventory/movements/new",
+      pl: "/dashboard/magazyn/zapasy/ruchy/nowy",
+    },
     "/dashboard/warehouse/inventory/adjustments": {
       en: "/dashboard/warehouse/inventory/adjustments",
       pl: "/dashboard/magazyn/zapasy/korekty",
@@ -161,6 +175,10 @@ export const routing = defineRouting({
     "/dashboard/warehouse/suppliers/list": {
       en: "/dashboard/warehouse/suppliers/list",
       pl: "/dashboard/magazyn/dostawcy/lista",
+    },
+    "/dashboard/warehouse/clients": {
+      en: "/dashboard/warehouse/clients",
+      pl: "/dashboard/magazyn/klienci",
     },
     "/dashboard/warehouse/deliveries": {
       en: "/dashboard/warehouse/deliveries",
@@ -211,6 +229,20 @@ export const routing = defineRouting({
     "/dashboard/warehouse/scanning/delivery": {
       en: "/dashboard/warehouse/scanning/delivery",
       pl: "/dashboard/magazyn/skanowanie/dostawa",
+    },
+
+    // === Transfers (Warehouse module) ===
+    "/dashboard/warehouse/transfers": {
+      en: "/dashboard/warehouse/transfers",
+      pl: "/dashboard/magazyn/transfery",
+    },
+    "/dashboard/warehouse/transfers/new": {
+      en: "/dashboard/warehouse/transfers/new",
+      pl: "/dashboard/magazyn/transfery/nowy",
+    },
+    "/dashboard/warehouse/transfers/[id]": {
+      en: "/dashboard/warehouse/transfers/[id]",
+      pl: "/dashboard/magazyn/transfery/[id]",
     },
 
     // === Org Management module ===
@@ -363,6 +395,10 @@ export const routing = defineRouting({
     "/dashboard/development/sku-generator": {
       en: "/dashboard/development/sku-generator",
       pl: "/dashboard/deweloperskie/generator-sku",
+    },
+    "/dashboard/development/reservations-test": {
+      en: "/dashboard/development/reservations-test",
+      pl: "/dashboard/deweloperskie/test-rezerwacji",
     },
     "/dashboard/dev/subscription-test": {
       en: "/dashboard/dev/subscription-test",

@@ -277,6 +277,7 @@ Support
 
 **Layout** (left to right):
 
+- **Breadcrumb Navigation**: Shows current location hierarchy (e.g., Warehouse > Products > Product Detail)
 - **Global Search Bar**:
   - Full-text search across products, locations, suppliers
   - Shows recent searches
@@ -284,9 +285,9 @@ Support
   - Keyboard shortcut indicator (e.g., Cmd+K)
 - **Action Buttons Section**:
   - Notifications bell icon with badge counter
-  - Quick Add menu with a dropdow menu that allows for quick adding things like new product, locations, clients, order and so on grouped in collums
-  - User Menu\*\*: Avatar with dropdown for profile, settings, logout
-- **Breadcrumb Navigation**: Shows current location hierarchy (e.g., Warehouse > Products > Product Detail). its positioned at the bottom of the header in separate row
+  - Quick action menu (common tasks based on current module)
+  - Language selector (Polish/English toggle)
+- **User Menu**: Avatar with dropdown for profile, settings, logout
 
 **Behavior**:
 

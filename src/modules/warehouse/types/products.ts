@@ -65,6 +65,13 @@ export interface Product {
   opening_stock: number;
   opening_stock_rate: number | null;
 
+  // Phase 2: Replenishment & Optimal Ordering Settings
+  reorder_quantity: number | null;
+  max_stock_level: number | null;
+  reorder_calculation_method: "fixed" | "min_max" | "auto";
+  lead_time_days: number | null;
+  send_low_stock_alerts: boolean;
+
   // Status
   status: ProductStatus;
 

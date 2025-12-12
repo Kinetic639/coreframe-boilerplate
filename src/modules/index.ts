@@ -4,6 +4,8 @@ import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
 import { developmentModule } from "./development/config";
 import { userAccountModule } from "./user-account/config";
+import { contactsModule } from "./contacts/config";
+import { documentationModuleConfig } from "./documentation/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { getWarehouseModule } from "./warehouse/config";
 import { getAnalyticsModule } from "./analytics/config";
@@ -37,10 +39,12 @@ export async function getAllModules(
     // Free tier modules (always available)
     { module: homeModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: warehouseModule, alwaysAvailable: true, requiredPlan: "free" },
+    { module: contactsModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: teamsModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: orgManagmentModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: supportModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: userAccountModule, alwaysAvailable: true, requiredPlan: "free" },
+    { module: documentationModuleConfig, alwaysAvailable: true, requiredPlan: "free" },
 
     // Professional tier modules
     { module: analyticsModule, alwaysAvailable: false, requiredPlan: "professional" },

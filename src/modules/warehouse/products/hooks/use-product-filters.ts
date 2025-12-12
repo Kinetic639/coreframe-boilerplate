@@ -37,11 +37,12 @@ export const useProductFilters = (_products: any[] = []): UseProductFiltersResul
       const supabase = createClient();
 
       try {
-        // Fetch suppliers
+        // Fetch suppliers (vendors from business_accounts)
         const { data: suppliersData } = await supabase
-          .from("suppliers")
+          .from("business_accounts")
           .select("id, name")
           .eq("organization_id", activeOrgId)
+          .eq("partner_type", "vendor")
           .eq("is_active", true)
           .is("deleted_at", null)
           .order("name");

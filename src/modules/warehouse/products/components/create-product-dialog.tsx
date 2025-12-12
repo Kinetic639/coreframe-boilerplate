@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "react-toastify";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, AlertCircle, Package, Calculator } from "lucide-react";
 
 import {
   Dialog,
@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/select";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 
 import { productsService } from "@/modules/warehouse/api/products-service";
 import { unitsService } from "@/modules/warehouse/api/units-service";
@@ -172,7 +174,6 @@ export function CreateProductDialog({
     cost_price: z.number().min(0).default(0),
     purchase_account: z.string().optional(),
     purchase_description: z.string().optional(),
-    preferred_vendor_id: z.string().optional(),
 
     // Inventory Settings
     track_inventory: z.boolean().default(true),
@@ -180,6 +181,13 @@ export function CreateProductDialog({
     reorder_point: z.number().min(0).default(0),
     opening_stock: z.number().min(0).default(0),
     opening_stock_rate: z.number().optional(),
+
+    // Phase 2: Replenishment & Optimal Ordering Settings
+    reorder_quantity: z.number().min(0).optional(),
+    max_stock_level: z.number().min(0).optional(),
+    reorder_calculation_method: z.enum(["fixed", "min_max", "auto"] as const).default("min_max"),
+    lead_time_days: z.number().min(0).optional(),
+    send_low_stock_alerts: z.boolean().default(false),
   });
 
   type FormValues = z.infer<typeof formSchema>;
@@ -198,6 +206,8 @@ export function CreateProductDialog({
       track_inventory: true,
       reorder_point: 0,
       opening_stock: 0,
+      reorder_calculation_method: "min_max",
+      send_low_stock_alerts: false,
     },
   });
 
@@ -289,12 +299,17 @@ export function CreateProductDialog({
         cost_price: product.cost_price || 0,
         purchase_account: product.purchase_account || "",
         purchase_description: product.purchase_description || "",
-        preferred_vendor_id: product.preferred_vendor_id || "",
         track_inventory: product.track_inventory,
         inventory_account: product.inventory_account || "",
         reorder_point: product.reorder_point || 0,
         opening_stock: product.opening_stock || 0,
         opening_stock_rate: product.opening_stock_rate || undefined,
+        // Phase 2: Replenishment settings
+        reorder_quantity: product.reorder_quantity || undefined,
+        max_stock_level: product.max_stock_level || undefined,
+        reorder_calculation_method: product.reorder_calculation_method || "min_max",
+        lead_time_days: product.lead_time_days || undefined,
+        send_low_stock_alerts: product.send_low_stock_alerts || false,
       });
       setBarcodes(product.barcodes || []);
     } else if (!product && open) {
@@ -342,7 +357,6 @@ export function CreateProductDialog({
         ...(values.sales_description && { sales_description: values.sales_description }),
         ...(values.purchase_account && { purchase_account: values.purchase_account }),
         ...(values.purchase_description && { purchase_description: values.purchase_description }),
-        ...(values.preferred_vendor_id && { preferred_vendor_id: values.preferred_vendor_id }),
         ...(values.inventory_account && { inventory_account: values.inventory_account }),
         ...(values.opening_stock_rate && { opening_stock_rate: values.opening_stock_rate }),
         ...(barcodes.length > 0 && { barcodes }),
@@ -960,6 +974,237 @@ export function CreateProductDialog({
                     )}
                   />
                 </div>
+
+                {/* Phase 2: Replenishment Settings */}
+                {form.watch("track_inventory") && (
+                  <div className="space-y-4 rounded-lg border border-green-200 bg-green-50/50 p-4">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-5 w-5 text-green-600" />
+                      <h3 className="text-sm font-medium text-green-900">Replenishment Settings</h3>
+                    </div>
+
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Configure how the system calculates optimal order quantities when stock is
+                        low. These settings work with supplier packaging constraints.
+                      </AlertDescription>
+                    </Alert>
+
+                    {/* Calculation Method Selector */}
+                    <FormField
+                      control={form.control}
+                      name="reorder_calculation_method"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <FormLabel>Calculation Method</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              className="space-y-2"
+                            >
+                              <div className="flex items-start space-x-3 rounded-lg border p-3">
+                                <RadioGroupItem value="min_max" id="min_max" />
+                                <label
+                                  htmlFor="min_max"
+                                  className="flex-1 cursor-pointer space-y-1"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">Min/Max</span>
+                                    <Badge variant="secondary" className="text-xs">
+                                      Recommended
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Order enough to reach maximum stock level (adapts to current
+                                    stock)
+                                  </p>
+                                </label>
+                              </div>
+
+                              <div className="flex items-start space-x-3 rounded-lg border p-3">
+                                <RadioGroupItem value="fixed" id="fixed" />
+                                <label htmlFor="fixed" className="flex-1 cursor-pointer space-y-1">
+                                  <span className="font-medium">Fixed Quantity</span>
+                                  <p className="text-xs text-muted-foreground">
+                                    Always order the same amount when stock is low
+                                  </p>
+                                </label>
+                              </div>
+
+                              <div className="flex items-start space-x-3 rounded-lg border p-3">
+                                <RadioGroupItem value="auto" id="auto" disabled />
+                                <label htmlFor="auto" className="flex-1 cursor-pointer space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-muted-foreground">
+                                      Auto (Based on Demand)
+                                    </span>
+                                    <Badge variant="outline" className="text-xs">
+                                      Coming Soon
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    Calculate from historical demand data (future enhancement)
+                                  </p>
+                                </label>
+                              </div>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Fixed method: reorder_quantity */}
+                      {form.watch("reorder_calculation_method") === "fixed" && (
+                        <FormField
+                          control={form.control}
+                          name="reorder_quantity"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Reorder Quantity <span className="text-destructive">*</span>
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.001"
+                                  placeholder="E.g., 100"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value) || undefined)
+                                  }
+                                  value={field.value ?? ""}
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                Amount to order each time stock is low
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {/* Min/Max method: max_stock_level */}
+                      {(form.watch("reorder_calculation_method") === "min_max" ||
+                        form.watch("reorder_calculation_method") === "auto") && (
+                        <FormField
+                          control={form.control}
+                          name="max_stock_level"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Maximum Stock Level</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.001"
+                                  placeholder="E.g., 500"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value) || undefined)
+                                  }
+                                  value={field.value ?? ""}
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                System will order up to this level
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      {/* Lead Time */}
+                      <FormField
+                        control={form.control}
+                        name="lead_time_days"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Lead Time (Days)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="1"
+                                placeholder="E.g., 7"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value) || undefined)
+                                }
+                                value={field.value ?? ""}
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              Global lead time (can be overridden per supplier)
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Low Stock Alerts Toggle */}
+                    <FormField
+                      control={form.control}
+                      name="send_low_stock_alerts"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Send Low Stock Notifications</FormLabel>
+                            <FormDescription className="text-xs">
+                              Enable email/push notifications when this product falls below reorder
+                              point. All products show in UI regardless of this setting.
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Calculation Preview */}
+                    {form.watch("reorder_point") > 0 && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+                        <div className="mb-2 flex items-center gap-2">
+                          <Calculator className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-900">
+                            Calculation Preview
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-xs text-blue-800">
+                          <p>
+                            <strong>Reorder Point:</strong> {form.watch("reorder_point")}{" "}
+                            {form.watch("unit")}s
+                          </p>
+                          {form.watch("reorder_calculation_method") === "fixed" &&
+                            form.watch("reorder_quantity") && (
+                              <p>
+                                <strong>Will Order:</strong> {form.watch("reorder_quantity")}{" "}
+                                {form.watch("unit")}s (fixed amount)
+                              </p>
+                            )}
+                          {(form.watch("reorder_calculation_method") === "min_max" ||
+                            form.watch("reorder_calculation_method") === "auto") &&
+                            form.watch("max_stock_level") && (
+                              <p>
+                                <strong>Will Order:</strong> Up to {form.watch("max_stock_level")}{" "}
+                                {form.watch("unit")}s (max level)
+                              </p>
+                            )}
+                          {form.watch("send_low_stock_alerts") && (
+                            <p className="text-blue-700">
+                              ✓ Notifications enabled for this product
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </TabsContent>
 
               {/* Additional Information Tab */}
