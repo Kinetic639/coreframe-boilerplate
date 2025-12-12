@@ -704,6 +704,19 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Kontakty"
+    },
+    "documentation": {
+      "title": "Dokumentacja",
+      "description": "Centrum wiedzy z przewodnikami i referencjami",
+      "items": {
+        "home": "Dokumentacja",
+        "user": "Przewodnik Użytkownika",
+        "dev": "Dokumentacja Deweloperska",
+        "spec": "Specyfikacje"
+      }
+    },
     "home": {
       "title": "Start",
       "items": {
@@ -894,6 +907,10 @@
           "batches": "Partie etykiet",
           "history": "Historia przypisań"
         },
+        "alerts": {
+          "title": "Alerty Stanów Magazynowych",
+          "description": "Monitorowanie niskich stanów i alerty uzupełnienia"
+        },
         "scanning": {
           "title": "Skanowanie kodów",
           "delivery": "Skanowanie dostaw",
@@ -974,13 +991,13 @@
             "enterUnitCost": "Wprowadź cenę jednostkową"
           },
           "form": {
-            "optional": "(Opcjonalnie)",
+            "optional": "(opcjonalne)",
             "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "selectLocationPlaceholder": "Wybierz lokalizację, aby od razu przypisać produkty (opcjonalnie)",
-            "receiveWithoutLocation": "Brak (przyjmij bez lokalizacji)",
-            "noLocationsFound": "Nie znaleziono lokalizacji. Przejdź do menu Lokalizacje, aby ją utworzyć.",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do tej lokalizacji po przyjęciu dostawy",
-            "receiveWithoutLocationInfo": "Produkty zostaną przyjęte, ale jeszcze nie przypisane do lokalizacji",
+            "selectLocationPlaceholder": "Wybierz lokalizację...",
+            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
+            "noLocationsFound": "Nie znaleziono lokalizacji",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
+            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
             "deliveryAddressPlaceholder": "np. Lumber Inc",
             "sourceDocumentPlaceholder": "np. PO0032",
             "invoiceNumberPlaceholder": "np. FV/2024/001",
@@ -995,16 +1012,7 @@
             "noSuppliersFound": "Nie znaleziono dostawców",
             "addNewSupplier": "Dodaj nowego dostawcę",
             "noLocationSet": "Nie ustawiono lokalizacji",
-            "noNotes": "Brak notatek",
-            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
-            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
-            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
-            "selectLocationPlaceholder": "Wybierz lokalizację...",
-            "noLocationsAvailable": "Brak dostępnych lokalizacji",
-            "noLocationsFound": "Nie znaleziono lokalizacji",
-            "sourceDocumentPlaceholder": "np. PO0032",
-            "notesPlaceholder": "Dodaj notatki...",
-            "optional": "(opcjonalne)"
+            "noNotes": "Brak notatek"
           },
           "tabs": {
             "operations": "Operacje",
@@ -1072,7 +1080,20 @@
           "title": "Dostawcy",
           "list": "Lista dostawców",
           "deliveries": "Dostawy"
+        },
+        "sales": {
+          "title": "Sprzedaż",
+          "orders": "Zamówienia Sprzedaży",
+          "clients": "Klienci"
+        },
+        "purchases": {
+          "title": "Zakupy",
+          "orders": "Zamówienia Zakupu"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Dostawca",
+        "customer": "Klient"
       }
     },
     "teams": {
@@ -1217,7 +1238,8 @@
         "richTextEditor": "Edytor Tekstu",
         "subscriptionTest": "Test Subskrypcji",
         "skuGenerator": "Test Generatora SKU",
-        "deliveryDebugger": "Debugger Dostaw"
+        "deliveryDebugger": "Debugger Dostaw",
+        "reservationsTest": "Test Rezerwacji"
       }
     }
   },
@@ -1735,6 +1757,7 @@
     "completedAt": "Data Zakończenia",
     "cancelledAt": "Data Anulowania",
     "statuses": {
+      "draft": "Szkic",
       "pending": "Oczekujący",
       "approved": "Zatwierdzony",
       "completed": "Zakończony",
@@ -1774,6 +1797,8 @@
       "show": "Pokaż Filtry",
       "hide": "Ukryj Filtry",
       "allCategories": "Wszystkie Kategorie",
+      "allMovements": "Wszystkie Ruchy",
+      "requiresApproval": "Wymaga Zatwierdzenia",
       "allStatuses": "Wszystkie Statusy",
       "fromDate": "Od Daty",
       "toDate": "Do Daty",
@@ -1803,6 +1828,449 @@
       "noApprovals": "Brak ruchów oczekujących na zatwierdzenie",
       "reject": "Odrzuć",
       "approve": "Zatwierdź"
+    }
+  },
+  "transfers": {
+    "title": "Transfery Magazynowe",
+    "description": "Zarządzaj transferami między magazynami i lokalizacjami",
+    "createTransfer": "Utwórz Transfer",
+    "transferDetails": "Szczegóły Transferu",
+    "transferNumber": "Numer Transferu",
+    "fromBranch": "Z Magazynu",
+    "toBranch": "Do Magazynu",
+    "fromLocation": "Z Lokalizacji",
+    "toLocation": "Do Lokalizacji",
+    "priority": "Priorytet",
+    "expectedDate": "Oczekiwana Data",
+    "shippingMethod": "Metoda Wysyłki",
+    "carrier": "Przewoźnik",
+    "trackingNumber": "Numer Śledzenia",
+    "requestedBy": "Zgłoszone Przez",
+    "approvedBy": "Zatwierdzone Przez",
+    "shippedBy": "Wysłane Przez",
+    "receivedBy": "Odebrane Przez",
+    "createdAt": "Data Utworzenia",
+    "approvedAt": "Data Zatwierdzenia",
+    "shippedAt": "Data Wysyłki",
+    "receivedAt": "Data Odbioru",
+    "items": "Pozycje",
+    "itemCount": "{count} pozycji",
+    "totalQuantity": "Całkowita Ilość",
+    "receivedQuantity": "Ilość Odebrana",
+    "statuses": {
+      "draft": "Szkic",
+      "pending": "Oczekujący",
+      "approved": "Zatwierdzony",
+      "in_transit": "W Transporcie",
+      "completed": "Zakończony",
+      "cancelled": "Anulowany",
+      "rejected": "Odrzucony"
+    },
+    "priorities": {
+      "normal": "Normalny",
+      "high": "Wysoki",
+      "urgent": "Pilny"
+    },
+    "actions": {
+      "submit": "Wyślij do Zatwierdzenia",
+      "approve": "Zatwierdź Transfer",
+      "reject": "Odrzuć Transfer",
+      "ship": "Oznacz jako Wysłane",
+      "receive": "Odbierz Transfer",
+      "cancel": "Anuluj Transfer",
+      "edit": "Edytuj",
+      "viewDetails": "Zobacz Szczegóły",
+      "refresh": "Odśwież"
+    },
+    "messages": {
+      "transferCreated": "Transfer został utworzony pomyślnie",
+      "transferSubmitted": "Transfer został wysłany do zatwierdzenia",
+      "transferApproved": "Transfer został zatwierdzony",
+      "transferRejected": "Transfer został odrzucony",
+      "transferShipped": "Transfer został oznaczony jako wysłany",
+      "transferReceived": "Transfer został odebrany",
+      "transferCancelled": "Transfer został anulowany",
+      "transferUpdated": "Transfer został zaktualizowany",
+      "loadError": "Nie udało się załadować transferów",
+      "createError": "Nie udało się utworzyć transferu",
+      "updateError": "Nie udało się zaktualizować transferu",
+      "noTransfers": "Nie znaleziono transferów",
+      "noItems": "Brak pozycji w transferze",
+      "sameWarehouseError": "Magazyn źródłowy i docelowy muszą być różne"
+    },
+    "filters": {
+      "allStatuses": "Wszystkie Statusy",
+      "allPriorities": "Wszystkie Priorytety",
+      "fromDate": "Od Daty",
+      "toDate": "Do Daty",
+      "search": "Szukaj po numerze lub uwagach..."
+    },
+    "workflow": {
+      "title": "Przepływ Pracy",
+      "created": "Utworzono",
+      "submitted": "Wysłano do zatwierdzenia",
+      "approved": "Zatwierdzono",
+      "shipped": "Wysłano",
+      "received": "Odebrano",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "Wszystkie Transfery",
+      "pending": "Oczekujące",
+      "inTransit": "W Transporcie",
+      "completed": "Zakończone",
+      "overdue": "Opóźnione"
+    },
+    "form": {
+      "selectBranch": "Wybierz magazyn",
+      "selectLocation": "Wybierz lokalizację",
+      "selectProduct": "Wybierz produkt",
+      "addItem": "Dodaj Pozycję",
+      "removeItem": "Usuń Pozycję",
+      "notes": "Uwagi",
+      "enterNotes": "Wprowadź uwagi...",
+      "reasonRequired": "Wymagany powód",
+      "enterReason": "Wprowadź powód..."
+    }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Klienci",
+      "description": "Zarządzaj kontaktami i relacjami z klientami",
+      "pageTitle": "Klienci",
+      "pageDescription": "Zarządzanie relacjami z klientami",
+      "list": "Lista Klientów",
+      "totalCount": "{count} klientów w sumie"
+    },
+    "vendors": {
+      "title": "Dostawcy",
+      "description": "Zarządzaj kontaktami i relacjami z dostawcami",
+      "pageTitle": "Dostawcy",
+      "pageDescription": "Zarządzanie relacjami z dostawcami",
+      "list": "Lista Dostawców",
+      "totalCount": "{count} dostawców w sumie"
+    },
+    "title": "Kontakty",
+    "description": "Zarządzaj kontaktami osobistymi i organizacyjnymi",
+    "types": {
+      "contact": "Kontakt",
+      "lead": "Potencjalny klient",
+      "other": "Inny"
+    },
+    "visibilityScopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja",
+      "privateDesc": "Widoczne tylko dla Ciebie",
+      "branchDesc": "Widoczne dla członków oddziału",
+      "organizationDesc": "Widoczne dla wszystkich członków organizacji"
+    },
+    "entityTypes": {
+      "business": "Firma",
+      "individual": "Osoba prywatna"
+    },
+    "form": {
+      "newTitle": "Nowy {type}",
+      "editTitle": "Edytuj {type}",
+      "save": "Zapisz",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
+      "tabs": {
+        "basicInfo": "Podstawowe Informacje",
+        "info": "Informacje",
+        "otherDetails": "Inne Szczegóły",
+        "address": "Adres",
+        "linkedAccounts": "Powiązane Konta Biznesowe",
+        "contactPersons": "Osoby Kontaktowe",
+        "customFields": "Pola Niestandardowe",
+        "remarks": "Uwagi",
+        "notes": "Notatki"
+      },
+      "entityTypes": {
+        "business": "Firma",
+        "individual": "Osoba prywatna"
+      },
+      "salutations": {
+        "label": "Tytuł",
+        "mr": "Pan",
+        "mrs": "Pani",
+        "ms": "Pani",
+        "dr": "Dr",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
+      "fields": {
+        "visibilityScope": "Zakres Widoczności",
+        "visibilityScopeHelp": "Kontroluj, kto może zobaczyć ten kontakt",
+        "contactVisibility": "Typ Kontaktu",
+        "privateVisibilityDesc": "Tylko Ty możesz przeglądać i edytować ten kontakt",
+        "organizationVisibilityDesc": "Wszyscy członkowie organizacji mogą przeglądać i edytować ten kontakt",
+        "privateVisibilityInfo": "Prywatne kontakty nie mogą być powiązane z kontami biznesowymi. Zmień na publiczny, aby powiązać ten kontakt z klientami lub dostawcami.",
+        "organizationVisibilityInfo": "Kontakty organizacji mogą być powiązane z kontami biznesowymi (klienci/dostawcy). Po ustawieniu na publiczny, nie można zmienić z powrotem na prywatny.",
+        "organizationVisibilityLocked": "Ten kontakt jest publiczny i nie może być zmieniony na prywatny, ponieważ może być już powiązany z kontami biznesowymi.",
+        "customerType": "Typ Klienta",
+        "salutation": "Tytuł",
+        "firstName": "Imię",
+        "lastName": "Nazwisko",
+        "companyName": "Nazwa Firmy",
+        "displayName": "Nazwa Wyświetlana",
+        "displayNameHelp": "Ta nazwa będzie wyświetlana we wszystkich transakcjach",
+        "primaryEmail": "Główny Email",
+        "workPhone": "Telefon Służbowy",
+        "mobilePhone": "Telefon Komórkowy",
+        "website": "Strona WWW",
+        "language": "Język",
+        "currency": "Waluta",
+        "paymentTerms": "Warunki Płatności",
+        "taxRegistrationNumber": "NIP",
+        "companyIdNumber": "REGON",
+        "taxRate": "Stawka VAT (%)",
+        "taxExempt": "Zwolniony z VAT",
+        "creditLimit": "Limit Kredytowy",
+        "openingBalance": "Saldo Początkowe",
+        "portalEnabled": "Dostęp do Portalu",
+        "portalLanguage": "Język Portalu",
+        "fax": "Faks",
+        "billingAddress": "Adres Fakturowy",
+        "shippingAddress": "Adres Dostawy",
+        "attentionTo": "Do rąk",
+        "country": "Kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Adres - linia 2",
+        "city": "Miasto",
+        "stateProvince": "Województwo",
+        "postalCode": "Kod Pocztowy",
+        "phone": "Telefon",
+        "defaultAddress": "Domyślny",
+        "contactPersons": "Osoby Kontaktowe",
+        "name": "Nazwa",
+        "email": "Email",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "primary": "Główny",
+        "active": "Aktywny",
+        "actions": "Akcje",
+        "primaryContact": "Główny Kontakt",
+        "notes": "Notatki",
+        "internalNotes": "Notatki Wewnętrzne",
+        "internalNotesHelp": "Te notatki są tylko do użytku wewnętrznego i nie będą widoczne dla kontaktu",
+        "type": "Typ",
+        "location": "Lokalizacja",
+        "tags": "Tagi",
+        "tagsHelp": "Użyj tagów do kategoryzowania i organizowania kontaktów"
+      },
+      "placeholders": {
+        "salutation": "Wybierz tytuł",
+        "firstName": "Wprowadź imię",
+        "lastName": "Wprowadź nazwisko",
+        "companyName": "Wprowadź nazwę firmy",
+        "displayName": "Wprowadź nazwę wyświetlaną",
+        "email": "przykład@firma.pl",
+        "phone": "+48 123 456 789",
+        "website": "https://przyklad.pl",
+        "paymentTerms": "Wybierz warunki płatności",
+        "taxNumber": "Wprowadź NIP",
+        "companyId": "Wprowadź REGON",
+        "taxRate": "np. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Wprowadź numer faksu",
+        "attentionTo": "Imię i nazwisko osoby",
+        "country": "Wprowadź kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Mieszkanie, biuro, itp.",
+        "city": "Wprowadź miasto",
+        "stateProvince": "Wprowadź województwo",
+        "postalCode": "Wprowadź kod pocztowy",
+        "designation": "Stanowisko",
+        "department": "Nazwa działu",
+        "notes": "Dodaj dodatkowe notatki tutaj...",
+        "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
+        "primaryEmail": "przyklad@firma.pl",
+        "workPhone": "+48 123 456 789",
+        "mobilePhone": "+48 123 456 789"
+      },
+      "actions": {
+        "addBillingAddress": "Dodaj Adres Fakturowy",
+        "addShippingAddress": "Dodaj Adres Dostawy",
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "add": "Dodaj",
+        "update": "Aktualizuj",
+        "cancel": "Anuluj"
+      },
+      "dialogs": {
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "editContactPerson": "Edytuj Osobę Kontaktową",
+        "title": "Tytuł",
+        "workPhone": "Telefon Służbowy",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "notes": "Notatki",
+        "primaryContact": "Główny Kontakt",
+        "active": "Aktywny",
+        "cancel": "Anuluj",
+        "add": "Dodaj",
+        "update": "Aktualizuj"
+      },
+      "messages": {
+        "createSuccess": "Kontakt został utworzony pomyślnie",
+        "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+        "error": "Nie udało się zapisać kontaktu",
+        "noAddresses": "Nie dodano jeszcze żadnych adresów",
+        "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
+        "customFieldsPlaceholder": "Brak zdefiniowanych pól niestandardowych",
+        "customFieldsInfo": "Pola niestandardowe można skonfigurować w ustawieniach organizacji"
+      }
+    },
+    "actions": {
+      "newContact": "Nowy Kontakt",
+      "newClient": "Nowy Klient",
+      "newVendor": "Nowy Dostawca",
+      "addBillingAddress": "Dodaj Adres Fakturowy",
+      "addShippingAddress": "Dodaj Adres Dostawy",
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "add": "Dodaj",
+      "save": "Zapisz",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
+      "view": "Pokaż",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "confirmDelete": "Potwierdź Usunięcie"
+    },
+    "dialogs": {
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "editContactPerson": "Edytuj Osobę Kontaktową",
+      "title": "Tytuł",
+      "workPhone": "Telefon Służbowy",
+      "designation": "Stanowisko",
+      "department": "Dział",
+      "notes": "Notatki",
+      "primaryContact": "Główny Kontakt",
+      "active": "Aktywny",
+      "cancel": "Anuluj",
+      "add": "Dodaj",
+      "update": "Aktualizuj"
+    },
+    "messages": {
+      "loading": "Ładowanie kontaktów...",
+      "noContacts": "Nie znaleziono kontaktów",
+      "noAddresses": "Nie dodano jeszcze żadnych adresów",
+      "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
+      "createSuccess": "Kontakt został utworzony pomyślnie",
+      "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+      "deleteSuccess": "Kontakt został usunięty pomyślnie",
+      "deleteError": "Nie udało się usunąć kontaktu",
+      "confirmDeleteText": "Czy na pewno chcesz usunąć {name}? Ta akcja nie może być cofnięta.",
+      "error": "Wystąpił błąd"
+    },
+    "filters": {
+      "title": "Filtry",
+      "searchPlaceholder": "Szukaj po nazwie, emailu lub telefonie...",
+      "allTypes": "Wszystkie Typy",
+      "allScopes": "Wszystkie Zakresy",
+      "clearAll": "Wyczyść Wszystko"
+    },
+    "scopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja"
+    },
+    "pagination": {
+      "showing": "Pokazuję {start} do {end} z {total}",
+      "previous": "Poprzednia",
+      "next": "Następna"
+    }
+  },
+  "documentation": {
+    "title": "Dokumentacja",
+    "description": "Centrum wiedzy z przewodnikami, specyfikacjami i referencjami",
+    "sections": {
+      "user": "Przewodnik Użytkownika",
+      "dev": "Dokumentacja Deweloperska",
+      "spec": "Specyfikacje",
+      "internal": "Dokumentacja Wewnętrzna",
+      "api": "Dokumentacja API",
+      "meta": "Dokumentacja Systemowa"
+    },
+    "sectionDescriptions": {
+      "user": "Naucz się efektywnie używać AmbraWMS",
+      "dev": "Dokumentacja techniczna dla programistów",
+      "spec": "Szczegółowe specyfikacje techniczne",
+      "internal": "Dokumentacja wewnętrzna zespołu",
+      "api": "Endpointy API i przewodniki integracji",
+      "meta": "Architektura systemu i dokumenty projektowe"
+    },
+    "navigation": {
+      "home": "Strona Główna Dokumentacji",
+      "back": "Wstecz",
+      "tableOfContents": "Spis Treści",
+      "onThisPage": "Na Tej Stronie",
+      "quickLinks": "Szybkie Linki"
+    },
+    "search": {
+      "placeholder": "Szukaj w dokumentacji...",
+      "noResults": "Nie znaleziono wyników",
+      "searching": "Wyszukiwanie...",
+      "results": "Znaleziono {count} wyników"
+    },
+    "actions": {
+      "edit": "Edytuj",
+      "print": "Drukuj",
+      "download": "Pobierz PDF",
+      "share": "Udostępnij",
+      "feedback": "Wyślij Opinię",
+      "createTranslation": "Utwórz Tłumaczenie"
+    },
+    "language": {
+      "switchLanguage": "Zmień Język",
+      "notTranslated": "Ten dokument nie został jeszcze przetłumaczony na {language}.",
+      "viewOriginal": "Zobacz w języku {language}",
+      "helpTranslate": "Pomóż przetłumaczyć ten dokument",
+      "notAvailable": "Ten dokument nie jest dostępny w Twoim języku.",
+      "showingFallback": "Pokazywanie wersji angielskiej."
+    },
+    "metadata": {
+      "lastUpdated": "Ostatnia aktualizacja",
+      "version": "Wersja",
+      "author": "Autor",
+      "difficulty": "Poziom trudności",
+      "estimatedTime": "Szacowany czas czytania",
+      "minutes": "{count} min",
+      "prerequisites": "Wymagania wstępne",
+      "relatedDocs": "Powiązana Dokumentacja"
+    },
+    "difficulty": {
+      "beginner": "Początkujący",
+      "intermediate": "Średniozaawansowany",
+      "advanced": "Zaawansowany",
+      "expert": "Ekspert"
+    },
+    "status": {
+      "draft": "Szkic",
+      "review": "W Recenzji",
+      "published": "Opublikowane",
+      "archived": "Zarchiwizowane"
+    },
+    "messages": {
+      "loading": "Ładowanie dokumentacji...",
+      "notFound": "Nie znaleziono dokumentacji",
+      "error": "Nie udało się załadować dokumentacji",
+      "saved": "Zmiany zostały zapisane",
+      "published": "Dokument został opublikowany"
+    },
+    "widgets": {
+      "search": {
+        "title": "Szukaj w Dokumentacji",
+        "description": "Szybkie wyszukiwanie w całej dokumentacji"
+      },
+      "recent": {
+        "title": "Ostatnio Przeglądane",
+        "description": "Twoje ostatnio przeglądane dokumenty",
+        "empty": "Brak ostatnio przeglądanych dokumentów"
+      }
     }
   }
 }

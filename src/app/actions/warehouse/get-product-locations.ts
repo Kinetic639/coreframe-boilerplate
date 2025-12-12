@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export interface ProductLocation {
   location_id: string;
+  quantity_on_hand: number;
   available_quantity: number;
   reserved_quantity: number;
   total_value: number;
@@ -19,19 +20,29 @@ export interface ProductLocation {
 
 export async function getProductLocations(
   productId: string,
-  organizationId: string
+  organizationId: string,
+  branchId?: string
 ): Promise<{ data: ProductLocation[]; error: string | null; totalQuantity: number }> {
   try {
     const supabase = await createClient();
 
-    // Step 1: Get stock inventory data
-    const { data: inventoryData, error: inventoryError } = await supabase
-      .from("stock_inventory")
-      .select("*")
+    // Step 1: Get stock inventory data (filtered by branch if provided)
+    let query = supabase
+      .from("product_available_inventory")
+      .select(
+        "location_id, organization_id, branch_id, quantity_on_hand, reserved_quantity, available_quantity, total_value, average_cost"
+      )
       .eq("product_id", productId)
       .eq("organization_id", organizationId)
-      .gt("available_quantity", 0)
-      .order("available_quantity", { ascending: false });
+      .or("quantity_on_hand.gt.0,reserved_quantity.gt.0")
+      .order("quantity_on_hand", { ascending: false });
+
+    // Filter by branch if provided (for current warehouse only)
+    if (branchId) {
+      query = query.eq("branch_id", branchId);
+    }
+
+    const { data: inventoryData, error: inventoryError } = await query;
 
     if (inventoryError) {
       console.error("Error fetching inventory:", inventoryError);
@@ -61,6 +72,7 @@ export async function getProductLocations(
 
     const result: ProductLocation[] = inventoryData.map((item) => ({
       location_id: item.location_id,
+      quantity_on_hand: item.quantity_on_hand || 0,
       available_quantity: item.available_quantity || 0,
       reserved_quantity: item.reserved_quantity || 0,
       total_value: item.total_value || 0,
@@ -74,7 +86,7 @@ export async function getProductLocations(
       },
     }));
 
-    const totalQuantity = result.reduce((sum, loc) => sum + loc.available_quantity, 0);
+    const totalQuantity = result.reduce((sum, loc) => sum + loc.quantity_on_hand, 0);
 
     return { data: result, error: null, totalQuantity };
   } catch (err) {

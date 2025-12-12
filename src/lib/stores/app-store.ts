@@ -59,7 +59,7 @@ export type AppContext = {
   userModules: LoadedUserModule[];
   location: UserLocation | null;
   locations: Tables<"locations">[];
-  suppliers: Tables<"suppliers">[];
+  suppliers: Tables<"business_accounts">[];
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
   subscription: OrganizationSubscriptionWithPlan | null;
@@ -74,7 +74,7 @@ type AppStore = AppContext & {
   setContext: (context: AppContext) => void;
   setLocation: (location: UserLocation | null) => void;
   setLocations: (locations: Tables<"locations">[]) => void;
-  setSuppliers: (suppliers: Tables<"suppliers">[]) => void;
+  setSuppliers: (suppliers: Tables<"business_accounts">[]) => void;
   setOrganizationUsers: (users: OrganizationUser[]) => void;
   setPrivateContacts: (contacts: PrivateContact[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
@@ -176,14 +176,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({ isLoadingSuppliers: true });
       try {
         const { data: suppliers, error: suppliersError } = await supabase
-          .from("suppliers")
+          .from("business_accounts")
           .select("*")
           .eq("organization_id", state.activeOrgId)
           .is("deleted_at", null)
           .order("name", { ascending: true });
 
         if (suppliersError) {
-          console.error("Error loading suppliers:", suppliersError);
+          console.error("Error loading business accounts:", suppliersError);
         } else {
           set({ suppliers: suppliers || [] });
         }

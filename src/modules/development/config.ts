@@ -80,5 +80,11 @@ export const developmentModule: ModuleConfig = {
       path: "/dashboard/development/status-stepper",
       icon: "Workflow",
     },
+    {
+      id: "reservations-test",
+      label: "modules.development.items.reservationsTest",
+      path: "/dashboard/development/reservations-test",
+      icon: "Clock",
+    },
   ],
 };

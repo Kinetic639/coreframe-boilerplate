@@ -145,11 +145,11 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     locations = locationData || [];
   }
 
-  // 6. Load suppliers for the organization
-  let suppliers: Tables<"suppliers">[] = [];
+  // 6. Load business accounts (suppliers/clients) for the organization
+  let suppliers: Tables<"business_accounts">[] = [];
   if (activeOrgId) {
     const { data: suppliersData } = await supabase
-      .from("suppliers")
+      .from("business_accounts")
       .select("*")
       .eq("organization_id", activeOrgId)
       .is("deleted_at", null)

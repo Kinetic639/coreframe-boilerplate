@@ -422,6 +422,7 @@ export class StockMovementsService {
         ecommerce: 0,
       },
       by_status: {
+        draft: 0,
         pending: 0,
         approved: 0,
         completed: 0,

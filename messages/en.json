@@ -749,6 +749,19 @@
     }
   },
   "modules": {
+    "contacts": {
+      "title": "Contacts"
+    },
+    "documentation": {
+      "title": "Documentation",
+      "description": "Knowledge center with guides and references",
+      "items": {
+        "home": "Documentation",
+        "user": "User Guide",
+        "dev": "Developer Docs",
+        "spec": "Specifications"
+      }
+    },
     "home": {
       "title": "Home",
       "items": {
@@ -939,6 +952,10 @@
           "batches": "Label Batches",
           "history": "Assignment History"
         },
+        "alerts": {
+          "title": "Stock Alerts",
+          "description": "Low stock monitoring and replenishment alerts"
+        },
         "scanning": {
           "title": "Code Scanning",
           "delivery": "Delivery Scanning",
@@ -1092,7 +1109,20 @@
           "title": "Suppliers",
           "list": "Supplier List",
           "deliveries": "Deliveries"
+        },
+        "sales": {
+          "title": "Sales",
+          "orders": "Sales Orders",
+          "clients": "Clients"
+        },
+        "purchases": {
+          "title": "Purchases",
+          "orders": "Purchase Orders"
         }
+      },
+      "partnerTypes": {
+        "vendor": "Supplier",
+        "customer": "Client"
       }
     },
     "teams": {
@@ -1237,7 +1267,8 @@
         "richTextEditor": "Rich Text Editor",
         "subscriptionTest": "Subscription Test",
         "skuGenerator": "SKU Generator Test",
-        "deliveryDebugger": "Delivery Debugger"
+        "deliveryDebugger": "Delivery Debugger",
+        "reservationsTest": "Reservations Test"
       }
     }
   },
@@ -1755,6 +1786,7 @@
     "completedAt": "Completed At",
     "cancelledAt": "Cancelled At",
     "statuses": {
+      "draft": "Draft",
       "pending": "Pending",
       "approved": "Approved",
       "completed": "Completed",
@@ -1795,6 +1827,8 @@
       "hide": "Hide Filters",
       "allCategories": "All Categories",
       "allStatuses": "All Statuses",
+      "allMovements": "All Movements",
+      "requiresApproval": "Requires Approval",
       "fromDate": "From Date",
       "toDate": "To Date",
       "selectDate": "Select date"
@@ -1823,6 +1857,446 @@
       "noApprovals": "No movements pending approval",
       "reject": "Reject",
       "approve": "Approve"
+    }
+  },
+  "transfers": {
+    "title": "Warehouse Transfers",
+    "description": "Manage transfers between warehouses and locations",
+    "createTransfer": "Create Transfer",
+    "transferDetails": "Transfer Details",
+    "transferNumber": "Transfer Number",
+    "fromBranch": "From Warehouse",
+    "toBranch": "To Warehouse",
+    "fromLocation": "From Location",
+    "toLocation": "To Location",
+    "priority": "Priority",
+    "expectedDate": "Expected Date",
+    "shippingMethod": "Shipping Method",
+    "carrier": "Carrier",
+    "trackingNumber": "Tracking Number",
+    "requestedBy": "Requested By",
+    "approvedBy": "Approved By",
+    "shippedBy": "Shipped By",
+    "receivedBy": "Received By",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "shippedAt": "Shipped At",
+    "receivedAt": "Received At",
+    "items": "Items",
+    "itemCount": "{count} items",
+    "totalQuantity": "Total Quantity",
+    "receivedQuantity": "Received Quantity",
+    "statuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "approved": "Approved",
+      "in_transit": "In Transit",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected"
+    },
+    "priorities": {
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "actions": {
+      "submit": "Submit for Approval",
+      "approve": "Approve Transfer",
+      "reject": "Reject Transfer",
+      "ship": "Mark as Shipped",
+      "receive": "Receive Transfer",
+      "cancel": "Cancel Transfer",
+      "edit": "Edit",
+      "viewDetails": "View Details",
+      "refresh": "Refresh"
+    },
+    "messages": {
+      "transferCreated": "Transfer created successfully",
+      "transferSubmitted": "Transfer submitted for approval",
+      "transferApproved": "Transfer approved successfully",
+      "transferRejected": "Transfer rejected",
+      "transferShipped": "Transfer marked as shipped",
+      "transferReceived": "Transfer received successfully",
+      "transferCancelled": "Transfer cancelled",
+      "transferUpdated": "Transfer updated successfully",
+      "loadError": "Failed to load transfers",
+      "createError": "Failed to create transfer",
+      "updateError": "Failed to update transfer",
+      "noTransfers": "No transfers found",
+      "noItems": "No items in transfer",
+      "sameWarehouseError": "Source and destination warehouses must be different"
+    },
+    "filters": {
+      "allStatuses": "All Statuses",
+      "allPriorities": "All Priorities",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "search": "Search by number or notes..."
+    },
+    "workflow": {
+      "title": "Workflow",
+      "created": "Created",
+      "submitted": "Submitted for approval",
+      "approved": "Approved",
+      "shipped": "Shipped",
+      "received": "Received",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "All Transfers",
+      "pending": "Pending",
+      "inTransit": "In Transit",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "form": {
+      "selectBranch": "Select warehouse",
+      "selectLocation": "Select location",
+      "selectProduct": "Select product",
+      "addItem": "Add Item",
+      "removeItem": "Remove Item",
+      "notes": "Notes",
+      "enterNotes": "Enter notes...",
+      "reasonRequired": "Reason required",
+      "enterReason": "Enter reason..."
+    }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Clients",
+      "description": "Manage customer contacts and relationships",
+      "pageTitle": "Clients",
+      "pageDescription": "Customer relationship management",
+      "list": "Client List",
+      "totalCount": "{count} total clients"
+    },
+    "vendors": {
+      "title": "Vendors",
+      "description": "Manage supplier contacts and relationships",
+      "pageTitle": "Vendors",
+      "pageDescription": "Supplier relationship management",
+      "list": "Vendor List",
+      "totalCount": "{count} total vendors"
+    },
+    "title": "Contacts",
+    "description": "Manage your personal and organizational contacts",
+    "types": {
+      "contact": "Contact",
+      "lead": "Lead",
+      "other": "Other"
+    },
+    "visibilityScopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization",
+      "privateDesc": "Only visible to you",
+      "branchDesc": "Visible to branch members",
+      "organizationDesc": "Visible to all organization members"
+    },
+    "entityTypes": {
+      "business": "Business",
+      "individual": "Individual"
+    },
+    "form": {
+      "newTitle": "New {type}",
+      "editTitle": "Edit {type}",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "tabs": {
+        "basicInfo": "Basic Info",
+        "info": "Info",
+        "otherDetails": "Other Details",
+        "address": "Address",
+        "linkedAccounts": "Linked Business Accounts",
+        "contactPersons": "Contact Persons",
+        "customFields": "Custom Fields",
+        "remarks": "Remarks",
+        "notes": "Notes"
+      },
+      "entityTypes": {
+        "business": "Business",
+        "individual": "Individual"
+      },
+      "salutations": {
+        "label": "Salutation",
+        "mr": "Mr.",
+        "mrs": "Mrs.",
+        "ms": "Ms.",
+        "dr": "Dr.",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
+      "fields": {
+        "visibilityScope": "Visibility Scope",
+        "visibilityScopeHelp": "Control who can see this contact",
+        "contactVisibility": "Contact Type",
+        "privateVisibilityDesc": "Only you can view and edit this contact",
+        "organizationVisibilityDesc": "All organization members can view and edit this contact",
+        "privateVisibilityInfo": "Private contacts cannot be linked to business accounts. Change to public to link this contact to clients or suppliers.",
+        "organizationVisibilityInfo": "Organization contacts can be linked to business accounts (clients/suppliers). Once set to public, it cannot be changed back to private.",
+        "organizationVisibilityLocked": "This contact is public and cannot be changed to private because it may already be linked to business accounts.",
+        "customerType": "Customer Type",
+        "salutation": "Salutation",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "companyName": "Company Name",
+        "displayName": "Display Name",
+        "displayNameHelp": "This name will be displayed across all transactions",
+        "primaryEmail": "Primary Email",
+        "workPhone": "Work Phone",
+        "mobilePhone": "Mobile Phone",
+        "website": "Website",
+        "language": "Language",
+        "currency": "Currency",
+        "paymentTerms": "Payment Terms",
+        "taxRegistrationNumber": "Tax Registration Number",
+        "companyIdNumber": "Company ID Number",
+        "taxRate": "Tax Rate (%)",
+        "taxExempt": "Tax Exempt",
+        "creditLimit": "Credit Limit",
+        "openingBalance": "Opening Balance",
+        "portalEnabled": "Allow Portal Access",
+        "portalLanguage": "Portal Language",
+        "fax": "Fax",
+        "billingAddress": "Billing Address",
+        "shippingAddress": "Shipping Address",
+        "attentionTo": "Attention To",
+        "country": "Country",
+        "addressLine1": "Address Line 1",
+        "addressLine2": "Address Line 2",
+        "city": "City",
+        "stateProvince": "State/Province",
+        "postalCode": "Postal Code",
+        "phone": "Phone",
+        "defaultAddress": "Default",
+        "contactPersons": "Contact Persons",
+        "name": "Name",
+        "email": "Email",
+        "designation": "Designation",
+        "department": "Department",
+        "primary": "Primary",
+        "active": "Active",
+        "actions": "Actions",
+        "primaryContact": "Primary Contact",
+        "notes": "Notes",
+        "internalNotes": "Internal Notes",
+        "internalNotesHelp": "These notes are for internal use only and will not be visible to the contact",
+        "type": "Type",
+        "location": "Location",
+        "tags": "Tags",
+        "tagsHelp": "Use tags to categorize and organize contacts"
+      },
+      "placeholders": {
+        "salutation": "Select salutation",
+        "firstName": "Enter first name",
+        "lastName": "Enter last name",
+        "companyName": "Enter company name",
+        "displayName": "Enter display name",
+        "email": "example@company.com",
+        "phone": "+1 234 567 890",
+        "website": "https://example.com",
+        "paymentTerms": "Select payment terms",
+        "taxNumber": "Enter tax number",
+        "companyId": "Enter company ID",
+        "taxRate": "e.g. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Enter fax number",
+        "attentionTo": "Contact person name",
+        "country": "Enter country",
+        "addressLine1": "Street address",
+        "addressLine2": "Apartment, suite, etc.",
+        "city": "Enter city",
+        "stateProvince": "Enter state/province",
+        "postalCode": "Enter postal code",
+        "designation": "Job title",
+        "department": "Department name",
+        "notes": "Add any additional notes here...",
+        "tags": "Add tags (press Enter to add)"
+      },
+      "actions": {
+        "addBillingAddress": "Add Billing Address",
+        "addShippingAddress": "Add Shipping Address",
+        "addContactPerson": "Add Contact Person",
+        "add": "Add",
+        "update": "Update",
+        "cancel": "Cancel"
+      },
+      "dialogs": {
+        "addContactPerson": "Add Contact Person",
+        "editContactPerson": "Edit Contact Person",
+        "title": "Title",
+        "workPhone": "Work Phone",
+        "designation": "Job Title",
+        "department": "Department",
+        "notes": "Notes",
+        "primaryContact": "Primary Contact",
+        "active": "Active",
+        "cancel": "Cancel",
+        "add": "Add",
+        "update": "Update"
+      },
+      "messages": {
+        "createSuccess": "Contact created successfully",
+        "updateSuccess": "Contact updated successfully",
+        "error": "Failed to save contact",
+        "noAddresses": "No addresses added yet",
+        "noContactPersons": "No contact persons added yet",
+        "customFieldsPlaceholder": "No custom fields defined",
+        "customFieldsInfo": "Custom fields can be configured in organization settings"
+      }
+    },
+    "actions": {
+      "newContact": "New Contact",
+      "newClient": "New Client",
+      "newVendor": "New Vendor",
+      "addBillingAddress": "Add Billing Address",
+      "addShippingAddress": "Add Shipping Address",
+      "addContactPerson": "Add Contact Person",
+      "add": "Add",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirmDelete": "Confirm Delete"
+    },
+    "dialogs": {
+      "addContactPerson": "Add Contact Person",
+      "editContactPerson": "Edit Contact Person",
+      "title": "Title",
+      "workPhone": "Work Phone",
+      "designation": "Job Title",
+      "department": "Department",
+      "notes": "Notes",
+      "primaryContact": "Primary Contact",
+      "active": "Active",
+      "cancel": "Cancel",
+      "add": "Add",
+      "update": "Update"
+    },
+    "messages": {
+      "loading": "Loading contacts...",
+      "noContacts": "No contacts found",
+      "noAddresses": "No addresses added yet",
+      "noContactPersons": "No contact persons added yet",
+      "createSuccess": "Contact created successfully",
+      "updateSuccess": "Contact updated successfully",
+      "deleteSuccess": "Contact deleted successfully",
+      "deleteError": "Failed to delete contact",
+      "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
+      "error": "An error occurred"
+    },
+    "filters": {
+      "title": "Filters",
+      "searchPlaceholder": "Search by name, email, or phone...",
+      "allTypes": "All Types",
+      "allScopes": "All Scopes",
+      "clearAll": "Clear All"
+    },
+    "scopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization"
+    },
+    "pagination": {
+      "showing": "Showing {start} to {end} of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    }
+  },
+  "documentation": {
+    "title": "Documentation",
+    "description": "Knowledge center with guides, specs, and references",
+    "sections": {
+      "user": "User Guide",
+      "dev": "Developer Docs",
+      "spec": "Specifications",
+      "internal": "Internal Docs",
+      "api": "API Reference",
+      "meta": "System Docs"
+    },
+    "sectionDescriptions": {
+      "user": "Learn how to use AmbraWMS effectively",
+      "dev": "Technical documentation for developers",
+      "spec": "Detailed technical specifications",
+      "internal": "Internal team documentation",
+      "api": "API endpoints and integration guides",
+      "meta": "System architecture and design docs"
+    },
+    "navigation": {
+      "home": "Documentation Home",
+      "back": "Back",
+      "tableOfContents": "Table of Contents",
+      "onThisPage": "On This Page",
+      "quickLinks": "Quick Links"
+    },
+    "search": {
+      "placeholder": "Search documentation...",
+      "noResults": "No results found",
+      "searching": "Searching...",
+      "results": "{count} results found"
+    },
+    "actions": {
+      "edit": "Edit",
+      "print": "Print",
+      "download": "Download PDF",
+      "share": "Share",
+      "feedback": "Give Feedback",
+      "createTranslation": "Create Translation"
+    },
+    "language": {
+      "switchLanguage": "Switch Language",
+      "notTranslated": "This document is not yet translated to {language}.",
+      "viewOriginal": "View in {language}",
+      "helpTranslate": "Help translate this document",
+      "notAvailable": "This document is not available in your language.",
+      "showingFallback": "Showing English version instead."
+    },
+    "metadata": {
+      "lastUpdated": "Last updated",
+      "version": "Version",
+      "author": "Author",
+      "difficulty": "Difficulty",
+      "estimatedTime": "Estimated reading time",
+      "minutes": "{count} min",
+      "prerequisites": "Prerequisites",
+      "relatedDocs": "Related Documentation"
+    },
+    "difficulty": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "status": {
+      "draft": "Draft",
+      "review": "In Review",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "messages": {
+      "loading": "Loading documentation...",
+      "notFound": "Documentation not found",
+      "error": "Failed to load documentation",
+      "saved": "Changes saved successfully",
+      "published": "Document published successfully"
+    },
+    "widgets": {
+      "search": {
+        "title": "Search Documentation",
+        "description": "Quick search across all docs"
+      },
+      "recent": {
+        "title": "Recently Viewed",
+        "description": "Your recently viewed docs",
+        "empty": "No recently viewed documents"
+      }
     }
   }
 }

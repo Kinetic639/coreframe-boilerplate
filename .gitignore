@@ -9,7 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+/.idx
 # testing
 /coverage
 
@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Git filter-branch artifacts
+.git-rewrite/
+
+# Test artifacts
+test-results/
+.idx/
