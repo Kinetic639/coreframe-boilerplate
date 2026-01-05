@@ -11,7 +11,7 @@
 | Phase       | Status         | Progress | Started    | Completed  | Notes                        |
 | ----------- | -------------- | -------- | ---------- | ---------- | ---------------------------- |
 | **Phase 0** | ✅ Complete    | 100%     | 2025-12-10 | 2025-12-10 | Testing infrastructure ready |
-| **Phase 1** | 🔵 In Progress | 33%      | 2026-01-05 | TBD        | Auth + Context + Permissions |
+| **Phase 1** | 🔵 In Progress | 44%      | 2026-01-05 | TBD        | Auth + Context + Permissions |
 | **Phase 2** | ⚪ Not Started | 0%       | -          | -          | RLS Baseline                 |
 | **Phase 3** | ⚪ Not Started | 0%       | -          | -          | First Feature Slice          |
 | **Phase 4** | ⚪ Not Started | 0%       | -          | -          | UI Rebuild Foundation        |
@@ -70,7 +70,7 @@
 
 **Goal:** Rock-solid authentication, context loading, and permission foundation
 **Duration:** 3-7 days
-**Status:** 🔵 In Progress (33% - 3/9 increments complete)
+**Status:** 🔵 In Progress (44% - 4/9 increments complete)
 **Started:** 2026-01-05
 **Target Completion:** 2026-01-12
 
@@ -92,7 +92,7 @@ Build the platform foundation that all features depend on. This phase establishe
 | **1**     | Database - authorize() function     | ✅     | ✅    | ✅             | ✅        |
 | **2**     | Database - JWT custom hook          | ✅     | ✅    | ✅             | ✅        |
 | **3**     | Auth Service Layer                  | ✅     | ✅    | ✅             | ✅        |
-| **4**     | Permission Service Layer            | ⚪     | ⚪    | ⚪             | ⚪        |
+| **4**     | Permission Service Layer            | ✅     | ✅    | ✅             | ⚪        |
 | **5**     | Rebuild loadUserContextServer       | ⚪     | ⚪    | ⚪             | ⚪        |
 | **6**     | Refine loadAppContextServer         | ⚪     | ⚪    | ⚪             | ⚪        |
 | **7**     | Update Zustand Stores               | ⚪     | ⚪    | ⚪             | ⚪        |
@@ -166,31 +166,49 @@ Build the platform foundation that all features depend on. This phase establishe
 
 ---
 
-#### Increment 4: Permission Service Layer (2-3 hours)
+#### Increment 4: Permission Service Layer ✅ COMPLETE
 
 **Objective:** Create permission derivation service
 
-- [ ] Write tests for getPermissionsForUser()
-  - [ ] Fetch from role assignments
-  - [ ] Apply overrides
-  - [ ] Handle RLS denial
-  - [ ] Handle no roles
-- [ ] Write tests for can()
-  - [ ] Permission exists
-  - [ ] Permission missing
-  - [ ] Wildcard matching
-  - [ ] Empty permissions
-- [ ] Implement PermissionService
-  - [ ] getPermissionsForUser()
-  - [ ] can() with wildcard support
-- [ ] All tests passing
+- [x] Write tests for getPermissionsForUser()
+  - [x] Fetch from role assignments
+  - [x] Apply overrides (grant and deny)
+  - [x] Handle RLS denial
+  - [x] Handle no roles
+  - [x] Handle RPC errors
+  - [x] Handle override fetch errors
+- [x] Write tests for can()
+  - [x] Permission exists (exact match)
+  - [x] Permission missing
+  - [x] Wildcard matching (module level, entity level, multiple levels)
+  - [x] Empty permissions
+  - [x] Special characters in wildcards
+  - [x] Case sensitivity
+  - [x] Exact match priority over wildcard
+- [x] Implement PermissionService
+  - [x] getPermissionsForUser() with full permission derivation
+  - [x] can() with wildcard regex support
+  - [x] Silent failure pattern for errors
+  - [x] Full TypeScript type safety
+- [x] All 16 tests passing
+- [x] Type-check passes
+- [x] Lint passes
 
 **Files:**
 
-- `src/server/services/permission.service.ts`
-- `src/server/services/__tests__/permission.service.test.ts`
+- `src/server/services/permission.service.ts` (191 lines, 2 methods)
+- `src/server/services/__tests__/permission.service.test.ts` (16 tests)
 
-**Gate:** Permission derivation with role-based + override logic, fully tested
+**Implementation Details:**
+
+- `getPermissionsForUser()` combines role-based permissions with user-specific overrides
+- Fetches from user_role_assignments, calls get_permissions_for_roles RPC, applies user_permission_overrides
+- `can()` supports wildcard patterns: `*`, `warehouse.*`, `warehouse.products.*`
+- Uses regex for wildcard matching with special character escaping
+- Returns empty array on errors (RLS denials, missing data, etc.)
+- Full JSDoc documentation
+
+**Gate:** ✅ Permission derivation with role-based + override logic, fully tested (16/16 tests passing)
 
 ---
 
@@ -331,9 +349,9 @@ Phase 1 is complete when ALL of the following are true:
 #### Service Layer
 
 - [x] AuthService implemented with tests (20 tests)
-- [ ] PermissionService implemented with tests
+- [x] PermissionService implemented with tests (16 tests)
 - [ ] OrganizationService implemented with tests (vertical slice)
-- [x] All service tests passing (node environment) - 22 tests currently
+- [x] All service tests passing (node environment) - 36 tests currently
 
 #### Context Loaders
 
@@ -504,14 +522,14 @@ Phase 1 is complete when ALL of the following are true:
 
 Track test coverage and health over time:
 
-| Metric          | Phase 0 | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
-| --------------- | ------- | ------- | ------- | ------- | ------- | ------- |
-| Total Tests     | 18      | TBD     | TBD     | TBD     | TBD     | TBD     |
-| Service Tests   | 2       | TBD     | TBD     | TBD     | TBD     | TBD     |
-| Action Tests    | 0       | TBD     | TBD     | TBD     | TBD     | TBD     |
-| Hook Tests      | 0       | TBD     | TBD     | TBD     | TBD     | TBD     |
-| Component Tests | 0       | TBD     | TBD     | TBD     | TBD     | TBD     |
-| Coverage %      | N/A     | TBD     | TBD     | TBD     | TBD     | TBD     |
+| Metric          | Phase 0 | Phase 1        | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+| --------------- | ------- | -------------- | ------- | ------- | ------- | ------- |
+| Total Tests     | 18      | 54 (current)   | TBD     | TBD     | TBD     | TBD     |
+| Service Tests   | 2       | 36 (current)   | TBD     | TBD     | TBD     | TBD     |
+| Action Tests    | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
+| Hook Tests      | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
+| Component Tests | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
+| Coverage %      | N/A     | N/A (tracking) | TBD     | TBD     | TBD     | TBD     |
 
 ---
 
@@ -602,4 +620,4 @@ Use this format to track daily progress:
 
 **Last Updated:** 2026-01-05
 **Updated By:** Claude Code
-**Next Review:** After Phase 1 Increment 1
+**Next Review:** After Phase 1 Increment 5
