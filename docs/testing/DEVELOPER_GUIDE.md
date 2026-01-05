@@ -46,7 +46,7 @@ This guide provides comprehensive patterns and best practices for writing tests 
 4. **Speed and Reliability**
    - Tests should be fast (< 1 second each)
    - Tests should be deterministic (no random failures)
-   - Use appropriate environment (happy-dom vs node)
+   - Use appropriate environment (jsdom vs node)
 
 ---
 
@@ -58,20 +58,20 @@ This guide provides comprehensive patterns and best practices for writing tests 
 
 ```
 Are you testing...
-├─ React Component? → Use happy-dom (default)
+├─ React Component? → Use jsdom (default)
 ├─ Server Action? → Use @vitest-environment node
 ├─ API Route? → Use @vitest-environment node
 ├─ Service Layer? → Use @vitest-environment node
 └─ Utility Function?
-   ├─ Used in components? → happy-dom
+   ├─ Used in components? → jsdom
    ├─ Used in server? → @vitest-environment node
    └─ Used in both? → Test in both!
 ```
 
-### Default Environment (happy-dom)
+### Default Environment (jsdom)
 
 ```typescript
-// No annotation needed - happy-dom is default
+// No annotation needed - jsdom is default
 describe('MyComponent', () => {
   it('should render correctly', () => {
     // DOM APIs available: window, document, navigator
@@ -180,7 +180,7 @@ describe("ProductsService", () => {
 
 **File Location:** `src/components/[category]/__tests__/[component-name].test.tsx`
 
-**Environment:** `happy-dom` (default)
+**Environment:** `jsdom` (default)
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest'
@@ -251,7 +251,7 @@ describe('ProductCard', () => {
 
 **File Location:** `src/components/[category]/__tests__/[component-name].test.tsx`
 
-**Environment:** `happy-dom` (default)
+**Environment:** `jsdom` (default)
 
 ```typescript
 import { describe, it, expect, waitFor } from 'vitest'
@@ -422,7 +422,7 @@ describe("createProductAction", () => {
 
 **File Location:** `src/components/[category]/__tests__/[component-name].test.tsx`
 
-**Environment:** `happy-dom` (default)
+**Environment:** `jsdom` (default)
 
 ```typescript
 import { describe, it, expect, vi, waitFor } from 'vitest'
@@ -690,10 +690,10 @@ const mockProduct = {
 
 ## Common Pitfalls
 
-### ❌ Pitfall 1: Testing Server Actions in happy-dom
+### ❌ Pitfall 1: Testing Server Actions in jsdom
 
 ```typescript
-// ❌ WRONG: Server action tested in happy-dom
+// ❌ WRONG: Server action tested in jsdom
 describe("createProductAction", () => {
   it("should create product", async () => {
     // This has window/document available, but server actions don't!
@@ -941,7 +941,7 @@ This testing architecture ensures:
 
 - ✅ Tests align with production behavior
 - ✅ Realistic error simulation (RLS, auth, constraints)
-- ✅ Proper environment selection (happy-dom vs node)
+- ✅ Proper environment selection (jsdom vs node)
 - ✅ No mock leakage between tests
 - ✅ Type safety matching production
 - ✅ Comprehensive coverage of success and error cases

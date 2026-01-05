@@ -9,7 +9,7 @@ The testing environment has been fully set up and verified with passing tests!
 ### 1. Install All Required Packages (Single Command)
 
 ```bash
-pnpm add -D vitest @vitest/ui @vitest/coverage-v8 @testing-library/react @testing-library/jest-dom @testing-library/user-event @vitejs/plugin-react msw vitest-mock-extended happy-dom eslint-plugin-vitest
+pnpm add -D vitest @vitest/ui @vitest/coverage-v8 @testing-library/react @testing-library/jest-dom @testing-library/user-event @vitejs/plugin-react msw vitest-mock-extended jsdom eslint-plugin-vitest
 ```
 
 **✅ DONE** - All packages have been installed.
@@ -69,7 +69,7 @@ Duration  ~2.6s
 ### Additional Utilities
 
 - **vitest-mock-extended** - Advanced mocking utilities for Vitest
-- **happy-dom** - Lightweight DOM implementation (faster than jsdom)
+- **jsdom** - JavaScript implementation of web standards for Node.js testing
 - **eslint-plugin-vitest** - ESLint rules for Vitest best practices
 
 ## Files to Create
@@ -84,7 +84,7 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "happy-dom",
+    environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     coverage: {
