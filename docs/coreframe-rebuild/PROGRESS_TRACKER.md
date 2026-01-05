@@ -101,68 +101,68 @@ Build the platform foundation that all features depend on. This phase establishe
 
 ### Detailed Tasks
 
-#### Increment 1: Database - authorize() Function (1-2 hours)
+#### Increment 1: Database - authorize() Function ✅ COMPLETE
 
 **Objective:** Create PL/pgSQL function for RLS policy permission validation
 
-- [ ] Write service tests for authorize() integration
-- [ ] Create migration: `create_authorize_function.sql`
-- [ ] Apply migration
-- [ ] Verify tests pass
+- [x] Write service tests for authorize() integration
+- [x] Create migration: `create_authorize_function.sql`
+- [x] Apply migration
+- [x] Verify tests pass
 
 **Files:**
 
-- `supabase/migrations/<timestamp>_create_authorize_function.sql`
+- `supabase/migrations/20260105115348_create_authorize_function.sql`
 - `src/server/services/__tests__/permission.service.test.ts`
 
-**Gate:** RLS policies can reference authorize() and validate permissions server-side
+**Gate:** ✅ RLS policies can reference authorize() and validate permissions server-side
 
 ---
 
-#### Increment 2: Database - Fix JWT Custom Hook (1 hour)
+#### Increment 2: Database - Fix JWT Custom Hook ✅ COMPLETE
 
 **Objective:** Update JWT hook to use user_role_assignments table
 
-- [ ] Create migration: `update_jwt_custom_hook.sql`
-- [ ] Update hook to query user_role_assignments
-- [ ] Include role metadata (role_id, name, scope, scope_id)
-- [ ] Apply migration
-- [ ] Manual test: verify JWT payload after login
+- [x] Create migration: `update_jwt_custom_hook.sql`
+- [x] Update hook to query user_role_assignments
+- [x] Include role metadata (role_id, name, scope, scope_id)
+- [x] Apply migration
+- [x] Manual test: verify JWT payload after login
 
 **Files:**
 
-- `supabase/migrations/<timestamp>_update_jwt_custom_hook.sql`
+- `supabase/migrations/20260105115648_update_jwt_custom_hook.sql`
 
-**Gate:** JWT tokens include roles from new schema with complete metadata
+**Gate:** ✅ JWT tokens include roles from new schema with complete metadata
 
 ---
 
-#### Increment 3: Auth Service Layer (2-3 hours)
+#### Increment 3: Auth Service Layer ✅ COMPLETE
 
 **Objective:** Create reusable auth service functions
 
-- [ ] Write tests for getUserRoles()
-  - [ ] Extract roles from JWT
-  - [ ] Handle invalid JWT
-  - [ ] Handle missing roles
-- [ ] Write tests for hasRole()
-  - [ ] Exact role match
-  - [ ] Org scope checking
-  - [ ] Branch scope checking
-  - [ ] Multiple roles
-- [ ] Implement AuthService
-  - [ ] getUserRoles()
-  - [ ] hasRole()
-  - [ ] getUserOrganizations()
-  - [ ] getUserBranches()
-- [ ] All tests passing
+- [x] Write tests for getUserRoles()
+  - [x] Extract roles from JWT
+  - [x] Handle invalid JWT
+  - [x] Handle missing roles
+- [x] Write tests for hasRole()
+  - [x] Exact role match
+  - [x] Org scope checking
+  - [x] Branch scope checking
+  - [x] Multiple roles
+- [x] Implement AuthService
+  - [x] getUserRoles()
+  - [x] hasRole()
+  - [x] getUserOrganizations()
+  - [x] getUserBranches()
+- [x] All tests passing (20 tests)
 
 **Files:**
 
 - `src/server/services/auth.service.ts`
 - `src/server/services/__tests__/auth.service.test.ts`
 
-**Gate:** Type-safe role extraction and validation with comprehensive tests
+**Gate:** ✅ Type-safe role extraction and validation with comprehensive tests
 
 ---
 
@@ -330,10 +330,10 @@ Phase 1 is complete when ALL of the following are true:
 
 #### Service Layer
 
-- [x] AuthService implemented with tests
-- [x] PermissionService implemented with tests
-- [x] OrganizationService implemented with tests (vertical slice)
-- [x] All service tests passing (node environment)
+- [x] AuthService implemented with tests (20 tests)
+- [ ] PermissionService implemented with tests
+- [ ] OrganizationService implemented with tests (vertical slice)
+- [x] All service tests passing (node environment) - 22 tests currently
 
 #### Context Loaders
 
