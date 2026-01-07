@@ -3,51 +3,85 @@ import { SupabaseClient } from "@supabase/supabase-js";
 /**
  * Permission Service
  *
- * Provides utilities for fetching and validating user permissions.
+ * Provides utilities for fetching and validating user permissions with full scope support.
  * Combines role-based permissions with user-specific overrides.
+ * Supports both organization-wide and branch-specific permissions.
  *
  * @example
  * ```typescript
- * const permissions = await PermissionService.getPermissionsForUser(supabase, userId, orgId);
- * const canRead = PermissionService.can(permissions, "warehouse.products.read");
- * const canManage = PermissionService.can(permissions, "warehouse.*");
+ * // Org-level permissions only
+ * const orgPerms = await PermissionService.getPermissionsForUser(supabase, userId, orgId);
+ *
+ * // Branch-level permissions (includes org + branch roles)
+ * const branchPerms = await PermissionService.getPermissionsForUser(supabase, userId, orgId, branchId);
+ *
+ * const canRead = PermissionService.can(branchPerms, "warehouse.products.read");
+ * const canManage = PermissionService.can(branchPerms, "warehouse.*");
  * ```
  */
 export class PermissionService {
   /**
-   * Get all permissions for a user within an organization
+   * Get all permissions for a user within an organization (and optionally a branch)
    *
    * Combines:
-   * 1. Role-based permissions from user_role_assignments
-   * 2. User-specific permission overrides
+   * 1. Role-based permissions from user_role_assignments (org + optional branch scopes)
+   * 2. User-specific permission overrides (with proper scope precedence)
+   *
+   * Permission precedence (later wins):
+   * - Base permissions from org-scoped roles
+   * - Base permissions from branch-scoped roles (if branchId provided)
+   * - Global overrides
+   * - Org overrides
+   * - Branch overrides (if branchId provided)
    *
    * @param supabase - Supabase client instance
    * @param userId - User ID to fetch permissions for
    * @param orgId - Organization ID context
+   * @param branchId - Optional branch ID context (if omitted, only org-scoped permissions)
    * @returns Array of permission slugs (e.g., ["warehouse.products.read", "warehouse.*"])
    *
    * @example
    * ```typescript
-   * const permissions = await PermissionService.getPermissionsForUser(
+   * // Org-only context
+   * const orgPermissions = await PermissionService.getPermissionsForUser(
    *   supabase,
    *   "user-123",
    *   "org-456"
    * );
-   * // ["warehouse.products.read", "warehouse.products.create"]
+   *
+   * // Branch context (includes org + branch permissions)
+   * const branchPermissions = await PermissionService.getPermissionsForUser(
+   *   supabase,
+   *   "user-123",
+   *   "org-456",
+   *   "branch-789"
+   * );
    * ```
    */
   static async getPermissionsForUser(
     supabase: SupabaseClient,
     userId: string,
-    orgId: string
+    orgId: string,
+    branchId?: string | null
   ): Promise<string[]> {
     try {
-      // 1. Get user's role assignments for this org
+      // 1. Get user's role assignments for this context
+      // Build filters for org-scoped and optionally branch-scoped roles
+      const filters: string[] = [
+        // Org-scoped roles for this org
+        `and(scope.eq.org,scope_id.eq.${orgId})`,
+      ];
+
+      // If branch context, also include branch-scoped roles for this branch
+      if (branchId) {
+        filters.push(`and(scope.eq.branch,scope_id.eq.${branchId})`);
+      }
+
       const { data: roleAssignments, error: roleError } = await supabase
         .from("user_role_assignments")
         .select("role_id, scope, scope_id")
         .eq("user_id", userId)
-        .or(`scope_id.eq.${orgId}`)
+        .or(filters.join(",")) // org roles OR branch roles
         .is("deleted_at", null);
 
       if (roleError) {
@@ -72,7 +106,7 @@ export class PermissionService {
       }
 
       // Extract permission slugs from RPC response
-      // The RPC can return strings directly or objects with slug property
+      // The RPC now returns SETOF text, so it should be strings directly
       const basePermissions = (permissionsData ?? [])
         .map((p: any) => {
           if (typeof p === "string") return p;
@@ -82,12 +116,18 @@ export class PermissionService {
         })
         .filter((slug: string | null): slug is string => typeof slug === "string");
 
-      // 3. Get permission overrides for this user/org
+      // 3. Get permission overrides for this user/context with proper scoping
+      // Build override filters: global + org + (optional) branch
+      // Note: global overrides have scope_id = NULL (handled by scope.eq.global filter)
+      const overrideOr = branchId
+        ? `scope.eq.global,and(scope.eq.org,scope_id.eq.${orgId}),and(scope.eq.branch,scope_id.eq.${branchId})`
+        : `scope.eq.global,and(scope.eq.org,scope_id.eq.${orgId})`;
+
       const { data: overrides, error: overrideError } = await supabase
         .from("user_permission_overrides")
-        .select("permission_id, allowed")
+        .select("permission_id, allowed, scope, scope_id")
         .eq("user_id", userId)
-        .eq("scope_id", orgId)
+        .or(overrideOr)
         .is("deleted_at", null);
 
       if (overrideError) {
@@ -117,10 +157,30 @@ export class PermissionService {
         permissionMap.set(p.id, p.slug);
       });
 
-      // 5. Apply overrides
+      // 5. Apply overrides with proper precedence
+      // Precedence: global < org < branch (later wins)
       const permissionSet = new Set<string>(basePermissions);
 
-      overrides.forEach((override) => {
+      // Sort overrides by scope precedence (global -> org -> branch)
+      // with deterministic tiebreaker on permission_id for reproducible results
+      const scopePrecedence: Record<string, number> = {
+        global: 1,
+        org: 2,
+        branch: 3,
+      };
+
+      const sortedOverrides = [...overrides].sort((a, b) => {
+        const aPrecedence = scopePrecedence[a.scope] || 0;
+        const bPrecedence = scopePrecedence[b.scope] || 0;
+        const scopeDiff = aPrecedence - bPrecedence;
+
+        // If same scope, use permission_id as stable tiebreaker
+        if (scopeDiff !== 0) return scopeDiff;
+        return String(a.permission_id).localeCompare(String(b.permission_id));
+      });
+
+      // Apply overrides in order (later overrides win)
+      sortedOverrides.forEach((override) => {
         const slug = permissionMap.get(override.permission_id);
         if (!slug) return;
 
@@ -128,12 +188,12 @@ export class PermissionService {
           // Grant permission
           permissionSet.add(slug);
         } else {
-          // Deny permission
+          // Deny permission (remove it)
           permissionSet.delete(slug);
         }
       });
 
-      return Array.from(permissionSet);
+      return Array.from(permissionSet).sort(); // Sort for deterministic results
     } catch {
       // Silent fail for unexpected errors
       return [];

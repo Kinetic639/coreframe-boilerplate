@@ -1,28 +1,14 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { jwtDecode } from "jwt-decode";
+import { AuthService, type JWTRole } from "@/server/services/auth.service";
+import { PermissionService } from "@/server/services/permission.service";
+import { cache } from "react";
 
-// 🔸 Typy JWT
-export type UserRoleFromToken = {
-  role_id: string;
-  role: string;
-  org_id: string | null;
-  branch_id: string | null;
-};
-
-export type CustomJwtPayload = {
-  roles: UserRoleFromToken[];
-};
-
-// 🔸 Detailed permission info
-export type DetailedPermission = {
-  slug: string;
-  source: "role" | "override";
-  allowed?: boolean; // For overrides, whether it's granted or denied
-};
-
-// 🔸 Typ wyniku
+/**
+ * User context loaded from server
+ * Source of truth for user identity, preferences, roles, and permissions
+ */
 export type UserContext = {
   user: {
     id: string;
@@ -35,30 +21,49 @@ export type UserContext = {
     organization_id: string | null;
     default_branch_id: string | null;
   };
-  roles: UserRoleFromToken[];
+  roles: JWTRole[]; // Using JWTRole from AuthService (single source of truth)
   permissions: string[];
-  detailedPermissions?: DetailedPermission[]; // New detailed info
 };
 
-export async function loadUserContextServer(): Promise<UserContext | null> {
+/**
+ * Internal implementation of user context loader
+ * Load user context from server (SSR-safe)
+ *
+ * Contract:
+ * - Returns null when no session exists
+ * - Loads user from public.users (fallback to session metadata)
+ * - Loads preferences from user_preferences (defaults to null if missing)
+ * - Extracts roles from JWT via AuthService.getUserRoles()
+ * - Loads permissions via PermissionService.getPermissionsForUser() only when orgId exists
+ *
+ * Forbidden:
+ * - NO service role usage
+ * - NO JWT decode fallback
+ * - NO database fallback for roles
+ *
+ * @returns UserContext or null
+ */
+async function _loadUserContextServer(): Promise<UserContext | null> {
   const supabase = await createClient();
 
+  // Get session
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // Return null if no session
   if (!session) return null;
 
   const userId = session.user.id;
 
-  // 👤 Fetch user data from public.users table (fallback to auth data if not found)
+  // Load user from public.users table
   const { data: userData } = await supabase
     .from("public.users")
     .select("id, email, first_name, last_name, avatar_url")
     .eq("id", userId)
     .single();
 
-  // If user doesn't exist in public.users, create basic user object from auth data
+  // Fallback to session metadata if public.users row missing
   const userInfo = userData || {
     id: userId,
     email: session.user.email!,
@@ -67,51 +72,7 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     avatar_url: null,
   };
 
-  // 🔐 First try to get roles from JWT claims (if hook is configured)
-  let roles: UserRoleFromToken[] = [];
-
-  try {
-    const jwt = jwtDecode<CustomJwtPayload>(session.access_token);
-    roles = jwt.roles ?? [];
-  } catch (err) {
-    console.warn("❌ JWT decode error:", err);
-  }
-
-  // 🔄 Fallback: If no roles in JWT, fetch directly with service role
-  if (roles.length === 0) {
-    console.warn("⚠️ No roles found in JWT - fetching directly from database");
-
-    // Use service role to bypass RLS policies
-    const { createClient: createServiceClient } = await import("@supabase/supabase-js");
-    const serviceSupabase = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    const { data: roleAssignments } = await serviceSupabase
-      .from("user_role_assignments")
-      .select(
-        `
-        role_id,
-        scope,
-        scope_id,
-        roles!inner(name)
-      `
-      )
-      .eq("user_id", userId)
-      .is("deleted_at", null);
-
-    roles = (roleAssignments ?? [])
-      .map((assignment: any) => ({
-        role_id: assignment.role_id,
-        role: assignment.roles?.name || "Unknown Role",
-        org_id: assignment.scope === "org" ? assignment.scope_id : null,
-        branch_id: assignment.scope === "branch" ? assignment.scope_id : null,
-      }))
-      .filter((role) => role.role !== "Unknown Role");
-  }
-
-  // 🧠 Preferencje użytkownika
+  // Load user preferences
   const { data: preferencesRaw } = await supabase
     .from("user_preferences")
     .select("organization_id, default_branch_id")
@@ -123,145 +84,24 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     default_branch_id: preferencesRaw?.default_branch_id ?? null,
   };
 
-  // 🔐 Pobierz uprawnienia wynikające z ról - use regular client with RPC function
-  let permissionsRaw = null;
+  // Extract roles from JWT using AuthService (NO database fallback)
+  const roles = AuthService.getUserRoles(session.access_token);
 
-  if (roles.length > 0) {
-    // console.log(
-    //   // "🔍 Fetching permissions for roles:",
-    //   roles.map((r) => r.role_id)
-    // );
-
-    // Use regular supabase client since it works in test-permissions
-    const roleIds = roles.map((r) => r.role_id);
-    // console.log("🔍 Role IDs being passed to RPC:", roleIds);
-
-    const { data: servicePerms } = await supabase.rpc("get_permissions_for_roles", {
-      role_ids: roleIds,
-    });
-
-    // console.log("🔍 RPC result:", { servicePerms, serviceError });
-    // console.log("🔍 Service perms type:", typeof servicePerms, Array.isArray(servicePerms));
-    // console.log("🔍 Service perms raw:", JSON.stringify(servicePerms, null, 2));
-
-    permissionsRaw = servicePerms;
-  }
-
-  // console.log("🔍 Processing permissions, permissionsRaw:", permissionsRaw);
-  // console.log("🔍 permissionsRaw type:", typeof permissionsRaw, Array.isArray(permissionsRaw));
-
-  const permissions: string[] = (permissionsRaw ?? [])
-    .map((p: any) => {
-      // console.log("🔍 Processing permission item:", p);
-
-      // Handle different RPC return formats
-      if (p && typeof p === "object") {
-        // Format 1: Direct slug property
-        if ("slug" in p) {
-          const slug = p.slug as string;
-          // console.log("🔍 Extracted slug (format 1):", slug);
-          return slug;
-        }
-
-        // Format 2: Function name as key
-        if ("get_permissions_for_roles" in p) {
-          const slug = p.get_permissions_for_roles as string;
-          // console.log("🔍 Extracted slug (format 2):", slug);
-          return slug;
-        }
-      }
-
-      // console.log("🔍 Item did not match any pattern:", p);
-      return null;
-    })
-    .filter((slug: string | null): slug is string => typeof slug === "string");
-
-  // console.log("🔍 Base permissions from roles:", permissions);
-
-  // 🔐 Apply permission overrides if user has an active organization
-  let finalPermissions = [...permissions];
-  let detailedPermissions: DetailedPermission[] = [];
-
-  // Track role-based permissions
-  permissions.forEach((slug) => {
-    detailedPermissions.push({
-      slug,
-      source: "role",
-    });
-  });
+  // Load permissions via PermissionService only when orgId exists
+  // Include branch context for branch-scoped permissions
+  let permissions: string[] = [];
 
   if (preferences.organization_id) {
-    // console.log("🔍 Fetching permission overrides for org:", preferences.organization_id);
-
-    // First get the overrides
-    const { data: overrides, error: overrideError } = await supabase
-      .from("user_permission_overrides")
-      .select("permission_id, allowed")
-      .eq("user_id", userId)
-      .eq("scope_id", preferences.organization_id)
-      .is("deleted_at", null);
-
-    // Then get permission slugs for those IDs
-    let overridesWithPermissions: any[] = [];
-    if (!overrideError && overrides && overrides.length > 0) {
-      const permissionIds = overrides.map((o) => o.permission_id);
-
-      const { data: permissions, error: permError } = await supabase
-        .from("permissions")
-        .select("id, slug")
-        .in("id", permissionIds);
-
-      if (!permError && permissions) {
-        const permissionMap = new Map(permissions.map((p) => [p.id, p.slug]));
-        overridesWithPermissions = overrides.map((override) => ({
-          ...override,
-          permission_slug: permissionMap.get(override.permission_id),
-        }));
-      }
-    }
-
-    if (overrideError) {
-      console.error("🔍 Error fetching permission overrides:", overrideError);
-    } else {
-      // console.log("🔍 Permission overrides found:", overridesWithPermissions);
-
-      // Apply overrides
-      const permissionSet = new Set(finalPermissions);
-
-      overridesWithPermissions.forEach((override) => {
-        const permissionSlug = override.permission_slug;
-        if (permissionSlug) {
-          // Remove any existing entry from detailedPermissions for this slug
-          detailedPermissions = detailedPermissions.filter((dp) => dp.slug !== permissionSlug);
-
-          // Add override entry
-          detailedPermissions.push({
-            slug: permissionSlug,
-            source: "override",
-            allowed: override.allowed,
-          });
-
-          if (override.allowed) {
-            // Grant permission (add if not present)
-            permissionSet.add(permissionSlug);
-            // console.log("🔍 Override GRANTED permission:", permissionSlug);
-          } else {
-            // Deny permission (remove if present)
-            permissionSet.delete(permissionSlug);
-            // console.log("🔍 Override DENIED permission:", permissionSlug);
-          }
-        }
-      });
-
-      finalPermissions = Array.from(permissionSet);
-    }
+    permissions = await PermissionService.getPermissionsForUser(
+      supabase,
+      userId,
+      preferences.organization_id,
+      preferences.default_branch_id // Pass branch context for branch-scoped permissions
+    );
   }
 
-  // console.log("🔍 Final permissions array (with overrides):", finalPermissions);
-  // console.log("🔍 Detailed permissions:", detailedPermissions);
-
-  // ✅ Zbuduj kontekst
-  const userContext = {
+  // Build and return user context
+  return {
     user: {
       id: userInfo.id,
       email: userInfo.email,
@@ -271,17 +111,12 @@ export async function loadUserContextServer(): Promise<UserContext | null> {
     },
     preferences,
     roles,
-    permissions: finalPermissions,
-    detailedPermissions,
+    permissions,
   };
-
-  // console.log("🔍 User context built:", {
-  //   userId,
-  //   rolesCount: roles.length,
-  //   permissionsCount: permissions.length,
-  //   roles: roles.map((r) => r.role),
-  //   permissions: permissions.slice(0, 5), // First 5 permissions for debugging
-  // });
-
-  return userContext;
 }
+
+/**
+ * Cached version of loadUserContextServer
+ * Uses React cache for deduplication across multiple calls in the same request
+ */
+export const loadUserContextServer = cache(_loadUserContextServer);
