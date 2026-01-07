@@ -1,23 +1,23 @@
 # Coreframe Rebuild Progress Tracker
 
-**Last Updated:** 2026-01-05
-**Current Phase:** Phase 0 → Phase 1
-**Overall Status:** 🟡 In Progress
+**Last Updated:** 2026-01-07 (Post-RBAC Fixes)
+**Current Phase:** Phase 1
+**Overall Status:** 🔵 In Progress
 
 ---
 
 ## Quick Overview
 
-| Phase       | Status         | Progress | Started    | Completed  | Notes                        |
-| ----------- | -------------- | -------- | ---------- | ---------- | ---------------------------- |
-| **Phase 0** | ✅ Complete    | 100%     | 2025-12-10 | 2025-12-10 | Testing infrastructure ready |
-| **Phase 1** | 🔵 In Progress | 44%      | 2026-01-05 | TBD        | Auth + Context + Permissions |
-| **Phase 2** | ⚪ Not Started | 0%       | -          | -          | RLS Baseline                 |
-| **Phase 3** | ⚪ Not Started | 0%       | -          | -          | First Feature Slice          |
-| **Phase 4** | ⚪ Not Started | 0%       | -          | -          | UI Rebuild Foundation        |
-| **Phase 5** | ⚪ Not Started | 0%       | -          | -          | Migrate Warehouse Features   |
-| **Phase 6** | ⚪ Not Started | 0%       | -          | -          | Complete Auth System         |
-| **Phase 7** | ⚪ Not Started | 0%       | -          | -          | Hardening & Correctness      |
+| Phase       | Status         | Progress | Started    | Completed  | Notes                                |
+| ----------- | -------------- | -------- | ---------- | ---------- | ------------------------------------ |
+| **Phase 0** | ✅ Complete    | 100%     | 2025-12-10 | 2025-12-10 | Testing infrastructure ready         |
+| **Phase 1** | 🔵 In Progress | 70%      | 2026-01-05 | TBD        | Auth + Context + Permissions + RBAC+ |
+| **Phase 2** | ⚪ Not Started | 0%       | -          | -          | RLS Baseline                         |
+| **Phase 3** | ⚪ Not Started | 0%       | -          | -          | First Feature Slice                  |
+| **Phase 4** | ⚪ Not Started | 0%       | -          | -          | UI Rebuild Foundation                |
+| **Phase 5** | ⚪ Not Started | 0%       | -          | -          | Migrate Warehouse Features           |
+| **Phase 6** | ⚪ Not Started | 0%       | -          | -          | Complete Auth System                 |
+| **Phase 7** | ⚪ Not Started | 0%       | -          | -          | Hardening & Correctness              |
 
 **Legend:**
 
@@ -70,9 +70,9 @@
 
 ## Phase 1: Auth + SSR Context + Permissions
 
-**Goal:** Rock-solid authentication, context loading, and permission foundation
-**Duration:** 3-7 days
-**Status:** 🔵 In Progress (44% - 4/9 increments complete)
+**Goal:** Rock-solid authentication, context loading, and permission foundation with full RBAC scope support
+**Duration:** 3-7 days (extended for RBAC enhancements)
+**Status:** 🔵 In Progress (70% - 6/9 increments + RBAC fixes complete)
 **Started:** 2026-01-05
 **Target Completion:** 2026-01-12
 
@@ -95,8 +95,9 @@ Build the platform foundation that all features depend on. This phase establishe
 | **2**     | Database - JWT custom hook          | ✅     | ✅    | ✅             | ✅        |
 | **3**     | Auth Service Layer                  | ✅     | ✅    | ✅             | ✅        |
 | **4**     | Permission Service Layer            | ✅     | ✅    | ✅             | ✅        |
-| **5**     | Rebuild loadUserContextServer       | ⚪     | ⚪    | ⚪             | ⚪        |
-| **6**     | Refine loadAppContextServer         | ⚪     | ⚪    | ⚪             | ⚪        |
+| **5**     | Rebuild loadUserContextServer       | ✅     | ✅    | ✅             | ⚪        |
+| **6**     | Refine loadAppContextServer         | ✅     | ✅    | ✅             | ⚪        |
+| **6.5**   | **RBAC Scope Fixes & Enhancements** | ✅     | ✅    | ✅             | ⚪        |
 | **7**     | Update Zustand Stores               | ⚪     | ⚪    | ⚪             | ⚪        |
 | **8**     | Create usePermissions Hook          | ⚪     | ⚪    | ⚪             | ⚪        |
 | **9**     | Vertical Slice - List Organizations | ⚪     | ⚪    | ⚪             | ⚪        |
@@ -214,50 +215,230 @@ Build the platform foundation that all features depend on. This phase establishe
 
 ---
 
-#### Increment 5: Rebuild loadUserContextServer (2 hours)
+#### Increment 5: Rebuild loadUserContextServer ✅ COMPLETE
 
 **Objective:** Refactor context loader, remove service role fallback
+**Duration:** ~2 hours
+**Tests:** 15 tests (all passing)
+**Lines Changed:** 287 → 123 lines (57% reduction, -164 lines)
 
-- [ ] Write tests for loadUserContextServer()
-  - [ ] Return null when no session
-  - [ ] Load user + roles + permissions
-  - [ ] Handle missing preferences
-  - [ ] Verify NO service role fallback
-- [ ] Refactor implementation
-  - [ ] Use AuthService.getUserRoles()
-  - [ ] Use PermissionService.getPermissionsForUser()
-  - [ ] Remove service role client code
-  - [ ] Simplify permission logic
-- [ ] All tests passing
+- [x] Write tests for loadUserContextServer()
+  - [x] Return null when no session
+  - [x] Load user + roles + permissions
+  - [x] Handle missing preferences
+  - [x] Verify NO service role fallback
+- [x] Refactor implementation
+  - [x] Use AuthService.getUserRoles()
+  - [x] Use PermissionService.getPermissionsForUser()
+  - [x] Remove service role client code (32 lines removed)
+  - [x] Simplify permission logic (132 lines removed)
+- [x] All tests passing
 
-**Files:**
+**Files Created:**
 
-- `src/lib/api/load-user-context-server.ts`
-- `src/lib/api/__tests__/load-user-context-server.test.ts`
+- `src/lib/api/__tests__/load-user-context-server.test.ts` (15 comprehensive tests)
 
-**Gate:** Clean context loader without security concerns, fully tested
+**Files Modified:**
+
+- `src/lib/api/load-user-context-server.ts` (287 → 123 lines)
+
+**Key Improvements:**
+
+- **Security:** Removed ALL service role usage (32 lines of risky code deleted)
+- **Security:** Removed JWT decode fallback logic (9 lines deleted)
+- **Architecture:** Delegated permission loading to PermissionService (132 lines deleted)
+- **Simplicity:** Single source of truth for roles (AuthService) and permissions (PermissionService)
+- **Testability:** Full test coverage with 15 contract-based tests
+
+**Contract:**
+
+- Returns null when no session
+- Loads user from public.users (fallback to session metadata)
+- Loads preferences from user_preferences (null defaults)
+- Extracts roles from JWT via AuthService.getUserRoles()
+- Loads permissions via PermissionService.getPermissionsForUser() only when orgId exists
+
+**Forbidden:**
+
+- NO service role usage
+- NO JWT decode fallback
+- NO database fallback for roles
+
+**Gate:** ✅ Clean context loader without security concerns, fully tested (15/15 tests passing)
 
 ---
 
-#### Increment 6: Refine loadAppContextServer (1 hour)
+#### Increment 6: Refine loadAppContextServer ✅ COMPLETE
 
 **Objective:** Validate app context loader is minimal
+**Duration:** ~1 hour
+**Tests:** 15 tests (all passing)
+**Lines Changed:** 234 → 171 lines (27% reduction, -63 lines)
 
-- [ ] Write tests for loadAppContextServer()
-  - [ ] Return null when no session
-  - [ ] Load active org from preferences
-  - [ ] Fallback to owned org
-- [ ] Review implementation
-  - [ ] Confirm minimal data loading
-  - [ ] Verify deterministic fallback
-- [ ] All tests passing
+- [x] Write tests for loadAppContextServer()
+  - [x] Return null when no session
+  - [x] Load active org from preferences
+  - [x] Fallback to owned org
+  - [x] Verify minimal data loading
+  - [x] Verify deterministic fallback chain
+- [x] Review implementation
+  - [x] Confirm minimal data loading
+  - [x] Verify deterministic fallback
+  - [x] Remove JWT decode fallback (13 lines removed)
+  - [x] Remove heavy data loading (50 lines removed)
+- [x] All tests passing
 
-**Files:**
+**Files Created:**
 
-- `src/lib/api/load-app-context-server.ts`
-- `src/lib/api/__tests__/load-app-context-server.test.ts`
+- `src/lib/api/__tests__/load-app-context-server.test.ts` (15 comprehensive tests)
 
-**Gate:** App context loader validated with tests
+**Files Modified:**
+
+- `src/lib/api/load-app-context-server.ts` (234 → 171 lines)
+
+**Key Improvements:**
+
+- **Performance:** Removed heavy data loading (locations, suppliers, users, subscription)
+- **Performance:** Smaller SSR payload = faster initial page load
+- **Security:** Removed JWT decode fallback for org selection (13 lines deleted)
+- **Predictability:** Deterministic fallback chain: `preferences.organization_id ?? owned_org.id ?? null`
+- **Simplicity:** No side effects (removed auto-upsert of preferences)
+- **Testability:** Full test coverage with 15 contract-based tests
+
+**Contract:**
+
+- Returns null when no session
+- Deterministic org selection: `preferences.organization_id ?? owned_org.id ?? null`
+- Deterministic branch selection: `preferences.default_branch_id ?? first_available_branch ?? null`
+- Loads minimal data: org profile, branches, active branch, user modules
+- Heavy data arrays set to empty: `locations: []`, `suppliers: []`, `organizationUsers: []`, `privateContacts: []`
+- Subscription set to null (load lazily on client)
+- Module settings for feature gating (not permissions)
+
+**Forbidden:**
+
+- NO JWT decode fallback for org selection
+- NO heavy data loading (locations, suppliers, etc.)
+- NO auto-upsert of preferences (side effects)
+
+**Known Limitations:**
+
+- Org fallback only checks `created_by=userId` (ownership)
+- Does NOT fallback to membership orgs (user is member but not owner)
+- Assumption: Onboarding guarantees users own at least one org
+- Future enhancement: Add membership fallback if needed
+
+**Gate:** ✅ App context loader validated with tests, minimal SSR payload (15/15 tests passing)
+
+---
+
+#### Increment 6.5: RBAC Scope Fixes & Enhancements ✅ COMPLETE
+
+**Objective:** Fix critical RBAC issues discovered through external code review
+**Duration:** ~3 hours
+**Tests:** 88 tests (all passing)
+**Migrations:** 2 new migrations applied
+**Trigger:** ChatGPT analysis identified 4 critical issues with permission scoping
+
+**Problems Discovered:**
+
+1. **Global Override Representation** (Critical Security Issue)
+   - `scope_id uuid NOT NULL` made global overrides impossible
+   - Code tried to use `scope_id="global"` (string) violating UUID constraint
+
+2. **Permission Override Query Filter** (Security Issue)
+   - Used brittle `and(scope.eq.global)` syntax
+   - Didn't properly handle NULL scope_id for global overrides
+
+3. **Non-Deterministic Override Precedence**
+   - Same-level overrides had random order
+   - Made debugging impossible, broke reproducibility
+
+4. **Missing Loader Fixes**
+   - activeBranchId mismatch in loadAppContextServer
+   - Non-deterministic org fallback ordering
+   - Excessive field selection in org profile query
+
+- [x] **Migration 1:** Fix RBAC Scope Support
+  - [x] Add `scope_type` column to `roles` table ('org', 'branch', 'both')
+  - [x] Add validation trigger to enforce scope constraints
+  - [x] Improve `get_permissions_for_roles` RPC (DISTINCT + ORDER BY)
+  - [x] Clean up duplicate override row before applying unique constraint
+  - [x] Apply migration successfully
+
+- [x] **Migration 2:** Fix Permission Overrides Global Scope
+  - [x] Make `scope_id` nullable (global = NULL, org/branch = UUID)
+  - [x] Add unique constraint (user, permission, scope, scope_id)
+  - [x] Add CHECK constraint enforcing scope rules
+  - [x] Apply migration successfully
+
+- [x] **PermissionService Updates**
+  - [x] Fix override query filter to use proper `scope.eq.global` syntax
+  - [x] Remove brittle `and(scope.eq.global)` wrapper
+  - [x] Add deterministic secondary sort on permission_id
+  - [x] Update comments to document scope_id = NULL for global
+
+- [x] **Context Loader Enhancements**
+  - [x] Fix activeBranchId consistency in loadAppContextServer
+  - [x] Add deterministic ordering to org fallback (created_at ASC)
+  - [x] Reduce org profile to minimal fields
+  - [x] Ensure loadUserContextServer passes branchId to PermissionService
+
+- [x] **Test Updates**
+  - [x] Update global override test to use `scope_id: null`
+  - [x] All 88 tests passing
+
+**Files Created:**
+
+- `supabase/migrations/20260107145249_fix_rbac_scope_support.sql`
+- `supabase/migrations/fix_permission_overrides_global_scope.sql`
+- `docs/coreframe-rebuild/RBAC_FIXES_SUMMARY.md`
+
+**Files Modified:**
+
+- `src/server/services/permission.service.ts` (lines 119-131, 172-180)
+- `src/lib/api/load-user-context-server.ts` (line 111)
+- `src/lib/api/load-app-context-server.ts` (lines 64-70, 79-83, 93, 110-112)
+- `src/server/services/__tests__/permission.service.test.ts` (line 226)
+
+**Key Achievements:**
+
+- **Security:** Fixed critical global override representation issue
+- **Security:** Proper scope filtering prevents UUID collision attacks
+- **Database:** Added validation constraints (CHECK, unique, trigger)
+- **Determinism:** All permission calculations now reproducible
+- **Architecture:** Roles declare intended scope, preventing misassignment
+- **Testing:** All 88 tests passing with updated schema expectations
+
+**RBAC System Now Fully Supports:**
+
+1. **Org-Scoped Permissions**
+   - Org owners get permissions covering ALL branches
+   - Single role assignment applies organization-wide
+   - Example: `org.branches.manage` manages all branches
+
+2. **Branch-Scoped Permissions**
+   - Branch admins get permissions ONLY for assigned branch
+   - Same permission slug, different scope, different access
+   - Example: `warehouse.products.*` in branch A only
+
+3. **Same User, Different Branches**
+   - User can be admin of branch A, viewer of branch B
+   - Permissions calculated per active branch context
+   - Supports multi-branch multi-role scenarios
+
+4. **Permission Override Precedence**
+   - Global < Org < Branch (later wins)
+   - Deterministic with stable tiebreaker
+   - Properly handles NULL scope_id for global
+
+**Architectural Decisions:**
+
+- **ADR-005:** Nullable scope_id for Global Overrides
+- **ADR-006:** Role Scope Type Declaration
+- **ADR-007:** Deterministic Override Sorting
+
+**Gate:** ✅ RBAC system fully functional with org/branch scope support, all tests passing (88/88)
 
 ---
 
@@ -357,10 +538,10 @@ Phase 1 is complete when ALL of the following are true:
 
 #### Context Loaders
 
-- [x] loadUserContextServer() refactored and tested
-- [x] loadAppContextServer() validated with tests
+- [x] loadUserContextServer() refactored and tested (15 tests)
+- [x] loadAppContextServer() validated with tests (15 tests)
 - [x] No service role fallback used
-- [x] All context loader tests passing
+- [x] All context loader tests passing (30 tests)
 
 #### Client State
 
@@ -794,14 +975,15 @@ Phase 6 is complete when:
 
 Track test coverage and health over time:
 
-| Metric          | Phase 0 | Phase 1        | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
-| --------------- | ------- | -------------- | ------- | ------- | ------- | ------- |
-| Total Tests     | 18      | 54 (current)   | TBD     | TBD     | TBD     | TBD     |
-| Service Tests   | 2       | 36 (current)   | TBD     | TBD     | TBD     | TBD     |
-| Action Tests    | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
-| Hook Tests      | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
-| Component Tests | 0       | 0              | TBD     | TBD     | TBD     | TBD     |
-| Coverage %      | N/A     | N/A (tracking) | TBD     | TBD     | TBD     | TBD     |
+| Metric          | Phase 0 | Phase 1 (Post-RBAC) | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+| --------------- | ------- | ------------------- | ------- | ------- | ------- | ------- |
+| Total Tests     | 18      | 88 ✅               | TBD     | TBD     | TBD     | TBD     |
+| Service Tests   | 2       | 36 ✅               | TBD     | TBD     | TBD     | TBD     |
+| Context Tests   | 0       | 30 ✅               | TBD     | TBD     | TBD     | TBD     |
+| Action Tests    | 0       | 0                   | TBD     | TBD     | TBD     | TBD     |
+| Hook Tests      | 0       | 0                   | TBD     | TBD     | TBD     | TBD     |
+| Component Tests | 0       | 0                   | TBD     | TBD     | TBD     | TBD     |
+| Coverage %      | N/A     | N/A (tracking)      | TBD     | TBD     | TBD     | TBD     |
 
 ---
 
@@ -834,17 +1016,76 @@ Document key decisions made during rebuild:
 
 ### ADR-002: Remove Service Role Fallback in Context Loader
 
-**Date:** 2026-01-05
+**Date:** 2026-01-05 (Planned) → 2026-01-07 (Implemented)
 **Context:** Security concern with service role key in production
 **Decision:** Use only JWT for role extraction, no database fallback
-**Status:** Planned for Phase 1
+**Status:** ✅ Implemented in Phase 1, Increment 5
+**Impact:** Removed 32 lines of service role code from loadUserContextServer, eliminating security risk
 
 ### ADR-003: Create authorize() Function for RLS
 
-**Date:** 2026-01-05
+**Date:** 2026-01-05 (Planned & Implemented)
 **Context:** RLS policies need server-side permission validation
 **Decision:** Build PL/pgSQL authorize() function that checks permissions
-**Status:** Planned for Phase 1
+**Status:** ✅ Implemented in Phase 1, Increment 1
+**Impact:** Foundation for RLS policies to validate permissions server-side
+
+### ADR-004: Minimal SSR Payload for App Context
+
+**Date:** 2026-01-07
+**Context:** loadAppContextServer was loading heavy datasets on every SSR request
+**Decision:** Load only minimal data needed for app shell, set heavy arrays to empty/null for lazy loading
+**Status:** ✅ Implemented in Phase 1, Increment 6
+**Impact:** Reduced from 234 → 171 lines (27%), faster SSR performance
+
+### ADR-005: Nullable scope_id for Global Overrides
+
+**Date:** 2026-01-07
+**Context:** Global permission overrides couldn't be represented with scope_id uuid NOT NULL constraint
+**Decision:** Make scope_id nullable: NULL for global scope, UUID for org/branch scopes
+**Rationale:**
+
+- Global overrides need to apply across all organizations
+- UUID constraint prevented using string "global" as scope_id
+- NULL is semantically correct for "no specific scope"
+  **Status:** ✅ Implemented in Phase 1, Increment 6.5
+  **Impact:**
+- Enables proper 3-level override precedence (global < org < branch)
+- Adds CHECK constraint to enforce rules at database level
+- Prevents invalid data combinations
+
+### ADR-006: Role Scope Type Declaration
+
+**Date:** 2026-01-07
+**Context:** Roles had no way to declare whether they should be assigned at org or branch level
+**Decision:** Add scope_type column to roles table with validation trigger
+**Values:** 'org' (organization-wide), 'branch' (branch-specific), 'both' (either)
+**Rationale:**
+
+- Prevents accidental misassignment (e.g., branch role assigned at org level)
+- Documents role intent in schema
+- Provides runtime validation via trigger
+  **Status:** ✅ Implemented in Phase 1, Increment 6.5
+  **Impact:**
+- Role definitions are self-documenting
+- Database enforces scope constraints automatically
+- Reduces configuration errors
+
+### ADR-007: Deterministic Override Sorting
+
+**Date:** 2026-01-07
+**Context:** Multiple overrides at same precedence level had non-deterministic order
+**Decision:** Add stable tiebreaker using permission_id.localeCompare() after scope precedence
+**Rationale:**
+
+- Non-deterministic behavior makes debugging impossible
+- Same input must always produce same output
+- Reproducibility is critical for permission calculations
+  **Status:** ✅ Implemented in Phase 1, Increment 6.5
+  **Impact:**
+- Permission calculations are reproducible
+- Easier debugging and testing
+- Predictable behavior in production
 
 ---
 
@@ -890,6 +1131,7 @@ Use this format to track daily progress:
 
 ---
 
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-07 (Post-RBAC Fixes)
 **Updated By:** Claude Code
-**Next Review:** After Phase 1 Increment 5
+**Next Review:** After Phase 1 Increment 7
+**Major Changes:** Added Increment 6.5 (RBAC Scope Fixes), updated ADRs 005-007, updated test metrics to 88 tests

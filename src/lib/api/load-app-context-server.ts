@@ -4,107 +4,116 @@ import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
 import { AppContext, BranchData } from "@/lib/stores/app-store";
-import { subscriptionService } from "@/lib/services/subscription-service";
 
-// Pomocnicza funkcja sprawdzająca, czy JSON to obiekt (do bezpiecznego spreadowania)
+/**
+ * Helper function to safely spread objects (avoid spreading non-objects)
+ */
 function safeObject(obj: unknown): Record<string, unknown> {
   return obj && typeof obj === "object" && !Array.isArray(obj)
     ? (obj as Record<string, unknown>)
     : {};
 }
 
+/**
+ * Load application context from server (SSR-safe)
+ *
+ * Contract:
+ * - Returns null when no session exists
+ * - Deterministic org selection: preferences.organization_id ?? owned_org.id ?? null
+ * - NO JWT decode fallback for org selection
+ * - Loads minimal data:
+ *   - Organization profile (minimal fields)
+ *   - Branches for the org
+ *   - Active branch from preferences (deterministic fallback)
+ *   - User modules with merged settings
+ * - Heavy data arrays empty: locations, suppliers, organizationUsers, privateContacts
+ * - subscription set to null
+ *
+ * Forbidden:
+ * - NO JWT decode to pick organization
+ * - NO heavy data loading (locations, suppliers, etc.)
+ *
+ * @returns AppContext or null
+ */
 export async function _loadAppContextServer(): Promise<AppContext | null> {
   const supabase = await createClient();
 
+  // Get session
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // Return null if no session
   if (!session) return null;
+
   const userId = session.user.id;
 
-  // 1. Get user preferences
-  const { data: preferences, error: prefError } = await supabase
+  // 1. Load user preferences
+  const { data: preferences } = await supabase
     .from("user_preferences")
     .select("organization_id, default_branch_id")
     .eq("user_id", userId)
     .single();
 
-  if (prefError) {
-    console.error("Error fetching user preferences:", prefError);
-  }
-
+  // 2. Deterministic org selection: preferences ?? owned org ?? null
   let activeOrgId = preferences?.organization_id ?? null;
-  const activeBranchId = preferences?.default_branch_id ?? null;
 
-  // FALLBACK: If preferences fail, try to get org_id from JWT roles
-  if (!activeOrgId) {
-    try {
-      const { jwtDecode } = await import("jwt-decode");
-      const jwt = jwtDecode<{ roles?: Array<{ org_id?: string }> }>(session.access_token);
-      const orgFromJWT = jwt.roles?.find((r) => r.org_id)?.org_id;
-      if (orgFromJWT) {
-        activeOrgId = orgFromJWT;
-        console.log("🔍 Using organization from JWT roles:", orgFromJWT);
-      }
-    } catch (err) {
-      console.warn("Failed to decode JWT for org fallback:", err);
-    }
-  }
-
-  // 🔄 Fallback: If no preferences, find user's owned organization
+  // Fallback: If no preferences.organization_id, find user's owned organization
+  // Use deterministic ordering (oldest first) for consistent fallback
   if (!activeOrgId) {
     const { data: ownedOrg } = await supabase
       .from("organizations")
       .select("id")
       .eq("created_by", userId)
+      .order("created_at", { ascending: true }) // Deterministic: oldest owned org first
       .limit(1)
       .single();
 
-    if (ownedOrg) {
-      activeOrgId = ownedOrg.id;
-
-      // Create default preferences for this user
-      await supabase.from("user_preferences").upsert({
-        user_id: userId,
-        organization_id: activeOrgId,
-        default_branch_id: null, // Will be set later when branches are available
-      });
-    }
+    activeOrgId = ownedOrg?.id ?? null;
   }
 
-  // 2. Organization profile
+  // 3. Load organization profile (minimal fields only) when org chosen
   let activeOrg = null;
-  let orgError = null;
 
   if (activeOrgId) {
-    const result = await supabase
+    const { data: orgProfile } = await supabase
       .from("organization_profiles")
-      .select("*")
+      .select("organization_id, name, slug, logo_url, description") // Minimal fields for SSR
       .eq("organization_id", activeOrgId)
       .single();
 
-    activeOrg = result.data;
-    orgError = result.error;
-
-    if (orgError) {
-      console.error("Error fetching organization profile:", orgError);
-    }
+    activeOrg = orgProfile;
   }
 
-  // 3. Branches - Load directly from branches table
+  // 4. Load branches for the organization (ordered by created_at ASC for deterministic fallback)
   const { data: availableBranches } = activeOrgId
     ? await supabase
         .from("branches")
         .select("*")
         .eq("organization_id", activeOrgId)
         .is("deleted_at", null)
-        .order("created_at", { ascending: false })
+        .order("created_at", { ascending: true }) // ASC for deterministic fallback to oldest/main branch
     : { data: [] };
 
-  const activeBranch = availableBranches?.find((b) => b.id === activeBranchId) ?? null;
+  // 5. Determine active branch from preferences with deterministic fallback
+  // Fallback chain: preferences.default_branch_id → first available branch (oldest) → null
+  let activeBranch: Tables<"branches"> | null = null;
 
-  // 4. User modules
+  const preferredBranchId = preferences?.default_branch_id ?? null;
+  if (preferredBranchId) {
+    activeBranch = availableBranches?.find((b) => b.id === preferredBranchId) ?? null;
+  }
+
+  // If no preference or preference invalid, fallback to first branch (deterministic)
+  if (!activeBranch && availableBranches && availableBranches.length > 0) {
+    activeBranch = availableBranches[0]; // First branch (oldest, typically main branch)
+  }
+
+  // FIX: Set activeBranchId to match the selected activeBranch (not just from preferences)
+  // This ensures activeBranchId is consistent with activeBranch
+  const finalActiveBranchId = activeBranch?.id ?? null;
+
+  // 6. Load user modules with merged settings (for feature gating)
   const { data: userModulesRaw } = await supabase
     .from("user_modules")
     .select("setting_overrides, modules(*)")
@@ -131,81 +140,17 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     })
     .filter((m): m is NonNullable<typeof m> => m !== null);
 
-  // 5. Load locations for the active branch
-  let locations: Tables<"locations">[] = [];
-  if (activeBranchId) {
-    const { data: locationData } = await supabase
-      .from("locations")
-      .select("*")
-      .eq("branch_id", activeBranchId)
-      .is("deleted_at", null)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true });
-
-    locations = locationData || [];
-  }
-
-  // 6. Load business accounts (suppliers/clients) for the organization
-  let suppliers: Tables<"business_accounts">[] = [];
-  if (activeOrgId) {
-    const { data: suppliersData } = await supabase
-      .from("business_accounts")
-      .select("*")
-      .eq("organization_id", activeOrgId)
-      .is("deleted_at", null)
-      .order("name", { ascending: true });
-
-    suppliers = suppliersData || [];
-  }
-
-  // 7. Load organization users for chat functionality
-  let organizationUsers: any[] = [];
-  if (activeOrgId) {
-    try {
-      const { data: usersData, error: usersError } = await supabase.rpc(
-        "get_organization_users_mvp",
-        {
-          org_id: activeOrgId,
-        }
-      );
-
-      if (usersError) {
-        console.error("Error fetching organization users:", usersError);
-        organizationUsers = [];
-      } else {
-        organizationUsers = usersData || [];
-      }
-    } catch (error) {
-      console.error("Error loading organization users:", error);
-      organizationUsers = [];
-    }
-  }
-
-  // 8. Load subscription data for the organization
-  let subscription = null;
-  if (activeOrgId) {
-    try {
-      subscription = await subscriptionService.getActiveSubscription(activeOrgId);
-    } catch (error) {
-      console.error("Error loading subscription data:", error);
-      subscription = null;
-    }
-  }
-
-  // 9. Load private contacts for the user (placeholder for future implementation)
-  const privateContacts: any[] = [];
-  // TODO: Implement private contacts loading if needed
-  // This could be from a separate contacts table or external sources
-
+  // 7. Map branches to BranchData format
   const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({
     ...branch,
     branch_id: branch.id, // Add branch_id for compatibility
     name: branch.name || "Unknown Branch",
   }));
 
+  // 8. Build and return app context
   return {
-    activeOrgId: activeOrgId,
-    activeBranchId: activeBranchId,
+    activeOrgId,
+    activeBranchId: finalActiveBranchId, // Use finalActiveBranchId to match activeBranch
     activeOrg: activeOrg
       ? ({
           ...activeOrg,
@@ -223,11 +168,18 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     availableBranches: mappedBranches,
     userModules,
     location: null,
-    locations,
-    suppliers,
-    organizationUsers,
-    privateContacts,
-    subscription,
+    // Heavy data arrays set to empty (load lazily on client)
+    locations: [],
+    suppliers: [],
+    organizationUsers: [],
+    privateContacts: [],
+    // Subscription set to null (load lazily on client)
+    subscription: null,
   };
 }
+
+/**
+ * Cached version of loadAppContextServer
+ * Uses React cache for deduplication across multiple calls in the same request
+ */
 export const loadAppContextServer = cache(_loadAppContextServer);
