@@ -387,9 +387,184 @@ For each, define:
 
 ---
 
-# Phase 6 — Hardening & correctness (after core is working)
+# Phase 6 — Complete Auth System (email delivery + enhancements) (2–5 days)
 
-## 6.1 RLS hardening
+**Goal:** Complete authentication with email delivery, verification UX, and optional security enhancements
+
+**Status:** Not Started
+
+This phase finishes the authentication system that was established in Phase 1. While core auth flows (registration, invitation, login, password reset) are fully implemented, they lack email delivery integration.
+
+## 6.1 Email Delivery for Invitations (REQUIRED - 1-2 days)
+
+### Implement
+
+- Integrate email service (Resend, SendGrid, or Supabase Email)
+- Create email templates:
+  - Invitation email with accept link
+  - Welcome email after successful registration
+  - Optional: Password reset email (if not using Supabase native)
+- Update `createInvitationAction()` to send email after creating invitation record
+- Add email configuration to environment variables
+
+### Tests (node)
+
+- Email service integration tests (mock service)
+- Invitation creation triggers email send
+- Email contains correct invitation link and token
+- Email service failures handled gracefully (invitation still created)
+
+### Files to Create/Modify
+
+- `src/lib/services/email.service.ts` - Email service abstraction
+- `src/lib/services/__tests__/email.service.test.ts` - Email tests
+- `src/lib/templates/emails/invitation-email.tsx` - Email template (React Email)
+- Update: `src/app/actions/invitations.ts` - Add email sending
+
+**Gate:** Users receive invitation emails automatically when invited to organizations
+
+---
+
+## 6.2 Email Verification UX (OPTIONAL - 1 day)
+
+### Implement
+
+- Create explicit "Email Verification" page
+- Add "Resend Verification Email" functionality
+- Update signup confirmation messaging
+- Handle verification callback states (success, expired, invalid)
+
+### Tests (jsdom)
+
+- Verification success page renders
+- Resend verification button works
+- Error states display correctly
+
+### Files to Create
+
+- `src/app/[locale]/(public)/(auth)/verify-email/page.tsx` - Verification page
+- `src/app/actions/auth/resend-verification.ts` - Resend action
+
+**Gate:** Clear email verification flow for new users
+
+---
+
+## 6.3 Social Authentication (OPTIONAL - 2-3 days)
+
+### Implement
+
+- Configure Google OAuth provider in Supabase
+- Configure GitHub OAuth provider (optional)
+- Update sign-in/sign-up pages with OAuth buttons
+- Handle OAuth callback and account linking
+- Merge invited users with OAuth accounts
+
+### Tests (node + jsdom)
+
+- OAuth sign-in flow
+- Account linking when email matches invitation
+- Error handling for OAuth failures
+
+### Files to Create/Modify
+
+- Update: `src/components/auth/forms/sign-in-form.tsx` - Add OAuth buttons
+- Update: `src/components/auth/forms/sign-up-form.tsx` - Add OAuth buttons
+- Update: `src/app/auth/callback/route.ts` - Handle OAuth providers
+
+**Gate:** Users can sign in with Google/GitHub
+
+---
+
+## 6.4 Two-Factor Authentication (OPTIONAL - 3-5 days)
+
+### Implement
+
+- TOTP-based MFA using Supabase MFA
+- Backup codes generation and storage
+- MFA settings page (enable/disable, regenerate backup codes)
+- Enforce MFA for specific roles (e.g., org_owner)
+
+### Tests (node + jsdom)
+
+- MFA enrollment flow
+- MFA verification during login
+- Backup code recovery
+- MFA enforcement by role
+
+### Files to Create
+
+- `src/app/[locale]/dashboard/settings/security/page.tsx` - Security settings
+- `src/app/actions/auth/mfa-enroll.ts` - MFA enrollment
+- `src/app/actions/auth/mfa-verify.ts` - MFA verification
+- `src/components/auth/mfa/` - MFA components
+
+**Gate:** Users can enable 2FA and use backup codes
+
+---
+
+## 6.5 Session Management UI (OPTIONAL - 1-2 days)
+
+### Implement
+
+- "Active Sessions" page showing all user sessions
+- "Logout Other Devices" functionality
+- Session details (device, location, last active)
+
+### Tests (jsdom)
+
+- Session list renders
+- Logout other devices works
+- Current session marked clearly
+
+### Files to Create
+
+- `src/app/[locale]/dashboard/settings/sessions/page.tsx` - Sessions page
+- `src/app/actions/auth/revoke-sessions.ts` - Revoke action
+
+**Gate:** Users can view and manage their sessions
+
+---
+
+## Definition of Done - Phase 6
+
+Phase 6 is complete when:
+
+### Email Delivery (REQUIRED)
+
+- [x] Email service integrated (Resend/SendGrid/Supabase)
+- [x] Invitation emails sent automatically
+- [x] Email templates created and tested
+- [x] Email service failures handled gracefully
+- [x] Tests passing for email integration
+
+### Optional Enhancements (as needed)
+
+- [ ] Email verification UX polished
+- [ ] Social auth providers configured
+- [ ] MFA system implemented
+- [ ] Session management UI working
+
+### Quality Gates
+
+- [x] `pnpm test:run` - All tests green
+- [x] `pnpm type-check` - No TypeScript errors
+- [x] `pnpm lint` - No linting errors
+- [x] Real invitation email received and tested
+- [x] OAuth flows tested (if implemented)
+- [x] MFA enrollment works (if implemented)
+
+### User Experience
+
+- [x] Invitation recipients receive email with link
+- [x] Email verification flow is clear
+- [x] Social login works smoothly (if implemented)
+- [x] MFA enrollment is straightforward (if implemented)
+
+---
+
+# Phase 7 — Hardening & Correctness (after Phase 6)
+
+## 7.1 RLS Hardening
 
 - explicit tests for:
   - org mismatch
@@ -397,14 +572,14 @@ For each, define:
   - deleted branch/org
   - token expired
 
-## 6.2 SSR stress
+## 7.2 SSR Stress
 
 - ensure:
   - `loadAppContextServer` never throws
   - pages render without client-only hooks at top level
-  - server actions don’t import browser modules
+  - server actions don't import browser modules
 
-## 6.3 Performance
+## 7.3 Performance
 
 - React Query caching strategy
 - avoid giant payloads in AppContext
