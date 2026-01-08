@@ -78,7 +78,9 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
   if (activeOrgId) {
     const { data: orgProfile } = await supabase
       .from("organization_profiles")
-      .select("organization_id, name, slug, logo_url, description") // Minimal fields for SSR
+      .select(
+        "organization_id, name, slug, logo_url, bio, theme_color, font_color, name_2, website"
+      )
       .eq("organization_id", activeOrgId)
       .single();
 

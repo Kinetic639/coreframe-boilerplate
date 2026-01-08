@@ -85,13 +85,36 @@ export class PermissionService {
         .is("deleted_at", null);
 
       if (roleError) {
-        // Silent fail - RLS denial or other errors
+        console.error("[PermissionService] Role assignments query failed:", {
+          userId,
+          orgId,
+          branchId,
+          filters,
+          error: roleError,
+          message: roleError.message,
+          details: roleError.details,
+          hint: roleError.hint,
+        });
         return [];
       }
 
       if (!roleAssignments || roleAssignments.length === 0) {
+        console.warn("[PermissionService] No role assignments found:", {
+          userId,
+          orgId,
+          branchId,
+          filters,
+        });
         return [];
       }
+
+      console.log("[PermissionService] Found role assignments:", {
+        userId,
+        orgId,
+        branchId,
+        roleCount: roleAssignments.length,
+        roleIds: roleAssignments.map((r) => r.role_id),
+      });
 
       // 2. Get permissions for these roles via RPC
       const roleIds = roleAssignments.map((r) => r.role_id);
@@ -101,9 +124,21 @@ export class PermissionService {
       );
 
       if (permError) {
-        // Silent fail - RPC errors
+        console.error("[PermissionService] RPC get_permissions_for_roles failed:", {
+          roleIds,
+          error: permError,
+          message: permError.message,
+        });
         return [];
       }
+
+      console.log("[PermissionService] RPC returned:", {
+        roleIds,
+        dataType: typeof permissionsData,
+        isArray: Array.isArray(permissionsData),
+        dataLength: Array.isArray(permissionsData) ? permissionsData.length : 0,
+        firstItems: Array.isArray(permissionsData) ? permissionsData.slice(0, 3) : permissionsData,
+      });
 
       // Extract permission slugs from RPC response
       // The RPC now returns SETOF text, so it should be strings directly
@@ -115,6 +150,11 @@ export class PermissionService {
           return null;
         })
         .filter((slug: string | null): slug is string => typeof slug === "string");
+
+      console.log("[PermissionService] Extracted base permissions:", {
+        count: basePermissions.length,
+        permissions: basePermissions.slice(0, 5),
+      });
 
       // 3. Get permission overrides for this user/context with proper scoping
       // Build override filters: global + org + (optional) branch
