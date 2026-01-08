@@ -91,6 +91,13 @@ async function _loadUserContextServer(): Promise<UserContext | null> {
   // Include branch context for branch-scoped permissions
   let permissions: string[] = [];
 
+  console.log("[loadUserContext] Before permission loading:", {
+    userId,
+    orgId: preferences.organization_id,
+    branchId: preferences.default_branch_id,
+    hasOrgId: !!preferences.organization_id,
+  });
+
   if (preferences.organization_id) {
     permissions = await PermissionService.getPermissionsForUser(
       supabase,
@@ -98,6 +105,16 @@ async function _loadUserContextServer(): Promise<UserContext | null> {
       preferences.organization_id,
       preferences.default_branch_id // Pass branch context for branch-scoped permissions
     );
+
+    console.log("[loadUserContext] After permission loading:", {
+      userId,
+      orgId: preferences.organization_id,
+      branchId: preferences.default_branch_id,
+      permissionCount: permissions.length,
+      permissions: permissions.slice(0, 5), // First 5 for debugging
+    });
+  } else {
+    console.warn("[loadUserContext] Skipping permission loading - no organization_id");
   }
 
   // Build and return user context
