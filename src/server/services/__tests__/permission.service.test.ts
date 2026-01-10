@@ -6,53 +6,70 @@ import { PermissionService } from "../permission.service";
 
 describe("PermissionService.getPermissionsForUser", () => {
   const createMockSupabase = (config: {
-    roleAssignments?: any;
+    orgRoleAssignments?: any;
+    branchRoleAssignments?: any;
     roleError?: any;
     rpcData?: any;
     rpcError?: any;
-    overrides?: any;
+    overrides?: any; // Now includes {permissions: {slug}} due to join
     overrideError?: any;
-    permissions?: any;
-    permissionError?: any;
   }) => {
-    const roleQuery = {
+    // Mock for org roles query
+    const orgRoleQuery = {
       select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      is: vi.fn().mockResolvedValue({
-        data: config.roleAssignments ?? [],
-        error: config.roleError ?? null,
+      eq: vi.fn((field: string, value: any) => {
+        if (field === "scope" && value === "org") {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            is: vi.fn().mockResolvedValue({
+              data: config.orgRoleAssignments ?? [],
+              error: config.roleError ?? null,
+            }),
+          };
+        }
+        return orgRoleQuery;
       }),
     };
 
+    // Mock for branch roles query
+    const branchRoleQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn((field: string, value: any) => {
+        if (field === "scope" && value === "branch") {
+          return {
+            eq: vi.fn().mockReturnThis(),
+            is: vi.fn().mockResolvedValue({
+              data: config.branchRoleAssignments ?? [],
+              error: config.roleError ?? null,
+            }),
+          };
+        }
+        return branchRoleQuery;
+      }),
+    };
+
+    // Mock for overrides query (with join optimization + .in() instead of .or())
     const overrideQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(), // Changed from .or() to .in()
       is: vi.fn().mockResolvedValue({
         data: config.overrides ?? [],
         error: config.overrideError ?? null,
       }),
     };
 
-    const permissionQuery = {
-      select: vi.fn().mockReturnThis(),
-      in: vi.fn().mockResolvedValue({
-        data: config.permissions ?? [],
-        error: config.permissionError ?? null,
-      }),
-    };
+    let roleQueryCallCount = 0;
 
     return {
       from: vi.fn((table: string) => {
         if (table === "user_role_assignments") {
-          return roleQuery;
+          // Alternate between org and branch query mocks
+          roleQueryCallCount++;
+          return roleQueryCallCount === 1 ? orgRoleQuery : branchRoleQuery;
         }
         if (table === "user_permission_overrides") {
           return overrideQuery;
-        }
-        if (table === "permissions") {
-          return permissionQuery;
         }
         return {};
       }),
@@ -65,10 +82,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should fetch permissions from roles successfully", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [
-        { role_id: "role-1", scope: "org", scope_id: "org-1" },
-        { role_id: "role-2", scope: "branch", scope_id: "branch-1" },
-      ],
+      orgRoleAssignments: [{ role_id: "role-1" }, { role_id: "role-2" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.read", "warehouse.products.create", "warehouse.locations.read"],
     });
 
@@ -86,10 +101,19 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should apply permission overrides - grant additional permission", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.read"],
-      overrides: [{ permission_id: "perm-1", allowed: true }],
-      permissions: [{ id: "perm-1", slug: "warehouse.products.create" }],
+      // NEW: overrides now include {permissions: {slug}} due to join optimization
+      overrides: [
+        {
+          allowed: true,
+          scope: "org",
+          scope_id: "org-1",
+          created_at: "2024-01-01T00:00:00Z",
+          permissions: { slug: "warehouse.products.create" },
+        },
+      ],
     });
 
     const permissions = await PermissionService.getPermissionsForUser(
@@ -104,10 +128,19 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should apply permission overrides - deny permission", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.read", "warehouse.products.create"],
-      overrides: [{ permission_id: "perm-1", allowed: false }],
-      permissions: [{ id: "perm-1", slug: "warehouse.products.create" }],
+      // NEW: overrides now include {permissions: {slug}} due to join optimization
+      overrides: [
+        {
+          allowed: false,
+          scope: "org",
+          scope_id: "org-1",
+          created_at: "2024-01-01T00:00:00Z",
+          permissions: { slug: "warehouse.products.create" },
+        },
+      ],
     });
 
     const permissions = await PermissionService.getPermissionsForUser(
@@ -165,7 +198,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should handle override fetch error gracefully", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.read"],
       overrideError: { message: "Override fetch failed", code: "500" },
     });
@@ -181,10 +215,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should include branch-scoped roles when branchId is provided", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [
-        { role_id: "role-1", scope: "org", scope_id: "org-1" },
-        { role_id: "role-2", scope: "branch", scope_id: "branch-1" },
-      ],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [{ role_id: "role-2" }],
       rpcData: ["org.members.read", "branch.settings.update", "warehouse.products.create"],
     });
 
@@ -202,7 +234,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should only include org-scoped roles when branchId is not provided", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["org.members.read", "org.branches.manage"],
     });
 
@@ -219,17 +252,36 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should apply override precedence correctly (branch > org > global)", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.read"],
+      // NEW: overrides now include {permissions: {slug}} due to join optimization
       overrides: [
-        // Global override grants create (scope_id is NULL for global)
-        { permission_id: "perm-1", allowed: true, scope: "global", scope_id: null },
+        // Global override grants create
+        {
+          allowed: true,
+          scope: "global",
+          scope_id: null,
+          created_at: "2024-01-01T00:00:00Z",
+          permissions: { slug: "warehouse.products.create" },
+        },
         // Org override denies create (should override global)
-        { permission_id: "perm-1", allowed: false, scope: "org", scope_id: "org-1" },
+        {
+          allowed: false,
+          scope: "org",
+          scope_id: "org-1",
+          created_at: "2024-01-02T00:00:00Z",
+          permissions: { slug: "warehouse.products.create" },
+        },
         // Branch override grants create again (should override org)
-        { permission_id: "perm-1", allowed: true, scope: "branch", scope_id: "branch-1" },
+        {
+          allowed: true,
+          scope: "branch",
+          scope_id: "branch-1",
+          created_at: "2024-01-03T00:00:00Z",
+          permissions: { slug: "warehouse.products.create" },
+        },
       ],
-      permissions: [{ id: "perm-1", slug: "warehouse.products.create" }],
     });
 
     const permissions = await PermissionService.getPermissionsForUser(
@@ -245,13 +297,20 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should apply branch deny override over org grant", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1" }],
+      branchRoleAssignments: [],
       rpcData: ["warehouse.products.delete"], // Granted by role
+      // NEW: overrides now include {permissions: {slug}} due to join optimization
       overrides: [
         // Branch override denies delete
-        { permission_id: "perm-1", allowed: false, scope: "branch", scope_id: "branch-1" },
+        {
+          allowed: false,
+          scope: "branch",
+          scope_id: "branch-1",
+          created_at: "2024-01-01T00:00:00Z",
+          permissions: { slug: "warehouse.products.delete" },
+        },
       ],
-      permissions: [{ id: "perm-1", slug: "warehouse.products.delete" }],
     });
 
     const permissions = await PermissionService.getPermissionsForUser(
@@ -268,66 +327,66 @@ describe("PermissionService.getPermissionsForUser", () => {
 
 describe("PermissionService.can", () => {
   it("should return true when exact permission exists", () => {
-    const permissions = ["warehouse.products.read", "warehouse.products.create"];
+    const snapshot = { allow: ["warehouse.products.read", "warehouse.products.create"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(true);
   });
 
   it("should return false when permission is missing", () => {
-    const permissions = ["warehouse.products.read"];
+    const snapshot = { allow: ["warehouse.products.read"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.delete")).toBe(false);
+    expect(PermissionService.can(snapshot, "warehouse.products.delete")).toBe(false);
   });
 
   it("should support wildcard matching - module level", () => {
-    const permissions = ["warehouse.*"];
+    const snapshot = { allow: ["warehouse.*"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(true);
-    expect(PermissionService.can(permissions, "warehouse.locations.create")).toBe(true);
-    expect(PermissionService.can(permissions, "warehouse.anything.action")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.locations.create")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.anything.action")).toBe(true);
   });
 
   it("should support wildcard matching - entity level", () => {
-    const permissions = ["warehouse.products.*"];
+    const snapshot = { allow: ["warehouse.products.*"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(true);
-    expect(PermissionService.can(permissions, "warehouse.products.create")).toBe(true);
-    expect(PermissionService.can(permissions, "warehouse.products.delete")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.create")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.delete")).toBe(true);
     // Should not match different entity
-    expect(PermissionService.can(permissions, "warehouse.locations.read")).toBe(false);
+    expect(PermissionService.can(snapshot, "warehouse.locations.read")).toBe(false);
   });
 
   it("should support multiple wildcard levels", () => {
-    const permissions = ["*"];
+    const snapshot = { allow: ["*"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(true);
-    expect(PermissionService.can(permissions, "teams.members.create")).toBe(true);
-    expect(PermissionService.can(permissions, "any.thing.here")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "teams.members.create")).toBe(true);
+    expect(PermissionService.can(snapshot, "any.thing.here")).toBe(true);
   });
 
   it("should prioritize exact match over wildcard", () => {
-    const permissions = ["warehouse.*", "warehouse.products.read"];
+    const snapshot = { allow: ["warehouse.*", "warehouse.products.read"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(true);
   });
 
   it("should handle empty permissions array", () => {
-    const permissions: string[] = [];
+    const snapshot = { allow: [], deny: [] };
 
-    expect(PermissionService.can(permissions, "any.permission")).toBe(false);
+    expect(PermissionService.can(snapshot, "any.permission")).toBe(false);
   });
 
   it("should handle permission with special characters in wildcard", () => {
-    const permissions = ["warehouse.products-v2.*"];
+    const snapshot = { allow: ["warehouse.products-v2.*"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products-v2.read")).toBe(true);
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(false);
+    expect(PermissionService.can(snapshot, "warehouse.products-v2.read")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(false);
   });
 
   it("should be case-sensitive", () => {
-    const permissions = ["warehouse.products.READ"];
+    const snapshot = { allow: ["warehouse.products.READ"], deny: [] };
 
-    expect(PermissionService.can(permissions, "warehouse.products.read")).toBe(false);
-    expect(PermissionService.can(permissions, "warehouse.products.READ")).toBe(true);
+    expect(PermissionService.can(snapshot, "warehouse.products.read")).toBe(false);
+    expect(PermissionService.can(snapshot, "warehouse.products.READ")).toBe(true);
   });
 });
