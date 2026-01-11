@@ -22,7 +22,7 @@ import type {
  * - Loads user modules with proper join
  *
  * Deterministic Fallbacks:
- * 1. Org: preferences.organization_id → oldest org with membership → oldest owned org
+ * 1. Org: preferences.organization_id (validated) → oldest org with membership → oldest created org
  * 2. Branch: preferences.default_branch_id (if valid) → first available branch
  *
  * Responsibilities:
@@ -61,43 +61,75 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   }
 
   // 2. Resolve activeOrgId with deterministic fallback
-  let activeOrgId = preferences?.organization_id ?? null;
+  let activeOrgId: string | null = null;
 
-  if (!activeOrgId) {
-    // Fallback 1: Find oldest org where user is a member (via role assignments)
-    const { data: memberOrgs, error: memberErr } = await supabase
-      .from("user_role_assignments")
-      .select("scope_id, organizations!inner(id, created_at)")
-      .eq("user_id", userId)
-      .eq("scope", "org")
+  // 2a) Try preferences.organization_id BUT validate it exists and isn't deleted
+  if (preferences?.organization_id) {
+    const { data: prefOrg, error: prefOrgErr } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("id", preferences.organization_id)
       .is("deleted_at", null)
-      .order("organizations(created_at)", { ascending: true })
-      .limit(1)
       .maybeSingle();
 
-    if (memberErr && process.env.NODE_ENV === "development") {
-      console.error("[loadAppContextV2] Member org query failed:", memberErr);
+    if (prefOrgErr && process.env.NODE_ENV === "development") {
+      console.error("[loadAppContextV2] Preferred org validation failed:", prefOrgErr);
     }
 
-    activeOrgId = (memberOrgs as any)?.organizations?.id ?? null;
+    activeOrgId = prefOrg?.id ?? null;
+  }
 
-    // Fallback 2: Find oldest owned organization (if not a member anywhere)
-    if (!activeOrgId) {
-      const { data: ownedOrgs, error: ownedErr } = await supabase
+  // 2b) Fallback 1: Oldest org where user is a MEMBER (via role assignments) - NO JOIN (schema can't join)
+  if (!activeOrgId) {
+    const { data: orgAssignments, error: memberErr } = await supabase
+      .from("user_role_assignments")
+      .select("scope_id")
+      .eq("user_id", userId)
+      .eq("scope", "org")
+      .is("deleted_at", null);
+
+    if (memberErr && process.env.NODE_ENV === "development") {
+      console.error("[loadAppContextV2] Member org assignments query failed:", memberErr);
+    }
+
+    const orgIds = Array.from(new Set((orgAssignments ?? []).map((x) => x.scope_id))).filter(
+      Boolean
+    );
+
+    if (orgIds.length > 0) {
+      const { data: oldestMemberOrg, error: orgErr } = await supabase
         .from("organizations")
         .select("id")
-        .eq("owner_user_id", userId)
+        .in("id", orgIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
 
-      if (ownedErr && process.env.NODE_ENV === "development") {
-        console.error("[loadAppContextV2] Owned org query failed:", ownedErr);
+      if (orgErr && process.env.NODE_ENV === "development") {
+        console.error("[loadAppContextV2] Oldest member org query failed:", orgErr);
       }
 
-      activeOrgId = ownedOrgs?.id ?? null;
+      activeOrgId = oldestMemberOrg?.id ?? null;
     }
+  }
+
+  // 2c) Fallback 2: Oldest org CREATED BY user (schema uses created_by, not owner_user_id)
+  if (!activeOrgId) {
+    const { data: ownedOrgs, error: ownedErr } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("created_by", userId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (ownedErr && process.env.NODE_ENV === "development") {
+      console.error("[loadAppContextV2] Owned org query failed:", ownedErr);
+    }
+
+    activeOrgId = ownedOrgs?.id ?? null;
   }
 
   // 3. Load minimal org snapshot (if activeOrgId exists)

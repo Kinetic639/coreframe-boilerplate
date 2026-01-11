@@ -26,6 +26,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop trigger if exists (for idempotency)
+DROP TRIGGER IF EXISTS trigger_user_permission_overrides_updated_at
+ON public.user_permission_overrides;
+
 CREATE TRIGGER trigger_user_permission_overrides_updated_at
 BEFORE UPDATE ON public.user_permission_overrides
 FOR EACH ROW
