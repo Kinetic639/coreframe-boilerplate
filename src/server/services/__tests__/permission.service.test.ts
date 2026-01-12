@@ -169,7 +169,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should return empty array for user with no roles", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [],
+      orgRoleAssignments: [],
+      branchRoleAssignments: [],
     });
 
     const permissions = await PermissionService.getPermissionsForUser(
@@ -183,7 +184,8 @@ describe("PermissionService.getPermissionsForUser", () => {
 
   it("should handle RPC error gracefully", async () => {
     const mockSupabase = createMockSupabase({
-      roleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      orgRoleAssignments: [{ role_id: "role-1", scope: "org", scope_id: "org-1" }],
+      branchRoleAssignments: [],
       rpcError: { message: "RPC function failed", code: "500" },
     });
 

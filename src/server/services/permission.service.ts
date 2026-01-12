@@ -1,15 +1,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
+import type { PermissionSnapshot } from "@/lib/types/permissions";
+import { checkPermission, matchesAnyPattern } from "@/lib/utils/permissions";
 
-/**
- * Permission snapshot with explicit allow and deny lists
- * This structure ensures deny overrides work correctly with wildcards
- */
-export type PermissionSnapshot = {
-  /** Permissions explicitly allowed (can include wildcards like "warehouse.*") */
-  allow: string[];
-  /** Permissions explicitly denied (can include wildcards) */
-  deny: string[];
-};
+// Re-export the type for convenience
+export type { PermissionSnapshot };
 
 /**
  * Permission Service
@@ -229,6 +223,9 @@ export class PermissionService {
    * - "warehouse.products.*" matches "warehouse.products.read"
    * - "*" matches everything
    *
+   * **NOTE:** This method now delegates to shared permission utilities
+   * to ensure consistent behavior between client and server.
+   *
    * @param snapshot - Permission snapshot with allow and deny lists
    * @param requiredPermission - Permission to check for
    * @returns True if permission is allowed and not denied
@@ -247,20 +244,36 @@ export class PermissionService {
    * ```
    */
   static can(snapshot: PermissionSnapshot, requiredPermission: string): boolean {
-    // Deny-first: if any deny pattern matches, return false
-    if (matchesAny(snapshot.deny, requiredPermission)) {
-      return false;
-    }
-
-    // Then check allow patterns
-    return matchesAny(snapshot.allow, requiredPermission);
+    // Delegate to shared utility (with regex cache, consistent logic)
+    return checkPermission(snapshot, requiredPermission);
   }
 
   /**
    * LEGACY METHOD - For backwards compatibility
    * @deprecated Use getPermissionSnapshotForUser() instead
    *
-   * Returns effective permissions list with deny overrides applied.
+   * **WARNING - UNSAFE WITH WILDCARDS:**
+   * This method returns string[] instead of PermissionSnapshot, which cannot
+   * properly handle wildcard permissions in deny lists.
+   *
+   * **Critical Bug Example:**
+   * - allow: ["warehouse.*"]
+   * - deny: ["warehouse.products.delete"]
+   * - Returns: ["warehouse.*"] ❌
+   * - UI may incorrectly allow "warehouse.products.delete"
+   *
+   * **Migration Path:**
+   * Replace usage with getPermissionSnapshotForUser() and checkPermission():
+   * ```typescript
+   * // OLD (unsafe):
+   * const perms = await PermissionService.getPermissionsForUser(...);
+   * const canDelete = perms.includes("warehouse.products.delete");
+   *
+   * // NEW (safe):
+   * const snapshot = await PermissionService.getPermissionSnapshotForUser(...);
+   * const canDelete = PermissionService.can(snapshot, "warehouse.products.delete");
+   * ```
+   *
    * This maintains backwards compatibility by returning string[] instead of snapshot.
    */
   static async getPermissionsForUser(
@@ -271,11 +284,15 @@ export class PermissionService {
   ): Promise<string[]> {
     const snapshot = await this.getPermissionSnapshotForUser(supabase, userId, orgId, branchId);
 
-    // Filter out denied permissions from allow list
-    // This ensures deny overrides work correctly even with the legacy API
+    // UNSAFE: This filter doesn't work correctly with wildcards
+    // If allow contains "warehouse.*" and deny contains "warehouse.products.delete",
+    // this will still return "warehouse.*" because matchesAnyPattern(deny, "warehouse.*") is false
+    //
+    // The correct check would be to expand wildcards or just return the snapshot,
+    // but that would break the API contract of returning string[]
     return snapshot.allow.filter((permission) => {
-      // Check if this permission is denied (using deny-first logic)
-      return !matchesAny(snapshot.deny, permission);
+      // Check if this exact permission slug is denied
+      return !matchesAnyPattern(snapshot.deny, permission);
     });
   }
 }
@@ -287,26 +304,4 @@ export class PermissionService {
  */
 function uniqSorted(arr: string[]): string[] {
   return Array.from(new Set(arr)).sort();
-}
-
-/**
- * Check if any pattern in the array matches the required permission
- * Supports wildcard patterns
- */
-function matchesAny(patterns: string[], required: string): boolean {
-  for (const p of patterns) {
-    // Exact match or universal wildcard
-    if (p === "*" || p === required) return true;
-
-    // Skip non-wildcard patterns
-    if (!p.includes("*")) continue;
-
-    // Convert wildcard pattern to regex
-    const pattern = p
-      .replace(/[.+?^${}()|[\]\\]/g, "\\$&") // Escape regex special chars
-      .replace(/\*/g, ".*"); // Convert * to .*
-
-    if (new RegExp(`^${pattern}$`).test(required)) return true;
-  }
-  return false;
 }
