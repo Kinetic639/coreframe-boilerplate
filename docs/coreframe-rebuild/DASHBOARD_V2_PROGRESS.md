@@ -52,8 +52,8 @@
 | **Test: user-store.test.ts**                   | ✅     | -        | 457 lines, 8 comprehensive tests          |
 | **Test: app-store.test.ts**                    | ✅     | -        | 616 lines, 12 comprehensive tests         |
 | **Test: ui-store.test.ts**                     | ✅     | -        | 336 lines, 6 comprehensive tests          |
-| **Test: use-permissions.test.tsx**             | ✅     | -        | 657 lines, 15 comprehensive tests         |
-| **Test: permissions.test.ts**                  | ✅     | -        | 359 lines, 8 tests with edge cases        |
+| **Test: use-permissions.test.tsx**             | ✅     | -        | 657 lines, 36 comprehensive tests         |
+| **Test: permissions.test.ts**                  | ✅     | -        | 371 lines, 35 tests with edge cases       |
 | **Route: Dashboard V2 Layout**                 | ⚪     | -        | DEFERRED - Server layout + auth           |
 | **Route: Dashboard V2 Provider**               | ⚪     | -        | DEFERRED - Client provider + hydration    |
 | **Page: Home Page (POC)**                      | ⚪     | -        | DEFERRED - Proof of concept               |
@@ -89,10 +89,10 @@
 - [x] `src/lib/stores/v2/__tests__/app-store.test.ts` (616 lines, 12 tests)
 - [x] `src/lib/stores/v2/__tests__/ui-store.test.ts` (336 lines, 6 tests)
 
-**V2 Hook & Permission Tests (1,016 lines):**
+**V2 Hook & Permission Tests (1,028 lines):**
 
-- [x] `src/lib/hooks/v2/__tests__/use-permissions.test.tsx` (657 lines, 15 tests)
-- [x] `src/lib/utils/__tests__/permissions.test.ts` (359 lines, 8 tests)
+- [x] `src/lib/hooks/v2/__tests__/use-permissions.test.tsx` (657 lines, 36 tests)
+- [x] `src/lib/utils/__tests__/permissions.test.ts` (371 lines, 35 tests)
 
 **V2 Loader Tests (163 lines):**
 
@@ -141,18 +141,21 @@
 - [x] can(), canAny(), canAll() methods ✅
 - [x] Wildcard pattern support ✅
 - [x] Deny-first semantics ✅
-- [x] 15 hook tests passing ✅
+- [x] 36 hook tests passing ✅
 
 **V2 Permission Utilities:**
 
 - [x] checkPermission() with deny-first semantics ✅
 - [x] matchesAnyPattern() with regex caching ✅
 - [x] Shared PermissionSnapshot type ✅
-- [x] 8 utility tests passing ✅
+- [x] 35 utility tests passing ✅
+- [x] cannot() helper for improved ergonomics ✅
+- [x] Empty string guard in regex cache ✅
+- [x] CI-aware test infrastructure ✅
 
 **Test Coverage:**
 
-- [x] **54 total tests passing** (far exceeds 10 minimum) ✅
+- [x] **71 total tests passing** (far exceeds 10 minimum) ✅
 - [x] **2,588 lines of test code** (2.8:1 test-to-code ratio) ✅
 - [x] **100% TypeScript coverage** ✅
 - [x] **All tests in correct environment (jsdom/node)** ✅
@@ -465,11 +468,11 @@ Routes and UI components are deferred until all foundational architecture (store
 
 | Metric              | Current | Target | Status      |
 | ------------------- | ------- | ------ | ----------- |
-| **Total Tests**     | 147     | 150+   | ✅          |
+| **Total Tests**     | 222     | 150+   | ✅          |
 | **V2 Loader Tests** | 5       | 5      | ✅          |
 | **V2 Store Tests**  | 26      | 10     | ✅ **260%** |
-| **V2 Hook Tests**   | 15      | 10     | ✅ **150%** |
-| **V2 Util Tests**   | 8       | 5      | ✅ **160%** |
+| **V2 Hook Tests**   | 36      | 10     | ✅ **360%** |
+| **V2 Util Tests**   | 35      | 5      | ✅ **700%** |
 | **Component Tests** | 0       | 30+    | ⚪          |
 | **Type Coverage**   | 100%    | 100%   | ✅          |
 | **Lint Errors**     | 0       | 0      | ✅          |

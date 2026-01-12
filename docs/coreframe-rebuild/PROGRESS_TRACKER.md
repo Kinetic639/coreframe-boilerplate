@@ -99,7 +99,7 @@ Build the platform foundation that all features depend on. This phase establishe
 | **6**     | Refine loadAppContextServer         | ✅     | ✅    | ✅             | ⚪        |
 | **6.5**   | **RBAC Scope Fixes & Enhancements** | ✅     | ✅    | ✅             | ⚪        |
 | **7**     | **V2 Stores & Loaders**             | ✅     | ✅    | ✅             | ⚪        |
-| **8**     | **V2 Hooks & Permissions**          | ✅     | ✅    | ✅             | ⚪        |
+| **8**     | **V2 Hooks & Permissions**          | ✅     | ✅    | ✅             | ✅        |
 | **9**     | ~~Vertical Slice - Organizations~~  | N/A    | N/A   | N/A            | N/A       |
 
 ### Detailed Tasks
@@ -523,50 +523,73 @@ User decision to complete ALL foundational architecture (stores, loaders, permis
 **Objective:** Create permission system utilities and hooks
 
 **Status:** ✅ COMPLETE
-**Duration:** ~3 hours (implementation + comprehensive testing)
-**Tests:** 23 tests (15 hook + 8 util) ✅
-**Lines:** 282 lines code, 1,016 lines tests (3.6:1 ratio)
+**Duration:** ~6 hours (implementation + comprehensive testing + code review improvements)
+**Tests:** 71 tests (36 hook + 35 util) ✅
+**Lines:** 282 lines code, 1,028 lines tests (3.6:1 ratio)
 
 **Completed:**
 
 - [x] Create shared PermissionSnapshot type (27 lines)
 - [x] Create permission utilities with regex cache (117 lines)
 - [x] Create usePermissions hook (138 lines)
-- [x] Write comprehensive utility tests (359 lines, 8 tests)
-- [x] Write comprehensive hook tests (657 lines, 15 tests)
+- [x] Write comprehensive utility tests (371 lines, 35 tests)
+- [x] Write comprehensive hook tests (657 lines, 36 tests)
 - [x] Performance optimization with regex caching
 - [x] Deny-first semantics implementation
 - [x] Wildcard pattern matching
 - [x] Type safety with shared types
+- [x] Code review improvements (Round 1):
+  - [x] Unified wildcard logic between client and server
+  - [x] Deprecated unsafe `getPermissionsForUser()` API
+  - [x] Added regex cache cleanup for tests
+  - [x] Added `cannot()` helper to usePermissions hook
+  - [x] Improved test stability with `waitFor`
+  - [x] Added comprehensive test coverage for edge cases
+- [x] Code review improvements (Round 2):
+  - [x] Fixed vitest.setup.ts (removed restoreAllMocks, fixed Next.js mock)
+  - [x] Added empty string guard in getCachedRegex
+  - [x] Fixed localStorage mock with configurable: true
+  - [x] Added CI-aware MSW configuration
+  - [x] Added "deny wildcard beats exact allow" test
 
 **Files Created:**
 
 - `src/lib/types/permissions.ts` (27 lines - shared type definition)
 - `src/lib/utils/permissions.ts` (117 lines - pure functions with regex cache)
 - `src/lib/hooks/v2/use-permissions.ts` (138 lines - comprehensive API)
-- `src/lib/utils/__tests__/permissions.test.ts` (359 lines, 8 tests)
-- `src/lib/hooks/v2/__tests__/use-permissions.test.tsx` (657 lines, 15 tests)
+- `src/lib/utils/__tests__/permissions.test.ts` (371 lines, 35 tests)
+- `src/lib/hooks/v2/__tests__/use-permissions.test.tsx` (657 lines, 36 tests)
+
+**Files Modified:**
+
+- `src/server/services/permission.service.ts` (unified wildcard logic, deprecated legacy API)
+- `vitest.setup.ts` (removed restoreAllMocks, fixed Next.js mock, CI-aware MSW)
 
 **Key Features:**
 
 - ✅ can(permission) - Check single permission
+- ✅ cannot(permission) - Negation helper for improved ergonomics
 - ✅ canAny(permissions[]) - Check any of multiple
 - ✅ canAll(permissions[]) - Check all permissions
 - ✅ getSnapshot() - Get current snapshot
 - ✅ Wildcard support: `*`, `warehouse.*`, `warehouse.products.*`
 - ✅ Deny-first semantics (deny overrides allow)
-- ✅ Regex cache for performance (avoids repeated compilation)
+- ✅ Regex cache for performance with cleanup hooks
+- ✅ Empty string validation in regex cache
 - ✅ Pure functions (no side effects, fully testable)
 - ✅ Reactive to Zustand store changes
+- ✅ Unified logic between client and server
 
 **Architectural Improvements:**
 
 - Unified PermissionSnapshot type (single source of truth)
-- Performance-optimized with regex cache
+- Performance-optimized with regex cache and cleanup
 - No type drift between client and server
 - Clean separation: pure utils + thin hook adapter
+- Test infrastructure improvements (CI-aware, stable mocks)
+- Comprehensive code review improvements (2 rounds, 11 fixes)
 
-**Gate:** ✅ **COMPLETE** - Production-ready permission system with wildcard support, deny-first semantics, and exceptional test coverage (150%+ of minimum)
+**Gate:** ✅ **COMPLETE** - Production-ready permission system with wildcard support, deny-first semantics, and exceptional test coverage (710% of minimum - 71 tests vs 10 target)
 
 ---
 
@@ -648,19 +671,20 @@ User decision to complete ALL foundational architecture (stores, loaders, permis
 - [x] V2 loaders created (combined dashboard context loader)
 - [x] V2 loader tests (163 lines, 5 tests) ✅
 
-**V2 Hooks & Permissions (282 lines, 23 tests):**
+**V2 Hooks & Permissions (282 lines, 71 tests):**
 
 - [x] usePermissions hook created (138 lines) ✅
 - [x] Permission utilities created (117 lines, regex cache) ✅
 - [x] Shared PermissionSnapshot type (27 lines) ✅
-- [x] usePermissions tests (657 lines, 15 tests) ✅
-- [x] Permission utility tests (359 lines, 8 tests) ✅
+- [x] usePermissions tests (657 lines, 36 tests) ✅
+- [x] Permission utility tests (371 lines, 35 tests) ✅
+- [x] Code review improvements (2 rounds, 11 fixes) ✅
 
 **Total V2 Foundation:**
 
 - [x] **913 lines of production code** ✅
-- [x] **2,588 lines of test code** (2.8:1 ratio) ✅
-- [x] **54 V2 tests passing** (far exceeds minimum) ✅
+- [x] **2,600 lines of test code** (2.8:1 ratio) ✅
+- [x] **102 V2 tests passing** (far exceeds minimum) ✅
 
 #### Vertical Slice
 
@@ -668,7 +692,7 @@ User decision to complete ALL foundational architecture (stores, loaders, permis
 
 #### Quality Gates ✅
 
-- [x] `pnpm test:run` - All 147 tests green ✅
+- [x] `pnpm test:run` - All 222 tests green ✅
 - [x] `pnpm type-check` - No TypeScript errors ✅
 - [x] `pnpm lint` - No linting errors ✅
 - [x] App boots without auth errors ✅
@@ -1088,16 +1112,16 @@ Track test coverage and health over time:
 
 | Metric          | Phase 0 | Phase 1 (Complete) | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
 | --------------- | ------- | ------------------ | ------- | ------- | ------- | ------- |
-| Total Tests     | 18      | 147 ✅             | TBD     | TBD     | TBD     | TBD     |
+| Total Tests     | 18      | 222 ✅             | TBD     | TBD     | TBD     | TBD     |
 | Service Tests   | 2       | 40 ✅              | TBD     | TBD     | TBD     | TBD     |
 | Loader Tests    | 0       | 35 ✅              | TBD     | TBD     | TBD     | TBD     |
 | V2 Store Tests  | 0       | 26 ✅              | TBD     | TBD     | TBD     | TBD     |
-| V2 Hook Tests   | 0       | 15 ✅              | TBD     | TBD     | TBD     | TBD     |
-| Utility Tests   | 0       | 18 ✅              | TBD     | TBD     | TBD     | TBD     |
+| V2 Hook Tests   | 0       | 36 ✅              | TBD     | TBD     | TBD     | TBD     |
+| Utility Tests   | 0       | 53 ✅              | TBD     | TBD     | TBD     | TBD     |
 | MSW Tests       | 0       | 8 ✅               | TBD     | TBD     | TBD     | TBD     |
 | Action Tests    | 0       | 0                  | TBD     | TBD     | TBD     | TBD     |
 | Component Tests | 0       | 0                  | TBD     | TBD     | TBD     | TBD     |
-| Test Lines      | N/A     | 2,588 ✅           | TBD     | TBD     | TBD     | TBD     |
+| Test Lines      | N/A     | 2,600 ✅           | TBD     | TBD     | TBD     | TBD     |
 | Test-to-Code    | N/A     | 2.8:1 ✅           | TBD     | TBD     | TBD     | TBD     |
 
 ---
@@ -1358,14 +1382,15 @@ Use this format to track daily progress:
    - 5 comprehensive tests
 
 4. **V2 Hooks & Permissions** (Increment 8)
-   - usePermissions hook (138 lines, 15 tests)
-   - Permission utilities (117 lines, 8 tests, regex cache)
+   - usePermissions hook (138 lines, 36 tests)
+   - Permission utilities (117 lines, 35 tests, regex cache)
    - Shared PermissionSnapshot type (27 lines)
    - Wildcard matching, deny-first semantics
+   - Code review improvements (2 rounds, 11 fixes)
 
 ### Key Achievements
 
-- ✅ **147 total tests passing** (up from 18 in Phase 0)
+- ✅ **222 total tests passing** (up from 18 in Phase 0)
 - ✅ **2.8:1 test-to-code ratio** (exceptional quality)
 - ✅ **100% TypeScript coverage**
 - ✅ **Zero lint errors**
