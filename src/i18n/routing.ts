@@ -16,6 +16,52 @@ export const routing = defineRouting({
       pl: "/cennik",
     },
 
+    // === Admin Panel ===
+    "/admin": {
+      en: "/admin",
+      pl: "/admin",
+    },
+    "/admin/testing": {
+      en: "/admin/testing",
+      pl: "/admin/testowanie",
+    },
+    "/admin/testing/api": {
+      en: "/admin/testing/api",
+      pl: "/admin/testowanie/api",
+    },
+    "/admin/testing/database": {
+      en: "/admin/testing/database",
+      pl: "/admin/testowanie/baza-danych",
+    },
+    "/admin/testing/permissions": {
+      en: "/admin/testing/permissions",
+      pl: "/admin/testowanie/uprawnienia",
+    },
+    "/admin/app-management": {
+      en: "/admin/app-management",
+      pl: "/admin/zarzadzanie-aplikacja",
+    },
+    "/admin/app-management/users": {
+      en: "/admin/app-management/users",
+      pl: "/admin/zarzadzanie-aplikacja/uzytkownicy",
+    },
+    "/admin/app-management/organizations": {
+      en: "/admin/app-management/organizations",
+      pl: "/admin/zarzadzanie-aplikacja/organizacje",
+    },
+    "/admin/app-management/config": {
+      en: "/admin/app-management/config",
+      pl: "/admin/zarzadzanie-aplikacja/konfiguracja",
+    },
+    "/admin/logs": {
+      en: "/admin/logs",
+      pl: "/admin/logi",
+    },
+    "/admin/analytics": {
+      en: "/admin/analytics",
+      pl: "/admin/analityka",
+    },
+
     "/dashboard-old": {
       en: "/dashboard-old",
       pl: "/dashboard-old",
