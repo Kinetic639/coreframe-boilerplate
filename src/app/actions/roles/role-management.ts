@@ -312,7 +312,7 @@ export async function createRole(data: {
       }
     }
 
-    revalidatePath("/dashboard/organization/users/roles");
+    revalidatePath("/dashboard-old/organization/users/roles");
     return { success: true, roleId: newRole.id };
   } catch (error) {
     return {
@@ -426,7 +426,7 @@ export async function updateRole(
       }
     }
 
-    revalidatePath("/dashboard/organization/users/roles");
+    revalidatePath("/dashboard-old/organization/users/roles");
     revalidatePath(`/dashboard/organization/roles/${roleId}`);
     return { success: true };
   } catch (error) {
@@ -533,7 +533,7 @@ export async function deleteRole(roleId: string): Promise<{ success: boolean; er
       return { success: false, error: `Failed to delete role: ${deleteError.message}` };
     }
 
-    revalidatePath("/dashboard/organization/users/roles");
+    revalidatePath("/dashboard-old/organization/users/roles");
     return { success: true };
   } catch (error) {
     return {

@@ -420,7 +420,7 @@ export function CreatePurchaseOrderForm() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/dashboard/warehouse/purchases")}
+          onClick={() => router.push("/dashboard-old/warehouse/purchases")}
           disabled={isSubmitting}
         >
           Cancel

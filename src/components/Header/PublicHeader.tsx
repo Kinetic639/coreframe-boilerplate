@@ -74,7 +74,7 @@ const PublicHeader = () => {
             {user ? (
               <>
                 <Button asChild className="gap-2">
-                  <Link href="/dashboard/start" className="flex items-center">
+                  <Link href="/dashboard-old/start" className="flex items-center">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
                   </Link>

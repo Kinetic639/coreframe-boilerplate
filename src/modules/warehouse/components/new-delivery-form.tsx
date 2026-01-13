@@ -87,7 +87,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
 
       if (error || !movements || movements.length === 0) {
         toast.error(t("messages.error"));
-        router.push("/dashboard/warehouse/deliveries/new");
+        router.push("/dashboard-old/warehouse/deliveries/new");
         return;
       }
 
@@ -250,7 +250,7 @@ export function NewDeliveryForm({ organizationId, branchId }: NewDeliveryFormPro
   };
 
   const handleCancel = () => {
-    router.push("/dashboard/warehouse/deliveries");
+    router.push("/dashboard-old/warehouse/deliveries");
   };
 
   const handleSupplierCreated = async () => {

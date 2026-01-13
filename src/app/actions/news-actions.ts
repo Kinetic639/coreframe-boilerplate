@@ -150,8 +150,8 @@ export async function createNewsPost(formData: NewsFormData) {
 
     console.log("Successfully created news post:", data?.id);
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/news");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/news");
 
     return { data, error: null };
   } catch (error) {
@@ -203,8 +203,8 @@ export async function updateNewsPost(newsId: string, formData: NewsFormData) {
       throw error;
     }
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/news");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/news");
 
     return { data, error: null };
   } catch (error) {
@@ -239,8 +239,8 @@ export async function deleteNewsPost(newsId: string) {
       throw error;
     }
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/news");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/news");
 
     return { error: null };
   } catch (error) {

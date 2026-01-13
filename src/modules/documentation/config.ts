@@ -37,21 +37,21 @@ export const documentationModuleConfig: ModuleConfig = {
       label: "modules.documentation.items.home",
       icon: "BookOpen",
       type: "link",
-      path: "/dashboard/docs",
+      path: "/dashboard-old/docs",
     },
     {
       id: "docs-user",
       label: "modules.documentation.items.user",
       icon: "FileText",
       type: "link",
-      path: "/dashboard/docs/user",
+      path: "/dashboard-old/docs/user",
     },
     {
       id: "docs-dev",
       label: "modules.documentation.items.dev",
       icon: "Code",
       type: "link",
-      path: "/dashboard/docs/dev",
+      path: "/dashboard-old/docs/dev",
       allowedUsers: [
         { role: "developer", scope: "org" },
         { role: "org_admin", scope: "org" },
@@ -62,7 +62,7 @@ export const documentationModuleConfig: ModuleConfig = {
       label: "modules.documentation.items.spec",
       icon: "FileCode",
       type: "link",
-      path: "/dashboard/docs/spec",
+      path: "/dashboard-old/docs/spec",
       allowedUsers: [
         { role: "developer", scope: "org" },
         { role: "org_admin", scope: "org" },

@@ -76,7 +76,7 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
 
       if (result.success) {
         toast.success("Order deleted successfully");
-        router.push("/dashboard/warehouse/sales-orders");
+        router.push("/dashboard-old/warehouse/sales-orders");
       } else {
         toast.error(result.error || "Failed to delete order");
       }
@@ -102,7 +102,7 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="text-destructive">{error || "Order not found"}</div>
-        <Button onClick={() => router.push("/dashboard/warehouse/sales-orders")}>
+        <Button onClick={() => router.push("/dashboard-old/warehouse/sales-orders")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Orders
         </Button>
@@ -121,7 +121,7 @@ export function SalesOrderDetails({ orderId }: SalesOrderDetailsProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/dashboard/warehouse/sales-orders")}
+            onClick={() => router.push("/dashboard-old/warehouse/sales-orders")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back

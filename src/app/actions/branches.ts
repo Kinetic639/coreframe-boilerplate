@@ -92,7 +92,7 @@ export async function createBranchAction(
     }
 
     // Revalidate the branches page and refresh branch context
-    revalidatePath("/dashboard/organization/branches");
+    revalidatePath("/dashboard-old/organization/branches");
     await refreshBranchContext(data.organization_id);
 
     return { success: true, data: branch };
@@ -188,7 +188,7 @@ export async function updateBranchAction(
     }
 
     // Revalidate the branches page and refresh branch context
-    revalidatePath("/dashboard/organization/branches");
+    revalidatePath("/dashboard-old/organization/branches");
     await refreshBranchContext(branch.organization_id);
 
     return { success: true, data: branch };
@@ -248,7 +248,7 @@ export async function deleteBranchAction(branchId: string): Promise<ActionResult
     }
 
     // Revalidate the branches page and refresh branch context
-    revalidatePath("/dashboard/organization/branches");
+    revalidatePath("/dashboard-old/organization/branches");
     if (branchToDelete) {
       await refreshBranchContext(branchToDelete.organization_id);
     }

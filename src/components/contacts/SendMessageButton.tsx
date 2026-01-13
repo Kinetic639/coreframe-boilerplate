@@ -44,7 +44,7 @@ export function SendMessageButton({
 
       // Navigate to the chat
       router.push({
-        pathname: "/dashboard/teams/communication/chat/[chatId]",
+        pathname: "/dashboard-old/teams/communication/chat/[chatId]",
         params: { chatId: chat.id },
       });
 

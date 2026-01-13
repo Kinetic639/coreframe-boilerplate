@@ -116,7 +116,7 @@ export function RecentAnnouncementsWidget({
                 </Button>
               </AddAnnouncementDialog>
             </HasAnyRoleClient>
-            <Link href="/dashboard/news">
+            <Link href="/dashboard-old/news">
               <Button variant="ghost" size="sm">
                 <ExternalLink className="h-4 w-4" />
               </Button>
@@ -154,7 +154,7 @@ export function RecentAnnouncementsWidget({
 
             {news.length >= limit && (
               <div className="border-t pt-3">
-                <Link href="/dashboard/news">
+                <Link href="/dashboard-old/news">
                   <Button variant="ghost" className="w-full text-sm">
                     {t("widget.viewAll")}
                     <ExternalLink className="ml-2 h-3 w-3" />

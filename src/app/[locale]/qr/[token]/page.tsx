@@ -167,7 +167,7 @@ export default async function QRPage({ params }: QRPageProps) {
                     <Button asChild variant="outline" size="sm" className="w-full">
                       <Link
                         href={{
-                          pathname: "/dashboard/warehouse/labels/assign",
+                          pathname: "/dashboard-old/warehouse/labels/assign",
                           query: { qr: token, type: "product" },
                         }}
                       >
@@ -178,7 +178,7 @@ export default async function QRPage({ params }: QRPageProps) {
                     <Button asChild variant="outline" size="sm" className="w-full">
                       <Link
                         href={{
-                          pathname: "/dashboard/warehouse/labels/assign",
+                          pathname: "/dashboard-old/warehouse/labels/assign",
                           query: { qr: token, type: "location" },
                         }}
                       >
@@ -192,7 +192,7 @@ export default async function QRPage({ params }: QRPageProps) {
 
               <div className="flex flex-col gap-2">
                 <Button asChild variant="outline">
-                  <Link href="/dashboard">
+                  <Link href="/dashboard-old">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Powrót do panelu
                   </Link>
@@ -235,7 +235,7 @@ export default async function QRPage({ params }: QRPageProps) {
 
   // Construct localized URLs based on the routing configuration
   if (entityType === "product") {
-    const productPath = routing.pathnames["/dashboard/warehouse/products/[id]"];
+    const productPath = routing.pathnames["/dashboard-old/warehouse/products/[id]"];
     const localizedProductPath =
       typeof productPath === "string"
         ? productPath
@@ -247,7 +247,7 @@ export default async function QRPage({ params }: QRPageProps) {
         : `/${locale}${localizedProductPath.replace("[id]", entity.id)}`;
     redirect(finalPath);
   } else if (entityType === "location") {
-    const locationPath = routing.pathnames["/dashboard/warehouse/locations/[id]"];
+    const locationPath = routing.pathnames["/dashboard-old/warehouse/locations/[id]"];
     const localizedLocationPath =
       typeof locationPath === "string"
         ? locationPath
@@ -292,8 +292,8 @@ export default async function QRPage({ params }: QRPageProps) {
                 href={{
                   pathname:
                     entityType === "product"
-                      ? "/dashboard/warehouse/products/[id]"
-                      : "/dashboard/warehouse/locations/[id]",
+                      ? "/dashboard-old/warehouse/products/[id]"
+                      : "/dashboard-old/warehouse/locations/[id]",
                   params: { id: entity.id },
                 }}
               >
@@ -302,7 +302,7 @@ export default async function QRPage({ params }: QRPageProps) {
             </Button>
 
             <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard">
+              <Link href="/dashboard-old">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Powrót do panelu
               </Link>

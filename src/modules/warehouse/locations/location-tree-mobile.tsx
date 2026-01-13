@@ -65,7 +65,7 @@ function LocationItemMobile({
 
   const handleViewDetails = () => {
     router.push({
-      pathname: "/dashboard/warehouse/locations/[id]",
+      pathname: "/dashboard-old/warehouse/locations/[id]",
       params: { id: location.id },
     });
   };

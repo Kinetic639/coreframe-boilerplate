@@ -150,8 +150,8 @@ export async function createAnnouncementPost(formData: AnnouncementFormData) {
 
     console.log("Successfully created news post:", data?.id);
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/announcements");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/announcements");
 
     return { data, error: null };
   } catch (error) {
@@ -203,8 +203,8 @@ export async function updateAnnouncementPost(newsId: string, formData: Announcem
       throw error;
     }
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/announcements");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/announcements");
 
     return { data, error: null };
   } catch (error) {
@@ -239,8 +239,8 @@ export async function deleteAnnouncementPost(newsId: string) {
       throw error;
     }
 
-    revalidatePath("/dashboard/start");
-    revalidatePath("/dashboard/announcements");
+    revalidatePath("/dashboard-old/start");
+    revalidatePath("/dashboard-old/announcements");
 
     return { error: null };
   } catch (error) {

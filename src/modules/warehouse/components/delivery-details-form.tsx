@@ -50,7 +50,7 @@ export function DeliveryDetailsForm({
   ];
 
   const handleBack = () => {
-    router.push("/dashboard/warehouse/deliveries");
+    router.push("/dashboard-old/warehouse/deliveries");
   };
 
   return (

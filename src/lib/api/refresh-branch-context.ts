@@ -48,8 +48,8 @@ export async function refreshBranchContext(organizationId: string) {
     }
 
     // Revalidate paths that depend on branch context
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/organization/branches");
+    revalidatePath("/dashboard-old");
+    revalidatePath("/dashboard-old/organization/branches");
 
     return { success: true };
   } catch (error) {

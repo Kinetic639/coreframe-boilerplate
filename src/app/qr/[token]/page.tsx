@@ -56,7 +56,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
 
     if (qrLabel.entity_type === "location" && qrLabel.entity_id) {
       // Use localized path for locations
-      const localizedPath = routing.pathnames["/dashboard/warehouse/locations/[id]"];
+      const localizedPath = routing.pathnames["/dashboard-old/warehouse/locations/[id]"];
       const pathTemplate =
         typeof localizedPath === "string"
           ? localizedPath
@@ -64,7 +64,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
       redirectPath = pathTemplate.replace("[id]", qrLabel.entity_id);
     } else if (qrLabel.entity_type === "product" && qrLabel.entity_id) {
       // Use localized path for products
-      const localizedPath = routing.pathnames["/dashboard/warehouse/products/[id]"];
+      const localizedPath = routing.pathnames["/dashboard-old/warehouse/products/[id]"];
       const pathTemplate =
         typeof localizedPath === "string"
           ? localizedPath
@@ -72,7 +72,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
       redirectPath = pathTemplate.replace("[id]", qrLabel.entity_id);
     } else {
       // Unassigned QR code - redirect to assignment interface
-      const localizedPath = routing.pathnames["/dashboard/warehouse/labels/assign"];
+      const localizedPath = routing.pathnames["/dashboard-old/warehouse/labels/assign"];
       const pathTemplate =
         typeof localizedPath === "string"
           ? localizedPath
