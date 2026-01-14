@@ -70,7 +70,7 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
     try {
       await contactsService.deleteContact(selectedContact.id);
       toast.success(t("messages.deleteSuccess"));
-      router.push("/dashboard/contacts");
+      router.push("/dashboard-old/contacts");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("messages.error"));
     } finally {
@@ -90,7 +90,7 @@ export function ContactDetailView({ contactId }: ContactDetailViewProps) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <p className="text-muted-foreground text-lg">{error || "Contact not found"}</p>
-        <Button variant="outline" onClick={() => router.push("/dashboard/contacts")}>
+        <Button variant="outline" onClick={() => router.push("/dashboard-old/contacts")}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t("actions.backToList")}
         </Button>

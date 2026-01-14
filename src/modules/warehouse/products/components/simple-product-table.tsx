@@ -110,7 +110,7 @@ export function SimpleProductTable({ products }: SimpleProductTableProps) {
                     <div className="flex justify-end gap-2">
                       <Link
                         href={{
-                          pathname: "/dashboard/warehouse/products/[id]",
+                          pathname: "/dashboard-old/warehouse/products/[id]",
                           params: { id: product.id },
                         }}
                       >

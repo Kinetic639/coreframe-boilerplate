@@ -125,7 +125,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
         onClick={() => {
           setMessagesDrawerOpen(false);
           router.push({
-            pathname: "/dashboard/teams/communication/chat/[chatId]",
+            pathname: "/dashboard-old/teams/communication/chat/[chatId]",
             params: { chatId: chat.id },
           });
         }}
@@ -192,7 +192,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
               <SheetTitle className="text-lg font-semibold">
                 {t("teams.communication.messages")}
               </SheetTitle>
-              <Link href="/dashboard/teams/communication/chat">
+              <Link href="/dashboard-old/teams/communication/chat">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -259,7 +259,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
                       : t("teams.communication.startFirstChat")}
                   </p>
                   {!searchQuery && (
-                    <Link href="/dashboard/teams/communication/chat">
+                    <Link href="/dashboard-old/teams/communication/chat">
                       <Button size="sm" onClick={() => setMessagesDrawerOpen(false)}>
                         <Plus className="mr-2 h-4 w-4" />
                         {t("teams.communication.newChat")}
@@ -277,7 +277,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
 
           {/* Footer */}
           <div className="border-t p-4">
-            <Link href="/dashboard/teams/communication/chat">
+            <Link href="/dashboard-old/teams/communication/chat">
               <Button
                 variant="outline"
                 className="w-full justify-start"

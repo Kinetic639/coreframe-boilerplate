@@ -695,7 +695,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                window.open("/dashboard/contacts", "_blank");
+                                window.open("/dashboard-old/contacts", "_blank");
                               }}
                             >
                               <UserPlus className="mr-2 h-4 w-4" />
@@ -747,7 +747,7 @@ export function ClientFormDialog({ open, onOpenChange, client, onSuccess }: Clie
                           size="sm"
                           className="w-full"
                           onClick={() => {
-                            window.open("/dashboard/contacts", "_blank");
+                            window.open("/dashboard-old/contacts", "_blank");
                           }}
                         >
                           <UserPlus className="mr-2 h-4 w-4" />

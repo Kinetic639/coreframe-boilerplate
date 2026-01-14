@@ -124,7 +124,7 @@ export function DeliveriesListView({ organizationId, branchId }: DeliveriesListV
   };
 
   const handleNewDelivery = () => {
-    router.push("/dashboard/warehouse/deliveries/new");
+    router.push("/dashboard-old/warehouse/deliveries/new");
   };
 
   const formatScheduledDate = (dateStr: string) => {

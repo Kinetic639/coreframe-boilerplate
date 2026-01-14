@@ -169,7 +169,7 @@ export function SimpleProductCard({ product }: SimpleProductCardProps) {
       <CardFooter className="flex items-center gap-2 pt-2">
         <Link
           href={{
-            pathname: "/dashboard/warehouse/products/[id]",
+            pathname: "/dashboard-old/warehouse/products/[id]",
             params: { id: product.id },
           }}
           className="flex-grow"

@@ -116,8 +116,8 @@ export async function createInvitationAction(
     });
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/organization/users");
-    revalidatePath("/dashboard/organization/users/list");
+    revalidatePath("/dashboard-old/organization/users");
+    revalidatePath("/dashboard-old/organization/users/list");
 
     return { success: true, data: invitation };
   } catch (error) {
@@ -174,8 +174,8 @@ export async function cancelInvitationAction(
     await cancelInvitation(invitationId);
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/organization/users");
-    revalidatePath("/dashboard/organization/users/list");
+    revalidatePath("/dashboard-old/organization/users");
+    revalidatePath("/dashboard-old/organization/users/list");
 
     return { success: true };
   } catch (error) {
@@ -238,8 +238,8 @@ export async function resendInvitationAction(
     });
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/organization/users");
-    revalidatePath("/dashboard/organization/users/list");
+    revalidatePath("/dashboard-old/organization/users");
+    revalidatePath("/dashboard-old/organization/users/list");
 
     return { success: true, data: updatedInvitation };
   } catch (error) {
@@ -273,8 +273,8 @@ export async function acceptInvitationAction(token: string): Promise<InvitationA
     await refreshBranchContext(invitation.organization_id!);
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/organization");
+    revalidatePath("/dashboard-old");
+    revalidatePath("/dashboard-old/organization");
 
     return { success: true, data: invitation };
   } catch (error) {
@@ -347,8 +347,8 @@ export async function cleanupExpiredInvitationsAction(): Promise<InvitationActio
     const expiredCount = await markExpiredInvitations();
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard/organization/users");
-    revalidatePath("/dashboard/organization/users/list");
+    revalidatePath("/dashboard-old/organization/users");
+    revalidatePath("/dashboard-old/organization/users/list");
 
     return { success: true, data: { expiredCount } };
   } catch (error) {

@@ -3911,6 +3911,7 @@ export type Database = {
           is_basic: boolean;
           name: string;
           organization_id: string | null;
+          scope_type: string;
         };
         Insert: {
           deleted_at?: string | null;
@@ -3919,6 +3920,7 @@ export type Database = {
           is_basic?: boolean;
           name: string;
           organization_id?: string | null;
+          scope_type?: string;
         };
         Update: {
           deleted_at?: string | null;
@@ -3927,6 +3929,7 @@ export type Database = {
           is_basic?: boolean;
           name?: string;
           organization_id?: string | null;
+          scope_type?: string;
         };
         Relationships: [
           {
@@ -5478,32 +5481,46 @@ export type Database = {
       user_permission_overrides: {
         Row: {
           allowed: boolean;
+          created_at: string;
           deleted_at: string | null;
           id: string;
           permission_id: string;
           scope: string;
-          scope_id: string;
+          scope_id: string | null;
+          updated_at: string;
           user_id: string;
         };
         Insert: {
           allowed: boolean;
+          created_at?: string;
           deleted_at?: string | null;
           id?: string;
           permission_id: string;
           scope: string;
-          scope_id: string;
+          scope_id?: string | null;
+          updated_at?: string;
           user_id: string;
         };
         Update: {
           allowed?: boolean;
+          created_at?: string;
           deleted_at?: string | null;
           id?: string;
           permission_id?: string;
           scope?: string;
-          scope_id?: string;
+          scope_id?: string | null;
+          updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_overrides_permission_id_fkey";
+            columns: ["permission_id"];
+            isOneToOne: false;
+            referencedRelation: "permissions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_preferences: {
         Row: {
@@ -6223,16 +6240,21 @@ export type Database = {
           packages: number;
         }[];
       };
-      authorize: {
-        Args: {
-          branch_id?: string;
-          organization_id?: string;
-          required_permissions?: string[];
-          required_roles?: string[];
-          user_id: string;
-        };
-        Returns: Json;
-      };
+      authorize:
+        | {
+            Args: { org_id?: string; required_permission: string };
+            Returns: boolean;
+          }
+        | {
+            Args: {
+              branch_id?: string;
+              organization_id?: string;
+              required_permissions?: string[];
+              required_roles?: string[];
+              user_id: string;
+            };
+            Returns: Json;
+          };
       calculate_current_stock: {
         Args: {
           p_branch_id: string;
@@ -6527,9 +6549,7 @@ export type Database = {
       };
       get_permissions_for_roles: {
         Args: { role_ids: string[] };
-        Returns: {
-          slug: string;
-        }[];
+        Returns: string[];
       };
       get_product_attribute_value: {
         Args: {

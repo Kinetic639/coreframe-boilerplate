@@ -110,8 +110,8 @@ async function _loadUserContextServer(): Promise<UserContext | null> {
       userId,
       orgId: preferences.organization_id,
       branchId: preferences.default_branch_id,
-      permissionCount: permissions.length,
-      permissions: permissions.slice(0, 5), // First 5 for debugging
+      permissionCount: permissions?.length ?? 0,
+      permissions: permissions?.slice(0, 5) ?? [], // First 5 for debugging
     });
   } else {
     console.warn("[loadUserContext] Skipping permission loading - no organization_id");

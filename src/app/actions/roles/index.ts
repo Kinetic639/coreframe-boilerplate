@@ -197,7 +197,7 @@ export async function createCustomRole(
     return { error: `Failed to create role: ${error.message}` };
   }
 
-  revalidatePath("/dashboard/organization/users/roles");
+  revalidatePath("/dashboard-old/organization/users/roles");
   return { success: true };
 }
 
@@ -256,7 +256,7 @@ export async function assignUserRole(
     return { error: `Failed to assign role: ${error.message}` };
   }
 
-  revalidatePath("/dashboard/organization/users/roles");
+  revalidatePath("/dashboard-old/organization/users/roles");
   return { success: true };
 }
 
@@ -306,7 +306,7 @@ export async function revokeUserRole(
     return { error: `Failed to revoke role: ${error.message}` };
   }
 
-  revalidatePath("/dashboard/organization/users/roles");
+  revalidatePath("/dashboard-old/organization/users/roles");
   return { success: true };
 }
 
@@ -373,7 +373,7 @@ export async function createPermissionOverride(
     }
   }
 
-  revalidatePath("/dashboard/organization/users/roles");
+  revalidatePath("/dashboard-old/organization/users/roles");
   return { success: true };
 }
 
@@ -454,7 +454,7 @@ export async function removePermissionOverride(
     return { error: `Failed to remove permission override: ${error.message}` };
   }
 
-  revalidatePath("/dashboard/organization/users/roles");
+  revalidatePath("/dashboard-old/organization/users/roles");
   return { success: true };
 }
 

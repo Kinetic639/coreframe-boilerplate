@@ -28,7 +28,7 @@ export default async function HeaderAuth() {
       <div className="flex flex-col items-end">
         <span>{t("greeting", { email: user.email ?? "" })}</span>
       </div>
-      <Link href="/dashboard/start">
+      <Link href="/dashboard-old/start">
         <Button type="submit" variant="secondary">
           Dashboard
         </Button>

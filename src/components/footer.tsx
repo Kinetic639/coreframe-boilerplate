@@ -1,6 +1,7 @@
 import { Link } from "@/i18n/navigation";
 import React from "react";
 import { ThemeSwitcher } from "./theme-switcher";
+import { ColorThemeSwitcher } from "./color-theme-switcher";
 import LocaleSwitcher from "./LocaleSwitcher";
 
 const footer = () => {
@@ -192,6 +193,7 @@ const footer = () => {
             Regulamin
           </Link>
           <div className="flex items-center gap-2">
+            <ColorThemeSwitcher variant="icon" />
             <ThemeSwitcher />
             <LocaleSwitcher />
           </div>

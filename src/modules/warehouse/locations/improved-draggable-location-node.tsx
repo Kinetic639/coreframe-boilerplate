@@ -107,7 +107,10 @@ export function ImprovedDraggableLocationNode({
   const currentUser = getCurrentUser();
 
   const handleViewDetails = () => {
-    router.push({ pathname: "/dashboard/warehouse/locations/[id]", params: { id: location.id } });
+    router.push({
+      pathname: "/dashboard-old/warehouse/locations/[id]",
+      params: { id: location.id },
+    });
   };
 
   const handleEdit = (e: React.MouseEvent) => {

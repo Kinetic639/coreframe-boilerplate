@@ -106,8 +106,8 @@ export function LinkedBusinessAccounts({
             <Link
               href={
                 account.partner_type === "customer"
-                  ? "/dashboard/warehouse/clients"
-                  : "/dashboard/warehouse/suppliers"
+                  ? "/dashboard-old/warehouse/clients"
+                  : "/dashboard-old/warehouse/suppliers"
               }
             >
               <Button variant="outline" size="sm" className="w-full">

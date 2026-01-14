@@ -97,7 +97,7 @@ export default function InvitationPage() {
 
         // Redirect to dashboard after 2 seconds
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push("/dashboard-old");
         }, 2000);
       } else {
         setActionResult({
@@ -451,7 +451,7 @@ export default function InvitationPage() {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/dashboard-old")}
               >
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Przejdź do dashboardu

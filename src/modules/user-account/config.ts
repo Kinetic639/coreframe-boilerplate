@@ -26,13 +26,13 @@ export const userAccountModule: ModuleConfig = {
     {
       id: "profile",
       label: "modules.userAccount.items.profile",
-      path: "/dashboard/account/profile",
+      path: "/dashboard-old/account/profile",
       icon: "User",
     },
     {
       id: "preferences",
       label: "modules.userAccount.items.preferences",
-      path: "/dashboard/account/preferences",
+      path: "/dashboard-old/account/preferences",
       icon: "Settings",
     },
   ],

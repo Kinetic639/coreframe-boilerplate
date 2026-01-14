@@ -88,7 +88,7 @@ export function PurchaseOrderDetails({ purchaseOrderId }: PurchaseOrderDetailsPr
         setPo(result.data);
       } else {
         toast.error(result.error || "Purchase order not found");
-        router.push("/dashboard/warehouse/purchases");
+        router.push("/dashboard-old/warehouse/purchases");
       }
     } catch (error) {
       console.error("Failed to load purchase order:", error);

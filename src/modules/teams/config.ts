@@ -11,25 +11,25 @@ export const teamsModule: ModuleConfig = {
     {
       id: "organization-contacts",
       label: "modules.teams.items.contacts.organization",
-      path: "/dashboard/teams/contacts",
+      path: "/dashboard-old/teams/contacts",
       icon: "Building2",
     },
     {
       id: "communication",
       label: "modules.teams.items.communication.title",
-      path: "/dashboard/teams/communication",
+      path: "/dashboard-old/teams/communication",
       icon: "MessageSquare",
       submenu: [
         {
           id: "chat",
           label: "modules.teams.items.communication.chat",
-          path: "/dashboard/teams/communication/chat",
+          path: "/dashboard-old/teams/communication/chat",
           icon: "MessageCircle",
         },
         {
           id: "announcements",
           label: "modules.teams.items.communication.announcements",
-          path: "/dashboard/announcements",
+          path: "/dashboard-old/announcements",
           icon: "Megaphone",
         },
       ],
@@ -37,13 +37,13 @@ export const teamsModule: ModuleConfig = {
     {
       id: "kanban",
       label: "modules.teams.items.kanban",
-      path: "/dashboard/teams/kanban",
+      path: "/dashboard-old/teams/kanban",
       icon: "Columns",
     },
     {
       id: "calendar",
       label: "modules.teams.items.calendar",
-      path: "/dashboard/teams/calendar",
+      path: "/dashboard-old/teams/calendar",
       icon: "Calendar",
     },
   ],

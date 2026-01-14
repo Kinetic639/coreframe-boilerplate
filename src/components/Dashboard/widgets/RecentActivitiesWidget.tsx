@@ -106,7 +106,7 @@ export function RecentActivitiesWidget({
 
             {showViewAll && (
               <div className="mt-4 border-t pt-3">
-                <Link href="/dashboard/analytics/activities">
+                <Link href="/dashboard-old/analytics/activities">
                   <Button variant="outline" size="sm" className="w-full">
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
                     View All Activities

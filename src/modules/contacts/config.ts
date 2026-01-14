@@ -11,12 +11,12 @@ export const contactsModule: ModuleConfig = {
   icon: "Users",
   color: "#3b82f6", // blue
   description: "Manage personal and organizational contacts",
-  path: "/dashboard/contacts",
+  path: "/dashboard-old/contacts",
   items: [
     {
       id: "contacts",
       label: "contacts.title",
-      path: "/dashboard/contacts",
+      path: "/dashboard-old/contacts",
       icon: "Users",
       allowedUsers: [
         {

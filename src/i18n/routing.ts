@@ -16,275 +16,321 @@ export const routing = defineRouting({
       pl: "/cennik",
     },
 
-    "/dashboard": {
-      en: "/dashboard",
-      pl: "/dashboard",
+    // === Admin Panel ===
+    "/admin": {
+      en: "/admin",
+      pl: "/admin",
     },
-    "/dashboard/start": {
-      en: "/dashboard/start",
-      pl: "/dashboard/start",
+    "/admin/testing": {
+      en: "/admin/testing",
+      pl: "/admin/testowanie",
     },
-    "/dashboard/start/getting-started": {
-      en: "/dashboard/start/getting-started",
-      pl: "/dashboard/start/pierwsze-kroki",
+    "/admin/testing/api": {
+      en: "/admin/testing/api",
+      pl: "/admin/testowanie/api",
     },
-    "/dashboard/start/recent-updates": {
-      en: "/dashboard/start/recent-updates",
-      pl: "/dashboard/start/ostatnie-aktualizacje",
+    "/admin/testing/database": {
+      en: "/admin/testing/database",
+      pl: "/admin/testowanie/baza-danych",
     },
-    "/dashboard/announcements": {
-      en: "/dashboard/announcements",
-      pl: "/dashboard/ogloszenia",
+    "/admin/testing/permissions": {
+      en: "/admin/testing/permissions",
+      pl: "/admin/testowanie/uprawnienia",
     },
-    "/dashboard/announcements/[id]": {
-      en: "/dashboard/announcements/[id]",
-      pl: "/dashboard/ogloszenia/[id]",
+    "/admin/app-management": {
+      en: "/admin/app-management",
+      pl: "/admin/zarzadzanie-aplikacja",
+    },
+    "/admin/app-management/users": {
+      en: "/admin/app-management/users",
+      pl: "/admin/zarzadzanie-aplikacja/uzytkownicy",
+    },
+    "/admin/app-management/organizations": {
+      en: "/admin/app-management/organizations",
+      pl: "/admin/zarzadzanie-aplikacja/organizacje",
+    },
+    "/admin/app-management/config": {
+      en: "/admin/app-management/config",
+      pl: "/admin/zarzadzanie-aplikacja/konfiguracja",
+    },
+    "/admin/logs": {
+      en: "/admin/logs",
+      pl: "/admin/logi",
+    },
+    "/admin/analytics": {
+      en: "/admin/analytics",
+      pl: "/admin/analityka",
     },
 
-    "/dashboard/branch": {
-      en: "/dashboard/branch",
-      pl: "/dashboard/oddzial",
+    "/dashboard-old": {
+      en: "/dashboard-old",
+      pl: "/dashboard-old",
+    },
+    "/dashboard-old/start": {
+      en: "/dashboard-old/start",
+      pl: "/dashboard-old/start",
+    },
+    "/dashboard-old/start/getting-started": {
+      en: "/dashboard-old/start/getting-started",
+      pl: "/dashboard-old/start/pierwsze-kroki",
+    },
+    "/dashboard-old/start/recent-updates": {
+      en: "/dashboard-old/start/recent-updates",
+      pl: "/dashboard-old/start/ostatnie-aktualizacje",
+    },
+    "/dashboard-old/announcements": {
+      en: "/dashboard-old/announcements",
+      pl: "/dashboard-old/ogloszenia",
+    },
+    "/dashboard-old/announcements/[id]": {
+      en: "/dashboard-old/announcements/[id]",
+      pl: "/dashboard-old/ogloszenia/[id]",
+    },
+
+    "/dashboard-old/branch": {
+      en: "/dashboard-old/branch",
+      pl: "/dashboard-old/oddzial",
     },
 
     // === Contacts module ===
-    "/dashboard/contacts": {
-      en: "/dashboard/contacts",
-      pl: "/dashboard/kontakty",
+    "/dashboard-old/contacts": {
+      en: "/dashboard-old/contacts",
+      pl: "/dashboard-old/kontakty",
     },
-    "/dashboard/contacts/[id]": {
-      en: "/dashboard/contacts/[id]",
-      pl: "/dashboard/kontakty/[id]",
+    "/dashboard-old/contacts/[id]": {
+      en: "/dashboard-old/contacts/[id]",
+      pl: "/dashboard-old/kontakty/[id]",
     },
 
     // === Warehouse module (uzupełnienia) ===
-    "/dashboard/warehouse": {
-      en: "/dashboard/warehouse",
-      pl: "/dashboard/magazyn",
+    "/dashboard-old/warehouse": {
+      en: "/dashboard-old/warehouse",
+      pl: "/dashboard-old/magazyn",
     },
-    "/dashboard/warehouse/products/accessories": {
-      en: "/dashboard/warehouse/products/accessories",
-      pl: "/dashboard/magazyn/produkty/akcesoria",
+    "/dashboard-old/warehouse/products/accessories": {
+      en: "/dashboard-old/warehouse/products/accessories",
+      pl: "/dashboard-old/magazyn/produkty/akcesoria",
     },
-    "/dashboard/warehouse/categories": {
-      en: "/dashboard/warehouse/categories",
-      pl: "/dashboard/magazyn/kategorie",
+    "/dashboard-old/warehouse/categories": {
+      en: "/dashboard-old/warehouse/categories",
+      pl: "/dashboard-old/magazyn/kategorie",
     },
-    "/dashboard/warehouse/settings": {
-      en: "/dashboard/warehouse/settings",
-      pl: "/dashboard/magazyn/ustawienia",
+    "/dashboard-old/warehouse/settings": {
+      en: "/dashboard-old/warehouse/settings",
+      pl: "/dashboard-old/magazyn/ustawienia",
     },
-    "/dashboard/warehouse/settings/units": {
-      en: "/dashboard/warehouse/settings/units",
-      pl: "/dashboard/magazyn/ustawienia/jednostki",
+    "/dashboard-old/warehouse/settings/units": {
+      en: "/dashboard-old/warehouse/settings/units",
+      pl: "/dashboard-old/magazyn/ustawienia/jednostki",
     },
-    "/dashboard/warehouse/settings/variant-options": {
-      en: "/dashboard/warehouse/settings/variant-options",
-      pl: "/dashboard/magazyn/ustawienia/grupy-opcji-wariantow",
+    "/dashboard-old/warehouse/settings/variant-options": {
+      en: "/dashboard-old/warehouse/settings/variant-options",
+      pl: "/dashboard-old/magazyn/ustawienia/grupy-opcji-wariantow",
     },
-    "/dashboard/warehouse/settings/custom-fields": {
-      en: "/dashboard/warehouse/settings/custom-fields",
-      pl: "/dashboard/magazyn/ustawienia/pola-niestandardowe",
+    "/dashboard-old/warehouse/settings/custom-fields": {
+      en: "/dashboard-old/warehouse/settings/custom-fields",
+      pl: "/dashboard-old/magazyn/ustawienia/pola-niestandardowe",
     },
-    "/dashboard/warehouse/settings/categories": {
-      en: "/dashboard/warehouse/settings/categories",
-      pl: "/dashboard/magazyn/ustawienia/kategorie",
+    "/dashboard-old/warehouse/settings/categories": {
+      en: "/dashboard-old/warehouse/settings/categories",
+      pl: "/dashboard-old/magazyn/ustawienia/kategorie",
     },
-    "/dashboard/warehouse/settings/products-templates": {
-      en: "/dashboard/warehouse/settings/products-templates",
-      pl: "/dashboard/magazyn/ustawienia/szablony-produktow",
+    "/dashboard-old/warehouse/settings/products-templates": {
+      en: "/dashboard-old/warehouse/settings/products-templates",
+      pl: "/dashboard-old/magazyn/ustawienia/szablony-produktow",
     },
-    "/dashboard/warehouse/inventory": {
-      en: "/dashboard/warehouse/inventory",
-      pl: "/dashboard/magazyn/zapasy",
+    "/dashboard-old/warehouse/inventory": {
+      en: "/dashboard-old/warehouse/inventory",
+      pl: "/dashboard-old/magazyn/zapasy",
     },
-    "/dashboard/warehouse/locations": {
-      en: "/dashboard/warehouse/locations",
-      pl: "/dashboard/magazyn/lokalizacje",
+    "/dashboard-old/warehouse/locations": {
+      en: "/dashboard-old/warehouse/locations",
+      pl: "/dashboard-old/magazyn/lokalizacje",
     },
-    "/dashboard/warehouse/locations/[id]": {
-      en: "/dashboard/warehouse/locations/[id]",
-      pl: "/dashboard/magazyn/lokalizacje/[id]",
-    },
-
-    "/dashboard/warehouse/audits": {
-      en: "/dashboard/warehouse/audits",
-      pl: "/dashboard/magazyn/audyty",
+    "/dashboard-old/warehouse/locations/[id]": {
+      en: "/dashboard-old/warehouse/locations/[id]",
+      pl: "/dashboard-old/magazyn/lokalizacje/[id]",
     },
 
-    "/dashboard/warehouse/audits/schedule": {
-      en: "/dashboard/warehouse/audits/schedule",
-      pl: "/dashboard/magazyn/audyty/grafik",
-    },
-    "/dashboard/warehouse/audits/history": {
-      en: "/dashboard/warehouse/audits/history",
-      pl: "/dashboard/magazyn/audyty/historia",
+    "/dashboard-old/warehouse/audits": {
+      en: "/dashboard-old/warehouse/audits",
+      pl: "/dashboard-old/magazyn/audyty",
     },
 
-    "/dashboard/warehouse/inventory/movements": {
-      en: "/dashboard/warehouse/inventory/movements",
-      pl: "/dashboard/magazyn/zapasy/ruchy",
+    "/dashboard-old/warehouse/audits/schedule": {
+      en: "/dashboard-old/warehouse/audits/schedule",
+      pl: "/dashboard-old/magazyn/audyty/grafik",
     },
-    "/dashboard/warehouse/inventory/movements/new": {
-      en: "/dashboard/warehouse/inventory/movements/new",
-      pl: "/dashboard/magazyn/zapasy/ruchy/nowy",
+    "/dashboard-old/warehouse/audits/history": {
+      en: "/dashboard-old/warehouse/audits/history",
+      pl: "/dashboard-old/magazyn/audyty/historia",
     },
-    "/dashboard/warehouse/inventory/adjustments": {
-      en: "/dashboard/warehouse/inventory/adjustments",
-      pl: "/dashboard/magazyn/zapasy/korekty",
+
+    "/dashboard-old/warehouse/inventory/movements": {
+      en: "/dashboard-old/warehouse/inventory/movements",
+      pl: "/dashboard-old/magazyn/zapasy/ruchy",
     },
-    "/dashboard/warehouse/products": {
-      en: "/dashboard/warehouse/products",
-      pl: "/dashboard/magazyn/produkty",
+    "/dashboard-old/warehouse/inventory/movements/new": {
+      en: "/dashboard-old/warehouse/inventory/movements/new",
+      pl: "/dashboard-old/magazyn/zapasy/ruchy/nowy",
     },
-    "/dashboard/warehouse/products/[id]": {
-      en: "/dashboard/warehouse/products/[id]",
-      pl: "/dashboard/magazyn/produkty/[id]",
+    "/dashboard-old/warehouse/inventory/adjustments": {
+      en: "/dashboard-old/warehouse/inventory/adjustments",
+      pl: "/dashboard-old/magazyn/zapasy/korekty",
     },
-    "/dashboard/warehouse/products/groups/new": {
-      en: "/dashboard/warehouse/products/groups/new",
-      pl: "/dashboard/magazyn/produkty/grupy/nowa",
+    "/dashboard-old/warehouse/products": {
+      en: "/dashboard-old/warehouse/products",
+      pl: "/dashboard-old/magazyn/produkty",
     },
-    "/dashboard/warehouse/products/groups/[id]": {
-      en: "/dashboard/warehouse/products/groups/[id]",
-      pl: "/dashboard/magazyn/produkty/grupy/[id]",
+    "/dashboard-old/warehouse/products/[id]": {
+      en: "/dashboard-old/warehouse/products/[id]",
+      pl: "/dashboard-old/magazyn/produkty/[id]",
     },
-    "/dashboard/warehouse/products/templates": {
-      en: "/dashboard/warehouse/products/templates",
-      pl: "/dashboard/magazyn/produkty/szablony",
+    "/dashboard-old/warehouse/products/groups/new": {
+      en: "/dashboard-old/warehouse/products/groups/new",
+      pl: "/dashboard-old/magazyn/produkty/grupy/nowa",
     },
-    "/dashboard/warehouse/products/templates/create": {
-      en: "/dashboard/warehouse/products/templates/create",
-      pl: "/dashboard/magazyn/produkty/szablony/utworz",
+    "/dashboard-old/warehouse/products/groups/[id]": {
+      en: "/dashboard-old/warehouse/products/groups/[id]",
+      pl: "/dashboard-old/magazyn/produkty/grupy/[id]",
     },
-    "/dashboard/warehouse/products/templates/edit/[id]": {
-      en: "/dashboard/warehouse/products/templates/edit/[id]",
-      pl: "/dashboard/magazyn/produkty/szablony/edytuj/[id]",
+    "/dashboard-old/warehouse/products/templates": {
+      en: "/dashboard-old/warehouse/products/templates",
+      pl: "/dashboard-old/magazyn/produkty/szablony",
     },
-    "/dashboard/warehouse/products/templates/clone/[id]": {
-      en: "/dashboard/warehouse/products/templates/clone/[id]",
-      pl: "/dashboard/magazyn/produkty/szablony/klonuj/[id]",
+    "/dashboard-old/warehouse/products/templates/create": {
+      en: "/dashboard-old/warehouse/products/templates/create",
+      pl: "/dashboard-old/magazyn/produkty/szablony/utworz",
     },
-    "/dashboard/warehouse/products/create": {
-      en: "/dashboard/warehouse/products/create",
-      pl: "/dashboard/magazyn/produkty/utworz",
+    "/dashboard-old/warehouse/products/templates/edit/[id]": {
+      en: "/dashboard-old/warehouse/products/templates/edit/[id]",
+      pl: "/dashboard-old/magazyn/produkty/szablony/edytuj/[id]",
     },
-    "/dashboard/warehouse/suppliers": {
-      en: "/dashboard/warehouse/suppliers",
-      pl: "/dashboard/magazyn/dostawcy",
+    "/dashboard-old/warehouse/products/templates/clone/[id]": {
+      en: "/dashboard-old/warehouse/products/templates/clone/[id]",
+      pl: "/dashboard-old/magazyn/produkty/szablony/klonuj/[id]",
     },
-    "/dashboard/warehouse/suppliers/list": {
-      en: "/dashboard/warehouse/suppliers/list",
-      pl: "/dashboard/magazyn/dostawcy/lista",
+    "/dashboard-old/warehouse/products/create": {
+      en: "/dashboard-old/warehouse/products/create",
+      pl: "/dashboard-old/magazyn/produkty/utworz",
     },
-    "/dashboard/warehouse/clients": {
-      en: "/dashboard/warehouse/clients",
-      pl: "/dashboard/magazyn/klienci",
+    "/dashboard-old/warehouse/suppliers": {
+      en: "/dashboard-old/warehouse/suppliers",
+      pl: "/dashboard-old/magazyn/dostawcy",
     },
-    "/dashboard/warehouse/deliveries": {
-      en: "/dashboard/warehouse/deliveries",
-      pl: "/dashboard/magazyn/dostawy",
+    "/dashboard-old/warehouse/suppliers/list": {
+      en: "/dashboard-old/warehouse/suppliers/list",
+      pl: "/dashboard-old/magazyn/dostawcy/lista",
+    },
+    "/dashboard-old/warehouse/clients": {
+      en: "/dashboard-old/warehouse/clients",
+      pl: "/dashboard-old/magazyn/klienci",
+    },
+    "/dashboard-old/warehouse/deliveries": {
+      en: "/dashboard-old/warehouse/deliveries",
+      pl: "/dashboard-old/magazyn/dostawy",
     },
 
     // === QR & Labels System (Warehouse module) ===
-    "/dashboard/warehouse/labels": {
-      en: "/dashboard/warehouse/labels",
-      pl: "/dashboard/magazyn/etykiety",
+    "/dashboard-old/warehouse/labels": {
+      en: "/dashboard-old/warehouse/labels",
+      pl: "/dashboard-old/magazyn/etykiety",
     },
-    "/dashboard/warehouse/labels/create": {
-      en: "/dashboard/warehouse/labels/create",
-      pl: "/dashboard/magazyn/etykiety/kreator",
+    "/dashboard-old/warehouse/labels/create": {
+      en: "/dashboard-old/warehouse/labels/create",
+      pl: "/dashboard-old/magazyn/etykiety/kreator",
     },
-    "/dashboard/warehouse/labels/assign": {
-      en: "/dashboard/warehouse/labels/assign",
-      pl: "/dashboard/magazyn/etykiety/przypisz",
+    "/dashboard-old/warehouse/labels/assign": {
+      en: "/dashboard-old/warehouse/labels/assign",
+      pl: "/dashboard-old/magazyn/etykiety/przypisz",
     },
-    "/dashboard/warehouse/labels/assign/success": {
-      en: "/dashboard/warehouse/labels/assign/success",
-      pl: "/dashboard/magazyn/etykiety/przypisz/sukces",
+    "/dashboard-old/warehouse/labels/assign/success": {
+      en: "/dashboard-old/warehouse/labels/assign/success",
+      pl: "/dashboard-old/magazyn/etykiety/przypisz/sukces",
     },
-    "/dashboard/warehouse/labels/assign/error": {
-      en: "/dashboard/warehouse/labels/assign/error",
-      pl: "/dashboard/magazyn/etykiety/przypisz/blad",
+    "/dashboard-old/warehouse/labels/assign/error": {
+      en: "/dashboard-old/warehouse/labels/assign/error",
+      pl: "/dashboard-old/magazyn/etykiety/przypisz/blad",
     },
-    "/dashboard/warehouse/labels/templates": {
-      en: "/dashboard/warehouse/labels/templates",
-      pl: "/dashboard/magazyn/etykiety/szablony",
+    "/dashboard-old/warehouse/labels/templates": {
+      en: "/dashboard-old/warehouse/labels/templates",
+      pl: "/dashboard-old/magazyn/etykiety/szablony",
     },
-    "/dashboard/warehouse/labels/templates/create": {
-      en: "/dashboard/warehouse/labels/templates/create",
-      pl: "/dashboard/magazyn/etykiety/szablony/utworz",
+    "/dashboard-old/warehouse/labels/templates/create": {
+      en: "/dashboard-old/warehouse/labels/templates/create",
+      pl: "/dashboard-old/magazyn/etykiety/szablony/utworz",
     },
-    "/dashboard/warehouse/labels/templates/edit/[id]": {
-      en: "/dashboard/warehouse/labels/templates/edit/[id]",
-      pl: "/dashboard/magazyn/etykiety/szablony/edytuj/[id]",
+    "/dashboard-old/warehouse/labels/templates/edit/[id]": {
+      en: "/dashboard-old/warehouse/labels/templates/edit/[id]",
+      pl: "/dashboard-old/magazyn/etykiety/szablony/edytuj/[id]",
     },
-    "/dashboard/warehouse/labels/history": {
-      en: "/dashboard/warehouse/labels/history",
-      pl: "/dashboard/magazyn/etykiety/historia",
+    "/dashboard-old/warehouse/labels/history": {
+      en: "/dashboard-old/warehouse/labels/history",
+      pl: "/dashboard-old/magazyn/etykiety/historia",
     },
-    "/dashboard/warehouse/scanning": {
-      en: "/dashboard/warehouse/scanning",
-      pl: "/dashboard/magazyn/skanowanie",
+    "/dashboard-old/warehouse/scanning": {
+      en: "/dashboard-old/warehouse/scanning",
+      pl: "/dashboard-old/magazyn/skanowanie",
     },
-    "/dashboard/warehouse/scanning/delivery": {
-      en: "/dashboard/warehouse/scanning/delivery",
-      pl: "/dashboard/magazyn/skanowanie/dostawa",
+    "/dashboard-old/warehouse/scanning/delivery": {
+      en: "/dashboard-old/warehouse/scanning/delivery",
+      pl: "/dashboard-old/magazyn/skanowanie/dostawa",
     },
 
     // === Transfers (Warehouse module) ===
-    "/dashboard/warehouse/transfers": {
-      en: "/dashboard/warehouse/transfers",
-      pl: "/dashboard/magazyn/transfery",
+    "/dashboard-old/warehouse/transfers": {
+      en: "/dashboard-old/warehouse/transfers",
+      pl: "/dashboard-old/magazyn/transfery",
     },
-    "/dashboard/warehouse/transfers/new": {
-      en: "/dashboard/warehouse/transfers/new",
-      pl: "/dashboard/magazyn/transfery/nowy",
+    "/dashboard-old/warehouse/transfers/new": {
+      en: "/dashboard-old/warehouse/transfers/new",
+      pl: "/dashboard-old/magazyn/transfery/nowy",
     },
-    "/dashboard/warehouse/transfers/[id]": {
-      en: "/dashboard/warehouse/transfers/[id]",
-      pl: "/dashboard/magazyn/transfery/[id]",
+    "/dashboard-old/warehouse/transfers/[id]": {
+      en: "/dashboard-old/warehouse/transfers/[id]",
+      pl: "/dashboard-old/magazyn/transfery/[id]",
     },
 
     // === Org Management module ===
-    "/dashboard/organization": {
-      en: "/dashboard/organization",
-      pl: "/dashboard/organizacja",
+    "/dashboard-old/organization": {
+      en: "/dashboard-old/organization",
+      pl: "/dashboard-old/organizacja",
     },
-    "/dashboard/organization/profile": {
-      en: "/dashboard/organization/profile",
-      pl: "/dashboard/organizacja/profil",
+    "/dashboard-old/organization/profile": {
+      en: "/dashboard-old/organization/profile",
+      pl: "/dashboard-old/organizacja/profil",
     },
-    "/dashboard/organization/branches": {
-      en: "/dashboard/organization/branches",
-      pl: "/dashboard/organizacja/oddzialy",
+    "/dashboard-old/organization/branches": {
+      en: "/dashboard-old/organization/branches",
+      pl: "/dashboard-old/organizacja/oddzialy",
     },
-    "/dashboard/organization/users": {
-      en: "/dashboard/organization/users",
-      pl: "/dashboard/organizacja/uzytkownicy",
+    "/dashboard-old/organization/users": {
+      en: "/dashboard-old/organization/users",
+      pl: "/dashboard-old/organizacja/uzytkownicy",
     },
-    "/dashboard/organization/users/list": {
-      en: "/dashboard/organization/users/list",
-      pl: "/dashboard/organizacja/uzytkownicy/lista",
+    "/dashboard-old/organization/users/list": {
+      en: "/dashboard-old/organization/users/list",
+      pl: "/dashboard-old/organizacja/uzytkownicy/lista",
     },
-    "/dashboard/organization/users/roles": {
-      en: "/dashboard/organization/users/roles",
-      pl: "/dashboard/organizacja/uzytkownicy/role",
+    "/dashboard-old/organization/users/roles": {
+      en: "/dashboard-old/organization/users/roles",
+      pl: "/dashboard-old/organizacja/uzytkownicy/role",
     },
-    "/dashboard/organization/users/invitations": {
-      en: "/dashboard/organization/users/invitations",
-      pl: "/dashboard/organizacja/uzytkownicy/zaproszenia",
+    "/dashboard-old/organization/users/invitations": {
+      en: "/dashboard-old/organization/users/invitations",
+      pl: "/dashboard-old/organizacja/uzytkownicy/zaproszenia",
     },
-    "/dashboard/organization/users/[id]": {
-      en: "/dashboard/organization/users/[id]",
-      pl: "/dashboard/organizacja/uzytkownicy/[id]",
+    "/dashboard-old/organization/users/[id]": {
+      en: "/dashboard-old/organization/users/[id]",
+      pl: "/dashboard-old/organizacja/uzytkownicy/[id]",
     },
-    "/dashboard/organization/roles/[id]": {
-      en: "/dashboard/organization/roles/[id]",
-      pl: "/dashboard/organizacja/role/[id]",
+    "/dashboard-old/organization/roles/[id]": {
+      en: "/dashboard-old/organization/roles/[id]",
+      pl: "/dashboard-old/organizacja/role/[id]",
     },
-    "/dashboard/organization/billing": {
-      en: "/dashboard/organization/billing",
-      pl: "/dashboard/organizacja/rozliczenia",
+    "/dashboard-old/organization/billing": {
+      en: "/dashboard-old/organization/billing",
+      pl: "/dashboard-old/organizacja/rozliczenia",
     },
 
     // === Invitation system ===
@@ -300,119 +346,119 @@ export const routing = defineRouting({
     },
 
     // === Teams module ===
-    "/dashboard/teams": {
-      en: "/dashboard/teams",
-      pl: "/dashboard/zespoly",
+    "/dashboard-old/teams": {
+      en: "/dashboard-old/teams",
+      pl: "/dashboard-old/zespoly",
     },
-    "/dashboard/teams/communication": {
-      en: "/dashboard/teams/communication",
-      pl: "/dashboard/zespoly/komunikacja",
+    "/dashboard-old/teams/communication": {
+      en: "/dashboard-old/teams/communication",
+      pl: "/dashboard-old/zespoly/komunikacja",
     },
-    "/dashboard/teams/communication/chat": {
-      en: "/dashboard/teams/communication/chat",
-      pl: "/dashboard/zespoly/komunikacja/chat",
+    "/dashboard-old/teams/communication/chat": {
+      en: "/dashboard-old/teams/communication/chat",
+      pl: "/dashboard-old/zespoly/komunikacja/chat",
     },
-    "/dashboard/teams/communication/chat/[chatId]": {
-      en: "/dashboard/teams/communication/chat/[chatId]",
-      pl: "/dashboard/zespoly/komunikacja/chat/[chatId]",
+    "/dashboard-old/teams/communication/chat/[chatId]": {
+      en: "/dashboard-old/teams/communication/chat/[chatId]",
+      pl: "/dashboard-old/zespoly/komunikacja/chat/[chatId]",
     },
-    "/dashboard/teams/communication/announcements": {
-      en: "/dashboard/teams/communication/announcements",
-      pl: "/dashboard/zespoly/komunikacja/ogloszenia",
+    "/dashboard-old/teams/communication/announcements": {
+      en: "/dashboard-old/teams/communication/announcements",
+      pl: "/dashboard-old/zespoly/komunikacja/ogloszenia",
     },
-    "/dashboard/teams/kanban": {
-      en: "/dashboard/teams/kanban",
-      pl: "/dashboard/zespoly/kanban",
+    "/dashboard-old/teams/kanban": {
+      en: "/dashboard-old/teams/kanban",
+      pl: "/dashboard-old/zespoly/kanban",
     },
-    "/dashboard/teams/calendar": {
-      en: "/dashboard/teams/calendar",
-      pl: "/dashboard/zespoly/kalendarz",
+    "/dashboard-old/teams/calendar": {
+      en: "/dashboard-old/teams/calendar",
+      pl: "/dashboard-old/zespoly/kalendarz",
     },
 
     // === Support module ===
-    "/dashboard/support": {
-      en: "/dashboard/support",
-      pl: "/dashboard/wsparcie",
+    "/dashboard-old/support": {
+      en: "/dashboard-old/support",
+      pl: "/dashboard-old/wsparcie",
     },
-    "/dashboard/support/help": {
-      en: "/dashboard/support/help",
-      pl: "/dashboard/wsparcie/pomoc",
+    "/dashboard-old/support/help": {
+      en: "/dashboard-old/support/help",
+      pl: "/dashboard-old/wsparcie/pomoc",
     },
-    "/dashboard/support/contact": {
-      en: "/dashboard/support/contact",
-      pl: "/dashboard/wsparcie/kontakt",
+    "/dashboard-old/support/contact": {
+      en: "/dashboard-old/support/contact",
+      pl: "/dashboard-old/wsparcie/kontakt",
     },
-    "/dashboard/support/announcements": {
-      en: "/dashboard/support/announcements",
-      pl: "/dashboard/wsparcie/ogloszenia",
+    "/dashboard-old/support/announcements": {
+      en: "/dashboard-old/support/announcements",
+      pl: "/dashboard-old/wsparcie/ogloszenia",
     },
-    "/dashboard/support/announcements/changelog": {
-      en: "/dashboard/support/announcements/changelog",
-      pl: "/dashboard/wsparcie/ogloszenia/zmiany",
+    "/dashboard-old/support/announcements/changelog": {
+      en: "/dashboard-old/support/announcements/changelog",
+      pl: "/dashboard-old/wsparcie/ogloszenia/zmiany",
     },
-    "/dashboard/support/announcements/status": {
-      en: "/dashboard/support/announcements/status",
-      pl: "/dashboard/wsparcie/ogloszenia/status",
+    "/dashboard-old/support/announcements/status": {
+      en: "/dashboard-old/support/announcements/status",
+      pl: "/dashboard-old/wsparcie/ogloszenia/status",
     },
-    "/dashboard/support/announcements/roadmap": {
-      en: "/dashboard/support/announcements/roadmap",
-      pl: "/dashboard/wsparcie/ogloszenia/roadmapa",
+    "/dashboard-old/support/announcements/roadmap": {
+      en: "/dashboard-old/support/announcements/roadmap",
+      pl: "/dashboard-old/wsparcie/ogloszenia/roadmapa",
     },
 
     // === Development module ===
-    "/dashboard/development": {
-      en: "/dashboard/development",
-      pl: "/dashboard/deweloperskie",
+    "/dashboard-old/development": {
+      en: "/dashboard-old/development",
+      pl: "/dashboard-old/deweloperskie",
     },
-    "/dashboard/development/permissions": {
-      en: "/dashboard/development/permissions",
-      pl: "/dashboard/deweloperskie/uprawnienia",
+    "/dashboard-old/development/permissions": {
+      en: "/dashboard-old/development/permissions",
+      pl: "/dashboard-old/deweloperskie/uprawnienia",
     },
-    "/dashboard/development/context": {
-      en: "/dashboard/development/context",
-      pl: "/dashboard/deweloperskie/kontekst",
+    "/dashboard-old/development/context": {
+      en: "/dashboard-old/development/context",
+      pl: "/dashboard-old/deweloperskie/kontekst",
     },
-    "/dashboard/development/logo": {
-      en: "/dashboard/development/logo",
-      pl: "/dashboard/deweloperskie/logo",
+    "/dashboard-old/development/logo": {
+      en: "/dashboard-old/development/logo",
+      pl: "/dashboard-old/deweloperskie/logo",
     },
-    "/dashboard/development/service": {
-      en: "/dashboard/development/service",
-      pl: "/dashboard/deweloperskie/serwis",
+    "/dashboard-old/development/service": {
+      en: "/dashboard-old/development/service",
+      pl: "/dashboard-old/deweloperskie/serwis",
     },
-    "/dashboard/development/labels": {
-      en: "/dashboard/development/labels",
-      pl: "/dashboard/deweloperskie/etykiety",
+    "/dashboard-old/development/labels": {
+      en: "/dashboard-old/development/labels",
+      pl: "/dashboard-old/deweloperskie/etykiety",
     },
-    "/dashboard/development/locations-debug": {
-      en: "/dashboard/development/locations-debug",
-      pl: "/dashboard/deweloperskie/lokalizacje-debug",
+    "/dashboard-old/development/locations-debug": {
+      en: "/dashboard-old/development/locations-debug",
+      pl: "/dashboard-old/deweloperskie/lokalizacje-debug",
     },
-    "/dashboard/development/rich-text-editor": {
-      en: "/dashboard/development/rich-text-editor",
-      pl: "/dashboard/deweloperskie/rich-text-editor",
+    "/dashboard-old/development/rich-text-editor": {
+      en: "/dashboard-old/development/rich-text-editor",
+      pl: "/dashboard-old/deweloperskie/rich-text-editor",
     },
-    "/dashboard/development/sku-generator": {
-      en: "/dashboard/development/sku-generator",
-      pl: "/dashboard/deweloperskie/generator-sku",
+    "/dashboard-old/development/sku-generator": {
+      en: "/dashboard-old/development/sku-generator",
+      pl: "/dashboard-old/deweloperskie/generator-sku",
     },
-    "/dashboard/development/reservations-test": {
-      en: "/dashboard/development/reservations-test",
-      pl: "/dashboard/deweloperskie/test-rezerwacji",
+    "/dashboard-old/development/reservations-test": {
+      en: "/dashboard-old/development/reservations-test",
+      pl: "/dashboard-old/deweloperskie/test-rezerwacji",
     },
-    "/dashboard/dev/subscription-test": {
-      en: "/dashboard/dev/subscription-test",
-      pl: "/dashboard/dev/test-subskrypcji",
+    "/dashboard-old/dev/subscription-test": {
+      en: "/dashboard-old/dev/subscription-test",
+      pl: "/dashboard-old/dev/test-subskrypcji",
     },
 
     // === User Account module ===
-    "/dashboard/account/profile": {
-      en: "/dashboard/account/profile",
-      pl: "/dashboard/konto/profil",
+    "/dashboard-old/account/profile": {
+      en: "/dashboard-old/account/profile",
+      pl: "/dashboard-old/konto/profil",
     },
-    "/dashboard/account/preferences": {
-      en: "/dashboard/account/preferences",
-      pl: "/dashboard/konto/ustawienia",
+    "/dashboard-old/account/preferences": {
+      en: "/dashboard-old/account/preferences",
+      pl: "/dashboard-old/konto/ustawienia",
     },
 
     // === Auth ===
@@ -428,9 +474,9 @@ export const routing = defineRouting({
       en: "/forgot-password",
       pl: "/zapomnialem-hasla",
     },
-    "/dashboard/reset-password": {
-      en: "/dashboard/reset-password",
-      pl: "/dashboard/resetowanie-hasla",
+    "/dashboard-old/reset-password": {
+      en: "/dashboard-old/reset-password",
+      pl: "/dashboard-old/resetowanie-hasla",
     },
   },
 });

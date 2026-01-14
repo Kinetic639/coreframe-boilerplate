@@ -87,7 +87,7 @@ export function SimpleProductList({ product }: SimpleProductListProps) {
       <div className="ml-4 flex gap-2">
         <Link
           href={{
-            pathname: "/dashboard/warehouse/products/[id]",
+            pathname: "/dashboard-old/warehouse/products/[id]",
             params: { id: product.id },
           }}
         >
