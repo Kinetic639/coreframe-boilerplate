@@ -46,7 +46,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
           >
             <UserInitProvider context={userContext}>
               <div
-                className="flex h-screen w-full"
+                className="theme-legacy flex h-screen w-full"
                 style={
                   {
                     "--theme-color": themeColor,
