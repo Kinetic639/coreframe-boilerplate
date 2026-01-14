@@ -1,18 +1,18 @@
 import { type NextRequest } from "next/server";
-import { updateSession } from "@supabase/middleware";
+import { updateSession } from "@/utils/supabase/proxy";
 import createIntlMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Run next-intl middleware first
   const intlResponse = intlMiddleware(request);
 
   // Set pathname header for server components
   intlResponse.headers.set("x-pathname", request.nextUrl.pathname);
 
-  // Run Supabase session middleware on the updated request
+  // Run Supabase session proxy on the updated request
   const response = await updateSession(request);
 
   // Copy cookies from Supabase to the intl response
