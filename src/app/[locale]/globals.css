@@ -4,80 +4,100 @@
 
 @layer base {
   /* ===== DEFAULT THEME (Public, Admin, New Dashboard) ===== */
-  /* Fresh neutral defaults - replace with tweakcn export later */
+  /* Amber/warm theme from tweakcn */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --background: 40 100% 98%;
+    --foreground: 40 3% 9%;
+    --card: 40 100% 100%;
+    --card-foreground: 40 3% 9%;
+    --popover: 40 100% 100%;
+    --popover-foreground: 40 3% 9%;
+    --primary: 40 84% 58%;
+    --primary-foreground: 40 100% 99%;
+    --secondary: 40 20% 94%;
+    --secondary-foreground: 40 3% 9%;
+    --muted: 40 10% 96%;
+    --muted-foreground: 40 5% 45%;
+    --accent: 40 20% 94%;
+    --accent-foreground: 40 3% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 40 100% 99%;
+    --border: 40 15% 88%;
+    --input: 40 15% 88%;
+    --ring: 40 84% 58%;
+    --chart-1: 40 84% 58%;
+    --chart-2: 45 60% 65%;
+    --chart-3: 35 70% 50%;
+    --chart-4: 50 40% 75%;
+    --chart-5: 40 90% 40%;
+    --radius: 0.3rem;
 
-    /* Sidebar defaults for fresh theme */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar - amber theme */
+    --sidebar-background: 40 100% 95%;
+    --sidebar-foreground: 40 3% 9%;
+    --sidebar-primary: 40 84% 50%;
+    --sidebar-primary-foreground: 40 100% 99%;
+    --sidebar-accent: 40 20% 90%;
+    --sidebar-accent-foreground: 40 3% 9%;
+    --sidebar-border: 40 15% 80%;
+    --sidebar-ring: 40 84% 58%;
+
+    /* Shadow variables from tweakcn */
+    --shadow-2xs: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.03);
+    --shadow-xs: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.03);
+    --shadow-sm: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.05), 0rem 1px 2px -1px hsl(0 0% 0% / 0.05);
+    --shadow: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.05), 0rem 1px 2px -1px hsl(0 0% 0% / 0.05);
+    --shadow-md: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.05), 0rem 2px 4px -1px hsl(0 0% 0% / 0.05);
+    --shadow-lg: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.05), 0rem 4px 6px -1px hsl(0 0% 0% / 0.05);
+    --shadow-xl: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.05), 0rem 8px 10px -1px hsl(0 0% 0% / 0.05);
+    --shadow-2xl: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.13);
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --background: 40 3% 9%;
+    --foreground: 40 10% 90%;
+    --card: 40 4% 12%;
+    --card-foreground: 40 10% 90%;
+    --popover: 40 4% 12%;
+    --popover-foreground: 40 10% 90%;
+    --primary: 40 84% 58%;
+    --primary-foreground: 40 3% 9%;
+    --secondary: 40 5% 20%;
+    --secondary-foreground: 40 10% 90%;
+    --muted: 40 4% 15%;
+    --muted-foreground: 40 5% 60%;
+    --accent: 40 5% 20%;
+    --accent-foreground: 40 10% 90%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 40 3% 9%;
+    --border: 40 5% 25%;
+    --input: 40 5% 25%;
+    --ring: 40 84% 58%;
+    --chart-1: 40 84% 58%;
+    --chart-2: 45 60% 65%;
+    --chart-3: 35 70% 50%;
+    --chart-4: 50 40% 75%;
+    --chart-5: 40 90% 40%;
 
-    /* Sidebar defaults for fresh dark theme */
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar - dark amber theme */
+    --sidebar-background: 40 3% 7%;
+    --sidebar-foreground: 40 10% 90%;
+    --sidebar-primary: 40 84% 50%;
+    --sidebar-primary-foreground: 40 3% 9%;
+    --sidebar-accent: 40 5% 18%;
+    --sidebar-accent-foreground: 40 10% 90%;
+    --sidebar-border: 40 5% 22%;
+    --sidebar-ring: 40 84% 58%;
+
+    /* Shadow variables from tweakcn - dark mode */
+    --shadow-2xs: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.15);
+    --shadow-xs: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.15);
+    --shadow-sm: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.30), 0rem 1px 2px -1px hsl(0 0% 0% / 0.30);
+    --shadow: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.30), 0rem 1px 2px -1px hsl(0 0% 0% / 0.30);
+    --shadow-md: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.30), 0rem 2px 4px -1px hsl(0 0% 0% / 0.30);
+    --shadow-lg: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.30), 0rem 4px 6px -1px hsl(0 0% 0% / 0.30);
+    --shadow-xl: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.30), 0rem 8px 10px -1px hsl(0 0% 0% / 0.30);
+    --shadow-2xl: 0rem 0.125rem 0.25rem 0rem hsl(0 0% 0% / 0.75);
   }
 
   /* ===== LEGACY THEME (Old Dashboard only) ===== */
@@ -172,7 +192,7 @@
 }
 
 #nprogress .bar {
-  background: var(--theme-color, #4f46e5);
+  background: hsl(var(--primary));
   position: fixed;
   z-index: 9999;
   top: 0;
@@ -189,8 +209,8 @@
   width: 100px;
   height: 100%;
   box-shadow:
-    0 0 10px #4f46e5,
-    0 0 5px #4f46e5;
+    0 0 10px hsl(var(--primary)),
+    0 0 5px hsl(var(--primary));
   opacity: 1;
   transform: rotate(3deg) translate(0px, -4px);
 }
