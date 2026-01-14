@@ -2,6 +2,8 @@
 
 import { Bell, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ColorThemeSwitcher } from "@/components/color-theme-switcher";
 
 export function AdminHeader() {
   return (
@@ -13,6 +15,8 @@ export function AdminHeader() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ColorThemeSwitcher variant="icon" />
+        <ThemeSwitcher />
         <Button variant="ghost" size="icon">
           <Bell className="h-5 w-5" />
         </Button>
