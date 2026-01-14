@@ -71,8 +71,8 @@
     --secondary-foreground: hsl(215.2941 19.5402% 34.1176%);
     --muted: hsl(210 20.0000% 98.0392%);
     --muted-foreground: hsl(219.3103 12.3404% 46.0784%);
-    --accent: hsl(48.0000 100.0000% 96.0784%);
-    --accent-foreground: hsl(23.0588 100% 50%);
+    --accent: hsl(30 83.3333% 92.9412%);
+    --accent-foreground: hsl(23.1746 100% 62.9412%);
     --destructive: hsl(0 100% 60.1961%);
     --destructive-foreground: hsl(0 0% 100%);
     --border: hsl(217.5000 17.3913% 90.9804%);
@@ -126,7 +126,7 @@
     --secondary-foreground: hsl(0 0% 89.8039%);
     --muted: hsl(0 0% 12.1569%);
     --muted-foreground: hsl(0 0% 63.9216%);
-    --accent: hsl(22.8750 100% 31.3725%);
+    --accent: hsl(23.3898 24.0816% 48.0392%);
     --accent-foreground: hsl(47.8992 100.0000% 76.6667%);
     --destructive: hsl(0 100% 60.1961%);
     --destructive-foreground: hsl(0 0% 100%);
@@ -165,6 +165,8 @@
     --shadow-xl: 0px 4px 8px -1px hsl(0 0% 10.1961% / 0.29), 0px 8px 10px -2px hsl(0 0% 10.1961% / 0.29);
     --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 10.1961% / 0.72);
   }
+  
+
   
 
   /* ===== LEGACY THEME (Old Dashboard only) ===== */
