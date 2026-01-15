@@ -104,13 +104,26 @@ export const forgotPasswordAction = async (formData: FormData) => {
     return encodedRedirect("error", "/forgot-password", "Invalid email format");
   }
 
+  const redirectUrl = `${origin}/auth/confirm?next=/${locale}/reset-password`;
+
+  console.log("[Password Reset] Email:", email);
+  console.log("[Password Reset] Redirect URL:", redirectUrl);
+  console.log("[Password Reset] Origin:", origin);
+  console.log("[Password Reset] Locale:", locale);
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     // PKCE flow with token_hash verification
-    redirectTo: `${origin}/auth/confirm?next=/${locale}/reset-password`,
+    redirectTo: redirectUrl,
   });
 
   if (error) {
-    console.error("Password reset error:", error.message);
+    console.error("[Password Reset] Supabase error:", {
+      message: error.message,
+      status: error.status,
+      name: error.name,
+    });
+  } else {
+    console.log("[Password Reset] Request successful - email should be sent by Supabase SMTP");
   }
 
   // Always show success message for security (don't reveal if email exists)
