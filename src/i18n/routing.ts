@@ -474,6 +474,10 @@ export const routing = defineRouting({
       en: "/forgot-password",
       pl: "/zapomnialem-hasla",
     },
+    "/reset-password": {
+      en: "/reset-password",
+      pl: "/zresetuj-haslo",
+    },
     "/dashboard-old/reset-password": {
       en: "/dashboard-old/reset-password",
       pl: "/dashboard-old/resetowanie-hasla",
