@@ -46,6 +46,7 @@
       "title": "Reset your password",
       "emailLabel": "Email",
       "submit": "Send reset link",
+      "sending": "Sending...",
       "emailPlaceholder": "you@example.com",
       "remembered": "Remembered your password?",
       "signIn": "Sign in"

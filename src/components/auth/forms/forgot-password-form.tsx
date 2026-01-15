@@ -59,8 +59,15 @@ export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="...">
-          {t("submit")}
+        <SubmitButton disabled={isSubmitting} pendingText={t("sending")}>
+          {isSubmitting ? (
+            <>
+              <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+              {t("sending")}
+            </>
+          ) : (
+            t("submit")
+          )}
         </SubmitButton>
 
         {message && <FormMessage message={message} />}

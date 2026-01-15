@@ -1,4 +1,8 @@
 import { Resend } from "resend";
+import { render } from "@react-email/render";
+import { PasswordResetEmail } from "@/components/emails/password-reset";
+import { WelcomeEmail as WelcomeEmailTemplate } from "@/components/emails/welcome";
+import { InvitationEmail as InvitationEmailTemplate } from "@/components/emails/invitation";
 
 /**
  * Email sending options
@@ -106,6 +110,149 @@ export class EmailService {
 
   /**
    * Send a welcome email to a new user
+   *
+   * @param email - User's email address
+   * @param firstName - User's first name
+   * @returns Result with success status
+   *
+   * @example
+   * ```typescript
+   * await emailService.sendWelcomeEmail('user@example.com', 'John');
+   * ```
+   */
+  /**
+   * Send a password reset email using React Email template
+   *
+   * @param email - User's email address
+   * @param resetLink - Password reset link with token
+   * @returns Result with success status
+   *
+   * @example
+   * ```typescript
+   * await emailService.sendPasswordResetEmail(
+   *   'user@example.com',
+   *   'https://app.com/reset-password?token=...'
+   * );
+   * ```
+   */
+  async sendPasswordResetEmail(email: string, resetLink: string): Promise<EmailServiceResult> {
+    const html = await render(PasswordResetEmail({ resetLink, userEmail: email }));
+
+    const text = `
+Hi there,
+
+We received a request to reset the password for your Coreframe account (${email}).
+Click the link below to set a new password:
+
+${resetLink}
+
+This link will expire in 1 hour for security reasons. If you didn't request a password reset, you can safely ignore this email.
+
+Best regards,
+The Coreframe Team
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: "Reset your Coreframe password",
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Send a welcome email to a new user using React Email template
+   *
+   * @param email - User's email address
+   * @param firstName - User's first name
+   * @returns Result with success status
+   *
+   * @example
+   * ```typescript
+   * await emailService.sendWelcomeEmailWithTemplate('user@example.com', 'John');
+   * ```
+   */
+  async sendWelcomeEmailWithTemplate(
+    email: string,
+    firstName: string
+  ): Promise<EmailServiceResult> {
+    const loginLink = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/sign-in`;
+    const html = await render(WelcomeEmailTemplate({ firstName, loginLink }));
+
+    const text = `
+Hi ${firstName},
+
+Welcome to Coreframe! We're excited to have you on board.
+
+Your account has been created successfully, and you can now access all the features of our platform.
+
+Get started: ${loginLink}
+
+If you have any questions or need assistance, don't hesitate to reach out to our support team.
+
+Best regards,
+The Coreframe Team
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: "Welcome to Coreframe!",
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Send an invitation email using React Email template
+   *
+   * @param email - Invitee's email address
+   * @param organizationName - Organization name
+   * @param inviterName - Name of person who sent the invitation
+   * @param invitationLink - Link to accept the invitation
+   * @returns Result with success status
+   *
+   * @example
+   * ```typescript
+   * await emailService.sendInvitationEmailWithTemplate(
+   *   'newuser@example.com',
+   *   'Acme Corp',
+   *   'John Doe',
+   *   'https://app.com/accept-invite?token=...'
+   * );
+   * ```
+   */
+  async sendInvitationEmailWithTemplate(
+    email: string,
+    organizationName: string,
+    inviterName: string,
+    invitationLink: string
+  ): Promise<EmailServiceResult> {
+    const html = await render(
+      InvitationEmailTemplate({ inviterName, organizationName, invitationLink })
+    );
+
+    const text = `
+${inviterName} has invited you to join ${organizationName} on Coreframe.
+
+Click the link below to accept the invitation and create your account:
+${invitationLink}
+
+This invitation will expire in 7 days.
+
+Best regards,
+The Coreframe Team
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `You've been invited to join ${organizationName}`,
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Send a welcome email to a new user (legacy inline HTML version)
    *
    * @param email - User's email address
    * @param firstName - User's first name
