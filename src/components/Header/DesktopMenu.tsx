@@ -27,7 +27,7 @@ export default function DesktopMenu() {
           {
             title: "Funkcje",
             items: features,
-            description: "Jak MagazynPro ułatwia pracę",
+            description: "Jak Ambra ułatwia pracę",
             href: "/features",
           },
           {

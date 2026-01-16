@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: MetadataProps) {
     "enterprise plans",
     "warehouse management pricing",
     "business software cost",
-    "CoreFrame pricing",
+    "Ambra pricing",
     "cennik",
     "opłaty SaaS",
     "plany enterprise",

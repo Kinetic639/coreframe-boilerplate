@@ -25,13 +25,13 @@ export const InvitationEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>You've been invited to join {organizationName} on Coreframe</Preview>
+      <Preview>You've been invited to join {organizationName} on Ambra</Preview>
       <Body style={main}>
         <Container style={container}>
           <Heading style={h1}>You're invited!</Heading>
 
           <Text style={text}>
-            {inviterName} has invited you to join <strong>{organizationName}</strong> on Coreframe.
+            {inviterName} has invited you to join <strong>{organizationName}</strong> on Ambra.
           </Text>
 
           <Text style={text}>
@@ -55,7 +55,7 @@ export const InvitationEmail = ({
           <Text style={footer}>
             Best regards,
             <br />
-            The Coreframe Team
+            The Ambra Team
           </Text>
         </Container>
       </Body>

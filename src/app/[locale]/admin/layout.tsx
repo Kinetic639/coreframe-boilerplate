@@ -5,7 +5,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 
 export const metadata: Metadata = {
-  title: "Admin Panel | CoreFrame",
+  title: "Admin Panel | Ambra",
   description: "System administration and testing tools",
 };
 

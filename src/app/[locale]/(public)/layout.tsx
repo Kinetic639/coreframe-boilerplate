@@ -8,7 +8,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
       {/* <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
         <div className="flex w-full max-w-7xl items-center justify-between p-3 px-5 text-sm">
           <div className="flex items-center gap-5 font-semibold">
-            <Link href={"/"}>CoreFrame Boilerplate</Link>
+            <Link href={"/"}>Ambra</Link>
           </div>
           <HeaderAuth />
         </div>

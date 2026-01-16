@@ -263,34 +263,34 @@
     }
   },
   "LocaleLayout": {
-    "title": "CoreFrame - Platforma SaaS dla Przedsiębiorstw",
-    "brand": "CoreFrame",
+    "title": "Ambra - Platforma SaaS dla Przedsiębiorstw",
+    "brand": "Ambra",
     "description": "Kompleksowa platforma SaaS dla przedsiębiorstw z zaawansowanym zarządzaniem magazynem, administracją użytkowników i możliwościami analitycznymi."
   },
   "metadata": {
     "common": {
-      "appName": "CoreFrame",
+      "appName": "Ambra",
       "separator": " | ",
       "defaultDescription": "Platforma SaaS klassy enterprise dla nowoczesnych firm"
     },
     "auth": {
       "signIn": {
         "title": "Logowanie",
-        "description": "Uzyskaj dostęp do swojego konta CoreFrame z bezpieczną uwierzytelnianiem enterprise"
+        "description": "Uzyskaj dostęp do swojego konta Ambra z bezpieczną uwierzytelnianiem enterprise"
       },
       "signUp": {
         "title": "Rejestracja",
-        "description": "Utwórz konto organizacji CoreFrame i zacznij zarządzać swoim biznesem"
+        "description": "Utwórz konto organizacji Ambra i zacznij zarządzać swoim biznesem"
       },
       "forgotPassword": {
         "title": "Resetuj Hasło",
-        "description": "Bezpiecznie zresetuj hasło do swojego konta CoreFrame"
+        "description": "Bezpiecznie zresetuj hasło do swojego konta Ambra"
       }
     },
     "public": {
       "home": {
         "title": "Platforma SaaS dla Przedsiębiorstw",
-        "description": "CoreFrame zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
+        "description": "Ambra zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
       },
       "features": {
         "title": "Funkcje",
@@ -1360,7 +1360,7 @@
         "recentUpdates": "Ostatnie Aktualizacje"
       },
       "gettingStarted": {
-        "welcomeTitle": "Witaj w CoreFrame!",
+        "welcomeTitle": "Witaj w Ambra!",
         "welcomeDescription": "Wykonaj te kroki, aby rozpocząć pracę z platformą i w pełni wykorzystać jej możliwości.",
         "progressTitle": "Postęp Konfiguracji",
         "progressDescription": "Wykonaj te kroki, aby w pełni skonfigurować swoje środowisko pracy",

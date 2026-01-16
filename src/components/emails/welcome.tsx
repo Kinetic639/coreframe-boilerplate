@@ -18,20 +18,20 @@ interface WelcomeEmailProps {
 
 export const WelcomeEmail = ({
   firstName = "there",
-  loginLink = "https://coreframe.app/sign-in",
+  loginLink = "https://ambra-system.com/sign-in",
 }: WelcomeEmailProps) => {
   return (
     <Html>
       <Head />
-      <Preview>Welcome to Coreframe!</Preview>
+      <Preview>Welcome to Ambra!</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to Coreframe!</Heading>
+          <Heading style={h1}>Welcome to Ambra!</Heading>
 
           <Text style={text}>Hi {firstName},</Text>
 
           <Text style={text}>
-            Welcome to Coreframe! We're excited to have you on board. Your account has been created
+            Welcome to Ambra! We're excited to have you on board. Your account has been created
             successfully, and you can now access all the features of our platform.
           </Text>
 
@@ -49,7 +49,7 @@ export const WelcomeEmail = ({
           <Text style={footer}>
             Best regards,
             <br />
-            The Coreframe Team
+            The Ambra Team
           </Text>
         </Container>
       </Body>

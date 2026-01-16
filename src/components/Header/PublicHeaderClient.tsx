@@ -23,8 +23,9 @@ export function PublicHeaderClient() {
     <>
       {/* Logo */}
       <div className="flex items-center gap-2">
-        <Link href="/" className="flex items-center text-xl font-bold">
-          <span className="mr-1 text-primary">Magazyn</span>Pro
+        <Link href="/" className="flex items-baseline text-xl font-bold">
+          <span className="text-primary">Ambra</span>
+          <span className="ml-0.5 text-sm font-medium text-muted-foreground">system</span>
         </Link>
       </div>
 

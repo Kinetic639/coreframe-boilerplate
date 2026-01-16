@@ -23,7 +23,7 @@ export const PasswordResetEmail = ({
   return (
     <Html>
       <Head />
-      <Preview>Reset your Coreframe password</Preview>
+      <Preview>Reset your Ambra password</Preview>
       <Body style={main}>
         <Container style={container}>
           <Heading style={h1}>Reset your password</Heading>
@@ -31,8 +31,8 @@ export const PasswordResetEmail = ({
           <Text style={text}>Hi there,</Text>
 
           <Text style={text}>
-            We received a request to reset the password for your Coreframe account ({userEmail}).
-            Click the button below to set a new password.
+            We received a request to reset the password for your Ambra account ({userEmail}). Click
+            the button below to set a new password.
           </Text>
 
           <Section style={buttonContainer}>
@@ -55,7 +55,7 @@ export const PasswordResetEmail = ({
           <Text style={footer}>
             Best regards,
             <br />
-            The Coreframe Team
+            The Ambra Team
           </Text>
         </Container>
       </Body>

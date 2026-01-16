@@ -68,17 +68,19 @@ export default async function Home() {
                 Twój start z <span className="text-primary">SaaS łatwiejszy niż kiedykolwiek</span>
               </h1>
               <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-                SaaSForge to kompletny boilerplate do budowy aplikacji SaaS w oparciu o Next.js i
-                Supabase. Autoryzacja, dashboard, moduły, integracje – wszystko gotowe do działania
-                od pierwszego dnia.
+                Ambra to kompletna platforma SaaS do zarządzania magazynem i inwentarzem. System
+                magazynowy, śledzenie produktów, zarządzanie lokalizacjami – wszystko w jednym
+                miejscu.
               </p>
               <div className="flex flex-col gap-4 sm:flex-row">
-                <Button size="lg" className="px-8 py-6 text-lg">
-                  Rozpocznij teraz
-                  <ArrowRight className="ml-2" />
+                <Button size="lg" className="px-8 py-6 text-lg" asChild>
+                  <Link href="/sign-up">
+                    Rozpocznij teraz
+                    <ArrowRight className="ml-2" />
+                  </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="px-8 py-6 text-lg" asChild>
-                  <Link href="/">
+                  <Link href="/sign-in">
                     Zobacz demo
                     <ArrowRight className="ml-2" />
                   </Link>
@@ -88,11 +90,11 @@ export default async function Home() {
               <div className="mt-8 flex flex-wrap gap-6">
                 <div className="flex items-center">
                   <Check className="mr-2 h-5 w-5 text-primary" />
-                  <span>Open Source</span>
+                  <span>Zarządzanie magazynem</span>
                 </div>
                 <div className="flex items-center">
                   <Check className="mr-2 h-5 w-5 text-primary" />
-                  <span>Zbudowany na Next.js 15 + Supabase</span>
+                  <span>Śledzenie produktów i lokalizacji</span>
                 </div>
                 <div className="flex items-center">
                   <Check className="mr-2 h-5 w-5 text-primary" />
@@ -105,7 +107,7 @@ export default async function Home() {
               <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-xl">
                 <Image
                   src="/screenshot-boilerplate.png"
-                  alt="SaaSForge Dashboard"
+                  alt="Ambra Dashboard"
                   width={800}
                   height={500}
                   placeholder="blur"
@@ -123,9 +125,9 @@ export default async function Home() {
       <section className="bg-muted/30 px-4 py-16">
         <div className="container mx-auto max-w-7xl">
           <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">Dlaczego SaaSForge?</h2>
+            <h2 className="mb-4 text-3xl font-bold md:text-4xl">Dlaczego Ambra?</h2>
             <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
-              Stwórz aplikację SaaS szybciej niż kiedykolwiek z gotowym szablonem bogatym w funkcje
+              Kompleksowe rozwiązanie do zarządzania magazynem z bogatym zestawem funkcji
             </p>
           </div>
 
@@ -143,27 +145,29 @@ export default async function Home() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <QrCode className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold">Gotowe moduły</h3>
+              <h3 className="mb-2 text-xl font-semibold">Kody QR i etykiety</h3>
               <p className="text-muted-foreground">
-                Autentykacja, system ról, dashboard, zarządzanie modułami i wiele więcej.
+                Generowanie kodów QR dla produktów i lokalizacji. Szybkie skanowanie i
+                identyfikacja.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold">Integracje i API</h3>
+              <h3 className="mb-2 text-xl font-semibold">Ruchy magazynowe</h3>
               <p className="text-muted-foreground">
-                Łatwo integruj z Resend, Stripe, Supabase, i innymi. REST i RPC gotowe do użycia.
+                Pełna historia przyjęć, wydań, przesunięć i korekt. Zgodność z polskimi standardami.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <Search className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold">Wydajność i SEO</h3>
+              <h3 className="mb-2 text-xl font-semibold">Inwentaryzacja</h3>
               <p className="text-muted-foreground">
-                SSR, App Router, dynamiczne meta tagi – zadbaj o indeksację i szybkość działania.
+                System audytów magazynowych z harmonogramem i historią. Automatyczne wykrywanie
+                rozbieżności.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
@@ -172,16 +176,16 @@ export default async function Home() {
               </div>
               <h3 className="mb-2 text-xl font-semibold">Bezpieczeństwo</h3>
               <p className="text-muted-foreground">
-                Supabase z politykami RLS, tokeny JWT, RBAC i zabezpieczenia gotowe do działania.
+                System ról i uprawnień, polityki RLS, tokeny JWT. Pełna kontrola dostępu.
               </p>
             </div>
             <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                 <BarChart className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="mb-2 text-xl font-semibold">Rozszerzalność</h3>
+              <h3 className="mb-2 text-xl font-semibold">Raporty i analizy</h3>
               <p className="text-muted-foreground">
-                Architektura gotowa do skalowania, dodawania funkcji i budowania mikroserwisów.
+                Podgląd stanów magazynowych w czasie rzeczywistym. Analityka i raporty.
               </p>
             </div>
           </div>
@@ -195,7 +199,7 @@ export default async function Home() {
             <div>
               <h2 className="mb-6 text-3xl font-bold md:text-4xl">Wypróbuj naszą aplikację</h2>
               <p className="mb-8 text-lg text-muted-foreground">
-                Poznaj MagazynPro w akcji. Nasza intuicyjna aplikacja pozwala na łatwe zarządzanie
+                Poznaj Ambra w akcji. Nasza intuicyjna aplikacja pozwala na łatwe zarządzanie
                 zasobami, śledzenie stanów magazynowych i optymalizację procesów logistycznych.
               </p>
               <ul className="mb-8 space-y-4">
@@ -215,9 +219,9 @@ export default async function Home() {
                     <Check className="h-5 w-5 text-primary" />
                   </div>
                   <div className="ml-3">
-                    <h4 className="text-lg font-semibold">Zarządzanie materiałami</h4>
+                    <h4 className="text-lg font-semibold">Zarządzanie produktami</h4>
                     <p className="text-muted-foreground">
-                      Dodawaj, edytuj i kategoryzuj swoje produkty
+                      Dodawaj, edytuj i kategoryzuj swoje produkty z wariantami
                     </p>
                   </div>
                 </li>
@@ -226,15 +230,15 @@ export default async function Home() {
                     <Check className="h-5 w-5 text-primary" />
                   </div>
                   <div className="ml-3">
-                    <h4 className="text-lg font-semibold">Śledzenie dostawców</h4>
+                    <h4 className="text-lg font-semibold">Lokalizacje magazynowe</h4>
                     <p className="text-muted-foreground">
-                      Zarządzaj relacjami z dostawcami w jednym miejscu
+                      Hierarchiczne drzewo lokalizacji z kodami QR
                     </p>
                   </div>
                 </li>
               </ul>
               <Button size="lg" className="px-8 py-6 text-lg" asChild>
-                <Link href="/">
+                <Link href="/sign-in">
                   Przejdź do aplikacji
                   <ArrowRight className="ml-2" />
                 </Link>
@@ -245,7 +249,7 @@ export default async function Home() {
               <div className="relative overflow-hidden rounded-lg border border-border bg-background p-4 shadow-xl">
                 <Image
                   src="/screenshot-boilerplate.png"
-                  alt="SaaSForge Dashboard"
+                  alt="Ambra Dashboard"
                   width={800}
                   height={500}
                   placeholder="blur"
@@ -265,7 +269,7 @@ export default async function Home() {
             <h2 className="mb-4 text-3xl font-bold md:text-4xl">Co mówią nasi klienci</h2>
             <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
               Dołącz do tysięcy zadowolonych klientów, którzy usprawniają swoje procesy magazynowe z
-              MagazynPro
+              Ambra
             </p>
           </div>
 
@@ -278,8 +282,8 @@ export default async function Home() {
                 ))}
               </div>
               <p className="mb-6 text-muted-foreground">
-                "MagazynPro zrewolucjonizował sposób, w jaki zarządzamy naszym magazynem.
-                Oszczędzamy kilka godzin dziennie na procesach inwentaryzacyjnych."
+                "Ambra zrewolucjonizowała sposób, w jaki zarządzamy naszym magazynem. Oszczędzamy
+                kilka godzin dziennie na procesach inwentaryzacyjnych."
               </p>
               <div className="flex items-center">
                 <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
@@ -302,8 +306,8 @@ export default async function Home() {
                 ))}
               </div>
               <p className="mb-6 text-muted-foreground">
-                "Dzięki MagazynPro zwiększyliśmy dokładność naszego inwentarza o 98%. Funkcja
-                skanowania kodów QR jest nie do przecenienia w naszej codziennej pracy."
+                "Dzięki Ambra zwiększyliśmy dokładność naszego inwentarza o 98%. Funkcja skanowania
+                kodów QR jest nie do przecenienia w naszej codziennej pracy."
               </p>
               <div className="flex items-center">
                 <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
@@ -326,8 +330,8 @@ export default async function Home() {
                 ))}
               </div>
               <p className="mb-6 text-muted-foreground">
-                "Intuicyjność MagazynPro pozwala nam na szybkie wdrożenie nowych pracowników.
-                Raporty i analizy pomagają nam optymalizować zamawianie towaru."
+                "Intuicyjność Ambra pozwala nam na szybkie wdrożenie nowych pracowników. Raporty i
+                analizy pomagają nam optymalizować zamawianie towaru."
               </p>
               <div className="flex items-center">
                 <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
@@ -375,12 +379,14 @@ export default async function Home() {
                 Gotowy na rewolucję w zarządzaniu magazynem?
               </h2>
               <p className="text-xl opacity-90">
-                Dołącz do MagazynPro już dziś i zoptymalizuj swoje procesy magazynowe.
+                Dołącz do Ambra już dziś i zoptymalizuj swoje procesy magazynowe.
               </p>
             </div>
-            <Button size="lg" className="px-8 py-6 text-lg shadow-lg" variant="secondary">
-              Rozpocznij za darmo
-              <ArrowRight className="ml-2" />
+            <Button size="lg" className="px-8 py-6 text-lg shadow-lg" variant="secondary" asChild>
+              <Link href="/sign-up">
+                Rozpocznij za darmo
+                <ArrowRight className="ml-2" />
+              </Link>
             </Button>
           </div>
         </div>
