@@ -142,7 +142,6 @@ export const forgotPasswordAction = async (formData: FormData) => {
 
 export const resetPasswordAction = async (formData: FormData) => {
   const supabase = await createClient();
-  const locale = await getLocale();
 
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
@@ -186,7 +185,11 @@ export const resetPasswordAction = async (formData: FormData) => {
   // Sign out after password reset for security
   await supabase.auth.signOut();
 
-  return redirect({ href: "/sign-in", locale });
+  return encodedRedirect(
+    "success",
+    "/sign-in",
+    "Password reset successfully! Please sign in with your new password."
+  );
 };
 
 export const signOutAction = async () => {

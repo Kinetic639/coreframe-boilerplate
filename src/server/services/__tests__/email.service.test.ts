@@ -154,9 +154,9 @@ describe("EmailService", () => {
 
       const callArgs = mockSend.mock.calls[0][0];
       expect(callArgs.to).toBe("user@example.com");
-      expect(callArgs.subject).toBe("Welcome to Coreframe");
+      expect(callArgs.subject).toBe("Welcome to Ambra");
       expect(callArgs.html).toContain("Hi John");
-      expect(callArgs.html).toContain("Welcome to Coreframe");
+      expect(callArgs.html).toContain("Welcome to Ambra");
       expect(callArgs.text).toContain("Hi John");
     });
 

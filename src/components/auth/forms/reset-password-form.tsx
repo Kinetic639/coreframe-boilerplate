@@ -13,6 +13,7 @@ import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
+import { toast } from "react-toastify";
 
 const resetPasswordSchema = z
   .object({
@@ -53,10 +54,21 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
   const password = watch("password", "");
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    const formData = new FormData();
-    formData.append("password", data.password);
-    formData.append("confirmPassword", data.confirmPassword);
-    await resetPasswordAction(formData);
+    try {
+      const formData = new FormData();
+      formData.append("password", data.password);
+      formData.append("confirmPassword", data.confirmPassword);
+      await resetPasswordAction(formData);
+
+      // If we reach here, password was reset successfully
+      toast.success(
+        t("success") || "Password reset successfully! Please sign in with your new password."
+      );
+
+      // Router will be handled by the action redirect
+    } catch {
+      toast.error(t("error") || "Failed to reset password. Please try again.");
+    }
   };
 
   return (

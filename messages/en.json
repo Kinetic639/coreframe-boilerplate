@@ -59,7 +59,9 @@
       "confirmPasswordLabel": "Confirm password",
       "confirmPasswordPlaceholder": "Re-enter password",
       "submit": "Reset password",
-      "pending": "Resetting password..."
+      "pending": "Resetting password...",
+      "success": "Password reset successfully! Please sign in with your new password.",
+      "error": "Failed to reset password. Please try again."
     }
   },
   "teams": {
@@ -648,6 +650,19 @@
       "emailNotConfirmed": "Please confirm your email address before signing in.",
       "generic": "An error occurred while signing in.",
       "unexpected": "An unexpected error occurred."
+    },
+    "passwordStrength": {
+      "label": "Password strength",
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong",
+      "requirements": {
+        "length": "At least 8 characters",
+        "uppercase": "One uppercase letter",
+        "lowercase": "One lowercase letter",
+        "number": "One number"
+      }
     }
   },
   "ConfirmationPage": {

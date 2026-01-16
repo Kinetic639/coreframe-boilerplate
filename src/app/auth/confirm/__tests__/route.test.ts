@@ -53,7 +53,7 @@ describe("POST /auth/confirm", () => {
       });
 
       expect(response.status).toBe(307); // NextResponse.redirect uses 307
-      expect(response.headers.get("location")).toContain("/reset-password");
+      expect(response.headers.get("location")).toContain("/zresetuj-haslo");
       expect(response.headers.get("location")).not.toContain("token_hash");
       expect(response.headers.get("location")).not.toContain("type");
     });
@@ -71,7 +71,7 @@ describe("POST /auth/confirm", () => {
 
       const response = await GET(request);
 
-      expect(response.headers.get("location")).toContain("/dashboard-old/start");
+      expect(response.headers.get("location")).toContain("/zresetuj-haslo");
     });
 
     it("should handle signup email verification", async () => {
