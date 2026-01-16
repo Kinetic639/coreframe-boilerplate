@@ -107,12 +107,15 @@ export const forgotPasswordAction = async (formData: FormData) => {
     return encodedRedirect("error", "/forgot-password", "Invalid email format");
   }
 
-  const redirectUrl = `${siteUrl}/auth/confirm?next=/${locale}/reset-password`;
+  // Build redirect URL - encode the 'next' parameter to ensure it's passed correctly
+  const nextPath = `/${locale}/reset-password`;
+  const redirectUrl = `${siteUrl}/auth/confirm?next=${encodeURIComponent(nextPath)}`;
 
   console.log("[Password Reset] Email:", email);
   console.log("[Password Reset] Redirect URL:", redirectUrl);
   console.log("[Password Reset] Site URL:", siteUrl);
   console.log("[Password Reset] Locale:", locale);
+  console.log("[Password Reset] Next path:", nextPath);
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     // PKCE flow with token_hash verification
