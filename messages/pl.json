@@ -46,6 +46,7 @@
       "title": "Zresetuj hasło",
       "emailLabel": "Email",
       "submit": "Wyślij link resetujący",
+      "sending": "Wysyłanie...",
       "emailPlaceholder": "email@przyklad.com",
       "remembered": "Pamiętasz hasło?",
       "signIn": "Zaloguj się"

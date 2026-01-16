@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
@@ -23,6 +24,7 @@ interface ForgotPasswordFormProps {
 
 export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
   const t = useTranslations("authForms.ForgotPasswordForm");
+  const router = useRouter();
 
   const {
     register,
@@ -33,6 +35,9 @@ export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
   });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
+    // Clear the current URL search params (removes old message)
+    router.replace(window.location.pathname);
+
     const formData = new FormData();
     formData.append("email", data.email);
     await forgotPasswordAction(formData);
@@ -59,8 +64,15 @@ export function ForgotPasswordForm({ message }: ForgotPasswordFormProps) {
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText="...">
-          {t("submit")}
+        <SubmitButton disabled={isSubmitting} pendingText={t("sending")}>
+          {isSubmitting ? (
+            <>
+              <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent"></span>
+              {t("sending")}
+            </>
+          ) : (
+            t("submit")
+          )}
         </SubmitButton>
 
         {message && <FormMessage message={message} />}
