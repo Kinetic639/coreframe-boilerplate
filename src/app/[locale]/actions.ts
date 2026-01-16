@@ -2,7 +2,6 @@
 
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
-import { headers } from "next/headers";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 
@@ -12,7 +11,9 @@ export const signUpAction = async (formData: FormData) => {
   const firstName = formData.get("firstName")?.toString();
   const lastName = formData.get("lastName")?.toString();
   const supabase = await createClient();
-  const origin = (await headers()).get("origin");
+
+  // Use environment variable for site URL - more reliable than origin header
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email || !password) {
     return encodedRedirect("error", "/sign-up", "Email and password are required");
@@ -23,7 +24,7 @@ export const signUpAction = async (formData: FormData) => {
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: `${siteUrl}/auth/callback`,
       data: {
         first_name: firstName || "",
         last_name: lastName || "",
@@ -91,8 +92,10 @@ export const signInAction = async (formData: FormData) => {
 export const forgotPasswordAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const supabase = await createClient();
-  const origin = (await headers()).get("origin");
   const locale = await getLocale();
+
+  // Use environment variable for site URL - more reliable than origin header
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email) {
     return encodedRedirect("error", "/forgot-password", "Email is required");
@@ -104,11 +107,11 @@ export const forgotPasswordAction = async (formData: FormData) => {
     return encodedRedirect("error", "/forgot-password", "Invalid email format");
   }
 
-  const redirectUrl = `${origin}/auth/confirm?next=/${locale}/reset-password`;
+  const redirectUrl = `${siteUrl}/auth/confirm?next=/${locale}/reset-password`;
 
   console.log("[Password Reset] Email:", email);
   console.log("[Password Reset] Redirect URL:", redirectUrl);
-  console.log("[Password Reset] Origin:", origin);
+  console.log("[Password Reset] Site URL:", siteUrl);
   console.log("[Password Reset] Locale:", locale);
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
