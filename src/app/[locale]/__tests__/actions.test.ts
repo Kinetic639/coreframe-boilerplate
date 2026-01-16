@@ -90,7 +90,7 @@ describe("Auth Actions", () => {
       expect(mockSupabaseClient.auth.resetPasswordForEmail).toHaveBeenCalledWith(
         "user@example.com",
         {
-          redirectTo: "http://localhost:3000/auth/confirm?next=/en/reset-password",
+          redirectTo: "http://localhost:3000/auth/confirm?next=%2Fen%2Freset-password",
         }
       );
     });
@@ -265,7 +265,11 @@ describe("Auth Actions", () => {
       });
 
       expect(mockSupabaseClient.auth.signOut).toHaveBeenCalled();
-      expect(result).toBe("redirect:/sign-in");
+      expect(result).toEqual({
+        type: "success",
+        path: "/sign-in",
+        message: "Password reset successfully! Please sign in with your new password.",
+      });
     });
 
     it("should return error if updateUser fails", async () => {

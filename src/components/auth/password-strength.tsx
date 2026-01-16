@@ -9,7 +9,7 @@ interface PasswordStrengthProps {
 }
 
 export function PasswordStrength({ password }: PasswordStrengthProps) {
-  const t = useTranslations("auth.passwordStrength");
+  const t = useTranslations("Auth.passwordStrength");
 
   const requirements = [
     { label: t("requirements.length"), met: password.length >= 8 },

@@ -56,9 +56,17 @@ export async function GET(request: NextRequest) {
     if (!error) {
       // Get the localized redirect URL
       const localizedNext = getLocalizedPath(next, locale);
-      const redirectUrl = `${origin}${localizedNext}`;
-      console.log("[Auth Confirm] Redirecting to:", redirectUrl);
-      return NextResponse.redirect(redirectUrl);
+
+      // Preserve other query parameters (except token_hash, type, next, locale)
+      const redirectUrl = new URL(`${origin}${localizedNext}`);
+      for (const [key, value] of searchParams.entries()) {
+        if (!["token_hash", "type", "next", "locale"].includes(key)) {
+          redirectUrl.searchParams.set(key, value);
+        }
+      }
+
+      console.log("[Auth Confirm] Redirecting to:", redirectUrl.toString());
+      return NextResponse.redirect(redirectUrl.toString());
     }
 
     // Verification failed

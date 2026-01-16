@@ -59,7 +59,9 @@
       "confirmPasswordLabel": "Potwierdź hasło",
       "confirmPasswordPlaceholder": "Wprowadź ponownie hasło",
       "submit": "Zresetuj hasło",
-      "pending": "Resetuję hasło..."
+      "pending": "Resetuję hasło...",
+      "success": "Hasło zostało zresetowane! Zaloguj się używając nowego hasła.",
+      "error": "Nie udało się zresetować hasła. Spróbuj ponownie."
     }
   },
   "teams": {
@@ -603,6 +605,19 @@
       "emailNotConfirmed": "Potwierdź adres email przed zalogowaniem.",
       "generic": "Wystąpił błąd podczas logowania.",
       "unexpected": "Wystąpił nieoczekiwany błąd. "
+    },
+    "passwordStrength": {
+      "label": "Siła hasła",
+      "weak": "Słabe",
+      "fair": "Średnie",
+      "good": "Dobre",
+      "strong": "Silne",
+      "requirements": {
+        "length": "Co najmniej 8 znaków",
+        "uppercase": "Jedna wielka litera",
+        "lowercase": "Jedna mała litera",
+        "number": "Jedna cyfra"
+      }
     }
   },
   "ConfirmationPage": {
