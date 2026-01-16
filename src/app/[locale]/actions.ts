@@ -98,13 +98,25 @@ export const forgotPasswordAction = async (formData: FormData) => {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email) {
-    return encodedRedirect("error", "/forgot-password", "Email is required");
+    redirect({
+      href: {
+        pathname: "/forgot-password",
+        query: { toast: "password-reset-error" },
+      },
+      locale,
+    });
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return encodedRedirect("error", "/forgot-password", "Invalid email format");
+    redirect({
+      href: {
+        pathname: "/forgot-password",
+        query: { toast: "password-reset-error" },
+      },
+      locale,
+    });
   }
 
   // Build redirect URL - encode the 'next' parameter to ensure it's passed correctly
@@ -133,63 +145,106 @@ export const forgotPasswordAction = async (formData: FormData) => {
   }
 
   // Always show success message for security (don't reveal if email exists)
-  return encodedRedirect(
-    "success",
-    "/forgot-password",
-    "If an account exists with this email, you will receive a password reset link."
-  );
+  redirect({
+    href: {
+      pathname: "/forgot-password",
+      query: { toast: "password-reset-sent" },
+    },
+    locale,
+  });
 };
 
 export const resetPasswordAction = async (formData: FormData) => {
   const supabase = await createClient();
+  const locale = await getLocale();
 
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
 
   // Comprehensive server-side validation
   if (!password || !confirmPassword) {
-    return encodedRedirect("error", "/reset-password", "Password and confirmation are required");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   if (password !== confirmPassword) {
-    return encodedRedirect("error", "/reset-password", "Passwords do not match");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   if (password.length < 8) {
-    return encodedRedirect("error", "/reset-password", "Password must be at least 8 characters");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   if (!/[A-Z]/.test(password)) {
-    return encodedRedirect("error", "/reset-password", "Password must contain an uppercase letter");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   if (!/[a-z]/.test(password)) {
-    return encodedRedirect("error", "/reset-password", "Password must contain a lowercase letter");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   if (!/\d/.test(password)) {
-    return encodedRedirect("error", "/reset-password", "Password must contain a number");
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
     console.error("Password update error:", error.message);
-    return encodedRedirect(
-      "error",
-      "/reset-password",
-      "Failed to update password. Please try again."
-    );
+    redirect({
+      href: {
+        pathname: "/reset-password",
+        query: { toast: "password-error" },
+      },
+      locale,
+    });
   }
 
   // Sign out after password reset for security
   await supabase.auth.signOut();
 
-  return encodedRedirect(
-    "success",
-    "/sign-in",
-    "Password reset successfully! Please sign in with your new password."
-  );
+  redirect({
+    href: {
+      pathname: "/sign-in",
+      query: { toast: "password-updated" },
+    },
+    locale,
+  });
 };
 
 export const signOutAction = async () => {

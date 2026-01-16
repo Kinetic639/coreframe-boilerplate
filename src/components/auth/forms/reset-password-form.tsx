@@ -2,7 +2,6 @@
 
 import { resetPasswordAction } from "@/app/[locale]/actions";
 import { FormMessage, Message } from "@/components/form-message";
-import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "react-toastify";
 
 const resetPasswordSchema = z
   .object({
@@ -54,21 +52,11 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
   const password = watch("password", "");
 
   const onSubmit = async (data: ResetPasswordFormData) => {
-    try {
-      const formData = new FormData();
-      formData.append("password", data.password);
-      formData.append("confirmPassword", data.confirmPassword);
-      await resetPasswordAction(formData);
+    const formData = new FormData();
+    formData.append("password", data.password);
+    formData.append("confirmPassword", data.confirmPassword);
 
-      // If we reach here, password was reset successfully
-      toast.success(
-        t("success") || "Password reset successfully! Please sign in with your new password."
-      );
-
-      // Router will be handled by the action redirect
-    } catch {
-      toast.error(t("error") || "Failed to reset password. Please try again.");
-    }
+    await resetPasswordAction(formData);
   };
 
   return (
@@ -97,11 +85,6 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
             </Button>
           </div>
           {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-          {password && (
-            <div className="mt-2">
-              <PasswordStrength password={password} />
-            </div>
-          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -129,9 +112,20 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
           )}
         </div>
 
-        <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
-          {t("submit")}
-        </SubmitButton>
+        <div className="mt-2">
+          <PasswordStrength password={password} />
+        </div>
+
+        <Button type="submit" disabled={isSubmitting} className="w-full">
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t("pending")}
+            </>
+          ) : (
+            t("submit")
+          )}
+        </Button>
         {message && <FormMessage message={message} />}
       </div>
     </form>
