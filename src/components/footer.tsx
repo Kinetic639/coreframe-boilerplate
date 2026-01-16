@@ -7,10 +7,11 @@ import LocaleSwitcher from "./LocaleSwitcher";
 const footer = () => {
   return (
     <footer className="mt-8 border-t bg-accent/30 py-6">
-      <div className="container grid grid-cols-2 gap-8 md:grid-cols-4">
+      <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-8 px-4 md:grid-cols-4">
         <div className="col-span-2">
-          <Link href="/" className="mb-4 flex items-center text-xl font-bold">
-            <span className="mr-1 text-primary">Magazyn</span>Pro
+          <Link href="/" className="mb-4 flex items-baseline text-xl font-bold">
+            <span className="text-primary">Ambra</span>
+            <span className="ml-0.5 text-sm font-medium text-muted-foreground">system</span>
           </Link>
           <p className="mb-6 max-w-xs text-sm text-muted-foreground">
             Nowoczesne narzędzie do zarządzania magazynem i inwentarzem dla firm każdej wielkości.
@@ -165,7 +166,7 @@ const footer = () => {
         </div>
       </div>
 
-      <div className="container mt-6 flex items-center justify-between border-t pt-6">
+      <div className="mx-auto mt-6 flex w-full max-w-7xl items-center justify-between border-t px-4 pt-6">
         <div className="text-sm text-muted-foreground">
           <p>
             © {new Date().getFullYear()}{" "}

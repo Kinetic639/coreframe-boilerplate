@@ -37,7 +37,7 @@ export interface EmailServiceResult {
  * const emailService = new EmailService();
  * const result = await emailService.sendEmail({
  *   to: 'user@example.com',
- *   subject: 'Welcome to Coreframe',
+ *   subject: 'Welcome to Ambra',
  *   html: '<p>Hello!</p>',
  * });
  * ```
@@ -55,8 +55,8 @@ export class EmailService {
     }
 
     this.resend = new Resend(apiKey);
-    this.fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@coreframe.app";
-    this.fromName = process.env.RESEND_FROM_NAME || "Coreframe";
+    this.fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@ambra-system.com";
+    this.fromName = process.env.RESEND_FROM_NAME || "Ambra";
   }
 
   /**
@@ -141,7 +141,7 @@ export class EmailService {
     const text = `
 Hi there,
 
-We received a request to reset the password for your Coreframe account (${email}).
+We received a request to reset the password for your Ambra account (${email}).
 Click the link below to set a new password:
 
 ${resetLink}
@@ -149,12 +149,12 @@ ${resetLink}
 This link will expire in 1 hour for security reasons. If you didn't request a password reset, you can safely ignore this email.
 
 Best regards,
-The Coreframe Team
+The Ambra Team
     `;
 
     return this.sendEmail({
       to: email,
-      subject: "Reset your Coreframe password",
+      subject: "Reset your Ambra password",
       html,
       text,
     });
@@ -182,7 +182,7 @@ The Coreframe Team
     const text = `
 Hi ${firstName},
 
-Welcome to Coreframe! We're excited to have you on board.
+Welcome to Ambra! We're excited to have you on board.
 
 Your account has been created successfully, and you can now access all the features of our platform.
 
@@ -191,12 +191,12 @@ Get started: ${loginLink}
 If you have any questions or need assistance, don't hesitate to reach out to our support team.
 
 Best regards,
-The Coreframe Team
+The Ambra Team
     `;
 
     return this.sendEmail({
       to: email,
-      subject: "Welcome to Coreframe!",
+      subject: "Welcome to Ambra!",
       html,
       text,
     });
@@ -232,7 +232,7 @@ The Coreframe Team
     );
 
     const text = `
-${inviterName} has invited you to join ${organizationName} on Coreframe.
+${inviterName} has invited you to join ${organizationName} on Ambra.
 
 Click the link below to accept the invitation and create your account:
 ${invitationLink}
@@ -240,7 +240,7 @@ ${invitationLink}
 This invitation will expire in 7 days.
 
 Best regards,
-The Coreframe Team
+The Ambra Team
     `;
 
     return this.sendEmail({
@@ -270,16 +270,16 @@ The Coreframe Team
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Welcome to Coreframe</title>
+          <title>Welcome to Ambra</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Coreframe</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Ambra</h1>
           </div>
           <div style="background: #f9fafb; padding: 40px 20px; border-radius: 0 0 8px 8px;">
             <p style="font-size: 16px; margin-bottom: 20px;">Hi ${firstName},</p>
             <p style="font-size: 16px; margin-bottom: 20px;">
-              Welcome to Coreframe! We're excited to have you on board.
+              Welcome to Ambra! We're excited to have you on board.
             </p>
             <p style="font-size: 16px; margin-bottom: 20px;">
               Your account has been created successfully, and you can now access all the features of our platform.
@@ -294,7 +294,7 @@ The Coreframe Team
             </p>
           </div>
           <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
-            <p>&copy; ${new Date().getFullYear()} Coreframe. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} Ambra. All rights reserved.</p>
           </div>
         </body>
       </html>
@@ -303,7 +303,7 @@ The Coreframe Team
     const text = `
 Hi ${firstName},
 
-Welcome to Coreframe! We're excited to have you on board.
+Welcome to Ambra! We're excited to have you on board.
 
 Your account has been created successfully, and you can now access all the features of our platform.
 
@@ -311,12 +311,12 @@ Get started: ${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/sign
 
 If you have any questions, feel free to reach out to our support team.
 
-© ${new Date().getFullYear()} Coreframe. All rights reserved.
+© ${new Date().getFullYear()} Ambra. All rights reserved.
     `;
 
     return this.sendEmail({
       to: email,
-      subject: "Welcome to Coreframe",
+      subject: "Welcome to Ambra",
       html,
       text,
     });
@@ -361,7 +361,7 @@ If you have any questions, feel free to reach out to our support team.
           </div>
           <div style="background: #f9fafb; padding: 40px 20px; border-radius: 0 0 8px 8px;">
             <p style="font-size: 16px; margin-bottom: 20px;">
-              ${inviterName} has invited you to join <strong>${organizationName}</strong> on Coreframe.
+              ${inviterName} has invited you to join <strong>${organizationName}</strong> on Ambra.
             </p>
             <p style="font-size: 16px; margin-bottom: 20px;">
               Click the button below to accept the invitation and create your account.
@@ -380,21 +380,21 @@ If you have any questions, feel free to reach out to our support team.
             </p>
           </div>
           <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
-            <p>&copy; ${new Date().getFullYear()} Coreframe. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} Ambra. All rights reserved.</p>
           </div>
         </body>
       </html>
     `;
 
     const text = `
-${inviterName} has invited you to join ${organizationName} on Coreframe.
+${inviterName} has invited you to join ${organizationName} on Ambra.
 
 Click the link below to accept the invitation and create your account:
 ${invitationLink}
 
 This invitation will expire in 7 days.
 
-© ${new Date().getFullYear()} Coreframe. All rights reserved.
+© ${new Date().getFullYear()} Ambra. All rights reserved.
     `;
 
     return this.sendEmail({

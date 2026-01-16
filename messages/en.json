@@ -214,34 +214,34 @@
     }
   },
   "LocaleLayout": {
-    "title": "CoreFrame - Enterprise SaaS Platform",
-    "brand": "CoreFrame",
+    "title": "Ambra - Enterprise SaaS Platform",
+    "brand": "Ambra",
     "description": "A comprehensive enterprise SaaS platform with advanced warehouse management, user administration, and analytics capabilities."
   },
   "metadata": {
     "common": {
-      "appName": "CoreFrame",
+      "appName": "Ambra",
       "separator": " | ",
       "defaultDescription": "Enterprise-grade SaaS platform for modern businesses"
     },
     "auth": {
       "signIn": {
         "title": "Sign In",
-        "description": "Access your CoreFrame account with secure enterprise authentication"
+        "description": "Access your Ambra account with secure enterprise authentication"
       },
       "signUp": {
         "title": "Sign Up",
-        "description": "Create your CoreFrame organization account and start managing your business"
+        "description": "Create your Ambra organization account and start managing your business"
       },
       "forgotPassword": {
         "title": "Reset Password",
-        "description": "Reset your CoreFrame account password securely"
+        "description": "Reset your Ambra account password securely"
       }
     },
     "public": {
       "home": {
         "title": "Enterprise SaaS Platform",
-        "description": "CoreFrame provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
+        "description": "Ambra provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
       },
       "features": {
         "title": "Features",
@@ -1389,7 +1389,7 @@
         "recentUpdates": "Recent Updates"
       },
       "gettingStarted": {
-        "welcomeTitle": "Welcome to CoreFrame!",
+        "welcomeTitle": "Welcome to Ambra!",
         "welcomeDescription": "Follow these steps to get started with your workspace and make the most of our platform.",
         "progressTitle": "Setup Progress",
         "progressDescription": "Complete these steps to fully configure your workspace",

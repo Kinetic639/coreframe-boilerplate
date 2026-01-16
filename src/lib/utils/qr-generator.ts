@@ -117,7 +117,7 @@ export function generateQRCodeURL(token: string, baseUrl?: string): string {
     baseUrl ||
     (typeof window !== "undefined"
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL || "https://app.coreframe.pl");
+      : process.env.NEXT_PUBLIC_APP_URL || "https://www.ambra-system.com");
   return `${base}/qr/${token}`;
 }
 
