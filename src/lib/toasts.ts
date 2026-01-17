@@ -8,14 +8,6 @@ export const TOASTS = {
     type: "error",
     translationKey: "toasts.passwordError",
   },
-  "password-reset-sent": {
-    type: "success",
-    translationKey: "toasts.passwordResetSent",
-  },
-  "password-reset-error": {
-    type: "error",
-    translationKey: "toasts.passwordResetError",
-  },
 } as const;
 
 export type ToastKey = keyof typeof TOASTS;
