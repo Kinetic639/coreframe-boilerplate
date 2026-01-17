@@ -2292,7 +2292,8 @@
   "toasts": {
     "passwordUpdated": "Hasło zaktualizowane pomyślnie. Zaloguj się.",
     "passwordError": "Nie udało się zaktualizować hasła. Spróbuj ponownie.",
-    "passwordResetSent": "Sprawdź email - wysłaliśmy link do resetowania hasła.",
-    "passwordResetError": "Nie udało się wysłać emaila. Spróbuj ponownie."
+    "passwordSameAsOld": "Nowe hasło nie może być takie same jak poprzednie.",
+    "passwordTooWeak": "Hasło jest zbyt słabe. Użyj silniejszego hasła.",
+    "passwordSessionExpired": "Sesja wygasła. Poproś o nowy link do resetowania hasła."
   }
 }
