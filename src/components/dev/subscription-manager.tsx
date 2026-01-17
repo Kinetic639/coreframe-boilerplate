@@ -33,7 +33,7 @@ import {
   useSubscriptionPlans,
   useDevelopmentSubscription,
   useUsageStats,
-} from "@/lib/hooks/use-subscription";
+} from "@/hooks/use-subscription";
 import { useAppStore } from "@/lib/stores/app-store";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";

@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { useSubscription } from "@/lib/hooks/use-subscription";
+import { useSubscription } from "@/hooks/use-subscription";
 import { useAppStore } from "@/lib/stores/app-store";
 import { cn } from "@/lib/utils";
 

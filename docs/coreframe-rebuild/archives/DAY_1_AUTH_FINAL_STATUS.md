@@ -91,7 +91,7 @@ All Day 1 authentication system tasks have been **successfully completed**. The 
    - Full error handling and logging
    - TypeScript types for all methods
 
-2. ✅ **[src/server/services/**tests**/email.service.test.ts](../../../src/server/services/__tests__/email.service.test.ts)**
+2. ✅ **[src/server/services/**tests**/email.service.test.ts](../../../src/server/services/**tests**/email.service.test.ts)**
    - 10 comprehensive unit tests
    - Tests for all EmailService methods
    - Mock Resend API integration
@@ -106,20 +106,20 @@ All Day 1 authentication system tasks have been **successfully completed**. The 
 
 #### Unit Tests Created
 
-1. ✅ **[src/components/auth/**tests**/password-strength.test.tsx](../../../src/components/auth/__tests__/password-strength.test.tsx)**
+1. ✅ **[src/components/auth/**tests**/password-strength.test.tsx](../../../src/components/auth/**tests**/password-strength.test.tsx)**
    - 16 comprehensive tests
    - Tests for all strength levels
    - Requirements checklist validation
    - Edge cases and visual feedback
 
-2. ✅ **[src/app/[locale]/**tests**/actions.test.ts](../../../src/app/[locale]/__tests__/actions.test.ts)**
+2. ✅ **[src/app/[locale]/**tests**/actions.test.ts](../../../src/app/[locale]/**tests**/actions.test.ts)**
    - 17 tests for auth actions
    - Tests for forgotPasswordAction (6 tests)
    - Tests for resetPasswordAction (11 tests)
    - Validation logic tests
    - Security feature tests
 
-3. ✅ **[src/app/auth/confirm/**tests**/route.test.ts](../../../src/app/auth/confirm/__tests__/route.test.ts)**
+3. ✅ **[src/app/auth/confirm/**tests**/route.test.ts](../../../src/app/auth/confirm/**tests**/route.test.ts)**
    - 15 tests for PKCE verification route
    - Token verification scenarios
    - Error handling tests

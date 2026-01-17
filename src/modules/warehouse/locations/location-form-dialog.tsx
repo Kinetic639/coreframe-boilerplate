@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LocationTreeItem } from "@/lib/types/location-tree";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSupabaseUpload } from "@/lib/hooks/use-supabase-upload";
+import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { useAppStore } from "@/lib/stores/app-store";
 import { cn } from "@/utils";
 

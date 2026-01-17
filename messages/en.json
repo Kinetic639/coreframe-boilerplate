@@ -64,6 +64,24 @@
       "error": "Failed to reset password. Please try again."
     }
   },
+  "auth": {
+    "errors": {
+      "emailPasswordRequired": "Email and password are required",
+      "registrationFailed": "Registration failed",
+      "invalidCredentials": "Invalid login credentials",
+      "emailRequired": "Email is required",
+      "invalidEmailFormat": "Invalid email format"
+    },
+    "success": {
+      "signUpSuccess": "Thanks for signing up! Please check your email for a verification link. Your organization has been created automatically.",
+      "passwordResetSent": "If an account exists with this email, you will receive a password reset link.",
+      "logoutSuccess": "Logged out successfully"
+    },
+    "logout": {
+      "button": "Sign out",
+      "loggingOut": "Signing out..."
+    }
+  },
   "teams": {
     "communication": {
       "messages": "Messages",
@@ -373,7 +391,20 @@
   },
   "NotFoundPage": {
     "description": "Please double-check the browser address bar or use the navigation to go to a known page.",
-    "title": "Page not found"
+    "title": "Page not found",
+    "Dashboard": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found in the dashboard.",
+      "dashboardHome": "Dashboard home",
+      "goBack": "Go back"
+    },
+    "Public": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found.",
+      "backToHomepage": "Back to homepage"
+    }
   },
   "PageLayout": {
     "links": {

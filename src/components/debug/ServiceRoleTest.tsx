@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { testServiceRoleConnection } from "@/app/actions/test-service-role";
+import { testServiceRoleConnection } from "@/app/actions/_debug/test-service-role";
 
 export function ServiceRoleTest() {
   const [result, setResult] = useState<any>(null);

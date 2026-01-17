@@ -64,6 +64,24 @@
       "error": "Nie udało się zresetować hasła. Spróbuj ponownie."
     }
   },
+  "auth": {
+    "errors": {
+      "emailPasswordRequired": "Email i hasło są wymagane",
+      "registrationFailed": "Rejestracja nie powiodła się",
+      "invalidCredentials": "Nieprawidłowe dane logowania",
+      "emailRequired": "Email jest wymagany",
+      "invalidEmailFormat": "Nieprawidłowy format email"
+    },
+    "success": {
+      "signUpSuccess": "Dziękujemy za rejestrację! Sprawdź swoją skrzynkę email w celu weryfikacji. Twoja organizacja została utworzona automatycznie.",
+      "passwordResetSent": "Jeśli konto z tym adresem email istnieje, otrzymasz link do resetowania hasła.",
+      "logoutSuccess": "Wylogowano pomyślnie"
+    },
+    "logout": {
+      "button": "Wyloguj się",
+      "loggingOut": "Wylogowywanie..."
+    }
+  },
   "teams": {
     "communication": {
       "messages": "Wiadomości",
@@ -422,7 +440,20 @@
   },
   "NotFoundPage": {
     "description": "Sprawdź poprawność adresu w pasku przeglądarki lub użyj nawigacji, aby przejść do znanej strony.",
-    "title": "Nie znaleziono strony"
+    "title": "Nie znaleziono strony",
+    "Dashboard": {
+      "title": "Nie znaleziono strony",
+      "description": "Strona, której szukasz, nie istnieje lub została przeniesiona.",
+      "content": "Błąd 404 - Ta strona nie została znaleziona w panelu.",
+      "dashboardHome": "Strona główna panelu",
+      "goBack": "Wróć"
+    },
+    "Public": {
+      "title": "Nie znaleziono strony",
+      "description": "Strona, której szukasz, nie istnieje lub została przeniesiona.",
+      "content": "Błąd 404 - Ta strona nie została znaleziona.",
+      "backToHomepage": "Powrót do strony głównej"
+    }
   },
   "PageLayout": {
     "links": {

@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { forgotPasswordAction } from "@/app/actions";
+import { forgotPasswordAction } from "@/app/[locale]/actions";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { AuthCard } from "./AuthCard";

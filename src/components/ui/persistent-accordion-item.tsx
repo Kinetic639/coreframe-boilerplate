@@ -1,7 +1,7 @@
 "use client";
 
 import { AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { usePersistentAccordionState } from "@/lib/hooks/usePersistentAccordionState";
+import { usePersistentAccordionState } from "@/hooks/usePersistentAccordionState";
 import { cn } from "@/lib/utils";
 
 export function PersistentAccordionItem({
