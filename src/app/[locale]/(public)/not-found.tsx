@@ -10,15 +10,9 @@ import {
 } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 
-/**
- * Global not-found page
- *
- * This is shown when a route doesn't match any segment.
- * Works without requiring a catch-all route.
- */
-export default function GlobalNotFound() {
+export default function PublicNotFound() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center p-4 bg-background">
+    <div className="flex min-h-[60vh] w-full items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
