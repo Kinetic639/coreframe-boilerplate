@@ -13,8 +13,8 @@ import { Link } from "@/i18n/navigation";
 /**
  * Global not-found page
  *
- * This is shown when a route doesn't match any segment.
- * Works without requiring a catch-all route.
+ * Requires app/[locale]/[...rest]/page.tsx to render with locale context (next-intl requirement).
+ * Provides a neutral 404 fallback for unknown routes.
  */
 export default function GlobalNotFound() {
   return (
