@@ -215,17 +215,25 @@ export const resetPasswordAction = async (formData: FormData) => {
       message: error.message,
       status: error.status,
       code: error.code,
+      name: error.name,
+      fullError: error,
     });
 
     // Map specific Supabase errors to user-friendly toast keys
     let toastKey = "password-error";
+    const errorMsg = error.message?.toLowerCase() || "";
 
     // Check for specific error messages from Supabase
-    if (error.message?.toLowerCase().includes("same as the old password")) {
+    // More flexible matching to catch variations
+    if (errorMsg.includes("same") && (errorMsg.includes("old") || errorMsg.includes("previous"))) {
       toastKey = "password-same-as-old";
-    } else if (error.message?.toLowerCase().includes("password is too weak")) {
+    } else if (errorMsg.includes("weak") || errorMsg.includes("strength")) {
       toastKey = "password-too-weak";
-    } else if (error.message?.toLowerCase().includes("session")) {
+    } else if (
+      errorMsg.includes("session") ||
+      errorMsg.includes("expired") ||
+      errorMsg.includes("token")
+    ) {
       toastKey = "password-session-expired";
     }
 

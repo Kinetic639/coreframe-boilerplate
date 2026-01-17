@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { testUserPermissions } from "@/app/actions/test-permissions";
-import { debugAppContext } from "@/app/actions/debug-app-context";
-import { debugUserContext } from "@/app/actions/debug-user-context";
-import { debugJwtToken } from "@/app/actions/debug-jwt-token";
+import { testUserPermissions } from "@/app/actions/_debug/test-permissions";
+import { debugAppContext } from "@/app/actions/_debug/debug-app-context";
+import { debugUserContext } from "@/app/actions/_debug/debug-user-context";
+import { debugJwtToken } from "@/app/actions/_debug/debug-jwt-token";
 // opcjonalnie kiedy będziesz mieć akcję do testu service role:
 // import { debugServiceRole } from "@/app/actions/debug-service-role";
 import { Button } from "@/components/ui/button";

@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppStore } from "@/lib/stores/app-store";
-import { changeBranch } from "@actions/changeBranch";
-import { useHasHydrated } from "@/lib/hooks/use-hydrated-value";
+import { changeBranch } from "@/app/actions/shared/changeBranch";
+import { useHasHydrated } from "@/hooks/use-hydrated-value";
 import { fetchAvailableBranches } from "@/lib/api/branches";
 
 export function CompactBranchSelector() {

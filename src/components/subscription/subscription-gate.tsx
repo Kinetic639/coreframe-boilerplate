@@ -11,7 +11,7 @@ import {
   useModuleAccess,
   useFeatureAccess,
   useUsageLimit,
-} from "@/lib/hooks/use-subscription";
+} from "@/hooks/use-subscription";
 import { useAppStore } from "@/lib/stores/app-store";
 import { cn } from "@/lib/utils";
 

@@ -26,15 +26,13 @@ vi.mock("next-intl/server", () => ({
   getLocale: vi.fn(async () => "en"),
 }));
 
-const mockRedirect = vi.fn((options) => {
-  // Simulate Next.js redirect behavior by throwing
-  const error = new Error("NEXT_REDIRECT");
-  (error as any).digest = `NEXT_REDIRECT;${JSON.stringify(options)}`;
-  throw error;
-});
-
 vi.mock("@/i18n/navigation", () => ({
-  redirect: mockRedirect,
+  redirect: vi.fn((options) => {
+    // Simulate Next.js redirect behavior by throwing
+    const error = new Error("NEXT_REDIRECT");
+    (error as any).digest = `NEXT_REDIRECT;${JSON.stringify(options)}`;
+    throw error;
+  }),
 }));
 
 vi.mock("@/utils/utils", () => ({
@@ -45,8 +43,9 @@ vi.mock("@/utils/utils", () => ({
   })),
 }));
 
-// Import actions after mocks are set up
+// Import actions and mocked functions after mocks are set up
 import { forgotPasswordAction, resetPasswordAction } from "../actions";
+import { redirect as mockRedirect } from "@/i18n/navigation";
 
 describe("Auth Actions", () => {
   beforeEach(() => {

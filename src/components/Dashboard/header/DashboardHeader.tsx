@@ -31,7 +31,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "../../ui/avatar";
 import { Link } from "@/i18n/navigation";
-import { signOutAction } from "@/app/actions/auth/sign-out";
+import { signOutAction } from "@/app/[locale]/actions";
 import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useUserStore } from "@/lib/stores/user-store";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";

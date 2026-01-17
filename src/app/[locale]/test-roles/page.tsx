@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { testRolesAccess } from "@/app/actions/test-roles";
+import { testRolesAccess } from "@/app/actions/_debug/test-roles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useLocations } from "@/lib/hooks/use-locations";
+import { useLocations } from "@/hooks/use-locations";
 import {
   Dialog,
   DialogContent,

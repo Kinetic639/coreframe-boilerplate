@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { testLogoAccess } from "@/app/actions/test-logo-access";
+import { testLogoAccess } from "@/app/actions/_debug/test-logo-access";
 
 interface LogoDebugProps {
   organizationId: string;

@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, XCircle, AlertTriangle, Settings } from "lucide-react";
-import { useSubscription, useModuleAccess, useUsageLimit } from "@/lib/hooks/use-subscription";
+import { useSubscription, useModuleAccess, useUsageLimit } from "@/hooks/use-subscription";
 import { useAppStore } from "@/lib/stores/app-store";
 import { subscriptionService } from "@/lib/services/subscription-service";
 import { toast } from "react-toastify";

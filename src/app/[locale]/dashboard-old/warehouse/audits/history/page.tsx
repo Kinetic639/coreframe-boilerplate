@@ -28,7 +28,7 @@ import {
 import { getAuditsByBranch } from "@/lib/mock/audit";
 import { formatDistanceToNow } from "date-fns";
 import { pl } from "date-fns/locale";
-import { useAppContext } from "@/lib/hooks/us-app-context";
+import { useAppContext } from "@/hooks/us-app-context";
 
 export default function AuditHistoryPage() {
   const { activeBranchId } = useAppContext();
