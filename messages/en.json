@@ -2318,7 +2318,8 @@
   "toasts": {
     "passwordUpdated": "Password updated successfully. Please log in.",
     "passwordError": "Could not update password. Please try again.",
-    "passwordResetSent": "Check your email for a password reset link.",
-    "passwordResetError": "Failed to send reset email. Please try again."
+    "passwordSameAsOld": "New password cannot be the same as your previous password.",
+    "passwordTooWeak": "Password is too weak. Please use a stronger password.",
+    "passwordSessionExpired": "Session expired. Please request a new password reset link."
   }
 }

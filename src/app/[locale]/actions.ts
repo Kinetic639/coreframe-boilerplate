@@ -211,11 +211,28 @@ export const resetPasswordAction = async (formData: FormData) => {
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
-    console.error("Password update error:", error.message);
+    console.error("Password update error:", {
+      message: error.message,
+      status: error.status,
+      code: error.code,
+    });
+
+    // Map specific Supabase errors to user-friendly toast keys
+    let toastKey = "password-error";
+
+    // Check for specific error messages from Supabase
+    if (error.message?.toLowerCase().includes("same as the old password")) {
+      toastKey = "password-same-as-old";
+    } else if (error.message?.toLowerCase().includes("password is too weak")) {
+      toastKey = "password-too-weak";
+    } else if (error.message?.toLowerCase().includes("session")) {
+      toastKey = "password-session-expired";
+    }
+
     redirect({
       href: {
         pathname: "/reset-password",
-        query: { toast: "password-error" },
+        query: { toast: toastKey },
       },
       locale,
     });
