@@ -4,16 +4,19 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "react-toastify";
 import { TOASTS } from "@/lib/toasts";
+import { useTranslations } from "next-intl";
 
 export function ToastListener() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const t = useTranslations();
 
   useEffect(() => {
     const key = searchParams.get("toast");
     if (!key || !(key in TOASTS)) return;
 
-    const { type, message } = TOASTS[key as keyof typeof TOASTS];
+    const { type, translationKey } = TOASTS[key as keyof typeof TOASTS];
+    const message = t(translationKey);
 
     toast[type](message);
 
@@ -23,7 +26,7 @@ export function ToastListener() {
 
     const newUrl = params.toString() ? `?${params.toString()}` : window.location.pathname;
     router.replace(newUrl, { scroll: false });
-  }, [searchParams, router]);
+  }, [searchParams, router, t]);
 
   return null;
 }

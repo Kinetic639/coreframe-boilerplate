@@ -2314,5 +2314,11 @@
         "empty": "No recently viewed documents"
       }
     }
+  },
+  "toasts": {
+    "passwordUpdated": "Password updated successfully. Please log in.",
+    "passwordError": "Could not update password. Please try again.",
+    "passwordResetSent": "Check your email for a password reset link.",
+    "passwordResetError": "Failed to send reset email. Please try again."
   }
 }

@@ -2288,5 +2288,11 @@
         "empty": "Brak ostatnio przeglądanych dokumentów"
       }
     }
+  },
+  "toasts": {
+    "passwordUpdated": "Hasło zaktualizowane pomyślnie. Zaloguj się.",
+    "passwordError": "Nie udało się zaktualizować hasła. Spróbuj ponownie.",
+    "passwordResetSent": "Sprawdź email - wysłaliśmy link do resetowania hasła.",
+    "passwordResetError": "Nie udało się wysłać emaila. Spróbuj ponownie."
   }
 }
