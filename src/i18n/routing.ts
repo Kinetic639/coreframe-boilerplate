@@ -63,29 +63,29 @@ export const routing = defineRouting({
     },
 
     // === Dashboard V2 (New Architecture) ===
-    "/dashboard-v2/start": {
-      en: "/dashboard-v2/start",
-      pl: "/dashboard-v2/start",
+    "/dashboard/start": {
+      en: "/dashboard/start",
+      pl: "/dashboard/start",
     },
-    "/dashboard-v2/home": {
-      en: "/dashboard-v2/home",
-      pl: "/dashboard-v2/dom",
+    "/dashboard/home": {
+      en: "/dashboard/home",
+      pl: "/dashboard/dom",
     },
-    "/dashboard-v2/warehouse": {
-      en: "/dashboard-v2/warehouse",
-      pl: "/dashboard-v2/magazyn",
+    "/dashboard/warehouse": {
+      en: "/dashboard/warehouse",
+      pl: "/dashboard/magazyn",
     },
-    "/dashboard-v2/teams": {
-      en: "/dashboard-v2/teams",
-      pl: "/dashboard-v2/zespoly",
+    "/dashboard/teams": {
+      en: "/dashboard/teams",
+      pl: "/dashboard/zespoly",
     },
-    "/dashboard-v2/organization-management": {
-      en: "/dashboard-v2/organization-management",
-      pl: "/dashboard-v2/zarzadzanie-organizacja",
+    "/dashboard/organization-management": {
+      en: "/dashboard/organization-management",
+      pl: "/dashboard/zarzadzanie-organizacja",
     },
-    "/dashboard-v2/support": {
-      en: "/dashboard-v2/support",
-      pl: "/dashboard-v2/wsparcie",
+    "/dashboard/support": {
+      en: "/dashboard/support",
+      pl: "/dashboard/wsparcie",
     },
 
     "/dashboard-old": {
