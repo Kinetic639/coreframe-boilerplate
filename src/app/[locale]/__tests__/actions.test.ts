@@ -26,8 +26,15 @@ vi.mock("next-intl/server", () => ({
   getLocale: vi.fn(async () => "en"),
 }));
 
+const mockRedirect = vi.fn((options) => {
+  // Simulate Next.js redirect behavior by throwing
+  const error = new Error("NEXT_REDIRECT");
+  (error as any).digest = `NEXT_REDIRECT;${JSON.stringify(options)}`;
+  throw error;
+});
+
 vi.mock("@/i18n/navigation", () => ({
-  redirect: vi.fn((options) => `redirect:${options.href}`),
+  redirect: mockRedirect,
 }));
 
 vi.mock("@/utils/utils", () => ({
@@ -51,28 +58,32 @@ describe("Auth Actions", () => {
   });
 
   describe("forgotPasswordAction", () => {
-    it("should return error if email is not provided", async () => {
+    it("should redirect with error toast if email is not provided", async () => {
       const formData = new FormData();
 
-      const result = await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/forgot-password",
-        message: "Email is required",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/forgot-password",
+          query: { toast: "password-reset-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error for invalid email format", async () => {
+    it("should redirect with error toast for invalid email format", async () => {
       const formData = new FormData();
       formData.append("email", "invalid-email");
 
-      const result = await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/forgot-password",
-        message: "Invalid email format",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/forgot-password",
+          query: { toast: "password-reset-error" },
+        },
+        locale: "en",
       });
     });
 
@@ -85,7 +96,7 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.resetPasswordForEmail).toHaveBeenCalledWith(
         "user@example.com",
@@ -95,7 +106,7 @@ describe("Auth Actions", () => {
       );
     });
 
-    it("should always return success message (security)", async () => {
+    it("should redirect with success toast (security)", async () => {
       const formData = new FormData();
       formData.append("email", "user@example.com");
 
@@ -104,16 +115,18 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      const result = await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "success",
-        path: "/forgot-password",
-        message: "If an account exists with this email, you will receive a password reset link.",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/forgot-password",
+          query: { toast: "password-reset-sent" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return success even when Supabase returns error (security)", async () => {
+    it("should redirect with success toast even when Supabase returns error (security)", async () => {
       const formData = new FormData();
       formData.append("email", "nonexistent@example.com");
 
@@ -122,13 +135,15 @@ describe("Auth Actions", () => {
         error: { message: "User not found" },
       });
 
-      const result = await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      // Should still return success to not reveal if email exists
-      expect(result).toEqual({
-        type: "success",
-        path: "/forgot-password",
-        message: "If an account exists with this email, you will receive a password reset link.",
+      // Should still redirect with success to not reveal if email exists
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/forgot-password",
+          query: { toast: "password-reset-sent" },
+        },
+        locale: "en",
       });
     });
 
@@ -141,106 +156,126 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      const result = await forgotPasswordAction(formData);
+      await expect(forgotPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect((result as any).type).toBe("success");
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/forgot-password",
+          query: { toast: "password-reset-sent" },
+        },
+        locale: "en",
+      });
     });
   });
 
   describe("resetPasswordAction", () => {
-    it("should return error if password is not provided", async () => {
+    it("should redirect with error toast if password is not provided", async () => {
       const formData = new FormData();
       formData.append("confirmPassword", "Password123");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password and confirmation are required",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if confirmPassword is not provided", async () => {
+    it("should redirect with error toast if confirmPassword is not provided", async () => {
       const formData = new FormData();
       formData.append("password", "Password123");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password and confirmation are required",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if passwords do not match", async () => {
+    it("should redirect with error toast if passwords do not match", async () => {
       const formData = new FormData();
       formData.append("password", "Password123");
       formData.append("confirmPassword", "DifferentPass123");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Passwords do not match",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if password is less than 8 characters", async () => {
+    it("should redirect with error toast if password is less than 8 characters", async () => {
       const formData = new FormData();
       formData.append("password", "Pass12");
       formData.append("confirmPassword", "Pass12");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password must be at least 8 characters",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if password has no uppercase letter", async () => {
+    it("should redirect with error toast if password has no uppercase letter", async () => {
       const formData = new FormData();
       formData.append("password", "password123");
       formData.append("confirmPassword", "password123");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password must contain an uppercase letter",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if password has no lowercase letter", async () => {
+    it("should redirect with error toast if password has no lowercase letter", async () => {
       const formData = new FormData();
       formData.append("password", "PASSWORD123");
       formData.append("confirmPassword", "PASSWORD123");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password must contain a lowercase letter",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if password has no number", async () => {
+    it("should redirect with error toast if password has no number", async () => {
       const formData = new FormData();
       formData.append("password", "Password");
       formData.append("confirmPassword", "Password");
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Password must contain a number",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
     });
 
@@ -258,21 +293,23 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalledWith({
         password: "Password123",
       });
 
       expect(mockSupabaseClient.auth.signOut).toHaveBeenCalled();
-      expect(result).toEqual({
-        type: "success",
-        path: "/sign-in",
-        message: "Password reset successfully! Please sign in with your new password.",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/sign-in",
+          query: { toast: "password-updated" },
+        },
+        locale: "en",
       });
     });
 
-    it("should return error if updateUser fails", async () => {
+    it("should redirect with error toast if updateUser fails", async () => {
       const formData = new FormData();
       formData.append("password", "Password123");
       formData.append("confirmPassword", "Password123");
@@ -282,12 +319,14 @@ describe("Auth Actions", () => {
         error: { message: "Update failed" },
       });
 
-      const result = await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
-      expect(result).toEqual({
-        type: "error",
-        path: "/reset-password",
-        message: "Failed to update password. Please try again.",
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-error" },
+        },
+        locale: "en",
       });
 
       expect(mockSupabaseClient.auth.signOut).not.toHaveBeenCalled();
@@ -307,7 +346,7 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalledWith({
         password: "Password123!@#",
@@ -328,7 +367,7 @@ describe("Auth Actions", () => {
         error: null,
       });
 
-      await resetPasswordAction(formData);
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalled();
     });
