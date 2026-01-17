@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { FileQuestion, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,10 +15,10 @@ import { Link } from "@/i18n/navigation";
  * Public 404 page
  *
  * Shown when navigating to unknown public routes.
- * Fully localized with next-intl.
+ * Server component with async translations.
  */
-export default function PublicNotFound() {
-  const t = useTranslations("NotFoundPage.Public");
+export default async function PublicNotFound() {
+  const t = await getTranslations("NotFoundPage.Public");
 
   return (
     <div className="flex min-h-[60vh] w-full items-center justify-center p-4">

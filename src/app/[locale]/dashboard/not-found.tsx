@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { FileQuestion, Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,10 +15,10 @@ import { Link } from "@/i18n/navigation";
  * Dashboard 404 page
  *
  * Rendered within the dashboard layout with sidebar.
- * Fully localized with next-intl.
+ * Server component with async translations.
  */
-export default function DashboardNotFound() {
-  const t = useTranslations("NotFoundPage.Dashboard");
+export default async function DashboardNotFound() {
+  const t = await getTranslations("NotFoundPage.Dashboard");
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
@@ -42,12 +42,21 @@ export default function DashboardNotFound() {
               {t("dashboardHome")}
             </Link>
           </Button>
-          <Button onClick={() => window.history.back()} variant="default" className="flex-1">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            {t("goBack")}
-          </Button>
+          <BackButton label={t("goBack")} />
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+// Client component for browser back functionality
+function BackButton({ label }: { label: string }) {
+  "use client";
+
+  return (
+    <Button onClick={() => window.history.back()} variant="default" className="flex-1">
+      <ArrowLeft className="mr-2 h-4 w-4" />
+      {label}
+    </Button>
   );
 }
