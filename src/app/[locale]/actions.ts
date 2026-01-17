@@ -98,25 +98,13 @@ export const forgotPasswordAction = async (formData: FormData) => {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email) {
-    redirect({
-      href: {
-        pathname: "/forgot-password",
-        query: { toast: "password-reset-error" },
-      },
-      locale,
-    });
+    return encodedRedirect("error", "/forgot-password", "Email is required");
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    redirect({
-      href: {
-        pathname: "/forgot-password",
-        query: { toast: "password-reset-error" },
-      },
-      locale,
-    });
+    return encodedRedirect("error", "/forgot-password", "Invalid email format");
   }
 
   // Build redirect URL - encode the 'next' parameter to ensure it's passed correctly
@@ -145,13 +133,11 @@ export const forgotPasswordAction = async (formData: FormData) => {
   }
 
   // Always show success message for security (don't reveal if email exists)
-  redirect({
-    href: {
-      pathname: "/forgot-password",
-      query: { toast: "password-reset-sent" },
-    },
-    locale,
-  });
+  return encodedRedirect(
+    "success",
+    "/forgot-password",
+    "If an account exists with this email, you will receive a password reset link."
+  );
 };
 
 export const resetPasswordAction = async (formData: FormData) => {
