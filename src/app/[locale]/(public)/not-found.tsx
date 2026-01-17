@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { FileQuestion, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,8 @@ import { Link } from "@/i18n/navigation";
  * Server component with async translations.
  */
 export default async function PublicNotFound() {
-  const t = await getTranslations("NotFoundPage.Public");
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "NotFoundPage.Public" });
 
   return (
     <div className="flex min-h-[60vh] w-full items-center justify-center p-4">

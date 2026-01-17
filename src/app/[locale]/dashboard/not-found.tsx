@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { FileQuestion, Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,8 @@ import { Link } from "@/i18n/navigation";
  * Server component with async translations.
  */
 export default async function DashboardNotFound() {
-  const t = await getTranslations("NotFoundPage.Dashboard");
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "NotFoundPage.Dashboard" });
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
