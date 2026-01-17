@@ -8,6 +8,7 @@ import { getTranslations, setRequestLocale, getMessages } from "next-intl/server
 import { notFound } from "next/navigation";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { ToastListener } from "@/components/toast-listener";
 
 type Props = {
   children: ReactNode;
@@ -76,6 +77,7 @@ export default async function RootLayout({ children, params }: Props) {
             pauseOnHover
             theme="light"
           />
+          <ToastListener />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
