@@ -2,7 +2,7 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { hasLocale, Locale, NextIntlClientProvider } from "next-intl";
-import { ReactNode } from "react";
+import { ReactNode, Suspense } from "react";
 import { routing } from "@/i18n/routing";
 import { getTranslations, setRequestLocale, getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -77,7 +77,9 @@ export default async function RootLayout({ children, params }: Props) {
             pauseOnHover
             theme="light"
           />
-          <ToastListener />
+          <Suspense fallback={null}>
+            <ToastListener />
+          </Suspense>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
