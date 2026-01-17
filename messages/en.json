@@ -373,7 +373,20 @@
   },
   "NotFoundPage": {
     "description": "Please double-check the browser address bar or use the navigation to go to a known page.",
-    "title": "Page not found"
+    "title": "Page not found",
+    "Dashboard": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found in the dashboard.",
+      "dashboardHome": "Dashboard home",
+      "goBack": "Go back"
+    },
+    "Public": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found.",
+      "backToHomepage": "Back to homepage"
+    }
   },
   "PageLayout": {
     "links": {

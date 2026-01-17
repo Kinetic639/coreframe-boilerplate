@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { FileQuestion, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,15 @@ import {
 } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 
+/**
+ * Public 404 page
+ *
+ * Shown when navigating to unknown public routes.
+ * Fully localized with next-intl.
+ */
 export default function PublicNotFound() {
+  const t = useTranslations("NotFoundPage.Public");
+
   return (
     <div className="flex min-h-[60vh] w-full items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -18,23 +27,19 @@ export default function PublicNotFound() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <FileQuestion className="h-6 w-6 text-muted-foreground" />
           </div>
-          <CardTitle>Page not found</CardTitle>
-          <CardDescription>
-            The page you're looking for doesn't exist or has been moved.
-          </CardDescription>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
 
         <CardContent>
-          <p className="text-center text-sm text-muted-foreground">
-            Error 404 - This page could not be found.
-          </p>
+          <p className="text-center text-sm text-muted-foreground">{t("content")}</p>
         </CardContent>
 
         <CardFooter className="flex justify-center">
           <Button asChild variant="default">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
-              Back to home
+              {t("backToHomepage")}
             </Link>
           </Button>
         </CardFooter>
