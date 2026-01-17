@@ -64,6 +64,24 @@
       "error": "Nie udało się zresetować hasła. Spróbuj ponownie."
     }
   },
+  "auth": {
+    "errors": {
+      "emailPasswordRequired": "Email i hasło są wymagane",
+      "registrationFailed": "Rejestracja nie powiodła się",
+      "invalidCredentials": "Nieprawidłowe dane logowania",
+      "emailRequired": "Email jest wymagany",
+      "invalidEmailFormat": "Nieprawidłowy format email"
+    },
+    "success": {
+      "signUpSuccess": "Dziękujemy za rejestrację! Sprawdź swoją skrzynkę email w celu weryfikacji. Twoja organizacja została utworzona automatycznie.",
+      "passwordResetSent": "Jeśli konto z tym adresem email istnieje, otrzymasz link do resetowania hasła.",
+      "logoutSuccess": "Wylogowano pomyślnie"
+    },
+    "logout": {
+      "button": "Wyloguj się",
+      "loggingOut": "Wylogowywanie..."
+    }
+  },
   "teams": {
     "communication": {
       "messages": "Wiadomości",

@@ -3,7 +3,7 @@
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -11,12 +11,14 @@ export const signUpAction = async (formData: FormData) => {
   const firstName = formData.get("firstName")?.toString();
   const lastName = formData.get("lastName")?.toString();
   const supabase = await createClient();
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "auth" });
 
   // Use environment variable for site URL - more reliable than origin header
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email || !password) {
-    return encodedRedirect("error", "/sign-up", "Email and password are required");
+    return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
   }
 
   // Register user with metadata for names
@@ -34,7 +36,7 @@ export const signUpAction = async (formData: FormData) => {
 
   if (error || !data.user) {
     console.error(error?.code + " " + error?.message);
-    return encodedRedirect("error", "/sign-up", error?.message || "Registration failed");
+    return encodedRedirect("error", "/sign-up", error?.message || t("errors.registrationFailed"));
   }
 
   // The database trigger will automatically:
@@ -43,11 +45,7 @@ export const signUpAction = async (formData: FormData) => {
   // 3. Create organization profile
   // 4. Assign org_owner role to the user
 
-  return encodedRedirect(
-    "success",
-    "/sign-up",
-    "Thanks for signing up! Please check your email for a verification link. Your organization has been created automatically."
-  );
+  return encodedRedirect("success", "/sign-up", t("success.signUpSuccess"));
 };
 
 export const signInAction = async (formData: FormData) => {
@@ -56,6 +54,8 @@ export const signInAction = async (formData: FormData) => {
   const returnUrl = formData.get("returnUrl") as string;
 
   const supabase = await createClient();
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "auth" });
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -63,17 +63,18 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
+    const errorMessage = error.message.includes("Invalid login credentials")
+      ? t("errors.invalidCredentials")
+      : error.message;
+
     // If there's a returnUrl, include it in the redirect back to sign-in with the error
     if (returnUrl) {
       const { redirect: nextRedirect } = await import("next/navigation");
-      const locale = await getLocale();
-      const signInUrl = `/${locale}/sign-in?returnUrl=${encodeURIComponent(returnUrl)}&error=${encodeURIComponent(error.message)}`;
+      const signInUrl = `/${locale}/sign-in?returnUrl=${encodeURIComponent(returnUrl)}&error=${encodeURIComponent(errorMessage)}`;
       return nextRedirect(signInUrl);
     }
-    return encodedRedirect("error", "/sign-in", error.message);
+    return encodedRedirect("error", "/sign-in", errorMessage);
   }
-
-  const locale = await getLocale();
 
   // If there's a returnUrl, redirect there, otherwise go to dashboard
   if (returnUrl && returnUrl.trim() !== "") {
@@ -93,18 +94,19 @@ export const forgotPasswordAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const supabase = await createClient();
   const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: "auth" });
 
   // Use environment variable for site URL - more reliable than origin header
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   if (!email) {
-    return encodedRedirect("error", "/forgot-password", "Email is required");
+    return encodedRedirect("error", "/forgot-password", t("errors.emailRequired"));
   }
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return encodedRedirect("error", "/forgot-password", "Invalid email format");
+    return encodedRedirect("error", "/forgot-password", t("errors.invalidEmailFormat"));
   }
 
   // Build redirect URL - encode the 'next' parameter to ensure it's passed correctly
@@ -133,11 +135,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   }
 
   // Always show success message for security (don't reveal if email exists)
-  return encodedRedirect(
-    "success",
-    "/forgot-password",
-    "If an account exists with this email, you will receive a password reset link."
-  );
+  return encodedRedirect("success", "/forgot-password", t("success.passwordResetSent"));
 };
 
 export const resetPasswordAction = async (formData: FormData) => {
