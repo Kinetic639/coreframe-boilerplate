@@ -266,7 +266,9 @@ export function PermissionDebugPanel() {
                           {perms.map((perm, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               {hasWildcard(perm) && (
-                                <Globe className="h-3 w-3 text-blue-600" title="Wildcard" />
+                                <span title="Wildcard">
+                                  <Globe className="h-3 w-3 text-blue-600" />
+                                </span>
                               )}
                               <code className="text-xs">{perm}</code>
                             </div>
@@ -302,7 +304,9 @@ export function PermissionDebugPanel() {
                           {perms.map((perm, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               {hasWildcard(perm) && (
-                                <Globe className="h-3 w-3 text-red-600" title="Wildcard" />
+                                <span title="Wildcard">
+                                  <Globe className="h-3 w-3 text-red-600" />
+                                </span>
                               )}
                               <code className="text-xs text-red-600">{perm}</code>
                             </div>

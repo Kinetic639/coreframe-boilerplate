@@ -261,9 +261,9 @@ describe("PermissionDebugPanel", () => {
 
       await user.click(screen.getByRole("tab", { name: /context/i }));
 
-      const mainBranch = screen.getByText("Main Branch").closest(".border-primary");
+      const mainBranch = screen.getByText("Main Branch").closest(".border-primary") as HTMLElement;
       expect(mainBranch).toBeInTheDocument();
-      expect(within(mainBranch!).getByText("Active")).toBeInTheDocument();
+      expect(within(mainBranch).getByText("Active")).toBeInTheDocument();
 
       const secondaryBranch = screen.getByText("Secondary Branch");
       expect(secondaryBranch).toBeInTheDocument();
