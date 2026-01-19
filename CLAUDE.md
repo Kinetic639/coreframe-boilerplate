@@ -167,6 +167,66 @@ Before implementing database operations:
 
 **Remember**: Security is implemented in layers - database RLS, permission validation, server-side checks, and client-side guards. All layers must be properly configured for robust security.
 
+#### 6. Wildcard Permission System
+
+The application uses a hierarchical wildcard permission system for flexible access control:
+
+**How Wildcards Work:**
+
+- **Pattern**: `module.*` grants access to all `module.X` permissions
+- **Hierarchy**: High-level roles like `org_owner` have wildcard permissions (`warehouse.*`, `teams.*`, `admin.*`, `system.*`) for full module access
+- **Matching**: System checks exact match first, then wildcard patterns using `startsWith()` logic
+- **Deny-First**: Deny permissions take precedence over allow, even with wildcards
+
+**Permission Check Examples:**
+
+```typescript
+// User has: warehouse.*
+can("warehouse.products.read"); // ✅ ALLOWED (matches warehouse.*)
+can("warehouse.products.delete"); // ✅ ALLOWED (matches warehouse.*)
+can("warehouse.movements.approve"); // ✅ ALLOWED (matches warehouse.*)
+can("teams.members.invite"); // ❌ DENIED (no teams.* permission)
+```
+
+**When to Use Wildcards:**
+
+- ✅ High-level roles needing full module access (e.g., `org_owner`, `module_admin`)
+- ✅ Simplify permission management and reduce database rows
+- ✅ Future-proof permissions (new features automatically inherit access)
+
+**When to Use Granular Permissions:**
+
+- ✅ Fine-grained role control (e.g., `warehouse_viewer` can only read)
+- ✅ Explicit permission requirements for compliance/audit
+- ✅ Need different access levels within a single module
+
+**Implementation Pattern:**
+When implementing new features, always check permissions using granular strings even if wildcards cover them:
+
+```typescript
+import { usePermissions } from "@/hooks/v2/use-permissions";
+
+export function DeleteProductButton({ productId }: { productId: string }) {
+  const { can } = usePermissions();
+
+  // Check granular permission (will match warehouse.* wildcard automatically)
+  if (!can("warehouse.products.delete")) {
+    return null;
+  }
+
+  return <button onClick={() => deleteProduct(productId)}>Delete</button>;
+}
+```
+
+**Best Practices:**
+
+1. Use permission checks like `can('warehouse.products.delete')` in your code
+2. Don't worry about creating every granular permission in the database if wildcards cover it
+3. Add granular permissions only when you need role differentiation (e.g., read-only roles)
+4. Document permission requirements in your feature documentation
+
+See [Security Patterns - Wildcard Permissions](docs/guides/13-security-patterns.md#wildcard-permissions) for detailed examples and migration patterns.
+
 ### Documentation and Library Reference
 
 **IMPORTANT**: Always use Context7 MCP server for up-to-date library documentation when coding.

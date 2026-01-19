@@ -87,7 +87,7 @@ export const signInAction = async (formData: FormData) => {
     return nextRedirect(returnUrl);
   }
 
-  return redirect({ href: "/dashboard-old/start", locale });
+  return redirect({ href: "/dashboard/start", locale });
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {

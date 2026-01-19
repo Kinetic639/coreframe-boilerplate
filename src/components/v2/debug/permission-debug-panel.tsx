@@ -486,16 +486,18 @@ export function PermissionDebugPanel() {
                 </div>
               )}
 
-              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3">
-                <h5 className="text-sm font-semibold mb-2">Example Permissions to Test:</h5>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-2">
+                <h5 className="text-sm font-semibold">Example Permissions to Test:</h5>
                 <div className="flex flex-wrap gap-2">
                   {[
                     "warehouse.products.read",
                     "warehouse.products.create",
                     "warehouse.products.delete",
-                    "warehouse.*",
-                    "admin.users.create",
+                    "warehouse.movements.approve",
                     "teams.members.invite",
+                    "teams.chat.create",
+                    "admin.settings.update",
+                    "admin.users.manage",
                   ].map((example) => (
                     <button
                       key={example}
@@ -507,6 +509,10 @@ export function PermissionDebugPanel() {
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  💡 Tip: If you have &quot;warehouse.*&quot;, you can access all warehouse.*
+                  permissions
+                </p>
               </div>
             </div>
           </TabsContent>

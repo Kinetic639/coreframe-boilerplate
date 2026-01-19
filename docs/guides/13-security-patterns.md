@@ -627,6 +627,185 @@ describe("Task Security", () => {
 });
 ```
 
+## Wildcard Permissions
+
+The permission system supports wildcard patterns for flexible, hierarchical access control.
+
+### How Wildcards Work
+
+Wildcard permissions use the `*` character to match multiple permissions within a module:
+
+```typescript
+// Pattern format
+"module.*"; // Matches ALL permissions starting with "module."
+
+// Examples
+"warehouse.*"; // Matches: warehouse.products.read, warehouse.movements.approve, etc.
+"teams.*"; // Matches: teams.members.invite, teams.chat.create, etc.
+"admin.*"; // Matches: admin.settings.update, admin.users.manage, etc.
+```
+
+### Permission Matching Logic
+
+The system checks permissions in this order:
+
+1. **Exact match**: Check if permission exists exactly in allow/deny list
+2. **Wildcard match**: Check if permission matches a wildcard pattern
+
+```typescript
+// Permission to check
+const permission = "warehouse.products.delete";
+
+// User has in allow list
+const allowList = ["warehouse.*"];
+
+// Matching logic
+"warehouse.*" → Remove ".*" → "warehouse"
+"warehouse.products.delete".startsWith("warehouse.") → TRUE ✅
+
+// Result: ALLOWED
+```
+
+### When to Use Wildcards
+
+✅ **Use wildcards for:**
+
+- High-level roles needing full module access (e.g., `org_owner`)
+- Simplifying permission management
+- Future-proofing permissions (new features automatically inherit access)
+- Reducing database rows for permission mappings
+
+❌ **Use granular permissions for:**
+
+- Fine-grained role control (e.g., `warehouse_viewer` can only read)
+- Explicit permission requirements for compliance
+- When you need different access levels within a module
+
+### Example: org_owner Role
+
+The `org_owner` role has wildcard permissions for full access:
+
+```sql
+-- Wildcard permissions granted to org_owner
+SELECT p.slug FROM role_permissions rp
+JOIN roles r ON rp.role_id = r.id
+JOIN permissions p ON rp.permission_id = p.id
+WHERE r.name = 'org_owner' AND p.slug LIKE '%.*';
+
+-- Results:
+-- warehouse.*  → Full warehouse access
+-- teams.*      → Full teams access
+-- admin.*      → Full admin access
+-- system.*     → Full system access
+```
+
+This means `org_owner` can:
+
+- `warehouse.products.read` ✅ (matches `warehouse.*`)
+- `warehouse.products.create` ✅ (matches `warehouse.*`)
+- `warehouse.products.delete` ✅ (matches `warehouse.*`)
+- `warehouse.movements.approve` ✅ (matches `warehouse.*`)
+- `teams.members.invite` ✅ (matches `teams.*`)
+- Any future warehouse or teams permission ✅
+
+### Deny-First Semantics with Wildcards
+
+Deny permissions take precedence over allow permissions, even with wildcards:
+
+```typescript
+// User has:
+allow: ["warehouse.*"];
+deny: ["warehouse.products.delete"];
+
+// Check: "warehouse.products.delete"
+// 1. Check deny list first → MATCH found → DENIED ❌
+// 2. Never checks allow list
+
+// Result: DENIED (deny wins)
+```
+
+### Best Practices
+
+1. **Use wildcards for high-level roles**:
+
+   ```sql
+   -- org_owner gets wildcard access
+   INSERT INTO role_permissions (role_id, permission_id, allowed)
+   SELECT r.id, p.id, true
+   FROM roles r, permissions p
+   WHERE r.name = 'org_owner' AND p.slug IN ('warehouse.*', 'teams.*');
+   ```
+
+2. **Use granular permissions for restricted roles**:
+
+   ```sql
+   -- warehouse_viewer only gets read access
+   INSERT INTO role_permissions (role_id, permission_id, allowed)
+   SELECT r.id, p.id, true
+   FROM roles r, permissions p
+   WHERE r.name = 'warehouse_viewer'
+   AND p.slug IN ('warehouse.products.read', 'warehouse.inventory.read');
+   ```
+
+3. **Combine wildcards with overrides**:
+   ```sql
+   -- Grant full warehouse access except delete
+   -- Role gets: warehouse.*
+   -- Override denies: warehouse.products.delete
+   INSERT INTO user_permission_overrides (user_id, permission_id, allowed, scope, scope_id)
+   SELECT 'user-123', p.id, false, 'org', 'org-123'
+   FROM permissions p
+   WHERE p.slug = 'warehouse.products.delete';
+   ```
+
+### Implementation Example
+
+When implementing a new feature, check permissions using granular strings even if wildcards cover them:
+
+```typescript
+// In your component or service
+import { usePermissions } from "@/hooks/v2/use-permissions";
+
+export function DeleteProductButton({ productId }: { productId: string }) {
+  const { can } = usePermissions();
+
+  // Check granular permission (will match warehouse.* wildcard)
+  if (!can("warehouse.products.delete")) {
+    return null; // Hide button if no permission
+  }
+
+  return (
+    <button onClick={() => deleteProduct(productId)}>
+      Delete Product
+    </button>
+  );
+}
+```
+
+The system will automatically match `warehouse.products.delete` against the `warehouse.*` wildcard if the user has it.
+
+### Migration: Adding Wildcards
+
+To add wildcard permissions to your database:
+
+```sql
+-- Add wildcard permissions
+INSERT INTO public.permissions (slug, action, description, category) VALUES
+('warehouse.*', '*', 'Full access to all warehouse operations', 'warehouse'),
+('teams.*', '*', 'Full access to all teams operations', 'teams')
+ON CONFLICT (slug) DO NOTHING;
+
+-- Assign to org_owner role
+INSERT INTO public.role_permissions (role_id, permission_id, allowed)
+SELECT r.id, p.id, true
+FROM public.roles r
+CROSS JOIN public.permissions p
+WHERE r.name = 'org_owner'
+AND p.slug IN ('warehouse.*', 'teams.*');
+```
+
+See: [Migration 20260119134623_add_wildcard_permissions.sql](../../supabase/migrations/20260119134623_add_wildcard_permissions.sql)
+
 ## Next Steps
 
 - [Database Migrations](./11-database-migrations.md) - Add RLS policies
