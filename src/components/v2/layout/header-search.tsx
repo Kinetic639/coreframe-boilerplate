@@ -35,6 +35,13 @@ export function HeaderSearch() {
   const { userModules } = useAppStoreV2();
   // const t = useTranslations("dashboard.header.search"); // TODO: Add translations for search placeholder
 
+  // Detect OS for correct keyboard shortcut display
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
+  }, []);
+
   // Listen for Cmd+K / Ctrl+K
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -63,29 +70,30 @@ export function HeaderSearch() {
     router.push(href);
   };
 
+  const shortcutText = isMac ? "⌘K" : "Ctrl+K";
+
   return (
     <>
-      {/* Desktop: Full search button */}
+      {/* Desktop: Search icon with tooltip */}
       <Button
-        variant="outline"
-        className="hidden md:flex w-full justify-start text-sm text-muted-foreground h-9"
+        variant="ghost"
+        size="icon"
+        className="hidden md:flex h-9 w-9"
         onClick={() => setOpen(true)}
-        aria-label="Search (Ctrl+K)"
+        aria-label={`Search (${shortcutText})`}
+        title={`Search (${shortcutText})`}
       >
-        <Search className="mr-2 h-4 w-4" />
-        <span>Search...</span>
-        <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-          <span className="text-xs">⌘</span>K
-        </kbd>
+        <Search className="h-5 w-5" />
       </Button>
 
-      {/* Mobile: Icon only */}
+      {/* Mobile: Search icon */}
       <Button
         variant="ghost"
         size="icon"
         className="md:hidden h-9 w-9"
         onClick={() => setOpen(true)}
         aria-label="Search"
+        title="Search"
       >
         <Search className="h-5 w-5" />
       </Button>
