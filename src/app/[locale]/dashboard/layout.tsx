@@ -3,6 +3,7 @@ import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { DashboardV2Providers } from "./_providers";
 import { SidebarV2 } from "@/components/v2/layout/sidebar";
+import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 /**
@@ -31,7 +32,10 @@ export default async function DashboardV2Layout({ children }: { children: React.
       <SidebarProvider defaultOpen={true}>
         <div className="flex h-screen w-full">
           <SidebarV2 />
-          <main className="flex-1 overflow-auto bg-muted/20 p-4 md:p-6 lg:p-8">{children}</main>
+          <div className="flex flex-1 flex-col min-w-0">
+            <DashboardHeaderV2 />
+            <main className="flex-1 overflow-auto bg-muted/20 p-4 md:p-6 lg:p-8">{children}</main>
+          </div>
         </div>
       </SidebarProvider>
     </DashboardV2Providers>
