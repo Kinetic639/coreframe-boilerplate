@@ -5,6 +5,7 @@ import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { PageHeaderV2 } from "@/components/v2/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PermissionDebugPanel } from "@/components/v2/debug/permission-debug-panel";
 
 /**
  * Dashboard V2 Start Page
@@ -15,12 +16,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * - App context (org, branch, modules) from useAppStoreV2
  * - User context (identity, roles, permissions) from useUserStoreV2
  * - Permission checks using usePermissions hook
+ * - Comprehensive permission debug panel (dev only)
  *
  * This page validates:
  * - SSR hydration works correctly
  * - Stores are populated from server context
  * - Permission checking works
  * - No console errors
+ * - Permission system security and performance
  */
 export default function DashboardV2StartPage() {
   const appStore = useAppStoreV2();
@@ -30,12 +33,15 @@ export default function DashboardV2StartPage() {
   const permissionSnapshot = getSnapshot();
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeaderV2
         title="Dashboard V2 Start"
-        description="Proof of concept page validating V2 architecture"
+        description="Proof of concept page validating V2 architecture and permission system"
         breadcrumbs={[{ label: "Start" }]}
       />
+
+      {/* Permission Debug Panel (DEV ONLY) */}
+      <PermissionDebugPanel />
 
       <div className="grid gap-4 md:grid-cols-2">
         {/* App Context Card */}
