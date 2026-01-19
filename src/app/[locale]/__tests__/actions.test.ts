@@ -24,6 +24,18 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next-intl/server", () => ({
   getLocale: vi.fn(async () => "en"),
+  getTranslations: vi.fn(async () => {
+    // Return a mock translation function that returns the key path
+    return (key: string) => {
+      const translations: Record<string, string> = {
+        "errors.emailRequired": "Email is required",
+        "errors.invalidEmailFormat": "Invalid email format",
+        "success.passwordResetSent":
+          "If an account exists with this email, you will receive a password reset link.",
+      };
+      return translations[key] || key;
+    };
+  }),
 }));
 
 vi.mock("@/i18n/navigation", () => ({
