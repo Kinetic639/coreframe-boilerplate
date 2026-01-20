@@ -10,30 +10,35 @@ import { checkPermission, type PermissionSnapshot } from "@/lib/utils/permission
  * It uses the PermissionSnapshot from the user store, which is hydrated from the server
  * and kept in sync via the PermissionsSync component.
  *
- * **Architecture Notes:**
- * - NO server-side fetching (uses snapshot from store)
- * - Supports wildcard patterns ("warehouse.*", "teams.members.*")
- * - Deny-first semantics (deny overrides allow)
- * - Reactive to permission changes via Zustand store
- * - Uses pure functions from @/lib/utils/permissions for testability
+ * **V2 Architecture: "Compile, don't evaluate"**
+ *
+ * In V2, permissions are compiled at write-time (when roles/overrides change) into
+ * explicit facts stored in `user_effective_permissions`. This means:
+ *
+ * - **No wildcards at runtime**: The allow list contains explicit permission slugs
+ * - **No deny logic at runtime**: Deny is applied during compilation, so deny array is always empty
+ * - **Simple membership checks**: Just check if permission is in the allow Set
+ *
+ * The hook maintains backwards compatibility with V1 code that uses the `checkPermission`
+ * utility, but V2 checks are simpler and faster.
  *
  * @example
  * ```tsx
  * function ProductsPage() {
  *   const { can, cannot, canAny, canAll } = usePermissions();
  *
- *   if (cannot("warehouse.products.read")) {
+ *   if (cannot("members.manage")) {
  *     return <AccessDenied />;
  *   }
  *
  *   return (
  *     <div>
- *       <h1>Products</h1>
- *       {can("warehouse.products.create") && (
- *         <Button onClick={handleCreate}>Create Product</Button>
+ *       <h1>Members</h1>
+ *       {can("members.manage") && (
+ *         <Button onClick={handleInvite}>Invite Member</Button>
  *       )}
- *       {canAny(["warehouse.products.edit", "warehouse.products.delete"]) && (
- *         <BulkActions />
+ *       {canAny(["branches.create", "branches.delete"]) && (
+ *         <BranchActions />
  *       )}
  *     </div>
  *   );

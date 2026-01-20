@@ -91,7 +91,7 @@ export function PermissionDebugPanel() {
   };
 
   const allowGroups = groupByCategory(filteredAllowPermissions);
-  const denyGroups = groupByCategory(filteredDenyPermissions);
+  // Note: denyGroups not computed - V2 doesn't use deny at runtime (handled at compile time)
 
   return (
     <Card className="border-2 border-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20">
@@ -283,52 +283,50 @@ export function PermissionDebugPanel() {
                 </ScrollArea>
               </div>
 
-              {/* Denied Permissions */}
-              <div className="rounded-lg border p-4 space-y-3">
+              {/* Denied Permissions - V2: Always empty (deny handled at compile time) */}
+              <div className="rounded-lg border p-4 space-y-3 opacity-60">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-sm flex items-center gap-2">
                     <XCircle className="h-4 w-4 text-red-600" />
-                    Denied Permissions (Overrides)
+                    Denied Permissions
                   </h3>
-                  <Badge variant="destructive">{filteredDenyPermissions.length}</Badge>
+                  <Badge variant="secondary">{filteredDenyPermissions.length}</Badge>
                 </div>
                 <Separator />
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-3">
-                    {Object.entries(denyGroups).map(([category, perms]) => (
-                      <div key={category}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                          {category}
-                        </h4>
-                        <div className="space-y-1">
-                          {perms.map((perm, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              {hasWildcard(perm) && (
-                                <span title="Wildcard">
-                                  <Globe className="h-3 w-3 text-red-600" />
-                                </span>
-                              )}
-                              <code className="text-xs text-red-600">{perm}</code>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredDenyPermissions.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No denied permissions</p>
-                    )}
-                  </div>
-                </ScrollArea>
+                <div className="p-4 text-center">
+                  <p className="text-sm text-muted-foreground mb-2">✅ Always empty in V2</p>
+                  <p className="text-xs text-muted-foreground">
+                    In V2 architecture, deny overrides are applied during compilation. The effective
+                    permissions table only contains what you CAN do.
+                  </p>
+                </div>
               </div>
             </div>
 
             <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4">
-              <h4 className="text-sm font-semibold mb-2">Permission System Info</h4>
+              <h4 className="text-sm font-semibold mb-2">
+                Permission System V2 - &quot;Compile, don&apos;t evaluate&quot;
+              </h4>
               <ul className="text-xs space-y-1 text-muted-foreground">
-                <li>• Permissions use deny-first semantics (deny list checked before allow)</li>
-                <li>• Wildcards (*) match multiple permissions (e.g., "warehouse.*")</li>
-                <li>• Scope precedence: branch &gt; org &gt; global</li>
-                <li>• Overrides at same scope: newest created_at wins</li>
+                <li>
+                  • <strong>Compiled permissions:</strong> Permissions are calculated when
+                  roles/overrides change, not at request time
+                </li>
+                <li>
+                  • <strong>No wildcards at runtime:</strong> Wildcards are expanded during
+                  compilation
+                </li>
+                <li>
+                  • <strong>No deny at runtime:</strong> Deny overrides are applied during
+                  compilation (deny list is always empty)
+                </li>
+                <li>
+                  • <strong>Simple checks:</strong> Just check if permission exists in allow list
+                </li>
+                <li>
+                  • <strong>Debugging:</strong> Query `user_effective_permissions` table to see
+                  compiled facts
+                </li>
               </ul>
             </div>
           </TabsContent>
@@ -491,17 +489,25 @@ export function PermissionDebugPanel() {
               )}
 
               <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 space-y-2">
-                <h5 className="text-sm font-semibold">Example Permissions to Test:</h5>
+                <h5 className="text-sm font-semibold">Example Permissions to Test (V2):</h5>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    "warehouse.products.read",
-                    "warehouse.products.create",
-                    "warehouse.products.delete",
-                    "warehouse.movements.approve",
-                    "teams.members.invite",
-                    "teams.chat.create",
-                    "admin.settings.update",
-                    "admin.users.manage",
+                    // Organization
+                    "org.read",
+                    "org.update",
+                    // Branches
+                    "branches.read",
+                    "branches.create",
+                    "branches.delete",
+                    // Members
+                    "members.read",
+                    "members.manage",
+                    // Self
+                    "self.read",
+                    "self.update",
+                    // Invites
+                    "invites.create",
+                    "invites.read",
                   ].map((example) => (
                     <button
                       key={example}
@@ -514,8 +520,8 @@ export function PermissionDebugPanel() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  💡 Tip: If you have &quot;warehouse.*&quot;, you can access all warehouse.*
-                  permissions
+                  💡 V2: Permissions are explicit (no wildcards). org_owner has all 13 permissions,
+                  org_member has 5.
                 </p>
               </div>
             </div>
