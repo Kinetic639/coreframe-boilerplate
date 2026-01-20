@@ -15,6 +15,7 @@ vi.mock("@/lib/stores/v2/app-store");
 vi.mock("@/hooks/v2/use-permissions");
 
 describe("PermissionDebugPanel", () => {
+  // V2: Use canonical permission slugs (no wildcards at runtime)
   const mockUserStore = {
     user: {
       id: "user-123",
@@ -23,11 +24,8 @@ describe("PermissionDebugPanel", () => {
       last_name: "User",
       avatar_url: null,
     },
-    permissions: ["warehouse.products.read", "warehouse.*", "teams.members.invite"],
-    roles: [
-      { role: "org_admin", scope: "org", organization_id: "org-1" },
-      { role: "branch_admin", scope: "branch", branch_id: "branch-1" },
-    ],
+    permissions: ["org.read", "org.update", "branches.read", "members.read"],
+    roles: [{ role: "org_owner", scope: "org", organization_id: "org-1" }],
     isLoaded: true,
   };
 
@@ -54,11 +52,12 @@ describe("PermissionDebugPanel", () => {
     isLoaded: true,
   };
 
+  // V2: deny is always empty (handled at compile time)
   const mockPermissions = {
     can: vi.fn(),
     getSnapshot: vi.fn(() => ({
-      allow: ["warehouse.products.read", "warehouse.*", "teams.members.invite"],
-      deny: ["warehouse.products.delete"],
+      allow: ["org.read", "org.update", "branches.read", "members.read"],
+      deny: [], // V2: always empty
     })),
   };
 
@@ -120,13 +119,9 @@ describe("PermissionDebugPanel", () => {
     it("should display user roles with scope indicators", () => {
       render(<PermissionDebugPanel />);
 
-      const orgAdminBadge = screen.getByText("org_admin");
-      expect(orgAdminBadge).toBeInTheDocument();
-      expect(within(orgAdminBadge.parentElement!).getByText("(org)")).toBeInTheDocument();
-
-      const branchAdminBadge = screen.getByText("branch_admin");
-      expect(branchAdminBadge).toBeInTheDocument();
-      expect(within(branchAdminBadge.parentElement!).getByText("(branch)")).toBeInTheDocument();
+      const orgOwnerBadge = screen.getByText("org_owner");
+      expect(orgOwnerBadge).toBeInTheDocument();
+      expect(within(orgOwnerBadge.parentElement!).getByText("(org)")).toBeInTheDocument();
     });
 
     it("should show load status indicators", () => {
@@ -167,34 +162,24 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
       expect(screen.getByText("Allowed Permissions")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument(); // Badge count
+      expect(screen.getByText("4")).toBeInTheDocument(); // Badge count
 
-      // Check for permissions
-      expect(screen.getByText("warehouse.products.read")).toBeInTheDocument();
-      expect(screen.getByText("warehouse.*")).toBeInTheDocument();
-      expect(screen.getByText("teams.members.invite")).toBeInTheDocument();
+      // Check for V2 canonical permissions
+      expect(screen.getByText("org.read")).toBeInTheDocument();
+      expect(screen.getByText("org.update")).toBeInTheDocument();
+      expect(screen.getByText("branches.read")).toBeInTheDocument();
     });
 
-    it("should display denied permissions with overrides", async () => {
+    it("should display V2 denied permissions section (always empty)", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      expect(screen.getByText("Denied Permissions (Overrides)")).toBeInTheDocument();
-      expect(screen.getByText("1")).toBeInTheDocument(); // Badge count
-      expect(screen.getByText("warehouse.products.delete")).toBeInTheDocument();
-    });
-
-    it("should show wildcard indicators for pattern permissions", async () => {
-      const user = userEvent.setup();
-      render(<PermissionDebugPanel />);
-
-      await user.click(screen.getByRole("tab", { name: /permissions/i }));
-
-      // warehouse.* should have wildcard indicator
-      const wildcardPermission = screen.getByText("warehouse.*").parentElement!;
-      expect(within(wildcardPermission).getByTitle("Wildcard")).toBeInTheDocument();
+      // V2: Denied permissions section exists but shows explanation that it's always empty
+      expect(screen.getByText("Denied Permissions")).toBeInTheDocument();
+      expect(screen.getByText("0")).toBeInTheDocument(); // Badge count should be 0
+      expect(screen.getByText(/Always empty in V2/i)).toBeInTheDocument();
     });
 
     it("should filter permissions based on search input", async () => {
@@ -204,22 +189,24 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
       const filterInput = screen.getByLabelText("Filter Permissions");
-      await user.type(filterInput, "warehouse");
+      await user.type(filterInput, "org");
 
-      expect(screen.getByText("warehouse.products.read")).toBeInTheDocument();
-      expect(screen.getByText("warehouse.*")).toBeInTheDocument();
-      expect(screen.queryByText("teams.members.invite")).not.toBeInTheDocument();
+      expect(screen.getByText("org.read")).toBeInTheDocument();
+      expect(screen.getByText("org.update")).toBeInTheDocument();
+      expect(screen.queryByText("members.read")).not.toBeInTheDocument();
     });
 
-    it("should display explanation of permission system", async () => {
+    it("should display V2 permission system explanation", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      expect(screen.getByText(/Permissions use deny-first semantics/i)).toBeInTheDocument();
-      expect(screen.getByText(/Wildcards \(\*\) match multiple permissions/i)).toBeInTheDocument();
-      expect(screen.getByText(/Scope precedence: branch > org > global/i)).toBeInTheDocument();
+      // V2 explanation text
+      expect(screen.getByText(/Permission System V2/i)).toBeInTheDocument();
+      expect(screen.getByText(/Compiled permissions/i)).toBeInTheDocument();
+      expect(screen.getByText(/No wildcards at runtime/i)).toBeInTheDocument();
+      expect(screen.getByText(/No deny at runtime/i)).toBeInTheDocument();
     });
 
     it("should show message when no permissions exist", async () => {
@@ -236,7 +223,6 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
       expect(screen.getByText("No allowed permissions")).toBeInTheDocument();
-      expect(screen.getByText("No denied permissions")).toBeInTheDocument();
     });
   });
 
@@ -306,9 +292,9 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /checker/i }));
 
       const input = screen.getByLabelText("Test Permission");
-      await user.type(input, "warehouse.products.read");
+      await user.type(input, "org.read");
 
-      expect(mockPermissions.can).toHaveBeenCalledWith("warehouse.products.read");
+      expect(mockPermissions.can).toHaveBeenCalledWith("org.read");
     });
 
     it("should show ALLOWED result for permitted actions", async () => {
@@ -319,7 +305,7 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /checker/i }));
 
       const input = screen.getByLabelText("Test Permission");
-      await user.type(input, "warehouse.products.read");
+      await user.type(input, "org.read");
 
       expect(screen.getByText("ALLOWED")).toBeInTheDocument();
       expect(
@@ -341,17 +327,18 @@ describe("PermissionDebugPanel", () => {
       expect(screen.getByText("✗ Permission is denied or not in allow list")).toBeInTheDocument();
     });
 
-    it("should provide example permissions to test", async () => {
+    it("should provide V2 example permissions to test", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /checker/i }));
 
-      const exampleButton = screen.getByRole("button", { name: "warehouse.products.read" });
+      // V2 uses canonical permissions like org.read, branches.read, etc.
+      const exampleButton = screen.getByRole("button", { name: "org.read" });
       await user.click(exampleButton);
 
       const input = screen.getByLabelText("Test Permission");
-      expect(input).toHaveValue("warehouse.products.read");
+      expect(input).toHaveValue("org.read");
     });
 
     it("should show matching allow patterns for allowed permissions", async () => {
@@ -362,12 +349,12 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /checker/i }));
 
       const input = screen.getByLabelText("Test Permission");
-      await user.type(input, "warehouse.products.read");
+      await user.type(input, "org.read");
 
       expect(screen.getByText("Matching Allow Patterns:")).toBeInTheDocument();
     });
 
-    it("should show deny overrides for denied permissions", async () => {
+    it("should show V2 info about deny being compile-time", async () => {
       const user = userEvent.setup();
       mockPermissions.can.mockReturnValue(false);
 
@@ -375,10 +362,10 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /checker/i }));
 
       const input = screen.getByLabelText("Test Permission");
-      await user.type(input, "warehouse.products.delete");
+      await user.type(input, "members.manage");
 
-      // Should show the denied permission from the snapshot
-      expect(screen.getByText("Deny Overrides:")).toBeInTheDocument();
+      // V2: Permission is simply not in allow list (no runtime deny)
+      expect(screen.getByText("DENIED")).toBeInTheDocument();
     });
   });
 
@@ -401,14 +388,14 @@ describe("PermissionDebugPanel", () => {
       expect(performanceSection).toBeInTheDocument();
     });
 
-    it("should count wildcard permissions", async () => {
+    it("should count wildcard permissions (V2: should be 0)", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /performance/i }));
 
       expect(screen.getByText("Wildcard Permissions:")).toBeInTheDocument();
-      // warehouse.* is a wildcard
+      // V2: no wildcards at runtime, count should be 0
     });
 
     it("should display performance targets", async () => {
@@ -490,7 +477,8 @@ describe("PermissionDebugPanel", () => {
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
       expect(screen.getByText("No allowed permissions")).toBeInTheDocument();
-      expect(screen.getByText("No denied permissions")).toBeInTheDocument();
+      // V2: Deny section shows explanation, not "No denied permissions"
+      expect(screen.getByText(/Always empty in V2/i)).toBeInTheDocument();
     });
 
     it("should handle null user", () => {
@@ -538,7 +526,7 @@ describe("PermissionDebugPanel", () => {
     it("should handle permissions with special characters", async () => {
       const user = userEvent.setup();
       const specialSnapshot = {
-        allow: ["warehouse.products.read", "special:permission-with-dash"],
+        allow: ["org.read", "special:permission-with-dash"],
         deny: [],
       };
 
@@ -584,12 +572,12 @@ describe("PermissionDebugPanel", () => {
 
       // Type in filter
       const filterInput = screen.getByLabelText("Filter Permissions");
-      await user.type(filterInput, "warehouse");
+      await user.type(filterInput, "org");
 
       // Permissions should be filtered (fewer shown)
       const filteredPermissions = allowedSection.querySelectorAll("code");
 
-      // Either filtered list is smaller, or same if all permissions match "warehouse"
+      // Either filtered list is smaller, or same if all permissions match "org"
       expect(filteredPermissions.length).toBeLessThanOrEqual(initialPermissions.length);
     });
   });

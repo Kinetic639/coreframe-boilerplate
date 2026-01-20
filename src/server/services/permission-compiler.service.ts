@@ -33,6 +33,26 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 
+// Type definitions for Supabase query results with joins
+interface RoleAssignmentWithBranch {
+  role_id: string;
+  scope: "org" | "branch";
+  scope_id: string;
+  branches: { organization_id: string } | null;
+}
+
+interface RoleAssignmentWithUserAndBranch {
+  user_id: string;
+  scope: "org" | "branch";
+  scope_id: string;
+  branches: { organization_id: string } | null;
+}
+
+interface RolePermissionWithSlug {
+  permission_id: string;
+  permissions: { slug: string } | null;
+}
+
 export interface CompileResult {
   success: boolean;
   permissionCount: number;
@@ -102,10 +122,13 @@ export class PermissionCompiler {
         return { success: false, permissionCount: 0, error: assignErr.message };
       }
 
+      // Cast to proper type - Supabase !left join returns single object, not array
+      const typedAssignments = (assignments ?? []) as unknown as RoleAssignmentWithBranch[];
+
       // Filter assignments to only those for this organization
       // - org scope: scope_id must match organizationId
       // - branch scope: the branch's organization_id must match
-      const relevantAssignments = (assignments ?? []).filter((a) => {
+      const relevantAssignments = typedAssignments.filter((a) => {
         if (a.scope === "org") {
           return a.scope_id === organizationId;
         }
@@ -151,11 +174,14 @@ export class PermissionCompiler {
         return { success: false, permissionCount: 0, error: permErr.message };
       }
 
+      // Cast to proper type - Supabase !inner join returns single object, not array
+      const typedRolePerms = (rolePerms ?? []) as unknown as RolePermissionWithSlug[];
+
       // Extract unique permission slugs
       const permissionSlugs = [
         ...new Set(
-          (rolePerms ?? [])
-            .map((rp: { permissions: { slug: string } | null }) => rp.permissions?.slug)
+          typedRolePerms
+            .map((rp) => rp.permissions?.slug)
             .filter((slug): slug is string => typeof slug === "string")
         ),
       ];
@@ -243,10 +269,13 @@ export class PermissionCompiler {
         return { success: true, usersUpdated: 0 };
       }
 
+      // Cast to proper type - Supabase !left join returns single object, not array
+      const typedAssignments = assignments as unknown as RoleAssignmentWithUserAndBranch[];
+
       // Build unique user+org combinations
       const userOrgPairs = new Map<string, { userId: string; orgId: string }>();
 
-      for (const assignment of assignments) {
+      for (const assignment of typedAssignments) {
         const orgId =
           assignment.scope === "org" ? assignment.scope_id : assignment.branches?.organization_id;
 
