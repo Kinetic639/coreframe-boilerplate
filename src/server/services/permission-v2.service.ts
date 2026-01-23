@@ -193,7 +193,7 @@ export class PermissionServiceV2 {
   /**
    * Check if current authenticated user has a specific permission
    *
-   * Uses the database function that checks auth.uid() internally.
+   * Uses the canonical `has_permission` database function that checks auth.uid() internally.
    * More efficient than fetching all permissions.
    *
    * @param supabase - Supabase client
@@ -206,9 +206,10 @@ export class PermissionServiceV2 {
     orgId: string,
     permission: string
   ): Promise<boolean> {
-    const { data, error } = await supabase.rpc("current_user_has_permission", {
-      p_organization_id: orgId,
-      p_permission_slug: permission,
+    // Use canonical has_permission function (uses auth.uid() internally)
+    const { data, error } = await supabase.rpc("has_permission", {
+      org_id: orgId,
+      permission: permission,
     });
 
     if (error) {
@@ -222,15 +223,16 @@ export class PermissionServiceV2 {
   /**
    * Check if current user is an active member of an organization
    *
-   * Uses the database function for tenant boundary checks.
+   * Uses the canonical `is_org_member` database function for tenant boundary checks.
    *
    * @param supabase - Supabase client
    * @param orgId - Organization ID
    * @returns True if current user is an active member
    */
   static async currentUserIsOrgMember(supabase: SupabaseClient, orgId: string): Promise<boolean> {
-    const { data, error } = await supabase.rpc("current_user_is_org_member", {
-      p_organization_id: orgId,
+    // Use canonical is_org_member function (uses auth.uid() internally)
+    const { data, error } = await supabase.rpc("is_org_member", {
+      org_id: orgId,
     });
 
     if (error) {
