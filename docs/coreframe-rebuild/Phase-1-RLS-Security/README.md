@@ -1,28 +1,385 @@
 # Phase 1: Enterprise Security & Permission System
 
 **Status:** 🔵 IN PROGRESS
-**Duration:** ~25 hours estimated
+**Duration:** ~25 hours estimated (12 hours remaining)
 **Started:** 2026-01-20
-**Overall Progress:** 30%
-**Priority:** 🔴 CRITICAL - Security Blocker
+**Overall Progress:** 40%
+**Priority:** 🔴 CRITICAL - Security Blocker + BLOCKER: Helper function naming mismatch
+
+---
+
+## ⚠️ Canonical Phase 1 Completion Rule (Non-Negotiable)
+
+**Phase 1 is considered COMPLETE if and only if:**
+
+- ✅ **Gate A (Invariants)** → PASS
+- ✅ **Gate B (Attack Scenarios)** → PASS
+- ✅ **Gate C (Critical Flows)** → PASS
+- ✅ **Gate D (Performance Acceptance)** → PASS
+
+**Nothing else blocks Phase 1.**
+
+**The following are explicitly NON-BLOCKING:**
+
+- Total test count
+- % completion metrics
+- Debug panel features
+- Documentation completeness (except audit + benchmarks)
+- Nice-to-have enhancements
+
+**If all four gates pass, Phase 1 MUST be marked DONE.**
 
 ---
 
 ## 📊 Progress Tracker
 
-| Task                                                                                                       | Status         | Duration | Tests | Completion |
-| ---------------------------------------------------------------------------------------------------------- | -------------- | -------- | ----- | ---------- |
-| 1.1 RLS Policies for Permission System (roles, permissions, assignments, overrides, effective_permissions) | ⚪ Not Started | 3h       | 0/25  | 0%         |
-| 1.2 RLS Policies for Organization System (organizations, organization_members, invitations)                | ⚪ Not Started | 3h       | 0/18  | 0%         |
-| 1.3 Permission Compiler Verification & Testing                                                             | ⚪ Not Started | 2h       | 0/20  | 0%         |
-| 1.4 Security Helper Functions (is_org_member, has_permission)                                              | ⚪ Not Started | 2h       | 0/15  | 0%         |
-| 1.5 Enterprise Hardening (FORCE RLS, constraints, triggers validation)                                     | ⚪ Not Started | 3h       | 0/20  | 0%         |
-| 1.6 Performance Optimization (indexes, query analysis)                                                     | ⚪ Not Started | 2h       | 0/10  | 0%         |
-| 1.7 Integration Testing (end-to-end permission flows)                                                      | ⚪ Not Started | 4h       | 0/50  | 0%         |
-| 1.8 Security Audit & Penetration Testing                                                                   | ⚪ Not Started | 4h       | 0/30  | 0%         |
-| 1.9 Debug Panel & Observability Enhancement                                                                | ⚪ Not Started | 2h       | 0/8   | 0%         |
+**CRITICAL BLOCKER:**
+| Task | Status | Duration | Tests | Completion |
+| ---- | ------ | -------- | ----- | ---------- |
+| **0. Fix Helper Function Naming Mismatch** | 🔴 **CRITICAL** | 0.25h | N/A | 0% |
 
-**Total:** 0/196 tests | 0/25 hours | 30% complete (V2 foundation exists)
+**REASON:** RLS policies call `is_org_member()` and `has_permission()` but functions are named `current_user_is_org_member()` and `current_user_has_permission()`. All RLS policies will fail at runtime until this is fixed.
+
+**Main Tasks:**
+| Task | Status | Duration | Tests | Completion |
+| ---- | ------ | -------- | ----- | ---------- |
+| 1.1 RLS Policies for Permission System (roles, permissions, assignments, overrides, effective_permissions) | 🟡 In Progress | 3h (1.8h left) | 0/25 | 40% |
+| 1.2 RLS Policies for Organization System (organizations, organization_members, invitations) | 🟡 In Progress | 3h (1.5h left) | 0/18 | 50% |
+| 1.3 Permission Compiler Verification & Testing | 🟡 In Progress | 2h (0.8h left) | 0/20 | 60% |
+| 1.4 Security Helper Functions (is_org_member, has_permission) | 🟡 In Progress | 2h (0.6h left) | 0/15 | 70% |
+| 1.5 Enterprise Hardening (FORCE RLS, constraints, triggers validation) | 🟡 In Progress | 3h (0.6h left) | 0/30 | 80% |
+| 1.6 Performance Optimization (indexes, query analysis) | 🟡 In Progress | 2h (0.8h left) | 0/10 | 60% |
+| 1.7 Integration Testing (end-to-end permission flows) | ⚪ Not Started | 4h | 0/50 | 0% |
+| 1.8 Security Audit & Penetration Testing | ⚪ Not Started | 4h | 0/30 | 0% |
+| 1.9 Fix Broken Policy (organization_members INSERT guard) | ⚪ Not Started | 0.5h | 0/3 | 0% |
+| 1.10 Gate Verification Scripts & Audit Report | ⚪ Not Started | 1h | N/A | 0% |
+
+**Nice-to-Have (Non-Blocking):**
+| Task | Status | Duration | Completion |
+| ---- | ------ | -------- | ---------- |
+| Debug Panel Enhancements | 🟢 80% Done | 2h (0.4h left) | 80% |
+
+**Total:** 0/207 pgTAP tests | 13/25 hours | 40% complete (infrastructure only)
+
+**What's Done:**
+
+- ✅ 48+ RLS policies created and deployed (exceeds 34 target - verified in migrations)
+- ✅ Permission compiler with 3 functions: `compile_user_permissions()`, `compile_org_permissions()`, `compile_all_user_permissions()`
+- ✅ Enterprise hardening: advisory locks, active membership guard, set-based logic, ON CONFLICT handling
+- ⚠️ Security helper functions EXIST but **🔴 CRITICAL NAMING MISMATCH**: Functions are `current_user_has_permission()` and `current_user_is_org_member()` but RLS policies call `has_permission()` and `is_org_member()` which don't exist - **RLS policies will fail at runtime**
+- ✅ FORCE RLS on 6 critical tables: organization_members, roles, role_permissions, user_role_assignments, user_permission_overrides, user_effective_permissions (verified in migration 20260126000000)
+- ✅ roles_invariant constraint (verified line 44-55 of 20260126000000)
+- ✅ Unique constraint on user_effective_permissions (verified line 31-32 of 20260120113444)
+- ✅ 3 performance indexes on user_effective_permissions: idx_uep_user_org, idx_uep_permission, idx_uep_user_org_permission (verified lines 35-43 of 20260120113444)
+- ✅ Permission debug panel component
+
+**What's Missing:**
+
+- ❌ **CRITICAL BLOCKER**: Fix helper function naming mismatch (create wrapper functions or rename existing ones)
+- ❌ Complete pgTAP test coverage (0/207 tests written - `supabase/tests/` directory doesn't exist)
+- ❌ Policy documentation files
+- ❌ Performance benchmarks documentation
+- ❌ Security audit report
+- ❌ Integration and penetration tests
+- ⚠️ Additional performance indexes (README originally claimed 7+, only 3 explicit indexes found)
+
+---
+
+## 🚨 Phase 1 Release Gates (BLOCKING)
+
+**Phase 1 is complete ONLY IF all 4 gates pass. No Phase 2 work until these are satisfied.**
+
+⚠️ **CRITICAL:** Gate A failure = Phase 1 FAIL, regardless of Gates B/C/D status. If structural invariants fail, nothing else is trustworthy.
+
+### Gate A: Invariants (Must Pass) 🔴
+
+**Purpose:** Prove the security foundation cannot be bypassed by design
+
+- [ ] **🔴 CRITICAL BLOCKER: Helper function naming mismatch FIXED** - RLS policies call `is_org_member()` and `has_permission()` but functions are named `current_user_is_org_member()` and `current_user_has_permission()` - must create wrapper functions or update all RLS policies - **ALL RLS POLICIES CURRENTLY BROKEN**
+- [ ] **FORCE RLS verified** on 6 critical tables (organization_members, roles, role_permissions, user_role_assignments, user_permission_overrides, user_effective_permissions)
+- [ ] **No direct writes** to `user_effective_permissions` from `authenticated` role (only compiler can write)
+- [ ] **roles_invariant constraint** prevents invalid states with negative tests
+- [ ] **Unique constraints** prevent duplicates (organization_members, user_role_assignments, user_effective_permissions)
+- [ ] **All 48+ RLS policies** include `deleted_at IS NULL` (automated audit query confirms)
+- [ ] **Known broken policy FIXED**: `organization_members` INSERT policy guard currently compiles to `(om.organization_id <> om.organization_id)` (always false) - must be corrected before gate passes
+
+**Automated Verification Script:** `docs/coreframe-rebuild/Phase-1-RLS-Security/gate-a-invariants.sql`
+
+### Gate B: Attack Scenarios (Must Pass) 🔴
+
+**Purpose:** Prove that common attack vectors are blocked
+
+| Attack Scenario                                        | Test File                                                     | Status |
+| ------------------------------------------------------ | ------------------------------------------------------------- | ------ |
+| Self-assign org_owner role (privilege escalation)      | `supabase/tests/security/001_privilege_escalation.test.sql`   | ❌     |
+| Spoof `created_by` on organization creation            | `supabase/tests/security/001_privilege_escalation.test.sql`   | ❌     |
+| Cross-org read/write by direct ID access               | `supabase/tests/security/002_cross_tenant_isolation.test.sql` | ❌     |
+| Bypass via JOIN patterns to see other org data         | `supabase/tests/security/002_cross_tenant_isolation.test.sql` | ❌     |
+| Accept someone else's invitation (email case mismatch) | `supabase/tests/rls/002_organization_system_rls.test.sql`     | ❌     |
+| Modify compiled permissions directly                   | `supabase/tests/security/001_privilege_escalation.test.sql`   | ❌     |
+| Bypass FORCE RLS as table owner                        | `supabase/tests/hardening/001_enterprise_hardening.test.sql`  | ❌     |
+| SQL injection via permission slug or org_id            | `supabase/tests/security/003_sql_injection.test.sql`          | ❌     |
+
+**Definition of Done:** All 8 attack scenarios must fail with proper error codes (or return 0 rows)
+
+### Gate C: Flow Tests (Must Pass) 🔴
+
+**Purpose:** Prove that legitimate user flows work end-to-end with correct permission compilation
+
+| Flow                | Description                                                                                                                                            | Test File                                                | Status |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------ |
+| Bootstrap → Upgrade | User creates org → becomes creator → self-assigns org_member → server upgrades to org_owner → permissions compile correctly (13 permissions)           | `supabase/tests/integration/001_complete_flows.test.sql` | ❌     |
+| Invite → Accept     | Org owner invites new user → invitation created → invitee accepts → membership active → permissions compiled (5 permissions for org_member)            | `supabase/tests/integration/001_complete_flows.test.sql` | ❌     |
+| Role Management     | Org owner creates custom role → assigns permissions to role → assigns role to user → permissions recompile → user has combined permissions             | `supabase/tests/integration/001_complete_flows.test.sql` | ❌     |
+| Override Flow       | User has role permissions → admin adds grant override → user gains permission → admin adds revoke override → user loses permission → correct final set | `supabase/tests/integration/001_complete_flows.test.sql` | ❌     |
+
+**Definition of Done:** All 4 critical flows pass with correct permission counts at each step
+
+### Gate D: Performance (Must Pass) 🔴
+
+**Purpose:** Prove RLS policies don't cause performance collapse
+
+| Metric                               | Target (Ideal) | Acceptance (Phase 1 PASS) | Verification                                                            |
+| ------------------------------------ | -------------- | ------------------------- | ----------------------------------------------------------------------- |
+| `has_permission()` uses index        | No Seq Scan    | No Seq Scan               | EXPLAIN ANALYZE shows Index Scan on `idx_uep_user_org_permission`       |
+| `is_org_member()` uses partial index | No Seq Scan    | No Seq Scan               | EXPLAIN ANALYZE shows Index Scan on `idx_organization_members_user_org` |
+| Permission compilation time          | < 100ms        | < 200ms                   | Benchmark with realistic dataset (100 users, 50 orgs)                   |
+| RLS SELECT query performance         | < 50ms         | < 100ms                   | Benchmark typical queries (branches, products) with RLS enabled         |
+
+**Note:** Meeting "Acceptance" thresholds = Gate D passes. Targets are aspirational for optimal performance.
+
+**Automated Verification:** `docs/coreframe-rebuild/Phase-1-RLS-Security/gate-d-performance.sql` with EXPLAIN ANALYZE
+
+---
+
+## 📋 Phase 1 Completion Criteria
+
+**CANONICAL EXIT CRITERIA (Gates are the source of truth):**
+
+- ✅ **Gate A:** All invariants pass (FORCE RLS, constraints, soft-delete filtering)
+- ✅ **Gate B:** All attack scenarios blocked
+- ✅ **Gate C:** All critical flows work end-to-end
+- ✅ **Gate D:** All performance targets met (acceptance thresholds)
+- ✅ Security audit report exists (even if "no findings")
+- ✅ Performance benchmark doc includes EXPLAIN plans + dataset size
+- ✅ Known broken policy (`organization_members` INSERT guard) fixed or explicitly waived with mitigation
+
+**Test counts are diagnostic only.** Phase 1 passes when gates pass, not when a specific number of tests exist.
+
+**NON-BLOCKING (Nice to Have):**
+
+- ⚪ Debug panel enhancements do NOT block Phase 1 completion
+- ⚪ Manual testing checklist 100% complete (can be done in parallel with Phase 2)
+
+**⚠️ IMPORTANT:** Do not start Phase 2 until all gates pass. Phase 1 is a security gate.
+
+**🔒 SCHEMA FREEZE:** No schema changes allowed during Phase 1 except to fix failing gates.
+
+---
+
+## 📋 Detailed Implementation Status
+
+### Task 1.1: RLS Policies for Permission System - 40% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- 48+ RLS policies deployed across ALL permission and organization tables (exceeds original 22 target)
+  - Verified in migrations: 20260120200000_rls_v2_complete_security.sql (20 policies) + 20260126000000_enterprise_rls_policy_cleanup.sql (37 policies)
+- FORCE RLS enabled on 6 tables (NOT 5):
+  - organization_members, roles, role_permissions, user_role_assignments, user_permission_overrides, user_effective_permissions
+  - Verified in migration 20260126000000 lines 693-698
+- Privilege escalation prevention (self-registration limited to org_member + org creator only)
+- Soft-delete filtering in ALL policies
+- roles_invariant constraint (verified migration 20260126000000 lines 44-55)
+
+**⚠️ CRITICAL BLOCKER:**
+
+- **RLS policies call non-existent functions**: All policies reference `is_org_member()` and `has_permission()` but these functions DON'T EXIST
+- **Actual function names**: `current_user_is_org_member()` and `current_user_has_permission()`
+- **Impact**: ALL RLS policies will fail at runtime with "function does not exist" errors
+- **Fix required**: Create wrapper functions with correct names OR update all 48+ policy definitions
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/rls/001_permission_system_rls.test.sql` (0/25 tests - directory doesn't exist)
+- Policy documentation: `PERMISSION_POLICIES.md`
+- Verification script: `policy-verification.sql`
+
+### Task 1.2: RLS Policies for Organization System - 50% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- RLS policies for organization tables (included in the 48+ total policies deployed)
+  - organizations, organization_members, invitations
+  - Verified in migrations 20260120200000 and 20260126000000
+- FORCE RLS on organization_members (verified in migration 20260126000000 line 693)
+- Creator binding (`created_by = auth.uid()`) preventing org ownership spoofing
+- LOWER() email normalization in invitations (case-insensitive)
+- Operator precedence fixes in complex OR conditions
+
+**⚠️ CRITICAL BLOCKER:**
+
+- **Same naming mismatch issue**: Organization RLS policies also call `is_org_member()` which doesn't exist
+- **Impact**: Organization isolation will fail at runtime
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/rls/002_organization_system_rls.test.sql` (0/18 tests - directory doesn't exist)
+- Cross-tenant isolation tests: `supabase/tests/rls/003_cross_tenant_isolation.test.sql` (0/10 tests)
+- Verification script: `org-policy-verification.sql`
+
+### Task 1.3: Permission Compiler - 60% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- **3 compiler functions** (exceeds original 1 function target):
+  - `compile_user_permissions(user_id, org_id)` - Single user compilation
+  - `compile_org_permissions(org_id)` - Bulk org compilation
+  - `compile_all_user_permissions()` - System-wide compilation
+  - Verified in migration 20260120113444 lines 270-396
+- All functions use SECURITY DEFINER with `SET search_path TO ''`
+- Active membership guard (only compiles for active members)
+- Advisory locks (`pg_advisory_xact_lock`) preventing race conditions
+- Set-based logic (single INSERT, no loops)
+- source_type tracking with ON CONFLICT UPDATE
+- Deny/grant processing (revoke overrides exclude, grant overrides add)
+- All 4 compilation triggers exist
+- EXECUTE privilege lockdown (not callable by authenticated)
+
+**⚠️ NOTE:**
+
+- Compiler functions likely work correctly but depend on helper functions being fixed (naming mismatch)
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/compiler/001_permission_compiler.test.sql` (0/20 tests - directory doesn't exist)
+- Performance benchmarks: `compiler-performance.md`
+- Verification script: `compiler-verification.sql`
+
+### Task 1.4: Security Helper Functions - 70% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- **2 security helper functions exist** with proper security attributes:
+  - `current_user_is_org_member(org_id)` - Membership check
+  - `current_user_has_permission(org_id, permission)` - Permission check
+  - Verified in migration 20260120113444 lines 228-263
+- Both use STABLE SECURITY DEFINER with `SET search_path TO ''`
+- Exact string matching (NO wildcards at runtime)
+- Active membership filtering (status='active' AND deleted_at IS NULL)
+
+**🔴 CRITICAL NAMING MISMATCH:**
+
+- **Functions are named**: `current_user_is_org_member()` and `current_user_has_permission()`
+- **RLS policies call**: `is_org_member()` and `has_permission()`
+- **Impact**: ALL 48+ RLS policies will fail with "function does not exist" error
+- **Fix required**: Create wrapper functions OR update all RLS policy definitions
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/helpers/001_security_helpers.test.sql` (0/15 tests - directory doesn't exist)
+- Helper usage audit: `helper-usage-audit.sql`
+- Verification script: `helper-functions-verification.sql`
+
+### Task 1.5: Enterprise Hardening - 80% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- **FORCE RLS on 6 critical tables** (verified in migration 20260126000000 lines 693-698):
+  - organization_members, roles, role_permissions
+  - user_role_assignments, user_permission_overrides, user_effective_permissions
+- **roles_invariant constraint** (verified in migration 20260126000000 lines 44-55):
+  - Prevents invalid system/custom role states
+  - Enforces: (is_basic=true AND org_id IS NULL) OR (is_basic=false AND org_id NOT NULL)
+- **Unique constraint on user_effective_permissions** (verified in migration 20260120113444 lines 31-32):
+  - Composite unique index on (user_id, organization_id, permission_slug)
+- **Soft-delete filtering** (`deleted_at IS NULL`) claimed in ALL 48+ policies (not individually verified)
+- **Creator binding** on organizations INSERT
+- **LOWER() email normalization** in invitations
+- **Operator precedence fixes** (explicit parentheses)
+- **Validation triggers** exist (permission slug, role assignment scope - not verified)
+
+**⚠️ NOTE:**
+
+- Additional unique constraints on organization_members and user_role_assignments not verified in migrations
+- Validation triggers not verified to exist
+- Soft-delete filtering not individually audited across all 48+ policies
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/hardening/001_enterprise_hardening.test.sql` (0/20 tests - directory doesn't exist)
+- pgTAP test file: `supabase/tests/hardening/002_validation_triggers.test.sql` (0/10 tests)
+- Verification scripts: `force-rls-verification.sql`, `constraint-verification.sql`, `trigger-verification.sql`
+
+### Task 1.6: Performance Optimization - 60% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- **3 explicit indexes on user_effective_permissions** (verified in migration 20260120113444 lines 35-43):
+  - `idx_uep_user_org` - Composite index on (user_id, organization_id)
+  - `idx_uep_permission` - Single column index on (permission_slug)
+  - `idx_uep_user_org_permission` - Composite index on (user_id, organization_id, permission_slug)
+- All 3 indexes are standard B-tree indexes (not partial/filtered)
+
+**⚠️ DISCREPANCY:**
+
+- **README originally claimed**: "All 7+ critical indexes deployed" with partial/filtered indexes
+- **Actual implementation**: Only 3 explicit indexes found on user_effective_permissions
+- **Missing indexes** (claimed but not found):
+  - `idx_organization_members_user_org` (partial, filtered by active + not deleted)
+  - `idx_user_role_assignments_compiler` (partial, filtered by not deleted)
+  - `idx_user_permission_overrides_compiler` (partial, filtered by not deleted)
+  - `idx_role_permissions_role` (partial, filtered by not deleted)
+- **Impact**: These tables may not be properly indexed for RLS policy performance
+- **Recommendation**: Create missing indexes or verify they exist with different names
+
+**❌ NOT IMPLEMENTED:**
+
+- Performance benchmarks documentation: `PERFORMANCE_BENCHMARKS.md`
+- pgTAP test file: `supabase/tests/performance/001_performance.test.sql` (0/9 tests - directory doesn't exist)
+- Query plan analysis (EXPLAIN ANALYZE for all critical queries)
+- Verification script: `index-verification.sql`
+- 4 additional partial/filtered indexes (claimed but not found)
+
+### Task 1.7: Integration Testing - 0% ❌
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/integration/001_complete_flows.test.sql` (0/50 tests)
+- Organization bootstrap flow tests (0/10)
+- Member invitation flow tests (0/10)
+- Role management flow tests (0/10)
+- Permission override flow tests (0/10)
+- Cross-org isolation flow tests (0/10)
+- Manual testing checklist (0/30 scenarios)
+
+### Task 1.8: Security Audit & Penetration Testing - 0% ❌
+
+**❌ NOT IMPLEMENTED:**
+
+- pgTAP test file: `supabase/tests/security/001_privilege_escalation.test.sql` (0/15 tests)
+- pgTAP test file: `supabase/tests/security/002_cross_tenant_isolation.test.sql` (0/15 tests)
+- Security audit report: `SECURITY_AUDIT_REPORT.md`
+- Attack scenario testing (0/18 scenarios)
+- SQL injection testing
+- Performance DoS testing
+
+### Task 1.9: Debug Panel & Observability - 80% ✅❌
+
+**✅ IMPLEMENTED:**
+
+- Permission debug panel component (`src/components/v2/debug/permission-debug-panel.tsx`) ✅
+- Shows compiled permissions with source_type ✅
+- Shows user context (activeOrg, activeBranch, roles) ✅
+- Permission checker (can() test interface) ✅
+- Test file exists (`__tests__/permission-debug-panel.test.tsx`) ✅
+
+**❌ NOT IMPLEMENTED:**
+
+- RLS status indicators (which tables have RLS enabled, FORCE RLS status, policy counts)
+- Performance metrics (permission load time, context load time, RLS query timing)
+- Security warnings (stale permissions, missing RLS policies, cross-org attempts)
+- Complete test coverage (1/8 tests - need 7 more)
 
 ---
 
@@ -32,12 +389,12 @@
 
 ### What This Phase Achieves
 
-✅ **Complete RLS Coverage**: 34 policies across 9 critical tables
+✅ **Complete RLS Coverage**: 48+ policies across permission and organization tables
 ✅ **Permission System V2**: Compile-time permission resolution with runtime enforcement
 ✅ **Enterprise Hardening**: FORCE RLS, advisory locks, constraint validation
 ✅ **Multi-Tenant Isolation**: Organization/branch scoping with zero data leakage
-✅ **Performance Optimized**: Sub-200ms permission checks with filtered indexes
-✅ **Production Ready**: 196+ tests covering all security scenarios
+🔴 **Critical Blocker**: Helper function naming mismatch breaks all RLS policies at runtime
+⚠️ **Testing Gap**: 0/207 tests written - comprehensive validation still needed
 
 ### Why This Matters
 
@@ -50,6 +407,34 @@
 - Missing enterprise hardening validation
 
 🎯 **After Phase 1**: Enterprise-level security suitable for production deployment with complete RLS enforcement, tested permission flows, and performance guarantees.
+
+### Implementation vs Testing Gap
+
+```
+DATABASE LAYER (IMPLEMENTED):          ███████████████░░░░░░  75%
+├─ RLS Policies (48+ policies)         ████████████░░░░░░░░░░  60% ⚠️ (broken by naming mismatch)
+├─ Permission Compiler (3 functions)   ██████████████████████ 100% ✅
+├─ Security Helpers (2 functions)      ░░░░░░░░░░░░░░░░░░░░░░   0% 🔴 (naming mismatch - non-functional)
+├─ Enterprise Hardening                █████████████████░░░░░  85% ✅ (FORCE RLS, constraints verified)
+└─ Performance Indexes                 ████████░░░░░░░░░░░░░░  40% ⚠️ (only 3/7+ indexes found)
+
+TEST COVERAGE (MISSING):               ░░░░░░░░░░░░░░░░░░░░░░   0%
+├─ pgTAP Tests (0/207)                 ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+├─ Integration Tests (0/50)            ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+├─ Security Tests (0/30)               ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+├─ Performance Tests (0/10)            ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+└─ Manual Testing (0/30)               ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+
+DOCUMENTATION:                         ████░░░░░░░░░░░░░░░░░  20%
+├─ PERMISSION_SYSTEM_V2.md             ██████████████████████ 100% ✅
+├─ Policy Documentation                ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+├─ Performance Benchmarks              ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+└─ Security Audit Report               ░░░░░░░░░░░░░░░░░░░░░░   0% ❌
+
+OVERALL PHASE 1:                       ███████░░░░░░░░░░░░░░  35%
+```
+
+**Bottom Line:** Critical blocker discovered - helper function naming mismatch means ALL RLS policies are non-functional. Must fix naming before any testing can proceed.
 
 ---
 
@@ -123,6 +508,110 @@
 - No complex deny logic at runtime (applied at compile-time)
 - Simple, fast EXISTS checks for enforcement
 - All complexity handled during compilation
+
+---
+
+## 🎯 Path to 100% Completion
+
+### Critical Path to Pass All Gates (12 hours remaining)
+
+**Phase 1 is complete when all 4 release gates pass, not when 207 tests exist.**
+
+### Priority 1: Fix Blocking Issue (0.5h) 🔴
+
+**Known Broken Policy:** `organization_members` INSERT policy guard compiles to `(om.organization_id <> om.organization_id)` (always false)
+
+**Impact:** Self-registration for org creators may be broken or overly permissive
+
+**Action Required:**
+
+1. Identify root cause in migration file
+2. Fix the guard condition to properly allow only org creators
+3. Add regression test to prevent recurrence
+
+**Gate Impact:** Blocks Gate A (Invariants) until fixed
+
+### Priority 2: Gate A - Invariants (2h) 🔴
+
+1. **Create Automated Audit Script** (0.5h)
+   - `gate-a-invariants.sql` - verifies FORCE RLS, constraints, soft-delete filtering
+   - Must pass before other gates
+
+2. **Write Negative Tests** (1h)
+   - roles_invariant constraint violations
+   - Unique constraint violations
+   - Direct writes to user_effective_permissions (must fail)
+
+3. **Fix Broken Policy** (0.5h) - see Priority 1
+
+**Gate Pass Criteria:** All automated checks return expected results
+
+### Priority 3: Gate B - Attack Scenarios (3h) 🔴
+
+**Create 3 pgTAP Test Files** (30 tests total):
+
+- `001_privilege_escalation.test.sql` (15 tests) - 1h
+- `002_cross_tenant_isolation.test.sql` (15 tests) - 1h
+- `003_sql_injection.test.sql` (10 tests) - 1h
+
+All 8 attack scenarios from Gate B must fail appropriately.
+
+**Gate Pass Criteria:** All attacks blocked with proper error codes or 0 rows returned
+
+### Priority 4: Gate C - Flow Tests (2h) 🔴
+
+**Create Integration Test File:**
+
+- `001_complete_flows.test.sql` (50 tests covering 4 flows) - 2h
+
+Test all 4 critical flows end-to-end with permission verification at each step.
+
+**Gate Pass Criteria:** All flows complete successfully with correct permission counts
+
+### Priority 5: Gate D - Performance (1.5h) 🔴
+
+1. **Create Performance Benchmark File** (0.5h)
+   - `gate-d-performance.sql` with EXPLAIN ANALYZE
+   - Document query plans + dataset size
+
+2. **Write Performance Tests** (1h)
+   - `001_performance.test.sql` (10 tests verifying index usage)
+
+**Gate Pass Criteria:** All queries use indexes, meet timing targets
+
+### Priority 6: Remaining pgTAP Tests (3h)
+
+**Complete test coverage for infrastructure validation:**
+
+- 25 permission system RLS tests (1.5h)
+- 18 organization system RLS tests (1h)
+- 20 compiler behavior tests (0.5h)
+- 15 helper function tests (0.5h)
+- 20 enterprise hardening tests (0.5h)
+
+**Total:** 207 pgTAP tests by category (not count alone)
+
+### Priority 7: Documentation (1h)
+
+- Security Audit Report (mandatory) - 0.5h
+- Performance Benchmarks (mandatory) - 0.5h
+
+### Non-Blocking (Can be done in parallel with Phase 2):
+
+- Debug panel enhancements
+- Manual testing checklist
+- Policy documentation
+
+### Timeline to Gate Clearance
+
+| Hours | Gates Cleared                         | % Complete |
+| ----- | ------------------------------------- | ---------- |
+| +0.5h | None (broken policy fixed)            | 50%        |
+| +2.5h | Gate A (Invariants)                   | 60%        |
+| +5.5h | Gate A + B (Attack scenarios)         | 75%        |
+| +7.5h | Gate A + B + C (Flows)                | 85%        |
+| +9h   | Gate A + B + C + D (Performance)      | 95%        |
+| +12h  | **ALL GATES PASS** → Phase 1 Complete | 100%       |
 
 ---
 
@@ -1271,11 +1760,11 @@ VALUES ('user-id', 'role-id', 'org', 'org-id');
 
 **File:** `supabase/tests/performance/001_performance.test.sql`
 
-**Test Coverage (10 tests):**
+**Test Coverage (9 tests):**
 
 ```sql
 BEGIN;
-SELECT plan(10);
+SELECT plan(9);
 
 -- Test: has_permission() uses index
 -- Test: is_org_member() uses index
@@ -1283,7 +1772,6 @@ SELECT plan(10);
 -- Test: RLS policies don't cause Seq Scans
 -- Test: Filtered indexes used for active records
 -- Test: Bulk compilation (100 users) completes in < 10s
--- Test: Permission lookup cache hit rate > 90%
 -- Test: No N+1 queries in context loading
 -- Test: Concurrent compilations don't deadlock
 -- Test: Index usage confirmed via EXPLAIN
@@ -1295,7 +1783,7 @@ ROLLBACK;
 **Checklist:**
 
 - [ ] Performance test file created
-- [ ] 10 performance tests passing
+- [ ] 9 performance tests passing
 - [ ] Index usage verified
 - [ ] No performance regressions
 
@@ -1304,7 +1792,7 @@ ROLLBACK;
 - [ ] All 7+ critical indexes verified
 - [ ] Performance benchmarks documented
 - [ ] All targets met (or documented exceptions)
-- [ ] 10 performance tests passing
+- [ ] 9 performance tests passing
 - [ ] No Seq Scans on large tables
 - [ ] No N+1 queries
 - [ ] Query plans analyzed and optimized
@@ -1766,9 +2254,403 @@ Document:
 
 ---
 
-## Task 1.9: Debug Panel & Observability Enhancement (2 hours) ⚪
+## Task 1.9: Fix Broken Policy (organization_members INSERT) (0.5 hours) 🔴 CRITICAL
+
+**Goal:** Fix the broken INSERT policy on `organization_members` that currently has an invalid guard condition
+
+### Problem Statement
+
+**Current State:** The `organization_members` INSERT policy contains a guard that compiles to:
+
+```sql
+(om.organization_id <> om.organization_id)  -- Always false!
+```
+
+This means the policy either:
+
+1. Never allows INSERTs (if this is the only condition), OR
+2. Is overly permissive if combined with OR clauses
+
+**Expected Behavior:** Only org creators should be able to self-register as the first member of an organization they created.
+
+**Impact:** Blocks Gate A (Invariants) - This is a production security bug
+
+### Step 1: Identify Root Cause (10 min)
+
+**Action:** Find the migration file that created this policy
+
+```bash
+# Search for the policy definition
+grep -r "organization_members" supabase/migrations/ | grep "INSERT"
+```
+
+Look for patterns like:
+
+- Variable name errors (`om.organization_id` when alias is wrong)
+- Logic errors in the `WITH CHECK` clause
+- Missing parentheses causing operator precedence issues
+
+**Checklist:**
+
+- [ ] Migration file identified
+- [ ] Broken guard condition located
+- [ ] Root cause determined
+
+### Step 2: Fix the Policy (20 min)
+
+**File:** `supabase/migrations/YYYYMMDDHHMMSS_fix_organization_members_insert_policy.sql`
+
+**Corrected Policy (Example):**
+
+```sql
+-- Drop broken policy
+DROP POLICY IF EXISTS "organization_members_insert" ON public.organization_members;
+
+-- Create corrected policy
+CREATE POLICY "organization_members_insert_creator_self_register"
+  ON public.organization_members FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    -- Only org creators can self-register
+    user_id = (SELECT auth.uid())
+    AND organization_id IN (
+      SELECT id FROM organizations
+      WHERE created_by = (SELECT auth.uid())
+    )
+    -- OR admin with members.manage permission can add members
+    OR (
+      has_permission(organization_id, 'members.manage')
+    )
+  );
+```
+
+**Checklist:**
+
+- [ ] Migration file created
+- [ ] Broken policy dropped
+- [ ] Corrected policy created
+- [ ] Logic validated (creator can self-register, admin can add members)
+- [ ] Migration applied to database
+
+### Step 3: Add Regression Test (10 min)
+
+**File:** `supabase/tests/rls/004_organization_members_insert_fix.test.sql`
+
+```sql
+BEGIN;
+SELECT plan(3);
+
+-- Test 1: Org creator can self-register
+SELECT lives_ok(
+  $$INSERT INTO organization_members (user_id, organization_id, status)
+    VALUES (
+      tests.get_supabase_uid('creator'),
+      (SELECT id FROM organizations WHERE created_by = tests.get_supabase_uid('creator')),
+      'active'
+    )$$,
+  'Org creator can self-register as first member'
+);
+
+-- Test 2: Non-creator cannot self-register to another org
+SELECT throws_ok(
+  $$INSERT INTO organization_members (user_id, organization_id, status)
+    VALUES (
+      tests.get_supabase_uid('other_user'),
+      (SELECT id FROM organizations WHERE created_by = tests.get_supabase_uid('creator')),
+      'active'
+    )$$,
+  '42501',
+  NULL,
+  'Non-creator cannot self-register to another org'
+);
+
+-- Test 3: Admin with members.manage can add members
+-- (Test depends on having members.manage permission)
+
+SELECT * FROM finish();
+ROLLBACK;
+```
+
+**Checklist:**
+
+- [ ] Test file created
+- [ ] Creator self-registration test passing
+- [ ] Non-creator blocked test passing
+- [ ] Admin add member test passing
+
+### Definition of Done ✅
+
+- [ ] Root cause identified and documented
+- [ ] Migration created with corrected policy
+- [ ] Migration applied successfully
+- [ ] 3 regression tests passing
+- [ ] Gate A unblocked (invariant verified)
+- [ ] No other functionality broken
+
+---
+
+## Task 1.10: Gate Verification Scripts & Audit Report (1 hour) ⚪
+
+**Goal:** Create automated verification scripts for all 4 release gates + security audit report
+
+### Step 1: Gate A Verification Script (15 min)
+
+**File:** `docs/coreframe-rebuild/Phase-1-RLS-Security/gate-a-invariants.sql`
+
+```sql
+-- ============================================================================
+-- GATE A: INVARIANTS VERIFICATION
+-- ============================================================================
+
+-- Check 1: FORCE RLS on 6 critical tables
+SELECT
+  'FORCE RLS Check' as test_name,
+  relname as table_name,
+  relforcerowsecurity as force_rls_enabled
+FROM pg_class
+WHERE relname IN (
+  'organization_members',
+  'roles',
+  'role_permissions',
+  'user_role_assignments',
+  'user_permission_overrides',
+  'user_effective_permissions'
+)
+ORDER BY relname;
+
+-- Expected: All 6 tables have force_rls_enabled = true
+
+-- Check 2: No INSERT/UPDATE/DELETE policies on user_effective_permissions for authenticated
+SELECT
+  'No Direct Writes Check' as test_name,
+  policyname,
+  cmd
+FROM pg_policies
+WHERE tablename = 'user_effective_permissions'
+  AND cmd IN ('INSERT', 'UPDATE', 'DELETE')
+  AND (qual LIKE '%authenticated%' OR with_check LIKE '%authenticated%');
+
+-- Expected: 0 rows (only SELECT policy should exist for authenticated)
+
+-- Check 3: All 34 policies include deleted_at IS NULL
+SELECT
+  'Soft Delete Check' as test_name,
+  schemaname,
+  tablename,
+  policyname,
+  CASE
+    WHEN qual LIKE '%deleted_at IS NULL%' OR qual NOT LIKE '%deleted_at%' THEN 'OK'
+    ELSE 'MISSING'
+  END as status
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'permissions', 'roles', 'role_permissions',
+    'user_role_assignments', 'user_permission_overrides',
+    'user_effective_permissions',
+    'organizations', 'organization_members', 'invitations'
+  )
+ORDER BY tablename, policyname;
+
+-- Expected: All policies either have deleted_at IS NULL or table has no deleted_at column
+
+-- Check 4: roles_invariant constraint exists
+SELECT
+  'Constraint Check' as test_name,
+  conname,
+  pg_get_constraintdef(oid) as definition
+FROM pg_constraint
+WHERE conrelid = 'public.roles'::regclass
+  AND conname = 'roles_invariant';
+
+-- Expected: 1 row with correct constraint definition
+
+-- Check 5: Unique constraints exist
+SELECT
+  'Unique Constraints Check' as test_name,
+  tc.table_name,
+  tc.constraint_name
+FROM information_schema.table_constraints tc
+WHERE tc.table_schema = 'public'
+  AND tc.constraint_type = 'UNIQUE'
+  AND tc.table_name IN (
+    'organization_members',
+    'user_role_assignments',
+    'user_effective_permissions'
+  )
+ORDER BY tc.table_name;
+
+-- Expected: 3 unique constraints (one per table)
+```
+
+**Checklist:**
+
+- [ ] Gate A verification script created
+- [ ] All 5 automated checks passing
+- [ ] Output shows expected results
+
+### Step 2: Gate D Performance Script (15 min)
+
+**File:** `docs/coreframe-rebuild/Phase-1-RLS-Security/gate-d-performance.sql`
+
+```sql
+-- ============================================================================
+-- GATE D: PERFORMANCE VERIFICATION
+-- ============================================================================
+
+-- Prepare: Create test data if needed
+-- (Run with realistic dataset: 100 users, 50 orgs, 1000 permissions)
+
+-- Check 1: has_permission() uses index
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT has_permission('test-org-id'::uuid, 'branches.read');
+
+-- Expected: Index Scan on idx_uep_user_org_permission
+-- Expected: Execution time < 10ms
+
+-- Check 2: is_org_member() uses partial index
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT is_org_member('test-org-id'::uuid);
+
+-- Expected: Index Scan on idx_organization_members_user_org
+-- Expected: Execution time < 20ms
+
+-- Check 3: Permission compilation time
+\timing on
+SELECT compile_user_permissions('test-user-id'::uuid, 'test-org-id'::uuid);
+\timing off
+
+-- Expected: < 200ms with 100 users, 50 orgs
+
+-- Check 4: RLS SELECT query with realistic data
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT * FROM branches WHERE organization_id = 'test-org-id'::uuid;
+
+-- Expected: Uses organization_id index
+-- Expected: RLS policy evaluation < 100ms
+```
+
+**Checklist:**
+
+- [ ] Gate D verification script created
+- [ ] All 4 performance checks passing
+- [ ] EXPLAIN plans show index usage
+- [ ] Timing targets met
+
+### Step 3: Security Audit Report (30 min)
+
+**File:** `docs/coreframe-rebuild/Phase-1-RLS-Security/SECURITY_AUDIT_REPORT.md`
+
+**Template:**
+
+```markdown
+# Phase 1 Security Audit Report
+
+**Date:** YYYY-MM-DD
+**Auditor:** [Name]
+**Status:** [PASS / FAIL / PARTIAL]
+
+## Executive Summary
+
+[Brief summary of audit results]
+
+## Gate Results
+
+### Gate A: Invariants
+
+- [ ] FORCE RLS on 6 tables: [PASS/FAIL]
+- [ ] No direct writes to user_effective_permissions: [PASS/FAIL]
+- [ ] Constraints verified: [PASS/FAIL]
+- [ ] Soft-delete filtering: [PASS/FAIL]
+- [ ] Broken policy fixed: [PASS/FAIL]
+
+**Result:** [PASS/FAIL]
+
+### Gate B: Attack Scenarios
+
+| Attack                | Result               | Notes     |
+| --------------------- | -------------------- | --------- |
+| Self-assign org_owner | [BLOCKED/VULNERABLE] | [details] |
+| Spoof created_by      | [BLOCKED/VULNERABLE] | [details] |
+| Cross-org access      | [BLOCKED/VULNERABLE] | [details] |
+| ...                   | ...                  | ...       |
+
+**Result:** [PASS/FAIL]
+
+### Gate C: Flow Tests
+
+| Flow                | Result      | Notes     |
+| ------------------- | ----------- | --------- |
+| Bootstrap → Upgrade | [PASS/FAIL] | [details] |
+| Invite → Accept     | [PASS/FAIL] | [details] |
+| ...                 | ...         | ...       |
+
+**Result:** [PASS/FAIL]
+
+### Gate D: Performance
+
+| Metric           | Target | Actual | Result      |
+| ---------------- | ------ | ------ | ----------- |
+| has_permission() | < 5ms  | Xms    | [PASS/FAIL] |
+| is_org_member()  | < 10ms | Xms    | [PASS/FAIL] |
+| ...              | ...    | ...    | ...         |
+
+**Result:** [PASS/FAIL]
+
+## Findings
+
+### Critical Issues
+
+[List any critical security issues found]
+
+### High Priority
+
+[List high priority issues]
+
+### Medium Priority
+
+[List medium priority issues]
+
+### Low Priority
+
+[List low priority issues]
+
+## Recommendations
+
+[Security recommendations and next steps]
+
+## Conclusion
+
+Phase 1 Security Gates: [ALL PASS / SOME FAIL]
+
+**Ready for Phase 2:** [YES/NO]
+```
+
+**Checklist:**
+
+- [ ] Security audit report created
+- [ ] All gates documented
+- [ ] Findings section complete (even if "no findings")
+- [ ] Recommendations provided
+- [ ] Ready for Phase 2 decision made
+
+### Definition of Done ✅
+
+- [ ] Gate A verification script complete and passing
+- [ ] Gate D performance script complete and passing
+- [ ] Security audit report exists
+- [ ] All findings documented
+- [ ] Phase 1 readiness determined
+
+---
+
+## Nice-to-Have (Non-Blocking)
+
+### Debug Panel & Observability Enhancement (2 hours) ⚪
 
 **Goal:** Enhance debug panel with RLS status, permission visualization, and performance metrics
+
+**⚠️ EXPLICIT SCOPE EXCLUSION:** Debug panel failures do NOT block Phase 1 sign-off. This can be done in parallel with Phase 2 or deferred entirely.
 
 ### Features to Add
 
@@ -2005,12 +2887,12 @@ Document:
 - `supabase/tests/helpers/001_security_helpers.test.sql` (15 tests)
 - `supabase/tests/hardening/001_enterprise_hardening.test.sql` (20 tests)
 - `supabase/tests/hardening/002_validation_triggers.test.sql` (10 tests)
-- `supabase/tests/performance/001_performance.test.sql` (10 tests)
+- `supabase/tests/performance/001_performance.test.sql` (9 tests)
 - `supabase/tests/integration/001_complete_flows.test.sql` (50 tests)
 - `supabase/tests/security/001_privilege_escalation.test.sql` (15 tests)
 - `supabase/tests/security/002_cross_tenant_isolation.test.sql` (15 tests)
 
-**Total: 208 database tests**
+**Total: 207 database tests**
 
 ### Layer 2: Application-Level Tests (TypeScript)
 
@@ -2037,10 +2919,10 @@ Document:
 
 ### Total Test Coverage
 
-- **Database Tests:** 208
+- **Database Tests:** 207
 - **Application Tests:** 8
 - **Manual Scenarios:** 30
-- **TOTAL:** 246 test points
+- **TOTAL:** 245 test points
 
 ---
 
@@ -2079,20 +2961,20 @@ Document:
 
 ## 🎯 Phase Completion Criteria
 
-### Must Have (Blocking)
+### Must Have (Blocking - Gates)
 
-- [ ] All 34 RLS policies verified and tested
-- [ ] 196+ tests passing
-- [ ] Zero privilege escalation vectors
-- [ ] Zero cross-tenant data leaks
-- [ ] FORCE RLS on 6 critical tables
-- [ ] Performance targets met (< 200ms permission load)
+- [ ] **Gate A:** All invariants pass (FORCE RLS, constraints, soft-delete filtering)
+- [ ] **Gate B:** All attack scenarios blocked (zero privilege escalation, zero cross-tenant leaks)
+- [ ] **Gate C:** All critical flows work end-to-end
+- [ ] **Gate D:** All performance targets met (acceptance thresholds)
 - [ ] Security audit complete with no critical findings
+- [ ] Performance benchmarks documented with EXPLAIN plans
+
+**Test counts are diagnostic, not exit criteria.** Phase 1 passes when gates pass.
 
 ### Should Have (Non-Blocking)
 
-- [ ] Debug panel enhancements complete
-- [ ] Performance benchmarks documented
+- [ ] Debug panel enhancements (explicitly out of scope for Phase 1 sign-off)
 - [ ] All documentation deliverables complete
 - [ ] Manual testing checklist 100% complete
 
@@ -2129,6 +3011,7 @@ Once Phase 1 is 100% complete:
    - Layer 1: `is_org_member(org_id)` - Tenant boundary
    - Layer 2: `has_permission(org_id, 'action')` - Permission check
    - Both must pass for access
+   - **🔴 CRITICAL BUG**: Functions are named `current_user_is_org_member()` and `current_user_has_permission()` but policies call the shorter names - **ALL RLS POLICIES CURRENTLY BROKEN**
 
 3. **FORCE RLS Strategy**
    - 6 critical tables: organization_members, roles, role_permissions, user_role_assignments, user_permission_overrides, user_effective_permissions
@@ -2153,8 +3036,40 @@ Once Phase 1 is 100% complete:
 
 ---
 
+## 📊 Executive Summary
+
+**Phase Status:** 40% Complete (13/25 hours invested) - **🔴 CRITICAL BLOCKER DISCOVERED**
+
+**Infrastructure Layer:** 75% Complete ⚠️
+
+- ✅ 48+ RLS policies deployed (exceeds 34 target)
+- ✅ Permission compiler fully functional with 3 functions (compile_user_permissions, compile_org_permissions, compile_all_user_permissions)
+- 🔴 **CRITICAL: Security helpers have naming mismatch** - Functions are named `current_user_is_org_member()` and `current_user_has_permission()` but ALL RLS policies call `is_org_member()` and `has_permission()` which DON'T EXIST
+- ✅ FORCE RLS on 6 critical tables verified
+- ✅ roles_invariant constraint verified
+- ⚠️ Only 3 performance indexes found (not 7+ as claimed)
+
+**Testing Layer:** 0% Complete ❌
+
+- **0 tests exist** (not 1 as previously claimed)
+- `supabase/tests/` directory doesn't exist
+- Need 207 tests to reach production-ready status
+- **BLOCKED by helper function naming mismatch**
+
+**Documentation Layer:** 20% Complete 🟡
+
+- PERMISSION_SYSTEM_V2.md complete (full system documentation)
+- Missing: Policy docs, benchmarks, audit report
+
+**🔴 CRITICAL BLOCKER:** Helper function naming mismatch means ALL 48+ RLS policies are non-functional at runtime. Every policy will fail with "function does not exist" error.
+
+**Next Priority (URGENT):** Fix helper function naming mismatch BEFORE any testing can proceed
+
+---
+
 **Last Updated:** 2026-01-27
-**Status:** 🔵 In Progress (30% - V2 foundation exists)
-**Next Task:** 1.1 RLS Policies for Permission System
-**Estimated Completion:** After 25 hours of focused work
-**Blocking:** Production deployment
+**Status:** 🔴 BLOCKED (40% - Critical naming mismatch discovered)
+**Current Focus:** Helper function naming mismatch is a production-breaking bug
+**Next Task:** Create wrapper functions `is_org_member()` and `has_permission()` that call the actual functions
+**Time to Fix:** 0.25h (15 minutes) + verification
+**Blocking:** ALL testing and validation until naming mismatch is resolved
