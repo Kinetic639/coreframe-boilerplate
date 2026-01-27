@@ -1,8 +1,9 @@
 # Permission System V2 - Complete Documentation
 
-**Last Updated**: 2026-01-22
+**Last Updated**: 2026-01-27
+**Version**: 6.0 (Enterprise Hardened - Final)
 **Status**: Production (Enterprise Hardened)
-**Verified Against**: Live database (zlcnlalwfmmtusigeuyk)
+**Verified Against**: Live database (zlcnlalwfmmtusigeuyk) on 2026-01-27
 
 ---
 
@@ -16,14 +17,17 @@
 6. [Database Triggers](#database-triggers)
 7. [RLS Policies](#rls-policies)
 8. [Security Hardening](#security-hardening)
-9. [Performance Optimizations](#performance-optimizations)
-10. [TypeScript Services](#typescript-services)
-11. [React Hooks & Server Actions](#react-hooks--server-actions)
-12. [Permission Flow Examples](#permission-flow-examples)
-13. [Current Permissions & Roles](#current-permissions--roles)
-14. [Adding New Permissions](#adding-new-permissions)
-15. [Debugging & Troubleshooting](#debugging--troubleshooting)
-16. [Enterprise Checklist](#enterprise-checklist)
+9. [Design Decisions & Known Limitations](#design-decisions--known-limitations)
+10. [Performance Optimizations](#performance-optimizations)
+11. [Observability](#observability)
+12. [TypeScript Services](#typescript-services)
+13. [React Hooks & Server Actions](#react-hooks--server-actions)
+14. [Permission Flow Examples](#permission-flow-examples)
+15. [Current Permissions & Roles](#current-permissions--roles)
+16. [Adding New Permissions](#adding-new-permissions)
+17. [Debugging & Troubleshooting](#debugging--troubleshooting)
+18. [Enterprise Checklist](#enterprise-checklist)
+19. [Migration History](#migration-history)
 
 ---
 
@@ -32,45 +36,49 @@
 The Permission System V2 uses a **"Compile, Don't Evaluate"** architecture with **enterprise-grade security hardening**:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    WRITE-TIME (Compilation)                      │
-│                                                                  │
-│  When roles/assignments change → Compiler runs automatically     │
-│  Roles + Permissions → Compiled into explicit facts              │
-│  Result stored in: user_effective_permissions                    │
-│                                                                  │
-│  ENTERPRISE FEATURES:                                            │
-│  ✓ Advisory locks (prevents race conditions)                     │
-│  ✓ Active membership guard (idempotent safety)                   │
-│  ✓ Set-based queries (no loops, high performance)                │
-│  ✓ source_type tracking (accurate metadata)                      │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    READ-TIME (Enforcement)                       │
-│                                                                  │
-│  RLS Policy: "Does row exist in user_effective_permissions?"     │
-│  No wildcards. No deny logic. No complex evaluation.             │
-│  Just a simple EXISTS check.                                     │
-│                                                                  │
-│  ENTERPRISE FEATURES:                                            │
-│  ✓ Function privilege lockdown (DoS prevention)                  │
-│  ✓ RLS policy hardening (privilege escalation prevention)        │
-│  ✓ Optimized indexes (sub-millisecond lookups)                   │
-└─────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------+
+|                    WRITE-TIME (Compilation)                       |
+|                                                                   |
+|  When roles/assignments change -> Compiler runs automatically     |
+|  Roles + Permissions -> Compiled into explicit facts              |
+|  Result stored in: user_effective_permissions                     |
+|                                                                   |
+|  ENTERPRISE FEATURES:                                             |
+|  - Advisory locks (prevents race conditions)                      |
+|  - Active membership guard (idempotent safety)                    |
+|  - Set-based queries (no loops, high performance)                 |
+|  - source_type tracking (accurate metadata)                       |
++------------------------------------------------------------------+
+                              |
+                              v
++------------------------------------------------------------------+
+|                    READ-TIME (Enforcement)                        |
+|                                                                   |
+|  RLS Policy: "Does row exist in user_effective_permissions?"      |
+|  No wildcards. No deny logic. No complex evaluation.              |
+|  Just a simple EXISTS check.                                      |
+|                                                                   |
+|  ENTERPRISE FEATURES:                                             |
+|  - Two-layer RLS: is_org_member() + has_permission()              |
+|  - FORCE ROW LEVEL SECURITY on 6 critical tables                  |
+|  - deleted_at IS NULL on ALL policies (soft-delete safety)        |
+|  - LOWER() email normalization (invitations)                      |
+|  - Creator binding on self-registration (escalation prevention)   |
++------------------------------------------------------------------+
 ```
 
 ### Key Characteristics
 
-| Aspect                | Implementation                                                  |
-| --------------------- | --------------------------------------------------------------- |
-| **Pattern**           | Compile at write-time, lookup at read-time                      |
-| **Runtime Logic**     | Simple EXISTS check (no wildcards, no deny-first)               |
-| **Wildcard Handling** | Expanded at compile-time into explicit slugs                    |
-| **Deny Handling**     | Applied at compile-time (deny array always empty at runtime)    |
-| **RLS Approach**      | Two-layer: tenant boundary + permission check                   |
-| **Auto-Compilation**  | Database triggers on role/permission/membership changes         |
-| **Security**          | Enterprise-hardened (privilege lockdown, escalation prevention) |
+| Aspect                | Implementation                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| **Pattern**           | Compile at write-time, lookup at read-time                                         |
+| **Runtime Logic**     | Simple EXISTS check (no wildcards, no deny-first)                                  |
+| **Wildcard Handling** | Expanded at compile-time into explicit slugs                                       |
+| **Deny Handling**     | Applied at compile-time (deny array always empty at runtime)                       |
+| **RLS Approach**      | Two-layer: tenant boundary (`is_org_member`) + permission check (`has_permission`) |
+| **Auto-Compilation**  | Database triggers on role/permission/membership/override changes                   |
+| **Security**          | Enterprise-hardened (FORCE RLS, creator binding, privilege lockdown)               |
+| **Verified Policies** | 34 RLS policies across 9 tables (verified 2026-01-27)                              |
 
 ---
 
@@ -87,71 +95,71 @@ No magic. No guessing. No wildcards at runtime. Everything else exists only to p
 ### Complete Data Flow
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           CONFIGURATION LAYER                                  │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                               │
-│   ┌─────────────┐     ┌──────────────────┐     ┌─────────────────────────┐  │
-│   │ permissions │     │ role_permissions │     │         roles           │  │
-│   │  (13 slugs) │◄────│    (junction)    │────►│  org_owner, org_member  │  │
-│   └─────────────┘     └──────────────────┘     └─────────────────────────┘  │
-│         │                                                │                    │
-│         │                                                │                    │
-│         ▼                                                ▼                    │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                    user_role_assignments                             │   │
-│   │         (user_id, role_id, scope='org', scope_id=org_id)            │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                          │
-│                      TRIGGERS: role_assignment, override, membership          │
-│                                    ▼                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                 PERMISSION COMPILER (Enterprise Hardened)            │   │
-│   │                                                                      │   │
-│   │  SQL Function: compile_user_permissions(user_id, org_id)            │   │
-│   │                                                                      │   │
-│   │  Enterprise Features:                                                │   │
-│   │  ✓ Active membership guard (only compiles for active members)       │   │
-│   │  ✓ Advisory lock (prevents concurrent compilation races)            │   │
-│   │  ✓ Set-based logic (no loops, single INSERT statement)              │   │
-│   │  ✓ source_type tracking (updates on conflict)                       │   │
-│   │  ✓ SECURITY DEFINER with SET search_path TO ''                      │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                          │
-│                                    ▼                                          │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │               user_effective_permissions (THE KEY TABLE)             │   │
-│   │                                                                      │   │
-│   │  Example data (org_owner with 13 permissions):                      │   │
-│   │  ├── (user-123, org-456, 'org.read',        'role', '2026-01-22')  │   │
-│   │  ├── (user-123, org-456, 'org.update',      'role', '2026-01-22')  │   │
-│   │  ├── (user-123, org-456, 'branches.read',   'role', '2026-01-22')  │   │
-│   │  └── ... (13 total rows)                                            │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │
-└──────────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------------+
+|                           CONFIGURATION LAYER                               |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|   +-------------+     +------------------+     +-------------------------+  |
+|   | permissions |     | role_permissions |     |         roles           |  |
+|   |  (13 slugs) |<----|    (junction)    |---->|  org_owner, org_member  |  |
+|   +-------------+     +------------------+     +-------------------------+  |
+|         |                                                |                  |
+|         |                                                |                  |
+|         v                                                v                  |
+|   +---------------------------------------------------------------------+  |
+|   |                    user_role_assignments                             |  |
+|   |         (user_id, role_id, scope='org', scope_id=org_id)            |  |
+|   +---------------------------------------------------------------------+  |
+|                                    |                                        |
+|           TRIGGERS: role_assignment, override, membership, role_permission  |
+|                                    v                                        |
+|   +---------------------------------------------------------------------+  |
+|   |                 PERMISSION COMPILER (Enterprise Hardened)            |  |
+|   |                                                                     |  |
+|   |  SQL Function: compile_user_permissions(user_id, org_id)            |  |
+|   |                                                                     |  |
+|   |  Enterprise Features:                                               |  |
+|   |  - Active membership guard (only compiles for active members)       |  |
+|   |  - Advisory lock (prevents concurrent compilation races)            |  |
+|   |  - Set-based logic (no loops, single INSERT statement)              |  |
+|   |  - source_type tracking (updates on conflict)                       |  |
+|   |  - SECURITY DEFINER with SET search_path TO ''                      |  |
+|   +---------------------------------------------------------------------+  |
+|                                    |                                        |
+|                                    v                                        |
+|   +---------------------------------------------------------------------+  |
+|   |               user_effective_permissions (THE KEY TABLE)            |  |
+|   |                                                                     |  |
+|   |  Example data (org_owner with 13 permissions):                      |  |
+|   |  +-- (user-123, org-456, 'org.read',        'role', '2026-01-27')  |  |
+|   |  +-- (user-123, org-456, 'org.update',      'role', '2026-01-27')  |  |
+|   |  +-- (user-123, org-456, 'branches.read',   'role', '2026-01-27')  |  |
+|   |  +-- ... (13 total rows)                                            |  |
+|   +---------------------------------------------------------------------+  |
+|                                                                             |
++-----------------------------------------------------------------------------+
 
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           ENFORCEMENT LAYER                                    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                               │
-│   ┌─────────────────────────────────────────────────────────────────────┐   │
-│   │                         RLS POLICIES                                 │   │
-│   │                                                                      │   │
-│   │  Layer 1 - Tenant Boundary:                                         │   │
-│   │  is_org_member(org_id) → checks organization_members                │   │
-│   │  SECURITY: authenticated + service_role can execute                 │   │
-│   │                                                                      │   │
-│   │  Layer 2 - Permission Check:                                        │   │
-│   │  has_permission(org_id, 'branches.create') →                        │   │
-│   │    SELECT EXISTS FROM user_effective_permissions                    │   │
-│   │    WHERE user_id = auth.uid()                                       │   │
-│   │    AND organization_id = org_id                                     │   │
-│   │    AND permission_slug = 'branches.create'                          │   │
-│   │  SECURITY: authenticated + service_role can execute                 │   │
-│   └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │
-└──────────────────────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------------------------+
+|                           ENFORCEMENT LAYER                                 |
++-----------------------------------------------------------------------------+
+|                                                                             |
+|   +---------------------------------------------------------------------+  |
+|   |                         RLS POLICIES                                |  |
+|   |                                                                     |  |
+|   |  Layer 1 - Tenant Boundary:                                         |  |
+|   |  is_org_member(org_id) -> checks organization_members               |  |
+|   |  SECURITY: authenticated + service_role can execute                 |  |
+|   |                                                                     |  |
+|   |  Layer 2 - Permission Check:                                        |  |
+|   |  has_permission(org_id, 'branches.create') ->                       |  |
+|   |    SELECT EXISTS FROM user_effective_permissions                    |  |
+|   |    WHERE user_id = auth.uid()                                       |  |
+|   |    AND organization_id = org_id                                     |  |
+|   |    AND permission_slug = 'branches.create'                          |  |
+|   |  SECURITY: authenticated + service_role can execute                 |  |
+|   +---------------------------------------------------------------------+  |
+|                                                                             |
++-----------------------------------------------------------------------------+
 ```
 
 ---
@@ -164,146 +172,213 @@ No magic. No guessing. No wildcards at runtime. Everything else exists only to p
 
 **Purpose**: Catalog of all possible permissions in the system.
 
+| Column           | Type        | Nullable | Default             | Description                            |
+| ---------------- | ----------- | -------- | ------------------- | -------------------------------------- |
+| `id`             | uuid        | NO       | `gen_random_uuid()` | Primary key                            |
+| `slug`           | text        | NO       | -                   | Unique permission identifier           |
+| `label`          | text        | YES      | -                   | Display label                          |
+| `name`           | text        | YES      | -                   | Human-readable name                    |
+| `description`    | text        | YES      | -                   | Description                            |
+| `category`       | text        | NO       | -                   | Category grouping                      |
+| `subcategory`    | text        | YES      | -                   | Sub-category                           |
+| `resource_type`  | text        | YES      | -                   | Resource this controls                 |
+| `action`         | text        | NO       | -                   | Action type (read, create, etc.)       |
+| `scope_types`    | text[]      | YES      | -                   | Valid scopes                           |
+| `dependencies`   | uuid[]      | YES      | -                   | Required permission IDs (NOT slugs)    |
+| `conflicts_with` | uuid[]      | YES      | -                   | Conflicting permission IDs (NOT slugs) |
+| `is_system`      | boolean     | YES      | `false`             | System permission flag                 |
+| `is_dangerous`   | boolean     | YES      | `false`             | Dangerous action flag                  |
+| `requires_mfa`   | boolean     | YES      | `false`             | MFA requirement                        |
+| `priority`       | integer     | YES      | `0`                 | Display priority                       |
+| `metadata`       | jsonb       | YES      | `'{}'`              | Extra metadata                         |
+| `created_at`     | timestamptz | YES      | `now()`             | Created timestamp                      |
+| `updated_at`     | timestamptz | YES      | `now()`             | Updated timestamp                      |
+| `deleted_at`     | timestamptz | YES      | -                   | Soft delete                            |
+
+**Key Constraints**:
+
+- `permissions_slug_key` UNIQUE (`slug`)
+
 ```sql
 -- Current data (13 permissions):
-SELECT slug, category, description FROM permissions;
-
--- Results:
-branches.create   | branches     | Create new branches
-branches.delete   | branches     | Delete branches
-branches.read     | branches     | View branches
-branches.update   | branches     | Update branch information
-invites.cancel    | invites      | Cancel pending invitations
-invites.create    | invites      | Send invitations
-invites.read      | invites      | View pending invitations
-members.manage    | members      | Invite, remove, and manage member roles
-members.read      | members      | View member list
-org.read          | organization | View organization information
-org.update        | organization | Update organization settings
-self.read         | self         | View own profile
-self.update       | self         | Update own profile
+-- branches.create, branches.delete, branches.read, branches.update
+-- invites.cancel, invites.create, invites.read
+-- members.manage, members.read
+-- org.read, org.update
+-- self.read, self.update
 ```
 
 #### 2. `roles` - Role Definitions
 
 **Purpose**: Named bundles of permissions.
 
+| Column            | Type        | Nullable | Default             | Description                       |
+| ----------------- | ----------- | -------- | ------------------- | --------------------------------- |
+| `id`              | uuid        | NO       | `gen_random_uuid()` | Primary key                       |
+| `organization_id` | uuid        | YES      | -                   | NULL = system role, UUID = custom |
+| `name`            | text        | NO       | -                   | Role name                         |
+| `is_basic`        | boolean     | NO       | `false`             | System role flag                  |
+| `description`     | text        | YES      | -                   | Description                       |
+| `scope_type`      | text        | NO       | `'org'`             | 'org', 'branch', or 'both'        |
+| `deleted_at`      | timestamptz | YES      | -                   | Soft delete                       |
+
+**Key Constraints**:
+
+- `roles_invariant` CHECK: `(is_basic = true AND organization_id IS NULL) OR (is_basic = false AND organization_id IS NOT NULL)` - Single canonical constraint ensuring system roles have no org, custom roles must have an org
+- `roles_scope_type_check` CHECK: `scope_type IN ('org', 'branch', 'both')`
+- FK `roles_organization_id_fkey` -> `organizations(id)`
+
 ```sql
 -- Current data (2 system roles):
-SELECT name, description, scope_type, is_basic FROM roles WHERE deleted_at IS NULL;
-
--- Results:
-org_owner  | Organization owner with full access           | org | true
-org_member | Regular organization member with limited access | org | true
+-- org_owner  | scope_type='org' | is_basic=true | 13 permissions (ALL)
+-- org_member | scope_type='org' | is_basic=true | 5 permissions (read-only)
 ```
-
-**Fields**:
-
-- `is_basic = true`: System role, cannot be deleted
-- `organization_id = NULL`: Global role (applies to all orgs)
-- `organization_id = UUID`: Custom role for specific org
 
 #### 3. `role_permissions` - Role-Permission Mapping
 
 **Purpose**: Links roles to their permissions.
 
-```sql
--- Current mappings:
-SELECT r.name, p.slug FROM role_permissions rp
-JOIN roles r ON rp.role_id = r.id
-JOIN permissions p ON rp.permission_id = p.id
-WHERE rp.deleted_at IS NULL;
+| Column          | Type        | Nullable | Default             | Description        |
+| --------------- | ----------- | -------- | ------------------- | ------------------ |
+| `id`            | uuid        | NO       | `gen_random_uuid()` | Primary key        |
+| `role_id`       | uuid        | NO       | -                   | FK to roles        |
+| `permission_id` | uuid        | NO       | -                   | FK to permissions  |
+| `allowed`       | boolean     | NO       | `true`              | Permission granted |
+| `deleted_at`    | timestamptz | YES      | -                   | Soft delete        |
 
--- org_owner has ALL 13 permissions
--- org_member has 5 permissions: org.read, branches.read, members.read, self.read, self.update
-```
+**Key Constraints**:
+
+- `role_permissions_role_id_permission_id_key` UNIQUE (`role_id`, `permission_id`)
+- FK `role_permissions_role_id_fkey` -> `roles(id)`
+- FK `role_permissions_permission_id_fkey` -> `permissions(id)`
 
 #### 4. `user_role_assignments` - User-Role Links
 
 **Purpose**: Assigns roles to users with scope.
 
-```sql
-CREATE TABLE user_role_assignments (
-  id         UUID PRIMARY KEY,
-  user_id    UUID NOT NULL REFERENCES auth.users(id),
-  role_id    UUID NOT NULL REFERENCES roles(id),
-  scope      TEXT NOT NULL CHECK (scope IN ('org', 'branch')),
-  scope_id   UUID NOT NULL,  -- organization_id or branch_id
-  deleted_at TIMESTAMPTZ
-);
+| Column       | Type        | Nullable | Default             | Description                  |
+| ------------ | ----------- | -------- | ------------------- | ---------------------------- |
+| `id`         | uuid        | NO       | `gen_random_uuid()` | Primary key                  |
+| `user_id`    | uuid        | NO       | -                   | FK to auth.users             |
+| `role_id`    | uuid        | NO       | -                   | FK to roles                  |
+| `scope`      | text        | NO       | -                   | 'org' or 'branch'            |
+| `scope_id`   | uuid        | NO       | -                   | organization_id or branch_id |
+| `deleted_at` | timestamptz | YES      | -                   | Soft delete                  |
 
--- Performance index for compiler queries
-CREATE INDEX idx_user_role_assignments_compiler
-  ON user_role_assignments(user_id, scope, scope_id)
-  WHERE deleted_at IS NULL;
-```
+**Key Constraints**:
+
+- `user_role_assignments_user_id_role_id_scope_scope_id_key` UNIQUE (`user_id`, `role_id`, `scope`, `scope_id`) - Prevents duplicate role assignments
+- `user_role_assignments_scope_check` CHECK: `scope IN ('org', 'branch')`
+- FK `user_role_assignments_user_id_fkey` -> `auth.users(id)`
+- FK `user_role_assignments_role_id_fkey` -> `roles(id)`
 
 #### 5. `user_effective_permissions` - THE KEY TABLE
 
 **Purpose**: Compiled permission facts. This is what RLS checks.
 
-```sql
-CREATE TABLE user_effective_permissions (
-  id               UUID PRIMARY KEY,
-  user_id          UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  organization_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  permission_slug  TEXT NOT NULL,
-  source_type      TEXT NOT NULL DEFAULT 'role',  -- 'role' or 'override'
-  source_id        UUID,                           -- role_id or override_id
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  compiled_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+| Column            | Type        | Nullable | Default             | Description           |
+| ----------------- | ----------- | -------- | ------------------- | --------------------- |
+| `id`              | uuid        | NO       | `gen_random_uuid()` | Primary key           |
+| `user_id`         | uuid        | NO       | -                   | FK to auth.users      |
+| `organization_id` | uuid        | NO       | -                   | FK to organizations   |
+| `permission_slug` | text        | NO       | -                   | Compiled permission   |
+| `source_type`     | text        | NO       | `'role'`            | 'role' or 'override'  |
+| `source_id`       | uuid        | YES      | -                   | Role or override ID   |
+| `created_at`      | timestamptz | NO       | `now()`             | Created timestamp     |
+| `compiled_at`     | timestamptz | NO       | `now()`             | Last compilation time |
 
-  UNIQUE (user_id, organization_id, permission_slug)
-);
+**Key Constraints**:
 
--- Indexes for fast RLS lookups
-CREATE INDEX idx_uep_user_org ON user_effective_permissions(user_id, organization_id);
-CREATE INDEX idx_uep_permission ON user_effective_permissions(permission_slug);
-CREATE INDEX idx_uep_user_org_permission ON user_effective_permissions(user_id, organization_id, permission_slug);
-```
+- `user_effective_permissions_unique` UNIQUE (`user_id`, `organization_id`, `permission_slug`)
+- FK `user_effective_permissions_user_id_fkey` -> `auth.users(id)`
+- FK `user_effective_permissions_organization_id_fkey` -> `organizations(id)`
 
 #### 6. `organization_members` - Tenant Boundary
 
 **Purpose**: Determines who belongs to an organization (separate from what they can do).
 
-```sql
-CREATE TABLE organization_members (
-  id              UUID PRIMARY KEY,
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  status          TEXT NOT NULL DEFAULT 'active',  -- 'active', 'pending', 'inactive'
-  joined_at       TIMESTAMPTZ DEFAULT now(),
-  deleted_at      TIMESTAMPTZ
-);
+| Column            | Type        | Nullable | Default             | Description                     |
+| ----------------- | ----------- | -------- | ------------------- | ------------------------------- |
+| `id`              | uuid        | NO       | `gen_random_uuid()` | Primary key                     |
+| `organization_id` | uuid        | NO       | -                   | FK to organizations             |
+| `user_id`         | uuid        | NO       | -                   | FK to auth.users                |
+| `status`          | text        | NO       | `'active'`          | 'active', 'pending', 'inactive' |
+| `joined_at`       | timestamptz | YES      | `now()`             | Joined timestamp                |
+| `created_at`      | timestamptz | YES      | `now()`             | Created timestamp               |
+| `updated_at`      | timestamptz | YES      | `now()`             | Updated timestamp               |
+| `deleted_at`      | timestamptz | YES      | -                   | Soft delete                     |
 
--- Performance index for active membership checks
-CREATE INDEX idx_organization_members_user_org
-  ON organization_members(user_id, organization_id)
-  WHERE status = 'active' AND deleted_at IS NULL;
-```
+**Key Constraints**:
+
+- `organization_members_organization_id_user_id_key` UNIQUE (`organization_id`, `user_id`) - Prevents duplicate membership
+- `organization_members_status_check` CHECK: `status IN ('active', 'inactive', 'pending')`
+- FK `organization_members_organization_id_fkey` -> `organizations(id)`
+- FK `organization_members_user_id_fkey` -> `auth.users(id)`
 
 #### 7. `user_permission_overrides` - Individual Exceptions
 
 **Purpose**: Grant or revoke specific permissions for individual users (applied at compile time).
 
-```sql
-CREATE TABLE user_permission_overrides (
-  id              UUID PRIMARY KEY,
-  user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  permission_id   UUID NOT NULL REFERENCES permissions(id) ON DELETE RESTRICT,
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  effect          TEXT NOT NULL DEFAULT 'grant' CHECK (effect IN ('grant', 'revoke')),
-  permission_slug TEXT,  -- Auto-populated by validation trigger
-  deleted_at      TIMESTAMPTZ
-);
+| Column            | Type        | Nullable | Default             | Description                          |
+| ----------------- | ----------- | -------- | ------------------- | ------------------------------------ |
+| `id`              | uuid        | NO       | `gen_random_uuid()` | Primary key                          |
+| `user_id`         | uuid        | NO       | -                   | FK to auth.users                     |
+| `permission_id`   | uuid        | NO       | -                   | FK to permissions                    |
+| `allowed`         | boolean     | NO       | -                   | Legacy field                         |
+| `scope`           | text        | NO       | -                   | 'global', 'org', or 'branch'         |
+| `scope_id`        | uuid        | YES      | -                   | NULL for global, UUID for org/branch |
+| `deleted_at`      | timestamptz | YES      | -                   | Soft delete                          |
+| `created_at`      | timestamptz | NO       | `now()`             | Created timestamp                    |
+| `updated_at`      | timestamptz | NO       | `now()`             | Updated timestamp                    |
+| `effect`          | text        | NO       | `'grant'`           | 'grant' or 'revoke'                  |
+| `permission_slug` | text        | YES      | -                   | Auto-populated by validation trigger |
+| `organization_id` | uuid        | YES      | -                   | FK to organizations                  |
 
--- Performance index for compiler queries
-CREATE INDEX idx_user_permission_overrides_compiler
-  ON user_permission_overrides(user_id, organization_id, effect)
-  WHERE deleted_at IS NULL;
-```
+**Key Constraints**:
 
-**Validation Trigger**: `trigger_validate_permission_slug` ensures `permission_slug` always matches `permission_id`.
+- `user_permission_overrides_effect_check` CHECK: `effect IN ('grant', 'revoke')`
+- `user_permission_overrides_scope_check` CHECK: `scope IN ('global', 'org', 'branch')`
+- `user_permission_overrides_scope_id_required` CHECK: `(scope = 'global' AND scope_id IS NULL) OR (scope IN ('org', 'branch') AND scope_id IS NOT NULL)`
+- `user_permission_overrides_global_scope_id_null` CHECK: `(scope = 'global' AND scope_id IS NULL) OR (scope <> 'global' AND scope_id IS NOT NULL)` _(Note: Redundant with scope_id_required; legacy constraint)_
+- FK `user_permission_overrides_user_id_fkey` -> `auth.users(id)`
+- FK `user_permission_overrides_permission_id_fkey` -> `permissions(id)`
+- FK `user_permission_overrides_organization_id_fkey` -> `organizations(id)`
+
+#### 8. `organizations` - Organization Table
+
+| Column       | Type        | Nullable | Default             | Description       |
+| ------------ | ----------- | -------- | ------------------- | ----------------- |
+| `id`         | uuid        | NO       | `gen_random_uuid()` | Primary key       |
+| `name`       | text        | NO       | -                   | Organization name |
+| `slug`       | text        | YES      | -                   | URL slug          |
+| `created_by` | uuid        | YES      | -                   | FK to auth.users  |
+| `created_at` | timestamptz | YES      | `now()`             | Created timestamp |
+| `deleted_at` | timestamptz | YES      | -                   | Soft delete       |
+
+**Key Constraints**:
+
+- `organizations_slug_key` UNIQUE (`slug`)
+- FK `organizations_created_by_fkey` -> `auth.users(id)`
+
+#### 9. `invitations` - Invitation Table
+
+| Column            | Type        | Nullable | Default             | Description         |
+| ----------------- | ----------- | -------- | ------------------- | ------------------- |
+| `id`              | uuid        | NO       | `gen_random_uuid()` | Primary key         |
+| `email`           | text        | NO       | -                   | Invitee email       |
+| `invited_by`      | uuid        | NO       | -                   | FK to auth.users    |
+| `organization_id` | uuid        | YES      | -                   | FK to organizations |
+| `branch_id`       | uuid        | YES      | -                   | FK to branches      |
+| `team_id`         | uuid        | YES      | -                   | FK to teams         |
+| `role_id`         | uuid        | YES      | -                   | FK to roles         |
+| `token`           | text        | NO       | -                   | Invitation token    |
+| `status`          | text        | NO       | `'pending'`         | Status              |
+| `expires_at`      | timestamptz | YES      | -                   | Expiration          |
+| `accepted_at`     | timestamptz | YES      | -                   | Acceptance time     |
+| `created_at`      | timestamptz | YES      | `now()`             | Created timestamp   |
+| `deleted_at`      | timestamptz | YES      | -                   | Soft delete         |
+
+**Note**: The invitations table has `branch_id` and `team_id` columns, but branch/team-scoped invitation enforcement is **not implemented at the RLS level**. All invitations are currently treated as organization-level. Branch-scoped permissions would require extending the compiler to support `scope='branch'` in `user_effective_permissions`.
 
 ---
 
@@ -313,9 +388,11 @@ CREATE INDEX idx_user_permission_overrides_compiler
 
 #### `is_org_member(org_id UUID)` - Tenant Boundary Check
 
+**Verified from live database:**
+
 ```sql
-CREATE OR REPLACE FUNCTION is_org_member(org_id UUID)
-RETURNS BOOLEAN
+CREATE OR REPLACE FUNCTION public.is_org_member(org_id uuid)
+RETURNS boolean
 LANGUAGE sql
 STABLE SECURITY DEFINER
 SET search_path TO ''
@@ -328,16 +405,17 @@ AS $$
       AND deleted_at IS NULL
   );
 $$;
-
--- SECURITY: authenticated + service_role can execute
--- anon CANNOT execute (prevents unauthenticated access)
 ```
+
+**Security**: `STABLE SECURITY DEFINER` with empty `search_path`. Callable by `authenticated` and `service_role`, NOT `anon`.
 
 #### `has_permission(org_id UUID, permission TEXT)` - Permission Check
 
+**Verified from live database:**
+
 ```sql
-CREATE OR REPLACE FUNCTION has_permission(org_id UUID, permission TEXT)
-RETURNS BOOLEAN
+CREATE OR REPLACE FUNCTION public.has_permission(org_id uuid, permission text)
+RETURNS boolean
 LANGUAGE sql
 STABLE SECURITY DEFINER
 SET search_path TO ''
@@ -346,26 +424,25 @@ AS $$
     SELECT 1 FROM public.user_effective_permissions
     WHERE organization_id = org_id
       AND user_id = auth.uid()
-      AND permission_slug = permission
+      AND permission_slug = permission  -- EXACT STRING MATCH ONLY
   );
 $$;
-
--- SECURITY: authenticated + service_role can execute
--- anon CANNOT execute (prevents unauthenticated access)
 ```
 
 **Note**: Uses **exact string matching**. No wildcards. No regex. No LIKE.
 
-### Compiler Functions
+### Compiler Function
 
 #### `compile_user_permissions(user_id UUID, org_id UUID)` - Enterprise Hardened
 
-**CRITICAL**: This function is **service_role only**. Normal users cannot call it.
+**CRITICAL**: This function is **not callable by `authenticated` users**. It is invoked by database triggers (which run as `SECURITY DEFINER`) and is executable by `service_role` for manual recompilation.
+
+**Verified from live database:**
 
 ```sql
-CREATE OR REPLACE FUNCTION compile_user_permissions(
-  p_user_id UUID,
-  p_organization_id UUID
+CREATE OR REPLACE FUNCTION public.compile_user_permissions(
+  p_user_id uuid,
+  p_organization_id uuid
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -374,10 +451,12 @@ SET search_path TO ''
 AS $$
 BEGIN
   -- ============================================================================
-  -- ENTERPRISE FIX #1: Active membership guard
+  -- FIX #2: Active membership guard
   -- ============================================================================
   -- Ensures we only compile for active org members
   -- Makes the function idempotent and safe even if called "too often"
+  -- Enforces invariant: only active members can have compiled permissions
+
   IF NOT EXISTS (
     SELECT 1 FROM public.organization_members
     WHERE user_id = p_user_id
@@ -385,26 +464,37 @@ BEGIN
       AND status = 'active'
       AND deleted_at IS NULL
   ) THEN
-    -- Not an active member - ensure no permissions exist and exit
+    -- User is not an active member - ensure no permissions exist and exit
     DELETE FROM public.user_effective_permissions
-    WHERE user_id = p_user_id AND organization_id = p_organization_id;
+    WHERE user_id = p_user_id
+      AND organization_id = p_organization_id;
     RETURN;
   END IF;
 
   -- ============================================================================
-  -- ENTERPRISE FIX #2: Advisory lock (prevents race conditions)
+  -- Advisory lock to prevent concurrent compilation races
   -- ============================================================================
+
   PERFORM pg_advisory_xact_lock(
     hashtext(p_user_id::text || p_organization_id::text)
   );
 
-  -- Delete existing effective permissions
+  -- ============================================================================
+  -- Delete existing effective permissions for this user/org
+  -- ============================================================================
+
   DELETE FROM public.user_effective_permissions
-  WHERE user_id = p_user_id AND organization_id = p_organization_id;
+  WHERE user_id = p_user_id
+    AND organization_id = p_organization_id;
 
   -- ============================================================================
-  -- Set-based INSERT (no loops, high performance)
+  -- Insert new effective permissions using set-based logic
   -- ============================================================================
+  -- 1. Get all permissions from assigned roles
+  -- 2. Add granted overrides
+  -- 3. Remove revoked overrides
+  -- All in one query, no loops
+
   INSERT INTO public.user_effective_permissions (
     user_id, organization_id, permission_slug, source_type, compiled_at
   )
@@ -415,7 +505,7 @@ BEGIN
     final_perms.source_type,
     now()
   FROM (
-    -- Permissions from roles (excluding revoked overrides)
+    -- Permissions from roles (excluding any that are revoked by overrides)
     SELECT p.slug AS permission_slug, 'role' AS source_type
     FROM public.user_role_assignments ura
     JOIN public.roles r ON ura.role_id = r.id
@@ -428,6 +518,7 @@ BEGIN
       AND r.deleted_at IS NULL
       AND rp.deleted_at IS NULL
       AND p.deleted_at IS NULL
+      -- Exclude permissions that have a revoke override
       AND NOT EXISTS (
         SELECT 1 FROM public.user_permission_overrides upo
         WHERE upo.user_id = p_user_id
@@ -439,7 +530,7 @@ BEGIN
 
     UNION
 
-    -- Permissions from grant overrides
+    -- Permissions from grant overrides (that aren't already from roles)
     SELECT upo.permission_slug, 'override' AS source_type
     FROM public.user_permission_overrides upo
     WHERE upo.user_id = p_user_id
@@ -449,52 +540,39 @@ BEGIN
       AND upo.deleted_at IS NULL
   ) AS final_perms
   -- ============================================================================
-  -- ENTERPRISE FIX #3: Update source_type on conflict
+  -- FIX #1: Update source_type on conflict
   -- ============================================================================
-  -- Prevents stale metadata when permission source changes
+  -- Prevents stale source_type when permission source changes
   ON CONFLICT (user_id, organization_id, permission_slug) DO UPDATE
   SET compiled_at = now(), source_type = EXCLUDED.source_type;
+
 END;
 $$;
-
--- SECURITY: service_role ONLY can execute (prevents DoS attacks)
-REVOKE ALL ON FUNCTION compile_user_permissions(UUID, UUID) FROM PUBLIC, authenticated, anon;
-GRANT EXECUTE ON FUNCTION compile_user_permissions(UUID, UUID) TO service_role;
 ```
-
-#### `compile_org_permissions(org_id UUID)`
-
-Compiles permissions for ALL active members in an organization.
-
-**SECURITY**: service_role only.
-
-#### `compile_all_user_permissions(user_id UUID)`
-
-Compiles permissions for a user across ALL their organizations.
-
-**SECURITY**: service_role only.
 
 ---
 
 ## Database Triggers
 
-### Auto-Compilation Triggers
+### All Triggers (Verified)
 
-Permissions are automatically recompiled when:
-
-| Trigger                            | Table                       | Events                 | Action                               |
-| ---------------------------------- | --------------------------- | ---------------------- | ------------------------------------ |
-| `trigger_role_assignment_compile`  | `user_role_assignments`     | INSERT, UPDATE, DELETE | Compile for affected user            |
-| `trigger_override_compile`         | `user_permission_overrides` | INSERT, UPDATE, DELETE | Compile for affected user            |
-| `trigger_role_permission_compile`  | `role_permissions`          | INSERT, UPDATE, DELETE | Compile for ALL users with that role |
-| `trigger_membership_compile`       | `organization_members`      | INSERT, UPDATE, DELETE | Compile or delete permissions        |
-| `trigger_validate_permission_slug` | `user_permission_overrides` | INSERT, UPDATE         | Auto-correct permission_slug         |
+| Trigger                                        | Table                       | Timing | Events                 | Function                                      | Purpose                                  |
+| ---------------------------------------------- | --------------------------- | ------ | ---------------------- | --------------------------------------------- | ---------------------------------------- |
+| `trigger_role_assignment_compile`              | `user_role_assignments`     | AFTER  | INSERT, UPDATE, DELETE | `trigger_compile_on_role_assignment`          | Compile for affected user                |
+| `trigger_override_compile`                     | `user_permission_overrides` | AFTER  | INSERT, UPDATE, DELETE | `trigger_compile_on_override`                 | Compile for affected user                |
+| `trigger_role_permission_compile`              | `role_permissions`          | AFTER  | INSERT, UPDATE, DELETE | `trigger_compile_on_role_permission`          | Compile for ALL users with that role     |
+| `trigger_membership_compile`                   | `organization_members`      | AFTER  | INSERT, UPDATE, DELETE | `trigger_compile_on_membership`               | Compile or delete permissions            |
+| `trigger_validate_permission_slug`             | `user_permission_overrides` | BEFORE | INSERT, UPDATE         | `validate_permission_slug_on_override`        | Auto-correct permission_slug             |
+| `check_role_assignment_scope`                  | `user_role_assignments`     | BEFORE | INSERT, UPDATE         | `validate_role_assignment_scope`              | Validate scope matches role's scope_type |
+| `trigger_user_permission_overrides_updated_at` | `user_permission_overrides` | BEFORE | UPDATE                 | `update_user_permission_overrides_updated_at` | Auto-update updated_at                   |
 
 ### Membership Trigger (Enterprise Hardened)
 
+**Verified from live database:**
+
 ```sql
-CREATE OR REPLACE FUNCTION trigger_compile_on_membership()
-RETURNS TRIGGER
+CREATE OR REPLACE FUNCTION public.trigger_compile_on_membership()
+RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO ''
@@ -510,22 +588,18 @@ BEGIN
 
   -- Handle UPDATE
   IF TG_OP = 'UPDATE' THEN
-    -- ============================================================================
     -- ENTERPRISE FIX: Handle org_id or user_id changes (ghost permission prevention)
-    -- ============================================================================
     IF (OLD.organization_id <> NEW.organization_id) OR (OLD.user_id <> NEW.user_id) THEN
-      -- Delete permissions for OLD user/org
       DELETE FROM public.user_effective_permissions
       WHERE user_id = OLD.user_id AND organization_id = OLD.organization_id;
 
-      -- Compile for NEW user/org (if active)
       IF NEW.status = 'active' AND NEW.deleted_at IS NULL THEN
         PERFORM public.compile_user_permissions(NEW.user_id, NEW.organization_id);
       END IF;
       RETURN NEW;
     END IF;
 
-    -- Handle status changes (active ↔ inactive)
+    -- Handle status changes (active <-> inactive)
     IF (OLD.status = 'active' AND NEW.status <> 'active')
        OR (OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL) THEN
       DELETE FROM public.user_effective_permissions
@@ -554,11 +628,42 @@ END;
 $$;
 ```
 
-### Permission Slug Validation Trigger
+### Role Assignment Scope Validation Trigger
+
+**Verified from live database:**
 
 ```sql
-CREATE OR REPLACE FUNCTION validate_permission_slug_on_override()
-RETURNS TRIGGER
+CREATE OR REPLACE FUNCTION public.validate_role_assignment_scope()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  role_scope_type text;
+BEGIN
+  SELECT scope_type INTO role_scope_type
+  FROM public.roles WHERE id = NEW.role_id;
+
+  IF role_scope_type = 'org' AND NEW.scope != 'org' THEN
+    RAISE EXCEPTION 'Role % can only be assigned at org scope', NEW.role_id;
+  END IF;
+
+  IF role_scope_type = 'branch' AND NEW.scope != 'branch' THEN
+    RAISE EXCEPTION 'Role % can only be assigned at branch scope', NEW.role_id;
+  END IF;
+
+  -- 'both' allows either scope
+  RETURN NEW;
+END;
+$$;
+```
+
+### Permission Slug Validation Trigger
+
+**Verified from live database:**
+
+```sql
+CREATE OR REPLACE FUNCTION public.validate_permission_slug_on_override()
+RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO ''
@@ -569,12 +674,9 @@ BEGIN
   -- If permission_id is provided, ensure permission_slug matches
   IF NEW.permission_id IS NOT NULL THEN
     SELECT slug INTO v_correct_slug FROM public.permissions WHERE id = NEW.permission_id;
-
     IF v_correct_slug IS NULL THEN
       RAISE EXCEPTION 'Invalid permission_id: % does not exist', NEW.permission_id;
     END IF;
-
-    -- Auto-correct the slug
     IF NEW.permission_slug IS NULL OR NEW.permission_slug <> v_correct_slug THEN
       NEW.permission_slug := v_correct_slug;
     END IF;
@@ -596,88 +698,395 @@ $$;
 
 ## RLS Policies
 
-### Complete RLS Status
+### RLS and FORCE RLS Status (Verified)
 
-All permission-related tables have RLS enabled:
+| Table                        | RLS Enabled | FORCE RLS | Policy Count |
+| ---------------------------- | ----------- | --------- | ------------ |
+| `organizations`              | Yes         | No        | 4            |
+| `organization_members`       | Yes         | **Yes**   | 5            |
+| `invitations`                | Yes         | No        | 3            |
+| `permissions`                | Yes         | No        | 1            |
+| `roles`                      | Yes         | **Yes**   | 5            |
+| `role_permissions`           | Yes         | **Yes**   | 5            |
+| `user_role_assignments`      | Yes         | **Yes**   | 5            |
+| `user_permission_overrides`  | Yes         | **Yes**   | 5            |
+| `user_effective_permissions` | Yes         | **Yes**   | 1            |
+| **Total**                    | **9/9**     | **6/9**   | **34**       |
 
-| Table                        | RLS | SELECT                                               | INSERT                                   | UPDATE                                   | DELETE                                   |
-| ---------------------------- | --- | ---------------------------------------------------- | ---------------------------------------- | ---------------------------------------- | ---------------------------------------- |
-| `organizations`              | ✅  | `is_org_member(id)` OR creator                       | `auth.uid() IS NOT NULL`                 | `has_permission(id, 'org.update')`       | -                                        |
-| `organization_members`       | ✅  | `is_org_member(organization_id)` OR self             | **HARDENED** (see below)                 | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  |
-| `branches`                   | ✅  | `is_org_member(organization_id)`                     | `has_permission(..., 'branches.create')` | `has_permission(..., 'branches.update')` | `has_permission(..., 'branches.delete')` |
-| `invitations`                | ✅  | `has_permission(..., 'invites.read')` OR email match | `has_permission(..., 'invites.create')`  | `has_permission(..., 'invites.cancel')`  | -                                        |
-| `permissions`                | ✅  | All authenticated                                    | -                                        | -                                        | -                                        |
-| `roles`                      | ✅  | System: all; Custom: `is_org_member`                 | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  |
-| `role_permissions`           | ✅  | System: all; Custom: `is_org_member`                 | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  |
-| `user_role_assignments`      | ✅  | `is_org_member(scope_id)` OR self                    | **HARDENED** (see below)                 | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  |
-| `user_permission_overrides`  | ✅  | Self OR `has_permission(..., 'members.manage')`      | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  | `has_permission(..., 'members.manage')`  |
-| `user_effective_permissions` | ✅  | `user_id = auth.uid()` only                          | - (triggers only)                        | - (triggers only)                        | - (triggers only)                        |
-| `users`                      | ✅  | Self OR org co-member                                | Self                                     | Self                                     | -                                        |
+### FORCE ROW LEVEL SECURITY
 
-### Hardened INSERT Policies (Privilege Escalation Prevention)
-
-#### `user_role_assignments` INSERT Policy
-
-**CRITICAL**: Prevents users from assigning themselves `org_owner` role.
+6 critical tables have `FORCE ROW LEVEL SECURITY` enabled:
 
 ```sql
-CREATE POLICY "role_assignments_insert_permission"
-  ON user_role_assignments
-  FOR INSERT
-  TO authenticated
+ALTER TABLE public.organization_members FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.roles FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.user_role_assignments FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.user_permission_overrides FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.user_effective_permissions FORCE ROW LEVEL SECURITY;
+```
+
+> **Note**: FORCE RLS prevents the **table owner** from bypassing RLS. It does NOT affect `service_role`, which has the PostgreSQL `BYPASSRLS` attribute. See [Design Decisions](#force-rls-vs-service_role) for details.
+
+### Complete Policy Reference (Verified from Live Database)
+
+#### `organizations` (4 policies)
+
+```sql
+-- SELECT: Organization creator can see their orgs
+CREATE POLICY "org_select_creator" ON public.organizations
+  FOR SELECT TO authenticated
+  USING (created_by = auth.uid() AND deleted_at IS NULL);
+
+-- SELECT: Organization members can see the org
+CREATE POLICY "org_select_member" ON public.organizations
+  FOR SELECT TO authenticated
+  USING (is_org_member(id) AND deleted_at IS NULL);
+
+-- INSERT: Only authenticated users can create, bound to creator
+CREATE POLICY "org_insert_authenticated" ON public.organizations
+  FOR INSERT TO authenticated
+  WITH CHECK (created_by = auth.uid() AND deleted_at IS NULL);
+
+-- UPDATE: Requires org.update permission
+CREATE POLICY "org_update_permission" ON public.organizations
+  FOR UPDATE TO authenticated
+  USING (is_org_member(id) AND has_permission(id, 'org.update') AND deleted_at IS NULL)
+  WITH CHECK (is_org_member(id) AND has_permission(id, 'org.update') AND deleted_at IS NULL);
+```
+
+**Key**: `org_insert_authenticated` uses `created_by = auth.uid()` to prevent spoofing org ownership.
+
+#### `organization_members` (5 policies)
+
+```sql
+-- SELECT: Users see their own memberships
+CREATE POLICY "members_select_self" ON public.organization_members
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid() AND deleted_at IS NULL);
+
+-- SELECT: Org members see other members
+CREATE POLICY "members_select_org" ON public.organization_members
+  FOR SELECT TO authenticated
+  USING (is_org_member(organization_id) AND deleted_at IS NULL);
+
+-- INSERT: Admin or self-registration (creator binding)
+CREATE POLICY "members_insert_permission" ON public.organization_members
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    -- Admin case: Has members.manage permission + tenant boundary
+    (is_org_member(organization_id)
+      AND has_permission(organization_id, 'members.manage')
+      AND deleted_at IS NULL)
+    OR
+    -- Self-registration case: ONLY org creator adding themselves
+    (user_id = auth.uid()
+      AND EXISTS (
+        SELECT 1 FROM organizations o
+        WHERE o.id = organization_members.organization_id
+          AND o.created_by = auth.uid()
+          AND o.deleted_at IS NULL)
+      AND NOT EXISTS (
+        SELECT 1 FROM organization_members om
+        WHERE om.user_id = auth.uid()
+          AND om.organization_id <> organization_id
+          AND om.status = 'active'
+          AND om.deleted_at IS NULL)
+      AND deleted_at IS NULL)
+  );
+
+-- UPDATE: Requires members.manage + tenant boundary
+CREATE POLICY "members_update_permission" ON public.organization_members
+  FOR UPDATE TO authenticated
+  USING (is_org_member(organization_id) AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL)
+  WITH CHECK (is_org_member(organization_id) AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
+
+-- DELETE: Requires members.manage + tenant boundary
+CREATE POLICY "members_delete_permission" ON public.organization_members
+  FOR DELETE TO authenticated
+  USING (is_org_member(organization_id) AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
+```
+
+#### `invitations` (3 policies)
+
+```sql
+-- SELECT: Permission holders OR the invitee themselves (case-insensitive email)
+CREATE POLICY "invitations_select_permission" ON public.invitations
+  FOR SELECT TO authenticated
+  USING (
+    (
+      (is_org_member(organization_id) AND has_permission(organization_id, 'invites.read'))
+      OR
+      (LOWER(email) = LOWER((SELECT email FROM auth.users WHERE id = auth.uid())))
+    )
+    AND deleted_at IS NULL
+  );
+
+-- INSERT: Requires invites.create + tenant boundary
+CREATE POLICY "invitations_insert_permission" ON public.invitations
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    is_org_member(organization_id)
+    AND has_permission(organization_id, 'invites.create')
+    AND deleted_at IS NULL
+  );
+
+-- UPDATE: Permission holders OR the invitee (for accepting)
+CREATE POLICY "invitations_update_permission" ON public.invitations
+  FOR UPDATE TO authenticated
+  USING (
+    (
+      (is_org_member(organization_id) AND has_permission(organization_id, 'invites.cancel'))
+      OR
+      (LOWER(email) = LOWER((SELECT email FROM auth.users WHERE id = auth.uid())))
+    )
+    AND deleted_at IS NULL
+  )
+  WITH CHECK (
+    (
+      (is_org_member(organization_id) AND has_permission(organization_id, 'invites.cancel'))
+      OR
+      (LOWER(email) = LOWER((SELECT email FROM auth.users WHERE id = auth.uid())))
+    )
+    AND deleted_at IS NULL
+  );
+```
+
+**Key**: `LOWER()` normalization ensures case-insensitive email matching. The outer `AND deleted_at IS NULL` is correctly scoped via parentheses around the inner OR expression (operator precedence fix).
+
+#### `permissions` (1 policy)
+
+```sql
+-- SELECT: All authenticated users can read the permission dictionary (excluding soft-deleted)
+CREATE POLICY "permissions_select_authenticated" ON public.permissions
+  FOR SELECT TO authenticated
+  USING (deleted_at IS NULL);
+```
+
+#### `roles` (5 policies)
+
+```sql
+-- SELECT: System roles visible to all authenticated users
+CREATE POLICY "roles_select_system" ON public.roles
+  FOR SELECT TO authenticated
+  USING (is_basic = true AND organization_id IS NULL AND deleted_at IS NULL);
+
+-- SELECT: Custom roles visible to org members
+CREATE POLICY "roles_select_org" ON public.roles
+  FOR SELECT TO authenticated
+  USING (organization_id IS NOT NULL AND is_org_member(organization_id) AND deleted_at IS NULL);
+
+-- INSERT: Custom roles only, requires members.manage + tenant boundary
+CREATE POLICY "roles_insert_permission" ON public.roles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    organization_id IS NOT NULL
+    AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage')
+    AND deleted_at IS NULL
+  );
+
+-- UPDATE: Custom non-basic roles only, requires members.manage + tenant boundary
+CREATE POLICY "roles_update_permission" ON public.roles
+  FOR UPDATE TO authenticated
+  USING (organization_id IS NOT NULL AND is_basic = false
+    AND is_org_member(organization_id) AND has_permission(organization_id, 'members.manage')
+    AND deleted_at IS NULL)
+  WITH CHECK (organization_id IS NOT NULL AND is_basic = false
+    AND is_org_member(organization_id) AND has_permission(organization_id, 'members.manage')
+    AND deleted_at IS NULL);
+
+-- DELETE: Custom non-basic roles only, requires members.manage + tenant boundary
+CREATE POLICY "roles_delete_permission" ON public.roles
+  FOR DELETE TO authenticated
+  USING (organization_id IS NOT NULL AND is_basic = false
+    AND is_org_member(organization_id) AND has_permission(organization_id, 'members.manage')
+    AND deleted_at IS NULL);
+```
+
+**Key**: System role policies use strict `AND` logic (`is_basic = true AND organization_id IS NULL`), not `OR`, to prevent malicious custom roles with `organization_id = NULL` from being universally visible.
+
+#### `role_permissions` (5 policies)
+
+```sql
+-- SELECT: System role permissions visible to all authenticated
+CREATE POLICY "role_permissions_select_system" ON public.role_permissions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.is_basic = true AND r.organization_id IS NULL AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL
+  );
+
+-- SELECT: Custom role permissions visible to org members
+CREATE POLICY "role_permissions_select_org" ON public.role_permissions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.organization_id IS NOT NULL
+        AND is_org_member(r.organization_id) AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL
+  );
+
+-- INSERT: Custom non-basic roles, requires members.manage
+CREATE POLICY "role_permissions_insert_permission" ON public.role_permissions
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.organization_id IS NOT NULL AND r.is_basic = false
+        AND is_org_member(r.organization_id)
+        AND has_permission(r.organization_id, 'members.manage')
+        AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL
+  );
+
+-- UPDATE: Same as INSERT
+CREATE POLICY "role_permissions_update_permission" ON public.role_permissions
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.organization_id IS NOT NULL AND r.is_basic = false
+        AND is_org_member(r.organization_id)
+        AND has_permission(r.organization_id, 'members.manage')
+        AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL)
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.organization_id IS NOT NULL AND r.is_basic = false
+        AND is_org_member(r.organization_id)
+        AND has_permission(r.organization_id, 'members.manage')
+        AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL);
+
+-- DELETE: Same as UPDATE
+CREATE POLICY "role_permissions_delete_permission" ON public.role_permissions
+  FOR DELETE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM roles r
+      WHERE r.id = role_permissions.role_id
+        AND r.organization_id IS NOT NULL AND r.is_basic = false
+        AND is_org_member(r.organization_id)
+        AND has_permission(r.organization_id, 'members.manage')
+        AND r.deleted_at IS NULL)
+    AND deleted_at IS NULL);
+```
+
+#### `user_role_assignments` (5 policies)
+
+```sql
+-- SELECT: Users see their own assignments
+CREATE POLICY "role_assignments_select_self" ON public.user_role_assignments
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid() AND deleted_at IS NULL);
+
+-- SELECT: Admins see assignments in their org
+CREATE POLICY "role_assignments_select_admin" ON public.user_role_assignments
+  FOR SELECT TO authenticated
+  USING (scope = 'org' AND is_org_member(scope_id)
+    AND has_permission(scope_id, 'members.manage') AND deleted_at IS NULL);
+
+-- INSERT: Admin or self-registration (creator binding, escalation prevention)
+CREATE POLICY "role_assignments_insert_permission" ON public.user_role_assignments
+  FOR INSERT TO authenticated
   WITH CHECK (
     -- Admin case: Has members.manage permission
-    (
-      scope = 'org'
+    (scope = 'org'
+      AND is_org_member(scope_id)
       AND has_permission(scope_id, 'members.manage')
-    )
+      AND deleted_at IS NULL)
     OR
-    -- Self-registration case: ONLY during initial org creation
-    (
-      user_id = auth.uid()
+    -- Self-registration case: ONLY during org creation by the CREATOR
+    (user_id = auth.uid()
       AND scope = 'org'
       -- CRITICAL: Only allow org_member role (NOT org_owner!)
-      AND EXISTS (
-        SELECT 1 FROM roles r
-        WHERE r.id = role_id
-        AND r.name = 'org_member'  -- <-- Prevents privilege escalation
-        AND r.deleted_at IS NULL
-      )
-      -- Only during initial org creation (no other memberships)
-      AND NOT EXISTS (
-        SELECT 1 FROM organization_members om
+      AND EXISTS (SELECT 1 FROM roles r
+        WHERE r.id = user_role_assignments.role_id
+          AND r.name = 'org_member'
+          AND r.deleted_at IS NULL)
+      -- CRITICAL: User must be the organization creator
+      AND EXISTS (SELECT 1 FROM organizations o
+        WHERE o.id = user_role_assignments.scope_id
+          AND o.created_by = auth.uid()
+          AND o.deleted_at IS NULL)
+      -- Belt & suspenders: User has no other active memberships
+      AND NOT EXISTS (SELECT 1 FROM organization_members om
         WHERE om.user_id = auth.uid()
-        AND om.organization_id <> scope_id
-        AND om.deleted_at IS NULL
-      )
-    )
+          AND om.organization_id <> user_role_assignments.scope_id
+          AND om.status = 'active'
+          AND om.deleted_at IS NULL)
+      AND deleted_at IS NULL)
   );
+
+-- UPDATE: Requires members.manage + tenant boundary
+CREATE POLICY "role_assignments_update_permission" ON public.user_role_assignments
+  FOR UPDATE TO authenticated
+  USING (scope = 'org' AND is_org_member(scope_id)
+    AND has_permission(scope_id, 'members.manage') AND deleted_at IS NULL)
+  WITH CHECK (scope = 'org' AND is_org_member(scope_id)
+    AND has_permission(scope_id, 'members.manage') AND deleted_at IS NULL);
+
+-- DELETE: Requires members.manage + tenant boundary
+CREATE POLICY "role_assignments_delete_permission" ON public.user_role_assignments
+  FOR DELETE TO authenticated
+  USING (scope = 'org' AND is_org_member(scope_id)
+    AND has_permission(scope_id, 'members.manage') AND deleted_at IS NULL);
 ```
 
-#### `organization_members` INSERT Policy
+**Key**: Self-registration is constrained to `org_member` role only (prevents `org_owner` self-escalation) and requires `o.created_by = auth.uid()` (prevents joining arbitrary orgs).
+
+#### `user_permission_overrides` (5 policies)
 
 ```sql
-CREATE POLICY "members_insert_permission"
-  ON organization_members
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    -- Admin case: Has members.manage permission
-    has_permission(organization_id, 'members.manage')
-    OR
-    -- Self-registration case: Only during org creation
-    (
-      user_id = auth.uid()
-      -- Only during initial setup (no other memberships)
-      AND NOT EXISTS (
-        SELECT 1 FROM organization_members om
-        WHERE om.user_id = auth.uid()
-        AND om.organization_id <> organization_id
-        AND om.deleted_at IS NULL
-      )
-    )
-  );
+-- SELECT: Users see their own overrides
+CREATE POLICY "overrides_select_self" ON public.user_permission_overrides
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid() AND deleted_at IS NULL);
+
+-- SELECT: Admins see overrides in their org
+CREATE POLICY "overrides_select_admin" ON public.user_permission_overrides
+  FOR SELECT TO authenticated
+  USING (organization_id IS NOT NULL AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
+
+-- INSERT: Requires members.manage + tenant boundary
+CREATE POLICY "overrides_insert_permission" ON public.user_permission_overrides
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id IS NOT NULL AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
+
+-- UPDATE: Same as INSERT
+CREATE POLICY "overrides_update_permission" ON public.user_permission_overrides
+  FOR UPDATE TO authenticated
+  USING (organization_id IS NOT NULL AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL)
+  WITH CHECK (organization_id IS NOT NULL AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
+
+-- DELETE: Same as INSERT
+CREATE POLICY "overrides_delete_permission" ON public.user_permission_overrides
+  FOR DELETE TO authenticated
+  USING (organization_id IS NOT NULL AND is_org_member(organization_id)
+    AND has_permission(organization_id, 'members.manage') AND deleted_at IS NULL);
 ```
+
+#### `user_effective_permissions` (1 policy)
+
+```sql
+-- SELECT: Users can ONLY see their own compiled permissions
+CREATE POLICY "Users can view own effective permissions" ON public.user_effective_permissions
+  FOR SELECT TO public
+  USING (user_id = auth.uid());
+```
+
+**Key**:
+
+- No INSERT/UPDATE/DELETE policies. Only the compiler (via triggers with `SECURITY DEFINER`) can write to this table.
+- **Why `TO public` instead of `TO authenticated`?** The `USING (user_id = auth.uid())` clause makes this safe: `anon` users have `auth.uid() = NULL`, so the condition `user_id = NULL` will never match any row (user_id is NOT NULL). This is functionally equivalent to `TO authenticated`, but slightly more permissive in policy definition. If you prefer explicit semantics, change to `TO authenticated`.
 
 ---
 
@@ -685,37 +1094,136 @@ CREATE POLICY "members_insert_permission"
 
 ### Function Execute Privileges
 
-**CRITICAL**: Compiler functions are locked down to prevent DoS attacks.
-
-| Function                       | anon | authenticated | service_role |
-| ------------------------------ | ---- | ------------- | ------------ |
-| `compile_user_permissions`     | ❌   | ❌            | ✅           |
-| `compile_org_permissions`      | ❌   | ❌            | ✅           |
-| `compile_all_user_permissions` | ❌   | ❌            | ✅           |
-| `has_permission`               | ❌   | ✅            | ✅           |
-| `is_org_member`                | ❌   | ✅            | ✅           |
-
-```sql
--- Compiler functions: service_role ONLY
-REVOKE ALL ON FUNCTION compile_user_permissions(UUID, UUID) FROM PUBLIC, authenticated, anon;
-GRANT EXECUTE ON FUNCTION compile_user_permissions(UUID, UUID) TO service_role;
-
--- RLS helpers: authenticated + service_role
-REVOKE ALL ON FUNCTION has_permission(UUID, TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION has_permission(UUID, TEXT) TO authenticated, service_role;
-```
+| Function                   | anon | authenticated | service_role |
+| -------------------------- | ---- | ------------- | ------------ |
+| `compile_user_permissions` | No   | No            | Yes          |
+| `has_permission`           | No   | Yes           | Yes          |
+| `is_org_member`            | No   | Yes           | Yes          |
 
 ### Security Features Summary
 
-| Feature                         | Implementation                                      | Protection Against                     |
-| ------------------------------- | --------------------------------------------------- | -------------------------------------- |
-| Advisory locks                  | `pg_advisory_xact_lock()` in compiler               | Race conditions                        |
-| Active membership guard         | Check at top of compiler                            | Zombie permissions                     |
-| Ghost permission prevention     | Membership trigger handles ID changes               | Admin mistakes                         |
-| Privilege escalation prevention | RLS policy allows only `org_member` self-assignment | Users assigning themselves `org_owner` |
-| DoS prevention                  | Compiler functions locked to service_role           | Spammed recompiles                     |
-| Permission slug validation      | Trigger on overrides                                | Typos and drift                        |
-| SECURITY DEFINER + search_path  | All functions                                       | SQL injection                          |
+| Feature                         | Implementation                                      | Protection Against                            |
+| ------------------------------- | --------------------------------------------------- | --------------------------------------------- |
+| Advisory locks                  | `pg_advisory_xact_lock()` in compiler               | Race conditions                               |
+| Active membership guard         | Check at top of compiler                            | Zombie permissions                            |
+| Ghost permission prevention     | Membership trigger handles ID changes               | Admin mistakes                                |
+| Privilege escalation prevention | Self-assignment bound to `org_member` + org creator | Users assigning themselves `org_owner`        |
+| Creator binding                 | `created_by = auth.uid()` on org INSERT             | Spoofing org ownership                        |
+| DoS prevention                  | Compiler invoked only by SECURITY DEFINER triggers  | Spammed recompiles                            |
+| Permission slug validation      | Trigger on overrides                                | Typos and drift                               |
+| SECURITY DEFINER + search_path  | All functions use `SET search_path TO ''`           | SQL injection via search_path                 |
+| FORCE ROW LEVEL SECURITY        | 6 critical tables                                   | Table owner bypass                            |
+| Role invariant constraint       | Single `roles_invariant` CHECK                      | Invalid system/custom role states             |
+| Strict AND policy logic         | System role policies use AND not OR                 | Unauthorized system role visibility           |
+| Soft-delete filtering           | `deleted_at IS NULL` in all RLS policies            | Soft-deleted data leakage                     |
+| LOWER() email normalization     | Invitations SELECT/UPDATE policies                  | Case-sensitivity email bypass                 |
+| Operator precedence fix         | Explicit parentheses around OR in invitations       | `deleted_at IS NULL` applying to wrong branch |
+| Unique constraints              | On memberships, assignments, compiled permissions   | Duplicate data insertion                      |
+
+### Service Role Bypass (Expected Behavior)
+
+`service_role` bypasses RLS by design. This is expected and correct:
+
+- `service_role` is used by backend/server actions
+- It has the `BYPASSRLS` attribute in PostgreSQL
+- All sensitive operations should go through server actions that validate permissions before using service_role
+- FORCE ROW LEVEL SECURITY does NOT affect `service_role` (only table owners without `BYPASSRLS`)
+
+---
+
+## Design Decisions & Known Limitations
+
+### Bootstrap Ordering (Self-Registration)
+
+When a user creates a new organization, three INSERT operations must happen **sequentially**:
+
+1. **Organization INSERT** (`org_insert_authenticated`): `created_by = auth.uid()`
+2. **Membership INSERT** (`members_insert_permission`): Checks `organizations.created_by = auth.uid()`
+3. **Role Assignment INSERT** (`role_assignments_insert_permission`): Checks `organizations.created_by = auth.uid()` and restricts to `org_member` role
+
+This ordering is critical. The membership INSERT checks that the organization exists and was created by the current user. The role assignment INSERT checks the same. If these were reordered, the policies would fail.
+
+> **Note**: The self-registration flow only assigns `org_member`. The `org_owner` role must be assigned by a server action using `service_role`.
+
+### INSERT deleted_at IS NULL (Belt-and-Suspenders)
+
+All INSERT WITH CHECK clauses include `deleted_at IS NULL`, even though new rows naturally have `deleted_at = NULL`. This is **intentionally redundant** as defense-in-depth:
+
+- Prevents a malicious client from inserting a pre-deleted row (e.g., `INSERT INTO ... VALUES (..., deleted_at = '2020-01-01')`)
+- Such a row would be invisible to SELECT policies but could still exist in the table
+- The redundant check costs nothing (column is always checked anyway) but closes this vector
+
+### Soft-Delete UPDATE Limitation (Option C)
+
+RLS cannot enforce that an UPDATE "only changes the `deleted_at` column." PostgreSQL's WITH CHECK runs against the entire NEW row, not the diff. This means:
+
+- A user with UPDATE permission can modify ANY column on a row, not just `deleted_at`
+- RLS policies check "can this user see/modify this row?" not "what specific columns changed"
+- This is an **accepted limitation** of PostgreSQL RLS
+
+**Mitigation**: Application-level validation in server actions should enforce which columns can be changed.
+
+### FORCE RLS vs service_role
+
+FORCE ROW LEVEL SECURITY has a specific, limited scope:
+
+- **What it does**: Prevents the PostgreSQL **table owner** role from bypassing RLS
+- **What it does NOT do**: It does NOT affect roles with the `BYPASSRLS` attribute (like `service_role`)
+- **Why it matters**: Without FORCE RLS, if application code accidentally runs as the table owner instead of through `service_role` or `authenticated`, RLS would be silently bypassed
+
+The 3 tables without FORCE RLS (`organizations`, `invitations`, `permissions`) are less sensitive because:
+
+- `organizations`: Protected by creator binding
+- `invitations`: Protected by email matching + permission checks
+- `permissions`: Read-only dictionary, no mutation policies for authenticated users
+
+### Known Issue: members_insert Self-Registration Guard is Effectively Disabled
+
+The `members_insert_permission` policy's NOT EXISTS subquery has a **SQL name resolution ambiguity** that renders the guard ineffective:
+
+```sql
+-- Current (BROKEN):
+NOT EXISTS (
+  SELECT 1 FROM organization_members om
+  WHERE om.user_id = auth.uid()
+    AND om.organization_id <> organization_id  -- Resolves to om.organization_id!
+    AND om.status = 'active'
+    AND om.deleted_at IS NULL
+)
+```
+
+Because the policy is on `organization_members` and the subquery also references `organization_members om`, PostgreSQL's scoping rules resolve the unqualified `organization_id` to `om.organization_id` (inner scope first). This makes the condition:
+
+```sql
+om.organization_id <> om.organization_id  -- Always FALSE!
+```
+
+The guard is completely bypassed.
+
+**How to fix** (not currently applied):
+
+```sql
+-- Option 1: Qualify the outer column
+om.organization_id <> organization_members.organization_id
+
+-- Option 2: Remove this guard entirely (it's belt-and-suspenders anyway)
+```
+
+**Impact**: **Low severity**. This is a defense-in-depth check, not a primary security boundary. The **real** security control is the creator binding:
+
+```sql
+EXISTS (
+  SELECT 1 FROM organizations o
+  WHERE o.id = organization_members.organization_id
+    AND o.created_by = auth.uid()  -- <-- THIS prevents joining arbitrary orgs
+)
+```
+
+Even with the guard disabled, users can only add themselves to organizations they created.
+
+**Why we haven't fixed it**: The guard adds minimal security value (you can only be in one org if you're not invited to others anyway), and fixing it requires changing a live RLS policy. If you need strict "one org per user" enforcement, implement it at the application level, not in RLS.
+
+**Note**: The equivalent check in `role_assignments_insert_permission` works correctly because the outer table is `user_role_assignments`, making the reference unambiguous: `om.organization_id <> user_role_assignments.scope_id`.
 
 ---
 
@@ -723,19 +1231,22 @@ GRANT EXECUTE ON FUNCTION has_permission(UUID, TEXT) TO authenticated, service_r
 
 ### Indexes
 
-| Index                                    | Table                      | Purpose                                  |
-| ---------------------------------------- | -------------------------- | ---------------------------------------- |
-| `idx_uep_user_org_permission`            | user_effective_permissions | Fast RLS permission checks               |
-| `idx_organization_members_user_org`      | organization_members       | Fast active membership checks (filtered) |
-| `idx_user_role_assignments_compiler`     | user_role_assignments      | Fast role lookups (filtered)             |
-| `idx_user_permission_overrides_compiler` | user_permission_overrides  | Fast override lookups (filtered)         |
-| `idx_role_permissions_role`              | role_permissions           | Fast permission joins (filtered)         |
+| Index                                    | Table                        | Purpose                                  |
+| ---------------------------------------- | ---------------------------- | ---------------------------------------- |
+| `idx_uep_user_org_permission`            | `user_effective_permissions` | Fast RLS permission checks               |
+| `idx_uep_user_org`                       | `user_effective_permissions` | User+org lookups                         |
+| `idx_uep_permission`                     | `user_effective_permissions` | Permission slug lookups                  |
+| `idx_organization_members_user_org`      | `organization_members`       | Fast active membership checks (filtered) |
+| `idx_user_role_assignments_compiler`     | `user_role_assignments`      | Fast role lookups (filtered)             |
+| `idx_user_permission_overrides_compiler` | `user_permission_overrides`  | Fast override lookups (filtered)         |
+| `idx_role_permissions_role`              | `role_permissions`           | Fast permission joins (filtered)         |
 
 ### Compiler Performance
 
-- **Set-based**: Single INSERT statement, no loops
+- **Set-based**: Single INSERT statement, no loops (except `trigger_compile_on_role_permission` which loops over affected users)
 - **Filtered indexes**: Partial indexes with `WHERE deleted_at IS NULL`
 - **Advisory locks**: Transaction-scoped, minimal blocking
+- **ON CONFLICT**: Handles recompilation without separate DELETE+INSERT
 
 ---
 
@@ -745,15 +1256,12 @@ GRANT EXECUTE ON FUNCTION has_permission(UUID, TEXT) TO authenticated, service_r
 
 ```sql
 -- View: permission_staleness_report
--- Shows how fresh each user's compiled permissions are
-
 SELECT * FROM permission_staleness_report;
 
 -- Results:
-email                              | org_name | permission_count | freshness_status
------------------------------------+----------+------------------+-----------------
-michal.stepien@cichy-zasada.pl     | Test Org | 13               | FRESH
-oskar.woszczek@cichy-zasada.pl     | Test Org | 5                | FRESH
+-- email                              | org_name | permission_count | freshness_status
+-- -----------------------------------+----------+------------------+-----------------
+-- user@example.com                   | Test Org | 13               | FRESH
 ```
 
 **Freshness Status**:
@@ -798,6 +1306,14 @@ export class PermissionServiceV2 {
 }
 ```
 
+**Note**: `deny` is always an empty array in V2. Deny logic is handled at compile-time only.
+
+### PermissionCompiler
+
+**Location**: `src/server/services/permission-compiler.service.ts`
+
+Server-side service that can trigger recompilation via `service_role`.
+
 ---
 
 ## React Hooks & Server Actions
@@ -836,32 +1352,53 @@ export function usePermissions() {
 
 ## Permission Flow Examples
 
-### Flow 1: User Creates Organization
+### Flow 1: User Creates Organization (Bootstrap)
+
+**Model**: Client-side authenticated inserts with RLS enforcement, then server-side upgrade.
 
 ```
 1. User clicks "Create Organization"
-2. Server creates organization record
-3. Server creates organization_members record (user as active member)
-4. Membership trigger fires → BUT compiler not called yet (role not assigned)
-5. Server creates user_role_assignments (user + org_owner role)
-6. Role assignment trigger fires → compile_user_permissions()
-7. Compiler:
-   a. Checks active membership ✓
+2. Client (authenticated) INSERTs organization record
+   -> RLS policy org_insert_authenticated enforces: created_by = auth.uid() AND deleted_at IS NULL
+   -> Organization created with user as creator
+3. Client (authenticated) INSERTs organization_members record (user as active member)
+   -> RLS policy members_insert_permission self-registration branch:
+      - Checks: user_id = auth.uid()
+      - Checks: organization created_by = auth.uid() (creator binding)
+      - Checks: no other active memberships (belt-and-suspenders, may be disabled)
+   -> Membership trigger fires -> compile_user_permissions() (but no role yet, so 0 permissions)
+4. Client (authenticated) INSERTs user_role_assignments (user + org_member role)
+   -> RLS policy role_assignments_insert_permission self-registration branch:
+      - Checks: user_id = auth.uid()
+      - Checks: role.name = 'org_member' (NOT org_owner!)
+      - Checks: organization created_by = auth.uid() (creator binding)
+      - Checks: no other active memberships
+   -> Role assignment trigger fires -> compile_user_permissions()
+5. Compiler runs:
+   a. Checks active membership -> YES
    b. Acquires advisory lock
-   c. Gets org_owner role's permissions (13 slugs)
-   d. DELETEs any existing rows
-   e. INSERTs 13 new rows with source_type='role'
-8. User now has 13 compiled permissions
+   c. Gets org_member role's permissions (5 slugs)
+   d. INSERTs 5 rows with source_type='role'
+6. Server action (service_role) upgrades user to org_owner
+   -> Bypasses RLS (service_role has BYPASSRLS)
+   -> DELETEs org_member role assignment
+   -> INSERTs org_owner role assignment
+   -> Role assignment trigger fires -> recompile
+   -> Now 13 compiled permissions
 ```
+
+**Note**: Steps 2-4 use **authenticated RLS policies** (not service_role bypass). This enforces creator binding and prevents privilege escalation. Only step 6 uses service_role to bypass the "only org_member via self-registration" restriction.
 
 ### Flow 2: Permission Check (RLS)
 
 ```
 1. User requests: SELECT * FROM branches WHERE organization_id = ?
-2. Supabase evaluates RLS policy: branches_select_member
+2. Supabase evaluates RLS policy on branches table
 3. Policy calls: is_org_member(organization_id)
-4. Function executes EXISTS check on organization_members
-5. Returns true → Row included in results
+   -> EXISTS check on organization_members (active + not deleted)
+4. Policy calls: has_permission(organization_id, 'branches.read')
+   -> EXISTS check on user_effective_permissions (exact slug match)
+5. Both return true -> Row included in results
 ```
 
 ### Flow 3: Member Removed
@@ -869,43 +1406,60 @@ export function usePermissions() {
 ```
 1. Admin removes user from organization
 2. organization_members.status set to 'inactive'
-3. Membership trigger fires
+3. Membership trigger fires (UPDATE)
 4. Trigger detects: OLD.status='active' AND NEW.status<>'active'
-5. Trigger executes: DELETE FROM user_effective_permissions WHERE user_id=... AND org_id=...
-6. User immediately loses all permissions
+5. Trigger executes: DELETE FROM user_effective_permissions
+   WHERE user_id=... AND organization_id=...
+6. User immediately loses ALL permissions for that org
+7. All subsequent RLS checks fail (no rows in effective permissions)
+```
+
+### Flow 4: Override Applied
+
+```
+1. Admin grants specific permission override to user
+2. user_permission_overrides record created
+3. validate_permission_slug trigger fires (BEFORE INSERT)
+   -> Validates/auto-corrects permission_slug
+4. trigger_compile_on_override fires (AFTER INSERT)
+   -> Calls compile_user_permissions()
+5. Compiler re-evaluates all sources (roles + overrides)
+6. New permission appears in user_effective_permissions
 ```
 
 ---
 
 ## Current Permissions & Roles
 
-### Permission Catalog (13 permissions)
+### Permission Catalog (13 permissions, verified)
 
-| Slug              | Category     | Description                             |
-| ----------------- | ------------ | --------------------------------------- |
-| `org.read`        | organization | View organization information           |
-| `org.update`      | organization | Update organization settings            |
-| `branches.read`   | branches     | View branches                           |
-| `branches.create` | branches     | Create new branches                     |
-| `branches.update` | branches     | Update branch information               |
-| `branches.delete` | branches     | Delete branches                         |
-| `members.read`    | members      | View member list                        |
-| `members.manage`  | members      | Invite, remove, and manage member roles |
-| `invites.read`    | invites      | View pending invitations                |
-| `invites.create`  | invites      | Send invitations                        |
-| `invites.cancel`  | invites      | Cancel pending invitations              |
-| `self.read`       | self         | View own profile                        |
-| `self.update`     | self         | Update own profile                      |
+| Slug              | Category     | Action |
+| ----------------- | ------------ | ------ |
+| `branches.create` | branches     | create |
+| `branches.delete` | branches     | delete |
+| `branches.read`   | branches     | read   |
+| `branches.update` | branches     | update |
+| `invites.cancel`  | invites      | cancel |
+| `invites.create`  | invites      | create |
+| `invites.read`    | invites      | read   |
+| `members.manage`  | members      | manage |
+| `members.read`    | members      | read   |
+| `org.read`        | organization | read   |
+| `org.update`      | organization | update |
+| `self.read`       | self         | read   |
+| `self.update`     | self         | update |
 
-### Role Definitions
+### Role Definitions (verified)
 
-#### org_owner (13 permissions)
+#### org_owner (System Role, 13 permissions)
 
-Full organization access - ALL permissions
+Full organization access - ALL permissions:
+`branches.create`, `branches.delete`, `branches.read`, `branches.update`, `invites.cancel`, `invites.create`, `invites.read`, `members.manage`, `members.read`, `org.read`, `org.update`, `self.read`, `self.update`
 
-#### org_member (5 permissions)
+#### org_member (System Role, 5 permissions)
 
-Limited read access: `org.read`, `branches.read`, `members.read`, `self.read`, `self.update`
+Limited read access:
+`branches.read`, `members.read`, `org.read`, `self.read`, `self.update`
 
 ---
 
@@ -935,9 +1489,11 @@ The `trigger_role_permission_compile` will automatically recompile permissions f
 
 ```sql
 CREATE POLICY "products_select" ON products
-FOR SELECT USING (
+FOR SELECT TO authenticated
+USING (
   is_org_member(organization_id)
   AND has_permission(organization_id, 'warehouse.products.read')
+  AND deleted_at IS NULL
 );
 ```
 
@@ -964,11 +1520,7 @@ WHERE email = 'user@example.com';
 ### Query 3: Manually Recompile (service_role only)
 
 ```sql
--- For single user
 SELECT compile_user_permissions('user-uuid', 'org-uuid');
-
--- For entire organization
-SELECT compile_org_permissions('org-uuid');
 ```
 
 ### Query 4: Check Function Privileges
@@ -985,15 +1537,68 @@ AND p.pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
 AND r.rolname IN ('authenticated', 'service_role', 'anon');
 ```
 
+### Query 5: Verify Enterprise Hardening (v6.0)
+
+```sql
+-- Check FORCE RLS is enabled on critical tables
+SELECT relname, relrowsecurity, relforcerowsecurity
+FROM pg_class
+WHERE relname IN (
+  'user_effective_permissions', 'user_role_assignments',
+  'user_permission_overrides', 'organization_members',
+  'roles', 'role_permissions'
+)
+ORDER BY relname;
+-- Expected: relrowsecurity=true AND relforcerowsecurity=true for all 6
+
+-- Check roles_invariant constraint
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'public.roles'::regclass
+AND conname = 'roles_invariant';
+-- Expected: roles_invariant with (is_basic=true AND org IS NULL) OR (is_basic=false AND org IS NOT NULL)
+
+-- Verify system role policy uses strict AND
+SELECT policyname, qual
+FROM pg_policies
+WHERE tablename = 'roles' AND policyname = 'roles_select_system';
+-- Expected: is_basic = true AND organization_id IS NULL AND deleted_at IS NULL
+
+-- Count total policies on permission system tables
+SELECT tablename, count(*) as policy_count
+FROM pg_policies
+WHERE schemaname = 'public'
+AND tablename IN (
+  'organizations', 'organization_members', 'invitations',
+  'permissions', 'roles', 'role_permissions',
+  'user_role_assignments', 'user_permission_overrides', 'user_effective_permissions'
+)
+GROUP BY tablename ORDER BY tablename;
+-- Expected: 34 total policies
+
+-- Verify unique constraints exist (duplicate prevention)
+SELECT tc.table_name, tc.constraint_name
+FROM information_schema.table_constraints tc
+WHERE tc.table_schema = 'public'
+AND tc.constraint_type = 'UNIQUE'
+AND tc.table_name IN ('organization_members', 'user_role_assignments', 'user_effective_permissions')
+ORDER BY tc.table_name;
+-- Expected: organization_members_organization_id_user_id_key,
+--           user_role_assignments_user_id_role_id_scope_scope_id_key,
+--           user_effective_permissions_unique
+```
+
 ### Common Issues
 
-| Symptom                          | Cause                         | Fix                                 |
-| -------------------------------- | ----------------------------- | ----------------------------------- |
-| User can't see anything          | Not in `organization_members` | Add membership record               |
-| User has role but no permissions | Membership not active         | Check `status='active'`             |
-| Permission check returns false   | Permission not compiled       | Check staleness report              |
-| RLS blocking unexpectedly        | Compiled permissions stale    | Recompile via service_role          |
-| Can't call compiler function     | Wrong role                    | Use service_role, not authenticated |
+| Symptom                          | Cause                                  | Fix                                              |
+| -------------------------------- | -------------------------------------- | ------------------------------------------------ |
+| User can't see anything          | Not in `organization_members`          | Add membership record                            |
+| User has role but no permissions | Membership not active                  | Check `status='active'` and `deleted_at IS NULL` |
+| Permission check returns false   | Permission not compiled                | Check staleness report, recompile                |
+| RLS blocking unexpectedly        | Compiled permissions stale             | Recompile via service_role                       |
+| Can't call compiler function     | Not service_role                       | Compiler invoked only via triggers               |
+| Soft-deleted rows visible        | Missing `deleted_at IS NULL` in policy | Check policy definitions                         |
+| Invitation email not matching    | Case sensitivity                       | Verify `LOWER()` in policy                       |
 
 ---
 
@@ -1008,38 +1613,75 @@ AND r.rolname IN ('authenticated', 'service_role', 'anon');
 - [x] Active membership guard in compiler
 - [x] Advisory locks for race prevention
 - [x] source_type update on conflict
-- [x] Membership trigger handles ID changes
+- [x] Membership trigger handles ID changes (ghost prevention)
 - [x] Permission slug validation trigger
+- [x] Role assignment scope validation trigger
+- [x] FORCE ROW LEVEL SECURITY on 6 critical tables
+- [x] Single canonical `roles_invariant` CHECK constraint
+- [x] Strict AND logic for system role policies
+- [x] Soft-delete filtering (`deleted_at IS NULL`) in ALL RLS policies
+- [x] Creator binding for self-registration policies
+- [x] LOWER() email normalization in invitations policies
+- [x] Operator precedence fix (parentheses around OR in invitations)
+- [x] Unique constraints on memberships, assignments, compiled permissions
 
 ### Recommended (Have)
 
 - [x] Observability view (permission_staleness_report)
 - [x] Filtered indexes for active records
-- [x] SECURITY DEFINER with SET search_path
-- [x] Comprehensive documentation
+- [x] SECURITY DEFINER with SET search_path on all functions
+- [x] Comprehensive documentation (this document)
+- [x] Service role bypass documentation
+- [x] Design decisions and known limitations documented
 
 ### Future (Optional)
 
+- [ ] Fix `members_insert_permission` NOT EXISTS column resolution ambiguity
 - [ ] Add `branch_id` to user_effective_permissions for branch-scope permissions
 - [ ] Split `members.manage` into finer permissions (`members.invite`, `roles.assign`)
 - [ ] Statement-level triggers for batch operations
 - [ ] Async job queue for recompiles
+- [ ] Co-member visibility policy hardening (consider limiting exposed user fields)
+- [ ] Add FORCE RLS to remaining 3 tables (organizations, invitations, permissions)
+
+---
+
+## Migration History
+
+| Version | Migration Timestamp | Migration Name                           | Changes                                                                                                                     |
+| ------- | ------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Pre-V2  | 20250712131800      | `create_permissions_table`               | Initial permissions table                                                                                                   |
+| Pre-V2  | 20250712135819      | `create_roles_table`                     | Initial roles table                                                                                                         |
+| Pre-V2  | 20250712140256      | `create_role_permissions_table`          | Role-permission junction                                                                                                    |
+| Pre-V2  | 20250712140316      | `create_user_role_assignments_table`     | User-role assignments                                                                                                       |
+| Pre-V2  | 20250712140332      | `create_user_permission_overrides_table` | Permission overrides                                                                                                        |
+| Pre-V2  | 20250804092727      | `add_role_management_rls_policies`       | Initial RLS policies                                                                                                        |
+| Pre-V2  | 20260109110139      | `add_missing_fk_permission_overrides`    | Foreign key fixes                                                                                                           |
+| Pre-V2  | 20260110141056      | `add_permission_override_constraints`    | Override constraints                                                                                                        |
+| Pre-V2  | 20260119133706      | `add_wildcard_permissions`               | Wildcard permission support                                                                                                 |
+| 1.0     | 20260120114036      | `permission_system_v2_foundation`        | V2 foundation: compiler, triggers, effective_permissions table                                                              |
+| 2.0     | 20260120174957      | `rls_v2_core_tables`                     | Core RLS policies                                                                                                           |
+| 2.0     | 20260120230319      | `rls_v2_complete_security`               | Complete RLS coverage                                                                                                       |
+| 3.0     | 20260122084701      | `enterprise_permission_hardening`        | Membership guard, advisory locks, source_type fix                                                                           |
+| 4.0     | 20260122085722      | `enterprise_security_lockdown`           | EXECUTE privileges, validation trigger, indexes                                                                             |
+| 5.0     | 20260123124558      | `enterprise_rls_policy_hardening`        | FORCE RLS, CHECK constraints, soft-delete filters                                                                           |
+| **6.0** | **20260127074445**  | **`enterprise_rls_policy_cleanup`**      | **Final: 34 policies, creator binding, LOWER() email, operator precedence fix, roles_invariant, deterministic DROP+CREATE** |
 
 ---
 
 ## Summary
 
-| Layer                        | Responsibility                               |
-| ---------------------------- | -------------------------------------------- |
-| `permissions`                | Catalog of possible actions                  |
-| `roles` + `role_permissions` | Named permission bundles                     |
-| `user_role_assignments`      | Who has what role                            |
-| `user_permission_overrides`  | Individual exceptions                        |
-| **Compiler**                 | Turns roles into facts (enterprise hardened) |
-| `user_effective_permissions` | **THE FACTS** (what can user actually do)    |
-| `organization_members`       | Tenant boundary (who belongs)                |
-| `is_org_member()`            | RLS: "Are you in this org?"                  |
-| `has_permission()`           | RLS: "Can you do this action?"               |
+| Layer                        | Responsibility                                          |
+| ---------------------------- | ------------------------------------------------------- |
+| `permissions`                | Catalog of possible actions (13 slugs)                  |
+| `roles` + `role_permissions` | Named permission bundles (org_owner: 13, org_member: 5) |
+| `user_role_assignments`      | Who has what role (with scope validation)               |
+| `user_permission_overrides`  | Individual exceptions (grant/revoke at compile time)    |
+| **Compiler**                 | Turns roles into facts (enterprise hardened)            |
+| `user_effective_permissions` | **THE FACTS** (what can user actually do)               |
+| `organization_members`       | Tenant boundary (who belongs)                           |
+| `is_org_member()`            | RLS Layer 1: "Are you in this org?"                     |
+| `has_permission()`           | RLS Layer 2: "Can you do this action?"                  |
 
 **The Golden Rule**:
 
@@ -1050,6 +1692,6 @@ AND r.rolname IN ('authenticated', 'service_role', 'anon');
 
 ---
 
-**Document Version**: 4.0 (Enterprise Hardened)
-**Last Updated**: 2026-01-22
-**Verified Against**: Live database queries + security audit
+**Document Version**: 6.0 (Enterprise Hardened - Final)
+**Last Updated**: 2026-01-27
+**Verified Against**: Live database queries on 2026-01-27 (34 policies, 7 triggers, 3 functions, 6 FORCE RLS tables, roles_invariant constraint)
