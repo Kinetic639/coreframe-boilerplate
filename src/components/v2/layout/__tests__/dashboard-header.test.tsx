@@ -83,7 +83,7 @@ describe("DashboardHeaderV2", () => {
       const header = container.querySelector("header");
 
       expect(header).toBeInTheDocument();
-      expect(header).toHaveClass("sticky", "top-0", "z-50");
+      expect(header).toHaveClass("flex-shrink-0", "z-50", "w-full", "border-b", "bg-background");
     });
 
     it("should render with full-width layout", () => {
