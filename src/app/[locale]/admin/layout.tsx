@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminSidebarV2 } from "@/components/v2/admin/admin-sidebar";
 
 export const metadata: Metadata = {
   title: "Admin Panel | Ambra",
@@ -30,11 +29,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <AdminSidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <div className="flex min-h-screen bg-background">
+      <AdminSidebarV2 />
+      <div className="flex flex-1 flex-col">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );
