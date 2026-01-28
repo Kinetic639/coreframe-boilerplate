@@ -13,6 +13,7 @@ const defaultOptions: ToastOptions = {
   closeOnClick: true,
   pauseOnHover: true,
   draggable: true,
+  // Theme is auto-detected from ToastContainerThemed component based on user's selected theme
   style: {
     padding: "10px 14px",
     minHeight: "auto",

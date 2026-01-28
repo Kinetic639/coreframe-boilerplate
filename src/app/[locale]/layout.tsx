@@ -6,8 +6,7 @@ import { ReactNode, Suspense } from "react";
 import { routing } from "@/i18n/routing";
 import { getTranslations, setRequestLocale, getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { ToastContainerThemed } from "@/components/toast-container-themed";
 import { ToastListener } from "@/components/toast-listener";
 
 type Props = {
@@ -65,27 +64,16 @@ export default async function RootLayout({ children, params }: Props) {
       </head>
       <body className="bg-background text-foreground">
         <NextIntlClientProvider messages={messages}>
-          <ToastContainer
-            position="top-right"
-            autoClose={4000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-          <Suspense fallback={null}>
-            <ToastListener />
-          </Suspense>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
           >
+            <ToastContainerThemed />
+            <Suspense fallback={null}>
+              <ToastListener />
+            </Suspense>
             {children}
           </ThemeProvider>
         </NextIntlClientProvider>

@@ -317,6 +317,7 @@ toastPatterns.promise(apiCall(), { pending: "Loading...", success: "Done!", erro
 - Compact design with reduced padding
 - Auto-close: 2.5s (errors: 3.5s)
 - Smaller icons (h-4 w-4)
+- **Theme-aware**: Automatically adapts to user's selected theme (light/dark/system)
 
 ---
 
