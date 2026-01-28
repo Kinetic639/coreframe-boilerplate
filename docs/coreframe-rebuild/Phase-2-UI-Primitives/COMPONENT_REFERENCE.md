@@ -311,6 +311,13 @@ toastPatterns.promise(apiCall(), { pending: "Loading...", success: "Done!", erro
 
 **CRITICAL:** Always use `react-toastify`, NEVER use `sonner`
 
+**Styling:**
+
+- Position: Bottom-right corner
+- Compact design with reduced padding
+- Auto-close: 2.5s (errors: 3.5s)
+- Smaller icons (h-4 w-4)
+
 ---
 
 ### ConfirmationDialog

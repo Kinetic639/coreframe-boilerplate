@@ -7,12 +7,18 @@ import { CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
  */
 
 const defaultOptions: ToastOptions = {
-  position: "top-right",
-  autoClose: 3000,
+  position: "bottom-right",
+  autoClose: 2500,
   hideProgressBar: false,
   closeOnClick: true,
   pauseOnHover: true,
   draggable: true,
+  style: {
+    padding: "10px 14px",
+    minHeight: "auto",
+    fontSize: "14px",
+    borderRadius: "8px",
+  },
 };
 
 export const toastPatterns = {
@@ -21,7 +27,7 @@ export const toastPatterns = {
     toast.success(message, {
       ...defaultOptions,
       ...options,
-      icon: <CheckCircle2 className="h-5 w-5" />,
+      icon: <CheckCircle2 className="h-4 w-4" />,
     });
   },
 
@@ -29,9 +35,9 @@ export const toastPatterns = {
   error: (message: string, options?: ToastOptions) => {
     toast.error(message, {
       ...defaultOptions,
-      autoClose: 5000, // Errors stay longer
+      autoClose: 3500, // Errors stay slightly longer
       ...options,
-      icon: <XCircle className="h-5 w-5" />,
+      icon: <XCircle className="h-4 w-4" />,
     });
   },
 
@@ -40,7 +46,7 @@ export const toastPatterns = {
     toast.warning(message, {
       ...defaultOptions,
       ...options,
-      icon: <AlertCircle className="h-5 w-5" />,
+      icon: <AlertCircle className="h-4 w-4" />,
     });
   },
 
@@ -49,7 +55,7 @@ export const toastPatterns = {
     toast.info(message, {
       ...defaultOptions,
       ...options,
-      icon: <Info className="h-5 w-5" />,
+      icon: <Info className="h-4 w-4" />,
     });
   },
 
