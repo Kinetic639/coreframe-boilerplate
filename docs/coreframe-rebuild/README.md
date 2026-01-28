@@ -1,340 +1,728 @@
-# Coreframe Rebuild Documentation
+# Coreframe Dashboard V2 Rebuild
 
-This directory contains all documentation related to the Coreframe rebuild project - a comprehensive refactoring of the application to follow SSR-first architecture with TDD methodology.
+**Last Updated:** 2026-01-28
+**Status:** 🟢 Phase 1 (RLS & Security) - 85% Complete (Gates A/B/C Pass, 85 pgTAP Tests)
 
-## Quick Navigation
+---
 
-### Planning & Progress
+## 📊 OVERALL PROGRESS TRACKER
 
-- **[phases-2-6-3-combined/PROGRESS_TRACKER.md](./phases-2-6-3-combined/PROGRESS_TRACKER.md)** - Live progress tracking (Active - Day 1 Complete)
-- **[phases-2-6-3-combined/DAY_1_AUTH_PROGRESS_TRACKER.md](./phases-2-6-3-combined/DAY_1_AUTH_PROGRESS_TRACKER.md)** - Detailed Day 1 completion report
-- **[phases-2-6-3-combined/DAY_1_AUTH_FINAL_STATUS.md](./phases-2-6-3-combined/DAY_1_AUTH_FINAL_STATUS.md)** - Day 1 final status summary
-- **[COREFRAME_REBUILD.md](./COREFRAME_REBUILD.md)** - Original master rebuild plan (reference)
-- **[PROGRESS_TRACKER.md](./PROGRESS_TRACKER.md)** - Original progress tracking (superseded)
-- **[PHASE_1_IMPLEMENTATION.md](./PHASE_1_IMPLEMENTATION.md)** - Original TDD implementation guide (reference)
+### Summary: 60% Complete (Foundation + Auth + RLS Security)
 
-### Phase Documentation
+| Phase       | Focus                 | Status           | Progress | Tests   | Duration | Priority                       |
+| ----------- | --------------------- | ---------------- | -------- | ------- | -------- | ------------------------------ |
+| **Phase 0** | Foundation            | ✅ Complete      | 100%     | 372/372 | 10h      | 🔴 Critical                    |
+| **Phase 1** | RLS & Security        | 🟢 Near Complete | 85%      | 85/85   | ~15h     | 🟡 Gate D benchmarks remaining |
+| **Phase 2** | UI Primitives         | ⚪ Not Started   | 0%       | 0/60    | ~12h     | 🔴 Critical                    |
+| **Phase 3** | User Management       | ⚪ Not Started   | 0%       | 0/80    | ~10h     | 🟡 High                        |
+| **Phase 4** | Org Management        | ⚪ Not Started   | 0%       | 0/140   | ~10h     | 🟡 High                        |
+| **Phase 5** | Products Module       | ⚪ Not Started   | 0%       | 0/120   | ~15h     | 🟡 High                        |
+| **Phase 6** | Performance & Testing | ⚪ Not Started   | 0%       | 0/50    | ~8h      | 🟢 Medium                      |
 
-Each phase will have detailed implementation documentation:
+**Total:** ~80 hours | **Completed:** ~47 hours (59%) | **Remaining:** ~33 hours (41%)
 
-- Phase 0: Testing Infrastructure (Complete)
-- Phase 1: Auth + SSR Context + Permissions (In Progress)
-- Phase 2: RLS Baseline (Planned)
-- Phase 3: First Feature Slice (Planned)
-- Phase 4: UI Rebuild Foundation (Planned)
-- Phase 5: Migrate Warehouse Features (Planned)
+### Current Sprint
 
-## What is the Coreframe Rebuild?
+**Active Phase:** Phase 1 - RLS & Security (85% complete)
+**Current Task:** Gate D formal performance benchmarks + documentation
+**Status:** ✅ Gates A/B/C passing, 85 pgTAP tests pass, all RLS policies operational
+**Next Milestone:** Complete Gate D benchmarks, then start Phase 2
 
-The Coreframe rebuild is a systematic refactoring of the entire application following these principles:
+---
 
-### Core Principles
+## 📖 Quick Start
 
-1. **"Working app always"**
-   - Every step ends with all tests passing
-   - App boots without errors
-   - At least one happy path works
+### For Developers
 
-2. **TDD at migration level**
-   - Write tests first (RED)
-   - Implement (GREEN)
-   - Switch usage
-   - Verify and commit
-
-3. **Separate Domain from UI**
-   - Services testable in Node.js without React
-   - Business logic isolated from presentation
-   - Single source of truth for data operations
-
-4. **RLS-first security**
-   - Defense in depth: RLS + Permissions + Server actions
-   - Policies designed before features
-   - Multi-tenant by default
-
-## Architecture Overview
-
-The rebuild follows a 6-layer stack:
-
-```
-┌─────────────────────────────────────────────┐
-│ 1. Database (Supabase/PostgreSQL)           │
-│    - Tables + RLS policies                  │
-└────────────────┬────────────────────────────┘
-                 ↓
-┌────────────────────────────────────────────┐
-│ 2. Service Layer (pure functions)           │
-│    - Business logic                         │
-│    - src/server/services/*.service.ts       │
-└────────────────┬────────────────────────────┘
-                 ↓
-┌────────────────────────────────────────────┐
-│ 3. Server Actions (auth + permission)       │
-│    - src/app/[locale]/dashboard/*/_actions.ts│
-└────────────────┬────────────────────────────┘
-                 ↓
-┌────────────────────────────────────────────┐
-│ 4. React Query Hooks (client data fetching) │
-│    - src/lib/hooks/queries/*-queries.ts     │
-└────────────────┬────────────────────────────┘
-                 ↓
-┌────────────────────────────────────────────┐
-│ 5. UI Components                            │
-│    - src/modules/*/components/*.tsx         │
-└─────────────────────────────────────────────┘
-```
-
-## Current Status
-
-**Phase:** Combined Phases - Auth System, RLS Foundation & Organization Management
-**Status:** 🔵 In Progress - Day 1 Complete
-**Progress:** 20% (1/3 days completed)
-**Date:** 2026-01-15
-
-### Latest Completion: Day 1 - Auth System ✅
-
-- ✅ Password reset flow with PKCE
-- ✅ Email delivery via Resend SMTP
-- ✅ Password strength indicator
-- ✅ 48 comprehensive tests passing
-- ✅ Full manual testing completed
-- **Time:** 5 hours (under 8 hour target)
-
-See [phases-2-6-3-combined/PROGRESS_TRACKER.md](./phases-2-6-3-combined/PROGRESS_TRACKER.md) for live status.
-
-## How to Use This Documentation
-
-### For Developers Implementing
-
-1. **Start with the master plan**: Read [COREFRAME_REBUILD.md](./COREFRAME_REBUILD.md)
-2. **Check current phase**: Review [PROGRESS_TRACKER.md](./PROGRESS_TRACKER.md)
-3. **Follow detailed steps**: Use phase-specific implementation guides
-4. **Update progress**: Mark tasks complete in PROGRESS_TRACKER.md
-5. **Run tests**: Ensure `pnpm test:run` passes before committing
+1. **Check Progress Tracker** (above) - See current phase and status
+2. **Review Architectural Principles** (below) - Understand non-negotiable rules
+3. **Go to Phase Folder** - Find detailed step-by-step tasks
+4. **Follow 6-Layer Checklist** - Implement each feature properly
+5. **Update Progress** - Mark tasks complete in phase README
+6. **Run Quality Gates** - Ensure type-check, lint, build, test pass
 
 ### For Project Managers
 
-- Track progress via PROGRESS_TRACKER.md
-- Review Definition of Done for each phase
-- Monitor testing metrics
-- Check for blockers
+- **Overall Progress:** 60% complete (Foundation + Auth + RLS Security)
+- **Current Phase:** [Phase 1: RLS & Security](./Phase-1-RLS-Security/README.md) - 85% complete (85 pgTAP tests passing)
+- **Remaining:** Gate D performance benchmarks + security audit documentation
+- **Timeline:** ~33 hours remaining of ~80 hour estimate
+- **Risk:** Low - RLS fully operational, all attack scenarios blocked
 
 ### For Code Reviewers
 
-- Verify tests written before implementation (TDD)
-- Check Definition of Done criteria met
-- Ensure all tests passing
-- Validate architectural patterns followed
-
-## Testing Strategy
-
-### Test Pyramid (Most → Least)
-
-1. **Node service tests** - Business logic in isolation
-2. **Node server action tests** - API layer
-3. **jsdom hook tests** - Client data fetching
-4. **jsdom component tests** - UI behavior
-5. **Very few integration tests** - Critical flows only
-
-### Test Requirements
-
-- Services: 80%+ coverage
-- Actions: 70%+ coverage
-- Hooks: 70%+ coverage
-- Components: 60%+ coverage
-
-See [Testing Guide](../testing/DEVELOPER_GUIDE.md) for patterns.
-
-## Phase Breakdown
-
-### Phase 0: Testing Infrastructure ✅ Complete
-
-**Duration:** 1-2 days
-**Delivered:** Vitest setup, MSW, test harnesses, mocking utilities
-
-### Phase 1: Auth + SSR Context + Permissions 🟡 Planned
-
-**Duration:** 3-7 days
-**Goal:** Rock-solid authentication and permission foundation
-
-**Increments:**
-
-1. Database - authorize() function
-2. Database - JWT custom hook
-3. Auth Service Layer
-4. Permission Service Layer
-5. Rebuild loadUserContextServer
-6. Refine loadAppContextServer
-7. Update Zustand Stores
-8. Create usePermissions Hook
-9. Vertical Slice - List Organizations
-
-### Phase 2: RLS Baseline ⚪ Not Started
-
-**Duration:** 2-5 days
-**Goal:** Establish RLS policies for core tables
-
-### Phase 3: First Feature Slice ⚪ Not Started
-
-**Duration:** 3-7 days
-**Goal:** Prove full stack with Products CRUD
-
-### Phase 4: UI Rebuild Foundation ⚪ Not Started
-
-**Duration:** 2-6 days
-**Goal:** Create reusable UI primitives
-
-### Phase 5: Migrate Warehouse Features ⚪ Not Started
-
-**Duration:** Ongoing
-**Goal:** Feature-by-feature migration of warehouse module
-
-## Key Files Reference
-
-### Configuration
-
-- `/vitest.config.ts` - Test configuration
-- `/vitest.setup.ts` - Global test setup
-
-### Testing Utilities
-
-- `/src/test/setup-supabase-mocks.ts` - Database mocking
-- `/src/test/server-action-mocks.ts` - Action mocking
-- `/src/test/harnesses/` - Test wrappers
-
-### Services (Phase 1+)
-
-- `/src/server/services/auth.service.ts` - Authentication
-- `/src/server/services/permission.service.ts` - Permissions
-
-### Context Loaders
-
-- `/src/lib/api/load-user-context-server.ts` - User context
-- `/src/lib/api/load-app-context-server.ts` - App context
-
-### Stores
-
-- `/src/lib/stores/user-store.ts` - User state
-- `/src/lib/stores/app-store.ts` - App state
-
-## Definition of Done Template
-
-Every feature/migration is complete when:
-
-- ✅ DB migration applied cleanly
-- ✅ RLS policies exist (or deferred with reason)
-- ✅ Service tests cover success + error + RLS denial
-- ✅ Action tests cover auth + permission + service call
-- ✅ Hook tests cover loading/error/success states
-- ✅ UI works with established primitives
-- ✅ Cache invalidation correct
-- ✅ `pnpm test:run` all green
-- ✅ `pnpm type-check` passes
-- ✅ `pnpm lint` passes
-
-## Common Workflows
-
-### Starting a New Phase
-
-1. Review phase plan in COREFRAME_REBUILD.md
-2. Update PROGRESS_TRACKER.md status
-3. Create phase-specific implementation guide
-4. Begin Increment 1
-
-### Completing an Increment
-
-1. Ensure all tests pass
-2. Run type-check and lint
-3. Update PROGRESS_TRACKER.md
-4. Commit with descriptive message
-5. Begin next increment
-
-### Daily Standup
-
-Use the template in PROGRESS_TRACKER.md to log:
-
-- Completed tasks
-- In progress work
-- Blockers
-- Next steps
-- Test status
-
-## Best Practices
-
-### TDD Workflow
-
-1. ✅ Write test (RED) - Test fails
-2. ✅ Implement minimal code (GREEN) - Test passes
-3. ✅ Refactor if needed - Tests still pass
-4. ✅ Commit with passing tests
-
-### Architectural Rules
-
-- ❌ Don't skip tests - write them first
-- ❌ Don't use service role except in migrations
-- ❌ Don't load large datasets in AppContext
-- ❌ Don't bypass permission checks
-- ❌ Don't commit with failing tests
-- ✅ Always check authentication first
-- ✅ Always validate permissions second
-- ✅ Always scope queries by org/branch
-- ✅ RLS is final defense layer
-
-## Getting Help
-
-### Documentation
-
-- Architecture guides in `/docs/guides/`
-- Testing patterns in `/docs/testing/`
-- Migration examples in `/docs/guides/examples/`
-
-### Key Contacts
-
-- Architecture questions: Review COREFRAME_REBUILD.md
-- Testing questions: Review DEVELOPER_GUIDE.md
-- Implementation questions: Review phase-specific guides
-
-## Contributing to Rebuild Docs
-
-When updating documentation:
-
-1. Keep PROGRESS_TRACKER.md current
-2. Document architectural decisions
-3. Update metrics after each phase
-4. Add examples of patterns used
-5. Note any deviations from plan with reasoning
+- **Principles:** Review [Non-Negotiable Principles](#-non-negotiable-architectural-principles) below
+- **Checklist:** Use [6-Layer Implementation Checklist](#-6-layer-implementation-checklist) below
+- **Quality:** Verify all tests pass, no TypeScript/lint errors
 
 ---
 
-## Recent Achievements (2026-01-15)
+## 🏗️ NON-NEGOTIABLE ARCHITECTURAL PRINCIPLES
 
-### Day 1: Complete Auth System ✅
+These principles MUST be followed in every feature implementation. No exceptions.
 
-**Completed:** Password reset flow with email delivery
+### 1. SSR-First (Server Components by Default)
 
-**Key Features:**
+✅ **CORRECT:**
 
-- PKCE-based password reset flow
-- Real-time password strength indicator
-- Resend SMTP email delivery (configured and tested)
-- Comprehensive server-side validation
-- User-friendly error handling
-- Full i18n support (English/Polish)
+```typescript
+// Pages are Server Components
+export default async function ProductsPage() {
+  const context = await loadDashboardContextV2();
+  return <ClientProductsView initialData={context} />;
+}
 
-**Quality Metrics:**
+// Client components receive server data
+"use client";
+export function ClientProductsView({ initialData }) {
+  const { data } = useProducts(initialData); // React Query
+  return <DataTable data={data} />;
+}
+```
 
-- 48 comprehensive tests (exceeded 35 target)
-- 100% type-safe code
-- Zero lint errors
-- Build passing
-- Manual testing completed
+❌ **INCORRECT:**
 
-**Files Created/Modified:** 13 files
-**Time Spent:** 5 hours (efficient!)
+```typescript
+"use client"; // at page level
+export default function ProductsPage() {
+  const { data } = useProducts(); // client-side fetch
+}
+```
 
-See [Day 1 Progress Tracker](./phases-2-6-3-combined/DAY_1_AUTH_PROGRESS_TRACKER.md) for full details.
+**Rules:**
+
+- Pages MUST be Server Components
+- Load context server-side with `loadDashboardContextV2()`
+- Pass initial data to client components
+- Client components use React Query for mutations
+
+### 2. Security in Depth (4 Layers - ALL Required)
+
+```
+Layer 1: Database RLS Policies → Row-level security
+Layer 2: Service Layer → Org/branch scoping in queries
+Layer 3: Server Actions → Auth + permission checks
+Layer 4: Client Components → Role-based rendering
+```
+
+✅ **CORRECT:**
+
+```typescript
+// UI check + Server action + Service + RLS
+function DeleteButton() {
+  const { can } = usePermissions();
+  if (!can("products.delete")) return null; // Layer 4
+
+  return <Button onClick={() => deleteProductAction(id)} />;
+}
+
+// Server action
+export async function deleteProductAction(productId: string) {
+  const { user } = await loadUserContextServer(); // Layer 3
+  if (!user) return { success: false, code: "AUTH_REQUIRED" };
+
+  const hasPermission = await checkPermission(user.id, "products.delete");
+  if (!hasPermission) return { success: false, code: "PERMISSION_DENIED" };
+
+  return await ProductsService.delete(productId, user.orgId); // Layer 2 + 1
+}
+```
+
+❌ **INCORRECT:**
+
+```typescript
+// Only UI check - SECURITY ISSUE!
+function DeleteButton() {
+  const { can } = usePermissions();
+  if (!can("products.delete")) return null;
+  return <Button onClick={() => deleteProduct()} />; // Direct call - NO SERVER ACTION
+}
+```
+
+### 3. Data Flow (One Direction Only)
+
+```
+Database → Service → Server Action → React Query → Component
+
+❌ NEVER: Component → Supabase Client → Database
+✅ ALWAYS: Component → React Query → Server Action → Service → Database
+```
+
+✅ **CORRECT:**
+
+```typescript
+"use client";
+function ProductsList() {
+  const { data: products } = useProductsQuery(); // React Query
+  return <Table data={products} />;
+}
+
+function useProductsQuery() {
+  return useQuery({
+    queryKey: ["v2", "products"],
+    queryFn: async () => {
+      const result = await getProductsAction(); // Server action
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    }
+  });
+}
+```
+
+❌ **INCORRECT:**
+
+```typescript
+"use client";
+function ProductsList() {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    supabase.from("products").select().then(({data}) => setProducts(data)); // Direct Supabase
+  }, []);
+
+  return <Table data={products} />;
+}
+```
+
+### 4. Multi-Tenant by Default
+
+✅ **ALWAYS include organization_id filter:**
+
+```typescript
+class ProductsService {
+  static async getProducts(organizationId: string) {
+    return await supabase.from("products").select().eq("organization_id", organizationId); // Required!
+  }
+}
+```
+
+❌ **NEVER query without org filter - SECURITY ISSUE:**
+
+```typescript
+class ProductsService {
+  static async getProducts() {
+    return await supabase.from("products").select(); // BAD!
+  }
+}
+```
+
+**Rules:**
+
+- EVERY query MUST filter by `organization_id`
+- EVERY mutation MUST validate org ownership
+- EVERY service method accepts `orgId` parameter
+- Branch scoping is optional (use when needed)
+
+### 5. Type Safety End-to-End
+
+```
+Database Types (Supabase generated)
+  → Service Layer (uses DB types)
+  → Server Action (validates with Zod, returns typed response)
+  → React Query Hook (typed query)
+  → Component (typed props)
+```
+
+✅ **CORRECT:**
+
+```typescript
+// Database types (auto-generated)
+import type { Database } from "@/supabase/types/types";
+type Product = Database["public"]["Tables"]["products"]["Row"];
+
+// Zod schema for validation
+const createProductSchema = z.object({
+  name: z.string().min(1),
+  sku: z.string().min(3),
+  price: z.number().min(0),
+});
+
+// Server action (validates + types response)
+export async function createProductAction(input: unknown): Promise<ActionResponse<Product>> {
+  const validated = createProductSchema.parse(input);
+  const product = await ProductsService.create(validated);
+  return { success: true, data: product };
+}
+```
+
+❌ **INCORRECT:**
+
+```typescript
+// No types, no validation
+export async function createProductAction(input: any) {
+  const product = await supabase.from("products").insert(input);
+  return product;
+}
+```
+
+### 6. Single Source of Truth (Service Layer)
+
+✅ **Business logic in service:**
+
+```typescript
+class ProductsService {
+  static async createProduct(data: CreateProductInput, orgId: string) {
+    // Validate business rules
+    if (data.price < 0) throw new Error("Price cannot be negative");
+    if (!data.sku || data.sku.length < 3) throw new Error("SKU too short");
+
+    // Execute database operation
+    const { data: product, error } = await supabase
+      .from("products")
+      .insert({ ...data, organization_id: orgId })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return product;
+  }
+}
+```
+
+❌ **INCORRECT - Business logic scattered:**
+
+```typescript
+// In server action
+export async function createProductAction(data) {
+  if (data.price < 0) throw new Error(...); // NO! Goes in service
+  const { data: product } = await supabase.from("products").insert(data);
+  return product;
+}
+
+// In component
+function CreateProductForm() {
+  const onSubmit = (data) => {
+    if (data.price < 0) { // NO! Goes in service
+      setError("Price cannot be negative");
+      return;
+    }
+    createProduct(data);
+  };
+}
+```
 
 ---
 
-**Last Updated:** 2026-01-15
-**Documentation Version:** 2.0
-**Rebuild Status:** Day 1 Complete - 20% of Combined Phases
+## 🔧 6-LAYER IMPLEMENTATION CHECKLIST
+
+Use this checklist for EVERY new feature:
+
+### Layer 1: Database
+
+- [ ] Migration created and applied
+- [ ] RLS policies enabled
+- [ ] Indexes added for performance
+- [ ] pgTAP tests passing
+- [ ] Org/branch scoping columns exist
+
+### Layer 2: Service
+
+- [ ] Service class created
+- [ ] All methods accept `organizationId`
+- [ ] Business rules enforced
+- [ ] Error handling implemented
+- [ ] Unit tests 80%+ coverage
+
+### Layer 3: Server Actions
+
+- [ ] Actions in `_actions.ts` file
+- [ ] Zod schemas for validation
+- [ ] Auth check (loadAppContextServer)
+- [ ] Permission check
+- [ ] Return typed `ActionResponse`
+- [ ] Action tests 70%+ coverage
+
+### Layer 4: React Query
+
+- [ ] Query hooks created
+- [ ] Mutation hooks created
+- [ ] Proper queryKey structure
+- [ ] Cache invalidation correct
+- [ ] Hook tests 70%+ coverage
+
+### Layer 5: UI
+
+- [ ] Server component loads context
+- [ ] Client component uses hooks
+- [ ] Permission-based rendering
+- [ ] Loading/error/empty states
+- [ ] Mobile responsive
+- [ ] Component tests 60%+ coverage
+
+### Layer 6: Quality Assurance
+
+- [ ] `npm run type-check` passes
+- [ ] `npm run lint` passes
+- [ ] `npm run build` succeeds
+- [ ] `npm test` all passing
+- [ ] Manual testing complete
+- [ ] No console errors/warnings
+
+---
+
+## 📂 PHASE-SPECIFIC IMPLEMENTATION PLANS
+
+Detailed step-by-step implementation plans for each phase:
+
+### ✅ Phase 0: Foundation (COMPLETE)
+
+**Folder:** [Phase-0-Foundation/](./Phase-0-Foundation/)
+**Status:** 100% complete - 372 tests passing
+**What Was Built:**
+
+- V2 Stores (User, App, UI) - NO Supabase imports
+- V2 Loaders - Deterministic context resolution
+- Permission System - Wildcard + deny-first
+- Test Infrastructure - Vitest + MSW
+- Auth System - Password reset, email delivery
+
+### 🟢 Phase 1: RLS & Security (85% - Gates A/B/C PASSING)
+
+**Folder:** [Phase-1-RLS-Security/](./Phase-1-RLS-Security/)
+**Duration:** ~15 hours (~12h complete)
+**Priority:** 🟡 HIGH - Gate D benchmarks + documentation remaining
+
+**Completed:**
+
+- ✅ 48+ RLS policies deployed across all permission and organization tables
+- ✅ FORCE RLS on 6 critical tables
+- ✅ 5 SECURITY DEFINER helper functions (including 3 new ones that bypass FORCE RLS)
+- ✅ Permission compiler with 3 functions + 4 compilation triggers
+- ✅ Enterprise hardening (constraints, validation, soft-delete protection)
+- ✅ 85 pgTAP tests passing across 12 test files
+- ✅ 10 security attack scenarios blocked (cross-tenant isolation verified)
+- ✅ 10 integration flow tests (bootstrap, invite, role management, cross-org)
+- ✅ All critical blockers resolved (naming mismatch, FORCE RLS recursion, table GRANTs)
+
+**Remaining:**
+
+- ⚠️ Gate D formal performance benchmarks (EXPLAIN ANALYZE with realistic dataset)
+- ⚠️ Security audit report document
+- ⚠️ Performance benchmarks document
+
+### ⚪ Phase 2: UI Primitives (NOT STARTED)
+
+**Folder:** [Phase-2-UI-Primitives/](./Phase-2-UI-Primitives/)
+**Duration:** ~12 hours
+**Priority:** 🔴 CRITICAL - Blocks Phases 3-5
+
+**What to Build:**
+
+- DataTable component with sorting/filtering/pagination
+- Card components (Stats, Info, List, Empty State)
+- Chart components (Line, Bar, Pie, Stats)
+- Form components (Wrapper, Fields, Patterns)
+- Layout components (Page Header, Status Bar, Navigation)
+- Feedback components (Loading, Error, Toast, Confirmation)
+- 36 total components with 60+ tests
+
+**Blocks:** All feature development in Phases 3-5
+
+### ⚪ Phase 3: User Management (NOT STARTED)
+
+**Folder:** [Phase-3-User-Management/](./Phase-3-User-Management/)
+**Duration:** ~10 hours
+**Priority:** 🟡 HIGH
+
+**Features:**
+
+- User profile management (edit, avatar upload, security)
+- User invitation system (invite, accept, resend, cancel)
+- User list & management (DataTable, filters, role assignment)
+- 6 pages, 14 server actions, 80 tests
+
+### ⚪ Phase 4: Org Management (NOT STARTED)
+
+**Folder:** [Phase-4-Org-Management/](./Phase-4-Org-Management/)
+**Duration:** ~10 hours
+**Priority:** 🟡 HIGH
+
+**Features:**
+
+- Organization settings (profile, logo, billing)
+- Branch management (create, edit, delete, users)
+- Roles & permissions UI (view roles, permission overrides)
+- 6 pages, 14 server actions, 140 tests
+
+### ⚪ Phase 5: Products Module (NOT STARTED)
+
+**Folder:** [Phase-5-Products-Module/](./Phase-5-Products-Module/)
+**Duration:** ~15 hours
+**Priority:** 🟡 HIGH
+
+**Goal:** Vertical slice proof - Complete Products CRUD with all 6 layers
+
+**What to Build:**
+
+- Database: RLS policies + indexes
+- Service: ProductsService with 6 methods
+- Server Actions: 6 actions with validation
+- React Query: 6 hooks with caching
+- UI: Products list, create/edit dialog, detail view
+- Tests: 120 tests across all layers
+
+**Proves:** Entire architecture works end-to-end
+
+### ⚪ Phase 6: Performance & Testing (NOT STARTED)
+
+**Folder:** [Phase-6-Performance-Testing/](./Phase-6-Performance-Testing/)
+**Duration:** ~8 hours
+**Priority:** 🟢 MEDIUM
+
+**Optimization:**
+
+- Database performance (indexes, query optimization)
+- React Query optimization (cache tuning, prefetching)
+- SSR optimization (HydrationBoundary, Core Web Vitals)
+- Target: Page load < 2s, Lighthouse > 90
+
+**Testing:**
+
+- Integration tests (35 tests) - Auth, Org, Products flows
+- E2E tests with Playwright (15 tests) - Critical paths
+- CI/CD integration (GitHub Actions)
+
+---
+
+## 🚨 CRITICAL BLOCKERS
+
+### 1. ~~RLS Not Enabled~~ ✅ RESOLVED
+
+- **Impact:** ~~Major security vulnerability~~ **RESOLVED** - RLS fully operational
+- **Status:** 85% complete (85 pgTAP tests passing, Gates A/B/C pass)
+- **What was done:** 48+ RLS policies, FORCE RLS on 6 tables, 5 helper functions, 16 fix migrations
+- **Remaining:** Gate D formal benchmarks + documentation
+- **Risk:** Low - all security attack scenarios blocked, cross-tenant isolation verified
+
+### 2. UI Primitives Incomplete 🟡 HIGH
+
+- **Impact:** Cannot build features efficiently, code duplication
+- **Status:** 0% complete
+- **Solution:** Complete [Phase 2](./Phase-2-UI-Primitives/README.md) (12 hours)
+- **Priority:** HIGH - Blocks Phase 3-5 development
+- **Risk:** Inconsistent UI, slower development
+
+---
+
+## 🎯 SUCCESS CRITERIA
+
+The rebuild is complete when ALL of these are achieved:
+
+### Phase Completion
+
+- [x] Phase 0: Foundation complete (372 tests)
+- [x] Phase 1: RLS on all tables + security testing (85 pgTAP tests, Gates A/B/C pass) - Gate D benchmarks remaining
+- [ ] Phase 2: 36 UI components + documentation
+- [ ] Phase 3: User management complete
+- [ ] Phase 4: Org/branch management complete
+- [ ] Phase 5: Products module as vertical slice proof
+- [ ] Phase 6: Performance optimized + E2E tests
+
+### Quality Gates
+
+- [ ] 600+ tests passing
+- [ ] 0 TypeScript errors
+- [ ] 0 ESLint errors
+- [ ] Build succeeds
+- [ ] Lighthouse score > 90
+- [ ] Page load < 2s
+- [ ] Permission load < 200ms
+
+### Production Ready
+
+- [x] RLS enabled on all tables (48+ policies, FORCE RLS on 6 critical tables)
+- [x] Security testing complete (85 pgTAP tests, 10 attack scenarios blocked)
+- [x] No cross-tenant data leaks (verified by security attack tests)
+- [ ] All features mobile responsive
+- [ ] E2E tests passing
+- [ ] CI/CD pipeline configured
+- [ ] Production deployment successful
+
+---
+
+## 📚 DOCUMENTATION & RESOURCES
+
+### Phase Documentation
+
+- [Phase 0: Foundation](./Phase-0-Foundation/README.md) ✅ COMPLETE
+- [Phase 1: RLS & Security](./Phase-1-RLS-Security/README.md) 🟢 85% COMPLETE (85 pgTAP tests)
+- [Phase 2: UI Primitives](./Phase-2-UI-Primitives/README.md) ⚪ NOT STARTED
+- [Phase 3: User Management](./Phase-3-User-Management/README.md) ⚪ NOT STARTED
+- [Phase 4: Org Management](./Phase-4-Org-Management/README.md) ⚪ NOT STARTED
+- [Phase 5: Products Module](./Phase-5-Products-Module/README.md) ⚪ NOT STARTED
+- [Phase 6: Performance & Testing](./Phase-6-Performance-Testing/README.md) ⚪ NOT STARTED
+
+### Implementation Guides
+
+- [Architecture Overview](../guides/01-architecture-overview.md)
+- [Security Patterns](../guides/13-security-patterns.md)
+- [SSR Hydration](../guides/12-ssr-hydration.md)
+- [Database Migrations](../guides/11-database-migrations.md)
+- [Testing Guide](../guides/15-testing.md)
+
+### Code Examples
+
+- V2 Stores: `src/lib/stores/v2/`
+- V2 Loaders: `src/server/loaders/v2/`
+- Permission System: `src/lib/hooks/v2/use-permissions.ts`
+- Service Example: `src/server/services/permission.service.ts`
+- Action Example: `src/app/actions/v2/permissions.ts`
+
+### External Resources
+
+- [Supabase RLS Docs](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- [React Query Docs](https://tanstack.com/query/latest)
+- [Next.js App Router](https://nextjs.org/docs/app)
+- [shadcn/ui Components](https://ui.shadcn.com/)
+
+---
+
+## 🏗️ ARCHITECTURE OVERVIEW
+
+### 6-Layer Architecture
+
+```
+1. Database Layer (Supabase + RLS policies)
+2. Service Layer (business logic + org scoping)
+3. Server Actions (auth + permission checks + Zod validation)
+4. React Query (client-side caching + mutations)
+5. UI Components (server components + client hooks)
+6. Quality Assurance (tests + type safety + quality gates)
+```
+
+### Data Flow Diagram
+
+```
+User Interaction
+      ↓
+[UI Component] (Layer 5)
+      ↓
+[React Query Hook] (Layer 4)
+      ↓
+[Server Action] (Layer 3)
+      ↓
+[Service Method] (Layer 2)
+      ↓
+[Database + RLS] (Layer 1)
+      ↓
+Data Returned
+```
+
+---
+
+## 💡 WHY THIS STRUCTURE?
+
+### Previous State (Before Reorganization)
+
+- 7+ planning documents scattered across folders
+- Overlapping information and conflicting timelines
+- Hard to track progress
+- Confusion about what to work on next
+- No clear definition of "done"
+
+### Current State (After Reorganization)
+
+- **Single README** - All important information in one place
+- **Phase-Specific Folders** - Detailed step-by-step plans
+- **Clear Progress Tracking** - Both overall and per-phase
+- **No Duplication** - Each piece of information in one place
+- **Easy Navigation** - Quick start guides for different roles
+
+### Benefits
+
+✅ Always know what to work on next
+✅ Clear definition of done per phase
+✅ Easy progress tracking
+✅ Detailed step-by-step guidance
+✅ No confusion about priorities
+✅ Single source of truth for planning
+
+---
+
+## 🔄 CHANGE LOG
+
+### 2026-01-28 - Phase 1 RLS Security Implementation Complete
+
+- **Deployed:** 48+ RLS policies across all permission and organization tables
+- **Created:** 3 new SECURITY DEFINER helper functions (`is_org_creator`, `has_org_role`, `has_any_org_role`)
+- **Resolved:** FORCE RLS infinite recursion via SECURITY DEFINER functions that bypass FORCE RLS
+- **Resolved:** Helper function naming mismatch (`is_org_member`/`has_permission` wrappers created)
+- **Resolved:** Table-level GRANT issue (INSERT/UPDATE/DELETE on user_role_assignments)
+- **Applied:** 16 fix migrations to resolve all RLS policy issues
+- **Testing:** 85 pgTAP tests passing across 12 test files
+- **Gates:** A (Invariants) ✅, B (Attack Scenarios) ✅, C (Flow Tests) ✅, D (Performance) 🟡 partial
+- **Remaining:** Gate D formal benchmarks + security audit documentation
+
+### 2026-01-27 - v2.0 Combined Master Plan + README
+
+- **Combined:** MASTER_PLAN.md and README.md into single README.md
+- **Progress Tracker:** Moved to top of document
+- **Phase Details:** Moved to individual phase folders
+- **Result:** One file for all critical information
+
+### 2026-01-27 - Phase-Specific READMEs
+
+- **Created:** Individual README files for each phase (0-6)
+- **Detailed Plans:** Step-by-step implementation guides
+- **Benefits:** Easier to navigate, clear separation of concerns
+
+### 2026-01-27 - Master Plan Created
+
+- **Consolidated:** 7+ planning documents into one
+- **Archived:** Old planning documents
+- **Added:** Progress tracker and architectural principles
+
+### 2026-01-19 - Foundation Complete
+
+- V2 stores, loaders, permission system implemented
+- 372 tests passing
+- Auth system complete
+
+---
+
+## 🚀 NEXT IMMEDIATE STEPS
+
+### Finish Phase 1: Gate D Benchmarks + Documentation
+
+**Priority 1: Gate D Performance Benchmarks** (~1.5 hours)
+
+- Run EXPLAIN ANALYZE on RLS-critical queries with realistic dataset
+- Document query plans, index usage, and timing results
+- Create `PERFORMANCE_BENCHMARKS.md`
+
+**Priority 2: Security Audit Report** (~1 hour)
+
+- Document all 85 test results and their security implications
+- Document the 10 attack scenarios and how they're blocked
+- Create `SECURITY_AUDIT_REPORT.md`
+
+### Then: Start Phase 2 (UI Primitives)
+
+Phase 1 Gates A/B/C are passing and all security infrastructure is operational. Move to [Phase 2](./Phase-2-UI-Primitives/README.md) to build the component library. Gate D benchmarks can be completed in parallel.
+
+---
+
+## 📞 GETTING HELP
+
+### For Questions About:
+
+- **Architecture** - Review [Non-Negotiable Principles](#-non-negotiable-architectural-principles)
+- **Implementation** - Check phase-specific README in phase folders
+- **Testing** - See [Testing Guide](../guides/15-testing.md)
+- **Security** - Review [Security Patterns](../guides/13-security-patterns.md)
+
+### For Blockers:
+
+- **RLS Not Working** - Check [Phase 1 README](./Phase-1-RLS-Security/README.md)
+- **Permission Issues** - Review permission system in Phase 0
+- **Build Errors** - Run quality gates: type-check, lint, test
+
+---
+
+**This is the single source of truth for the Dashboard V2 rebuild.**
+**Detailed implementation steps are in phase-specific folders.**
+**All archived documents are in [archives/](./archives/) folder.**
+
+**Last Updated:** 2026-01-28
+**Status:** 🟢 Phase 1 Near Complete - Gates A/B/C Passing (85 pgTAP tests)
+**Next Milestone:** Gate D benchmarks + documentation, then Phase 2

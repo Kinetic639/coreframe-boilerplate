@@ -1802,9 +1802,8 @@ export const useProductStore = create<ProductState>()(
       loadProduct: async (productId: string) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           const { activeContext, activeLocale, activeCurrency } = get();
 
           const product = await flexibleProductService.getProduct(productId, {
@@ -1833,9 +1832,8 @@ export const useProductStore = create<ProductState>()(
       createProduct: async (productData) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           const product = await flexibleProductService.createProduct(productData);
           set({
             currentProduct: product,
@@ -1855,9 +1853,8 @@ export const useProductStore = create<ProductState>()(
       updateProduct: async (productId, productData) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           const product = await flexibleProductService.updateProduct({
             id: productId,
             ...productData,
@@ -1879,9 +1876,8 @@ export const useProductStore = create<ProductState>()(
       deleteProduct: async (productId) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           await flexibleProductService.deleteProduct(productId);
           set({
             currentProduct: null,
@@ -1901,9 +1897,8 @@ export const useProductStore = create<ProductState>()(
       createVariant: async (productId, variantData) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           const variant = await flexibleProductService.createVariant(productId, variantData);
 
           // Reload current product to get updated variants
@@ -1923,9 +1918,8 @@ export const useProductStore = create<ProductState>()(
       updateVariant: async (variantId, variantData) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           const variant = await flexibleProductService.updateVariant(variantId, variantData);
           set({ currentVariant: variant });
           return variant;
@@ -1941,9 +1935,8 @@ export const useProductStore = create<ProductState>()(
       deleteVariant: async (variantId) => {
         set({ isLoading: true, error: null });
         try {
-          const { flexibleProductService } = await import(
-            "@/lib/services/flexible-product-service"
-          );
+          const { flexibleProductService } =
+            await import("@/lib/services/flexible-product-service");
           await flexibleProductService.deleteVariant(variantId);
 
           const { currentProduct } = get();
