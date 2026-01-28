@@ -3,8 +3,8 @@
 import { cn } from "@/lib/utils";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
-import { Wifi, WifiOff, Database, Clock } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Wifi, WifiOff, Database } from "lucide-react";
+import { useState } from "react";
 
 interface StatusBarProps {
   position?: "top" | "bottom";
@@ -15,27 +15,7 @@ interface StatusBarProps {
 export function StatusBar({ position = "bottom", variant = "compact", className }: StatusBarProps) {
   const { activeOrgId, activeBranchId } = useAppStoreV2();
   const { user } = useUserStoreV2();
-  const [isOnline, setIsOnline] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    // Update time every minute
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      clearInterval(timer);
-    };
-  }, []);
+  const isOnline = useState(true);
 
   const statusItems = [
     {
@@ -53,20 +33,12 @@ export function StatusBar({ position = "bottom", variant = "compact", className 
       label: `Branch: ${activeBranchId?.slice(0, 8) || "N/A"}`,
       show: variant === "full" && !!activeBranchId,
     },
-    {
-      icon: <Clock className="h-3 w-3" />,
-      label: currentTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      show: variant === "full",
-    },
   ];
 
   return (
     <div
       className={cn(
-        "flex items-center gap-4 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-t",
+        "flex-shrink-0 flex items-center gap-4 px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-t",
         position === "top" && "border-t-0 border-b",
         className
       )}

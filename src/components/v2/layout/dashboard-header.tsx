@@ -32,7 +32,7 @@ export function DashboardHeaderV2() {
   const { user } = useUserStoreV2();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background">
+    <header className="flex-shrink-0 z-50 w-full border-b bg-background">
       <div className="flex h-16 items-center gap-4 px-4">
         {/* Left: Sidebar toggle */}
         <div className="flex items-center gap-4">
