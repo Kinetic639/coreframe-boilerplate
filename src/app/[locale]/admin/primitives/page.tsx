@@ -11,7 +11,6 @@ import { FileUpload } from "@/components/v2/forms/file-upload";
 import { CreateEditDialog } from "@/components/v2/forms/create-edit-dialog";
 import { FilterForm } from "@/components/v2/forms/filter-form";
 import { SearchForm } from "@/components/v2/forms/search-form";
-import { StatusBar } from "@/components/v2/layout/status-bar";
 import { Breadcrumbs } from "@/components/v2/layout/breadcrumbs";
 import { MobileDrawer } from "@/components/v2/layout/mobile-drawer";
 import { QuickSwitcher } from "@/components/v2/layout/quick-switcher";
@@ -175,7 +174,12 @@ export default function PrimitivesPage() {
 
           <div>
             <h3 className="text-sm font-medium mb-2">Status Bar</h3>
-            <StatusBar variant="full" position="bottom" />
+            <div className="border rounded-lg p-4 bg-muted/20">
+              <p className="text-sm text-muted-foreground">
+                Status bar is fixed at the bottom of the layout. Check the bottom of the page to see
+                it in action.
+              </p>
+            </div>
           </div>
 
           <div>
