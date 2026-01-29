@@ -21,19 +21,8 @@ import {
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { BranchSwitcher } from "@/components/branch-switcher";
-import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react";
+import { BranchSwitcherV2 } from "@/components/v2/layout/branch-switcher";
+import { BookOpen, Bot, Frame, Map, PieChart, Settings2, SquareTerminal } from "lucide-react";
 
 // Sample data
 const data = {
@@ -42,11 +31,6 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  branches: [
-    { name: "Headquarters", logo: GalleryVerticalEnd, description: "Main Office" },
-    { name: "East Branch", logo: AudioWaveform, description: "Regional" },
-    { name: "West Branch", logo: Command, description: "Regional" },
-  ],
   navMain: [
     {
       title: "Playground",
@@ -114,7 +98,7 @@ function AppSidebar() {
     >
       <div data-sidebar="sidebar" className="flex h-full w-full flex-col">
         <SidebarHeader>
-          <BranchSwitcher branches={data.branches} />
+          <BranchSwitcherV2 />
         </SidebarHeader>
         <SidebarContent>
           <NavMain items={data.navMain} />

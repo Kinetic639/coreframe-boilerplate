@@ -1,23 +1,12 @@
 "use client";
 
 import * as React from "react";
-import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react";
+import { BookOpen, Bot, Frame, Map, PieChart, Settings2, SquareTerminal } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { BranchSwitcher } from "@/components/branch-switcher";
+import { BranchSwitcherV2 } from "@/components/v2/layout/branch-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -33,23 +22,6 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  branches: [
-    {
-      name: "Headquarters",
-      logo: GalleryVerticalEnd,
-      description: "Main Office",
-    },
-    {
-      name: "East Branch",
-      logo: AudioWaveform,
-      description: "Regional",
-    },
-    {
-      name: "West Branch",
-      logo: Command,
-      description: "Regional",
-    },
-  ],
   navMain: [
     {
       title: "Playground",
@@ -160,7 +132,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <BranchSwitcher branches={data.branches} />
+        <BranchSwitcherV2 />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
