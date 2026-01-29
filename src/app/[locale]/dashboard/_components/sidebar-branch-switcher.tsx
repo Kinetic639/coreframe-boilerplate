@@ -16,23 +16,16 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useAppStore } from "@/lib/stores/app-store";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
-import { fetchAvailableBranches } from "@/lib/api/branches";
+import { toast } from "react-toastify";
 
 export function SidebarBranchSwitcher() {
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
 
-  const {
-    activeOrg,
-    activeBranch,
-    activeBranchId,
-    availableBranches,
-    setActiveBranch,
-    updateAvailableBranches,
-    activeOrgId,
-  } = useAppStore();
+  const { activeOrg, activeBranch, activeBranchId, availableBranches, setActiveBranch } =
+    useAppStoreV2();
 
   const handleBranchSelect = (branchId: string) => {
     if (branchId === activeBranchId) return;
@@ -40,22 +33,13 @@ export function SidebarBranchSwitcher() {
     startTransition(async () => {
       try {
         await changeBranch(branchId);
-        await setActiveBranch(branchId);
+        setActiveBranch(branchId);
+        toast.success("Branch switched successfully");
       } catch (error) {
         console.error("Failed to change branch:", error);
+        toast.error("Failed to switch branch");
       }
     });
-  };
-
-  const handleOpenChange = async (open: boolean) => {
-    if (open && activeOrgId) {
-      try {
-        const updatedBranches = await fetchAvailableBranches(activeOrgId);
-        updateAvailableBranches(updatedBranches);
-      } catch (error) {
-        console.error("Failed to refresh branches:", error);
-      }
-    }
   };
 
   if (!activeOrg || !activeBranch) {
@@ -65,7 +49,7 @@ export function SidebarBranchSwitcher() {
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu onOpenChange={handleOpenChange}>
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
@@ -93,8 +77,8 @@ export function SidebarBranchSwitcher() {
             </DropdownMenuLabel>
             {availableBranches.map((branch) => (
               <DropdownMenuItem
-                key={branch.branch_id}
-                onClick={() => handleBranchSelect(branch.branch_id)}
+                key={branch.id}
+                onClick={() => handleBranchSelect(branch.id)}
                 className="gap-2 p-2"
                 disabled={isPending}
               >
@@ -102,9 +86,7 @@ export function SidebarBranchSwitcher() {
                   <Building2 className="size-4 shrink-0" />
                 </div>
                 <span className="flex-1">{branch.name}</span>
-                {activeBranchId === branch.branch_id && (
-                  <Check className="size-4 text-muted-foreground" />
-                )}
+                {activeBranchId === branch.id && <Check className="size-4 text-muted-foreground" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

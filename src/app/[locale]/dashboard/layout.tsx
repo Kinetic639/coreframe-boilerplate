@@ -1,38 +1,31 @@
 import { redirect } from "@/i18n/navigation";
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { loadUserContextServer } from "@/lib/api/load-user-context-server";
-import { UserInitProvider } from "@/lib/providers/user-init-provider";
-import { AppInitProvider } from "@/lib/providers/app-init-provider";
-import { QueryClientProvider } from "@/lib/providers/query-client-provider";
 import { getLocale } from "next-intl/server";
-import { Suspense } from "react";
+import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
 
+/**
+ * Dashboard Layout
+ *
+ * Server layout component that:
+ * 1. Loads context server-side via loadDashboardContextV2()
+ * 2. Redirects to sign-in if no context (unauthenticated)
+ * 3. Passes context to DashboardV2Providers for client hydration
+ * 4. Renders DashboardShell with sidebar-07 UI
+ *
+ * Pattern: Server loads → Client hydrates → Components use data
+ */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const userContext = await loadUserContextServer();
-  const appContext = await loadAppContextServer();
+  const context = await loadDashboardContextV2();
   const locale = await getLocale();
 
-  if (!userContext || !appContext) {
+  if (!context) {
     return redirect({ href: "/sign-in", locale });
   }
 
   return (
-    <Suspense
-      fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}
-    >
-      <QueryClientProvider>
-        <AppInitProvider
-          context={{
-            ...appContext,
-            location: null,
-          }}
-        >
-          <UserInitProvider context={userContext}>
-            <DashboardShell>{children}</DashboardShell>
-          </UserInitProvider>
-        </AppInitProvider>
-      </QueryClientProvider>
-    </Suspense>
+    <DashboardV2Providers context={context}>
+      <DashboardShell>{children}</DashboardShell>
+    </DashboardV2Providers>
   );
 }

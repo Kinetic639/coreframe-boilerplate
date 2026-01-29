@@ -27,7 +27,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useUserStore } from "@/lib/stores/user-store";
+import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -100,7 +100,7 @@ const navData = {
 function AppSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  const { user } = useUserStore();
+  const { user } = useUserStoreV2();
 
   const userData = user
     ? {
@@ -141,7 +141,7 @@ function AppSidebar() {
 }
 
 function DashboardHeader() {
-  const { user } = useUserStore();
+  const { user } = useUserStoreV2();
 
   if (!user) return null;
 
