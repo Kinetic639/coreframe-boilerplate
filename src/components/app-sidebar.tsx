@@ -17,7 +17,7 @@ import {
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { TeamSwitcher } from "@/components/team-switcher";
+import { BranchSwitcher } from "@/components/branch-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -33,21 +33,21 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  teams: [
+  branches: [
     {
-      name: "Acme Inc",
+      name: "Headquarters",
       logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      description: "Main Office",
     },
     {
-      name: "Acme Corp.",
+      name: "East Branch",
       logo: AudioWaveform,
-      plan: "Startup",
+      description: "Regional",
     },
     {
-      name: "Evil Corp.",
+      name: "West Branch",
       logo: Command,
-      plan: "Free",
+      description: "Regional",
     },
   ],
   navMain: [
@@ -160,7 +160,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <BranchSwitcher branches={data.branches} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />

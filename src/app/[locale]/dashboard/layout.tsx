@@ -21,7 +21,7 @@ import {
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
-import { TeamSwitcher } from "@/components/team-switcher";
+import { BranchSwitcher } from "@/components/branch-switcher";
 import {
   AudioWaveform,
   BookOpen,
@@ -42,10 +42,10 @@ const data = {
     email: "m@example.com",
     avatar: "/avatars/shadcn.jpg",
   },
-  teams: [
-    { name: "Acme Inc", logo: GalleryVerticalEnd, plan: "Enterprise" },
-    { name: "Acme Corp.", logo: AudioWaveform, plan: "Startup" },
-    { name: "Evil Corp.", logo: Command, plan: "Free" },
+  branches: [
+    { name: "Headquarters", logo: GalleryVerticalEnd, description: "Main Office" },
+    { name: "East Branch", logo: AudioWaveform, description: "Regional" },
+    { name: "West Branch", logo: Command, description: "Regional" },
   ],
   navMain: [
     {
@@ -114,7 +114,7 @@ function AppSidebar() {
     >
       <div data-sidebar="sidebar" className="flex h-full w-full flex-col">
         <SidebarHeader>
-          <TeamSwitcher teams={data.teams} />
+          <BranchSwitcher branches={data.branches} />
         </SidebarHeader>
         <SidebarContent>
           <NavMain items={data.navMain} />
