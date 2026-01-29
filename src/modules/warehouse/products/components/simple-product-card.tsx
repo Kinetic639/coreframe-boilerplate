@@ -174,9 +174,7 @@ export function SimpleProductCard({ product }: SimpleProductCardProps) {
           }}
           className="flex-grow"
         >
-          <Button className="w-full" variant="themed">
-            Szczegóły
-          </Button>
+          <Button className="w-full">Szczegóły</Button>
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -226,7 +226,7 @@ export default function UserManagementPage() {
             <Key className="mr-2 h-4 w-4" />
             Permission Override
           </Button>
-          <Button variant="themed" onClick={() => setShowRoleAssignmentDialog(true)}>
+          <Button onClick={() => setShowRoleAssignmentDialog(true)}>
             <UserPlus className="mr-2 h-4 w-4" />
             Assign Role
           </Button>

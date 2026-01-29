@@ -174,7 +174,7 @@ export default function MessagesDrawer({ trigger }: MessagesDrawerProps) {
   };
 
   const defaultTrigger = (
-    <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
+    <Button size="sm" className="h-9 w-9 p-0">
       <MessagesSquare className="h-4 w-4" />
     </Button>
   );

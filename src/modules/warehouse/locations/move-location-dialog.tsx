@@ -189,7 +189,7 @@ export function MoveLocationDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Anuluj
           </Button>
-          <Button onClick={handleMove} disabled={!isParentChanged} variant="themed">
+          <Button onClick={handleMove} disabled={!isParentChanged}>
             Przenieś lokalizację
           </Button>
         </DialogFooter>

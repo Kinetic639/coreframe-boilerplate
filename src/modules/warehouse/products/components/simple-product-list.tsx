@@ -91,7 +91,7 @@ export function SimpleProductList({ product }: SimpleProductListProps) {
             params: { id: product.id },
           }}
         >
-          <Button variant="themed">Szczegóły</Button>
+          <Button>Szczegóły</Button>
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
