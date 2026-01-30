@@ -19,9 +19,6 @@
 
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 
-// Re-export the type for convenience
-export type { PermissionSnapshot };
-
 /**
  * Regex cache for wildcard patterns
  * Prevents repeated compilation of the same permission patterns

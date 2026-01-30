@@ -40,9 +40,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 
-// Re-export type for backwards compatibility
-export type { PermissionSnapshot };
-
 export class PermissionServiceV2 {
   /**
    * Get effective permissions for a user in an organization

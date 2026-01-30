@@ -4,9 +4,6 @@ import { createClient } from "@/utils/supabase/server";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 
-// Re-export for backwards compatibility
-export type { PermissionSnapshot };
-
 /**
  * Server action to fetch permissions for a given org/branch context
  *
