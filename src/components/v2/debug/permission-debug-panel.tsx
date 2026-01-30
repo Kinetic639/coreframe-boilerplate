@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { usePermissions } from "@/hooks/v2/use-permissions";
@@ -49,6 +49,7 @@ export function PermissionDebugPanel() {
 
   const [permissionFilter, setPermissionFilter] = useState("");
   const [testPermission, setTestPermission] = useState("");
+  const tabsId = useId();
 
   const permissionSnapshot = getSnapshot();
 
@@ -110,7 +111,7 @@ export function PermissionDebugPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="session" className="w-full">
+        <Tabs defaultValue="session" className="w-full" id={tabsId}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="session">Session</TabsTrigger>
             <TabsTrigger value="permissions">Permissions</TabsTrigger>

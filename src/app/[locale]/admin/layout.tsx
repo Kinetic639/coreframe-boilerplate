@@ -3,10 +3,10 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { DashboardV2Providers } from "../dashboard/_providers";
+import { AdminSidebarV2 } from "@/components/v2/admin/admin-sidebar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
 import { StatusBar } from "@/components/v2/layout/status-bar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
 
 export const metadata: Metadata = {
   title: "Admin Panel | Ambra",
@@ -37,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <SidebarProvider defaultOpen={true}>
         <div className="flex h-screen w-full overflow-hidden">
           {/* Admin Sidebar - Fixed */}
-          <AppSidebar />
+          <AdminSidebarV2 />
 
           {/* Main content area with header, content, and status bar */}
           <div className="flex flex-1 flex-col min-w-0 h-screen overflow-hidden">
