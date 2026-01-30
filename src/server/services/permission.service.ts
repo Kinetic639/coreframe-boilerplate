@@ -2,6 +2,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 import { checkPermission, matchesAnyPattern } from "@/lib/utils/permissions";
 
+export type { PermissionSnapshot };
+
 /**
  * Permission Service
  *
