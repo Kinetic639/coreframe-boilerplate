@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ChevronsUpDown, Building } from "lucide-react";
+import { useTransition } from "react";
+import { ChevronsUpDown, Building2, Check } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,36 +20,20 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
 import { toast } from "react-toastify";
 
-/**
- * Branch Switcher V2
- *
- * Allows users to switch between available branches
- * Styled to match shadcn sidebar-07 example (TeamSwitcher)
- *
- * Flow:
- * 1. User selects branch from dropdown
- * 2. Calls changeBranch() server action (persists to DB)
- * 3. Calls setActiveBranch() (updates Zustand)
- * 4. React Query detects activeBranchId change and refetches permissions
- * 5. PermissionsSync updates user store
- */
-export function BranchSwitcherV2() {
+export function SidebarBranchSwitcher() {
   const { isMobile } = useSidebar();
-  const [isPending, startTransition] = React.useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const { activeOrg, activeBranch, availableBranches, setActiveBranch } = useAppStoreV2();
+  const { activeOrg, activeBranch, activeBranchId, availableBranches, setActiveBranch } =
+    useAppStoreV2();
 
   const handleBranchSelect = (branchId: string) => {
-    if (branchId === activeBranch?.id) return;
+    if (branchId === activeBranchId) return;
 
     startTransition(async () => {
       try {
-        // Persist to database
         await changeBranch(branchId);
-
-        // Update Zustand store (triggers React Query refetch via query key change)
         setActiveBranch(branchId);
-
         toast.success("Branch switched successfully");
       } catch (error) {
         console.error("Failed to change branch:", error);
@@ -72,10 +57,10 @@ export function BranchSwitcherV2() {
               disabled={isPending}
             >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Building className="size-4" />
+                <Building2 className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activeOrg.name}</span>
+                <span className="truncate font-semibold">{activeOrg.name}</span>
                 <span className="truncate text-xs">{activeBranch.name}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -97,13 +82,11 @@ export function BranchSwitcherV2() {
                 className="gap-2 p-2"
                 disabled={isPending}
               >
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <Building className="size-3.5 shrink-0" />
+                <div className="flex size-6 items-center justify-center rounded-sm border">
+                  <Building2 className="size-4 shrink-0" />
                 </div>
-                {branch.name}
-                {branch.id === activeBranch?.id && (
-                  <span className="ml-auto text-xs text-muted-foreground">✓</span>
-                )}
+                <span className="flex-1">{branch.name}</span>
+                {activeBranchId === branch.id && <Check className="size-4 text-muted-foreground" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

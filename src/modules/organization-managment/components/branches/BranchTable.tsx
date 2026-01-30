@@ -106,7 +106,7 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
               </CardDescription>
             </div>
 
-            <Button variant="themed" onClick={handleCreateBranch}>
+            <Button onClick={handleCreateBranch}>
               <Building2 className="mr-2 h-4 w-4" />
               Dodaj oddział
             </Button>
@@ -223,7 +223,7 @@ export default function BranchTable({ initialBranches }: { initialBranches: Bran
                     : "Nie utworzono jeszcze żadnych oddziałów."}
                 </p>
                 {!searchQuery && (
-                  <Button onClick={handleCreateBranch} variant="themed">
+                  <Button onClick={handleCreateBranch}>
                     <Building2 className="mr-2 h-4 w-4" />
                     Dodaj pierwszy oddział
                   </Button>

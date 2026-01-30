@@ -145,7 +145,7 @@ export default function OrganizationForm({
             <ColorPickerField name="font_color" label="Kolor czcionki" />
           </div>
 
-          <Button type="submit" disabled={loading} variant="themed">
+          <Button type="submit" disabled={loading}>
             <Save className="mr-2 h-4 w-4" />
             {loading ? "Zapisuję..." : "Zapisz zmiany"}
           </Button>

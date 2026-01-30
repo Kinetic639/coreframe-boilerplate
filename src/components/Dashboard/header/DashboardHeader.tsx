@@ -67,7 +67,7 @@ const DashboardHeader = () => {
             {/* Sidebar Options Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
+                <Button size="sm" className="h-9 w-9 p-0">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -199,13 +199,13 @@ const DashboardHeader = () => {
           </DropdownMenu>
 
           <MessagesDrawer />
-          <Button variant="ghost-themed" size="sm" className="h-9 w-9 p-0">
+          <Button size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost-themed" className="relative h-9 w-9 rounded-full">
+              <Button className="relative h-9 w-9 rounded-full">
                 <Avatar className="h-8 w-8 ">
                   <AvatarImage
                     src={user.avatar_url ? String(user.avatar_url) : undefined}

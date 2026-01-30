@@ -130,7 +130,7 @@ export default function OrganizationLogoUploader({ logoUrl, organizationId }: Pr
         disabled={uploading}
         className="text-sm"
       />
-      <Button type="button" variant="themed" disabled={uploading}>
+      <Button type="button" disabled={uploading}>
         {uploading ? "Wgrywam..." : "Zmień logo"}
       </Button>
     </div>

@@ -114,7 +114,6 @@ const Pricing = () => {
             >
               <ToggleGroupItem
                 value="monthly"
-                variant="pill"
                 size="lg"
                 className="rounded-full transition-all duration-300 data-[state=on]:shadow-md"
               >
@@ -122,7 +121,6 @@ const Pricing = () => {
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="yearly"
-                variant="pill"
                 size="lg"
                 className="flex items-center gap-2 rounded-full transition-all duration-300 data-[state=on]:shadow-md"
               >

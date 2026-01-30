@@ -423,7 +423,7 @@ export default function LocationManager({
                 Hierarchiczna struktura lokalizacji magazynowych w oddziale
               </CardDescription>
             </div>
-            <Button onClick={handleAddLocation} className="h-9 md:h-10" variant="themed">
+            <Button onClick={handleAddLocation} className="h-9 md:h-10">
               <Plus className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Dodaj lokalizację</span>
               <span className="sm:hidden">Dodaj</span>
