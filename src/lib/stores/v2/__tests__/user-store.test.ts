@@ -3,8 +3,8 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { useUserStoreV2, UserContextV2, UserV2 } from "../user-store";
-import type { JWTRole } from "@/server/services/auth.service";
-import type { PermissionSnapshot } from "@/server/services/permission.service";
+import type { JWTRole } from "@/lib/types/auth";
+import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 describe("useUserStoreV2", () => {
   beforeEach(() => {
