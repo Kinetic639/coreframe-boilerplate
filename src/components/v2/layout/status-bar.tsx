@@ -5,6 +5,8 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { Wifi, WifiOff, Database } from "lucide-react";
 import { useState } from "react";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { ColorThemeSwitcher } from "@/components/color-theme-switcher";
 
 interface StatusBarProps {
   position?: "top" | "bottom";
@@ -54,11 +56,13 @@ export function StatusBar({ position = "bottom", variant = "compact", className 
           ))}
       </div>
 
-      {variant === "full" && user && (
-        <div className="ml-auto flex items-center gap-2">
-          <span>User: {user.email}</span>
+      <div className="ml-auto flex items-center gap-2">
+        {variant === "full" && user && <span>User: {user.email}</span>}
+        <div className="flex items-center gap-1">
+          <ColorThemeSwitcher variant="icon" />
+          <ThemeSwitcher />
         </div>
-      )}
+      </div>
     </div>
   );
 }
