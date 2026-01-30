@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { JWTRole } from "@/server/services/auth.service";
-import type { PermissionSnapshot } from "@/server/services/permission.service";
+import type { JWTRole } from "@/lib/types/auth";
+import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 // Types
 export interface UserV2 {

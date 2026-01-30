@@ -38,12 +38,7 @@
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
-
-// For backwards compatibility with existing code
-export interface PermissionSnapshot {
-  allow: string[];
-  deny: string[]; // Always empty in V2 - kept for interface compatibility
-}
+import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 export class PermissionServiceV2 {
   /**

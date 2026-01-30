@@ -1,16 +1,8 @@
 import { jwtDecode } from "jwt-decode";
+import type { JWTRole, RoleValidationOptions } from "@/lib/types/auth";
 
-/**
- * Role assignment from JWT with scope information
- */
-export interface JWTRole {
-  role_id: string;
-  role: string;
-  org_id: string | null;
-  branch_id: string | null;
-  scope: "org" | "branch";
-  scope_id: string;
-}
+// Re-export types for backward compatibility
+export type { JWTRole, RoleValidationOptions };
 
 /**
  * JWT claims structure from Supabase Auth
@@ -23,14 +15,6 @@ interface JWTClaims {
   exp: number;
   iat: number;
   [key: string]: any;
-}
-
-/**
- * Options for role validation
- */
-export interface RoleValidationOptions {
-  orgId?: string;
-  branchId?: string;
 }
 
 /**
