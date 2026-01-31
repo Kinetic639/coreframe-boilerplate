@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { HeaderSearch } from "./header-search";
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderMessages } from "./header-messages";
+import { HeaderContacts } from "./header-contacts";
 
 /**
  * Dashboard Header V2
@@ -17,11 +18,12 @@ import { HeaderMessages } from "./header-messages";
  * - Global search with command palette (Cmd+K)
  * - Messages drawer
  * - Notifications drawer
+ * - Contacts drawer
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Messages + Notifications
+ * - Right: Contacts + Messages + Notifications
  *
  * SSR-first: Reads from Zustand stores hydrated on server
  * Note: User menu is available in the sidebar footer
@@ -39,13 +41,14 @@ export function DashboardHeaderV2() {
         <HeaderSearch />
       </div>
 
-      {/* Right: Messages + Notifications */}
+      {/* Right: Contacts + Messages + Notifications */}
       <div className="flex items-center gap-2 ml-auto px-6">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
           <HeaderSearch />
         </div>
 
+        <HeaderContacts />
         <HeaderMessages />
         <HeaderNotifications />
       </div>

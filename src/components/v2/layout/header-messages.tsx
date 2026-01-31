@@ -13,7 +13,8 @@ import {
 import { MessageSquare, CheckCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar } from "@/components/v2/utility/avatar";
+import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 
 /**
  * Header Messages Component
@@ -107,6 +108,7 @@ const EXAMPLE_MESSAGES: Message[] = [
 
 export function HeaderMessages() {
   const [messages, setMessages] = useState(EXAMPLE_MESSAGES);
+  const isLoading = false;
   const unreadCount = messages.filter((m) => !m.isRead).length;
 
   const markAsRead = (id: string) => {
@@ -149,7 +151,9 @@ export function HeaderMessages() {
         </SheetHeader>
 
         <div className="mt-6 space-y-1">
-          {messages.length === 0 ? (
+          {isLoading ? (
+            <LoadingSkeleton variant="list" count={5} />
+          ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
               <p className="text-sm">No messages yet</p>
@@ -165,12 +169,15 @@ export function HeaderMessages() {
                   )}
                   onClick={() => !message.isRead && markAsRead(message.id)}
                 >
-                  <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={message.sender.avatar} alt={message.sender.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {message.sender.initials}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="shrink-0">
+                    <Avatar
+                      src={message.sender.avatar}
+                      alt={message.sender.name}
+                      fallback={message.sender.initials}
+                      size="md"
+                      shape="circle"
+                    />
+                  </div>
                   <div className="flex-1 space-y-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">

@@ -13,6 +13,7 @@ import {
 import { History, Eye, Edit, Trash2, Plus, Settings, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 
 /**
  * Status Bar History Component
@@ -122,6 +123,7 @@ const activityColors = {
 export function StatusBarHistory() {
   const [activities, setActivities] = useState(EXAMPLE_ACTIVITIES);
   const [filter, setFilter] = useState<ActivityType | "all">("all");
+  const isLoading = false;
 
   const filteredActivities =
     filter === "all" ? activities : activities.filter((a) => a.type === filter);
@@ -172,7 +174,9 @@ export function StatusBarHistory() {
         </div>
 
         <div className="mt-4 space-y-1">
-          {filteredActivities.length === 0 ? (
+          {isLoading ? (
+            <LoadingSkeleton variant="list" count={5} />
+          ) : filteredActivities.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <History className="h-12 w-12 mb-4 opacity-20" />
               <p className="text-sm">No activity yet</p>

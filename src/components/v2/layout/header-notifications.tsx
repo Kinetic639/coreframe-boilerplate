@@ -13,6 +13,7 @@ import {
 import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 
 /**
  * Header Notifications Component
@@ -100,6 +101,7 @@ const notificationColors = {
 
 export function HeaderNotifications() {
   const [notifications, setNotifications] = useState(EXAMPLE_NOTIFICATIONS);
+  const isLoading = false;
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const markAsRead = (id: string) => {
@@ -142,7 +144,9 @@ export function HeaderNotifications() {
         </SheetHeader>
 
         <div className="mt-6 space-y-1">
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <LoadingSkeleton variant="list" count={5} />
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <Bell className="h-12 w-12 mb-4 opacity-20" />
               <p className="text-sm">No notifications yet</p>
