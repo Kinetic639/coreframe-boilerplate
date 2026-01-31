@@ -21,8 +21,13 @@ vi.mock("../header-user-menu", () => ({
   HeaderUserMenu: () => <div data-testid="header-user-menu">User Menu</div>,
 }));
 
-// Mock shadcn/ui sidebar hook
+// Mock shadcn/ui sidebar components
 vi.mock("@/components/ui/sidebar", () => ({
+  SidebarTrigger: ({ className }: { className?: string }) => (
+    <button aria-label="Toggle Sidebar" className={className}>
+      Toggle
+    </button>
+  ),
   useSidebar: () => ({
     toggleSidebar: vi.fn(),
     open: true,
@@ -83,14 +88,14 @@ describe("DashboardHeaderV2", () => {
       const header = container.querySelector("header");
 
       expect(header).toBeInTheDocument();
-      expect(header).toHaveClass("flex-shrink-0", "z-50", "w-full", "border-b", "bg-background");
+      expect(header).toHaveClass("flex", "h-16", "shrink-0", "items-center", "gap-2", "border-b");
     });
 
-    it("should render with full-width layout", () => {
+    it("should render with flex layout", () => {
       const { container } = render(<DashboardHeaderV2 />);
       const header = container.querySelector("header");
 
-      expect(header).toHaveClass("w-full");
+      expect(header).toHaveClass("flex");
     });
 
     it("should have border at bottom", () => {
