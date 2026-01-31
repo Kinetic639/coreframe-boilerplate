@@ -1,12 +1,13 @@
 "use client";
 
 import {
+  Sidebar,
   SidebarProvider,
-  useSidebar,
   SidebarHeader,
   SidebarContent,
   SidebarFooter,
   SidebarRail,
+  SidebarInset,
 } from "@/components/ui/sidebar";
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
@@ -72,9 +73,7 @@ const navData = {
   ],
 };
 
-function AppSidebar() {
-  const { state } = useSidebar();
-  const isCollapsed = state === "collapsed";
+function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useUserStoreV2();
 
   const userData = user
@@ -90,51 +89,31 @@ function AppSidebar() {
       };
 
   return (
-    <aside
-      className="group shrink-0 bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-200 ease-linear border-r border-sidebar-border"
-      style={{ width: isCollapsed ? "var(--sidebar-width-icon)" : "var(--sidebar-width)" }}
-      data-state={state}
-      data-collapsible={isCollapsed ? "icon" : ""}
-      data-variant="sidebar"
-      data-side="left"
-    >
-      <div data-sidebar="sidebar" className="flex h-full w-full flex-col">
-        <SidebarHeader>
-          <SidebarBranchSwitcher />
-        </SidebarHeader>
-        <SidebarContent>
-          <NavMain items={navData.navMain} />
-          <NavProjects projects={navData.projects} />
-        </SidebarContent>
-        <SidebarFooter>
-          <NavUser user={userData} />
-        </SidebarFooter>
-        <SidebarRail />
-      </div>
-    </aside>
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader>
+        <SidebarBranchSwitcher />
+      </SidebarHeader>
+      <SidebarContent>
+        <NavMain items={navData.navMain} />
+        <NavProjects projects={navData.projects} />
+      </SidebarContent>
+      <SidebarFooter>
+        <NavUser user={userData} />
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
   );
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider
-      className="fixed inset-0 !min-h-0"
-      style={
-        {
-          "--sidebar-width": "16rem",
-          "--sidebar-width-icon": "3rem",
-        } as React.CSSProperties
-      }
-    >
-      <div className="flex h-full w-full">
-        <AppSidebar />
-
-        <div className="flex flex-1 flex-col min-h-0 bg-background">
-          <DashboardHeaderV2 />
-          <main className="flex-1 overflow-auto p-4">{children}</main>
-          <DashboardStatusBar />
-        </div>
-      </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <DashboardHeaderV2 />
+        <main className="flex-1 overflow-auto p-4">{children}</main>
+        <DashboardStatusBar />
+      </SidebarInset>
     </SidebarProvider>
   );
 }

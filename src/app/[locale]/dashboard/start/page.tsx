@@ -37,7 +37,6 @@ export default function DashboardV2StartPage() {
       <PageHeaderV2
         title="Dashboard V2 Start"
         description="Proof of concept page validating V2 architecture and permission system"
-        breadcrumbs={[{ label: "Start" }]}
       />
 
       {/* Permission Debug Panel (DEV ONLY) */}
