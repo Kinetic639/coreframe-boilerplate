@@ -4,8 +4,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { HeaderSearch } from "./header-search";
 import { HeaderNotifications } from "./header-notifications";
-import { HeaderUserMenu } from "./header-user-menu";
-import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
+import { HeaderMessages } from "./header-messages";
+import { HeaderContacts } from "./header-contacts";
 
 /**
  * Dashboard Header V2
@@ -16,23 +16,23 @@ import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
  * Features:
  * - Sidebar toggle button (integrated from shadcn)
  * - Global search with command palette (Cmd+K)
- * - Notifications bell (placeholder)
- * - User profile menu with avatar
+ * - Messages drawer
+ * - Notifications drawer
+ * - Contacts drawer
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Notifications + User menu
+ * - Right: Contacts + Messages + Notifications
  *
  * SSR-first: Reads from Zustand stores hydrated on server
+ * Note: User menu is available in the sidebar footer
  */
 export function DashboardHeaderV2() {
-  const { user } = useUserStoreV2();
-
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 bg-muted/30 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-      <div className="flex items-center gap-2 px-4">
-        <SidebarTrigger className="-ml-1" />
+    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+      <div className="flex items-center gap-2 px-6">
+        <SidebarTrigger />
         <Separator orientation="vertical" className="mr-2 h-4" />
       </div>
 
@@ -41,15 +41,16 @@ export function DashboardHeaderV2() {
         <HeaderSearch />
       </div>
 
-      {/* Right: Notifications + User Menu */}
-      <div className="flex items-center gap-2 ml-auto px-4">
+      {/* Right: Contacts + Messages + Notifications */}
+      <div className="flex items-center gap-2 ml-auto px-6">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
           <HeaderSearch />
         </div>
 
+        <HeaderContacts />
+        <HeaderMessages />
         <HeaderNotifications />
-        {user && <HeaderUserMenu />}
       </div>
     </header>
   );
