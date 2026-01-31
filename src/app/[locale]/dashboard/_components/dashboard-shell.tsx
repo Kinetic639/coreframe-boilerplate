@@ -90,14 +90,14 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="bg-muted border-b">
         <SidebarBranchSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navData.navMain} />
         <NavProjects projects={navData.projects} />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="bg-muted border-t">
         <NavUser user={userData} />
       </SidebarFooter>
       <SidebarRail />
@@ -109,9 +109,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
-        <main className="flex-1 overflow-auto p-4">{children}</main>
+        <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>
         <DashboardStatusBar />
       </SidebarInset>
     </SidebarProvider>

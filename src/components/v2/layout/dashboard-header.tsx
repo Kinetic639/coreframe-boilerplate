@@ -4,8 +4,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { HeaderSearch } from "./header-search";
 import { HeaderNotifications } from "./header-notifications";
-import { HeaderUserMenu } from "./header-user-menu";
-import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 
 /**
  * Dashboard Header V2
@@ -17,20 +15,18 @@ import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
  * - Sidebar toggle button (integrated from shadcn)
  * - Global search with command palette (Cmd+K)
  * - Notifications bell (placeholder)
- * - User profile menu with avatar
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Notifications + User menu
+ * - Right: Notifications
  *
  * SSR-first: Reads from Zustand stores hydrated on server
+ * Note: User menu is available in the sidebar footer
  */
 export function DashboardHeaderV2() {
-  const { user } = useUserStoreV2();
-
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 bg-muted/30 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-muted border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
@@ -41,7 +37,7 @@ export function DashboardHeaderV2() {
         <HeaderSearch />
       </div>
 
-      {/* Right: Notifications + User Menu */}
+      {/* Right: Notifications */}
       <div className="flex items-center gap-2 ml-auto px-4">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
@@ -49,7 +45,6 @@ export function DashboardHeaderV2() {
         </div>
 
         <HeaderNotifications />
-        {user && <HeaderUserMenu />}
       </div>
     </header>
   );
