@@ -13,6 +13,7 @@ import { NavMain, type NavItemLevel1 } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
+import { SidebarOrgHeader } from "./sidebar-org-header";
 import {
   BookOpen,
   Bot,
@@ -181,6 +182,7 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="bg-muted border-b">
+        <SidebarOrgHeader />
         <SidebarBranchSwitcher />
       </SidebarHeader>
       <SidebarContent>
