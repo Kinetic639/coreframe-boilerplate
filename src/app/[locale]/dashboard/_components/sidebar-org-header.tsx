@@ -28,10 +28,10 @@ export function SidebarOrgHeader() {
         </div>
       )}
 
-      {/* Name 1 and Name 2 */}
+      {/* Name and Name 2 */}
       <div className="flex flex-col min-w-0">
         <span className="truncate text-base">{activeOrg.name}</span>
-        <span className="truncate text-base">{activeOrg.slug || "Organization"}</span>
+        {activeOrg.name_2 && <span className="truncate text-base">{activeOrg.name_2}</span>}
       </div>
     </div>
   );
