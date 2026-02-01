@@ -9,7 +9,7 @@ import {
   SidebarRail,
   SidebarInset,
 } from "@/components/ui/sidebar";
-import { NavMain } from "@/components/nav-main";
+import { NavMain, type NavItemLevel1 } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
@@ -19,8 +19,11 @@ import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
 
-// Sample nav data - will be replaced with real module data later
-const navData = {
+// Sample nav data with up to 3 levels of nesting
+const navData: {
+  navMain: NavItemLevel1[];
+  projects: { name: string; url: string; icon: typeof Frame }[];
+} = {
   navMain: [
     {
       title: "Playground",
@@ -30,7 +33,16 @@ const navData = {
       items: [
         { title: "History", url: "#" },
         { title: "Starred", url: "#" },
-        { title: "Settings", url: "#" },
+        {
+          title: "Advanced",
+          url: "#",
+          isActive: true,
+          items: [
+            { title: "Experiments", url: "#" },
+            { title: "Sandbox", url: "#" },
+            { title: "Debug Tools", url: "#" },
+          ],
+        },
       ],
     },
     {
@@ -39,8 +51,23 @@ const navData = {
       icon: Bot,
       items: [
         { title: "Genesis", url: "#" },
-        { title: "Explorer", url: "#" },
-        { title: "Quantum", url: "#" },
+        {
+          title: "Explorer",
+          url: "#",
+          items: [
+            { title: "Data Explorer", url: "#" },
+            { title: "Query Builder", url: "#" },
+            { title: "Visualizer", url: "#" },
+          ],
+        },
+        {
+          title: "Quantum",
+          url: "#",
+          items: [
+            { title: "Algorithms", url: "#" },
+            { title: "Simulations", url: "#" },
+          ],
+        },
       ],
     },
     {
@@ -49,8 +76,24 @@ const navData = {
       icon: BookOpen,
       items: [
         { title: "Introduction", url: "#" },
-        { title: "Get Started", url: "#" },
-        { title: "Tutorials", url: "#" },
+        {
+          title: "Get Started",
+          url: "#",
+          items: [
+            { title: "Installation", url: "#" },
+            { title: "Quick Start", url: "#" },
+            { title: "Configuration", url: "#" },
+          ],
+        },
+        {
+          title: "Tutorials",
+          url: "#",
+          items: [
+            { title: "Beginner", url: "#" },
+            { title: "Intermediate", url: "#" },
+            { title: "Advanced", url: "#" },
+          ],
+        },
         { title: "Changelog", url: "#" },
       ],
     },
@@ -60,8 +103,24 @@ const navData = {
       icon: Settings2,
       items: [
         { title: "General", url: "#" },
-        { title: "Team", url: "#" },
-        { title: "Billing", url: "#" },
+        {
+          title: "Team",
+          url: "#",
+          items: [
+            { title: "Members", url: "#" },
+            { title: "Roles", url: "#" },
+            { title: "Permissions", url: "#" },
+          ],
+        },
+        {
+          title: "Billing",
+          url: "#",
+          items: [
+            { title: "Plans", url: "#" },
+            { title: "Invoices", url: "#" },
+            { title: "Payment Methods", url: "#" },
+          ],
+        },
         { title: "Limits", url: "#" },
       ],
     },
