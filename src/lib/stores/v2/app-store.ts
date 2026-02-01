@@ -20,7 +20,9 @@ export interface LoadedUserModuleV2 {
 export interface ActiveOrgV2 {
   id: string; // Normalized from DB organization_id
   name: string;
+  name_2: string | null;
   slug: string;
+  logo_url: string | null;
 }
 
 export interface AppContextV2 {

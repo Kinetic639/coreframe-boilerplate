@@ -132,13 +132,14 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
     activeOrgId = ownedOrgs?.id ?? null;
   }
 
-  // 3. Load minimal org snapshot (if activeOrgId exists)
+  // 3. Load minimal org snapshot with profile data (if activeOrgId exists)
   let activeOrg: ActiveOrgV2 | null = null;
 
   if (activeOrgId) {
+    // Query organization with joined profile data
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
-      .select("id, name, slug")
+      .select("id, name, slug, organization_profiles(name, name_2, slug, logo_url)")
       .eq("id", activeOrgId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -148,10 +149,20 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
     }
 
     if (orgData) {
+      const profile = orgData.organization_profiles as {
+        name: string | null;
+        name_2: string | null;
+        slug: string | null;
+        logo_url: string | null;
+      } | null;
+
       activeOrg = {
         id: orgData.id,
-        name: orgData.name,
-        slug: orgData.slug,
+        // Use profile name/slug if available, fallback to org name/slug
+        name: profile?.name || orgData.name,
+        name_2: profile?.name_2 || null,
+        slug: profile?.slug || orgData.slug,
+        logo_url: profile?.logo_url || null,
       };
     }
   }

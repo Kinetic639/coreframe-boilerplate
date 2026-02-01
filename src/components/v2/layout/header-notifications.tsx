@@ -152,7 +152,7 @@ export function HeaderNotifications() {
               <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            <div className="no-scrollbar overflow-y-auto max-h-[calc(100vh-200px)]">
+            <div className="no-scrollbar overflow-y-auto max-h-[calc(100vh-200px)] space-y-2">
               {notifications.map((notification) => {
                 const Icon = notificationIcons[notification.type];
                 return (
