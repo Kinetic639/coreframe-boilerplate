@@ -86,7 +86,7 @@ function NavLevel2Item({ item }: { item: NavItemLevel2 }) {
           </SidebarMenuSubButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub className="mx-0 ml-2 mr-0 px-0 pl-2.5 border-l border-sidebar-border">
+          <SidebarMenuSub className="mx-0 ml-2 mr-0 px-0 pl-2.5 border-l border-sidebar-foreground/20">
             {item.items?.map((subItem) => (
               <NavLevel3Item key={subItem.title} item={subItem} />
             ))}
