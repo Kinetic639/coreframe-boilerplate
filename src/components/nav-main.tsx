@@ -39,17 +39,25 @@ export type NavItemLevel1 = {
   items?: NavItemLevel2[];
 };
 
-// Tree line component - renders vertical connector line
-// h-[calc(100%+4px)] extends line to cover the gap-1 (4px) between items
-function TreeLine({ isLast }: { isLast: boolean }) {
+// Tree connector component - renders vertical and horizontal lines
+// h-[calc(100%+4px)] extends vertical line to cover the gap-1 (4px) between items
+function TreeConnector({ isLast }: { isLast: boolean }) {
   return (
-    <span
-      className={cn(
-        "absolute -left-2.5 top-0 w-px bg-sidebar-foreground/20",
-        isLast ? "h-[14px]" : "h-[calc(100%+4px)]"
-      )}
-      aria-hidden="true"
-    />
+    <>
+      {/* Vertical line */}
+      <span
+        className={cn(
+          "absolute -left-2.5 top-0 w-px bg-sidebar-foreground/20",
+          isLast ? "h-[14px]" : "h-[calc(100%+4px)]"
+        )}
+        aria-hidden="true"
+      />
+      {/* Horizontal line */}
+      <span
+        className="absolute -left-2.5 top-[13px] h-px w-2.5 bg-sidebar-foreground/20"
+        aria-hidden="true"
+      />
+    </>
   );
 }
 
@@ -57,7 +65,7 @@ function TreeLine({ isLast }: { isLast: boolean }) {
 function NavLevel3Item({ item, isLast }: { item: NavItemLevel3; isLast: boolean }) {
   return (
     <SidebarMenuSubItem>
-      <TreeLine isLast={isLast} />
+      <TreeConnector isLast={isLast} />
       <SidebarMenuSubButton asChild>
         <a href={item.url}>
           {item.icon && <item.icon className="size-3.5" />}
@@ -75,7 +83,7 @@ function NavLevel2Item({ item, isLast }: { item: NavItemLevel2; isLast: boolean 
   if (!hasChildren) {
     return (
       <SidebarMenuSubItem>
-        <TreeLine isLast={isLast} />
+        <TreeConnector isLast={isLast} />
         <SidebarMenuSubButton asChild>
           <a href={item.url}>
             {item.icon && <item.icon className="size-3.5" />}
@@ -88,7 +96,7 @@ function NavLevel2Item({ item, isLast }: { item: NavItemLevel2; isLast: boolean 
 
   return (
     <SidebarMenuSubItem>
-      <TreeLine isLast={isLast} />
+      <TreeConnector isLast={isLast} />
       <Collapsible defaultOpen={item.isActive} className="group/level2">
         <CollapsibleTrigger asChild>
           <SidebarMenuSubButton className="cursor-pointer w-full">

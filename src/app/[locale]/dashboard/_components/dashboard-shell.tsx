@@ -13,7 +13,31 @@ import { NavMain, type NavItemLevel1 } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
-import { BookOpen, Bot, Frame, Map, PieChart, Settings2, SquareTerminal } from "lucide-react";
+import {
+  BookOpen,
+  Bot,
+  Brain,
+  Bug,
+  Clock,
+  CreditCard,
+  Database,
+  FileText,
+  FlaskConical,
+  Frame,
+  GraduationCap,
+  Map,
+  PieChart,
+  Play,
+  Receipt,
+  Search,
+  Settings2,
+  Shield,
+  SquareTerminal,
+  Star,
+  Users,
+  Wrench,
+  Zap,
+} from "lucide-react";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
@@ -31,16 +55,17 @@ const navData: {
       icon: SquareTerminal,
       isActive: true,
       items: [
-        { title: "History", url: "#" },
-        { title: "Starred", url: "#" },
+        { title: "History", url: "#", icon: Clock },
+        { title: "Starred", url: "#", icon: Star },
         {
           title: "Advanced",
           url: "#",
+          icon: Wrench,
           isActive: true,
           items: [
-            { title: "Experiments", url: "#" },
-            { title: "Sandbox", url: "#" },
-            { title: "Debug Tools", url: "#" },
+            { title: "Experiments", url: "#", icon: FlaskConical },
+            { title: "Sandbox", url: "#", icon: Play },
+            { title: "Debug Tools", url: "#", icon: Bug },
           ],
         },
       ],
@@ -50,21 +75,23 @@ const navData: {
       url: "#",
       icon: Bot,
       items: [
-        { title: "Genesis", url: "#" },
+        { title: "Genesis", url: "#", icon: Zap },
         {
           title: "Explorer",
           url: "#",
+          icon: Search,
           items: [
-            { title: "Data Explorer", url: "#" },
+            { title: "Data Explorer", url: "#", icon: Database },
             { title: "Query Builder", url: "#" },
-            { title: "Visualizer", url: "#" },
+            { title: "Visualizer", url: "#", icon: PieChart },
           ],
         },
         {
           title: "Quantum",
           url: "#",
+          icon: Brain,
           items: [
-            { title: "Algorithms", url: "#" },
+            { title: "Algorithms", url: "#", icon: FlaskConical },
             { title: "Simulations", url: "#" },
           ],
         },
@@ -75,19 +102,21 @@ const navData: {
       url: "#",
       icon: BookOpen,
       items: [
-        { title: "Introduction", url: "#" },
+        { title: "Introduction", url: "#", icon: FileText },
         {
           title: "Get Started",
           url: "#",
+          icon: Play,
           items: [
             { title: "Installation", url: "#" },
-            { title: "Quick Start", url: "#" },
-            { title: "Configuration", url: "#" },
+            { title: "Quick Start", url: "#", icon: Zap },
+            { title: "Configuration", url: "#", icon: Settings2 },
           ],
         },
         {
           title: "Tutorials",
           url: "#",
+          icon: GraduationCap,
           items: [
             { title: "Beginner", url: "#" },
             { title: "Intermediate", url: "#" },
@@ -102,23 +131,25 @@ const navData: {
       url: "#",
       icon: Settings2,
       items: [
-        { title: "General", url: "#" },
+        { title: "General", url: "#", icon: Wrench },
         {
           title: "Team",
           url: "#",
+          icon: Users,
           items: [
-            { title: "Members", url: "#" },
+            { title: "Members", url: "#", icon: Users },
             { title: "Roles", url: "#" },
-            { title: "Permissions", url: "#" },
+            { title: "Permissions", url: "#", icon: Shield },
           ],
         },
         {
           title: "Billing",
           url: "#",
+          icon: CreditCard,
           items: [
             { title: "Plans", url: "#" },
-            { title: "Invoices", url: "#" },
-            { title: "Payment Methods", url: "#" },
+            { title: "Invoices", url: "#", icon: Receipt },
+            { title: "Payment Methods", url: "#", icon: CreditCard },
           ],
         },
         { title: "Limits", url: "#" },
