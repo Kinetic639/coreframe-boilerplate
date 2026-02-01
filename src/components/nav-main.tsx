@@ -68,7 +68,7 @@ function NavLevel3Item({ item, isLast }: { item: NavItemLevel3; isLast: boolean 
       <TreeConnector isLast={isLast} />
       <SidebarMenuSubButton asChild>
         <a href={item.url}>
-          {item.icon && <item.icon className="size-3.5" />}
+          {item.icon && <item.icon className="!text-inherit" />}
           <span>{item.title}</span>
         </a>
       </SidebarMenuSubButton>
@@ -86,7 +86,7 @@ function NavLevel2Item({ item, isLast }: { item: NavItemLevel2; isLast: boolean 
         <TreeConnector isLast={isLast} />
         <SidebarMenuSubButton asChild>
           <a href={item.url}>
-            {item.icon && <item.icon className="size-3.5" />}
+            {item.icon && <item.icon className="!text-inherit" />}
             <span>{item.title}</span>
           </a>
         </SidebarMenuSubButton>
@@ -100,7 +100,7 @@ function NavLevel2Item({ item, isLast }: { item: NavItemLevel2; isLast: boolean 
       <Collapsible defaultOpen={item.isActive} className="group/level2">
         <CollapsibleTrigger asChild>
           <SidebarMenuSubButton className="cursor-pointer w-full">
-            {item.icon && <item.icon className="size-3.5" />}
+            {item.icon && <item.icon className="!text-inherit" />}
             <span>{item.title}</span>
             <ChevronRight
               className={cn(
