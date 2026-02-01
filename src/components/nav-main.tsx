@@ -39,10 +39,25 @@ export type NavItemLevel1 = {
   items?: NavItemLevel2[];
 };
 
+// Tree line component - renders vertical connector line
+// h-[calc(100%+4px)] extends line to cover the gap-1 (4px) between items
+function TreeLine({ isLast }: { isLast: boolean }) {
+  return (
+    <span
+      className={cn(
+        "absolute -left-2.5 top-0 w-px bg-sidebar-foreground/20",
+        isLast ? "h-[14px]" : "h-[calc(100%+4px)]"
+      )}
+      aria-hidden="true"
+    />
+  );
+}
+
 // Level 3 items (deepest level - no children)
-function NavLevel3Item({ item }: { item: NavItemLevel3 }) {
+function NavLevel3Item({ item, isLast }: { item: NavItemLevel3; isLast: boolean }) {
   return (
     <SidebarMenuSubItem>
+      <TreeLine isLast={isLast} />
       <SidebarMenuSubButton asChild>
         <a href={item.url}>
           {item.icon && <item.icon className="size-3.5" />}
@@ -54,12 +69,13 @@ function NavLevel3Item({ item }: { item: NavItemLevel3 }) {
 }
 
 // Level 2 items (can have level 3 children)
-function NavLevel2Item({ item }: { item: NavItemLevel2 }) {
+function NavLevel2Item({ item, isLast }: { item: NavItemLevel2; isLast: boolean }) {
   const hasChildren = item.items && item.items.length > 0;
 
   if (!hasChildren) {
     return (
       <SidebarMenuSubItem>
+        <TreeLine isLast={isLast} />
         <SidebarMenuSubButton asChild>
           <a href={item.url}>
             {item.icon && <item.icon className="size-3.5" />}
@@ -72,6 +88,7 @@ function NavLevel2Item({ item }: { item: NavItemLevel2 }) {
 
   return (
     <SidebarMenuSubItem>
+      <TreeLine isLast={isLast} />
       <Collapsible defaultOpen={item.isActive} className="group/level2">
         <CollapsibleTrigger asChild>
           <SidebarMenuSubButton className="cursor-pointer w-full">
@@ -86,9 +103,13 @@ function NavLevel2Item({ item }: { item: NavItemLevel2 }) {
           </SidebarMenuSubButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub className="mx-0 ml-2 mr-0 px-0 pl-2.5 border-l border-sidebar-foreground/20">
-            {item.items?.map((subItem) => (
-              <NavLevel3Item key={subItem.title} item={subItem} />
+          <SidebarMenuSub className="mx-0 ml-2 mr-0 px-0 pl-2.5 border-l-0">
+            {item.items?.map((subItem, index) => (
+              <NavLevel3Item
+                key={subItem.title}
+                item={subItem}
+                isLast={index === item.items!.length - 1}
+              />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
@@ -125,9 +146,13 @@ function NavLevel1Item({ item }: { item: NavItemLevel1 }) {
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub className="mx-0 ml-3.5 mr-2 px-0 pl-2.5">
-            {item.items?.map((subItem) => (
-              <NavLevel2Item key={subItem.title} item={subItem} />
+          <SidebarMenuSub className="mx-0 ml-3.5 mr-2 px-0 pl-2.5 border-l-0">
+            {item.items?.map((subItem, index) => (
+              <NavLevel2Item
+                key={subItem.title}
+                item={subItem}
+                isLast={index === item.items!.length - 1}
+              />
             ))}
           </SidebarMenuSub>
         </CollapsibleContent>
