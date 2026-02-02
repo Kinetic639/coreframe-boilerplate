@@ -150,18 +150,38 @@ updated_by UUID REFERENCES users(id)
 **File**: `supabase/tests/060_user_preferences_test.sql`
 **Status**: ✅ Complete (20 tests)
 
-#### Test Cases
+#### Test Cases (20 tests in file)
 
-- [ ] Test schema: all columns exist with correct types
-- [ ] Test RLS: user can select own preferences
-- [ ] Test RLS: user cannot select other's preferences
-- [ ] Test RLS: user can update own preferences
-- [ ] Test RLS: user cannot update other's preferences
-- [ ] Test RLS: audit insert works
-- [ ] Test RLS: audit select filtered correctly
-- [ ] Test JSONB: dashboard_settings merge works
-- [ ] Test FK: updated_by references valid user
-- [ ] Test default values applied correctly
+**Schema Tests (Tests 1-8):**
+
+- [x] user_preferences table exists
+- [x] display_name column exists
+- [x] dashboard_settings JSONB column exists
+- [x] notification_settings JSONB column exists
+- [x] module_settings JSONB column exists
+- [x] user_preference_audit table exists with all columns
+- [x] jsonb_deep_merge function exists
+
+**RLS Tests - user_preferences (Tests 9-12):**
+
+- [x] User can read their own preferences
+- [x] User cannot read other user preferences
+- [x] User can update their own preferences
+- [x] User cannot update other user preferences
+
+**RLS Tests - user_preference_audit (Tests 13-14):**
+
+- [x] User can read their own audit trail
+- [x] User cannot read other user audit trail
+
+**Functional Tests (Tests 15-20):**
+
+- [x] Default locale value is applied ('pl')
+- [x] jsonb_deep_merge merges nested objects correctly
+- [x] jsonb_deep_merge handles null target
+- [x] Dashboard settings stores complex JSONB structure
+- [x] Module settings stores per-module preferences
+- [x] RLS is enabled on both tables
 
 ---
 
