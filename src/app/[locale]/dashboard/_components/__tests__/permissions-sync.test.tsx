@@ -77,7 +77,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-456",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-456",
             name: "Main Branch",
@@ -144,7 +150,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: null,
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: null,
           availableBranches: [],
           userModules: [],
@@ -192,7 +204,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-1",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-1",
             name: "Branch 1",
@@ -293,7 +311,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-456",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-456",
             name: "Branch",
@@ -335,7 +359,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-456",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-456",
             name: "Branch",
@@ -379,7 +409,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-456",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-456",
             name: "Branch",
@@ -418,7 +454,13 @@ describe("PermissionsSync", () => {
         useAppStoreV2.getState().hydrateFromServer({
           activeOrgId: "org-123",
           activeBranchId: "branch-456",
-          activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+          activeOrg: {
+            id: "org-123",
+            name: "Test Org",
+            name_2: null,
+            slug: "test-org",
+            logo_url: null,
+          },
           activeBranch: {
             id: "branch-456",
             name: "Branch",

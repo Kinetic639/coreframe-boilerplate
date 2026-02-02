@@ -6,6 +6,7 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import type { DashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { PermissionsSync } from "./_components/permissions-sync";
+import { UiSettingsSync } from "./_components/ui-settings-sync";
 
 interface DashboardV2ProvidersProps {
   context: DashboardContextV2;
@@ -46,6 +47,7 @@ export function DashboardV2Providers({ context, children }: DashboardV2Providers
   return (
     <QueryClientProvider client={queryClient}>
       <PermissionsSync />
+      <UiSettingsSync />
       {children}
     </QueryClientProvider>
   );

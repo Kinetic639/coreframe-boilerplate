@@ -26,7 +26,13 @@ describe("loadDashboardContextV2", () => {
     const mockAppContext = {
       activeOrgId: "org-123",
       activeBranchId: "branch-456",
-      activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+      activeOrg: {
+        id: "org-123",
+        name: "Test Org",
+        name_2: null,
+        slug: "test-org",
+        logo_url: null,
+      },
       activeBranch: {
         id: "branch-456",
         name: "Main Branch",
@@ -52,7 +58,13 @@ describe("loadDashboardContextV2", () => {
     const mockAppContext = {
       activeOrgId: "org-123",
       activeBranchId: "branch-456",
-      activeOrg: { id: "org-123", name: "Test Org", slug: "test-org" },
+      activeOrg: {
+        id: "org-123",
+        name: "Test Org",
+        name_2: null,
+        slug: "test-org",
+        logo_url: null,
+      },
       activeBranch: {
         id: "branch-456",
         name: "Main Branch",
@@ -93,7 +105,13 @@ describe("loadDashboardContextV2", () => {
     const mockAppContext = {
       activeOrgId: "org-999",
       activeBranchId: "branch-888",
-      activeOrg: { id: "org-999", name: "Test Org", slug: "test-org" },
+      activeOrg: {
+        id: "org-999",
+        name: "Test Org",
+        name_2: null,
+        slug: "test-org",
+        logo_url: null,
+      },
       activeBranch: {
         id: "branch-888",
         name: "Main Branch",
