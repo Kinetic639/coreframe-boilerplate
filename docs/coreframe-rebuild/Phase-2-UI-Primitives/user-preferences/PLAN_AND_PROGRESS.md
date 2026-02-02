@@ -3,8 +3,8 @@
 **Created**: 2026-02-01
 **Updated**: 2026-02-02
 **Phase**: Phase 2 - UI Primitives
-**Status**: ✅ Backend Complete | 🔵 Tests In Progress
-**Overall Progress**: 100% (Backend) / 0% (Frontend UI Pages) / 50% (TypeScript Tests)
+**Status**: ✅ Backend Complete | ✅ Tests Complete
+**Overall Progress**: 100% (Backend) / 0% (Frontend UI Pages) / 100% (TypeScript Tests)
 
 ---
 
@@ -22,6 +22,7 @@
 | **UiSettingsSync Component** | ✅ Complete | `src/app/[locale]/dashboard/_components/ui-settings-sync.tsx` | Dual-layer sync          |
 | **UI Store Update**          | ✅ Complete | `src/lib/stores/v2/ui-store.ts`                               | Added \_lastSyncedAt     |
 | **TypeScript Types**         | ✅ Complete | `src/lib/types/user-preferences.ts`                           | Full type definitions    |
+| **TypeScript Unit Tests**    | ✅ Complete | Multiple `__tests__/` directories                             | 77 tests (TDD)           |
 
 **Legend**:
 
@@ -203,7 +204,7 @@ account.*               - Full account access (wildcard)
 
 #### Testing
 
-- [ ] Unit tests for each method (TDD - pending)
+- [x] Unit tests for each method (20 tests) - `src/server/services/__tests__/user-preferences.service.test.ts`
 - [x] JSONB merge behavior (via pgTAP tests)
 - [x] Validation handled by Zod schemas
 - [x] Audit trail via database trigger
@@ -310,11 +311,11 @@ account.*               - Full account access (wildcard)
 
 #### Testing
 
-- [ ] Test DB → localStorage sync on mount (TDD - pending)
-- [ ] Test localStorage → DB sync on change (TDD - pending)
-- [ ] Test debouncing prevents API spam (TDD - pending)
-- [ ] Test conflict resolution (newer wins) (TDD - pending)
-- [ ] Offline handling (graceful - silent error logging)
+- [x] Test DB → localStorage sync on mount (12 tests) - `src/app/[locale]/dashboard/_components/__tests__/ui-settings-sync.test.tsx`
+- [x] Test localStorage → DB sync on change
+- [x] Test debouncing prevents API spam
+- [x] Test conflict resolution (newer wins)
+- [x] Offline handling (graceful - silent error logging)
 
 ---
 
@@ -368,7 +369,11 @@ Routes and pages for user-account module will be implemented after backend is ve
 - [x] `npm run lint` - No linting errors
 - [x] `npm run build` - Build succeeds
 - [x] pgTAP tests pass (20/20)
-- [ ] TypeScript unit tests (TDD) - 🔵 In Progress
+- [x] TypeScript unit tests (TDD) - 77 tests passing
+  - Service layer: 20 tests
+  - Server actions: 21 tests
+  - React Query hooks: 24 tests
+  - UiSettingsSync component: 12 tests
 - [ ] Manual testing complete
 
 ### Security Verification
@@ -450,16 +455,15 @@ Routes and pages for user-account module will be implemented after backend is ve
 5. **UI Store**: Sync state tracking with \_lastSyncedAt, \_syncVersion, hydrateFromDb
 6. **UiSettingsSync**: Bidirectional sync component with 500ms debounce
 7. **Validation**: Comprehensive Zod schemas with XSS prevention, timezone/locale whitelists
+8. **TypeScript Unit Tests (TDD)**: 77 tests total
+   - Service layer: 20 tests (`src/server/services/__tests__/user-preferences.service.test.ts`)
+   - Server actions: 21 tests (`src/app/actions/user-preferences/__tests__/index.test.ts`)
+   - React Query hooks: 24 tests (`src/hooks/queries/user-preferences/__tests__/index.test.tsx`)
+   - UiSettingsSync component: 12 tests (`src/app/[locale]/dashboard/_components/__tests__/ui-settings-sync.test.tsx`)
 
 ### What's Pending 🔵
 
-1. **TypeScript Unit Tests (TDD)**:
-   - Service layer tests (~80% coverage target)
-   - Server action tests (~70% coverage target)
-   - React Query hook tests (~70% coverage target)
-   - UiSettingsSync component tests
-
-2. **Phase 4 - Module UI Pages** (Future):
+1. **Phase 4 - Module UI Pages** (Future):
    - `/dashboard/account/profile` - Edit display name, phone, avatar
    - `/dashboard/account/preferences` - Appearance, notifications, regional
    - `/dashboard/account/security` - Password, 2FA, sessions
@@ -468,4 +472,4 @@ Routes and pages for user-account module will be implemented after backend is ve
 ---
 
 **Last Updated**: 2026-02-02
-**Next Action**: Add TypeScript unit tests for TDD compliance, then implement Phase 4 UI pages
+**Next Action**: Implement Phase 4 UI pages for user account management
