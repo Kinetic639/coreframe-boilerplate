@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import {
   CommandDialog,
   CommandEmpty,
@@ -41,8 +41,8 @@ const defaultActions: QuickAction[] = [
     label: "Settings",
     description: "Manage your account settings",
     icon: <Settings className="h-4 w-4" />,
-    href: "/dashboard/settings",
-    keywords: ["preferences", "config"],
+    href: "/dashboard/account/preferences",
+    keywords: ["preferences", "config", "account"],
   },
   {
     id: "team",
@@ -89,7 +89,7 @@ export function QuickSwitcher({
       if (action.action) {
         action.action();
       } else if (action.href) {
-        router.push(action.href);
+        router.push(action.href as Parameters<typeof router.push>[0]);
       }
     },
     [router]

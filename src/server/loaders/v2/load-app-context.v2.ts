@@ -149,12 +149,9 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
     }
 
     if (orgData) {
-      const profile = orgData.organization_profiles as {
-        name: string | null;
-        name_2: string | null;
-        slug: string | null;
-        logo_url: string | null;
-      } | null;
+      // Handle Supabase join result - can be array (one-to-many) or object (one-to-one)
+      const profileData = orgData.organization_profiles;
+      const profile = Array.isArray(profileData) ? profileData[0] : profileData;
 
       activeOrg = {
         id: orgData.id,

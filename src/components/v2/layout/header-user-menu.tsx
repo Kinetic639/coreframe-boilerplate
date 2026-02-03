@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Settings, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { Link } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
@@ -32,7 +33,7 @@ import { signOutAction } from "@/app/[locale]/actions";
  */
 export function HeaderUserMenu() {
   const { user } = useUserStoreV2();
-  // const t = useTranslations("dashboard.header.userMenu"); // TODO: Add translations for menu items
+  const t = useTranslations("dashboard.header.userMenu");
 
   if (!user) {
     return null;
@@ -89,27 +90,23 @@ export function HeaderUserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/dashboard-old/account/profile" className="flex items-center cursor-pointer">
+          <Link href="/dashboard/account/profile" className="flex items-center cursor-pointer">
             <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+            <span>{t("profile")}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link
-            href="/dashboard-old/account/preferences"
-            className="flex items-center cursor-pointer"
-          >
+          <Link href="/dashboard/account/preferences" className="flex items-center cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
-            <span>Preferences</span>
+            <span>{t("preferences")}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {/* TODO: Update links to /dashboard/account/* when V2 account pages are implemented */}
         <DropdownMenuItem asChild>
           <form action={signOutAction} className="w-full">
             <button type="submit" className="flex w-full items-center text-left">
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Sign Out</span>
+              <span>{t("signOut")}</span>
             </button>
           </form>
         </DropdownMenuItem>

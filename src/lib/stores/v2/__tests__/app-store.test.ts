@@ -35,7 +35,9 @@ describe("useAppStoreV2", () => {
       const mockOrg: ActiveOrgV2 = {
         id: "org-123",
         name: "Test Organization",
+        name_2: null,
         slug: "test-org",
+        logo_url: null,
       };
 
       const mockBranches: BranchDataV2[] = [
@@ -119,7 +121,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-1",
           name: "First Org",
+          name_2: null,
           slug: "first-org",
+          logo_url: null,
         },
         activeBranch: firstBranches[0],
         availableBranches: firstBranches,
@@ -161,7 +165,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-2",
           name: "Second Org",
+          name_2: null,
           slug: "second-org",
+          logo_url: null,
         },
         activeBranch: secondBranches[0],
         availableBranches: secondBranches,
@@ -187,7 +193,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -223,7 +231,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -272,7 +282,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: branches[0],
         availableBranches: branches,
@@ -340,7 +352,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -391,7 +405,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -425,7 +441,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -472,7 +490,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: branches[0],
         availableBranches: branches,
@@ -484,7 +504,7 @@ describe("useAppStoreV2", () => {
       const state = useAppStoreV2.getState();
 
       // ActiveOrg should only have minimal fields
-      expect(Object.keys(state.activeOrg!)).toEqual(["id", "name", "slug"]);
+      expect(Object.keys(state.activeOrg!)).toEqual(["id", "name", "name_2", "slug", "logo_url"]);
 
       // BranchData should only have minimal fields
       const branchKeys = Object.keys(state.activeBranch!);
@@ -523,7 +543,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
@@ -565,7 +587,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: branch,
         availableBranches: [branch],
@@ -593,7 +617,9 @@ describe("useAppStoreV2", () => {
         activeOrg: {
           id: "org-123",
           name: "Test Org",
+          name_2: null,
           slug: "test-org",
+          logo_url: null,
         },
         activeBranch: {
           id: "branch-1",
