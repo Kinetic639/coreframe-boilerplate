@@ -352,7 +352,7 @@ describe("UserPreferencesService", () => {
       const result = await UserPreferencesService.updateDashboardSettings(
         mockSupabase,
         "user-123",
-        { ui: { sidebarCollapsed: true } }
+        { ui: { theme: "dark", sidebarCollapsed: true } }
       );
 
       expect(result.dashboardSettings.ui).toMatchObject({

@@ -382,12 +382,14 @@ describe("useUpdateDashboardSettingsMutation", () => {
     });
 
     await act(async () => {
-      result.current.mutate({ ui: { theme: "light" } });
+      result.current.mutate({ ui: { theme: "light", sidebarCollapsed: false } });
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(updateDashboardSettingsAction).toHaveBeenCalledWith({ ui: { theme: "light" } });
+    expect(updateDashboardSettingsAction).toHaveBeenCalledWith({
+      ui: { theme: "light", sidebarCollapsed: false },
+    });
     // No success toast for dashboard settings (silent update)
     expect(toast.success).not.toHaveBeenCalled();
   });
@@ -403,7 +405,7 @@ describe("useUpdateDashboardSettingsMutation", () => {
     });
 
     await act(async () => {
-      result.current.mutate({ ui: { sidebarCollapsed: true } });
+      result.current.mutate({ ui: { theme: "dark", sidebarCollapsed: true } });
     });
 
     await waitFor(() => expect(result.current.isError).toBe(true));

@@ -26,7 +26,9 @@ import type {
 /**
  * Result type for server actions
  */
-export type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+export type ActionResult<T> =
+  | { success: true; data: T; error?: undefined }
+  | { success: false; error: string; data?: undefined };
 
 /**
  * Format Zod validation errors into a readable string
@@ -41,22 +43,41 @@ function formatZodError(error: ZodError): string {
 }
 
 /**
+ * Authenticate user via getUser() which validates the JWT against Supabase Auth.
+ *
+ * IMPORTANT: getUser() is preferred over getSession() for server-side auth because
+ * getSession() only reads from cookies without validating the token against the server.
+ *
+ * @returns Supabase client and authenticated user ID, or an error result
+ */
+async function authenticateUser(): Promise<
+  | { supabase: Awaited<ReturnType<typeof createClient>>; userId: string; error?: undefined }
+  | { error: string; supabase?: undefined; userId?: undefined }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { error: "Not authenticated" };
+  }
+
+  return { supabase, userId: user.id };
+}
+
+/**
  * Get current user's preferences
  *
  * @returns User preferences or error
  */
 export async function getUserPreferencesAction(): Promise<ActionResult<UserPreferences>> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    const prefs = await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    const prefs = await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     return { success: true, data: prefs };
   } catch (error) {
@@ -79,16 +100,10 @@ export async function getDashboardSettingsAction(): Promise<
   ActionResult<DashboardSettings | null>
 > {
   try {
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    const settings = await UserPreferencesService.getDashboardSettings(supabase, session.user.id);
+    const settings = await UserPreferencesService.getDashboardSettings(auth.supabase, auth.userId);
 
     // Return null if not found (distinguishable from empty settings {})
     return { success: true, data: settings };
@@ -109,24 +124,16 @@ export async function getDashboardSettingsAction(): Promise<
  */
 export async function updateProfileAction(input: unknown): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = updateProfileSchema.parse(input);
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateProfile(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated as UpdateProfileInput
     );
 
@@ -153,24 +160,16 @@ export async function updateRegionalSettingsAction(
   input: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod (includes timezone/locale validation)
     const validated = updateRegionalSchema.parse(input);
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateRegionalSettings(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated as UpdateRegionalInput
     );
 
@@ -197,24 +196,16 @@ export async function updateNotificationSettingsAction(
   settings: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = updateNotificationSettingsSchema.parse(settings);
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateNotificationSettings(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated as Partial<NotificationSettings>
     );
 
@@ -243,24 +234,16 @@ export async function updateDashboardSettingsAction(
   settings: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = updateDashboardSettingsSchema.parse(settings);
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateDashboardSettings(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated as Partial<DashboardSettings>
     );
 
@@ -289,28 +272,20 @@ export async function updateModuleSettingsAction(
   settings: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate inputs with Zod
     const validatedModuleId = moduleIdSchema.parse(moduleId);
     const validatedInput = updateModuleSettingsSchema.parse({
       moduleId: validatedModuleId,
       settings,
     });
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateModuleSettings(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validatedInput.moduleId,
       validatedInput.settings as Record<string, unknown>
     );
@@ -341,24 +316,16 @@ export async function syncUiSettingsAction(
   settings: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = syncUiSettingsSchema.parse(settings);
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.syncUiSettings(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated as SyncUiSettingsInput
     );
 
@@ -387,24 +354,16 @@ export async function setDefaultOrganizationAction(
   organizationId: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = setDefaultOrganizationSchema.parse({ organizationId });
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.setDefaultOrganization(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated.organizationId
     );
 
@@ -431,24 +390,16 @@ export async function setDefaultBranchAction(
   branchId: unknown
 ): Promise<ActionResult<UserPreferences>> {
   try {
-    // Validate input with Zod
     const validated = setDefaultBranchSchema.parse({ branchId });
 
-    const supabase = await createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
 
-    if (!session) {
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Ensure preferences exist
-    await UserPreferencesService.getOrCreatePreferences(supabase, session.user.id);
+    await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.setDefaultBranch(
-      supabase,
-      session.user.id,
+      auth.supabase,
+      auth.userId,
       validated.branchId
     );
 

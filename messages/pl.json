@@ -5,10 +5,66 @@
   "PreferencesPage": {
     "title": "Preferencje",
     "description": "Zarządzaj preferencjami konta i ustawieniami",
+    "appearance": "Wygląd",
+    "appearanceDescription": "Dostosuj wygląd aplikacji",
     "theme": "Motyw",
     "themeDescription": "Wybierz preferowany wygląd motywu",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Systemowy",
+    "colorTheme": "Schemat kolorów",
+    "colorThemeDescription": "Wybierz preferowaną paletę kolorów",
     "language": "Język",
-    "languageDescription": "Wybierz preferowany język"
+    "languageDescription": "Wybierz preferowany język",
+    "regional": "Ustawienia regionalne",
+    "regionalDescription": "Skonfiguruj strefę czasową, format daty i czasu",
+    "timezone": "Strefa czasowa",
+    "dateFormat": "Format daty",
+    "timeFormat": "Format czasu",
+    "timeFormat24h": "24-godzinny",
+    "timeFormat12h": "12-godzinny",
+    "preview": "Podgląd",
+    "notifications": "Powiadomienia",
+    "notificationsDescription": "Skonfiguruj sposób otrzymywania powiadomień",
+    "emailNotifications": "Powiadomienia e-mail",
+    "emailNotificationsDescription": "Otrzymuj powiadomienia przez e-mail",
+    "pushNotifications": "Powiadomienia push",
+    "pushNotificationsDescription": "Otrzymuj powiadomienia push w przeglądarce",
+    "inAppNotifications": "Powiadomienia w aplikacji",
+    "inAppNotificationsDescription": "Wyświetlaj powiadomienia w aplikacji",
+    "quietHours": "Cisza nocna",
+    "quietHoursDescription": "Ustaw godziny wyciszenia powiadomień",
+    "startTime": "Godzina rozpoczęcia",
+    "endTime": "Godzina zakończenia",
+    "enabled": "Włączone",
+    "disabled": "Wyłączone",
+    "comingSoon": "Wkrótce",
+    "saved": "Ustawienia zapisane"
+  },
+  "ProfilePage": {
+    "title": "Profil",
+    "description": "Zarządzaj swoimi danymi osobowymi",
+    "displayName": "Nazwa wyświetlana",
+    "displayNamePlaceholder": "Wpisz swoją nazwę wyświetlaną",
+    "phone": "Numer telefonu",
+    "phonePlaceholder": "Wpisz swój numer telefonu",
+    "email": "E-mail",
+    "avatar": "Zdjęcie profilowe",
+    "accountInfo": "Informacje o koncie",
+    "accountId": "ID konta",
+    "emailVerified": "E-mail zweryfikowany",
+    "lastSignIn": "Ostatnie logowanie",
+    "roles": "Role",
+    "yes": "Tak",
+    "no": "Nie",
+    "save": "Zapisz zmiany",
+    "saving": "Zapisywanie...",
+    "profileUpdated": "Profil został zaktualizowany"
+  },
+  "AccountPage": {
+    "title": "Konto",
+    "profile": "Profil",
+    "preferences": "Preferencje"
   },
   "authForms": {
     "AuthButton": {
@@ -1393,6 +1449,11 @@
           "title": "INNE",
           "document": "Dokument"
         }
+      },
+      "userMenu": {
+        "profile": "Profil",
+        "preferences": "Preferencje",
+        "signOut": "Wyloguj się"
       }
     }
   },

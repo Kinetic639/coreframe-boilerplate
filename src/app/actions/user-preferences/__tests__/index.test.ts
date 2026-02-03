@@ -66,8 +66,8 @@ describe("getUserPreferencesAction", () => {
   it("should return preferences when authenticated", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -86,8 +86,8 @@ describe("getUserPreferencesAction", () => {
   it("should return error when not authenticated", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: null },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
         }),
       },
     };
@@ -104,8 +104,8 @@ describe("getUserPreferencesAction", () => {
   it("should return error on service failure", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -131,8 +131,8 @@ describe("getDashboardSettingsAction", () => {
   it("should return dashboard settings when authenticated", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -152,8 +152,8 @@ describe("getDashboardSettingsAction", () => {
   it("should return null when user has no preferences", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -177,8 +177,8 @@ describe("updateProfileAction", () => {
   it("should update profile with valid input", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -200,8 +200,8 @@ describe("updateProfileAction", () => {
   it("should reject invalid display name (XSS attempt)", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -218,8 +218,8 @@ describe("updateProfileAction", () => {
   it("should reject invalid phone number", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -242,8 +242,8 @@ describe("updateRegionalSettingsAction", () => {
   it("should update regional settings with valid timezone", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -265,8 +265,8 @@ describe("updateRegionalSettingsAction", () => {
   it("should reject invalid timezone", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -283,8 +283,8 @@ describe("updateRegionalSettingsAction", () => {
   it("should reject invalid locale", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -307,8 +307,8 @@ describe("updateNotificationSettingsAction", () => {
   it("should update notification settings", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -336,8 +336,8 @@ describe("updateDashboardSettingsAction", () => {
   it("should update dashboard settings", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -365,8 +365,8 @@ describe("updateModuleSettingsAction", () => {
   it("should update module settings with valid input", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -388,8 +388,8 @@ describe("updateModuleSettingsAction", () => {
   it("should reject invalid module ID format", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -412,8 +412,8 @@ describe("syncUiSettingsAction", () => {
   it("should sync UI settings", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -436,8 +436,8 @@ describe("syncUiSettingsAction", () => {
   it("should reject invalid updatedAt timestamp", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -463,8 +463,8 @@ describe("setDefaultOrganizationAction", () => {
   it("should set default organization with valid UUID", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -486,8 +486,8 @@ describe("setDefaultOrganizationAction", () => {
   it("should reject invalid organization ID", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -510,8 +510,8 @@ describe("setDefaultBranchAction", () => {
   it("should set default branch with valid UUID", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };
@@ -533,8 +533,8 @@ describe("setDefaultBranchAction", () => {
   it("should reject invalid branch ID", async () => {
     const mockSupabase = {
       auth: {
-        getSession: vi.fn().mockResolvedValue({
-          data: { session: { user: { id: "user-123" } } },
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
         }),
       },
     };

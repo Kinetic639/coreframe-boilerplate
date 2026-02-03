@@ -1,8 +1,28 @@
 # User Preferences UI Implementation Plan
 
 **Created**: 2026-02-03
-**Status**: Planning
+**Updated**: 2026-02-03
+**Status**: 🔵 In Progress
 **Depends On**: Backend (Complete), UiSettingsSync (Complete), React Query Hooks (Complete)
+
+---
+
+## Progress Tracker
+
+| Step | Task                                      | Status         | Notes                            |
+| ---- | ----------------------------------------- | -------------- | -------------------------------- |
+| 0    | Assign account permissions to roles       | ⚪ Not Started | DB migration                     |
+| 1    | Create account layout and route structure | ⚪ Not Started | Layout + redirect + i18n routing |
+| 2    | Preferences page - Appearance             | ⚪ Not Started | Theme + color theme              |
+| 3    | Preferences page - Regional               | ⚪ Not Started | Language, timezone, date/time    |
+| 4    | Preferences page - Notifications          | ⚪ Not Started | Channel toggles + quiet hours    |
+| 5    | Profile page                              | ⚪ Not Started | Display name, phone, avatar      |
+| 6    | Update module config & navigation         | ⚪ Not Started | Fix old routes                   |
+| 7    | Expand i18n messages                      | ⚪ Not Started | en.json + pl.json                |
+| 8    | Color theme DB sync (optional)            | ⚪ Not Started | Cross-device color persistence   |
+| 9    | QA - type-check, lint, build              | ⚪ Not Started | Final verification               |
+
+**Legend**: ✅ Complete | 🔵 In Progress | ⚪ Not Started | ❌ Blocked
 
 ---
 

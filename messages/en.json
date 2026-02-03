@@ -5,10 +5,66 @@
   "PreferencesPage": {
     "title": "Preferences",
     "description": "Manage your account preferences and settings",
+    "appearance": "Appearance",
+    "appearanceDescription": "Customize the look and feel of the application",
     "theme": "Theme",
     "themeDescription": "Choose your preferred theme appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "colorTheme": "Color Theme",
+    "colorThemeDescription": "Choose your preferred color palette",
     "language": "Language",
-    "languageDescription": "Select your preferred language"
+    "languageDescription": "Select your preferred language",
+    "regional": "Regional Settings",
+    "regionalDescription": "Configure timezone, date and time formats",
+    "timezone": "Timezone",
+    "dateFormat": "Date Format",
+    "timeFormat": "Time Format",
+    "timeFormat24h": "24-hour",
+    "timeFormat12h": "12-hour",
+    "preview": "Preview",
+    "notifications": "Notifications",
+    "notificationsDescription": "Configure how you receive notifications",
+    "emailNotifications": "Email Notifications",
+    "emailNotificationsDescription": "Receive notifications via email",
+    "pushNotifications": "Push Notifications",
+    "pushNotificationsDescription": "Receive push notifications in browser",
+    "inAppNotifications": "In-App Notifications",
+    "inAppNotificationsDescription": "Show notifications within the application",
+    "quietHours": "Quiet Hours",
+    "quietHoursDescription": "Set times when notifications are silenced",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "comingSoon": "Coming soon",
+    "saved": "Settings saved"
+  },
+  "ProfilePage": {
+    "title": "Profile",
+    "description": "Manage your personal information",
+    "displayName": "Display Name",
+    "displayNamePlaceholder": "Enter your display name",
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter your phone number",
+    "email": "Email",
+    "avatar": "Profile Photo",
+    "accountInfo": "Account Information",
+    "accountId": "Account ID",
+    "emailVerified": "Email Verified",
+    "lastSignIn": "Last Sign In",
+    "roles": "Roles",
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "profileUpdated": "Profile updated successfully"
+  },
+  "AccountPage": {
+    "title": "Account",
+    "profile": "Profile",
+    "preferences": "Preferences"
   },
   "authForms": {
     "AuthButton": {
@@ -1422,6 +1478,11 @@
           "title": "OTHER",
           "document": "Document"
         }
+      },
+      "userMenu": {
+        "profile": "Profile",
+        "preferences": "Preferences",
+        "signOut": "Sign Out"
       }
     }
   },

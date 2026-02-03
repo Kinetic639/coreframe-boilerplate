@@ -477,7 +477,21 @@ export const routing = defineRouting({
       pl: "/dashboard-old/dev/test-subskrypcji",
     },
 
-    // === User Account module ===
+    // === User Account module (V2) ===
+    "/dashboard/account": {
+      en: "/dashboard/account",
+      pl: "/dashboard/konto",
+    },
+    "/dashboard/account/profile": {
+      en: "/dashboard/account/profile",
+      pl: "/dashboard/konto/profil",
+    },
+    "/dashboard/account/preferences": {
+      en: "/dashboard/account/preferences",
+      pl: "/dashboard/konto/ustawienia",
+    },
+
+    // === User Account module (Legacy) ===
     "/dashboard-old/account/profile": {
       en: "/dashboard-old/account/profile",
       pl: "/dashboard-old/konto/profil",

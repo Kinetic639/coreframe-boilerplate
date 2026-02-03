@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { useUiStoreV2, selectUiSyncState } from "@/lib/stores/v2/ui-store";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import {
   useDashboardSettingsQuery,
   useSyncUiSettingsMutation,
@@ -40,9 +40,9 @@ export function UiSettingsSync() {
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(false);
 
-  // Zustand store
-  const { _lastSyncedAt, _syncVersion } = useUiStoreV2(selectUiSyncState);
-
+  // Zustand store - select primitives individually to avoid creating new objects
+  const _lastSyncedAt = useUiStoreV2((state) => state._lastSyncedAt);
+  const _syncVersion = useUiStoreV2((state) => state._syncVersion);
   const hydrateFromDb = useUiStoreV2((state) => state.hydrateFromDb);
   const setLastSyncedAt = useUiStoreV2((state) => state.setLastSyncedAt);
   const getSettingsForSync = useUiStoreV2((state) => state.getSettingsForSync);
