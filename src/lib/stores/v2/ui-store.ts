@@ -5,6 +5,8 @@ interface UiStoreV2State {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
   theme: "light" | "dark" | "system";
+  /** Color theme/palette name */
+  colorTheme: string;
   /** Timestamp of last successful DB sync (ISO string) */
   _lastSyncedAt: string | null;
   /** Version counter for detecting changes since last sync */
@@ -15,17 +17,20 @@ interface UiStoreV2Actions {
   setSidebarOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setTheme: (theme: "light" | "dark" | "system") => void;
+  setColorTheme: (colorTheme: string) => void;
   /** Update last synced timestamp */
   setLastSyncedAt: (timestamp: string) => void;
   /** Hydrate UI state from database (used by UiSettingsSync) */
   hydrateFromDb: (settings: {
     theme?: "light" | "dark" | "system";
+    colorTheme?: string;
     sidebarCollapsed?: boolean;
     updatedAt?: string;
   }) => void;
   /** Get current UI settings for sync */
   getSettingsForSync: () => {
     theme: "light" | "dark" | "system";
+    colorTheme: string;
     sidebarCollapsed: boolean;
     updatedAt: string;
   };
@@ -37,6 +42,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
       sidebarOpen: true,
       sidebarCollapsed: false,
       theme: "system",
+      colorTheme: "default",
       _lastSyncedAt: null,
       _syncVersion: 0,
 
@@ -58,6 +64,12 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
           _syncVersion: state._syncVersion + 1,
         })),
 
+      setColorTheme: (colorTheme) =>
+        set((state) => ({
+          colorTheme,
+          _syncVersion: state._syncVersion + 1,
+        })),
+
       setLastSyncedAt: (timestamp) =>
         set({
           _lastSyncedAt: timestamp,
@@ -69,6 +81,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
 
         set((state) => ({
           ...(settings.theme !== undefined && { theme: settings.theme }),
+          ...(settings.colorTheme !== undefined && { colorTheme: settings.colorTheme }),
           ...(settings.sidebarCollapsed !== undefined && {
             sidebarCollapsed: settings.sidebarCollapsed,
           }),
@@ -80,6 +93,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
         const state = get();
         return {
           theme: state.theme,
+          colorTheme: state.colorTheme,
           sidebarCollapsed: state.sidebarCollapsed,
           updatedAt: new Date().toISOString(),
         };
@@ -92,6 +106,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
         sidebarOpen: state.sidebarOpen,
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
+        colorTheme: state.colorTheme,
         _lastSyncedAt: state._lastSyncedAt,
       }),
     }
@@ -103,6 +118,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
  */
 export const selectUiSyncState = (state: UiStoreV2State) => ({
   theme: state.theme,
+  colorTheme: state.colorTheme,
   sidebarCollapsed: state.sidebarCollapsed,
   _lastSyncedAt: state._lastSyncedAt,
   _syncVersion: state._syncVersion,

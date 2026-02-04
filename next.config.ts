@@ -6,6 +6,22 @@ const nextConfig = {
   images: {
     domains: ["avatars.githubusercontent.com", "zlcnlalwfmmtusigeuyk.supabase.co", "picsum.photos"],
   },
+  async redirects() {
+    return [
+      // English: /dashboard/account -> /dashboard/account/preferences
+      {
+        source: '/:locale/dashboard/account',
+        destination: '/:locale/dashboard/account/preferences',
+        permanent: true,
+      },
+      // Polish: /dashboard/konto -> /dashboard/konto/ustawienia
+      {
+        source: '/:locale/dashboard/konto',
+        destination: '/:locale/dashboard/konto/ustawienia',
+        permanent: true,
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"]

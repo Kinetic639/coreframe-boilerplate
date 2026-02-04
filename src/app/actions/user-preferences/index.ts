@@ -317,6 +317,7 @@ export async function syncUiSettingsAction(
 ): Promise<ActionResult<UserPreferences>> {
   try {
     const validated = syncUiSettingsSchema.parse(settings);
+    console.log("[syncUiSettingsAction] validated input:", validated);
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
@@ -329,6 +330,10 @@ export async function syncUiSettingsAction(
       validated as SyncUiSettingsInput
     );
 
+    console.log(
+      "[syncUiSettingsAction] result dashboardSettings.updated_at:",
+      prefs.dashboardSettings?.updated_at
+    );
     return { success: true, data: prefs };
   } catch (error) {
     if (error instanceof ZodError) {
