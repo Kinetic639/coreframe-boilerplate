@@ -8,16 +8,16 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      // English: /dashboard/account -> /dashboard/account/preferences
+      // English: /en/dashboard/account -> /en/dashboard/account/preferences
       {
-        source: '/:locale/dashboard/account',
-        destination: '/:locale/dashboard/account/preferences',
+        source: '/en/dashboard/account',
+        destination: '/en/dashboard/account/preferences',
         permanent: true,
       },
-      // Polish: /dashboard/konto -> /dashboard/konto/ustawienia
+      // Polish (default locale, no prefix): /dashboard/konto -> /dashboard/konto/ustawienia
       {
-        source: '/:locale/dashboard/konto',
-        destination: '/:locale/dashboard/konto/ustawienia',
+        source: '/dashboard/konto',
+        destination: '/dashboard/konto/ustawienia',
         permanent: true,
       },
     ];
