@@ -48,20 +48,6 @@ export default async function RootLayout({ children, params }: Props) {
 
   return (
     <html lang={locale} className={geistSans.className} suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('color-theme') || 'default';
-                if (theme !== 'default') {
-                  document.documentElement.setAttribute('data-theme', theme);
-                }
-              } catch (e) {}
-            `,
-          }}
-        />
-      </head>
       <body className="bg-background text-foreground">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider

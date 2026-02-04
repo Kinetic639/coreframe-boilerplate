@@ -3,6 +3,7 @@ import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
+import Script from "next/script";
 
 /**
  * Dashboard V2 Layout
@@ -26,9 +27,25 @@ export default async function DashboardV2Layout({ children }: { children: React.
   }
 
   return (
-    <DashboardV2Providers context={context}>
-      <DashboardShell>{children}</DashboardShell>
-    </DashboardV2Providers>
+    <>
+      <Script
+        id="color-theme-loader"
+        strategy="beforeInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              const theme = localStorage.getItem('color-theme') || 'default';
+              if (theme !== 'default') {
+                document.documentElement.setAttribute('data-theme', theme);
+              }
+            } catch (e) {}
+          `,
+        }}
+      />
+      <DashboardV2Providers context={context}>
+        <DashboardShell>{children}</DashboardShell>
+      </DashboardV2Providers>
+    </>
   );
 }
 // Force rebuild: 1769765116

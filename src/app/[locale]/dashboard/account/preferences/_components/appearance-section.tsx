@@ -21,7 +21,13 @@ export function AppearanceSection() {
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
   const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
   const [mounted, setMounted] = useState(false);
-  const [currentColorTheme, setCurrentColorTheme] = useState("default");
+  // Initialize from localStorage synchronously to prevent flash
+  const [currentColorTheme, setCurrentColorTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(COLOR_THEME_STORAGE_KEY) || "default";
+    }
+    return "default";
+  });
 
   // Listen for color theme changes from other components (e.g. status bar)
   const handleExternalColorChange = useCallback((e: Event) => {
@@ -33,10 +39,6 @@ export function AppearanceSection() {
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem(COLOR_THEME_STORAGE_KEY);
-    if (saved) {
-      setCurrentColorTheme(saved);
-    }
   }, []);
 
   useEffect(() => {
