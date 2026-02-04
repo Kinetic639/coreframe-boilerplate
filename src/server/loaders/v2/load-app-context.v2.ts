@@ -38,16 +38,18 @@ import type {
 async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   const supabase = await createClient();
 
-  // Get session
+  // Validate JWT against Supabase Auth (getUser() is preferred over getSession()
+  // because getSession() only reads cookies without server-side token validation)
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (authError || !user) {
     return null;
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   // 1. Load user preferences
   const { data: preferences, error: prefError } = await supabase

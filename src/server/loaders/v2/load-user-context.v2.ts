@@ -42,7 +42,21 @@ async function _loadUserContextV2(
 ): Promise<UserContextV2 | null> {
   const supabase = await createClient();
 
-  // Get session
+  // Validate JWT against Supabase Auth (getUser() is preferred over getSession()
+  // because getSession() only reads cookies without server-side token validation)
+  const {
+    data: { user: authUser },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !authUser) {
+    return null;
+  }
+
+  const userId = authUser.id;
+
+  // Get session for access_token (needed for JWT role extraction below).
+  // Auth has already been validated by getUser() above.
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -50,8 +64,6 @@ async function _loadUserContextV2(
   if (!session) {
     return null;
   }
-
-  const userId = session.user.id;
 
   // 1. Load user identity from users table
   const { data: userData, error: userError } = await supabase
@@ -75,9 +87,9 @@ async function _loadUserContextV2(
       }
     : {
         id: userId,
-        email: session.user.email!,
-        first_name: session.user.user_metadata?.first_name || null,
-        last_name: session.user.user_metadata?.last_name || null,
+        email: authUser.email!,
+        first_name: authUser.user_metadata?.first_name || null,
+        last_name: authUser.user_metadata?.last_name || null,
         avatar_url: null,
       };
 

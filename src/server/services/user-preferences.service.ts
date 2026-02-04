@@ -341,6 +341,8 @@ export class UserPreferencesService {
       throw new Error("User preferences not found");
     }
 
+    console.log("[syncUiSettings] current dashboardSettings:", current.dashboardSettings);
+
     // Build UI settings update
     const uiSettings = {
       ...(current.dashboardSettings.ui || {}),
@@ -353,11 +355,16 @@ export class UserPreferencesService {
       }),
     };
 
+    // Timestamp generated server-side to avoid client clock-skew in conflict resolution
+    const serverTimestamp = new Date().toISOString();
+
     const mergedSettings: DashboardSettings = {
       ...current.dashboardSettings,
       ui: uiSettings,
-      updated_at: settings.updatedAt,
+      updated_at: serverTimestamp,
     };
+
+    console.log("[syncUiSettings] mergedSettings:", mergedSettings);
 
     const { data, error } = await supabase
       .from("user_preferences")
