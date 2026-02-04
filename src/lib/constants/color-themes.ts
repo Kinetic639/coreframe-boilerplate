@@ -8,10 +8,10 @@ export interface ColorTheme {
 }
 
 export const COLOR_THEMES: ColorTheme[] = [
-  { name: "default", label: "Default", colors: ["#e87952", "#5b9ad5", "#4472c4", "#ed7d31"] },
+  { name: "default", label: "Default", colors: ["#f59e0b", "#fbbf24", "#d97706", "#fcd34d"] },
+  { name: "sunset", label: "Sunset", colors: ["#e87952", "#5b9ad5", "#4472c4", "#ed7d31"] },
   { name: "graphite", label: "Graphite", colors: ["#606060", "#909090", "#565656", "#a8a8a8"] },
   { name: "doom64", label: "Doom 64", colors: ["#b71c1c", "#33691e", "#5b8ab8", "#ff6d00"] },
-  { name: "amber", label: "Amber", colors: ["#ff8000", "#ffa040", "#cc6600", "#ffb366"] },
   {
     name: "amethyst-haze",
     label: "Amethyst",

@@ -64,7 +64,11 @@
   "AccountPage": {
     "title": "Konto",
     "profile": "Profil",
-    "preferences": "Preferencje"
+    "preferences": "Preferencje",
+    "notifications": "Powiadomienia"
+  },
+  "NotificationsPage": {
+    "description": "Zarządzaj sposobem otrzymywania powiadomień i alertów."
   },
   "authForms": {
     "AuthButton": {

@@ -2,28 +2,26 @@
 
 import { usePreferencesQuery } from "@/hooks/queries/user-preferences";
 import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
-import { AppearanceSection } from "./appearance-section";
-import { RegionalSection } from "./regional-section";
+import { NotificationsSection } from "../../preferences/_components/notifications-section";
 
-interface PreferencesClientProps {
+interface NotificationsClientProps {
   translations: {
     description: string;
   };
 }
 
-export function PreferencesClient({ translations }: PreferencesClientProps) {
+export function NotificationsClient({ translations }: NotificationsClientProps) {
   const { data: preferences, isLoading } = usePreferencesQuery();
 
   if (isLoading) {
-    return <LoadingSkeleton variant="form" count={2} />;
+    return <LoadingSkeleton variant="form" count={1} />;
   }
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{translations.description}</p>
       <div className="grid gap-6 max-w-2xl">
-        <AppearanceSection />
-        <RegionalSection preferences={preferences ?? null} />
+        <NotificationsSection preferences={preferences ?? null} />
       </div>
     </div>
   );

@@ -114,6 +114,7 @@ export const updateDashboardSettingsSchema = z
 
 export const syncUiSettingsSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
+  colorTheme: z.string().optional(),
   sidebarCollapsed: z.boolean().optional(),
   collapsedSections: z.array(z.string()).optional(),
   updatedAt: z.string(),

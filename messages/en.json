@@ -64,7 +64,11 @@
   "AccountPage": {
     "title": "Account",
     "profile": "Profile",
-    "preferences": "Preferences"
+    "preferences": "Preferences",
+    "notifications": "Notifications"
+  },
+  "NotificationsPage": {
+    "description": "Manage how you receive notifications and alerts."
   },
   "authForms": {
     "AuthButton": {

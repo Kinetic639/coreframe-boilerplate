@@ -19,6 +19,7 @@ export function AppearanceSection() {
   const t = useTranslations("PreferencesPage");
   const { theme, setTheme } = useTheme();
   const setStoreTheme = useUiStoreV2((s) => s.setTheme);
+  const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
   const [mounted, setMounted] = useState(false);
   const [currentColorTheme, setCurrentColorTheme] = useState("default");
 
@@ -50,6 +51,7 @@ export function AppearanceSection() {
 
   const handleColorThemeChange = (themeName: string) => {
     setCurrentColorTheme(themeName);
+    setStoreColorTheme(themeName);
     document.documentElement.setAttribute("data-theme", themeName);
     localStorage.setItem(COLOR_THEME_STORAGE_KEY, themeName);
     window.dispatchEvent(new CustomEvent(COLOR_THEME_CHANGE_EVENT, { detail: themeName }));

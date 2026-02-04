@@ -9,8 +9,10 @@
  * Core UI settings that are persisted to database for cross-device sync
  */
 export interface UiSettings {
-  /** Theme preference */
+  /** Theme preference (light/dark mode) */
   theme: "light" | "dark" | "system";
+  /** Color theme/palette name */
+  colorTheme?: string;
   /** Whether sidebar is collapsed */
   sidebarCollapsed: boolean;
   /** Collapsed navigation sections */
@@ -222,6 +224,7 @@ export interface UpdateRegionalInput {
  */
 export interface SyncUiSettingsInput {
   theme?: "light" | "dark" | "system";
+  colorTheme?: string;
   sidebarCollapsed?: boolean;
   collapsedSections?: string[];
   updatedAt: string;

@@ -347,6 +347,7 @@ export class UserPreferencesService {
     const uiSettings = {
       ...(current.dashboardSettings.ui || {}),
       ...(settings.theme !== undefined && { theme: settings.theme }),
+      ...(settings.colorTheme !== undefined && { colorTheme: settings.colorTheme }),
       ...(settings.sidebarCollapsed !== undefined && {
         sidebarCollapsed: settings.sidebarCollapsed,
       }),

@@ -7,6 +7,7 @@ import {
   useDashboardSettingsQuery,
   useSyncUiSettingsMutation,
 } from "@/hooks/queries/user-preferences";
+import { COLOR_THEME_STORAGE_KEY, COLOR_THEME_CHANGE_EVENT } from "@/lib/constants/color-themes";
 
 /**
  * Debounce delay for syncing to database (ms)
@@ -105,6 +106,7 @@ export function UiSettingsSync() {
       if (uiSettings) {
         hydrateFromDb({
           theme: uiSettings.theme,
+          colorTheme: uiSettings.colorTheme,
           sidebarCollapsed: uiSettings.sidebarCollapsed,
           updatedAt: dbUpdatedAt,
         });
@@ -112,6 +114,14 @@ export function UiSettingsSync() {
         // Zustand.  Hydrating Zustand alone doesn't change the applied theme class.
         if (uiSettings.theme) {
           setNextTheme(uiSettings.theme);
+        }
+        // Apply color theme to DOM and sync with localStorage/event system
+        if (uiSettings.colorTheme) {
+          document.documentElement.setAttribute("data-theme", uiSettings.colorTheme);
+          localStorage.setItem(COLOR_THEME_STORAGE_KEY, uiSettings.colorTheme);
+          window.dispatchEvent(
+            new CustomEvent(COLOR_THEME_CHANGE_EVENT, { detail: uiSettings.colorTheme })
+          );
         }
       }
       lastSyncVersionRef.current = _syncVersion;

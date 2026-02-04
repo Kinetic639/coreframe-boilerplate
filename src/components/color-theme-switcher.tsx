@@ -16,6 +16,7 @@ import {
   COLOR_THEME_STORAGE_KEY,
   COLOR_THEME_CHANGE_EVENT,
 } from "@/lib/constants/color-themes";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 
 interface ColorThemeSwitcherProps {
   variant?: "button" | "icon";
@@ -25,6 +26,7 @@ interface ColorThemeSwitcherProps {
 export function ColorThemeSwitcher({ variant = "button", align = "end" }: ColorThemeSwitcherProps) {
   const [mounted, setMounted] = useState(false);
   const [currentTheme, setCurrentTheme] = useState("default");
+  const setStoreColorTheme = useUiStoreV2((s) => s.setColorTheme);
 
   // Listen for color theme changes from other components (e.g. preferences page)
   const handleExternalChange = useCallback((e: Event) => {
@@ -51,6 +53,7 @@ export function ColorThemeSwitcher({ variant = "button", align = "end" }: ColorT
 
   const handleThemeChange = (themeName: string) => {
     setCurrentTheme(themeName);
+    setStoreColorTheme(themeName);
     document.documentElement.setAttribute("data-theme", themeName);
     localStorage.setItem(COLOR_THEME_STORAGE_KEY, themeName);
     window.dispatchEvent(new CustomEvent(COLOR_THEME_CHANGE_EVENT, { detail: themeName }));
