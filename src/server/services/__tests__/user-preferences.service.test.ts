@@ -458,7 +458,7 @@ describe("UserPreferencesService", () => {
       const result = await UserPreferencesService.syncUiSettings(mockSupabase, "user-123", {
         theme: "light",
         sidebarCollapsed: true,
-        updatedAt: "2026-02-01T14:00:00Z",
+        clientUpdatedAt: "2026-02-01T14:00:00Z",
       });
 
       expect(result.dashboardSettings.ui?.theme).toBe("light");

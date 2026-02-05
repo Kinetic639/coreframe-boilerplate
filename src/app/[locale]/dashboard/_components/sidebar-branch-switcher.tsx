@@ -53,17 +53,17 @@ export function SidebarBranchSwitcher() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="default"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!p-1"
               disabled={isPending}
               tooltip={activeBranch.name}
             >
-              <div className="flex aspect-square size-6 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground">
+              <div className="flex aspect-square size-6 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
                 <Building2 className="size-3.5" />
               </div>
-              <span className="truncate font-medium flex-1 text-left text-sm">
+              <span className="truncate font-medium flex-1 text-left text-sm group-data-[collapsible=icon]:hidden">
                 {activeBranch.name}
               </span>
-              <ChevronsUpDown className="ml-auto" />
+              <ChevronsUpDown className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

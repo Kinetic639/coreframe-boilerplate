@@ -44,7 +44,6 @@ import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
-import { useEffect, useRef } from "react";
 
 // Sample nav data with up to 3 levels of nesting
 const navData: {
@@ -204,26 +203,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
 
-  // Track if this is the initial mount to avoid triggering sync on first render
-  const isInitialMount = useRef(true);
-
   // Sync sidebar state changes back to Zustand store
+  // Using controlled mode (open prop) for proper state synchronization
   const handleSidebarOpenChange = (open: boolean) => {
-    // Skip the initial mount to avoid overwriting localStorage value
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
     setSidebarCollapsed(!open);
   };
 
-  // Mark as mounted after first render
-  useEffect(() => {
-    isInitialMount.current = false;
-  }, []);
-
   return (
-    <SidebarProvider defaultOpen={!sidebarCollapsed} onOpenChange={handleSidebarOpenChange}>
+    <SidebarProvider open={!sidebarCollapsed} onOpenChange={handleSidebarOpenChange}>
       <AppSidebar />
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />

@@ -221,13 +221,39 @@ export interface UpdateRegionalInput {
 
 /**
  * UI settings sync input (from localStorage to DB)
+ *
+ * Used for manual Save to cloud functionality.
+ * Uses `clientUpdatedAt` for timestamp (future auto-sync ready).
  */
 export interface SyncUiSettingsInput {
   theme?: "light" | "dark" | "system";
   colorTheme?: string;
   sidebarCollapsed?: boolean;
   collapsedSections?: string[];
-  updatedAt: string;
+  clientUpdatedAt: string;
+}
+
+/**
+ * Response from GET /api/ui-settings
+ */
+export interface UiSettingsGetResponse {
+  success: boolean;
+  data?: {
+    ui?: UiSettings;
+    serverUpdatedAt?: string;
+    revision: number;
+  };
+  error?: string;
+}
+
+/**
+ * Response from POST /api/ui-settings
+ */
+export interface UiSettingsSyncResponse {
+  success: boolean;
+  serverUpdatedAt?: string;
+  revision?: number;
+  error?: string;
 }
 
 /**

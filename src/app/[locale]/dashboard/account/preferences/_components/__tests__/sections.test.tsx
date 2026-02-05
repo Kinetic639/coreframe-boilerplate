@@ -40,7 +40,22 @@ vi.mock("next-themes", () => ({
 }));
 
 vi.mock("@/lib/stores/v2/ui-store", () => ({
-  useUiStoreV2: () => mockSetStoreTheme,
+  useUiStoreV2: (selector: (state: Record<string, unknown>) => unknown) => {
+    const mockState = {
+      setTheme: mockSetStoreTheme,
+      setColorTheme: vi.fn(),
+      hydrateFromServer: vi.fn(),
+      resetToDefaults: vi.fn(),
+      getSettingsForSync: vi.fn().mockReturnValue({
+        theme: "light",
+        colorTheme: "default",
+        sidebarCollapsed: false,
+        clientUpdatedAt: new Date().toISOString(),
+      }),
+      _lastLocalChangeAt: "2026-02-01T12:00:00Z",
+    };
+    return selector(mockState);
+  },
 }));
 
 // Mock shadcn Select – radix portals and popovers are problematic in jsdom.
@@ -205,6 +220,73 @@ vi.mock("lucide-react", () => ({
   Globe: () => <span data-testid="icon-globe" />,
   Clock: () => <span data-testid="icon-clock" />,
   Bell: () => <span data-testid="icon-bell" />,
+  Cloud: () => <span data-testid="icon-cloud" />,
+  CloudUpload: () => <span data-testid="icon-cloud-upload" />,
+  CloudDownload: () => <span data-testid="icon-cloud-download" />,
+  RotateCcw: () => <span data-testid="icon-rotate-ccw" />,
+  Loader2: () => <span data-testid="icon-loader" />,
+}));
+
+// Mock Button component
+vi.mock("@/components/ui/button", () => ({
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    variant,
+    size,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    variant?: string;
+    size?: string;
+  }) => (
+    <button onClick={onClick} disabled={disabled} data-variant={variant} data-size={size}>
+      {children}
+    </button>
+  ),
+}));
+
+// Mock AlertDialog components
+vi.mock("@/components/ui/alert-dialog", () => ({
+  AlertDialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) => (
+    <div data-testid="alert-dialog" data-open={open}>
+      {open ? children : null}
+    </div>
+  ),
+  AlertDialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogAction: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => <button onClick={onClick}>{children}</button>,
+  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
+}));
+
+// Mock react-toastify
+vi.mock("react-toastify", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+// Mock sync-ui-settings fetch utilities
+vi.mock("@/lib/api/sync-ui-settings", () => ({
+  saveUiSettingsToCloud: vi
+    .fn()
+    .mockResolvedValue({ serverUpdatedAt: "2026-02-01T12:00:00Z", revision: 0 }),
+  loadUiSettingsFromCloud: vi
+    .fn()
+    .mockResolvedValue({ ui: null, serverUpdatedAt: null, revision: 0 }),
 }));
 
 // Mock color themes constant
