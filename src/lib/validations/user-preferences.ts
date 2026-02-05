@@ -112,13 +112,33 @@ export const updateDashboardSettingsSchema = z
 
 // ─── UI sync (localStorage → DB) ─────────────────────────────────────────────
 
-export const syncUiSettingsSchema = z.object({
-  theme: z.enum(["light", "dark", "system"]).optional(),
-  colorTheme: z.string().optional(),
-  sidebarCollapsed: z.boolean().optional(),
-  collapsedSections: z.array(z.string()).optional(),
-  updatedAt: z.string(),
-});
+/**
+ * Schema for syncing UI settings from client to server.
+ *
+ * Supports both `clientUpdatedAt` (preferred) and `updatedAt` (legacy) for backwards compatibility.
+ * Uses strict mode to reject unknown keys and transforms to normalize the output.
+ */
+export const syncUiSettingsSchema = z
+  .object({
+    theme: z.enum(["light", "dark", "system"]).optional(),
+    colorTheme: z.string().max(50).optional(),
+    sidebarCollapsed: z.boolean().optional(),
+    collapsedSections: z.array(z.string().max(100)).max(50).optional(),
+    clientUpdatedAt: z.string().optional(),
+    updatedAt: z.string().optional(), // legacy compat — drop after full rollout
+  })
+  .strict() // reject unknown keys
+  .refine((v) => v.clientUpdatedAt || v.updatedAt, {
+    message: "clientUpdatedAt is required",
+    path: ["clientUpdatedAt"],
+  })
+  .transform((v) => ({
+    theme: v.theme,
+    colorTheme: v.colorTheme,
+    sidebarCollapsed: v.sidebarCollapsed,
+    collapsedSections: v.collapsedSections,
+    clientUpdatedAt: v.clientUpdatedAt ?? v.updatedAt!,
+  }));
 
 // ─── Module settings ─────────────────────────────────────────────────────────
 

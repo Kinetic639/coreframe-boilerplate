@@ -29,7 +29,7 @@ export function AccountLayoutClient({ children }: AccountLayoutClientProps) {
           return (
             <Link
               key={tab.id}
-              href={tab.href}
+              href={tab.href as "/dashboard/account/preferences"}
               className={cn(
                 "flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
                 isActive

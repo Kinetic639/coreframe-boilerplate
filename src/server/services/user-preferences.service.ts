@@ -324,12 +324,13 @@ export class UserPreferencesService {
   /**
    * Sync UI settings from localStorage to database
    *
-   * Used by UiSettingsSync component for cross-device persistence.
+   * Used for manual Save to cloud functionality.
+   * Returns dashboard settings with server-generated timestamp for conflict resolution.
    *
    * @param supabase - Supabase client
    * @param userId - User ID
    * @param settings - UI settings to sync
-   * @returns Updated preferences
+   * @returns Updated preferences with dashboardSettings containing updated_at
    */
   static async syncUiSettings(
     supabase: SupabaseClient,
@@ -340,8 +341,6 @@ export class UserPreferencesService {
     if (!current) {
       throw new Error("User preferences not found");
     }
-
-    console.log("[syncUiSettings] current dashboardSettings:", current.dashboardSettings);
 
     // Build UI settings update
     const uiSettings = {
@@ -365,13 +364,11 @@ export class UserPreferencesService {
       updated_at: serverTimestamp,
     };
 
-    console.log("[syncUiSettings] mergedSettings:", mergedSettings);
-
     const { data, error } = await supabase
       .from("user_preferences")
       .update({
         dashboard_settings: mergedSettings,
-        updated_at: new Date().toISOString(),
+        updated_at: serverTimestamp,
         updated_by: userId,
       })
       .eq("user_id", userId)

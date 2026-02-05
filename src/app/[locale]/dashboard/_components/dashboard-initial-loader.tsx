@@ -1,6 +1,6 @@
 "use client";
 
-import { useDashboardSettingsQuery } from "@/hooks/queries/user-preferences";
+import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { Loader2 } from "lucide-react";
 
 interface DashboardInitialLoaderProps {
@@ -10,22 +10,19 @@ interface DashboardInitialLoaderProps {
 /**
  * Dashboard Initial Loader
  *
- * Shows a loading screen until initial settings are fetched from the database.
+ * Shows a loading screen until Zustand hydrates from localStorage.
  * This prevents flash of unstyled content (FOUC) and settings changing on screen.
  *
- * Flow:
- * 1. User logs in and is redirected to dashboard
- * 2. This component shows loading screen
- * 3. Settings are fetched from database
- * 4. Once fetched, dashboard content is shown with correct settings applied
+ * Uses _hasHydrated from Zustand's onRehydrateStorage callback - deterministic,
+ * no arbitrary timeouts, no React Query dependency that could cause re-render cascades.
  *
- * @param children - Dashboard content to show after settings load
+ * @param children - Dashboard content to show after hydration
  */
 export function DashboardInitialLoader({ children }: DashboardInitialLoaderProps) {
-  const { isFetched } = useDashboardSettingsQuery();
+  const hasHydrated = useUiStoreV2((s) => s._hasHydrated);
 
-  // Show loading screen until settings are fetched
-  if (!isFetched) {
+  // Show loading screen until Zustand hydrates from localStorage
+  if (!hasHydrated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -36,6 +33,6 @@ export function DashboardInitialLoader({ children }: DashboardInitialLoaderProps
     );
   }
 
-  // Settings loaded, show dashboard content
+  // Hydrated, show dashboard content
   return <>{children}</>;
 }

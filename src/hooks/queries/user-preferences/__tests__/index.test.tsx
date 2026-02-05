@@ -487,7 +487,7 @@ describe("useSyncUiSettingsMutation", () => {
       result.current.mutate({
         theme: "dark",
         sidebarCollapsed: true,
-        updatedAt: "2026-02-01T12:00:00Z",
+        clientUpdatedAt: "2026-02-01T12:00:00Z",
       });
     });
 
@@ -496,7 +496,7 @@ describe("useSyncUiSettingsMutation", () => {
     expect(syncUiSettingsAction).toHaveBeenCalledWith({
       theme: "dark",
       sidebarCollapsed: true,
-      updatedAt: "2026-02-01T12:00:00Z",
+      clientUpdatedAt: "2026-02-01T12:00:00Z",
     });
     // Silent mutation - no toast
     expect(toast.success).not.toHaveBeenCalled();
@@ -518,7 +518,7 @@ describe("useSyncUiSettingsMutation", () => {
     await act(async () => {
       result.current.mutate({
         theme: "light",
-        updatedAt: "2026-02-01T12:00:00Z",
+        clientUpdatedAt: "2026-02-01T12:00:00Z",
       });
     });
 
