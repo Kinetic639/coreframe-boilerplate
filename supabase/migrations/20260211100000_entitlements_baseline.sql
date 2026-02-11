@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS public.subscription_plans (
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'subscription_plans_name_key'
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conname = 'subscription_plans_name_key'
+      AND c.conrelid = 'public.subscription_plans'::regclass
   ) THEN
     ALTER TABLE public.subscription_plans ADD CONSTRAINT subscription_plans_name_key UNIQUE (name);
   END IF;
@@ -98,7 +100,9 @@ CREATE TABLE IF NOT EXISTS public.organization_subscriptions (
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'organization_subscriptions_status_check'
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conname = 'organization_subscriptions_status_check'
+      AND c.conrelid = 'public.organization_subscriptions'::regclass
   ) THEN
     ALTER TABLE public.organization_subscriptions
       ADD CONSTRAINT organization_subscriptions_status_check
@@ -110,7 +114,9 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'organization_subscriptions_organization_id_key'
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conname = 'organization_subscriptions_organization_id_key'
+      AND c.conrelid = 'public.organization_subscriptions'::regclass
   ) THEN
     ALTER TABLE public.organization_subscriptions
       ADD CONSTRAINT organization_subscriptions_organization_id_key UNIQUE (organization_id);
@@ -133,8 +139,9 @@ CREATE TABLE IF NOT EXISTS public.subscription_usage (
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'subscription_usage_organization_id_feature_key_period_start_key'
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conname = 'subscription_usage_organization_id_feature_key_period_start_key'
+      AND c.conrelid = 'public.subscription_usage'::regclass
   ) THEN
     ALTER TABLE public.subscription_usage
       ADD CONSTRAINT subscription_usage_organization_id_feature_key_period_start_key

@@ -153,9 +153,9 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '';
 
 -- Dev: Add module addon
--- Uses UPDATE-then-INSERT pattern because the uniqueness constraint is a
--- partial unique INDEX (WHERE status='active'), which cannot be targeted
--- by ON CONFLICT.
+-- Uses UPDATE-then-INSERT pattern. UPDATE matches ANY status (not just 'active')
+-- so that a previously canceled addon is reactivated instead of duplicated.
+-- Advisory lock prevents concurrent duplicate inserts.
 CREATE OR REPLACE FUNCTION public.dev_add_module_addon(
   p_org_id UUID,
   p_module_slug TEXT
@@ -167,14 +167,16 @@ BEGIN
     RAISE EXCEPTION 'Permission denied: not org owner';
   END IF;
 
-  -- Try to touch an existing active addon row
-  UPDATE public.organization_module_addons
-  SET updated_at = NOW(), status = 'active', ends_at = NULL
-  WHERE organization_id = p_org_id
-    AND module_slug = p_module_slug
-    AND status = 'active';
+  -- Prevent concurrent duplicate inserts for the same org+module
+  PERFORM pg_advisory_xact_lock(hashtext(p_org_id::text || ':' || p_module_slug));
 
-  -- If no active row existed, insert a new one
+  -- Try to reactivate any existing row (active or canceled)
+  UPDATE public.organization_module_addons
+  SET status = 'active', ends_at = NULL, updated_at = NOW()
+  WHERE organization_id = p_org_id
+    AND module_slug = p_module_slug;
+
+  -- If no row existed at all, insert a new one
   IF NOT FOUND THEN
     INSERT INTO public.organization_module_addons (
       organization_id,
