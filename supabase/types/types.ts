@@ -198,6 +198,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      app_config: {
+        Row: {
+          dev_mode_enabled: boolean;
+          id: number;
+          updated_at: string;
+        };
+        Insert: {
+          dev_mode_enabled?: boolean;
+          id?: number;
+          updated_at?: string;
+        };
+        Update: {
+          dev_mode_enabled?: boolean;
+          id?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       auth_debug: {
         Row: {
           created_at: string | null;
@@ -2018,6 +2036,89 @@ export type Database = {
           },
         ];
       };
+      organization_entitlements: {
+        Row: {
+          enabled_contexts: string[];
+          enabled_modules: string[];
+          features: Json;
+          limits: Json;
+          organization_id: string;
+          plan_id: string | null;
+          plan_name: string;
+          updated_at: string;
+        };
+        Insert: {
+          enabled_contexts?: string[];
+          enabled_modules?: string[];
+          features?: Json;
+          limits?: Json;
+          organization_id: string;
+          plan_id?: string | null;
+          plan_name: string;
+          updated_at?: string;
+        };
+        Update: {
+          enabled_contexts?: string[];
+          enabled_modules?: string[];
+          features?: Json;
+          limits?: Json;
+          organization_id?: string;
+          plan_id?: string | null;
+          plan_name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_entitlements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_entitlements_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "subscription_plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_limit_overrides: {
+        Row: {
+          created_at: string;
+          id: string;
+          limit_key: string;
+          organization_id: string;
+          override_value: number;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          limit_key: string;
+          organization_id: string;
+          override_value: number;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          limit_key?: string;
+          organization_id?: string;
+          override_value?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_limit_overrides_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_members: {
         Row: {
           created_at: string | null;
@@ -2062,6 +2163,47 @@ export type Database = {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_module_addons: {
+        Row: {
+          created_at: string;
+          ends_at: string | null;
+          id: string;
+          module_slug: string;
+          organization_id: string;
+          starts_at: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          ends_at?: string | null;
+          id?: string;
+          module_slug: string;
+          organization_id: string;
+          starts_at?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          ends_at?: string | null;
+          id?: string;
+          module_slug?: string;
+          organization_id?: string;
+          starts_at?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_module_addons_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -6451,6 +6593,7 @@ export type Database = {
           packages: number;
         }[];
       };
+      assert_dev_mode_enabled: { Args: never; Returns: undefined };
       calculate_current_stock: {
         Args: {
           p_branch_id: string;
@@ -6622,6 +6765,31 @@ export type Database = {
         Returns: Json;
       };
       custom_access_token_hook: { Args: { event: Json }; Returns: Json };
+      dev_add_module_addon: {
+        Args: { p_module_slug: string; p_org_id: string };
+        Returns: undefined;
+      };
+      dev_remove_module_addon: {
+        Args: { p_module_slug: string; p_org_id: string };
+        Returns: undefined;
+      };
+      dev_reset_org_to_free: { Args: { p_org_id: string }; Returns: undefined };
+      dev_set_limit_override: {
+        Args: {
+          p_limit_key: string;
+          p_org_id: string;
+          p_override_value: number;
+        };
+        Returns: undefined;
+      };
+      dev_set_org_plan: {
+        Args: { p_org_id: string; p_plan_name: string };
+        Returns: undefined;
+      };
+      dev_simulate_subscription_change: {
+        Args: { p_event_type: string; p_org_id: string; p_plan_name: string };
+        Returns: undefined;
+      };
       diag:
         | {
             Args: { msg: unknown };
@@ -6929,6 +7097,7 @@ export type Database = {
       is_empty: { Args: { "": string }; Returns: string };
       is_org_creator: { Args: { org_id: string }; Returns: boolean };
       is_org_member: { Args: { org_id: string }; Returns: boolean };
+      is_org_owner: { Args: { p_org_id: string }; Returns: boolean };
       isnt_empty: { Args: { "": string }; Returns: string };
       jsonb_deep_merge: { Args: { source: Json; target: Json }; Returns: Json };
       lives_ok: { Args: { "": string }; Returns: string };
@@ -6940,6 +7109,11 @@ export type Database = {
       pg_version: { Args: never; Returns: string };
       pg_version_num: { Args: never; Returns: number };
       pgtap_version: { Args: never; Returns: number };
+      recompute_all_entitlements: { Args: never; Returns: number };
+      recompute_organization_entitlements: {
+        Args: { p_org_id: string };
+        Returns: undefined;
+      };
       refresh_stock_snapshot: {
         Args: {
           p_branch_id: string;

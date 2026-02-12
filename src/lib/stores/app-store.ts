@@ -3,6 +3,7 @@ import type { Tables } from "../../../supabase/types/types";
 import { UserLocation } from "../types";
 import { createClient } from "@/utils/supabase/client";
 import type { OrganizationSubscriptionWithPlan } from "@/lib/services/subscription-service";
+import type { OrganizationEntitlements } from "@/lib/types/entitlements";
 
 // 🔸 Typ jednego modułu użytkownika
 export type LoadedUserModule = {
@@ -63,6 +64,7 @@ export type AppContext = {
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
   subscription: OrganizationSubscriptionWithPlan | null;
+  entitlements: OrganizationEntitlements | null; // Compiled entitlements (SSR-loaded)
 };
 
 // 🧠 Zustand store
@@ -78,7 +80,7 @@ type AppStore = AppContext & {
   setOrganizationUsers: (users: OrganizationUser[]) => void;
   setPrivateContacts: (contacts: PrivateContact[]) => void;
   updateAvailableBranches: (branches: BranchData[]) => void;
-  setActiveBranch: (branchId: string) => void;
+  setActiveBranch: (branchId: string) => Promise<void>;
   loadBranchData: (branchId: string) => Promise<void>;
   loadOrganizationUsers: () => Promise<void>;
   clear: () => void;
@@ -98,6 +100,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   location: null,
   locations: [],
   suppliers: [],
+  entitlements: null,
   organizationUsers: [],
   privateContacts: [],
   subscription: null,
