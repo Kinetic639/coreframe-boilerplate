@@ -83,13 +83,13 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockPreferences }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockPreferences }),
       };
 
       const mockOrgQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
       };
 
       const mockBranchQuery = {
@@ -137,7 +137,7 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockPreferences }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockPreferences }),
       };
 
       const mockOwnedOrgQuery = {
@@ -145,13 +145,13 @@ describe("loadAppContextServer", () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
         limit: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockOwnedOrg }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockOwnedOrg }),
       };
 
       const mockOrgProfileQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
       };
 
       const mockBranchQuery = {
@@ -185,7 +185,7 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockOwnedOrgQuery = {
@@ -193,7 +193,7 @@ describe("loadAppContextServer", () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
         limit: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockModulesQuery = {
@@ -246,13 +246,13 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockPreferences }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockPreferences }),
       };
 
       const mockOrgQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockOrgProfile }),
       };
 
       const mockBranchQuery = {
@@ -304,13 +304,13 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockPreferences }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockPreferences }),
       };
 
       const mockOrgQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockBranchQuery = {
@@ -358,13 +358,13 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: mockPreferences }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: mockPreferences }),
       };
 
       const mockOrgQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockBranchQuery = {
@@ -416,7 +416,7 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockOwnedOrgQuery = {
@@ -424,7 +424,7 @@ describe("loadAppContextServer", () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
         limit: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockModulesQuery = {
@@ -472,7 +472,7 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockOwnedOrgQuery = {
@@ -480,7 +480,7 @@ describe("loadAppContextServer", () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
         limit: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockModulesQuery = {
@@ -545,7 +545,7 @@ describe("loadAppContextServer", () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockOwnedOrgQuery = {
@@ -553,7 +553,7 @@ describe("loadAppContextServer", () => {
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
         limit: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null }),
       };
 
       const mockModulesQuery = {

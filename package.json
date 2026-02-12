@@ -16,11 +16,11 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "supabase:link:dev": "supabase link --project-ref zlcnlalwfmmtusigeuyk",
-    "supabase:link:prod": "supabase link --project-ref rsnjgdskfjwjozrmdwpd",
+    "supabase:link:dev": "supabase link --project-ref $SUPABASE_DEV_PROJECT_REF",
+    "supabase:link:prod": "supabase link --project-ref $SUPABASE_PROD_PROJECT_REF",
     "supabase:migration:new": "supabase migration new",
     "supabase:migration:up": "supabase migration up --linked",
-    "supabase:gen:types": "SUPABASE_ACCESS_TOKEN=sbp_b6e945b429c94e9d3535cf46eea87b8c33490d4d supabase gen types typescript --project-id zlcnlalwfmmtusigeuyk --schema public > supabase/types/types.ts"
+    "supabase:gen:types": "supabase gen types typescript --linked --schema public > supabase/types/types.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.1.25",

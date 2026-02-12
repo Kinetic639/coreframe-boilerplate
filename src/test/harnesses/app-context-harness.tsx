@@ -88,6 +88,7 @@ export const createMockAppContext = (overrides?: Partial<AppContext>): AppContex
   organizationUsers: [],
   privateContacts: [],
   subscription: null,
+  entitlements: null,
   ...overrides,
 });
 
@@ -144,6 +145,7 @@ export function updateAppContext(updates: Partial<AppContext>) {
     organizationUsers: currentContext.organizationUsers,
     privateContacts: currentContext.privateContacts,
     subscription: currentContext.subscription,
+    entitlements: currentContext.entitlements,
     ...updates,
   });
 }

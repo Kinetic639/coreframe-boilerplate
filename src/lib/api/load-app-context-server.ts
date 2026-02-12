@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Tables } from "../../../supabase/types/types";
 import { cache } from "react";
 import { AppContext, BranchData } from "@/lib/stores/app-store";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Helper function to safely spread objects (avoid spreading non-objects)
@@ -37,7 +38,17 @@ function safeObject(obj: unknown): Record<string, unknown> {
  */
 export async function _loadAppContextServer(): Promise<AppContext | null> {
   const supabase = await createClient();
+  return _loadAppContextServerWithClient(supabase);
+}
 
+/**
+ * Core implementation that accepts an injected Supabase client.
+ * Used by _loadAppContextServer (creates its own client) and by server actions
+ * that already have an authenticated client (avoids creating a duplicate).
+ */
+async function _loadAppContextServerWithClient(
+  supabase: SupabaseClient
+): Promise<AppContext | null> {
   // Get session
   const {
     data: { session },
@@ -49,11 +60,15 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
   const userId = session.user.id;
 
   // 1. Load user preferences
-  const { data: preferences } = await supabase
+  const { data: preferences, error: preferencesError } = await supabase
     .from("user_preferences")
     .select("organization_id, default_branch_id")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
+
+  if (preferencesError) {
+    console.error("[AppContext] Failed to load user_preferences:", preferencesError);
+  }
 
   // 2. Deterministic org selection: preferences ?? owned org ?? null
   let activeOrgId = preferences?.organization_id ?? null;
@@ -61,13 +76,17 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
   // Fallback: If no preferences.organization_id, find user's owned organization
   // Use deterministic ordering (oldest first) for consistent fallback
   if (!activeOrgId) {
-    const { data: ownedOrg } = await supabase
+    const { data: ownedOrg, error: ownedOrgError } = await supabase
       .from("organizations")
       .select("id")
       .eq("created_by", userId)
       .order("created_at", { ascending: true }) // Deterministic: oldest owned org first
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (ownedOrgError) {
+      console.error("[AppContext] Failed to load owned organization:", ownedOrgError);
+    }
 
     activeOrgId = ownedOrg?.id ?? null;
   }
@@ -76,26 +95,34 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
   let activeOrg = null;
 
   if (activeOrgId) {
-    const { data: orgProfile } = await supabase
+    const { data: orgProfile, error: orgProfileError } = await supabase
       .from("organization_profiles")
       .select(
         "organization_id, name, slug, logo_url, bio, theme_color, font_color, name_2, website"
       )
       .eq("organization_id", activeOrgId)
-      .single();
+      .maybeSingle();
+
+    if (orgProfileError) {
+      console.error("[AppContext] Failed to load organization_profiles:", orgProfileError);
+    }
 
     activeOrg = orgProfile;
   }
 
   // 4. Load branches for the organization (ordered by created_at ASC for deterministic fallback)
-  const { data: availableBranches } = activeOrgId
+  const { data: availableBranches, error: branchesError } = activeOrgId
     ? await supabase
         .from("branches")
         .select("*")
         .eq("organization_id", activeOrgId)
         .is("deleted_at", null)
         .order("created_at", { ascending: true }) // ASC for deterministic fallback to oldest/main branch
-    : { data: [] };
+    : { data: [], error: null };
+
+  if (branchesError) {
+    console.error("[AppContext] Failed to load branches:", branchesError);
+  }
 
   // 5. Determine active branch from preferences with deterministic fallback
   // Fallback chain: preferences.default_branch_id → first available branch (oldest) → null
@@ -116,11 +143,15 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
   const finalActiveBranchId = activeBranch?.id ?? null;
 
   // 6. Load user modules with merged settings (for feature gating)
-  const { data: userModulesRaw } = await supabase
+  const { data: userModulesRaw, error: userModulesError } = await supabase
     .from("user_modules")
     .select("setting_overrides, modules(*)")
     .eq("user_id", userId)
     .is("deleted_at", null);
+
+  if (userModulesError) {
+    console.error("[AppContext] Failed to load user_modules:", userModulesError);
+  }
 
   const userModules = (userModulesRaw ?? [])
     .map((entry) => {
@@ -149,7 +180,24 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     name: branch.name || "Unknown Branch",
   }));
 
-  // 8. Build and return app context
+  // 8. Load compiled entitlements (single row, contains everything needed for SSR)
+  let entitlements = null;
+
+  if (activeOrgId) {
+    const { data: entitlementsData, error: entitlementsError } = await supabase
+      .from("organization_entitlements")
+      .select("*")
+      .eq("organization_id", activeOrgId)
+      .maybeSingle();
+
+    if (entitlementsError) {
+      console.error("[AppContext] Failed to load organization_entitlements:", entitlementsError);
+    }
+
+    entitlements = entitlementsData;
+  }
+
+  // 9. Build and return app context
   return {
     activeOrgId,
     activeBranchId: finalActiveBranchId, // Use finalActiveBranchId to match activeBranch
@@ -177,7 +225,22 @@ export async function _loadAppContextServer(): Promise<AppContext | null> {
     privateContacts: [],
     // Subscription set to null (load lazily on client)
     subscription: null,
+    // Entitlements loaded in SSR (single source of truth)
+    entitlements,
   };
+}
+
+/**
+ * Load app context using an existing server Supabase client.
+ *
+ * For use in server actions that already have an authenticated client,
+ * avoiding the overhead of creating a second client and re-reading cookies.
+ * NOT cached — server actions should call this once per request.
+ */
+export async function loadAppContextWithClient(
+  supabase: SupabaseClient
+): Promise<AppContext | null> {
+  return _loadAppContextServerWithClient(supabase);
 }
 
 /**
