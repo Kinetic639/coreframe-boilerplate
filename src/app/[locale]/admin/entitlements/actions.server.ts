@@ -1,29 +1,11 @@
 "use server";
 
-import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { loadAppContextWithClient } from "@/lib/api/load-app-context-server";
 import {
   EntitlementsAdminService,
   AdminActionError,
 } from "@/server/services/entitlements-admin.service";
-import { LIMIT_KEYS } from "@/lib/types/entitlements";
-
-// ---------------------------------------------------------------------------
-// Zod schemas
-// ---------------------------------------------------------------------------
-export const planNameSchema = z.string().min(1, "Plan name is required");
-export const moduleSlugSchema = z.string().min(1, "Module slug is required");
-export const limitKeySchema = z.enum(Object.values(LIMIT_KEYS) as [string, ...string[]]);
-export const overrideValueSchema = z.coerce
-  .number({ invalid_type_error: "Override value must be a number" })
-  .int("Override value must be an integer")
-  .min(-1, "Override value must be >= -1");
-
-// ---------------------------------------------------------------------------
-// Route path for revalidation
-// ---------------------------------------------------------------------------
-export const ADMIN_PATH = "/[locale]/admin/entitlements";
 
 // ---------------------------------------------------------------------------
 // Shared auth + enforcement helper

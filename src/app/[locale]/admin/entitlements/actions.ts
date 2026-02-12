@@ -8,10 +8,8 @@ import {
   limitKeySchema,
   overrideValueSchema,
   ADMIN_PATH,
-  enforceAdminAccess,
-  logActionError,
-  isAdminActionError,
-} from "./actions.server";
+} from "./schemas";
+import { enforceAdminAccess, logActionError, isAdminActionError } from "./actions.server";
 
 // ---------------------------------------------------------------------------
 // Result type (only type export — safe for client import)
