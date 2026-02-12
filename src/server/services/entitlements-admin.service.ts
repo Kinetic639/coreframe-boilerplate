@@ -1,13 +1,5 @@
-"use server";
-
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/**
- * Admin action error with sanitized public message
- *
- * Used to separate detailed server-side error context (logged) from
- * safe user-facing messages (returned to UI).
- */
 export class AdminActionError extends Error {
   public readonly publicMessage: string;
   public readonly code?: string;
@@ -20,23 +12,7 @@ export class AdminActionError extends Error {
   }
 }
 
-/**
- * Entitlements Admin Service (Server-Side Only)
- *
- * Thin service layer for dev-mode entitlements admin mutations.
- * Each method enforces invariants (dev mode + org owner) then delegates to dev_* RPCs.
- *
- * This is the ONLY layer that calls Supabase RPCs for entitlements admin mutations.
- * Client components must never call these RPCs directly.
- *
- * **Observability**: Logs structured error context (orgId, RPC name, error code/message)
- * to server logs while throwing sanitized user-facing messages.
- */
 export class EntitlementsAdminService {
-  /**
-   * Assert dev mode is enabled in app_config.
-   * @throws AdminActionError if dev mode is disabled or config cannot be read
-   */
   static async assertDevModeEnabled(supabase: SupabaseClient): Promise<void> {
     const { data, error } = await supabase
       .from("app_config")
@@ -58,10 +34,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Assert current user is org owner via is_org_owner RPC.
-   * @throws AdminActionError if not org owner or RPC fails
-   */
   static async assertOrgOwner(supabase: SupabaseClient, orgId: string): Promise<void> {
     const { data: isOwner, error } = await supabase.rpc("is_org_owner", {
       p_org_id: orgId,
@@ -81,10 +53,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Switch organization plan via dev_set_org_plan RPC.
-   * @throws AdminActionError with sanitized message on failure
-   */
   static async switchPlan(
     supabase: SupabaseClient,
     orgId: string,
@@ -106,10 +74,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Add module addon via dev_add_module_addon RPC.
-   * @throws AdminActionError with sanitized message on failure
-   */
   static async addModuleAddon(
     supabase: SupabaseClient,
     orgId: string,
@@ -131,10 +95,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Remove module addon via dev_remove_module_addon RPC.
-   * @throws AdminActionError with sanitized message on failure
-   */
   static async removeModuleAddon(
     supabase: SupabaseClient,
     orgId: string,
@@ -156,10 +116,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Set limit override via dev_set_limit_override RPC.
-   * @throws AdminActionError with sanitized message on failure
-   */
   static async setLimitOverride(
     supabase: SupabaseClient,
     orgId: string,
@@ -184,10 +140,6 @@ export class EntitlementsAdminService {
     }
   }
 
-  /**
-   * Reset organization to free plan via dev_reset_org_to_free RPC.
-   * @throws AdminActionError with sanitized message on failure
-   */
   static async resetToFree(supabase: SupabaseClient, orgId: string): Promise<void> {
     const { error } = await supabase.rpc("dev_reset_org_to_free", {
       p_org_id: orgId,
