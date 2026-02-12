@@ -194,7 +194,7 @@ describe("Entitlements Admin Actions", () => {
       expect(result).toEqual({ ok: false, message: "Failed to switch plan" });
       expect(logActionError).toHaveBeenCalledOnce();
       // Verify the raw error message is NOT returned
-      expect(result.message).not.toContain("permission denied");
+      expect((result as { ok: false; message: string }).message).not.toContain("permission denied");
     });
 
     it("should include orgId in logActionError meta when available", async () => {

@@ -24,8 +24,10 @@ describe("EntitlementsService", () => {
 
   const mockEntitlements: OrganizationEntitlements = {
     organization_id: "org-123",
+    plan_id: "plan-pro-123",
     plan_name: "pro",
     enabled_modules: ["warehouse", "teams"],
+    enabled_contexts: ["b2b", "ecommerce"],
     features: {
       advanced_analytics: true,
       priority_support: true,
