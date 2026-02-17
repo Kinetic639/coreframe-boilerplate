@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import type { SidebarModel } from "@/lib/types/v2/sidebar";
 import {
   Sidebar,
   SidebarProvider,
@@ -165,7 +167,11 @@ const navData: {
   ],
 };
 
-function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  model: SidebarModel;
+}
+
+function AppSidebar({ model: _model, ...props }: AppSidebarProps) {
   const { user } = useUserStoreV2();
 
   const userData = user
@@ -180,6 +186,30 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         avatar: "",
       };
 
+  // -------------------------------------------------------------------------
+  // PHASE 4 WIRING — model is computed + passed through, NOT rendered yet.
+  //
+  // The `model` prop contains a permission-filtered SidebarModel from SSR.
+  // It is intentionally unused here — the rendering below still uses `navData`
+  // which is temporary placeholder data and does NOT enforce
+  // entitlements or permissions.
+  //
+  // PHASE 5 will replace NavMain/NavProjects with a model-driven renderer.
+  // Until then, the sidebar does NOT reflect actual access control.
+  // -------------------------------------------------------------------------
+
+  // Dev-only one-time warning so it is obvious the model is not rendered yet.
+  // Runs once per mount; no production impact.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[Sidebar V2] Phase 4: model is wired but not rendered yet. " +
+          "Phase 5 will replace navData with model-based rendering. " +
+          "Current UI does NOT enforce entitlements or permissions."
+      );
+    }
+  }, []);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="bg-muted border-b">
@@ -187,6 +217,7 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarBranchSwitcher />
       </SidebarHeader>
       <SidebarContent>
+        {/* TODO Phase 5: replace navData with model.main items */}
         <NavMain items={navData.navMain} />
         <NavProjects projects={navData.projects} />
       </SidebarContent>
@@ -198,7 +229,12 @@ function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 }
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+interface DashboardShellProps {
+  children: React.ReactNode;
+  sidebarModel: SidebarModel;
+}
+
+export function DashboardShell({ children, sidebarModel }: DashboardShellProps) {
   // Read sidebar collapsed state from Zustand (persisted in localStorage)
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
@@ -211,7 +247,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={!sidebarCollapsed} onOpenChange={handleSidebarOpenChange}>
-      <AppSidebar />
+      <AppSidebar model={sidebarModel} />
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
         <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>

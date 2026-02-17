@@ -78,12 +78,12 @@ Track implementation progress by checking off completed steps:
 
 ### Phase 4: SSR Assembly in Dashboard V2 Layout
 
-- [ ] 4.1 Load entitlements server-side in layout
-- [ ] 4.2 Create server helper `buildSidebarModel()` in `src/server/sidebar/build-sidebar-model.ts`
-- [ ] 4.3 Compute `sidebarModel` in `src/app/[locale]/dashboard/layout.tsx`
-- [ ] 4.4 Pass model to `DashboardShell` via props
-- [ ] 4.5 Verify no hydration mismatch warnings
-- [ ] 4.6 Test SSR output includes expected nav items
+- [x] 4.1 Load entitlements server-side in layout
+- [x] 4.2 Create server helper `buildSidebarModel()` in `src/server/sidebar/build-sidebar-model.ts`
+- [x] 4.3 Compute `sidebarModel` in `src/app/[locale]/dashboard/layout.tsx`
+- [x] 4.4 Pass model to `DashboardShell` via props
+- [x] 4.5 Verify no hydration mismatch warnings
+- [x] 4.6 Test SSR output includes expected nav items
 
 ### Phase 5: Client Sidebar as Dumb Renderer
 

@@ -35,8 +35,8 @@ vi.mock("@/server/services/entitlements-admin.service", async () => {
   };
 });
 
-vi.mock("../actions.server", async () => {
-  const actual = await vi.importActual<typeof import("../actions.server")>("../actions.server");
+vi.mock("../schemas", async () => {
+  const actual = await vi.importActual<typeof import("../schemas")>("../schemas");
 
   return {
     ...actual,
@@ -91,19 +91,23 @@ vi.mock("../actions.server", async () => {
       }),
     },
     ADMIN_PATH: "/[locale]/admin/entitlements",
-    enforceAdminAccess: vi.fn(),
     logActionError: vi.fn(),
     // Use REAL isAdminActionError (not mocked) - Goal A
     // isAdminActionError: actual.isAdminActionError (implicit via ...actual)
   };
 });
 
+vi.mock("../actions.server", () => ({
+  enforceAdminAccess: vi.fn(),
+}));
+
 import { revalidatePath } from "next/cache";
 import {
   EntitlementsAdminService,
   AdminActionError,
 } from "@/server/services/entitlements-admin.service";
-import { enforceAdminAccess, logActionError, ADMIN_PATH } from "../actions.server";
+import { enforceAdminAccess } from "../actions.server";
+import { logActionError, ADMIN_PATH } from "../schemas";
 
 describe("Entitlements Admin Actions", () => {
   const mockSupabase = {} as any;

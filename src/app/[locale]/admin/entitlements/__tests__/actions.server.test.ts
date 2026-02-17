@@ -3,16 +3,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { enforceAdminAccess } from "../actions.server";
 import {
   planNameSchema,
   moduleSlugSchema,
   limitKeySchema,
   overrideValueSchema,
   ADMIN_PATH,
-  enforceAdminAccess,
   isAdminActionError,
   logActionError,
-} from "../actions.server";
+} from "../schemas";
 import {
   AdminActionError,
   EntitlementsAdminService,
