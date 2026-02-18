@@ -62,8 +62,19 @@ export interface SidebarItem {
   /** Stable unique ID (used for keys, tracking) */
   id: string;
 
-  /** Display title (already translated) */
+  /**
+   * Display title — fallback when titleKey is absent.
+   * Always present so the model is renderable without next-intl.
+   */
   title: string;
+
+  /**
+   * Optional next-intl translation key for the display label.
+   * When present, client-side rendering resolves the label via useTranslations().
+   * When absent, `title` is used directly.
+   * Must NOT be used server-side (translation is a client-side concern).
+   */
+  titleKey?: string;
 
   /** Icon key (maps to lucide icon name) */
   iconKey: IconKey;

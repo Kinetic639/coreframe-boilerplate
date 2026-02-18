@@ -29,6 +29,10 @@ import {
  * Warehouse does NOT have fine-grained permissions in database yet.
  * Use module gating (MODULE_WAREHOUSE) instead of permissions for now.
  * Fine-grained warehouse permissions are future work (separate project).
+ *
+ * NOTE ON TITLE KEYS:
+ * titleKey references next-intl translation keys resolved client-side.
+ * Items without an exact-match key keep English `title` as fallback.
  */
 
 /**
@@ -39,6 +43,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "home",
     title: "Home",
+    titleKey: "modules.home.title",
     iconKey: "home",
     href: "/dashboard/start",
     match: { exact: "/dashboard/start" },
@@ -48,6 +53,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "warehouse",
     title: "Warehouse",
+    titleKey: "modules.warehouse.title",
     iconKey: "warehouse",
     href: "/dashboard/warehouse",
     match: { startsWith: "/dashboard/warehouse" },
@@ -60,6 +66,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "organization",
     title: "Organization",
+    // TODO: no exact "Organization" key; modules.organizationManagement.title = "Organization Management"
     iconKey: "users",
     visibility: {
       requiresModules: [MODULE_ORGANIZATION_MANAGEMENT],
@@ -68,6 +75,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       {
         id: "organization.profile",
         title: "Profile",
+        // TODO: no exact "Profile" key; modules.organizationManagement.items.profile = "Organization Profile"
         iconKey: "settings",
         href: "/dashboard/organization/profile",
         match: { exact: "/dashboard/organization/profile" },
@@ -78,6 +86,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       {
         id: "organization.users",
         title: "Users",
+        titleKey: "modules.organizationManagement.items.users.title",
         iconKey: "users",
         href: "/dashboard/organization/users",
         match: { startsWith: "/dashboard/organization/users" },
@@ -88,6 +97,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       {
         id: "organization.billing",
         title: "Billing",
+        // TODO: no exact "Billing" key; modules.organizationManagement.items.billing = "Billing & Subscriptions"
         iconKey: "settings",
         href: "/dashboard/organization/billing",
         match: { exact: "/dashboard/organization/billing" },
@@ -102,6 +112,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "analytics",
     title: "Analytics",
+    titleKey: "modules.analytics.title",
     iconKey: "analytics",
     href: "/dashboard/analytics",
     match: { startsWith: "/dashboard/analytics" },
@@ -114,6 +125,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "development",
     title: "Development",
+    titleKey: "modules.development.title",
     iconKey: "settings",
     href: "/dashboard/development",
     match: { startsWith: "/dashboard/development" },
@@ -130,11 +142,13 @@ export const FOOTER_NAV_ITEMS: SidebarItem[] = [
   {
     id: "account",
     title: "Account",
+    titleKey: "modules.userAccount.title",
     iconKey: "settings",
     children: [
       {
         id: "account.profile",
         title: "Profile",
+        titleKey: "modules.userAccount.items.profile",
         iconKey: "settings",
         href: "/dashboard/account/profile",
         match: { exact: "/dashboard/account/profile" },
@@ -145,6 +159,7 @@ export const FOOTER_NAV_ITEMS: SidebarItem[] = [
       {
         id: "account.preferences",
         title: "Preferences",
+        titleKey: "modules.userAccount.items.preferences",
         iconKey: "settings",
         href: "/dashboard/account/preferences",
         match: { exact: "/dashboard/account/preferences" },
@@ -157,6 +172,7 @@ export const FOOTER_NAV_ITEMS: SidebarItem[] = [
   {
     id: "support",
     title: "Support",
+    titleKey: "modules.support.title",
     iconKey: "documentation",
     href: "/dashboard/support",
     match: { startsWith: "/dashboard/support" },

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import type { SidebarModel } from "@/lib/types/v2/sidebar";
+import { useMemo, useCallback } from "react";
+import { ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarProvider,
@@ -10,169 +11,218 @@ import {
   SidebarFooter,
   SidebarRail,
   SidebarInset,
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar";
-import { NavMain, type NavItemLevel1 } from "@/components/nav-main";
-import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
 import { SidebarOrgHeader } from "./sidebar-org-header";
-import {
-  BookOpen,
-  Bot,
-  Brain,
-  Bug,
-  Clock,
-  CreditCard,
-  Database,
-  FileText,
-  FlaskConical,
-  Frame,
-  GraduationCap,
-  Map,
-  PieChart,
-  Play,
-  Receipt,
-  Search,
-  Settings2,
-  Shield,
-  SquareTerminal,
-  Star,
-  Users,
-  Wrench,
-  Zap,
-} from "lucide-react";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
 import { DashboardStatusBar } from "@/components/Dashboard/DashboardStatusBar";
 import { DashboardHeaderV2 } from "@/components/v2/layout/dashboard-header";
+import { cn } from "@/lib/utils";
+import { usePathname, Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
+import { getIconComponent } from "@/lib/sidebar/v2/icon-map";
+import { isItemActive } from "@/lib/sidebar/v2/active";
+import { resolveSidebarLabel } from "@/lib/sidebar/v2/label";
+import { toUnsafeI18nHref } from "@/lib/i18n/unsafe-href";
+import type { SidebarItem, SidebarModel } from "@/lib/types/v2/sidebar";
 
-// Sample nav data with up to 3 levels of nesting
-const navData: {
-  navMain: NavItemLevel1[];
-  projects: { name: string; url: string; icon: typeof Frame }[];
-} = {
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        { title: "History", url: "#", icon: Clock },
-        { title: "Starred", url: "#", icon: Star },
-        {
-          title: "Advanced",
-          url: "#",
-          icon: Wrench,
-          isActive: true,
-          items: [
-            { title: "Experiments", url: "#", icon: FlaskConical },
-            { title: "Sandbox", url: "#", icon: Play },
-            { title: "Debug Tools", url: "#", icon: Bug },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        { title: "Genesis", url: "#", icon: Zap },
-        {
-          title: "Explorer",
-          url: "#",
-          icon: Search,
-          items: [
-            { title: "Data Explorer", url: "#", icon: Database },
-            { title: "Query Builder", url: "#" },
-            { title: "Visualizer", url: "#", icon: PieChart },
-          ],
-        },
-        {
-          title: "Quantum",
-          url: "#",
-          icon: Brain,
-          items: [
-            { title: "Algorithms", url: "#", icon: FlaskConical },
-            { title: "Simulations", url: "#" },
-          ],
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        { title: "Introduction", url: "#", icon: FileText },
-        {
-          title: "Get Started",
-          url: "#",
-          icon: Play,
-          items: [
-            { title: "Installation", url: "#" },
-            { title: "Quick Start", url: "#", icon: Zap },
-            { title: "Configuration", url: "#", icon: Settings2 },
-          ],
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-          icon: GraduationCap,
-          items: [
-            { title: "Beginner", url: "#" },
-            { title: "Intermediate", url: "#" },
-            { title: "Advanced", url: "#" },
-          ],
-        },
-        { title: "Changelog", url: "#" },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        { title: "General", url: "#", icon: Wrench },
-        {
-          title: "Team",
-          url: "#",
-          icon: Users,
-          items: [
-            { title: "Members", url: "#", icon: Users },
-            { title: "Roles", url: "#" },
-            { title: "Permissions", url: "#", icon: Shield },
-          ],
-        },
-        {
-          title: "Billing",
-          url: "#",
-          icon: CreditCard,
-          items: [
-            { title: "Plans", url: "#" },
-            { title: "Invoices", url: "#", icon: Receipt },
-            { title: "Payment Methods", url: "#", icon: CreditCard },
-          ],
-        },
-        { title: "Limits", url: "#" },
-      ],
-    },
-  ],
-  projects: [
-    { name: "Design Engineering", url: "#", icon: Frame },
-    { name: "Sales & Marketing", url: "#", icon: PieChart },
-    { name: "Travel", url: "#", icon: Map },
-  ],
-};
+// ---------------------------------------------------------------------------
+// Sub-leaf: deepest level item (no children)
+// ---------------------------------------------------------------------------
+function NavSubLeaf({
+  item,
+  active,
+  getLabel,
+}: {
+  item: SidebarItem;
+  active: boolean;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  const Icon = getIconComponent(item.iconKey);
+  const label = getLabel(item);
+  return (
+    <SidebarMenuSubItem>
+      {item.href ? (
+        <SidebarMenuSubButton asChild isActive={active}>
+          <Link href={toUnsafeI18nHref(item.href)}>
+            <Icon />
+            <span>{label}</span>
+          </Link>
+        </SidebarMenuSubButton>
+      ) : (
+        <SidebarMenuSubButton isActive={active}>
+          <Icon />
+          <span>{label}</span>
+        </SidebarMenuSubButton>
+      )}
+    </SidebarMenuSubItem>
+  );
+}
 
+// ---------------------------------------------------------------------------
+// L2 item: can be a leaf or a collapsible group (with L3 leaves)
+// ---------------------------------------------------------------------------
+function NavL2Item({
+  item,
+  pathname,
+  getLabel,
+}: {
+  item: SidebarItem;
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  const active = isItemActive(item, pathname);
+
+  if (!item.children?.length) {
+    return <NavSubLeaf item={item} active={active} getLabel={getLabel} />;
+  }
+
+  const Icon = getIconComponent(item.iconKey);
+  return (
+    <SidebarMenuSubItem>
+      <Collapsible defaultOpen={active} className="group/l2">
+        <CollapsibleTrigger asChild>
+          <SidebarMenuSubButton className="cursor-pointer w-full">
+            <Icon />
+            <span>{getLabel(item)}</span>
+            <ChevronRight
+              className={cn(
+                "ml-auto size-3.5 transition-transform duration-200",
+                "group-data-[state=open]/l2:rotate-90"
+              )}
+            />
+          </SidebarMenuSubButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children.map((child) => (
+              <NavSubLeaf
+                key={child.id}
+                item={child}
+                active={isItemActive(child, pathname)}
+                getLabel={getLabel}
+              />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuSubItem>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// L1 item: top-level — leaf or collapsible group (with L2 children)
+// ---------------------------------------------------------------------------
+function NavL1Item({
+  item,
+  pathname,
+  getLabel,
+}: {
+  item: SidebarItem;
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  const Icon = getIconComponent(item.iconKey);
+  const active = isItemActive(item, pathname);
+  const label = getLabel(item);
+
+  if (!item.children?.length) {
+    return (
+      <SidebarMenuItem>
+        {item.href ? (
+          <SidebarMenuButton asChild tooltip={label} isActive={active}>
+            <Link href={toUnsafeI18nHref(item.href)}>
+              <Icon />
+              <span>{label}</span>
+            </Link>
+          </SidebarMenuButton>
+        ) : (
+          <SidebarMenuButton tooltip={label} isActive={active}>
+            <Icon />
+            <span>{label}</span>
+          </SidebarMenuButton>
+        )}
+      </SidebarMenuItem>
+    );
+  }
+
+  return (
+    <Collapsible asChild defaultOpen={active} className="group/l1">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={label} isActive={active}>
+            <Icon />
+            <span>{label}</span>
+            <ChevronRight
+              className={cn(
+                "ml-auto transition-transform duration-200",
+                "group-data-[state=open]/l1:rotate-90"
+              )}
+            />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {item.children.map((child) => (
+              <NavL2Item key={child.id} item={child} pathname={pathname} getLabel={getLabel} />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// NavSection: renders a group of L1 items
+// ---------------------------------------------------------------------------
+function NavSection({
+  items,
+  pathname,
+  getLabel,
+}: {
+  items: SidebarItem[];
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  if (!items.length) return null;
+  return (
+    <SidebarGroup>
+      <SidebarMenu>
+        {items.map((item) => (
+          <NavL1Item key={item.id} item={item} pathname={pathname} getLabel={getLabel} />
+        ))}
+      </SidebarMenu>
+    </SidebarGroup>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AppSidebar
+// ---------------------------------------------------------------------------
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   model: SidebarModel;
 }
 
-function AppSidebar({ model: _model, ...props }: AppSidebarProps) {
+function AppSidebar({ model, ...props }: AppSidebarProps) {
   const { user } = useUserStoreV2();
+  const pathname = usePathname();
+  const t = useTranslations();
+  const translator = useMemo(() => ({ t, has: t.has }), [t]);
+  const getItemLabel = useCallback(
+    (item: SidebarItem) => resolveSidebarLabel(item, translator),
+    [translator]
+  );
 
   const userData = user
     ? {
@@ -186,30 +236,6 @@ function AppSidebar({ model: _model, ...props }: AppSidebarProps) {
         avatar: "",
       };
 
-  // -------------------------------------------------------------------------
-  // PHASE 4 WIRING — model is computed + passed through, NOT rendered yet.
-  //
-  // The `model` prop contains a permission-filtered SidebarModel from SSR.
-  // It is intentionally unused here — the rendering below still uses `navData`
-  // which is temporary placeholder data and does NOT enforce
-  // entitlements or permissions.
-  //
-  // PHASE 5 will replace NavMain/NavProjects with a model-driven renderer.
-  // Until then, the sidebar does NOT reflect actual access control.
-  // -------------------------------------------------------------------------
-
-  // Dev-only one-time warning so it is obvious the model is not rendered yet.
-  // Runs once per mount; no production impact.
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn(
-        "[Sidebar V2] Phase 4: model is wired but not rendered yet. " +
-          "Phase 5 will replace navData with model-based rendering. " +
-          "Current UI does NOT enforce entitlements or permissions."
-      );
-    }
-  }, []);
-
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="bg-muted border-b">
@@ -217,9 +243,8 @@ function AppSidebar({ model: _model, ...props }: AppSidebarProps) {
         <SidebarBranchSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        {/* TODO Phase 5: replace navData with model.main items */}
-        <NavMain items={navData.navMain} />
-        <NavProjects projects={navData.projects} />
+        <NavSection items={model.main} pathname={pathname} getLabel={getItemLabel} />
+        <NavSection items={model.footer} pathname={pathname} getLabel={getItemLabel} />
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
         <NavUser user={userData} />
@@ -229,18 +254,18 @@ function AppSidebar({ model: _model, ...props }: AppSidebarProps) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// DashboardShell
+// ---------------------------------------------------------------------------
 interface DashboardShellProps {
   children: React.ReactNode;
   sidebarModel: SidebarModel;
 }
 
 export function DashboardShell({ children, sidebarModel }: DashboardShellProps) {
-  // Read sidebar collapsed state from Zustand (persisted in localStorage)
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
 
-  // Sync sidebar state changes back to Zustand store
-  // Using controlled mode (open prop) for proper state synchronization
   const handleSidebarOpenChange = (open: boolean) => {
     setSidebarCollapsed(!open);
   };
