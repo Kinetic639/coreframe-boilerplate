@@ -50,6 +50,21 @@ function NavSubLeaf({
 }) {
   const Icon = getIconComponent(item.iconKey);
   const label = getLabel(item);
+
+  if (item.disabledReason) {
+    return (
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton className="opacity-50 cursor-not-allowed">
+          <Icon />
+          <span>{label}</span>
+          {item.disabledReason === "coming_soon" && (
+            <span className="ml-auto text-[10px] font-medium">Soon</span>
+          )}
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    );
+  }
+
   return (
     <SidebarMenuSubItem>
       {item.href ? (
@@ -81,13 +96,54 @@ function NavL2Item({
   pathname: string;
   getLabel: (item: SidebarItem) => string;
 }) {
-  const active = isItemActive(item, pathname);
+  // G2: skip isItemActive computation for disabled items
+  const active = item.disabledReason ? false : isItemActive(item, pathname);
 
   if (!item.children?.length) {
     return <NavSubLeaf item={item} active={active} getLabel={getLabel} />;
   }
 
   const Icon = getIconComponent(item.iconKey);
+
+  if (item.disabledReason) {
+    // G1: disabled groups remain expandable (no pointer-events-none on trigger)
+    return (
+      <SidebarMenuSubItem>
+        <Collapsible defaultOpen={false} className="group/l2">
+          <CollapsibleTrigger asChild>
+            <SidebarMenuSubButton className="opacity-50 cursor-not-allowed w-full">
+              <Icon />
+              <span>{getLabel(item)}</span>
+              <span className="ml-auto flex items-center gap-2">
+                {item.disabledReason === "coming_soon" && (
+                  <span className="text-[10px] font-medium">Soon</span>
+                )}
+                <ChevronRight
+                  className={cn(
+                    "size-3.5 transition-transform duration-200",
+                    "group-data-[state=open]/l2:rotate-90"
+                  )}
+                />
+              </span>
+            </SidebarMenuSubButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {item.children.map((child) => (
+                <NavSubLeaf
+                  key={child.id}
+                  item={child}
+                  active={child.disabledReason ? false : isItemActive(child, pathname)}
+                  getLabel={getLabel}
+                />
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </Collapsible>
+      </SidebarMenuSubItem>
+    );
+  }
+
   return (
     <SidebarMenuSubItem>
       <Collapsible defaultOpen={active} className="group/l2">
@@ -133,10 +189,26 @@ function NavL1Item({
   getLabel: (item: SidebarItem) => string;
 }) {
   const Icon = getIconComponent(item.iconKey);
-  const active = isItemActive(item, pathname);
+  // G2: skip isItemActive computation for disabled items
+  const active = item.disabledReason ? false : isItemActive(item, pathname);
   const label = getLabel(item);
 
   if (!item.children?.length) {
+    if (item.disabledReason) {
+      // G3: keep pointer events so tooltip still works; cursor communicates disabled state
+      return (
+        <SidebarMenuItem>
+          <SidebarMenuButton tooltip={label} className="opacity-50 cursor-not-allowed">
+            <Icon />
+            <span>{label}</span>
+            {item.disabledReason === "coming_soon" && (
+              <span className="ml-auto text-[10px] font-medium">Soon</span>
+            )}
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    }
+
     return (
       <SidebarMenuItem>
         {item.href ? (
@@ -153,6 +225,40 @@ function NavL1Item({
           </SidebarMenuButton>
         )}
       </SidebarMenuItem>
+    );
+  }
+
+  if (item.disabledReason) {
+    // G1: disabled groups remain expandable (no pointer-events-none on trigger)
+    return (
+      <Collapsible asChild defaultOpen={false} className="group/l1">
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton tooltip={label} className="opacity-50 cursor-not-allowed">
+              <Icon />
+              <span>{label}</span>
+              <span className="ml-auto flex items-center gap-2">
+                {item.disabledReason === "coming_soon" && (
+                  <span className="text-[10px] font-medium">Soon</span>
+                )}
+                <ChevronRight
+                  className={cn(
+                    "transition-transform duration-200",
+                    "group-data-[state=open]/l1:rotate-90"
+                  )}
+                />
+              </span>
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {item.children.map((child) => (
+                <NavL2Item key={child.id} item={child} pathname={pathname} getLabel={getLabel} />
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
     );
   }
 

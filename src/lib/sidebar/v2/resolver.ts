@@ -62,6 +62,37 @@ function isItemVisible(item: SidebarItem, input: SidebarResolverInput): boolean 
 }
 
 /**
+ * Determine WHY a non-visible item is restricted.
+ * Mirrors the check order in isItemVisible so the first failure drives the reason.
+ * Only called when isItemVisible already returned false.
+ */
+function getDisabledReason(
+  item: SidebarItem,
+  input: SidebarResolverInput
+): "permission" | "entitlement" {
+  const { visibility } = item;
+  if (!visibility) return "permission"; // safe fallback; public items should never reach here
+
+  const { permissionSnapshot, entitlements } = input;
+
+  if (visibility.requiresPermissions && visibility.requiresPermissions.length > 0) {
+    const ok = visibility.requiresPermissions.every((p) => checkPermission(permissionSnapshot, p));
+    if (!ok) return "permission";
+  }
+
+  if (visibility.requiresAnyPermissions && visibility.requiresAnyPermissions.length > 0) {
+    const ok = visibility.requiresAnyPermissions.some((p) =>
+      checkPermission(permissionSnapshot, p)
+    );
+    if (!ok) return "permission";
+  }
+
+  // Reached here with isItemVisible=false → must be a module-gating failure
+  void entitlements; // referenced for clarity; actual check was in isItemVisible
+  return "entitlement";
+}
+
+/**
  * Filter sidebar items recursively
  *
  * IMPORTANT: This function ONLY handles VISIBILITY.
@@ -69,7 +100,22 @@ function isItemVisible(item: SidebarItem, input: SidebarResolverInput): boolean 
  */
 function filterItems(items: SidebarItem[], input: SidebarResolverInput): SidebarItem[] {
   return items
-    .map((item) => {
+    .map((item): SidebarItem | null => {
+      // Registry status="coming_soon": always shown disabled, regardless of visibility rules.
+      // disabledReason is set explicitly in output; href is omitted to prevent navigation.
+      if (item.status === "coming_soon") {
+        let resolvedChildren: SidebarItem[] | undefined;
+        if (item.children && item.children.length > 0) {
+          resolvedChildren = filterItems(item.children, input);
+        }
+        return {
+          ...item,
+          href: undefined,
+          disabledReason: "coming_soon",
+          children: resolvedChildren,
+        };
+      }
+
       // Filter children first (if any)
       let filteredChildren: SidebarItem[] | undefined;
       if (item.children && item.children.length > 0) {
@@ -79,7 +125,12 @@ function filterItems(items: SidebarItem[], input: SidebarResolverInput): Sidebar
       // Check visibility (permissions + entitlements)
       const visible = isItemVisible(item, input);
       if (!visible) {
-        return null; // Hide item
+        // showWhenDisabled: keep item as muted/disabled instead of pruning
+        if (item.showWhenDisabled) {
+          const disabledReason = getDisabledReason(item, input);
+          return { ...item, href: undefined, children: filteredChildren, disabledReason };
+        }
+        return null; // Default: prune
       }
 
       // If parent has children, hide parent if all children hidden
@@ -88,11 +139,7 @@ function filterItems(items: SidebarItem[], input: SidebarResolverInput): Sidebar
       }
 
       // Return filtered item with children (NO active state)
-      const filteredItem: SidebarItem = {
-        ...item,
-        children: filteredChildren,
-      };
-      return filteredItem;
+      return { ...item, children: filteredChildren };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
 }

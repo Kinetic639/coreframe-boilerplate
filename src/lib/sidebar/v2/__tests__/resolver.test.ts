@@ -631,6 +631,212 @@ describe("resolveSidebarModel", () => {
     expect(registryBefore).toBe(registryAfter);
   });
 
+  // ---------------------------------------------------------------------------
+  // Phase 6: showWhenDisabled + coming_soon tests
+  // ---------------------------------------------------------------------------
+
+  it("should prune item when visibility fails and showWhenDisabled is absent (default behavior unchanged)", () => {
+    const item: SidebarItem = {
+      id: "billing",
+      title: "Billing",
+      iconKey: "settings",
+      href: "/dashboard/organization/billing",
+      visibility: { requiresPermissions: [ORG_UPDATE] },
+      // showWhenDisabled not set → default prune
+    };
+
+    const result = resolveSidebarModel(baseInput, { main: [item], footer: [] });
+    expect(result.main).toHaveLength(0);
+  });
+
+  it("should keep item with disabledReason='permission' when showWhenDisabled is true and permission fails", () => {
+    const item: SidebarItem = {
+      id: "billing",
+      title: "Billing",
+      iconKey: "settings",
+      href: "/dashboard/organization/billing",
+      showWhenDisabled: true,
+      visibility: { requiresPermissions: [ORG_UPDATE] },
+    };
+
+    const result = resolveSidebarModel(baseInput, { main: [item], footer: [] });
+    expect(result.main).toHaveLength(1);
+    expect(result.main[0].id).toBe("billing");
+    expect(result.main[0].disabledReason).toBe("permission");
+  });
+
+  it("should omit href from showWhenDisabled item so it cannot navigate", () => {
+    const item: SidebarItem = {
+      id: "billing",
+      title: "Billing",
+      iconKey: "settings",
+      href: "/dashboard/organization/billing",
+      showWhenDisabled: true,
+      visibility: { requiresPermissions: [ORG_UPDATE] },
+    };
+
+    const result = resolveSidebarModel(baseInput, { main: [item], footer: [] });
+    expect(result.main[0].href).toBeUndefined();
+  });
+
+  it("should keep item with disabledReason='entitlement' when showWhenDisabled is true and module fails", () => {
+    const item: SidebarItem = {
+      id: "analytics",
+      title: "Analytics",
+      iconKey: "analytics",
+      href: "/dashboard/analytics",
+      showWhenDisabled: true,
+      visibility: { requiresModules: [MODULE_ANALYTICS] },
+    };
+
+    const inputNoModule = {
+      ...baseInput,
+      entitlements: {
+        enabled_modules: [MODULE_HOME],
+        enabled_contexts: [],
+        features: {},
+        limits: {},
+      },
+    };
+
+    const result = resolveSidebarModel(inputNoModule, { main: [item], footer: [] });
+    expect(result.main).toHaveLength(1);
+    expect(result.main[0].disabledReason).toBe("entitlement");
+    expect(result.main[0].href).toBeUndefined();
+  });
+
+  it("should show showWhenDisabled item as enabled (no disabledReason) when visibility passes", () => {
+    const item: SidebarItem = {
+      id: "billing",
+      title: "Billing",
+      iconKey: "settings",
+      href: "/dashboard/organization/billing",
+      showWhenDisabled: true,
+      visibility: { requiresPermissions: [ORG_UPDATE] },
+    };
+
+    const inputAllowed = {
+      ...baseInput,
+      permissionSnapshot: { allow: [ORG_UPDATE], deny: [] },
+    };
+
+    const result = resolveSidebarModel(inputAllowed, { main: [item], footer: [] });
+    expect(result.main).toHaveLength(1);
+    expect(result.main[0].disabledReason).toBeUndefined();
+    expect(result.main[0].href).toBe("/dashboard/organization/billing");
+  });
+
+  it("should always include coming_soon item regardless of visibility rules", () => {
+    const item: SidebarItem = {
+      id: "advanced",
+      title: "Advanced",
+      iconKey: "analytics",
+      href: "/dashboard/advanced",
+      status: "coming_soon",
+      visibility: { requiresPermissions: [ORG_UPDATE] }, // would normally be hidden
+    };
+
+    // No permissions → still appears
+    const result = resolveSidebarModel(baseInput, { main: [item], footer: [] });
+    expect(result.main).toHaveLength(1);
+    expect(result.main[0].id).toBe("advanced");
+    expect(result.main[0].disabledReason).toBe("coming_soon");
+  });
+
+  it("should omit href from coming_soon item so it cannot navigate", () => {
+    const item: SidebarItem = {
+      id: "advanced",
+      title: "Advanced",
+      iconKey: "analytics",
+      href: "/dashboard/advanced",
+      status: "coming_soon",
+    };
+
+    const result = resolveSidebarModel(baseInput, { main: [item], footer: [] });
+    expect(result.main[0].href).toBeUndefined();
+  });
+
+  it("should prune parent with no showWhenDisabled when all children hidden (parent pruning unchanged)", () => {
+    const parent: SidebarItem = {
+      id: "warehouse",
+      title: "Warehouse",
+      iconKey: "warehouse",
+      // no showWhenDisabled
+      children: [
+        {
+          id: "warehouse.products",
+          title: "Products",
+          iconKey: "products",
+          href: "/dashboard/warehouse/products",
+          visibility: { requiresModules: [MODULE_WAREHOUSE] },
+        },
+      ],
+    };
+
+    const inputNoModule = {
+      ...baseInput,
+      entitlements: {
+        enabled_modules: [MODULE_HOME],
+        enabled_contexts: [],
+        features: {},
+        limits: {},
+      },
+    };
+
+    const result = resolveSidebarModel(inputNoModule, { main: [parent], footer: [] });
+    expect(result.main).toHaveLength(0);
+  });
+
+  it("should keep showWhenDisabled parent when its children are all pruned (shows as disabled group)", () => {
+    const parent: SidebarItem = {
+      id: "warehouse",
+      title: "Warehouse",
+      iconKey: "warehouse",
+      showWhenDisabled: true,
+      visibility: { requiresModules: [MODULE_WAREHOUSE] },
+      children: [
+        {
+          id: "warehouse.products",
+          title: "Products",
+          iconKey: "products",
+          href: "/dashboard/warehouse/products",
+          visibility: { requiresModules: [MODULE_WAREHOUSE] },
+        },
+      ],
+    };
+
+    const inputNoModule = {
+      ...baseInput,
+      entitlements: {
+        enabled_modules: [MODULE_HOME],
+        enabled_contexts: [],
+        features: {},
+        limits: {},
+      },
+    };
+
+    const result = resolveSidebarModel(inputNoModule, { main: [parent], footer: [] });
+    expect(result.main).toHaveLength(1);
+    expect(result.main[0].disabledReason).toBe("entitlement");
+    expect(result.main[0].href).toBeUndefined();
+  });
+
+  it("should produce deterministic output for showWhenDisabled items", () => {
+    const item: SidebarItem = {
+      id: "billing",
+      title: "Billing",
+      iconKey: "settings",
+      href: "/dashboard/organization/billing",
+      showWhenDisabled: true,
+      visibility: { requiresPermissions: [ORG_UPDATE] },
+    };
+
+    const registry = { main: [item], footer: [] };
+    const r1 = resolveSidebarModel(baseInput, registry);
+    const r2 = resolveSidebarModel(baseInput, registry);
+    expect(JSON.stringify(r1)).toBe(JSON.stringify(r2));
+  });
+
   it("should filter footer items with same rules as main", () => {
     const registry = {
       main: [],

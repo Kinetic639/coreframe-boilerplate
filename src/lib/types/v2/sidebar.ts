@@ -91,6 +91,25 @@ export interface SidebarItem {
   /** Visibility rules (if missing, item is always visible) */
   visibility?: SidebarVisibilityRules;
 
+  /**
+   * Registry-side status marker. When set to "coming_soon", the item is always
+   * included in the resolved model as disabled (disabledReason="coming_soon"),
+   * regardless of visibility rules, with href omitted to prevent navigation.
+   *
+   * Registry input only — do NOT use in the renderer. Read `disabledReason` instead.
+   */
+  status?: "coming_soon";
+
+  /**
+   * When true and the item fails its visibility rules, the item is kept in
+   * the resolved model with `disabledReason` set and `href` omitted, instead
+   * of being pruned. Provides "upgrade to unlock" UX for gated features.
+   *
+   * NOTE: UX hint only. Security is enforced by RLS and server-side checks.
+   * Default: false (item is pruned when not allowed).
+   */
+  showWhenDisabled?: boolean;
+
   /** Why item is disabled (optional UX hint) */
   disabledReason?: SidebarDisabledReason;
 
