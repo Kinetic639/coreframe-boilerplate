@@ -1,5 +1,5 @@
 import { getTranslations, getLocale } from "next-intl/server";
-import { FileQuestion, Home, ArrowLeft } from "lucide-react";
+import { FileQuestion, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
+import { BackButton } from "./_components/back-button";
 
 /**
  * Dashboard 404 page
@@ -47,17 +48,5 @@ export default async function DashboardNotFound() {
         </CardFooter>
       </Card>
     </div>
-  );
-}
-
-// Client component for browser back functionality
-function BackButton({ label }: { label: string }) {
-  "use client";
-
-  return (
-    <Button onClick={() => window.history.back()} variant="default" className="flex-1">
-      <ArrowLeft className="mr-2 h-4 w-4" />
-      {label}
-    </Button>
   );
 }
