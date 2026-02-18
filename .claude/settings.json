@@ -1,6 +1,10 @@
 {
   "permissions": {
     "allow": ["Bash(wc:*)", "mcp__context7__query-docs"],
-    "additionalDirectories": ["/home/user/coreframe-boilerplate/src/app/[locale]/admin"]
+    "additionalDirectories": [
+      "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard",
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/__tests__"
+    ]
   }
 }
