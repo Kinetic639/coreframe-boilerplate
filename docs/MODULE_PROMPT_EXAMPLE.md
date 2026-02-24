@@ -213,6 +213,24 @@ No empty placeholders.
 
 ---
 
+## MANDATORY: Module Passport (MODULE.md)
+
+After implementation, create `src/modules/<module>/MODULE.md` using
+[`docs/MODULE_README_EXAMPLE.md`](docs/MODULE_README_EXAMPLE.md) exactly.
+
+Fill it with:
+
+- Real module slug constant (`MODULE_*`) — no raw strings
+- Real permission constants (`PERM_*`) + matching DB slugs
+- Exact sidebar registry items added (ids, hrefs, `requiresModules`, `requiredPermissions`)
+- List of all files changed by this module
+- Tables created + RLS policies summary
+- Tests added (file paths)
+
+No placeholder content. Every field must reflect the real implementation.
+
+---
+
 # PHASE 3 — MANDATORY COMPLIANCE AUDIT
 
 After implementation, output a structured audit against Module Checklist Template A–N:
@@ -233,6 +251,7 @@ Then explicitly confirm:
 - Fail-closed enforcement applied
 - SSR-first respected
 - RLS-first respected
+- MODULE.md created and populated (entitlements, permissions, sidebar, RLS, tests — no placeholders)
 
 If any item is incomplete, state it clearly.
 

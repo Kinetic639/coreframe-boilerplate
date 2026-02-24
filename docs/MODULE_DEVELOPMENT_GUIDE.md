@@ -2659,6 +2659,28 @@ missing RLS policies, and sidebar entries that don't match entitlement gates.
 
 ---
 
+## Module Documentation (MODULE.md) — Mandatory
+
+Every module MUST include a `src/modules/[module]/MODULE.md` file — the module's "passport".
+
+**Purpose**: Acts as the canonical per-module reference documenting:
+
+- Module slug constant used (`MODULE_*`)
+- Permission constants + matching DB slugs (`PERM_*`)
+- Entitlements gating decision and where enforced (page guard + server actions)
+- Sidebar V2 registry items added (ids, hrefs, `requiresModules`, `requiredPermissions`)
+- Tables created + RLS policies summary
+- Tests added (unit, RLS integration, sidebar SSR visibility)
+- Files changed (list of file paths touched by the module; must be updated whenever the module changes)
+
+**Requirements**:
+
+- Must contain real file paths and real constants — no raw strings, no placeholders.
+- Must be kept updated whenever the module changes.
+- Template: [`docs/MODULE_README_EXAMPLE.md`](docs/MODULE_README_EXAMPLE.md) — use it exactly, fill every section.
+
+---
+
 ## Quick Start Template
 
 To create a new module, create files in this order:
@@ -2673,13 +2695,14 @@ To create a new module, create files in this order:
 8. `src/app/[locale]/dashboard/[module]/error.tsx`
 9. `src/app/[locale]/dashboard/[module]/_components/[module]-page-client.tsx`
 10. `src/modules/[module]/config.ts`
-11. Update `src/modules/index.ts`
-12. Update `messages/en.json` and `messages/pl.json`
-13. Add module slug constant to `src/lib/constants/modules.ts` (if entitlement-gated)
-14. Add sidebar registry entry to `src/lib/sidebar/v2/registry.ts`
-15. Add permission slug constants to `src/lib/constants/permissions.ts` + migration
-16. Add server-side `entitlements.requireModuleOrRedirect()` guard in page.tsx
-17. Add `entitlements.requireModuleAccess()` guard in every server action
+11. `src/modules/[module]/MODULE.md` — create using the `MODULE_README_EXAMPLE.md` template and fill with real data
+12. Update `src/modules/index.ts`
+13. Update `messages/en.json` and `messages/pl.json`
+14. Add module slug constant to `src/lib/constants/modules.ts` (if entitlement-gated)
+15. Add sidebar registry entry to `src/lib/sidebar/v2/registry.ts`
+16. Add permission slug constants to `src/lib/constants/permissions.ts` + migration
+17. Add server-side `entitlements.requireModuleOrRedirect()` guard in page.tsx
+18. Add `entitlements.requireModuleAccess()` guard in every server action
 
 ---
 
@@ -3216,6 +3239,10 @@ A module is **not considered complete** unless all of the following are true:
 
 - [ ] Translation keys added to `messages/en.json` and `messages/pl.json`
 - [ ] `titleKey` in sidebar registry resolves correctly (or English fallback set)
+
+### Documentation ✅
+
+- [ ] `src/modules/[module]/MODULE.md` created and populated (entitlements, permissions, sidebar registry, RLS, tests, files changed). No placeholders.
 
 ---
 

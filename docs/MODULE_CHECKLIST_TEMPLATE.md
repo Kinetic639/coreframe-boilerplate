@@ -191,6 +191,7 @@ Every file or location a developer must touch to fully integrate this module.
 
 - [ ] `src/modules/[module]/config.ts` — ModuleConfig (widgets, metadata only — not navigation)
 - [ ] `src/modules/index.ts` — register the new module in `getAllModules()`
+- [ ] `src/modules/[module]/MODULE.md` — module passport documentation (must exist and be up to date)
 
 ### Sidebar V2 (Navigation)
 
@@ -541,6 +542,7 @@ A module is **not complete** unless every statement below is verifiably true:
 - [ ] **i18n keys exist**: all `titleKey` values and user-facing strings have entries in both `en.json` and `pl.json`
 - [ ] **No direct writes to compiled tables**: no application code writes to `user_effective_permissions`, `organization_entitlements`, or `user_permission_overrides`
 - [ ] **No service role at runtime**: service role key does not appear in any page, layout, server action, or route handler for this module; allowed only in tests/seed/CLI
+- [ ] **MODULE.md created/updated and fully populated** (entitlements, permissions, sidebar registry, DB+RLS, tests, files changed). No placeholders.
 
 ---
 
