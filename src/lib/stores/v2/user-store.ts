@@ -9,6 +9,7 @@ export interface UserV2 {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  avatar_signed_url: string | null; // Signed URL for private-bucket uploaded avatar (1h TTL, generated server-side)
 }
 
 export interface UserContextV2 {

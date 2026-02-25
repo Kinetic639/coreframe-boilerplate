@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { createClient } from "@/utils/supabase/server";
 import { UserPreferencesService } from "@/server/services/user-preferences.service";
 import { ZodError } from "zod";
@@ -22,13 +23,18 @@ import type {
   UpdateRegionalInput,
   SyncUiSettingsInput,
 } from "@/lib/types/user-preferences";
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import {
   ACCOUNT_PROFILE_UPDATE,
   ACCOUNT_PREFERENCES_UPDATE,
   ACCOUNT_PREFERENCES_READ,
 } from "@/lib/constants/permissions";
+import { checkPermission } from "@/lib/utils/permissions";
+
+const AVATAR_BUCKET = "user-avatars";
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const AVATAR_SIGNED_URL_TTL = 3600; // 1 hour
 
 /**
  * Result type for server actions
@@ -77,19 +83,28 @@ async function authenticateUser(): Promise<
 /**
  * Check if the current authenticated user has the given permission.
  *
- * Uses the active organization from app context. Fails-closed if no org context.
+ * Loads the permission snapshot (wildcard-aware) for the user's active org and
+ * uses checkPermission() for matching. This correctly handles wildcard permissions
+ * like "account.*" stored in user_effective_permissions.
  *
  * @param supabase - Authenticated Supabase client
+ * @param userId - Authenticated user ID (avoids redundant getUser() call)
  * @param permission - Permission slug to verify
  * @returns True if user has the permission
  */
 async function checkUserPermission(
   supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
   permission: string
 ): Promise<boolean> {
-  const appCtx = await loadAppContextServer();
+  const appCtx = await loadAppContextV2();
   if (!appCtx?.activeOrgId) return false;
-  return PermissionServiceV2.currentUserHasPermission(supabase, appCtx.activeOrgId, permission);
+  const snapshot = await PermissionServiceV2.getPermissionSnapshotForUser(
+    supabase,
+    userId,
+    appCtx.activeOrgId
+  );
+  return checkPermission(snapshot, permission);
 }
 
 /**
@@ -102,7 +117,7 @@ export async function getUserPreferencesAction(): Promise<ActionResult<UserPrefe
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_READ);
+    const allowed = await checkUserPermission(auth.supabase, auth.userId, ACCOUNT_PREFERENCES_READ);
     if (!allowed) return { success: false, error: "Permission denied" };
 
     const prefs = await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -131,7 +146,7 @@ export async function getDashboardSettingsAction(): Promise<
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_READ);
+    const allowed = await checkUserPermission(auth.supabase, auth.userId, ACCOUNT_PREFERENCES_READ);
     if (!allowed) return { success: false, error: "Permission denied" };
 
     const settings = await UserPreferencesService.getDashboardSettings(auth.supabase, auth.userId);
@@ -160,7 +175,7 @@ export async function updateProfileAction(input: unknown): Promise<ActionResult<
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PROFILE_UPDATE);
+    const allowed = await checkUserPermission(auth.supabase, auth.userId, ACCOUNT_PROFILE_UPDATE);
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -199,7 +214,11 @@ export async function updateRegionalSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -238,7 +257,11 @@ export async function updateNotificationSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -279,7 +302,11 @@ export async function updateDashboardSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -324,7 +351,11 @@ export async function updateModuleSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -367,7 +398,11 @@ export async function syncUiSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -408,7 +443,11 @@ export async function setDefaultOrganizationAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -447,7 +486,11 @@ export async function setDefaultBranchAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
-    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    const allowed = await checkUserPermission(
+      auth.supabase,
+      auth.userId,
+      ACCOUNT_PREFERENCES_UPDATE
+    );
     if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
@@ -468,5 +511,198 @@ export async function setDefaultBranchAction(
       success: false,
       error: error instanceof Error ? error.message : "Failed to set default branch",
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Avatar actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload or replace the authenticated user's avatar.
+ *
+ * Security:
+ * - Enforces ACCOUNT_PROFILE_UPDATE permission (deny-first).
+ * - Validates MIME type and file size server-side (client cannot bypass).
+ * - Object path is always `${userId}/${uuid}.${ext}` — never trust client-provided path.
+ * - Deletes the old storage object after a successful replacement.
+ *
+ * @param formData - Must contain a "file" field with the image File.
+ * @returns { success: true } on success, { success: false, error } on any failure.
+ */
+export async function uploadAvatarAction(
+  formData: FormData
+): Promise<ActionResult<{ avatarPath: string }>> {
+  try {
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, auth.userId, ACCOUNT_PROFILE_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
+
+    // Extract file from FormData
+    const file = formData.get("file");
+    if (!(file instanceof File) || file.size === 0) {
+      return { success: false, error: "No file provided" };
+    }
+
+    // Validate MIME type — must be an image
+    if (!file.type.startsWith("image/")) {
+      return { success: false, error: "Invalid file type. Only image files are allowed." };
+    }
+
+    // Validate file size
+    if (file.size > AVATAR_MAX_BYTES) {
+      return { success: false, error: "File too large. Maximum size is 5 MB." };
+    }
+
+    // Derive extension from MIME type to avoid trusting file.name
+    const ext = file.type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+
+    // Deterministic, user-scoped path — never client-provided
+    const newPath = `${auth.userId}/${randomUUID()}.${ext}`;
+
+    // Read existing avatar_path for cleanup after successful upload
+    const { data: userRow } = await auth.supabase
+      .from("users")
+      .select("avatar_path")
+      .eq("id", auth.userId)
+      .maybeSingle();
+    const oldPath: string | null = userRow?.avatar_path ?? null;
+
+    // Upload to storage (no upsert — unique UUID path means no accidental overwrite)
+    const arrayBuffer = await file.arrayBuffer();
+    const { error: uploadError } = await auth.supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(newPath, arrayBuffer, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("[uploadAvatarAction] Storage upload failed:", uploadError);
+      return { success: false, error: "Failed to upload avatar" };
+    }
+
+    // Persist the new path (not URL) in the users table
+    const { error: dbError } = await auth.supabase
+      .from("users")
+      .update({ avatar_path: newPath })
+      .eq("id", auth.userId);
+
+    if (dbError) {
+      // Rollback: remove the uploaded object so storage stays clean
+      await auth.supabase.storage.from(AVATAR_BUCKET).remove([newPath]);
+      console.error("[uploadAvatarAction] DB update failed:", dbError);
+      return { success: false, error: "Failed to save avatar reference" };
+    }
+
+    // Clean up the old object now that the DB is consistent
+    if (oldPath && oldPath !== newPath) {
+      await auth.supabase.storage.from(AVATAR_BUCKET).remove([oldPath]);
+    }
+
+    return { success: true, data: { avatarPath: newPath } };
+  } catch (error) {
+    console.error("[uploadAvatarAction] Failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to upload avatar",
+    };
+  }
+}
+
+/**
+ * Remove the authenticated user's avatar.
+ *
+ * Security:
+ * - Enforces ACCOUNT_PROFILE_UPDATE permission (deny-first).
+ * - Path read from DB — never from client.
+ *
+ * @returns { success: true } on success, { success: false, error } on any failure.
+ */
+export async function removeAvatarAction(): Promise<ActionResult<null>> {
+  try {
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, auth.userId, ACCOUNT_PROFILE_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
+
+    // Read current path from DB (never trust client-provided path)
+    const { data: userRow } = await auth.supabase
+      .from("users")
+      .select("avatar_path")
+      .eq("id", auth.userId)
+      .maybeSingle();
+    const currentPath: string | null = userRow?.avatar_path ?? null;
+
+    // Clear DB column first — even if storage delete fails, user is no longer shown a broken image
+    const { error: dbError } = await auth.supabase
+      .from("users")
+      .update({ avatar_path: null })
+      .eq("id", auth.userId);
+
+    if (dbError) {
+      console.error("[removeAvatarAction] DB update failed:", dbError);
+      return { success: false, error: "Failed to remove avatar" };
+    }
+
+    // Delete storage object (best-effort — not a hard failure)
+    if (currentPath) {
+      const { error: storageError } = await auth.supabase.storage
+        .from(AVATAR_BUCKET)
+        .remove([currentPath]);
+      if (storageError) {
+        console.error("[removeAvatarAction] Storage delete failed (non-fatal):", storageError);
+      }
+    }
+
+    return { success: true, data: null };
+  } catch (error) {
+    console.error("[removeAvatarAction] Failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to remove avatar",
+    };
+  }
+}
+
+/**
+ * Generate a short-lived signed URL for the authenticated user's avatar.
+ *
+ * Called server-side from Server Components (profile page).
+ * Returns null if no avatar_path is set or on any error.
+ */
+export async function getAvatarSignedUrlAction(): Promise<
+  ActionResult<{ signedUrl: string | null }>
+> {
+  try {
+    const auth = await authenticateUser();
+    if (auth.error) return { success: false, error: auth.error };
+
+    const { data: userRow } = await auth.supabase
+      .from("users")
+      .select("avatar_path")
+      .eq("id", auth.userId)
+      .maybeSingle();
+
+    const avatarPath: string | null = userRow?.avatar_path ?? null;
+    if (!avatarPath) return { success: true, data: { signedUrl: null } };
+
+    const { data, error } = await auth.supabase.storage
+      .from(AVATAR_BUCKET)
+      .createSignedUrl(avatarPath, AVATAR_SIGNED_URL_TTL);
+
+    if (error || !data?.signedUrl) {
+      console.error("[getAvatarSignedUrlAction] Failed to create signed URL:", error);
+      return { success: true, data: { signedUrl: null } };
+    }
+
+    return { success: true, data: { signedUrl: data.signedUrl } };
+  } catch (error) {
+    console.error("[getAvatarSignedUrlAction] Failed:", error);
+    return { success: false, error: "Failed to generate avatar URL" };
   }
 }

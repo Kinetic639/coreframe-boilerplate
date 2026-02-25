@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import {
   Card,
@@ -16,26 +16,33 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { User, Shield } from "lucide-react";
+import { User, Shield, Upload, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
+import { useRouter } from "@/i18n/navigation";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { usePreferencesQuery, useUpdateProfileMutation } from "@/hooks/queries/user-preferences";
 import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 import { CopyToClipboard } from "@/components/v2/utility/copy-to-clipboard";
+import { uploadAvatarAction, removeAvatarAction } from "@/app/actions/user-preferences";
 
 interface ProfileClientProps {
+  avatarSignedUrl: string | null;
   translations: {
     description: string;
   };
 }
 
-export function ProfileClient({ translations }: ProfileClientProps) {
+export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientProps) {
   const t = useTranslations("ProfilePage");
   const { user, roles } = useUserStoreV2();
   const { data: preferences, isLoading } = usePreferencesQuery();
   const updateProfile = useUpdateProfileMutation();
+  const router = useRouter();
 
   const [displayName, setDisplayName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
+  const [isPendingAvatar, startAvatarTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize form values from preferences once loaded
   useEffect(() => {
@@ -65,6 +72,42 @@ export function ProfileClient({ translations }: ProfileClientProps) {
     });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so the same file can be re-selected after removal
+    e.target.value = "";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    startAvatarTransition(async () => {
+      const result = await uploadAvatarAction(formData);
+      if (result.success) {
+        toast.success("Avatar updated successfully.");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Failed to upload avatar.");
+      }
+    });
+  };
+
+  const handleRemoveAvatar = () => {
+    startAvatarTransition(async () => {
+      const result = await removeAvatarAction();
+      if (result.success) {
+        toast.success("Avatar removed.");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Failed to remove avatar.");
+      }
+    });
+  };
+
+  // Prefer signed URL (uploaded avatar) over OAuth avatar_url; fall back to initials
+  const avatarSrc = avatarSignedUrl ?? user?.avatar_url ?? undefined;
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{translations.description}</p>
@@ -81,15 +124,54 @@ export function ProfileClient({ translations }: ProfileClientProps) {
           <CardContent className="space-y-5">
             {/* Avatar */}
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={user?.avatar_url ?? undefined} alt="Avatar" />
-                <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
-              </Avatar>
-              <div>
+              <div className="relative">
+                <Avatar className="h-16 w-16">
+                  <AvatarImage src={avatarSrc} alt="Avatar" />
+                  <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
+                </Avatar>
+              </div>
+
+              <div className="flex flex-col gap-2">
                 <p className="font-medium">
                   {user?.first_name} {user?.last_name}
                 </p>
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
+
+                {/* Avatar actions */}
+                <div className="flex items-center gap-2">
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={isPendingAvatar}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isPendingAvatar}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                    {isPendingAvatar ? "Uploading…" : avatarSignedUrl ? "Change" : "Upload"}
+                  </Button>
+                  {avatarSignedUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isPendingAvatar}
+                      onClick={handleRemoveAvatar}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">Max 5 MB. JPG, PNG, WebP, GIF.</p>
               </div>
             </div>
 

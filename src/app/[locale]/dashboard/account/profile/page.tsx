@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import { ACCOUNT_PROFILE_READ } from "@/lib/constants/permissions";
+import { createClient } from "@/utils/supabase/server";
 import { ProfileClient } from "./_components/profile-client";
 
 export default async function ProfilePage() {
@@ -14,10 +15,33 @@ export default async function ProfilePage() {
     return redirect({ href: "/dashboard/start", locale });
   }
 
+  // Generate a short-lived signed URL for the avatar server-side.
+  // Never expose the bucket as public — signed URLs are the only access path.
+  let avatarSignedUrl: string | null = null;
+  try {
+    const supabase = await createClient();
+    const userId = context.user.user.id;
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("avatar_path")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (userRow?.avatar_path) {
+      const { data } = await supabase.storage
+        .from("user-avatars")
+        .createSignedUrl(userRow.avatar_path, 3600);
+      avatarSignedUrl = data?.signedUrl ?? null;
+    }
+  } catch {
+    // Non-fatal — profile renders without avatar if URL generation fails
+  }
+
   const t = await getTranslations("ProfilePage");
 
   return (
     <ProfileClient
+      avatarSignedUrl={avatarSignedUrl}
       translations={{
         description: t("description"),
       }}

@@ -2,10 +2,11 @@
 
 ## Purpose
 
-- **What this module does:** Manages user-personal settings — profile display name/phone, regional preferences (timezone, locale, date/time format), notification settings, dashboard UI settings, module-specific settings, and default org/branch selection. Data is user-scoped (not org-scoped).
+- **What this module does:** Manages user-personal settings — profile display name/phone, avatar image, regional preferences (timezone, locale, date/time format), notification settings, dashboard UI settings, module-specific settings, and default org/branch selection. Data is user-scoped (not org-scoped).
 - **Who uses it (roles):** All authenticated users. No role restriction — every user has `account.*` wildcard permission.
 - **Primary workflows:**
   - View and update own profile (display name, phone)
+  - Upload, replace, or remove profile avatar
   - Update regional settings (timezone, locale, date format, time format)
   - Update notification preferences
   - Sync dashboard UI state across devices
@@ -27,7 +28,7 @@
 - **Where enforced:**
   - Page guard: ❌ Not enforced — module is not plan-gated; no `requireModuleOrRedirect` calls in pages
   - Server actions: ❌ Not enforced — module is not plan-gated; no `requireModuleAccess` calls in actions
-  - ✅ **Permission checks** added to all 10 actions (via `checkUserPermission` helper) and all pages (via `checkPermission` + `loadDashboardContextV2`)
+  - ✅ **Permission checks** added to all 13 actions (via `checkUserPermission` helper) and all pages (via `checkPermission` + `loadDashboardContextV2`)
 
 ### Verification checklist
 
@@ -64,7 +65,7 @@ Role assignments (DB verified):
 ### Where enforced
 
 - Server Components: ✅ Permission guards on `profile/page.tsx`, `preferences/page.tsx`, `notifications/page.tsx`. Each page calls `loadDashboardContextV2()` and passes `context.user.permissionSnapshot` to `checkPermission(snapshot, permission)` (wildcard-aware). `loadDashboardContextV2()` is `React.cache()`-wrapped — deduplicated with the outer dashboard layout call per request; no extra DB hit. Redirects to `/dashboard/start` (locale-aware) on denial.
-- Server Actions: ✅ All 10 actions (8 mutating + 2 read) check permission via `checkUserPermission(supabase, permission)` helper. Read actions use `ACCOUNT_PREFERENCES_READ`; mutating actions use `ACCOUNT_PROFILE_UPDATE` or `ACCOUNT_PREFERENCES_UPDATE`. Returns `{ success: false, error: "Permission denied" }` on denial.
+- Server Actions: ✅ All 13 actions (8 mutating + 2 read + 3 avatar) check permission via `checkUserPermission(supabase, userId, permission)` helper. Read actions use `ACCOUNT_PREFERENCES_READ`; profile-mutating actions use `ACCOUNT_PROFILE_UPDATE`; preferences-mutating actions use `ACCOUNT_PREFERENCES_UPDATE`. Returns `{ success: false, error: "Permission denied" }` on denial. Helper uses `getPermissionSnapshotForUser` + `checkPermission` (wildcard-aware) via `loadAppContextV2` — **not** the legacy `loadAppContextServer` loader.
 - RLS: ✅ Final boundary exists (`user_id = auth.uid()` on all policies)
 
 ### Verification checklist
@@ -134,6 +135,34 @@ Note: `/dashboard/account/notifications` page exists but is **not registered in 
 - soft delete: `deleted_at` ✅
 - audit columns: `created_at`, `updated_at` ✅
 
+### Columns of note (`users`)
+
+- `avatar_url` TEXT nullable — OAuth provider avatar URL (set by auth trigger, not by this module)
+- `avatar_path` TEXT nullable — Supabase Storage object path for uploaded avatar (e.g. `user-uuid/random-uuid.jpg`). Added by migration `20260225090000_user_avatar_storage.sql`. **Never stores a public URL** — signed URLs are generated server-side per request.
+
+### Avatar storage strategy
+
+- Bucket: `user-avatars` (Supabase Storage) — **private** (not public; corrected by migration)
+- Path format: `${userId}/${randomUUID()}.${ext}` — deterministic user folder, UUID filename
+- Display: server-side signed URL (1 hour TTL) generated in **two** places:
+  - Profile page (`profile/page.tsx`) — passed as `avatarSignedUrl` prop to `ProfileClient`
+  - User context loaders (`load-user-context.v2.ts` and `load-admin-context.v2.ts`) — stored as `UserV2.avatar_signed_url` / `AdminUserV2.avatar_signed_url`, used by sidebar footer (`nav-user.tsx`)
+- Avatar display priority: `avatar_signed_url` (uploaded) → `avatar_url` (OAuth provider) → initials fallback
+- Previous avatar object is deleted from storage after a successful replacement
+- If upload succeeds but DB update fails, the new object is rolled back (deleted) to keep storage and DB consistent
+- **Column privilege note**: `GRANT UPDATE (avatar_path) ON public.users TO authenticated` is required and tracked in migration `20260225095000`. The `ADD COLUMN` migration alone is insufficient — PostgreSQL column privileges are additive and `authenticated` only had `SELECT` by default.
+
+### Storage bucket policies (`user-avatars`)
+
+| Operation | Policy name               | Condition                                                         |
+| --------- | ------------------------- | ----------------------------------------------------------------- |
+| SELECT    | `user_avatars_select_own` | `bucket_id = 'user-avatars' AND foldername[1] = auth.uid()::text` |
+| INSERT    | `user_avatars_insert_own` | same (WITH CHECK)                                                 |
+| UPDATE    | `user_avatars_update_own` | same (USING + WITH CHECK)                                         |
+| DELETE    | `user_avatars_delete_own` | same (USING)                                                      |
+
+Old policies dropped: `"Authenticated can insert user avatars"`, `"Authenticated can select user avatars"` (were bucket-only — too permissive).
+
 ### Indexes
 
 - `idx_user_preferences_updated_at` on `updated_at DESC`
@@ -169,18 +198,21 @@ Note: `/dashboard/account/notifications` page exists but is **not registered in 
 
 ### Server actions
 
-| Action                             | File                                        | Input schema                       | Permission enforced             | Entitlement enforced |
-| ---------------------------------- | ------------------------------------------- | ---------------------------------- | ------------------------------- | -------------------- |
-| `getUserPreferencesAction`         | `src/app/actions/user-preferences/index.ts` | none                               | ✅ `ACCOUNT_PREFERENCES_READ`   | ❌                   |
-| `getDashboardSettingsAction`       | same                                        | none                               | ✅ `ACCOUNT_PREFERENCES_READ`   | ❌                   |
-| `updateProfileAction`              | same                                        | `updateProfileSchema` (Zod)        | ✅ `ACCOUNT_PROFILE_UPDATE`     | ❌                   |
-| `updateRegionalSettingsAction`     | same                                        | `updateRegionalSchema` (Zod)       | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `updateNotificationSettingsAction` | same                                        | `updateNotificationSettingsSchema` | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `updateDashboardSettingsAction`    | same                                        | `updateDashboardSettingsSchema`    | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `updateModuleSettingsAction`       | same                                        | `updateModuleSettingsSchema`       | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `syncUiSettingsAction`             | same                                        | `syncUiSettingsSchema`             | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `setDefaultOrganizationAction`     | same                                        | `setDefaultOrganizationSchema`     | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
-| `setDefaultBranchAction`           | same                                        | `setDefaultBranchSchema`           | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| Action                             | File                                        | Input schema                                                 | Permission enforced             | Entitlement enforced |
+| ---------------------------------- | ------------------------------------------- | ------------------------------------------------------------ | ------------------------------- | -------------------- |
+| `getUserPreferencesAction`         | `src/app/actions/user-preferences/index.ts` | none                                                         | ✅ `ACCOUNT_PREFERENCES_READ`   | ❌                   |
+| `getDashboardSettingsAction`       | same                                        | none                                                         | ✅ `ACCOUNT_PREFERENCES_READ`   | ❌                   |
+| `updateProfileAction`              | same                                        | `updateProfileSchema` (Zod)                                  | ✅ `ACCOUNT_PROFILE_UPDATE`     | ❌                   |
+| `updateRegionalSettingsAction`     | same                                        | `updateRegionalSchema` (Zod)                                 | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `updateNotificationSettingsAction` | same                                        | `updateNotificationSettingsSchema`                           | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `updateDashboardSettingsAction`    | same                                        | `updateDashboardSettingsSchema`                              | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `updateModuleSettingsAction`       | same                                        | `updateModuleSettingsSchema`                                 | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `syncUiSettingsAction`             | same                                        | `syncUiSettingsSchema`                                       | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `setDefaultOrganizationAction`     | same                                        | `setDefaultOrganizationSchema`                               | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `setDefaultBranchAction`           | same                                        | `setDefaultBranchSchema`                                     | ✅ `ACCOUNT_PREFERENCES_UPDATE` | ❌                   |
+| `uploadAvatarAction`               | same                                        | `FormData` (file field, server-validated: image MIME, ≤5 MB) | ✅ `ACCOUNT_PROFILE_UPDATE`     | ❌                   |
+| `removeAvatarAction`               | same                                        | none                                                         | ✅ `ACCOUNT_PROFILE_UPDATE`     | ❌                   |
+| `getAvatarSignedUrlAction`         | same                                        | none (reads path from DB)                                    | ✅ authenticated                | ❌                   |
 
 ### Services
 
@@ -309,6 +341,21 @@ Note: `/dashboard/account/notifications` page exists but is **not registered in 
 - `supabase/tests/060_user_preferences_test.sql` — added Test 21 (unauthenticated access); updated plan count 20 → 21
 - `supabase/migrations/20260224105002_force_rls_user_preferences.sql` — applied `FORCE ROW LEVEL SECURITY` to `user_preferences` and `user_preference_audit`
 - `src/app/actions/user-preferences/__tests__/index.test.ts` — added mocks for `loadAppContextServer` and `PermissionServiceV2`; added denial test suite; added read action denial test
+- `supabase/migrations/20260225090000_user_avatar_storage.sql` — NEW migration: adds `avatar_path` column to `public.users`; sets `user-avatars` bucket private; drops overly-permissive bucket-level policies; adds 4 user-scoped storage RLS policies (`user_avatars_{select,insert,update,delete}_own`)
+- `supabase/types/types.ts` — regenerated after avatar migration (users row now includes `avatar_path: string | null`)
+- `src/app/actions/user-preferences/index.ts` — added `uploadAvatarAction` (MIME + size validation, UUID path, rollback on DB failure, old-object cleanup), `removeAvatarAction` (clears DB then deletes storage object), `getAvatarSignedUrlAction` (reads path from DB, returns 1-hour signed URL)
+- `src/app/[locale]/dashboard/account/profile/page.tsx` — reads `users.avatar_path` server-side; generates signed URL (3600 s TTL); passes `avatarSignedUrl` prop to `ProfileClient`
+- `src/app/[locale]/dashboard/account/profile/_components/profile-client.tsx` — rewrote to add avatar UI: hidden file input, Upload/Change button, Remove button, `useTransition` pending state, `handleFileChange` + `handleRemoveAvatar` calling server actions, `router.refresh()` after success; avatar priority: signed URL → OAuth `avatar_url` → initials
+- `src/app/actions/user-preferences/__tests__/index.test.ts` — added 13 new tests covering `uploadAvatarAction` (auth denial, permission denial, no-org fail-closed, MIME rejection, size rejection, missing file, path-starts-with-userId security, storage error, old-path cleanup) and `removeAvatarAction` (auth denial, permission denial, success with path, success without path)
+- `supabase/migrations/20260225095000_grant_avatar_path_update.sql` — NEW migration: `GRANT UPDATE (avatar_path) ON public.users TO authenticated`; fixes 403 on `PATCH /rest/v1/users` when saving avatar path after upload (the `ADD COLUMN` migration omitted the column-level UPDATE grant)
+- `src/app/actions/user-preferences/index.ts` — bugfix: `checkUserPermission` switched from legacy `loadAppContextServer` → `loadAppContextV2` (correct org resolution via `user_role_assignments`); switched from `PermissionServiceV2.currentUserHasPermission` (exact-match RPC, fails on wildcards) → `getPermissionSnapshotForUser` + `checkPermission` (wildcard-aware); fixed "Permission denied" for all users with wildcard `account.*`
+- `src/app/actions/user-preferences/__tests__/index.test.ts` — updated mocks: `loadAppContextServer` → `loadAppContextV2`; `currentUserHasPermission` → `getPermissionSnapshotForUser` returning `{ allow: ["account.*"], deny: [] }`
+- `src/lib/stores/v2/user-store.ts` — added `avatar_signed_url: string | null` to `UserV2` interface
+- `src/server/loaders/v2/load-user-context.v2.ts` — added `avatar_path` to users select; generates signed URL (1 h TTL) server-side when `avatar_path` is set; populates `UserV2.avatar_signed_url`
+- `src/server/loaders/v2/load-admin-context.v2.ts` — same: added `avatar_path` query + signed URL generation; added `avatar_signed_url` to `AdminUserV2` interface
+- `src/components/nav-user.tsx` — fixed hardcoded `"CN"` fallback initials → derived from `user.name` (splits on spaces, takes first char of each word, up to 2)
+- `src/app/[locale]/dashboard/_components/dashboard-shell.tsx` — sidebar `userData.avatar` now uses `user.avatar_signed_url || user.avatar_url || ""` from store (no `useEffect` / client waterfall)
+- `src/app/[locale]/admin/layout.tsx` — `userData.avatar` now uses `context.user.avatar_signed_url || context.user.avatar_url || ""` from loader context
 
 ---
 
@@ -317,3 +364,7 @@ Note: `/dashboard/account/notifications` page exists but is **not registered in 
 - 2026-02-24 — Initial MODULE.md created by compliance verification task. Module was pre-V2, implemented before current standards. 8 compliance gaps documented.
 - 2026-02-24 — Compliance fix task: all 8 gaps closed. PermissionServiceV2 enforcement added, page guards added, console.log removed, config.ts cleaned, sidebar SSR tests added, RLS unauthenticated test added, FORCE RLS migration applied, negative action test added.
 - 2026-02-25 — Bugfix: page guards switched to `checkPermission` + `loadDashboardContextV2` (wildcard-aware, correct org resolution). Read actions gated with `ACCOUNT_PREFERENCES_READ`. Sidebar table header corrected to `requiresPermissions`.
+- 2026-02-25 — Avatar feature: added `avatar_path` column to `public.users`; hardened `user-avatars` storage bucket (private + user-scoped RLS policies); added `uploadAvatarAction`, `removeAvatarAction`, `getAvatarSignedUrlAction` server actions with permission enforcement + rollback; profile page generates signed URL server-side; ProfileClient updated with upload/remove UI; 13 new unit tests added.
+- 2026-02-25 — Bugfix (avatar upload 403): `ADD COLUMN avatar_path` was missing `GRANT UPDATE (avatar_path) TO authenticated`; added migration `20260225095000_grant_avatar_path_update.sql`.
+- 2026-02-25 — Bugfix (permission denied on all profile actions): `checkUserPermission` used legacy `loadAppContextServer` (no `user_role_assignments` fallback → `activeOrgId = null` for non-owner members) and `currentUserHasPermission` RPC (exact-match, fails on stored wildcards like `account.*`). Fixed: switched to `loadAppContextV2` + `getPermissionSnapshotForUser` + `checkPermission` (wildcard-aware).
+- 2026-02-25 — Sidebar footer: initials now derived from user name (was hardcoded `"CN"`); avatar now displayed in sidebar by generating signed URL in `load-user-context.v2.ts` and `load-admin-context.v2.ts`; `UserV2.avatar_signed_url` added to store; sidebar reads from store directly (no client-side waterfall).

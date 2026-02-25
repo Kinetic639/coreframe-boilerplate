@@ -45,7 +45,7 @@
 - [x] Every route that hides a link in the sidebar also has a server-side guard that enforces access independently.
   > Verified: profile/page.tsx (ACCOUNT_PROFILE_READ), preferences/page.tsx (ACCOUNT_PREFERENCES_READ), notifications/page.tsx (ACCOUNT_SETTINGS_READ)
 - [x] Every server action that is behind a hidden sidebar item also has a permission check at the top of the function.
-  > Verified: src/app/actions/user-preferences/index.ts (checkUserPermission helper, all 10 actions: 8 mutating + 2 read)
+  > Verified: src/app/actions/user-preferences/index.ts (checkUserPermission helper, all 13 actions: 10 original + 3 avatar actions)
 
 ### Fail-Closed Principles
 
@@ -117,6 +117,9 @@ updateModuleSettingsAction               account.preferences.update         { su
 syncUiSettingsAction                     account.preferences.update         { success: false } ✅
 setDefaultOrganizationAction             account.preferences.update         { success: false } ✅
 setDefaultBranchAction                   account.preferences.update         { success: false } ✅
+uploadAvatarAction                       account.profile.update             { success: false } ✅
+removeAvatarAction                       account.profile.update             { success: false } ✅
+getAvatarSignedUrlAction                 authenticated (no explicit perm)   { success: false } ✅
 ```
 
 ### Entitlement Gating
@@ -162,6 +165,8 @@ Error message keys:  (via action error strings, no dedicated keys)
 - [x] `supabase/migrations/20260201120000_user_preferences_v2.sql` — schema expansion + RLS + audit table
 - [x] `supabase/migrations/20260203000000_revoke_anon_user_preferences.sql` — anon access revoked
 - [x] `supabase/migrations/20250605131416_add_organization_and_branch_to_user_preferences.sql` — org/branch columns
+- [x] `supabase/migrations/20260225090000_user_avatar_storage.sql` — adds `avatar_path` to `public.users`; makes `user-avatars` bucket private; drops permissive bucket-level policies; adds 4 user-scoped storage RLS policies ✅
+- [x] `supabase/migrations/20260225095000_grant_avatar_path_update.sql` — `GRANT UPDATE (avatar_path) ON public.users TO authenticated`; fixes 403 caused by missing column-level UPDATE privilege ✅
 - [ ] Dedicated permissions migration
   > **INFO**: Permission slugs exist in DB (verified). Migration file not identified separately — may be in a shared permissions migration.
   > **Required**: Verify slugs are in a tracked migration.
@@ -308,6 +313,9 @@ Server actions:
 - [x] `syncUiSettingsAction` — same ✅
 - [x] `setDefaultOrganizationAction` — same ✅
 - [x] `setDefaultBranchAction` — same ✅
+- [x] `uploadAvatarAction` calls `checkUserPermission(supabase, ACCOUNT_PROFILE_UPDATE)` ✅
+- [x] `removeAvatarAction` calls `checkUserPermission(supabase, ACCOUNT_PROFILE_UPDATE)` ✅
+- [x] `getAvatarSignedUrlAction` — authenticated user only (reads own avatar_path via RLS) ✅
 - [ ] All actions use `mapEntitlementError(error)` — N/A (not plan-gated)
 
 Invariant checklist:
@@ -353,10 +361,17 @@ Invariant checklist:
 
 **Unit Tests — Server Actions:**
 
-- [x] Happy path tests exist for all 10 actions ✅
+- [x] Happy path tests exist for all 13 actions ✅
 - [x] Auth failure tests exist ✅
 - [x] Guard test: action returns `{ success: false }` when permission missing ✅
   > Verified: src/app/actions/user-preferences/**tests**/index.test.ts (describe "Permission denial (fail-closed)")
+- [x] Storage path-scoping security test: `uploadAvatarAction` path MUST start with `userId` ✅
+  > Verified: src/app/actions/user-preferences/**tests**/index.test.ts — path security test
+- [x] MIME type rejection test: non-image files rejected by `uploadAvatarAction` ✅
+- [x] Size limit rejection test: files >5 MB rejected by `uploadAvatarAction` ✅
+- [x] Rollback test: on DB failure after upload, storage object is deleted ✅
+- [x] Old-path cleanup test: after successful upload, old storage object is deleted ✅
+- [x] `removeAvatarAction` no-path test: safe no-op when no avatar path exists ✅
 - [ ] Guard test: limit exceeded → N/A (no limits)
 
 **RLS Integration Tests:**
@@ -465,7 +480,7 @@ Invariant checklist:
 - [x] **Permission rows**: all 7 slugs in `public.permissions`; `account.*` assigned to `org_owner` and `org_member` via `role_permissions` ✅
 - [x] **Entitlements**: not plan-gated; all plans include `user-account` ✅
 - [x] **Server guards**: every server action (mutating and read) has permission check ✅
-  > Verified: src/app/actions/user-preferences/index.ts (checkUserPermission helper, all 10 actions: 8 mutating + 2 read — getUserPreferencesAction, getDashboardSettingsAction)
+  > Verified: src/app/actions/user-preferences/index.ts (checkUserPermission helper, all 13 actions: 10 original + uploadAvatarAction + removeAvatarAction + getAvatarSignedUrlAction)
 - [x] **Sidebar registry**: entry in `registry.ts`; uses constants; `iconKey` valid; `titleKey` resolves ✅
 - [x] **No client-side authorization logic**: `usePermissions()` not used for data gating ✅
 - [x] **Tests pass (full criteria)**: sidebar SSR tests and RLS tests added ✅
@@ -501,6 +516,22 @@ Invariant checklist:
 
 - [x] **Raw module or permission strings in TypeScript** — None found. ✅
 
+- [x] **Storage bucket too permissive** — `user-avatars` was originally `public = true` with bucket-only policies. Fixed: bucket set private; 4 user-scoped policies added (`foldername[1] = auth.uid()::text`). ✅
+
+  > Verified: supabase/migrations/20260225090000_user_avatar_storage.sql
+
+- [x] **`ADD COLUMN` without column-level UPDATE grant** — `ALTER TABLE ... ADD COLUMN` does NOT automatically grant `UPDATE` on the new column to `authenticated`. The RLS policy (`users_update_self`) allows the row update, but the column privilege blocks it with a 403. Always follow `ADD COLUMN` with `GRANT UPDATE (column_name) ON table TO authenticated`. ✅
+
+  > Verified: `20260225095000_grant_avatar_path_update.sql` — grants `UPDATE (avatar_path)` to `authenticated` after the `ADD COLUMN` in `20260225090000`.
+
+- [x] **`has_permission()` RPC fails on wildcard-stored permissions** — `user_effective_permissions` stores entries exactly as they were compiled (e.g. `account.*`). The `has_permission()` DB function does an exact string match, so `has_permission('account.profile.update')` finds no row when only `account.*` is stored. Always use `getPermissionSnapshotForUser` + `checkPermission` (wildcard-aware) in server actions, not `currentUserHasPermission`. ✅
+
+  > Fixed in `checkUserPermission` helper in `src/app/actions/user-preferences/index.ts`.
+
+- [x] **`loadAppContextServer` (legacy) used instead of `loadAppContextV2`** — the legacy loader resolves org via `organizations.created_by = userId` only; users who joined an org but didn't create it get `activeOrgId = null`. Always use `loadAppContextV2` (resolves org via `user_role_assignments`). ✅
+
+  > Fixed in `checkUserPermission` helper.
+
 - [x] **`buildSidebarModel` (cached) used in tests** — sidebar tests use `buildSidebarModelUncached`. ✅
 
 - [x] **`clearPermissionRegexCache()` missing from `afterEach`** — present in sidebar test ✅
@@ -511,4 +542,6 @@ Invariant checklist:
 _Checklist completed: 2026-02-24 — compliance verification task for pre-V2 user-account module_
 _Checklist updated: 2026-02-24 — re-verification pass confirmed all 8 gaps closed; stale GAP notes removed from checked items_
 _Checklist updated: 2026-02-25 — guard mechanism corrected to checkPermission + loadDashboardContextV2; action count updated to all 10; redirect target corrected to /dashboard/start; "verified in DB" claims replaced with design-intent statements_
+_Checklist updated: 2026-02-25 — avatar feature: migration 20260225090000 added; 3 new server actions documented; action total updated to 13; 8 new test cases added; storage policy anti-footgun entry added_
+_Checklist updated: 2026-02-25 — bugfix session: migration 20260225095000 added (column UPDATE grant); 3 new anti-footgun entries (column privilege, wildcard RPC mismatch, legacy loader); `checkUserPermission` notes updated_
 _Checklist version: February 2026 — aligned with Permissions V2, Entitlements V2, Sidebar V2_

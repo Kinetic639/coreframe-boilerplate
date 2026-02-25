@@ -335,7 +335,7 @@ function AppSidebar({ model, isAdmin, ...props }: AppSidebarProps) {
     ? {
         name: getUserDisplayName(user.first_name, user.last_name),
         email: user.email || "",
-        avatar: user.avatar_url || "",
+        avatar: user.avatar_signed_url || user.avatar_url || "",
       }
     : {
         name: "User",

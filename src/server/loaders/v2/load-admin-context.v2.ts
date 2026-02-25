@@ -13,6 +13,7 @@ export interface AdminUserV2 {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  avatar_signed_url: string | null;
 }
 
 /**
@@ -63,9 +64,18 @@ async function _loadAdminContextV2(): Promise<AdminContextV2 | null> {
   // Load user profile for display (name, avatar) — fallback to auth metadata
   const { data: userData } = await supabase
     .from("users")
-    .select("first_name, last_name, avatar_url")
+    .select("first_name, last_name, avatar_url, avatar_path")
     .eq("id", authUser.id)
     .maybeSingle();
+
+  // Generate signed URL for private-bucket uploaded avatar (1 hour TTL)
+  let avatarSignedUrl: string | null = null;
+  if (userData?.avatar_path) {
+    const { data: signedData } = await supabase.storage
+      .from("user-avatars")
+      .createSignedUrl(userData.avatar_path, 3600);
+    avatarSignedUrl = signedData?.signedUrl ?? null;
+  }
 
   const adminEntitlements = await AdminEntitlementsService.loadAdminEntitlements(
     supabase,
@@ -84,6 +94,7 @@ async function _loadAdminContextV2(): Promise<AdminContextV2 | null> {
       first_name: userData?.first_name ?? authUser.user_metadata?.first_name ?? null,
       last_name: userData?.last_name ?? authUser.user_metadata?.last_name ?? null,
       avatar_url: userData?.avatar_url ?? null,
+      avatar_signed_url: avatarSignedUrl,
     },
     adminEntitlements,
     permissionSnapshot,

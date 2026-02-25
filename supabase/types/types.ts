@@ -198,6 +198,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      admin_entitlements: {
+        Row: {
+          created_at: string;
+          enabled: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          enabled?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          enabled?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       app_config: {
         Row: {
           dev_mode_enabled: boolean;
@@ -5943,6 +5964,7 @@ export type Database = {
       };
       users: {
         Row: {
+          avatar_path: string | null;
           avatar_url: string | null;
           created_at: string | null;
           default_branch_id: string | null;
@@ -5954,6 +5976,7 @@ export type Database = {
           status_id: string | null;
         };
         Insert: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           created_at?: string | null;
           default_branch_id?: string | null;
@@ -5965,6 +5988,7 @@ export type Database = {
           status_id?: string | null;
         };
         Update: {
+          avatar_path?: string | null;
           avatar_url?: string | null;
           created_at?: string | null;
           default_branch_id?: string | null;

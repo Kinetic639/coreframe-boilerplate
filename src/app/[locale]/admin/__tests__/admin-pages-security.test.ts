@@ -56,6 +56,7 @@ function makeAdminContext(
       last_name: "User",
       avatar_url: null,
     },
+    avatar_signed_url: null,
     adminEntitlements: { user_id: "user-123", enabled, updated_at: "2026-01-01T00:00:00Z" },
     permissionSnapshot: { allow, deny },
   };

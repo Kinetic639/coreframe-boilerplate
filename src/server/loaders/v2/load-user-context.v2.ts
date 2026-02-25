@@ -68,12 +68,21 @@ async function _loadUserContextV2(
   // 1. Load user identity from users table
   const { data: userData, error: userError } = await supabase
     .from("users")
-    .select("id, email, first_name, last_name, avatar_url")
+    .select("id, email, first_name, last_name, avatar_url, avatar_path")
     .eq("id", userId)
     .maybeSingle();
 
   if (userError && process.env.NODE_ENV === "development") {
     console.error("[loadUserContextV2] User query failed:", userError);
+  }
+
+  // Generate signed URL for private-bucket uploaded avatar (1 hour TTL)
+  let avatarSignedUrl: string | null = null;
+  if (userData?.avatar_path) {
+    const { data: signedData } = await supabase.storage
+      .from("user-avatars")
+      .createSignedUrl(userData.avatar_path, 3600);
+    avatarSignedUrl = signedData?.signedUrl ?? null;
   }
 
   // Fallback to session metadata if users row missing
@@ -84,6 +93,7 @@ async function _loadUserContextV2(
         first_name: userData.first_name,
         last_name: userData.last_name,
         avatar_url: userData.avatar_url,
+        avatar_signed_url: avatarSignedUrl,
       }
     : {
         id: userId,
@@ -91,6 +101,7 @@ async function _loadUserContextV2(
         first_name: authUser.user_metadata?.first_name || null,
         last_name: authUser.user_metadata?.last_name || null,
         avatar_url: null,
+        avatar_signed_url: null,
       };
 
   // 2. Extract roles from JWT (single source of truth)

@@ -55,6 +55,7 @@ const mockUserProfile = {
   first_name: "Admin",
   last_name: "User",
   avatar_url: "https://example.com/avatar.png",
+  avatar_path: null,
 };
 
 const enabledEntitlements = {
@@ -211,7 +212,7 @@ describe("loadAdminContextV2", () => {
 
     it("should handle null name fields gracefully when both sources are null", async () => {
       mockUsersQuery.maybeSingle.mockResolvedValue({
-        data: { first_name: null, last_name: null, avatar_url: null },
+        data: { first_name: null, last_name: null, avatar_url: null, avatar_path: null },
         error: null,
       });
       const userWithoutMeta = { ...mockAuthUser, user_metadata: {} };
@@ -254,6 +255,7 @@ describe("loadAdminContextV2", () => {
           first_name: "Admin",
           last_name: "User",
           avatar_url: "https://example.com/avatar.png",
+          avatar_signed_url: null,
         },
         adminEntitlements: enabledEntitlements,
         permissionSnapshot: {
