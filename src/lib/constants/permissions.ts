@@ -11,7 +11,7 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 20 permissions
+ * Expected Count: 24 permissions (20 org-scoped + 4 superadmin)
  */
 
 // Account Permissions (global scope, system permissions)
@@ -46,6 +46,12 @@ export const ORG_UPDATE = "org.update" as const;
 export const SELF_READ = "self.read" as const;
 export const SELF_UPDATE = "self.update" as const;
 
+// Superadmin Permissions (global scope, super-admin only)
+export const SUPERADMIN_WILDCARD = "superadmin.*" as const;
+export const SUPERADMIN_ADMIN_READ = "superadmin.admin.read" as const;
+export const SUPERADMIN_PLANS_READ = "superadmin.plans.read" as const;
+export const SUPERADMIN_PRICING_READ = "superadmin.pricing.read" as const;
+
 /**
  * Type union of all valid permission slugs
  * Useful for type-safe permission checks
@@ -70,7 +76,11 @@ export type PermissionSlug =
   | typeof ORG_READ
   | typeof ORG_UPDATE
   | typeof SELF_READ
-  | typeof SELF_UPDATE;
+  | typeof SELF_UPDATE
+  | typeof SUPERADMIN_WILDCARD
+  | typeof SUPERADMIN_ADMIN_READ
+  | typeof SUPERADMIN_PLANS_READ
+  | typeof SUPERADMIN_PRICING_READ;
 
 /**
  * Helper: Get all permission slugs as array
@@ -97,4 +107,8 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   ORG_UPDATE,
   SELF_READ,
   SELF_UPDATE,
+  SUPERADMIN_WILDCARD,
+  SUPERADMIN_ADMIN_READ,
+  SUPERADMIN_PLANS_READ,
+  SUPERADMIN_PRICING_READ,
 ];

@@ -61,6 +61,14 @@ export const routing = defineRouting({
       en: "/admin/analytics",
       pl: "/admin/analityka",
     },
+    "/admin/plans": {
+      en: "/admin/plans",
+      pl: "/admin/plany",
+    },
+    "/admin/pricing": {
+      en: "/admin/pricing",
+      pl: "/admin/cennik",
+    },
 
     // === Dashboard V2 (New Architecture) ===
     "/dashboard/start": {
@@ -489,6 +497,10 @@ export const routing = defineRouting({
     "/dashboard/account/preferences": {
       en: "/dashboard/account/preferences",
       pl: "/dashboard/konto/ustawienia",
+    },
+    "/dashboard/account/notifications": {
+      en: "/dashboard/account/notifications",
+      pl: "/dashboard/konto/powiadomienia",
     },
 
     // === User Account module (Legacy) ===
