@@ -31,6 +31,7 @@ describe("useUserStoreV2", () => {
         first_name: "Test",
         last_name: "User",
         avatar_url: "https://example.com/avatar.jpg",
+        avatar_signed_url: null,
       };
 
       const mockRoles: JWTRole[] = [
@@ -82,6 +83,7 @@ describe("useUserStoreV2", () => {
           first_name: "First",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [
           {
@@ -109,6 +111,7 @@ describe("useUserStoreV2", () => {
           first_name: "Second",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [
           {
@@ -146,6 +149,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [
           {
@@ -184,6 +188,7 @@ describe("useUserStoreV2", () => {
           first_name: null,
           last_name: null,
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: { allow: [], deny: [] },
@@ -210,6 +215,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [
           {
@@ -256,6 +262,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: {
@@ -289,6 +296,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: {
@@ -322,6 +330,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: "https://example.com/avatar.jpg",
+          avatar_signed_url: null,
         },
         roles: [
           {
@@ -360,6 +369,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: {
@@ -397,6 +407,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: {
@@ -436,6 +447,7 @@ describe("useUserStoreV2", () => {
           first_name: "Test",
           last_name: "User",
           avatar_url: null,
+          avatar_signed_url: null,
         },
         roles: [],
         permissionSnapshot: {

@@ -48,6 +48,7 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       first_name: "Test",
       last_name: "User",
       avatar_url: null,
+      avatar_signed_url: null,
     },
     roles: [],
     permissionSnapshot: { allow: [], deny: [] },

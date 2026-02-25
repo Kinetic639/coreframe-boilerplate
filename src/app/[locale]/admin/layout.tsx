@@ -39,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const userData = {
     name: displayName !== "User" ? displayName : context.user.email,
     email: context.user.email,
-    avatar: context.user.avatar_url ?? "",
+    avatar: context.user.avatar_signed_url || context.user.avatar_url || "",
   };
 
   return (

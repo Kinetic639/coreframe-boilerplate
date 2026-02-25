@@ -25,13 +25,13 @@ vi.mock("@/server/services/user-preferences.service", () => ({
 }));
 
 // Default: permission allowed, orgId available
-vi.mock("@/lib/api/load-app-context-server", () => ({
-  loadAppContextServer: vi.fn().mockResolvedValue({ activeOrgId: "org-123" }),
+vi.mock("@/server/loaders/v2/load-app-context.v2", () => ({
+  loadAppContextV2: vi.fn().mockResolvedValue({ activeOrgId: "org-123" }),
 }));
 
 vi.mock("@/server/services/permission-v2.service", () => ({
   PermissionServiceV2: {
-    currentUserHasPermission: vi.fn().mockResolvedValue(true),
+    getPermissionSnapshotForUser: vi.fn().mockResolvedValue({ allow: ["account.*"], deny: [] }),
   },
 }));
 
@@ -46,10 +46,12 @@ import {
   syncUiSettingsAction,
   setDefaultOrganizationAction,
   setDefaultBranchAction,
+  uploadAvatarAction,
+  removeAvatarAction,
 } from "../index";
 import { createClient } from "@/utils/supabase/server";
 import { UserPreferencesService } from "@/server/services/user-preferences.service";
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 
 // Sample user preferences for testing
@@ -486,8 +488,11 @@ describe("Permission denial (fail-closed)", () => {
     (createClient as any).mockResolvedValue(mockSupabase);
 
     // Permission service returns false (denied)
-    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: "org-123" });
-    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
 
     const result = await updateProfileAction({ displayName: "Test" });
 
@@ -509,8 +514,11 @@ describe("Permission denial (fail-closed)", () => {
     };
     (createClient as any).mockResolvedValue(mockSupabase);
 
-    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: "org-123" });
-    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
 
     const result = await getUserPreferencesAction();
 
@@ -532,8 +540,11 @@ describe("Permission denial (fail-closed)", () => {
     (createClient as any).mockResolvedValue(mockSupabase);
 
     // No org context (null activeOrgId) — fail-closed
-    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: null });
-    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: null });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
 
     const result = await updateProfileAction({ displayName: "Test" });
 
@@ -541,5 +552,294 @@ describe("Permission denial (fail-closed)", () => {
     if (!result.success) {
       expect(result.error).toBe("Permission denied");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Avatar action helpers
+// ---------------------------------------------------------------------------
+
+function makeAuthSupabase(
+  userId: string,
+  overrides: Partial<{
+    usersRow: Record<string, unknown> | null;
+    usersError: unknown;
+    uploadError: unknown;
+    updateError: unknown;
+    removeError: unknown;
+    signedUrl: string | null;
+    signedUrlError: unknown;
+  }> = {}
+) {
+  const storageFrom = vi.fn().mockReturnValue({
+    upload: vi.fn().mockResolvedValue({ data: {}, error: overrides.uploadError ?? null }),
+    remove: vi.fn().mockResolvedValue({ data: {}, error: overrides.removeError ?? null }),
+    createSignedUrl: vi.fn().mockResolvedValue({
+      data:
+        overrides.signedUrl !== undefined
+          ? { signedUrl: overrides.signedUrl }
+          : { signedUrl: "https://signed.url/avatar" },
+      error: overrides.signedUrlError ?? null,
+    }),
+  });
+
+  const usersQuery = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: overrides.usersRow !== undefined ? overrides.usersRow : { avatar_path: null },
+      error: overrides.usersError ?? null,
+    }),
+    update: vi.fn().mockReturnThis(),
+  };
+
+  // from("users") for select queries uses the chain above
+  // but update() chains differently — need to support .from("users").update(...).eq(...)
+  const updateResult = { error: overrides.updateError ?? null };
+  const updateChain = { eq: vi.fn().mockResolvedValue(updateResult) };
+
+  const supabase = {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: userId } }, error: null }),
+    },
+    from: vi.fn((table: string) => {
+      if (table === "users") {
+        return {
+          ...usersQuery,
+          update: vi.fn(() => updateChain),
+        };
+      }
+      return {};
+    }),
+    storage: { from: storageFrom },
+  };
+
+  return supabase;
+}
+
+function makeImageFile(options: { type?: string; size?: number } = {}) {
+  const { type = "image/jpeg", size = 1024 } = options;
+  const content = new Uint8Array(size).fill(0);
+  return new File([content], "avatar.jpg", { type });
+}
+
+// ---------------------------------------------------------------------------
+// uploadAvatarAction tests
+// ---------------------------------------------------------------------------
+describe("uploadAvatarAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: ["account.*"],
+      deny: [],
+    });
+  });
+
+  it("should deny when not authenticated", async () => {
+    const mockSupabase = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("Not authenticated");
+  });
+
+  it("should deny when permission is missing (ACCOUNT_PROFILE_UPDATE)", async () => {
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("Permission denied");
+  });
+
+  it("should deny when no org context (fail-closed)", async () => {
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: null });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("Permission denied");
+  });
+
+  it("should reject non-image file types", async () => {
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const fd = new FormData();
+    fd.append("file", new File(["<html>"], "evil.html", { type: "text/html" }));
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/invalid file type/i);
+  });
+
+  it("should reject files larger than 5 MB", async () => {
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const oversize = 5 * 1024 * 1024 + 1;
+    const fd = new FormData();
+    fd.append("file", makeImageFile({ size: oversize }));
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/too large/i);
+  });
+
+  it("should reject missing file field", async () => {
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const fd = new FormData(); // no "file" field
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/no file/i);
+  });
+
+  it("path must be scoped to userId — never client-controlled", async () => {
+    const userId = "user-abc-123";
+    const mockSupabase = makeAuthSupabase(userId);
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Path MUST start with the userId
+      expect(result.data.avatarPath.startsWith(`${userId}/`)).toBe(true);
+    }
+
+    // Storage upload called with a path that starts with userId/
+    const storageMock = mockSupabase.storage.from("user-avatars");
+    const uploadCall = storageMock.upload.mock.calls[0];
+    expect(uploadCall[0]).toMatch(new RegExp(`^${userId}/`));
+  });
+
+  it("should return error on storage upload failure", async () => {
+    (createClient as any).mockResolvedValue(
+      makeAuthSupabase("user-123", { uploadError: { message: "bucket full" } })
+    );
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/failed to upload/i);
+  });
+
+  it("should delete old avatar path after successful upload", async () => {
+    const oldPath = "user-123/old-uuid.jpg";
+    const mockSupabase = makeAuthSupabase("user-123", {
+      usersRow: { avatar_path: oldPath },
+    });
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const fd = new FormData();
+    fd.append("file", makeImageFile());
+    const result = await uploadAvatarAction(fd);
+
+    expect(result.success).toBe(true);
+    // Verify remove was called with old path
+    const storageMock = mockSupabase.storage.from("user-avatars");
+    const removeCalls = storageMock.remove.mock.calls;
+    expect(removeCalls.some((call: any[]) => call[0]?.includes(oldPath))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// removeAvatarAction tests
+// ---------------------------------------------------------------------------
+describe("removeAvatarAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (loadAppContextV2 as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: ["account.*"],
+      deny: [],
+    });
+  });
+
+  it("should deny when not authenticated", async () => {
+    const mockSupabase = {
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }) },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const result = await removeAvatarAction();
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("Not authenticated");
+  });
+
+  it("should deny when permission is missing (ACCOUNT_PROFILE_UPDATE)", async () => {
+    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+      allow: [],
+      deny: [],
+    });
+    (createClient as any).mockResolvedValue(makeAuthSupabase("user-123"));
+
+    const result = await removeAvatarAction();
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("Permission denied");
+  });
+
+  it("should return success and clear DB when avatar exists", async () => {
+    const existingPath = "user-123/old-uuid.jpg";
+    const mockSupabase = makeAuthSupabase("user-123", {
+      usersRow: { avatar_path: existingPath },
+    });
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const result = await removeAvatarAction();
+
+    expect(result.success).toBe(true);
+    // Storage remove should have been called with the old path
+    const storageMock = mockSupabase.storage.from("user-avatars");
+    expect(storageMock.remove).toHaveBeenCalledWith([existingPath]);
+  });
+
+  it("should return success even when no avatar_path was set", async () => {
+    const mockSupabase = makeAuthSupabase("user-123", { usersRow: { avatar_path: null } });
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    const result = await removeAvatarAction();
+
+    expect(result.success).toBe(true);
+    // No storage call needed when path is null
+    const storageMock = mockSupabase.storage.from("user-avatars");
+    expect(storageMock.remove).not.toHaveBeenCalled();
+  });
+
+  it("should return error on DB update failure", async () => {
+    (createClient as any).mockResolvedValue(
+      makeAuthSupabase("user-123", { updateError: { message: "RLS denied" } })
+    );
+
+    const result = await removeAvatarAction();
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/failed to remove/i);
   });
 });

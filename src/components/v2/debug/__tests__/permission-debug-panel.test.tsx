@@ -24,6 +24,7 @@ describe("PermissionDebugPanel", () => {
       last_name: "User",
       avatar_url: null,
     },
+    avatar_signed_url: null,
     permissions: ["org.read", "org.update", "branches.read", "members.read"],
     roles: [{ role: "org_owner", scope: "org", organization_id: "org-1" }],
     isLoaded: true,

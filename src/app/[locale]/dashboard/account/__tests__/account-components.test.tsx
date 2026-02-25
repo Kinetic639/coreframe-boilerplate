@@ -9,6 +9,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => mockPathname,
 }));
 
+const mockRouterRefresh = vi.fn();
+
 vi.mock("@/i18n/navigation", () => ({
   Link: ({
     href,
@@ -23,6 +25,12 @@ vi.mock("@/i18n/navigation", () => ({
       {children}
     </a>
   ),
+  useRouter: () => ({ refresh: mockRouterRefresh, push: vi.fn() }),
+}));
+
+vi.mock("@/app/actions/user-preferences", () => ({
+  uploadAvatarAction: vi.fn().mockResolvedValue({ success: true, data: { avatarPath: "u/a.jpg" } }),
+  removeAvatarAction: vi.fn().mockResolvedValue({ success: true, data: null }),
 }));
 
 vi.mock("next-intl", () => ({
@@ -75,6 +83,7 @@ const mockUser = {
   last_name: "Doe",
   email: "john@example.com",
   avatar_url: null,
+  avatar_signed_url: null,
 };
 
 const mockRoles = [
@@ -234,7 +243,9 @@ describe("ProfileClient", () => {
   it("shows loading skeleton when preferences are loading", () => {
     setupMocks({ isLoading: true, preferences: null });
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     expect(screen.getByTestId("loading-skeleton")).toBeInTheDocument();
     // Should not render any form content while loading
@@ -244,7 +255,9 @@ describe("ProfileClient", () => {
   it("renders profile form when loaded with user data", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     // Card title via translation key
     expect(screen.getByText("title")).toBeInTheDocument();
@@ -257,7 +270,9 @@ describe("ProfileClient", () => {
   it("shows user email as read-only (disabled input)", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     // The email label appears (translation key)
     const emailInputs = screen.getAllByDisplayValue("john@example.com");
@@ -269,7 +284,9 @@ describe("ProfileClient", () => {
   it("shows account info section with user id and roles", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     // Account info card title (translation key)
     expect(screen.getByText("accountInfo")).toBeInTheDocument();
@@ -285,7 +302,9 @@ describe("ProfileClient", () => {
   it("initializes display name and phone from preferences", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     const displayNameInput = screen.getByDisplayValue("Johnny");
     const phoneInput = screen.getByDisplayValue("+1234567890");
@@ -297,7 +316,9 @@ describe("ProfileClient", () => {
   it("calls updateProfile.mutate with form values on save", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     // Modify display name
     const displayNameInput = screen.getByDisplayValue("Johnny");
@@ -316,7 +337,9 @@ describe("ProfileClient", () => {
   it("renders CopyToClipboard with user id", () => {
     setupMocks();
 
-    render(<ProfileClient translations={{ description: "Manage your profile" }} />);
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
 
     const copyButton = screen.getByTestId("copy-to-clipboard");
     expect(copyButton).toBeInTheDocument();

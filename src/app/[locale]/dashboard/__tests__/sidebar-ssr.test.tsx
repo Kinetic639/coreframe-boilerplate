@@ -54,6 +54,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: { allow: ["org.read", "members.read"], deny: [] },
@@ -96,6 +97,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: {
@@ -111,6 +113,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: {
@@ -148,6 +151,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: { allow: ["org.read"], deny: [] },
@@ -179,6 +183,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: { allow: ["org.read"], deny: [] },
@@ -210,6 +215,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: {
@@ -244,6 +250,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: {
@@ -278,6 +285,7 @@ describe("Sidebar SSR Integration", () => {
         first_name: null,
         last_name: null,
         avatar_url: null,
+        avatar_signed_url: null,
       },
       roles: [],
       permissionSnapshot: {
