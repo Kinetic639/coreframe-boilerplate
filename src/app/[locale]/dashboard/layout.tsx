@@ -1,6 +1,7 @@
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
 import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
 import { DashboardV2Providers } from "./_providers";
@@ -40,6 +41,10 @@ export default async function DashboardV2Layout({ children }: { children: React.
   // Build sidebar model server-side (deterministic, permission-filtered)
   const sidebarModel = buildSidebarModel(context.app, context.user, entitlements, locale);
 
+  // Check admin entitlements to show Admin Panel link in the user menu
+  const adminContext = await loadAdminContextV2();
+  const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
+
   return (
     <>
       <Script
@@ -57,7 +62,9 @@ export default async function DashboardV2Layout({ children }: { children: React.
         }}
       />
       <DashboardV2Providers context={context}>
-        <DashboardShell sidebarModel={sidebarModel}>{children}</DashboardShell>
+        <DashboardShell sidebarModel={sidebarModel} isAdmin={isAdmin}>
+          {children}
+        </DashboardShell>
       </DashboardV2Providers>
     </>
   );

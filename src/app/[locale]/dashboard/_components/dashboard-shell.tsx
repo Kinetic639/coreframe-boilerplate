@@ -318,9 +318,10 @@ function NavSection({
 // ---------------------------------------------------------------------------
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   model: SidebarModel;
+  isAdmin?: boolean;
 }
 
-function AppSidebar({ model, ...props }: AppSidebarProps) {
+function AppSidebar({ model, isAdmin, ...props }: AppSidebarProps) {
   const { user } = useUserStoreV2();
   const pathname = usePathname();
   const t = useTranslations();
@@ -353,7 +354,7 @@ function AppSidebar({ model, ...props }: AppSidebarProps) {
         <NavSection items={model.footer} pathname={pathname} getLabel={getItemLabel} />
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
-        <NavUser user={userData} />
+        <NavUser user={userData} isAdmin={isAdmin} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
@@ -366,9 +367,10 @@ function AppSidebar({ model, ...props }: AppSidebarProps) {
 interface DashboardShellProps {
   children: React.ReactNode;
   sidebarModel: SidebarModel;
+  isAdmin?: boolean;
 }
 
-export function DashboardShell({ children, sidebarModel }: DashboardShellProps) {
+export function DashboardShell({ children, sidebarModel, isAdmin }: DashboardShellProps) {
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
 
@@ -378,7 +380,7 @@ export function DashboardShell({ children, sidebarModel }: DashboardShellProps) 
 
   return (
     <SidebarProvider open={!sidebarCollapsed} onOpenChange={handleSidebarOpenChange}>
-      <AppSidebar model={sidebarModel} />
+      <AppSidebar model={sidebarModel} isAdmin={isAdmin} />
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
         <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>

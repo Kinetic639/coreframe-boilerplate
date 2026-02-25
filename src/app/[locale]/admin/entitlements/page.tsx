@@ -1,5 +1,7 @@
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
+import { getLocale } from "next-intl/server";
 import { EntitlementsAdminUI } from "./EntitlementsAdminUI";
 import { createClient } from "@/utils/supabase/server";
 
@@ -24,10 +26,11 @@ import { createClient } from "@/utils/supabase/server";
  * - Client component handles interactions
  */
 export default async function EntitlementsAdminPage() {
+  const locale = await getLocale();
   const appContext = await loadAppContextServer();
 
   if (!appContext?.activeOrgId) {
-    redirect("/");
+    redirect({ href: "/sign-in", locale });
   }
 
   const supabase = await createClient();

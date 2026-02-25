@@ -1,6 +1,6 @@
 "use client";
 
-import { BadgeCheck, ChevronsUpDown, Home, LogOut } from "lucide-react";
+import { BadgeCheck, ChevronsUpDown, Home, LayoutDashboard, LogOut, Shield } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -19,19 +19,23 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "@/i18n/navigation";
+import { useRouter, usePathname } from "@/i18n/navigation";
 
 export function NavUser({
   user,
+  isAdmin = false,
 }: {
   user: {
     name: string;
     email: string;
     avatar: string;
   };
+  isAdmin?: boolean;
 }) {
   const { isMobile } = useSidebar();
   const router = useRouter();
+  const pathname = usePathname();
+  const isInAdminPanel = pathname.startsWith("/admin");
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -45,6 +49,14 @@ export function NavUser({
 
   const handleGoHome = () => {
     router.push("/");
+  };
+
+  const handleGoToAdmin = () => {
+    router.push("/admin");
+  };
+
+  const handleGoToDashboard = () => {
+    router.push("/dashboard/start");
   };
 
   return (
@@ -95,6 +107,18 @@ export function NavUser({
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
+              {isAdmin &&
+                (isInAdminPanel ? (
+                  <DropdownMenuItem onClick={handleGoToDashboard}>
+                    <LayoutDashboard />
+                    Dashboard
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={handleGoToAdmin}>
+                    <Shield />
+                    Admin Panel
+                  </DropdownMenuItem>
+                ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
