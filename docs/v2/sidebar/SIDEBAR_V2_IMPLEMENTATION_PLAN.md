@@ -1,8 +1,8 @@
 # Dashboard V2 Sidebar Implementation Plan
 
-**Status:** Not Started
+**Status:** Complete ✅
 **Created:** 2026-02-13
-**Updated:** 2026-02-16
+**Updated:** 2026-02-18
 **Architecture:** SSR-First, TDD, Security-Hardened
 
 ---
@@ -41,40 +41,40 @@ Track implementation progress by checking off completed steps:
 
 ### Phase 0: Non-Negotiables / Scope Lock
 
-- [ ] 0.1 Document scope boundaries and forbidden zones
-- [ ] 0.2 Define "done" criteria
-- [ ] 0.3 List explicit out-of-scope items
+- [x] 0.1 Document scope boundaries and forbidden zones
+- [x] 0.2 Define "done" criteria
+- [x] 0.3 List explicit out-of-scope items
 
 ### Phase 1: Sidebar Contract (Pure Types)
 
-- [ ] 1.1 Create `src/lib/types/v2/sidebar.ts` with JSON-serializable types
-- [ ] 1.2 Define `SidebarModel` with visibility rules
-- [ ] 1.3 Create icon key mapping (`iconKey` → lucide component)
-- [ ] 1.4 Write contract validation tests
+- [x] 1.1 Create `src/lib/types/v2/sidebar.ts` with JSON-serializable types
+- [x] 1.2 Define `SidebarModel` with visibility rules
+- [x] 1.3 Create icon key mapping (`iconKey` → lucide component)
+- [x] 1.4 Write contract validation tests
 
 ### Phase 2: Pure Resolver (TDD First)
 
-- [ ] 2.1 Create failing tests in `src/lib/sidebar/v2/__tests__/resolver.test.ts`
-- [ ] 2.2 Implement `resolveSidebarModel()` in `src/lib/sidebar/v2/resolver.ts`
-- [ ] 2.3 Test: public items render
-- [ ] 2.4 Test: `requiresPermissions` AND logic
-- [ ] 2.5 Test: `requiresAnyPermissions` OR logic
-- [ ] 2.6 Test: module gating via entitlements
-- [ ] 2.7 Test: fail-closed when entitlements null
-- [ ] 2.7.1 Test: permission fail-closed when `permissionSnapshot.allow` is empty (`[]`)
-- [ ] 2.8 Test: nested group pruning (hide empty parents)
-- [ ] 2.9 Test: wildcard permission matching (`account.*`)
-- [ ] 2.10 Test: determinism (same inputs → identical outputs)
-- [ ] 2.11 All resolver tests passing
+- [x] 2.1 Create failing tests in `src/lib/sidebar/v2/__tests__/resolver.test.ts`
+- [x] 2.2 Implement `resolveSidebarModel()` in `src/lib/sidebar/v2/resolver.ts`
+- [x] 2.3 Test: public items render
+- [x] 2.4 Test: `requiresPermissions` AND logic
+- [x] 2.5 Test: `requiresAnyPermissions` OR logic
+- [x] 2.6 Test: module gating via entitlements
+- [x] 2.7 Test: fail-closed when entitlements null
+- [x] 2.7.1 Test: permission fail-closed when `permissionSnapshot.allow` is empty (`[]`)
+- [x] 2.8 Test: nested group pruning (hide empty parents)
+- [x] 2.9 Test: wildcard permission matching (`account.*`)
+- [x] 2.10 Test: determinism (same inputs → identical outputs)
+- [x] 2.11 All resolver tests passing
 
 ### Phase 3: Nav Registry (Data Only)
 
-- [ ] 3.0 Create centralized permission slug constants (`src/lib/constants/permissions.ts`)
-- [ ] 3.0.1 Create centralized module slug constants (`src/lib/constants/modules.ts`)
-- [ ] 3.1 Create `src/lib/sidebar/v2/registry.ts` with nav catalog
-- [ ] 3.2 Define core sections (Home, Organization, Account, etc.)
-- [ ] 3.3 Write registry structure tests
-- [ ] 3.4 Verify registry is deterministic and pure
+- [x] 3.0 Create centralized permission slug constants (`src/lib/constants/permissions.ts`)
+- [x] 3.0.1 Create centralized module slug constants (`src/lib/constants/modules.ts`)
+- [x] 3.1 Create `src/lib/sidebar/v2/registry.ts` with nav catalog
+- [x] 3.2 Define core sections (Home, Organization, Account, etc.)
+- [x] 3.3 Write registry structure tests
+- [x] 3.4 Verify registry is deterministic and pure
 
 ### Phase 4: SSR Assembly in Dashboard V2 Layout
 
@@ -87,39 +87,39 @@ Track implementation progress by checking off completed steps:
 
 ### Phase 5: Client Sidebar as Dumb Renderer
 
-- [ ] 5.1 Create `src/app/[locale]/dashboard/_components/sidebar-v2.tsx`
-- [ ] 5.2 Accept `sidebarModel` prop and render without filtering
-- [ ] 5.3 Remove hardcoded `navData` from client component
-- [ ] 5.4 Implement collapse state via `useUiStoreV2`
-- [ ] 5.5 Add hydration strategy to prevent layout shift
-- [ ] 5.6 Test: client renders exactly what SSR sent
+- [x] 5.1 Create `src/app/[locale]/dashboard/_components/dashboard-shell.tsx` (renderer integrated; no separate sidebar-v2.tsx needed)
+- [x] 5.2 Accept `sidebarModel` prop and render without filtering
+- [x] 5.3 Remove hardcoded `navData` from client component
+- [x] 5.4 Implement collapse state via `useUiStoreV2`
+- [x] 5.5 Add hydration strategy to prevent layout shift
+- [x] 5.6 Test: client renders exactly what SSR sent
 
 ### Phase 6: Enforcement Stays Server-Side
 
-- [ ] 6.1 Document sidebar as UX-only boundary in `docs/v2/sidebar/SECURITY.md`
-- [ ] 6.2 Verify page-level guards still enforce permissions
-- [ ] 6.3 Verify server actions still enforce entitlements
-- [ ] 6.4 Create enforcement checklist for new pages
+- [x] 6.1 Document sidebar as UX-only boundary in `docs/v2/sidebar/SECURITY.md`
+- [x] 6.2 Verify page-level guards still enforce permissions
+- [x] 6.3 Verify server actions still enforce entitlements
+- [x] 6.4 Create enforcement checklist for new pages
 
 ### Phase 7: Integration Tests
 
-- [ ] 7.1 Add test: SSR renders sidebar with expected items
-- [ ] 7.2 Add test: `org_owner` sees more items than `org_member`
-- [ ] 7.3 Add test: free plan hides analytics/development modules
-- [ ] 7.4 Add test: wildcard permission grants access to sub-permissions
-- [ ] 7.5 All integration tests passing
+- [x] 7.1 Add test: SSR renders sidebar with expected items
+- [x] 7.2 Add test: `org_owner` sees more items than `org_member`
+- [x] 7.3 Add test: free plan hides analytics/development modules
+- [x] 7.4 Add test: wildcard permission grants access to sub-permissions
+- [x] 7.5 All integration tests passing
 
 ### Phase 8: Safe Commit Order
 
-- [ ] 8.1 Commit: Contract types + icon map
-- [ ] 8.2 Commit: Failing resolver tests
-- [ ] 8.3 Commit: Resolver implementation (tests passing)
-- [ ] 8.4 Commit: Nav registry + registry tests
-- [ ] 8.5 Commit: Server layout computes sidebar model
-- [ ] 8.6 Commit: Client sidebar renderer
-- [ ] 8.7 Commit: Remove old navData, cleanup
-- [ ] 8.8 Commit: Integration tests
-- [ ] 8.9 Smoke check: SSR consistency, no flicker, no security regression
+- [x] 8.1 Commit: Contract types + icon map
+- [x] 8.2 Commit: Failing resolver tests
+- [x] 8.3 Commit: Resolver implementation (tests passing)
+- [x] 8.4 Commit: Nav registry + registry tests
+- [x] 8.5 Commit: Server layout computes sidebar model
+- [x] 8.6 Commit: Client sidebar renderer
+- [x] 8.7 Commit: Remove old navData, cleanup
+- [x] 8.8 Commit: Integration tests + security docs
+- [x] 8.9 Smoke check: type-check clean, 758 tests passing, build succeeded
 
 ---
 

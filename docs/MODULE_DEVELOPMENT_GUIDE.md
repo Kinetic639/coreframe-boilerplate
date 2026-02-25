@@ -29,7 +29,9 @@
 4. **Type-Safety** - 100% TypeScript with strict mode, no `any` types
 5. **Performance** - Use React Query for caching, optimize bundle size, lazy load
 
-### Critical Constraints
+### Project-Wide Conventions (Not Module-Specific)
+
+These rules apply across the entire codebase, not just to new modules. Every contributor must follow them.
 
 - **NEVER** use `sonner` for toasts - ALWAYS use `react-toastify`. Any remaining `sonner` imports in the codebase or `package.json` are legacy and must be migrated to `react-toastify` before merging.
 - **Supabase environment rules**:
@@ -79,6 +81,13 @@
 ### Active Organization Trust Boundary
 
 > **CLARIFICATION**: `user_preferences.organization_id` is a convenience field for UI state, NOT a security boundary. RLS policies using `is_org_member()` and `has_permission()` are the authoritative security boundary. Server actions SHOULD validate permissions explicitly for Class B/C data as defense-in-depth, but RLS remains the hard enforcement layer.
+
+> **WARNING — Never trust `user_preferences.organization_id` as a security input:**
+>
+> - It is a UX default (last-used org) stored for convenience — not an authorization claim.
+> - It MUST NOT be used as the sole basis for any security decision in server actions or services.
+> - An `orgId` arriving from any client source (cookie, form field, query param) is untrusted input.
+> - Server actions must independently validate permissions via `PermissionServiceV2` and rely on RLS enforcement — regardless of what `user_preferences` contains.
 
 ### File Structure (VERIFIED)
 
@@ -563,6 +572,7 @@ export type FeatureFilters = z.infer<typeof featureFiltersSchema>;
 import { createClient } from "@/utils/supabase/server";
 import { FeatureService } from "@/server/services/feature.service";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
+import { FEATURE_CREATE, FEATURE_UPDATE, FEATURE_DELETE } from "@/lib/constants/permissions";
 import { ZodError } from "zod";
 import {
   createFeatureSchema,
@@ -731,11 +741,11 @@ export async function createFeature(
       auth.supabase,
       auth.user.id,
       organizationId,
-      "feature.create"
+      FEATURE_CREATE
     );
 
     if (!hasPermission) {
-      return { success: false, error: "Permission denied: feature.create required" };
+      return { success: false, error: "Permission denied" };
     }
 
     // Get active branch from preferences
@@ -795,11 +805,11 @@ export async function updateFeature(
       auth.supabase,
       auth.user.id,
       organizationId,
-      "feature.update"
+      FEATURE_UPDATE
     );
 
     if (!hasPermission) {
-      return { success: false, error: "Permission denied: feature.update required" };
+      return { success: false, error: "Permission denied" };
     }
 
     const data = await FeatureService.updateFeature(
@@ -844,11 +854,11 @@ export async function deleteFeature(
       auth.supabase,
       auth.user.id,
       organizationId,
-      "feature.delete"
+      FEATURE_DELETE
     );
 
     if (!hasPermission) {
-      return { success: false, error: "Permission denied: feature.delete required" };
+      return { success: false, error: "Permission denied" };
     }
 
     await FeatureService.deleteFeature(auth.supabase, featureId, organizationId);
@@ -1048,6 +1058,8 @@ export function useDeleteFeatureMutation() {
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { MODULE_FEATURE } from "@/lib/constants/modules";
+import { entitlements } from "@/server/guards/entitlements-guards";
 import { FeaturePageClient } from "./_components/feature-page-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -1060,6 +1072,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function FeaturePage() {
   const context = await loadAppContextServer();
+  await entitlements.requireModuleOrRedirect(MODULE_FEATURE);
   const t = await getTranslations("FeaturePage");
 
   if (!context?.activeOrgId) {
@@ -1080,12 +1093,18 @@ export default async function FeaturePage() {
         </div>
       </div>
 
-      {/* Client Component handles data fetching and interactivity */}
+      {/* Client Component handles interactivity and mutations */}
+      {/* NOTE: Primary org-scoped data must be fetched server-side and passed as props or initialData. */}
       <FeaturePageClient />
     </div>
   );
 }
 ```
+
+> **SSR note**: This example is simplified. In production, the Server Component must load primary
+> data (e.g., `await FeatureService.listFeatures(supabase, orgId)`) and pass it to the Client
+> Component as `initialData`. Client-side fetching via React Query is acceptable for mutations,
+> search refinement, and pagination — **not** for the initial data load of core org-scoped content.
 
 #### Loading State
 
@@ -1196,6 +1215,7 @@ import {
 import { Plus, Trash2, Edit, Search } from "lucide-react";
 import { FeatureForm } from "./feature-form";
 import { useDebounce } from "@/hooks/use-debounce";
+import { FEATURE_CREATE, FEATURE_UPDATE, FEATURE_DELETE } from "@/lib/constants/permissions";
 
 export function FeaturePageClient() {
   const { can } = usePermissions();
@@ -1255,7 +1275,7 @@ export function FeaturePageClient() {
             className="pl-9"
           />
         </div>
-        {can("feature.create") && (
+        {can(FEATURE_CREATE) && (
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -1278,7 +1298,7 @@ export function FeaturePageClient() {
       {!features || features.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 border rounded-lg border-dashed">
           <p className="text-muted-foreground mb-4">No features found</p>
-          {can("feature.create") && (
+          {can(FEATURE_CREATE) && (
             <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -1314,13 +1334,13 @@ export function FeaturePageClient() {
                   {feature.description || "No description"}
                 </p>
                 <div className="flex items-center gap-2">
-                  {can("feature.update") && (
+                  {can(FEATURE_UPDATE) && (
                     <Button variant="outline" size="sm">
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </Button>
                   )}
-                  {can("feature.delete") && (
+                  {can(FEATURE_DELETE) && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="destructive" size="sm" disabled={deleteFeature.isPending}>
@@ -1647,29 +1667,30 @@ Examples:
 
 ```typescript
 import { usePermissions } from "@/hooks/v2/use-permissions";
+import { FEATURE_CREATE, FEATURE_UPDATE, FEATURE_DELETE } from "@/lib/constants/permissions";
 
 export function MyComponent() {
   const { can, cannot, canAny, canAll } = usePermissions();
 
   // Check single permission
-  if (cannot("feature.create")) {
+  if (cannot(FEATURE_CREATE)) {
     return <AccessDenied />;
   }
 
   // Check any of multiple permissions
-  if (canAny(["feature.update", "feature.delete"])) {
+  if (canAny([FEATURE_UPDATE, FEATURE_DELETE])) {
     return <ManagementActions />;
   }
 
   // Check all permissions required
-  if (canAll(["feature.create", "feature.update", "feature.delete"])) {
+  if (canAll([FEATURE_CREATE, FEATURE_UPDATE, FEATURE_DELETE])) {
     return <FullAdminPanel />;
   }
 
   return (
     <div>
-      {can("feature.update") && <EditButton />}
-      {can("feature.delete") && <DeleteButton />}
+      {can(FEATURE_UPDATE) && <EditButton />}
+      {can(FEATURE_DELETE) && <DeleteButton />}
     </div>
   );
 }
@@ -1679,19 +1700,36 @@ export function MyComponent() {
 
 ```typescript
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
+import { FEATURE_CREATE } from "@/lib/constants/permissions";
 
 // In server actions
 const hasPermission = await PermissionServiceV2.hasPermission(
   supabase,
   userId,
   organizationId,
-  "feature.create"
+  FEATURE_CREATE
 );
 
 if (!hasPermission) {
   return { success: false, error: "Permission denied" };
 }
 ```
+
+### Service Role Key Policy
+
+> **CRITICAL SECURITY RULE — Violations here are production incidents.**
+
+- The Supabase **service role key bypasses all RLS policies**. It must never appear in application runtime code.
+- **Allowed only in**:
+  - Integration tests (to set up cross-tenant fixtures that RLS would otherwise block)
+  - Seed scripts and CLI tooling executed outside the request lifecycle
+- **Never allowed in**:
+  - Server Components
+  - Server Actions
+  - API Route Handlers
+  - Any code that executes during a user request
+- The application runtime must always execute under the authenticated **user session token** so that RLS policies enforce tenant isolation as designed.
+- Using the service role key in a server action is a **critical security violation** — it silently disables the entire RLS boundary for that operation.
 
 ---
 
@@ -1739,12 +1777,18 @@ export interface ModuleConfig {
   icon?: string; // Lucide icon name
   description?: string; // i18n key
   color?: string; // Hex color for module theme
-  path?: string; // Optional direct link
+  path?: string; // Legacy only — do NOT use for new modules. Sidebar V2 registry controls navigation.
   items: MenuItem[];
   actions?: Record<string, () => void>;
   widgets?: Widget[];
 }
 ```
+
+> **⚠️ Legacy Type Notice**: `MenuItem` (and the `path`, `requiredPermissions` fields on
+> `BaseMenuItem`) exist for historical reasons. **New modules MUST NOT populate `path` or
+> `requiredPermissions` inside `ModuleConfig.items`**. Sidebar V2 registry is the ONLY source
+> of navigation structure and permission-based visibility. These fields are retained only for
+> backwards compatibility and are not read by any current rendering path.
 
 ### Widget Types
 
@@ -1815,6 +1859,17 @@ export type Widget = WidgetMetric | WidgetList | WidgetChart | WidgetCustom;
 
 ### Module Config Example
 
+> **⚠ ModuleConfig does NOT control dashboard navigation.**
+> **Sidebar V2 registry (`src/lib/sidebar/v2/registry.ts`) is the only navigation source of truth.**
+>
+> - `items` in ModuleConfig are metadata for module cards, discovery, and widget aggregation only.
+> - They do not determine sidebar links or route visibility.
+> - They are NOT used for permission enforcement.
+> - They are NOT used for sidebar rendering.
+> - To add a route to the sidebar, you must add an entry to the Sidebar V2 registry.
+>
+> **RULE: ModuleConfig MUST NOT define navigation routes, sidebar visibility, or permission gating.**
+
 ```typescript
 // src/modules/feature/config.ts
 import { ModuleConfig } from "@/lib/types/module";
@@ -1847,20 +1902,10 @@ export async function getFeatureModule(): Promise<ModuleConfig> {
     description: "modules.feature.description",
     color: "#10b981",
     items: [
-      {
-        id: "feature-list",
-        label: "modules.feature.items.list",
-        icon: "List",
-        path: "/dashboard/feature",
-        requiredPermissions: ["feature.read"],
-      },
-      {
-        id: "feature-settings",
-        label: "modules.feature.items.settings",
-        icon: "Settings",
-        path: "/dashboard/feature/settings",
-        requiredPermissions: ["feature.update"],
-      },
+      // Discovery metadata only — no path, no requiredPermissions.
+      // Navigation belongs in src/lib/sidebar/v2/registry.ts.
+      { id: "feature-list", label: "modules.feature.items.list", icon: "List" },
+      { id: "feature-settings", label: "modules.feature.items.settings", icon: "Settings" },
     ],
     widgets,
   };
@@ -2295,6 +2340,8 @@ The V2 permission system compiles intent tables into `user_effective_permissions
 
 ```typescript
 // test/integration/permissions/permission-compiler.test.ts
+import { FEATURE_DELETE } from "@/lib/constants/permissions";
+
 describe("Permission Compiler V2", () => {
   it("Role assignment creates effective permissions", async () => {
     // Assign role to user
@@ -2312,7 +2359,7 @@ describe("Permission Compiler V2", () => {
 
   it("Permission override modifies effective permissions", async () => {
     // Grant additional permission
-    await createPermissionOverride(userId, orgId, "feature.delete", "grant");
+    await createPermissionOverride(userId, orgId, FEATURE_DELETE, "grant");
 
     // Verify it compiled
     const { data } = await supabase
@@ -2320,7 +2367,7 @@ describe("Permission Compiler V2", () => {
       .select("permission_slug")
       .eq("user_id", userId)
       .eq("organization_id", orgId)
-      .eq("permission_slug", "feature.delete");
+      .eq("permission_slug", FEATURE_DELETE);
 
     expect(data?.length).toBe(1);
   });
@@ -2441,7 +2488,7 @@ AND permission_slug = 'feature.create';
 
 - [ ] Config file created in `src/modules/[module]/`
 - [ ] Module registered in `src/modules/index.ts`
-- [ ] Menu items with `requiredPermissions`
+- [ ] ModuleConfig contains metadata/widgets only (no navigation or permission gating). Sidebar V2 registry defines all navigation visibility rules.
 - [ ] Widgets defined if applicable
 - [ ] i18n keys added to messages files
 
@@ -2590,6 +2637,50 @@ Not all data should be visible to all org members. Classify data and apply appro
 
 ---
 
+## Module Specification Inputs (Required Before Implementation)
+
+Before writing any code, document the following inputs for the new module. If any item is
+unknown, resolve it first — incomplete specs are the primary cause of mismatched slugs,
+missing RLS policies, and sidebar entries that don't match entitlement gates.
+
+| Input                   | Description                                        | Example                                              |
+| ----------------------- | -------------------------------------------------- | ---------------------------------------------------- |
+| **Module slug**         | Constant to add to `modules.ts`                    | `"analytics"`                                        |
+| **Route prefix**        | Top-level dashboard route                          | `/dashboard/analytics`                               |
+| **Tables**              | Database tables to create                          | `analytics_reports`, `analytics_snapshots`           |
+| **Permission slugs**    | New slugs to add to `permissions.ts`               | `analytics.reports.read`, `analytics.reports.create` |
+| **Entitlement gate**    | Is this module plan-gated? Which plans include it? | Professional + Enterprise only                       |
+| **Limit keys**          | Resource limits to enforce (if any)                | `LIMIT_KEYS.ANALYTICS_MONTHLY_EXPORTS`               |
+| **Sidebar entry**       | Will it appear in main nav or footer nav?          | Main nav, under its own group                        |
+| **Data classification** | Does it contain PII, billing, or audit data?       | Audit logs → use `FORCE ROW LEVEL SECURITY`          |
+
+> Skipping this step is the primary cause of mismatched slugs, missing RLS, and sidebar
+> entries that don't match entitlement gates. Document these before opening your editor.
+
+---
+
+## Module Documentation (MODULE.md) — Mandatory
+
+Every module MUST include a `src/modules/[module]/MODULE.md` file — the module's "passport".
+
+**Purpose**: Acts as the canonical per-module reference documenting:
+
+- Module slug constant used (`MODULE_*`)
+- Permission constants + matching DB slugs (`PERM_*`)
+- Entitlements gating decision and where enforced (page guard + server actions)
+- Sidebar V2 registry items added (ids, hrefs, `requiresModules`, `requiredPermissions`)
+- Tables created + RLS policies summary
+- Tests added (unit, RLS integration, sidebar SSR visibility)
+- Files changed (list of file paths touched by the module; must be updated whenever the module changes)
+
+**Requirements**:
+
+- Must contain real file paths and real constants — no raw strings, no placeholders.
+- Must be kept updated whenever the module changes.
+- Template: [`docs/MODULE_README_EXAMPLE.md`](docs/MODULE_README_EXAMPLE.md) — use it exactly, fill every section.
+
+---
+
 ## Quick Start Template
 
 To create a new module, create files in this order:
@@ -2604,10 +2695,557 @@ To create a new module, create files in this order:
 8. `src/app/[locale]/dashboard/[module]/error.tsx`
 9. `src/app/[locale]/dashboard/[module]/_components/[module]-page-client.tsx`
 10. `src/modules/[module]/config.ts`
-11. Update `src/modules/index.ts`
-12. Update `messages/en.json` and `messages/pl.json`
+11. `src/modules/[module]/MODULE.md` — create using the `MODULE_README_EXAMPLE.md` template and fill with real data
+12. Update `src/modules/index.ts`
+13. Update `messages/en.json` and `messages/pl.json`
+14. Add module slug constant to `src/lib/constants/modules.ts` (if entitlement-gated)
+15. Add sidebar registry entry to `src/lib/sidebar/v2/registry.ts`
+16. Add permission slug constants to `src/lib/constants/permissions.ts` + migration
+17. Add server-side `entitlements.requireModuleOrRedirect()` guard in page.tsx
+18. Add `entitlements.requireModuleAccess()` guard in every server action
 
 ---
 
-_Last updated: February 6, 2026_
-_Verified against codebase and live Supabase database on phase-2-user-prefrences branch_
+---
+
+## Architecture Alignment Overview (V2)
+
+> This section documents the V2 architecture. It supplements the earlier "Architecture Overview"
+> and must be respected by all new modules.
+
+### SSR-First Model
+
+Server Components compute authoritative data before the page renders. Client components are dumb
+renderers that accept pre-computed props. This applies to the sidebar (model resolved server-side)
+and to data pages (context loaded in layout, passed as props).
+
+```
+SSR request
+  → layout.tsx loads session + entitlements
+  → buildSidebarModel() resolves visible items (server, pure function)
+  → SidebarModel (JSON) passed to AppSidebar (client renderer)
+  → page.tsx calls entitlements guard → data loaded server-side
+  → client component receives pre-fetched data as prop or via React Query
+```
+
+### SSR Data Loading Rules (Mandatory)
+
+- All critical page data must be loaded in Server Components during the SSR pass — not deferred to client-side fetches on mount.
+- Client Components must NOT fetch organization-scoped core data directly (e.g., no Supabase calls from `useEffect` for initial render data).
+- No direct Supabase client calls from Client Components. All database access goes through Server Components or Server Actions.
+- Services (`src/server/services/`) are server-only. They must only be called from Server Components or Server Actions — never imported into Client Components.
+- Initial render must not depend on client hydration to populate core content. A JS-disabled browser (or a slow connection) must see the page's primary data already in the HTML.
+
+### Compiled Permissions Architecture
+
+The system uses a **"Compile, don't evaluate"** model. Permissions are not evaluated at
+request time by joining roles — they are pre-compiled into a single snapshot table
+(`user_effective_permissions`) by database triggers whenever role assignments or overrides change.
+
+```
+role assignments + permission overrides
+        → database trigger (compile-time)
+        → user_effective_permissions  ← single-row-per-permission, explicit facts only
+        → RLS policies call has_permission() / is_org_member()
+        → PermissionServiceV2 reads the same table
+```
+
+The compiled snapshot is also loaded as a `permissionSnapshot` object at SSR time and passed to
+the sidebar resolver. It is **never re-evaluated at request time** — it is read once per request.
+
+### Entitlements Snapshot
+
+Module access and resource limits are compiled into `organization_entitlements` by a trigger
+whenever the organization's subscription, add-ons, or manual overrides change.
+
+```
+subscription_plans + addon_subscriptions + organization_limit_overrides
+        → trigger (compile-time)
+        → organization_entitlements  ← plan_name, enabled_modules, features, limits
+        → EntitlementsService reads snapshot
+        → entitlements guards (requireModuleAccess, requireWithinLimit) wrap the service
+```
+
+The snapshot is loaded once per request in `loadAppContextServer()` and threaded through the
+app context. Guards read from the snapshot; they do **not** query `subscription_plans` directly.
+
+### Sidebar V2 Model Resolution
+
+The Sidebar V2 system has three strict layers:
+
+| Layer        | Location                           | Rule                                                                  |
+| ------------ | ---------------------------------- | --------------------------------------------------------------------- |
+| **Registry** | `src/lib/sidebar/v2/registry.ts`   | Pure data catalog. No hooks, no React, no permission logic.           |
+| **Resolver** | `src/lib/sidebar/v2/resolver.ts`   | Pure deterministic function. Prunes invisible items. No side effects. |
+| **Renderer** | `dashboard-shell.tsx` (AppSidebar) | Dumb renderer. Reads model only. Never re-evaluates permissions.      |
+
+The server calls `buildSidebarModel(appContext, userContext, entitlements, locale)` which runs the
+resolver and returns a `SidebarModel` — a JSON-serializable tree of only the items the user may
+see. This model is passed as a prop to the client renderer.
+
+### UX Boundary vs. Security Boundary
+
+**The sidebar is a UX boundary, not a security boundary.**
+
+| Concern                                    | Sidebar V2       | Real enforcement                      |
+| ------------------------------------------ | ---------------- | ------------------------------------- |
+| Hide nav items user cannot access          | ✅ Yes (UX only) | —                                     |
+| Prevent navigation to a hidden route       | ❌ No            | Server guard / middleware             |
+| Prevent data access for unauthorized route | ❌ No            | RLS policies                          |
+| Prevent a server action from executing     | ❌ No            | Server action permission check        |
+| Enforce module entitlements                | ❌ No            | `entitlements.requireModuleAccess()`  |
+| Enforce permission level                   | ❌ No            | `PermissionServiceV2.hasPermission()` |
+
+See `docs/v2/sidebar/SECURITY.md` for full details.
+
+---
+
+## Sidebar V2 — Module Integration
+
+### Adding a Module to the Sidebar Registry
+
+**File**: `src/lib/sidebar/v2/registry.ts`
+
+Every module that should appear in the sidebar must have an entry in `MAIN_NAV_ITEMS` or
+`FOOTER_NAV_ITEMS`. The registry is pure data — no hooks, no functions, no React.
+
+```typescript
+// src/lib/sidebar/v2/registry.ts
+import { MODULE_YOUR_MODULE } from "@/lib/constants/modules";
+import { YOUR_PERMISSION_READ } from "@/lib/constants/permissions";
+
+// In MAIN_NAV_ITEMS:
+{
+  id: "your-module",
+  title: "Your Module",
+  titleKey: "modules.yourModule.title",    // next-intl key; falls back to title if missing
+  iconKey: "package",                       // must exist in src/lib/sidebar/v2/icon-map.ts
+  href: "/dashboard/your-module",
+  match: { startsWith: "/dashboard/your-module" },
+  visibility: {
+    requiresModules: [MODULE_YOUR_MODULE],              // entitlement gate
+    requiresPermissions: [YOUR_PERMISSION_READ],        // AND — all must be satisfied
+    // requiresAnyPermissions: [P1, P2],                // OR — any one suffices
+  },
+},
+```
+
+**Rules for the registry:**
+
+- All module slugs must be imported from `@/lib/constants/modules` — no raw strings.
+- All permission slugs must be imported from `@/lib/constants/permissions` — no raw strings.
+- `requiresModules` checks the `enabled_modules` array in `organization_entitlements`.
+- `requiresPermissions` uses AND logic (all must pass). `requiresAnyPermissions` uses OR logic.
+- If the module has no entitlement gate, omit `visibility` entirely (item is always visible).
+- If the item has children (group), the parent itself can have a `visibility` check for the
+  module gate; children carry their individual permission checks.
+- Items failing all visibility checks are pruned from the model. The user never sees them.
+- Items with `status: "coming_soon"` are always rendered as disabled (no href), regardless of
+  permissions — used for features not yet released.
+- Items with `showWhenDisabled: true` are kept in the model but rendered as disabled when the
+  user lacks access — used for upgrade teasers.
+
+### Icon Keys
+
+Icons in the registry must use the `iconKey` string values defined in
+`src/lib/sidebar/v2/icon-map.ts`. Adding a new icon requires adding it to that map only —
+no other changes needed.
+
+### Sidebar Visibility is UX-Only
+
+Adding a registry entry **does not** secure the route. You must separately:
+
+1. Add `entitlements.requireModuleOrRedirect(MODULE_YOUR_MODULE)` in the page's Server Component.
+2. Add `entitlements.requireModuleAccess(MODULE_YOUR_MODULE)` at the top of every server action.
+3. Ensure RLS policies protect the underlying tables.
+
+---
+
+## Navigation Systems — Authority Clarification
+
+There are two systems that reference module navigation. Understanding which is authoritative for
+what prevents duplicated or conflicting configuration.
+
+| System                  | File                             | Authority                                                                                                                           |
+| ----------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Sidebar V2 registry** | `src/lib/sidebar/v2/registry.ts` | **Single source of truth for navigation.** Determines what appears in the sidebar, under what conditions, and with what icon/label. |
+| **ModuleConfig**        | `src/modules/[module]/config.ts` | **Metadata only.** Used for widgets, dashboard cards, and module discovery. Does not drive sidebar rendering.                       |
+
+### Rules
+
+1. **The Sidebar V2 registry is the only navigation source of truth.** Do not add route
+   definitions to `ModuleConfig` and expect them to appear in the sidebar — they will not.
+   Every module that should appear in the sidebar **must** have an entry in `MAIN_NAV_ITEMS`
+   or `FOOTER_NAV_ITEMS`.
+
+2. **`ModuleConfig` is for widgets and metadata, not navigation.** It is read by
+   `getAllModules()` for dashboard widget aggregation and module context. It does not feed
+   into the sidebar resolver.
+
+3. **Do not duplicate visibility logic.** Permission and entitlement gates belong in the
+   sidebar registry (`visibility.requiresModules`, `visibility.requiresPermissions`). Do not
+   add equivalent guards to `ModuleConfig`.
+
+4. **Do not rename or remove registry items without a coordinated change.** The `id` field in
+   registry items is used for active-state matching and in tests. Changing it without updating
+   `sidebar-ssr.test.tsx` will cause test failures.
+
+---
+
+## Permission Integration (V2)
+
+### Canonical Permission Slugs
+
+As of **February 2026**, the following canonical permission slugs exist in the database.
+They are all defined in `src/lib/constants/permissions.ts`.
+
+```
+account.*                   account.preferences.read    account.preferences.update
+account.profile.read        account.profile.update      account.settings.read
+account.settings.update     branches.create             branches.delete
+branches.read               branches.update             invites.cancel
+invites.create              invites.read                members.manage
+members.read                org.read                    org.update
+self.read                   self.update
+```
+
+> **Note**: This list grows as modules are added. New permissions require a migration — do not
+> add constants here without a corresponding migration that inserts the slug into
+> `public.permissions` and assigns it to roles via `public.role_permissions`.
+
+**Do NOT create new permissions without a migration** that inserts them into the `permissions`
+table and assigns them to roles via `role_permissions`.
+
+### No Raw Strings — Ever
+
+```typescript
+// ✅ CORRECT
+import { ORG_UPDATE, MEMBERS_READ } from "@/lib/constants/permissions";
+import { MODULE_ANALYTICS } from "@/lib/constants/modules";
+
+// ❌ WRONG — never use raw strings outside the constants file
+has_permission(org_id, 'org.update')  -- OK in SQL migrations only
+checkPermission(snapshot, "org.update")  // ❌ in TypeScript
+```
+
+This rule is enforced by tests in `src/lib/sidebar/v2/__tests__/registry.test.ts`.
+
+### Adding New Permissions
+
+1. Create a migration that inserts the new slug into `public.permissions`.
+2. Insert rows into `public.role_permissions` for the appropriate roles.
+3. Add the constant to `src/lib/constants/permissions.ts`.
+4. Add to the `PermissionSlug` type union and `ALL_PERMISSION_SLUGS` array.
+5. Use the constant everywhere — never the raw string.
+
+### Wildcard Matching and Deny-First Semantics
+
+The permission system supports wildcards in `allow`/`deny` lists:
+
+- `account.*` matches `account.profile.read`, `account.preferences.update`, etc.
+- `*` matches any permission.
+- Wildcards match across segment boundaries (regex-based, greedy).
+
+**Deny-first semantics**: a deny pattern always wins over an allow pattern.
+
+```
+1. Check deny[] — if any pattern matches the required permission → DENIED
+2. Check allow[] — if any pattern matches the required permission → ALLOWED
+3. Otherwise → DENIED (fail-closed)
+```
+
+This means an `org_owner` with `allow: ["*"]` can still be blocked for a specific permission
+by adding it to `deny: ["dangerous.action"]`.
+
+### Client-Side Permission Checks
+
+```typescript
+import { usePermissions } from "@/hooks/v2/use-permissions";
+import {
+  ORG_UPDATE,
+  BRANCHES_CREATE,
+  BRANCHES_UPDATE,
+  MEMBERS_MANAGE,
+  MEMBERS_READ,
+} from "@/lib/constants/permissions";
+
+const { can, cannot, canAny, canAll } = usePermissions();
+
+// These read the compiled permissionSnapshot from app context — no DB call.
+can(ORG_UPDATE);
+canAny([BRANCHES_CREATE, BRANCHES_UPDATE]);
+canAll([MEMBERS_MANAGE, MEMBERS_READ]);
+```
+
+Client-side checks are **UX guards only**. They must be backed by server-side checks.
+
+### Server-Side Permission Checks
+
+```typescript
+import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
+import { ORG_UPDATE, MEMBERS_MANAGE } from "@/lib/constants/permissions";
+
+// In server actions:
+const allowed = await PermissionServiceV2.hasPermission(supabase, userId, orgId, ORG_UPDATE);
+if (!allowed) return { success: false, error: "Permission denied" };
+
+// Convenience variant (reads userId/orgId from session):
+const allowed = await PermissionServiceV2.currentUserHasPermission(orgId, MEMBERS_MANAGE);
+```
+
+> **Raw strings are allowed in SQL migrations only, never in TypeScript.** In application code,
+> always import the constant from `@/lib/constants/permissions`. This ensures TypeScript catches
+> stale references when slugs are renamed or removed.
+
+---
+
+## Entitlements Integration (V2)
+
+### What are Entitlements
+
+Entitlements describe what an organization is allowed to do based on its subscription plan,
+active add-ons, and manual overrides. They are compiled into `organization_entitlements`:
+
+```typescript
+interface OrganizationEntitlements {
+  organization_id: string;
+  plan_id: string | null;
+  plan_name: string;
+  enabled_modules: string[]; // e.g. ["home", "warehouse", "analytics"]
+  enabled_contexts: string[];
+  features: Record<string, boolean | number | string>;
+  limits: Record<string, number>; // keyed by LIMIT_KEYS, -1 = unlimited
+  updated_at: string;
+}
+```
+
+The snapshot is loaded once per request (in `loadAppContextServer()`) and threaded through the
+app context. Do not query `subscription_plans` directly in application code.
+
+### entitlements Guards
+
+**Import**: `import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";`
+
+All guards auto-extract `orgId` from the current session. You do **not** pass `orgId` manually.
+
+> **Important**: Follow the existing API in [`src/server/guards/entitlements-guards.ts`](src/server/guards/entitlements-guards.ts)
+> exactly. Do not call `EntitlementsService` directly from application code, and do not invent
+> new guard signatures — always use the `entitlements` facade and the `mapEntitlementError`
+> helper as shown below.
+
+> **In TypeScript, always pass module constants — never raw slug strings.** Import from
+> `@/lib/constants/modules` (e.g. `MODULE_WAREHOUSE`, `MODULE_ANALYTICS`).
+
+#### In Server Components (page.tsx / layout.tsx)
+
+```typescript
+import { MODULE_ANALYTICS, MODULE_WAREHOUSE } from "@/lib/constants/modules";
+
+// Redirect to /upgrade if module not enabled:
+await entitlements.requireModuleOrRedirect(MODULE_ANALYTICS);
+
+// Redirect if limit exceeded (use in read pages that require capacity check):
+await entitlements.requireWithinLimitOrRedirect(LIMIT_KEYS.WAREHOUSE_MAX_LOCATIONS);
+
+// Throws (does not redirect) — for layouts:
+await entitlements.requireModuleAccess(MODULE_WAREHOUSE);
+```
+
+`requireModuleOrRedirect` uses Next.js `redirect()` — **only call it from Server Components
+or Route Handlers, never from Server Actions** (redirect in actions is usually wrong behavior).
+
+#### In Server Actions
+
+```typescript
+import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
+import { LIMIT_KEYS } from "@/lib/types/entitlements";
+import { MODULE_WAREHOUSE } from "@/lib/constants/modules";
+
+export async function createLocation(data: unknown): Promise<ActionResult<...>> {
+  try {
+    // Check module access (throws EntitlementError if denied)
+    await entitlements.requireModuleAccess(MODULE_WAREHOUSE);
+
+    // Check limit before creating a new row (throws if exceeded)
+    await entitlements.requireWithinLimit(LIMIT_KEYS.WAREHOUSE_MAX_LOCATIONS);
+
+    // ... validate, auth check, create row ...
+
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    throw error;
+  }
+}
+```
+
+#### Checking a Limit for UI Feedback (non-throwing)
+
+```typescript
+const status = await entitlements.checkLimit(LIMIT_KEYS.WAREHOUSE_MAX_PRODUCTS);
+// Returns: { limit: number, current: number, canProceed: boolean } | null
+// null = check failed (treat as limit reached — fail-closed)
+```
+
+### LIMIT_KEYS
+
+Limit keys are defined in `src/lib/types/entitlements.ts`:
+
+```typescript
+LIMIT_KEYS.WAREHOUSE_MAX_PRODUCTS; // "warehouse.max_products"
+LIMIT_KEYS.WAREHOUSE_MAX_LOCATIONS; // "warehouse.max_locations"
+LIMIT_KEYS.WAREHOUSE_MAX_BRANCHES; // "warehouse.max_branches"
+LIMIT_KEYS.ORGANIZATION_MAX_USERS; // "organization.max_users"
+LIMIT_KEYS.ANALYTICS_MONTHLY_EXPORTS; // "analytics.monthly_exports"
+```
+
+Adding a new limit requires:
+
+1. A migration adding the key to `subscription_plans.limits` JSONB for each plan.
+2. Adding the constant to `LIMIT_KEYS` in `src/lib/types/entitlements.ts`.
+3. Adding to `LimitKey` union type.
+
+### Adding a New Entitlement-Gated Module
+
+1. Define the module slug in `src/lib/constants/modules.ts`.
+2. Add the slug to `subscription_plans.enabled_modules` for each applicable plan (via migration).
+3. The trigger will re-compile `organization_entitlements` automatically.
+4. Use `requiresModules: [MODULE_YOUR_MODULE]` in the sidebar registry entry.
+5. Call `entitlements.requireModuleOrRedirect(MODULE_YOUR_MODULE)` in the page.
+6. Call `entitlements.requireModuleAccess(MODULE_YOUR_MODULE)` in every server action.
+
+### Fail-Closed Behavior
+
+If `organization_entitlements` is missing (no subscription configured), all module access checks
+**throw** rather than silently allow. This is intentional — missing entitlements means the
+organization's subscription state is unknown, so denying access is the safe default.
+
+---
+
+## RLS Requirements for New Modules
+
+### Enable RLS on Every Table
+
+```sql
+ALTER TABLE public.your_table ENABLE ROW LEVEL SECURITY;
+-- Optionally, for sensitive tables:
+ALTER TABLE public.your_table FORCE ROW LEVEL SECURITY;
+```
+
+`FORCE ROW LEVEL SECURITY` prevents even the table owner from bypassing policies. Use it for
+tables containing PII, permissions data, billing data, or audit logs.
+
+### Required RLS Helper Functions
+
+These functions exist in the database and use `auth.uid()` internally:
+
+```sql
+is_org_member(org_id UUID) → BOOLEAN      -- current user is active member of org
+has_permission(org_id UUID, slug TEXT) → BOOLEAN  -- current user has permission in org
+user_has_effective_permission(user_id UUID, org_id UUID, slug TEXT) → BOOLEAN
+```
+
+Do not inline permission logic in RLS policies. Use `has_permission()` only.
+
+### Policy Patterns (Required)
+
+Every table with organization data must have at minimum a SELECT policy:
+
+```sql
+-- SELECT: tenant boundary
+CREATE POLICY "your_table_select_member"
+  ON public.your_table FOR SELECT TO authenticated
+  USING (is_org_member(organization_id) AND deleted_at IS NULL);
+```
+
+For write operations, follow the canonical UPDATE pattern that supports both normal updates and
+soft-deletes via a single policy (see Security Requirements → RLS Policy Patterns section above).
+
+### No Direct Writes Outside SECURITY DEFINER Contexts
+
+Do not write to `user_effective_permissions`, `organization_entitlements`, or
+`user_permission_overrides` directly from application code. These tables are managed exclusively
+by database triggers and SECURITY DEFINER functions. Writing to them directly would corrupt the
+compiled permission/entitlement state.
+
+---
+
+## Module — Definition of Done
+
+A module is **not considered complete** unless all of the following are true:
+
+### Database Layer ✅
+
+- [ ] Table(s) created with standard columns (`id`, `organization_id`, `created_at`, `updated_at`, `deleted_at`, `created_by`)
+- [ ] RLS enabled (`ENABLE ROW LEVEL SECURITY`) — `FORCE RLS` for sensitive tables
+- [ ] SELECT policy using `is_org_member()`
+- [ ] INSERT/UPDATE/DELETE policies using `has_permission()`
+- [ ] UPDATE policy covers both normal updates AND soft-deletes (canonical pattern)
+- [ ] Permissions inserted into `public.permissions` table
+- [ ] Permissions assigned to roles in `public.role_permissions`
+- [ ] Indexes on all foreign keys + `deleted_at` + frequently filtered columns
+- [ ] Migration applied and TypeScript types regenerated (`npm run supabase:gen:types`)
+
+### Permission Constants ✅
+
+- [ ] All new permission slugs added to `src/lib/constants/permissions.ts`
+- [ ] Added to `PermissionSlug` type union and `ALL_PERMISSION_SLUGS` array
+- [ ] No raw permission strings used anywhere in TypeScript code for this module
+
+### Module Constants (if entitlement-gated) ✅
+
+- [ ] Module slug added to `src/lib/constants/modules.ts`
+- [ ] Added to `ModuleSlug` type union
+- [ ] Slug added to `subscription_plans.enabled_modules` via migration (for applicable plans)
+
+### Sidebar Registration ✅
+
+- [ ] Entry added to `MAIN_NAV_ITEMS` or `FOOTER_NAV_ITEMS` in `src/lib/sidebar/v2/registry.ts`
+- [ ] `requiresModules` set if module is entitlement-gated (using constant, not raw string)
+- [ ] `requiresPermissions` / `requiresAnyPermissions` set for permission-gated items (constants only)
+- [ ] `iconKey` exists in `src/lib/sidebar/v2/icon-map.ts`
+- [ ] `titleKey` exists in messages files (or English `title` fallback is set)
+- [ ] Registry tests pass (`npx vitest run src/lib/sidebar/v2/__tests__/registry.test.ts`)
+
+### Server-Side Guards ✅
+
+- [ ] `entitlements.requireModuleOrRedirect(MODULE_YOUR_MODULE)` called in page.tsx (for entitlement-gated modules)
+- [ ] `entitlements.requireModuleAccess(MODULE_YOUR_MODULE)` called at the top of every server action (if entitlement-gated)
+- [ ] `entitlements.requireWithinLimit(LIMIT_KEYS.X)` called before any create operation that is limit-tracked
+- [ ] `PermissionServiceV2.hasPermission()` called in every mutating server action
+- [ ] `mapEntitlementError()` used in server actions to translate EntitlementError into ActionResult
+
+### Service Layer ✅
+
+- [ ] Static class in `src/server/services/[module].service.ts`
+- [ ] `organization_id` scoped in every query
+- [ ] Soft-delete pattern used (update `deleted_at`, never hard-delete rows)
+
+### Client Layer ✅
+
+- [ ] `usePermissions()` used for UI-level permission guards (never as sole security check)
+- [ ] Toast notifications use `react-toastify` only (never `sonner`)
+- [ ] Optimistic update cache values explicitly typed (no `any`)
+
+### Tests ✅
+
+- [ ] Service unit tests (mocked Supabase client)
+- [ ] Component unit tests (mocked hooks + permissions)
+- [ ] Sidebar integration test (`sidebar-ssr.test.tsx`) updated if module affects sidebar output
+- [ ] RLS integration tests (real Postgres, not mocked) — cross-tenant isolation + permission enforcement
+- [ ] All tests pass (`npm run type-check && npx vitest run`)
+
+### i18n ✅
+
+- [ ] Translation keys added to `messages/en.json` and `messages/pl.json`
+- [ ] `titleKey` in sidebar registry resolves correctly (or English fallback set)
+
+### Documentation ✅
+
+- [ ] `src/modules/[module]/MODULE.md` created and populated (entitlements, permissions, sidebar registry, RLS, tests, files changed). No placeholders.
+
+---
+
+_Last updated: February 18, 2026_
+_Updated to reflect Permissions V2, Entitlements V2, and Sidebar V2 architecture_
+_Verified against codebase on phase-2-dashboard-sidebar branch_

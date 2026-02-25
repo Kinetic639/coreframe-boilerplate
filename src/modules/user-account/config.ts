@@ -24,15 +24,15 @@ export const userAccountModule: ModuleConfig = {
   color: "#6366f1",
   items: [
     {
+      type: "action" as const,
       id: "profile",
       label: "modules.userAccount.items.profile",
-      path: "/dashboard/account/profile",
       icon: "User",
     },
     {
+      type: "action" as const,
       id: "preferences",
       label: "modules.userAccount.items.preferences",
-      path: "/dashboard/account/preferences",
       icon: "Settings",
     },
   ],

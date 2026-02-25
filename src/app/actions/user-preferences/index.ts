@@ -22,6 +22,13 @@ import type {
   UpdateRegionalInput,
   SyncUiSettingsInput,
 } from "@/lib/types/user-preferences";
+import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
+import {
+  ACCOUNT_PROFILE_UPDATE,
+  ACCOUNT_PREFERENCES_UPDATE,
+  ACCOUNT_PREFERENCES_READ,
+} from "@/lib/constants/permissions";
 
 /**
  * Result type for server actions
@@ -68,6 +75,24 @@ async function authenticateUser(): Promise<
 }
 
 /**
+ * Check if the current authenticated user has the given permission.
+ *
+ * Uses the active organization from app context. Fails-closed if no org context.
+ *
+ * @param supabase - Authenticated Supabase client
+ * @param permission - Permission slug to verify
+ * @returns True if user has the permission
+ */
+async function checkUserPermission(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  permission: string
+): Promise<boolean> {
+  const appCtx = await loadAppContextServer();
+  if (!appCtx?.activeOrgId) return false;
+  return PermissionServiceV2.currentUserHasPermission(supabase, appCtx.activeOrgId, permission);
+}
+
+/**
  * Get current user's preferences
  *
  * @returns User preferences or error
@@ -76,6 +101,9 @@ export async function getUserPreferencesAction(): Promise<ActionResult<UserPrefe
   try {
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_READ);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     const prefs = await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -103,6 +131,9 @@ export async function getDashboardSettingsAction(): Promise<
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_READ);
+    if (!allowed) return { success: false, error: "Permission denied" };
+
     const settings = await UserPreferencesService.getDashboardSettings(auth.supabase, auth.userId);
 
     // Return null if not found (distinguishable from empty settings {})
@@ -128,6 +159,9 @@ export async function updateProfileAction(input: unknown): Promise<ActionResult<
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PROFILE_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -165,6 +199,9 @@ export async function updateRegionalSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
+
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateRegionalSettings(
@@ -200,6 +237,9 @@ export async function updateNotificationSettingsAction(
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -238,6 +278,9 @@ export async function updateDashboardSettingsAction(
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -281,6 +324,9 @@ export async function updateModuleSettingsAction(
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
 
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
+
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
     const prefs = await UserPreferencesService.updateModuleSettings(
@@ -317,10 +363,12 @@ export async function syncUiSettingsAction(
 ): Promise<ActionResult<UserPreferences>> {
   try {
     const validated = syncUiSettingsSchema.parse(settings);
-    console.log("[syncUiSettingsAction] validated input:", validated);
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -330,10 +378,6 @@ export async function syncUiSettingsAction(
       validated as SyncUiSettingsInput
     );
 
-    console.log(
-      "[syncUiSettingsAction] result dashboardSettings.updated_at:",
-      prefs.dashboardSettings?.updated_at
-    );
     return { success: true, data: prefs };
   } catch (error) {
     if (error instanceof ZodError) {
@@ -363,6 +407,9 @@ export async function setDefaultOrganizationAction(
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
@@ -399,6 +446,9 @@ export async function setDefaultBranchAction(
 
     const auth = await authenticateUser();
     if (auth.error) return { success: false, error: auth.error };
+
+    const allowed = await checkUserPermission(auth.supabase, ACCOUNT_PREFERENCES_UPDATE);
+    if (!allowed) return { success: false, error: "Permission denied" };
 
     await UserPreferencesService.getOrCreatePreferences(auth.supabase, auth.userId);
 
