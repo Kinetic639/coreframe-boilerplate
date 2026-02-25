@@ -24,6 +24,17 @@ vi.mock("@/server/services/user-preferences.service", () => ({
   },
 }));
 
+// Default: permission allowed, orgId available
+vi.mock("@/lib/api/load-app-context-server", () => ({
+  loadAppContextServer: vi.fn().mockResolvedValue({ activeOrgId: "org-123" }),
+}));
+
+vi.mock("@/server/services/permission-v2.service", () => ({
+  PermissionServiceV2: {
+    currentUserHasPermission: vi.fn().mockResolvedValue(true),
+  },
+}));
+
 import {
   getUserPreferencesAction,
   getDashboardSettingsAction,
@@ -38,6 +49,8 @@ import {
 } from "../index";
 import { createClient } from "@/utils/supabase/server";
 import { UserPreferencesService } from "@/server/services/user-preferences.service";
+import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 
 // Sample user preferences for testing
 const samplePreferences = {
@@ -452,6 +465,81 @@ describe("setDefaultBranchAction", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error).toContain("valid UUID");
+    }
+  });
+});
+
+describe("Permission denial (fail-closed)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("updateProfileAction returns { success: false } when permission is denied", async () => {
+    // Authenticated user
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        }),
+      },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    // Permission service returns false (denied)
+    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+
+    const result = await updateProfileAction({ displayName: "Test" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe("Permission denied");
+    }
+    // Service should NOT have been called
+    expect(UserPreferencesService.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("getUserPreferencesAction returns { success: false } when ACCOUNT_PREFERENCES_READ is denied", async () => {
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        }),
+      },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: "org-123" });
+    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+
+    const result = await getUserPreferencesAction();
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe("Permission denied");
+    }
+    expect(UserPreferencesService.getOrCreatePreferences).not.toHaveBeenCalled();
+  });
+
+  it("updateProfileAction returns { success: false } when no active org context", async () => {
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: "user-123" } },
+        }),
+      },
+    };
+    (createClient as any).mockResolvedValue(mockSupabase);
+
+    // No org context (null activeOrgId) — fail-closed
+    (loadAppContextServer as any).mockResolvedValue({ activeOrgId: null });
+    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+
+    const result = await updateProfileAction({ displayName: "Test" });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe("Permission denied");
     }
   });
 });

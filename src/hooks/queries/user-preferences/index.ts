@@ -64,7 +64,6 @@ export function useDashboardSettingsQuery(enabled = true) {
     queryKey: userPreferencesKeys.dashboardSettings(),
     queryFn: async () => {
       const result = await getDashboardSettingsAction();
-      console.log("[useDashboardSettingsQuery] fetched:", result);
       if (result.success === false) {
         throw new Error(result.error);
       }
@@ -222,7 +221,6 @@ export function useSyncUiSettingsMutation() {
 
   return useMutation({
     mutationFn: async (settings: SyncUiSettingsInput) => {
-      console.log("[useSyncUiSettingsMutation] calling syncUiSettingsAction with:", settings);
       const result = await syncUiSettingsAction(settings);
       if (result.success === false) {
         throw new Error(result.error);
@@ -230,10 +228,6 @@ export function useSyncUiSettingsMutation() {
       return result.data;
     },
     onSuccess: (data) => {
-      console.log(
-        "[useSyncUiSettingsMutation] onSuccess — dashboardSettings.updated_at:",
-        data?.dashboardSettings?.updated_at
-      );
       // Silently update cache without toast
       queryClient.setQueryData(userPreferencesKeys.preferences(), data);
       queryClient.setQueryData(userPreferencesKeys.dashboardSettings(), data.dashboardSettings);

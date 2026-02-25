@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(wc:*)", "mcp__context7__query-docs"],
+    "allow": [
+      "Bash(wc:*)",
+      "mcp__context7__query-docs",
+      "Bash(npx eslint src/app/actions/user-preferences/index.ts src/modules/user-account/config.ts src/hooks/queries/user-preferences/index.ts \"src/app/[locale]/dashboard/account/profile/page.tsx\" \"src/app/[locale]/dashboard/account/preferences/page.tsx\" \"src/app/[locale]/dashboard/account/notifications/page.tsx\")",
+      "Bash(git show HEAD:src/app/[locale]/dashboard/account/profile/page.tsx)"
+    ],
     "additionalDirectories": [
       "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard",

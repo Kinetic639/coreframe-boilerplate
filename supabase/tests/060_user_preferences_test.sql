@@ -1,10 +1,10 @@
 -- ============================================================================
--- TEST: User Preferences V2 RLS and Schema Tests (20 tests)
+-- TEST: User Preferences V2 RLS and Schema Tests (21 tests)
 -- Tests schema expansion, RLS policies, and audit functionality
 -- ============================================================================
 BEGIN;
 
-SELECT plan(20);
+SELECT plan(21);
 
 -- ============================================================================
 -- SETUP: Create test users
@@ -243,6 +243,15 @@ SELECT ok(
   ),
   'RLS is enabled on user_preferences and user_preference_audit tables'
 );
+
+-- Test 21: Unauthenticated user cannot access user_preferences
+RESET ROLE;
+SET LOCAL ROLE anon;
+SELECT ok(
+  (SELECT COUNT(*) FROM user_preferences) = 0,
+  'Unauthenticated (anon) user cannot read any user_preferences rows'
+);
+RESET ROLE;
 
 -- ============================================================================
 -- CLEANUP
