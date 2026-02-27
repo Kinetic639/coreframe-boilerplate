@@ -91,6 +91,42 @@ export const routing = defineRouting({
       en: "/dashboard/organization-management",
       pl: "/dashboard/zarzadzanie-organizacja",
     },
+    "/dashboard/organization/profile": {
+      en: "/dashboard/organization/profile",
+      pl: "/dashboard/organizacja/profil",
+    },
+    "/dashboard/organization/users": {
+      en: "/dashboard/organization/users",
+      pl: "/dashboard/organizacja/uzytkownicy",
+    },
+    "/dashboard/organization/users/members": {
+      en: "/dashboard/organization/users/members",
+      pl: "/dashboard/organizacja/uzytkownicy/czlonkowie",
+    },
+    "/dashboard/organization/users/invitations": {
+      en: "/dashboard/organization/users/invitations",
+      pl: "/dashboard/organizacja/uzytkownicy/zaproszenia",
+    },
+    "/dashboard/organization/users/roles": {
+      en: "/dashboard/organization/users/roles",
+      pl: "/dashboard/organizacja/uzytkownicy/role",
+    },
+    "/dashboard/organization/users/positions": {
+      en: "/dashboard/organization/users/positions",
+      pl: "/dashboard/organizacja/uzytkownicy/stanowiska",
+    },
+    "/dashboard/organization/users/branches": {
+      en: "/dashboard/organization/users/branches",
+      pl: "/dashboard/organizacja/uzytkownicy/oddzialy",
+    },
+    "/dashboard/organization/branches": {
+      en: "/dashboard/organization/branches",
+      pl: "/dashboard/organizacja/oddzialy",
+    },
+    "/dashboard/organization/billing": {
+      en: "/dashboard/organization/billing",
+      pl: "/dashboard/organizacja/rozliczenia",
+    },
     "/dashboard/support": {
       en: "/dashboard/support",
       pl: "/dashboard/wsparcie",

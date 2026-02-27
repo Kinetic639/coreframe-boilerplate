@@ -9,56 +9,5 @@ export const orgManagmentModule: ModuleConfig = {
   icon: "Settings",
   description: "modules.organizationManagement.description",
   color: ORG_MODULE_THEME_COLOR, // indigo
-  items: [
-    {
-      id: "organization-profile",
-      label: "modules.organizationManagement.items.profile",
-      path: "/dashboard-old/organization/profile", // klucz z routing.pathnames
-      icon: "Building2",
-      requiredPermissions: ["organization.profile.update"],
-    },
-    {
-      id: "branches",
-      label: "modules.organizationManagement.items.branches",
-      path: "/dashboard-old/organization/branches",
-      icon: "MapPin",
-      requiredPermissions: ["branch.manage"],
-    },
-    {
-      id: "users",
-      label: "modules.organizationManagement.items.users.title",
-      path: "/dashboard-old/organization/users",
-      icon: "Users",
-      requiredPermissions: ["user.manage"],
-      submenu: [
-        {
-          id: "user-list",
-          label: "modules.organizationManagement.items.users.list",
-          path: "/dashboard-old/organization/users/list",
-          icon: "List",
-          requiredPermissions: ["user.manage"],
-        },
-        {
-          id: "invitations",
-          label: "modules.organizationManagement.items.users.invitations",
-          path: "/dashboard-old/organization/users/invitations",
-          icon: "Mail",
-          requiredPermissions: ["invitation.read"],
-        },
-        {
-          id: "roles",
-          label: "modules.organizationManagement.items.users.roles",
-          path: "/dashboard-old/organization/users/roles",
-          icon: "Shield",
-          requiredPermissions: ["user.role.read"],
-        },
-      ],
-    },
-    {
-      id: "billing",
-      label: "modules.organizationManagement.items.billing",
-      path: "/dashboard-old/organization/billing",
-      icon: "CreditCard",
-    },
-  ],
+  items: [], // Navigation driven by sidebar V2 registry (src/lib/sidebar/v2/registry.ts)
 };

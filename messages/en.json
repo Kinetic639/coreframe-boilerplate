@@ -1319,6 +1319,7 @@
     },
     "organizationManagement": {
       "title": "Organization Management",
+      "titleSidebar": "Organization",
       "description": "Administrative panel for managing organization, users and permissions",
       "items": {
         "profile": "Organization Profile",
@@ -1327,7 +1328,9 @@
           "title": "Users",
           "list": "User List",
           "invitations": "Invitations",
-          "roles": "Roles & Permissions"
+          "roles": "Roles & Permissions",
+          "positions": "Positions",
+          "branches": "Branches"
         },
         "billing": "Billing & Subscriptions"
       }

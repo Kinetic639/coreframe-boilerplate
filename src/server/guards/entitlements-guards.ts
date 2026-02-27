@@ -1,5 +1,3 @@
-"use server";
-
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
@@ -60,11 +58,14 @@ export interface OrgContext {
 const getOrgContext = cache(async (): Promise<OrgContext> => {
   const supabase = await createClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  if (!session) {
-    throw new Error("EntitlementsGuard: Unauthorized - no session");
+  // getUser() validates the JWT server-side (unlike getSession which only reads the cookie).
+  // Fail closed: treat any error or missing user as unauthorized.
+  if (!user || userError) {
+    throw new Error("EntitlementsGuard: Unauthorized - no user");
   }
 
   const appContext = await loadAppContextServer();
@@ -82,7 +83,7 @@ const getOrgContext = cache(async (): Promise<OrgContext> => {
   }
 
   return {
-    userId: session.user.id,
+    userId: user.id,
     orgId: appContext.activeOrgId,
     branchId: appContext.activeBranchId,
     entitlements: ents,

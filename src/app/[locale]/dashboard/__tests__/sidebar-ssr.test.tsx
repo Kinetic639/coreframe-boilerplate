@@ -311,4 +311,186 @@ describe("Sidebar SSR Integration", () => {
     const profileItem = findItemById(model, "account.profile");
     expect(profileItem).toBeDefined(); // Shown (account.* matches account.profile.read)
   });
+
+  // ── Organization Management Module ─────────────────────────────────────────
+
+  // org-1: group absent when module not entitled
+  it("should hide organization group when organization-management is NOT in enabled_modules", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["org.read", "org.update", "members.read", "members.manage", "branches.read"],
+        deny: [],
+      },
+    };
+
+    const noOrgMgmtEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "warehouse"], // organization-management NOT present
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      noOrgMgmtEntitlements,
+      "en"
+    );
+
+    const orgGroup = findItemById(model, "organization");
+    expect(orgGroup).toBeUndefined(); // Hidden: module not entitled
+  });
+
+  // org-2: organization.profile absent when ORG_READ missing
+  it("should hide organization.profile when user lacks org.read permission", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["members.read"], // Has members.read but NOT org.read
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "organization-management"],
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    const profileItem = findItemById(model, "organization.profile");
+    expect(profileItem).toBeUndefined(); // Hidden: no org.read
+  });
+
+  // org-3: organization.profile visible when ORG_READ present
+  it("should show organization.profile when user has org.read permission", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["org.read"],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "organization-management"],
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    const profileItem = findItemById(model, "organization.profile");
+    expect(profileItem).toBeDefined(); // Shown: has org.read
+  });
+
+  // org-4: organization.branches absent when BRANCHES_READ missing
+  it("should hide organization.branches when user lacks branches.read permission", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["org.read", "members.read"], // No branches.read
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "organization-management"],
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    const branchesItem = findItemById(model, "organization.branches");
+    expect(branchesItem).toBeUndefined(); // Hidden: no branches.read
+  });
+
+  // org-5: organization.branches visible when BRANCHES_READ present
+  it("should show organization.branches when user has branches.read permission", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["org.read", "branches.read"],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "organization-management"],
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    const branchesItem = findItemById(model, "organization.branches");
+    expect(branchesItem).toBeDefined(); // Shown: has branches.read
+  });
 });

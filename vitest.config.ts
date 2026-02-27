@@ -1,3 +1,4 @@
+import path from 'path'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -26,7 +27,8 @@ export default defineConfig({
     // Fix for JSDOM + Next dynamic imports
     alias: {
       'next/router': 'next/router.js',
-      'next/navigation': 'next/dist/client/components/navigation.js'
+      'next/navigation': 'next/dist/client/components/navigation.js',
+      'server-only': path.resolve(__dirname, 'src/__mocks__/server-only.ts')
     },
 
     environmentOptions: {

@@ -1290,6 +1290,7 @@
     },
     "organizationManagement": {
       "title": "Zarządzanie organizacją",
+      "titleSidebar": "Organizacja",
       "description": "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
       "items": {
         "profile": "Profil organizacji",
@@ -1298,7 +1299,9 @@
           "title": "Użytkownicy",
           "list": "Lista użytkowników",
           "invitations": "Zaproszenia",
-          "roles": "Role i uprawnienia"
+          "roles": "Role i uprawnienia",
+          "positions": "Stanowiska",
+          "branches": "Oddziały"
         },
         "billing": "Rozliczenia i subskrypcje"
       }
