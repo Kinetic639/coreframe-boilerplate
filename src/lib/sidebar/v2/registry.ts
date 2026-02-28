@@ -5,6 +5,7 @@ import {
   ORG_READ,
   ORG_UPDATE,
   MEMBERS_READ,
+  BRANCHES_READ,
 } from "@/lib/constants/permissions";
 import {
   MODULE_WAREHOUSE,
@@ -66,7 +67,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
   {
     id: "organization",
     title: "Organization",
-    // TODO: no exact "Organization" key; modules.organizationManagement.title = "Organization Management"
+    titleKey: "modules.organizationManagement.titleSidebar",
     iconKey: "users",
     visibility: {
       requiresModules: [MODULE_ORGANIZATION_MANAGEMENT],
@@ -75,7 +76,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       {
         id: "organization.profile",
         title: "Profile",
-        // TODO: no exact "Profile" key; modules.organizationManagement.items.profile = "Organization Profile"
+        titleKey: "modules.organizationManagement.items.profile",
         iconKey: "settings",
         href: "/dashboard/organization/profile",
         match: { exact: "/dashboard/organization/profile" },
@@ -95,9 +96,20 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         },
       },
       {
+        id: "organization.branches",
+        title: "Branches",
+        titleKey: "modules.organizationManagement.items.branches",
+        iconKey: "settings",
+        href: "/dashboard/organization/branches",
+        match: { exact: "/dashboard/organization/branches" },
+        visibility: {
+          requiresPermissions: [BRANCHES_READ],
+        },
+      },
+      {
         id: "organization.billing",
         title: "Billing",
-        // TODO: no exact "Billing" key; modules.organizationManagement.items.billing = "Billing & Subscriptions"
+        titleKey: "modules.organizationManagement.items.billing",
         iconKey: "settings",
         href: "/dashboard/organization/billing",
         match: { exact: "/dashboard/organization/billing" },

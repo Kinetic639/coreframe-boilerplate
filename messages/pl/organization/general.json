@@ -26,5 +26,30 @@
   "userManage": {
     "title": "Administracja Użytkowników",
     "description": "Zaawansowane narzędzia zarządzania użytkownikami dla administracji enterprise"
+  },
+  "billing": {
+    "title": "Rozliczenia i subskrypcje",
+    "description": "Zarządzaj planem subskrypcji i informacjami o rozliczeniach organizacji",
+    "noSubscription": {
+      "title": "Brak aktywnej subskrypcji",
+      "description": "Ta organizacja nie ma aktywnego planu subskrypcji."
+    },
+    "currentPlan": {
+      "title": "Obecny plan",
+      "subtitle": "Szczegóły Twojego aktywnego planu subskrypcji"
+    },
+    "status": {
+      "active": "Aktywny",
+      "trialing": "Próbny",
+      "past_due": "Przeterminowany",
+      "canceled": "Anulowany",
+      "unpaid": "Nieopłacony",
+      "incomplete": "Niekompletny"
+    },
+    "developmentPlan": "Rozwojowy",
+    "perMonth": "miesiąc",
+    "billingPeriod": "Okres rozliczeniowy",
+    "planIncludes": "Plan zawiera",
+    "modules": "moduły"
   }
 }

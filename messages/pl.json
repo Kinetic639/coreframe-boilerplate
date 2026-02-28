@@ -1290,6 +1290,7 @@
     },
     "organizationManagement": {
       "title": "Zarządzanie organizacją",
+      "titleSidebar": "Organizacja",
       "description": "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
       "items": {
         "profile": "Profil organizacji",
@@ -1298,9 +1299,39 @@
           "title": "Użytkownicy",
           "list": "Lista użytkowników",
           "invitations": "Zaproszenia",
-          "roles": "Role i uprawnienia"
+          "roles": "Role i uprawnienia",
+          "positions": "Stanowiska",
+          "branches": "Oddziały"
         },
         "billing": "Rozliczenia i subskrypcje"
+      },
+      "roles": {
+        "createButton": "Utwórz rolę",
+        "noRoles": "Brak ról.",
+        "systemBadge": "systemowa",
+        "scopeBadges": {
+          "branch": "oddział",
+          "both": "oba"
+        },
+        "dialog": {
+          "titleCreate": "Utwórz rolę",
+          "titleEdit": "Edytuj rolę",
+          "name": "Nazwa",
+          "namePlaceholder": "Nazwa roli",
+          "description": "Opis",
+          "descriptionPlaceholder": "Opcjonalny opis",
+          "scope": "Zakres",
+          "scopeOrg": "Organizacja — dotyczy wszystkich oddziałów",
+          "scopeBranch": "Oddział — przypisywana na poziomie oddziału",
+          "scopeNote": "Zakresu nie można zmienić po utworzeniu.",
+          "scopeReadOnly": "(tylko do odczytu)",
+          "permissions": "Uprawnienia",
+          "permissionsSelected": "{count, plural, one {# uprawnienie wybrane} few {# uprawnienia wybrane} other {# uprawnień wybranych}}",
+          "cancel": "Anuluj",
+          "save": "Zapisz",
+          "create": "Utwórz",
+          "saving": "Zapisywanie…"
+        }
       }
     },
     "support": {

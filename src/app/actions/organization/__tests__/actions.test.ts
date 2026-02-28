@@ -1,0 +1,526 @@
+/**
+ * @vitest-environment node
+ *
+ * T2: Action deny-path unit tests for Organization Management module.
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// vi.mock factories must NOT reference outer variables (they are hoisted)
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
+  loadDashboardContextV2: vi.fn().mockResolvedValue({
+    app: { activeOrgId: "org-123" },
+    user: {
+      user: { id: "user-123" },
+      permissionSnapshot: { allow: [], deny: [] },
+    },
+  }),
+}));
+
+vi.mock("@/server/guards/entitlements-guards", () => ({
+  entitlements: { requireModuleAccess: vi.fn().mockResolvedValue(undefined) },
+  mapEntitlementError: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock("@/server/services/organization.service", () => ({
+  OrgProfileService: { getProfile: vi.fn(), updateProfile: vi.fn(), uploadLogo: vi.fn() },
+  OrgMembersService: { listMembers: vi.fn(), updateMemberStatus: vi.fn(), removeMember: vi.fn() },
+  OrgInvitationsService: {
+    listInvitations: vi.fn(),
+    createInvitation: vi.fn(),
+    cancelInvitation: vi.fn(),
+    resendInvitation: vi.fn(),
+    cleanupExpiredInvitations: vi.fn(),
+  },
+  OrgRolesService: {
+    listRoles: vi.fn(),
+    createRole: vi.fn(),
+    updateRole: vi.fn(),
+    deleteRole: vi.fn(),
+    assignRoleToUser: vi.fn(),
+    removeRoleFromUser: vi.fn(),
+    getUserRoleAssignments: vi.fn(),
+  },
+  OrgBillingService: { getBillingOverview: vi.fn() },
+  OrgPositionsService: {
+    listPositions: vi.fn(),
+    listAssignmentsForOrg: vi.fn(),
+    createPosition: vi.fn(),
+    updatePosition: vi.fn(),
+    deletePosition: vi.fn(),
+    assignPosition: vi.fn(),
+    removeAssignment: vi.fn(),
+  },
+  OrgBranchesService: {
+    listBranches: vi.fn(),
+    createBranch: vi.fn(),
+    updateBranch: vi.fn(),
+    deleteBranch: vi.fn(),
+  },
+}));
+
+import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
+import {
+  OrgProfileService,
+  OrgMembersService,
+  OrgInvitationsService,
+  OrgRolesService,
+  OrgBillingService,
+  OrgPositionsService,
+  OrgBranchesService,
+} from "@/server/services/organization.service";
+
+import { getOrgProfileAction, updateOrgProfileAction } from "../profile";
+import { listMembersAction, updateMemberStatusAction, removeMemberAction } from "../members";
+import {
+  listInvitationsAction,
+  createInvitationAction,
+  cancelInvitationAction,
+} from "../invitations";
+import {
+  listRolesAction,
+  createRoleAction,
+  deleteRoleAction,
+  assignRoleToUserAction,
+} from "../roles";
+import { getBillingOverviewAction } from "../billing";
+import { listPositionsAction, createPositionAction } from "../positions";
+import { listBranchesAction, createBranchAction } from "../branches";
+
+// Context presets — used in test bodies only
+const CTX_NO_PERM = {
+  app: { activeOrgId: "org-123" },
+  user: { user: { id: "user-123" }, permissionSnapshot: { allow: [], deny: [] } },
+};
+const CTX_ORG_ADMIN = {
+  app: { activeOrgId: "org-123" },
+  user: {
+    user: { id: "user-123" },
+    permissionSnapshot: { allow: ["org.*", "members.*", "invites.*", "branches.*"], deny: [] },
+  },
+};
+const CTX_NO_ORG = {
+  app: { activeOrgId: null },
+  user: { user: { id: "user-123" }, permissionSnapshot: { allow: ["org.*"], deny: [] } },
+};
+
+function setCtx(ctx: unknown) {
+  (loadDashboardContextV2 as ReturnType<typeof vi.fn>).mockResolvedValue(ctx);
+}
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+
+describe("getOrgProfileAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no permissions", async () => {
+    const result = await getOrgProfileAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgProfileService.getProfile).not.toHaveBeenCalled();
+  });
+
+  it("No active org error", async () => {
+    setCtx(CTX_NO_ORG);
+    const result = await getOrgProfileAction();
+    expect(result).toEqual({ success: false, error: "No active organization" });
+    expect(OrgProfileService.getProfile).not.toHaveBeenCalled();
+  });
+
+  it("calls service when org.read granted", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgProfileService.getProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { organization_id: "org-123" },
+    });
+    const result = await getOrgProfileAction();
+    expect(result).toEqual({ success: true, data: { organization_id: "org-123" } });
+    expect(OrgProfileService.getProfile).toHaveBeenCalledOnce();
+  });
+});
+
+describe("updateOrgProfileAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no permissions", async () => {
+    const result = await updateOrgProfileAction({ name: "New Name" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgProfileService.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("Zod validation error for empty name (even with permission)", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await updateOrgProfileAction({ name: "" });
+    expect(result).toMatchObject({ success: false });
+    expect(OrgProfileService.updateProfile).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Members ──────────────────────────────────────────────────────────────────
+
+describe("listMembersAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.read", async () => {
+    const result = await listMembersAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgMembersService.listMembers).not.toHaveBeenCalled();
+  });
+
+  it("calls service when members.read granted", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgMembersService.listMembers as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: [],
+    });
+    const result = await listMembersAction();
+    expect(result).toEqual({ success: true, data: [] });
+  });
+});
+
+describe("updateMemberStatusAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await updateMemberStatusAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      status: "inactive",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgMembersService.updateMemberStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects 'suspended' — invalid per DB constraint (only active|inactive|pending allowed)", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await updateMemberStatusAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      status: "suspended",
+    });
+    expect(result).toMatchObject({ success: false });
+    expect(OrgMembersService.updateMemberStatus).not.toHaveBeenCalled();
+  });
+
+  it("accepts 'inactive' and passes it to service", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgMembersService.updateMemberStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+    await updateMemberStatusAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      status: "inactive",
+    });
+    expect(OrgMembersService.updateMemberStatus).toHaveBeenCalledWith(
+      expect.anything(),
+      "org-123",
+      "00000000-0000-0000-0000-000000000001",
+      "inactive"
+    );
+  });
+});
+
+describe("removeMemberAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await removeMemberAction({ userId: "00000000-0000-0000-0000-000000000001" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgMembersService.removeMember).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Invitations ──────────────────────────────────────────────────────────────
+
+describe("listInvitationsAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no invites.read", async () => {
+    const result = await listInvitationsAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgInvitationsService.listInvitations).not.toHaveBeenCalled();
+  });
+});
+
+describe("createInvitationAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no invites.create", async () => {
+    const result = await createInvitationAction({ email: "test@example.com" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgInvitationsService.createInvitation).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelInvitationAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no invites.cancel", async () => {
+    const result = await cancelInvitationAction({
+      invitationId: "00000000-0000-0000-0000-000000000001",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgInvitationsService.cancelInvitation).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Roles ────────────────────────────────────────────────────────────────────
+
+describe("listRolesAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.read", async () => {
+    const result = await listRolesAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.listRoles).not.toHaveBeenCalled();
+  });
+});
+
+describe("createRoleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await createRoleAction({ name: "Test Role" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  // P2: branch-scoped role with org-only permissions is rejected server-side
+  it("P2: rejects branch role containing org-only permission org.read", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await createRoleAction({
+      name: "Bad Branch Role",
+      scope_type: "branch",
+      permission_slugs: ["org.read", "members.read"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  // P2: branch-scoped role with org-only permission branches.create is rejected
+  it("P2: rejects branch role containing org-only permission branches.create", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await createRoleAction({
+      name: "Bad Branch Role 2",
+      scope_type: "branch",
+      permission_slugs: ["branches.create"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  // P2: branch-scoped role with only branch-allowed permissions passes validation
+  it("P2: allows branch role with only branch-allowed permissions", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgRolesService.createRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "r-new" },
+    });
+    const result = await createRoleAction({
+      name: "Branch Viewer",
+      scope_type: "branch",
+      permission_slugs: ["members.read", "invites.read", "branches.read"],
+    });
+    expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+  });
+
+  // P2: org-scoped role with any permissions (including org.read) passes
+  it("P2: org-scoped role with org.read passes validation", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgRolesService.createRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "r-org" },
+    });
+    const result = await createRoleAction({
+      name: "Org Viewer",
+      scope_type: "org",
+      permission_slugs: ["org.read", "members.read"],
+    });
+    expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("deleteRoleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await deleteRoleAction({ roleId: "00000000-0000-0000-0000-000000000001" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.deleteRole).not.toHaveBeenCalled();
+  });
+});
+
+describe("assignRoleToUserAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await assignRoleToUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.assignRoleToUser).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+describe("getBillingOverviewAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized with members.* only (billing requires org.update)", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: { user: { id: "user-123" }, permissionSnapshot: { allow: ["members.*"], deny: [] } },
+    });
+    const result = await getBillingOverviewAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBillingService.getBillingOverview).not.toHaveBeenCalled();
+  });
+
+  it("calls service for org owner with org.* wildcard", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgBillingService.getBillingOverview as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { plan_name: "Pro", enabled_modules: ["warehouse"], limits: {}, features: {} },
+    });
+    const result = await getBillingOverviewAction();
+    expect(result.success).toBe(true);
+    expect(OrgBillingService.getBillingOverview).toHaveBeenCalledOnce();
+  });
+});
+
+// ─── Positions ────────────────────────────────────────────────────────────────
+
+describe("listPositionsAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.read", async () => {
+    const result = await listPositionsAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgPositionsService.listPositions).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPositionAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    const result = await createPositionAction({ name: "Manager" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgPositionsService.createPosition).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Branches ─────────────────────────────────────────────────────────────────
+
+describe("listBranchesAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no branches.read", async () => {
+    const result = await listBranchesAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBranchesService.listBranches).not.toHaveBeenCalled();
+  });
+});
+
+describe("createBranchAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no branches.create", async () => {
+    const result = await createBranchAction({ name: "Warsaw Branch" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBranchesService.createBranch).not.toHaveBeenCalled();
+  });
+
+  it("branches.read does NOT imply branches.create", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: {
+        user: { id: "user-123" },
+        permissionSnapshot: { allow: ["branches.read"], deny: [] },
+      },
+    });
+    const result = await createBranchAction({ name: "Warsaw Branch" });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBranchesService.createBranch).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Entitlements gate ────────────────────────────────────────────────────────
+
+describe("Entitlements gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_ORG_ADMIN);
+  });
+
+  it("short-circuits before permission check when module access denied", async () => {
+    (entitlements.requireModuleAccess as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("MODULE_ACCESS_DENIED")
+    );
+    (mapEntitlementError as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+      message: "Module not available on your plan",
+    });
+    const result = await getOrgProfileAction();
+    expect(result).toEqual({ success: false, error: "Module not available on your plan" });
+    expect(OrgProfileService.getProfile).not.toHaveBeenCalled();
+  });
+});
