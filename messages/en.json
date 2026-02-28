@@ -1333,6 +1333,34 @@
           "branches": "Branches"
         },
         "billing": "Billing & Subscriptions"
+      },
+      "roles": {
+        "createButton": "Create Role",
+        "noRoles": "No roles found.",
+        "systemBadge": "system",
+        "scopeBadges": {
+          "branch": "branch",
+          "both": "both"
+        },
+        "dialog": {
+          "titleCreate": "Create Role",
+          "titleEdit": "Edit Role",
+          "name": "Name",
+          "namePlaceholder": "Role name",
+          "description": "Description",
+          "descriptionPlaceholder": "Optional description",
+          "scope": "Scope",
+          "scopeOrg": "Organization — applies to all branches",
+          "scopeBranch": "Branch — assigned per branch",
+          "scopeNote": "Scope cannot be changed after creation.",
+          "scopeReadOnly": "(read-only)",
+          "permissions": "Permissions",
+          "permissionsSelected": "{count, plural, one {# permission selected} other {# permissions selected}}",
+          "cancel": "Cancel",
+          "save": "Save",
+          "create": "Create",
+          "saving": "Saving…"
+        }
       }
     },
     "support": {

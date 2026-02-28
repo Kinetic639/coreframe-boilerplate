@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,7 +15,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Shield, Plus, Pencil, Trash2, Lock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Shield, Plus, Pencil, Trash2, Lock, Building2, GitBranch } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import {
@@ -46,44 +54,109 @@ type DialogMode = "create" | "edit" | null;
 
 // Org-scoped permissions available for custom roles.
 // Slugs come from imported constants — no raw strings.
+// allowedScopes: which role scope_types may include this permission.
+//   "org"    → org-level concern only (org profile, branch CRUD)
+//   "branch" → relevant when assigned at branch scope (member ops, invites, read-only branch info)
 const PERMISSION_GROUPS = [
   {
     label: "Organization",
     permissions: [
-      { slug: ORG_READ, label: "View organization profile" },
-      { slug: ORG_UPDATE, label: "Edit organization profile & logo" },
+      {
+        slug: ORG_READ,
+        label: "View organization profile",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
+      {
+        slug: ORG_UPDATE,
+        label: "Edit organization profile & logo",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
     ],
   },
   {
     label: "Members",
     permissions: [
-      { slug: MEMBERS_READ, label: "View members list" },
+      {
+        slug: MEMBERS_READ,
+        label: "View members list",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+      },
       {
         slug: MEMBERS_MANAGE,
         label: "Manage members (activate, remove, assign roles & positions)",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
       },
     ],
   },
   {
     label: "Invitations",
     permissions: [
-      { slug: INVITES_READ, label: "View invitations" },
-      { slug: INVITES_CREATE, label: "Send invitations" },
-      { slug: INVITES_CANCEL, label: "Cancel invitations" },
+      {
+        slug: INVITES_READ,
+        label: "View invitations",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+      },
+      {
+        slug: INVITES_CREATE,
+        label: "Send invitations",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+      },
+      {
+        slug: INVITES_CANCEL,
+        label: "Cancel invitations",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+      },
     ],
   },
   {
     label: "Branches",
     permissions: [
-      { slug: BRANCHES_READ, label: "View branches" },
-      { slug: BRANCHES_CREATE, label: "Create branches" },
-      { slug: BRANCHES_UPDATE, label: "Edit branches" },
-      { slug: BRANCHES_DELETE, label: "Delete branches" },
+      {
+        slug: BRANCHES_READ,
+        label: "View branches",
+        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+      },
+      {
+        slug: BRANCHES_CREATE,
+        label: "Create branches",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
+      {
+        slug: BRANCHES_UPDATE,
+        label: "Edit branches",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
+      {
+        slug: BRANCHES_DELETE,
+        label: "Delete branches",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
     ],
   },
 ];
 
+function ScopeBadge({ scopeType, tBadge }: { scopeType: string; tBadge: (k: string) => string }) {
+  if (scopeType === "branch") {
+    return (
+      <Badge variant="outline" className="text-xs gap-1 py-0 text-blue-600 border-blue-300">
+        <GitBranch className="h-2.5 w-2.5" />
+        {tBadge("branch")}
+      </Badge>
+    );
+  }
+  if (scopeType === "both") {
+    return (
+      <Badge variant="outline" className="text-xs gap-1 py-0 text-purple-600 border-purple-300">
+        <Building2 className="h-2.5 w-2.5" />
+        {tBadge("both")}
+      </Badge>
+    );
+  }
+  return null; // 'org' is the default — no badge needed
+}
+
 export function RolesClient({ initialRoles }: RolesClientProps) {
+  const t = useTranslations("modules.organizationManagement.roles");
   const router = useRouter();
   const { can } = usePermissions();
 
@@ -100,6 +173,7 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
   const [roleName, setRoleName] = useState("");
   const [roleDesc, setRoleDesc] = useState("");
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
+  const [scopeType, setScopeType] = useState<"org" | "branch">("org");
 
   const canManage = can(MEMBERS_MANAGE);
 
@@ -108,6 +182,7 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
     setRoleName("");
     setRoleDesc("");
     setSelectedPerms([]);
+    setScopeType("org");
     setDialogMode("create");
   };
 
@@ -116,6 +191,7 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
     setRoleName(role.name);
     setRoleDesc(role.description ?? "");
     setSelectedPerms(role.permission_slugs ?? []);
+    // scope_type is read-only in edit — just reflect what's stored
     setDialogMode("edit");
   };
 
@@ -125,11 +201,29 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
     );
   };
 
+  // P2: when scope changes in create mode, drop any selected perms that are now disallowed
+  const handleScopeChange = (v: "org" | "branch") => {
+    setScopeType(v);
+    if (v === "branch") {
+      const branchAllowed = new Set<string>(
+        PERMISSION_GROUPS.flatMap((g) =>
+          g.permissions.filter((p) => p.allowedScopes.includes("branch")).map((p) => p.slug)
+        )
+      );
+      setSelectedPerms((prev) => prev.filter((s) => branchAllowed.has(s)));
+    }
+  };
+
   const handleSubmit = () => {
     if (!roleName.trim()) return;
     if (dialogMode === "create") {
       createMutation.mutate(
-        { name: roleName.trim(), description: roleDesc || null, permission_slugs: selectedPerms },
+        {
+          name: roleName.trim(),
+          description: roleDesc || null,
+          permission_slugs: selectedPerms,
+          scope_type: scopeType,
+        },
         {
           onSuccess: () => {
             setDialogMode(null);
@@ -165,13 +259,13 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
         <div className="flex justify-end">
           <Button onClick={openCreate} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Create Role
+            {t("createButton")}
           </Button>
         </div>
       )}
 
       {roles.length === 0 ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">No roles found.</div>
+        <div className="py-8 text-center text-sm text-muted-foreground">{t("noRoles")}</div>
       ) : (
         <div className="space-y-2">
           {roles.map((role) => (
@@ -186,13 +280,14 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
                   <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium">{role.name}</p>
                     {role.is_basic && (
                       <Badge variant="secondary" className="text-xs">
-                        system
+                        {t("systemBadge")}
                       </Badge>
                     )}
+                    <ScopeBadge scopeType={role.scope_type} tBadge={(k) => t(`scopeBadges.${k}`)} />
                   </div>
                   {role.description && (
                     <p className="text-xs text-muted-foreground">{role.description}</p>
@@ -236,80 +331,139 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
       )}
 
       <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>{dialogMode === "create" ? "Create Role" : "Edit Role"}</DialogTitle>
+            <DialogTitle>
+              {dialogMode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh] px-1 pr-2">
             <div className="space-y-2">
-              <Label htmlFor="role-name">Name</Label>
+              <Label htmlFor="role-name">{t("dialog.name")}</Label>
               <Input
                 id="role-name"
                 value={roleName}
                 onChange={(e) => setRoleName(e.target.value)}
-                placeholder="Role name"
+                placeholder={t("dialog.namePlaceholder")}
                 maxLength={100}
                 disabled={isPending}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role-desc">Description</Label>
+              <Label htmlFor="role-desc">{t("dialog.description")}</Label>
               <Textarea
                 id="role-desc"
                 value={roleDesc}
                 onChange={(e) => setRoleDesc(e.target.value)}
-                placeholder="Optional description"
+                placeholder={t("dialog.descriptionPlaceholder")}
                 maxLength={500}
                 rows={2}
                 disabled={isPending}
               />
             </div>
-            <div className="space-y-3">
-              <Label>Permissions</Label>
-              <div className="max-h-64 overflow-y-auto space-y-4 rounded-md border p-3">
-                {PERMISSION_GROUPS.map((group) => (
-                  <div key={group.label}>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                      {group.label}
-                    </p>
-                    <div className="space-y-1.5">
-                      {group.permissions.map((perm) => (
-                        <div key={perm.slug} className="flex items-start gap-2.5">
-                          <Checkbox
-                            id={`perm-${perm.slug}`}
-                            checked={selectedPerms.includes(perm.slug)}
-                            onCheckedChange={() => togglePerm(perm.slug)}
-                            disabled={isPending}
-                            className="mt-0.5"
-                          />
-                          <Label
-                            htmlFor={`perm-${perm.slug}`}
-                            className="cursor-pointer font-normal leading-snug"
-                          >
-                            <span className="text-sm">{perm.label}</span>
-                            <span className="block text-xs text-muted-foreground font-mono">
-                              {perm.slug}
-                            </span>
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            {/* Scope selector — only for create; read-only in edit */}
+            {dialogMode === "create" ? (
+              <div className="space-y-2">
+                <Label htmlFor="role-scope">{t("dialog.scope")}</Label>
+                <Select
+                  value={scopeType}
+                  onValueChange={(v) => handleScopeChange(v as "org" | "branch")}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="role-scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="org">{t("dialog.scopeOrg")}</SelectItem>
+                    <SelectItem value="branch">{t("dialog.scopeBranch")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{t("dialog.scopeNote")}</p>
               </div>
+            ) : (
+              editingRole && (
+                <div className="space-y-1">
+                  <Label>{t("dialog.scope")}</Label>
+                  <div className="flex items-center gap-2">
+                    <ScopeBadge
+                      scopeType={editingRole.scope_type}
+                      tBadge={(k) => t(`scopeBadges.${k}`)}
+                    />
+                    {editingRole.scope_type === "org" && (
+                      <span className="text-sm text-muted-foreground">
+                        {t("dialog.scopeOrg").split("—")[0].trim()}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {t("dialog.scopeReadOnly")}
+                    </span>
+                  </div>
+                </div>
+              )
+            )}
+            <div className="space-y-3">
+              <Label>{t("dialog.permissions")}</Label>
+              {/* P2: in create mode, only show permissions valid for the selected scope */}
+              {(() => {
+                const visibleGroups = PERMISSION_GROUPS.map((g) => ({
+                  ...g,
+                  permissions:
+                    dialogMode === "create"
+                      ? g.permissions.filter((p) => p.allowedScopes.includes(scopeType))
+                      : g.permissions,
+                })).filter((g) => g.permissions.length > 0);
+
+                return (
+                  <div className="divide-y rounded-md border">
+                    {visibleGroups.map((group) => (
+                      <div key={group.label} className="flex flex-col gap-3 p-4">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {group.label}
+                        </p>
+                        <div className="space-y-3">
+                          {group.permissions.map((perm) => (
+                            <div key={perm.slug} className="flex items-center gap-3">
+                              <Checkbox
+                                id={`perm-${perm.slug}`}
+                                checked={selectedPerms.includes(perm.slug)}
+                                onCheckedChange={() => togglePerm(perm.slug)}
+                                disabled={isPending}
+                                className="shrink-0"
+                              />
+                              <Label
+                                htmlFor={`perm-${perm.slug}`}
+                                className="flex-1 flex items-center justify-between gap-4 cursor-pointer font-normal text-sm"
+                              >
+                                <span>{perm.label}</span>
+                                <span className="text-xs text-muted-foreground font-mono shrink-0">
+                                  {perm.slug}
+                                </span>
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {selectedPerms.length > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  {selectedPerms.length} permission{selectedPerms.length !== 1 ? "s" : ""} selected
+                  {t("dialog.permissionsSelected", { count: selectedPerms.length })}
                 </p>
               )}
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialogMode(null)} disabled={isPending}>
-              Cancel
+              {t("dialog.cancel")}
             </Button>
             <Button onClick={handleSubmit} disabled={isPending || !roleName.trim()}>
-              {isPending ? "Saving…" : dialogMode === "create" ? "Create" : "Save"}
+              {isPending
+                ? t("dialog.saving")
+                : dialogMode === "create"
+                  ? t("dialog.create")
+                  : t("dialog.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

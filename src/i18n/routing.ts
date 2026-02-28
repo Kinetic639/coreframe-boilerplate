@@ -103,6 +103,10 @@ export const routing = defineRouting({
       en: "/dashboard/organization/users/members",
       pl: "/dashboard/organizacja/uzytkownicy/czlonkowie",
     },
+    "/dashboard/organization/users/members/[memberId]": {
+      en: "/dashboard/organization/users/members/[memberId]",
+      pl: "/dashboard/organizacja/uzytkownicy/czlonkowie/[memberId]",
+    },
     "/dashboard/organization/users/invitations": {
       en: "/dashboard/organization/users/invitations",
       pl: "/dashboard/organizacja/uzytkownicy/zaproszenia",

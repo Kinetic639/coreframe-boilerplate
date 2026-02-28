@@ -316,6 +316,64 @@ describe("createRoleAction", () => {
     expect(result).toEqual({ success: false, error: "Unauthorized" });
     expect(OrgRolesService.createRole).not.toHaveBeenCalled();
   });
+
+  // P2: branch-scoped role with org-only permissions is rejected server-side
+  it("P2: rejects branch role containing org-only permission org.read", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await createRoleAction({
+      name: "Bad Branch Role",
+      scope_type: "branch",
+      permission_slugs: ["org.read", "members.read"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  // P2: branch-scoped role with org-only permission branches.create is rejected
+  it("P2: rejects branch role containing org-only permission branches.create", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const result = await createRoleAction({
+      name: "Bad Branch Role 2",
+      scope_type: "branch",
+      permission_slugs: ["branches.create"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  // P2: branch-scoped role with only branch-allowed permissions passes validation
+  it("P2: allows branch role with only branch-allowed permissions", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgRolesService.createRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "r-new" },
+    });
+    const result = await createRoleAction({
+      name: "Branch Viewer",
+      scope_type: "branch",
+      permission_slugs: ["members.read", "invites.read", "branches.read"],
+    });
+    expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+  });
+
+  // P2: org-scoped role with any permissions (including org.read) passes
+  it("P2: org-scoped role with org.read passes validation", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    (OrgRolesService.createRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "r-org" },
+    });
+    const result = await createRoleAction({
+      name: "Org Viewer",
+      scope_type: "org",
+      permission_slugs: ["org.read", "members.read"],
+    });
+    expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("deleteRoleAction", () => {

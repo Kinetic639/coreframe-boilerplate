@@ -26,6 +26,7 @@ import {
   deleteRoleAction,
   assignRoleToUserAction,
   removeRoleFromUserAction,
+  getMemberAccessAction,
 } from "@/app/actions/organization/roles";
 import {
   listPositionsAction,
@@ -50,6 +51,7 @@ import type {
   OrgPosition,
   OrgPositionAssignment,
   OrgBranch,
+  OrgMemberAccess,
   UpdateOrgProfileInput,
 } from "@/server/services/organization.service";
 
@@ -72,6 +74,7 @@ export const organizationKeys = {
   all: ["organization"] as const,
   profile: () => [...organizationKeys.all, "profile"] as const,
   members: () => [...organizationKeys.all, "members"] as const,
+  memberAccess: (userId: string) => [...organizationKeys.all, "member-access", userId] as const,
   invitations: () => [...organizationKeys.all, "invitations"] as const,
   roles: () => [...organizationKeys.all, "roles"] as const,
   positions: () => [...organizationKeys.all, "positions"] as const,
@@ -250,6 +253,7 @@ export function useCreateRoleMutation() {
       name: string;
       description?: string | null;
       permission_slugs?: string[];
+      scope_type?: "org" | "branch";
     }) => unwrapSR((await createRoleAction(input)) as SR<OrgRole>),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.roles() });
@@ -304,11 +308,20 @@ export function useAssignRoleToUserMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { userId: string; roleId: string }) => {
+    mutationFn: async (input: {
+      userId: string;
+      roleId: string;
+      scope?: "org" | "branch";
+      scopeId?: string;
+    }) => {
       unwrapSR((await assignRoleToUserAction(input)) as SR<void>);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.members() });
+      // Invalidate the member-detail access cache so the UI reflects the new assignment
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.memberAccess(variables.userId),
+      });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to assign role");
@@ -320,11 +333,20 @@ export function useRemoveRoleFromUserMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { userId: string; roleId: string }) => {
+    mutationFn: async (input: {
+      userId: string;
+      roleId: string;
+      scope?: "org" | "branch";
+      scopeId?: string;
+    }) => {
       unwrapSR((await removeRoleFromUserAction(input)) as SR<void>);
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.members() });
+      // Invalidate the member-detail access cache so the UI reflects the removal
+      queryClient.invalidateQueries({
+        queryKey: organizationKeys.memberAccess(variables.userId),
+      });
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to remove role");
@@ -499,5 +521,17 @@ export function useDeleteBranchMutation() {
     onError: (err: Error) => {
       toast.error(err.message || "Failed to delete branch");
     },
+  });
+}
+
+// ─── Member Access ─────────────────────────────────────────────────────────────
+
+export function useMemberAccessQuery(userId: string, initialData: OrgMemberAccess | null = null) {
+  return useQuery({
+    queryKey: organizationKeys.memberAccess(userId),
+    queryFn: async () => unwrapSR((await getMemberAccessAction(userId)) as SR<OrgMemberAccess>),
+    initialData: initialData ?? undefined,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

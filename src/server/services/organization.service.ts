@@ -125,8 +125,8 @@ export interface OrgMember {
   user_first_name: string | null;
   user_last_name: string | null;
   user_avatar_url: string | null;
-  // Joined role info
-  roles: Array<{ id: string; name: string }>;
+  // Joined role info (includes org-scoped and branch-scoped assignments)
+  roles: Array<{ id: string; name: string; scope: "org" | "branch"; scope_id: string }>;
 }
 
 export class OrgMembersService {
@@ -156,28 +156,60 @@ export class OrgMembersService {
 
     const userMap = new Map((users ?? []).map((u) => [u.id, u]));
 
-    // Fetch role assignments for all members in this org
-    const { data: assignments } = await supabase
+    // Fetch org-scoped role assignments
+    const { data: orgAssignments } = await supabase
       .from("user_role_assignments")
-      .select("user_id, role_id, roles!inner(id, name)")
+      .select("user_id, role_id, scope, scope_id, roles!inner(id, name)")
       .eq("scope", "org")
       .eq("scope_id", orgId)
       .in("user_id", userIds)
       .is("deleted_at", null);
 
-    const rolesByUser = new Map<string, Array<{ id: string; name: string }>>();
-    for (const a of assignments ?? []) {
-      const rawRole = (
-        a as unknown as {
-          user_id: string;
-          role_id: string;
-          roles: { id: string; name: string } | { id: string; name: string }[];
-        }
-      ).roles;
+    // Fetch branch-scoped role assignments (for branches belonging to this org)
+    const { data: orgBranchList } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+    const memberBranchIds = (orgBranchList ?? []).map((b) => b.id);
+
+    let branchRoleAssignments: NonNullable<typeof orgAssignments> = [];
+    if (memberBranchIds.length > 0) {
+      const { data: ba } = await supabase
+        .from("user_role_assignments")
+        .select("user_id, role_id, scope, scope_id, roles!inner(id, name)")
+        .eq("scope", "branch")
+        .in("scope_id", memberBranchIds)
+        .in("user_id", userIds)
+        .is("deleted_at", null);
+      branchRoleAssignments = ba ?? [];
+    }
+
+    const rolesByUser = new Map<
+      string,
+      Array<{ id: string; name: string; scope: "org" | "branch"; scope_id: string }>
+    >();
+    for (const a of [...(orgAssignments ?? []), ...branchRoleAssignments]) {
+      const rawAssignment = a as unknown as {
+        user_id: string;
+        role_id: string;
+        scope: string;
+        scope_id: string;
+        roles: { id: string; name: string } | { id: string; name: string }[];
+      };
+      const rawRole = rawAssignment.roles;
       const role = Array.isArray(rawRole) ? rawRole[0] : rawRole;
       if (!role) continue;
-      const existing = rolesByUser.get(a.user_id) ?? [];
-      rolesByUser.set(a.user_id, [...existing, { id: role.id, name: role.name }]);
+      const existing = rolesByUser.get(rawAssignment.user_id) ?? [];
+      rolesByUser.set(rawAssignment.user_id, [
+        ...existing,
+        {
+          id: role.id,
+          name: role.name,
+          scope: rawAssignment.scope as "org" | "branch",
+          scope_id: rawAssignment.scope_id,
+        },
+      ]);
     }
 
     const result: OrgMember[] = (members ?? []).map((m) => {
@@ -217,15 +249,81 @@ export class OrgMembersService {
     orgId: string,
     userId: string
   ): Promise<ServiceResult<void>> {
+    const now = new Date().toISOString();
+
+    // Step 1: Soft-delete the membership
     const { error } = await supabase
       .from("organization_members")
-      .update({ deleted_at: new Date().toISOString() })
+      .update({ deleted_at: now })
       .eq("organization_id", orgId)
       .eq("user_id", userId)
       .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
+
+    // Step 2: Revoke org-scoped role assignments (prevents stale-role SELECT access)
+    await supabase
+      .from("user_role_assignments")
+      .update({ deleted_at: now })
+      .eq("user_id", userId)
+      .eq("scope", "org")
+      .eq("scope_id", orgId)
+      .is("deleted_at", null);
+
+    // Step 3: Revoke branch-scoped role assignments for branches in this org
+    const { data: branches } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+
+    if (branches && branches.length > 0) {
+      const branchIds = branches.map((b) => b.id);
+      await supabase
+        .from("user_role_assignments")
+        .update({ deleted_at: now })
+        .eq("user_id", userId)
+        .eq("scope", "branch")
+        .in("scope_id", branchIds)
+        .is("deleted_at", null);
+    }
+
     return { success: true, data: undefined };
+  }
+
+  static async getMember(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string
+  ): Promise<ServiceResult<OrgMember>> {
+    const { data: member, error } = await supabase
+      .from("organization_members")
+      .select("id, organization_id, user_id, status, joined_at, created_at, updated_at")
+      .eq("organization_id", orgId)
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!member) return { success: false, error: "Member not found" };
+
+    const { data: user } = await supabase
+      .from("users")
+      .select("id, email, first_name, last_name, avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return {
+      success: true,
+      data: {
+        ...member,
+        user_email: user?.email ?? null,
+        user_first_name: user?.first_name ?? null,
+        user_last_name: user?.last_name ?? null,
+        user_avatar_url: user?.avatar_url ?? null,
+        roles: [],
+      },
+    };
   }
 }
 
@@ -375,6 +473,23 @@ export interface CreateRoleInput {
   name: string;
   description?: string | null;
   permission_slugs?: string[];
+  scope_type?: "org" | "branch";
+}
+
+export interface OrgRoleAssignment {
+  id: string;
+  role_id: string;
+  role_name: string;
+  role_is_basic: boolean;
+  role_scope_type: string;
+  scope: string;
+  scope_id: string;
+  branch_name: string | null;
+}
+
+export interface OrgMemberAccess {
+  user_id: string;
+  assignments: OrgRoleAssignment[];
 }
 
 export class OrgRolesService {
@@ -431,7 +546,7 @@ export class OrgRolesService {
         name: input.name,
         description: input.description ?? null,
         is_basic: false,
-        scope_type: "org",
+        scope_type: input.scope_type ?? "org",
       })
       .select("id, organization_id, name, description, is_basic, scope_type, deleted_at")
       .maybeSingle();
@@ -490,11 +605,12 @@ export class OrgRolesService {
   }
 
   static async deleteRole(supabase: SupabaseClient, roleId: string): Promise<ServiceResult<void>> {
-    const { error } = await supabase
-      .from("roles")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", roleId)
-      .eq("is_basic", false); // Cannot delete system roles
+    // Uses a SECURITY DEFINER RPC to atomically:
+    // 1. Soft-delete all user_role_assignments for this role (unassign members)
+    // 2. Soft-delete all role_permissions
+    // 3. Soft-delete the role itself
+    // This avoids the RLS WITH CHECK issue on direct UPDATE via PostgREST.
+    const { error } = await supabase.rpc("delete_org_role", { p_role_id: roleId });
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: undefined };
@@ -538,14 +654,17 @@ export class OrgRolesService {
     supabase: SupabaseClient,
     userId: string,
     roleId: string,
-    orgId: string
+    orgId: string,
+    scope: "org" | "branch" = "org",
+    scopeId?: string
   ): Promise<ServiceResult<void>> {
+    const effectiveScopeId = scopeId ?? orgId;
     const { error } = await supabase.from("user_role_assignments").upsert(
       {
         user_id: userId,
         role_id: roleId,
-        scope: "org",
-        scope_id: orgId,
+        scope,
+        scope_id: effectiveScopeId,
         deleted_at: null,
       },
       { onConflict: "user_id,role_id,scope,scope_id" }
@@ -559,15 +678,18 @@ export class OrgRolesService {
     supabase: SupabaseClient,
     userId: string,
     roleId: string,
-    orgId: string
+    orgId: string,
+    scope: "org" | "branch" = "org",
+    scopeId?: string
   ): Promise<ServiceResult<void>> {
+    const effectiveScopeId = scopeId ?? orgId;
     const { error } = await supabase
       .from("user_role_assignments")
       .update({ deleted_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("role_id", roleId)
-      .eq("scope", "org")
-      .eq("scope_id", orgId)
+      .eq("scope", scope)
+      .eq("scope_id", effectiveScopeId)
       .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
@@ -579,7 +701,8 @@ export class OrgRolesService {
     orgId: string,
     userId: string
   ): Promise<ServiceResult<string[]>> {
-    const { data, error } = await supabase
+    // Org-scoped assignments
+    const { data: orgData, error: orgErr } = await supabase
       .from("user_role_assignments")
       .select("role_id")
       .eq("scope", "org")
@@ -587,8 +710,97 @@ export class OrgRolesService {
       .eq("user_id", userId)
       .is("deleted_at", null);
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: (data ?? []).map((r) => r.role_id) };
+    if (orgErr) return { success: false, error: orgErr.message };
+
+    // Branch-scoped assignments (branches belonging to this org)
+    const { data: branches } = await supabase
+      .from("branches")
+      .select("id")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+
+    const branchIds = (branches ?? []).map((b) => b.id);
+    let branchRoleIds: string[] = [];
+
+    if (branchIds.length > 0) {
+      const { data: branchData } = await supabase
+        .from("user_role_assignments")
+        .select("role_id")
+        .eq("scope", "branch")
+        .in("scope_id", branchIds)
+        .eq("user_id", userId)
+        .is("deleted_at", null);
+
+      branchRoleIds = (branchData ?? []).map((r) => r.role_id);
+    }
+
+    const allRoleIds = [...new Set([...(orgData ?? []).map((r) => r.role_id), ...branchRoleIds])];
+    return { success: true, data: allRoleIds };
+  }
+
+  static async getMemberAccess(
+    supabase: SupabaseClient,
+    orgId: string,
+    userId: string
+  ): Promise<ServiceResult<OrgMemberAccess>> {
+    // Get branches for this org (for name lookup and branch-scope filtering)
+    const { data: branches, error: brErr } = await supabase
+      .from("branches")
+      .select("id, name")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null);
+
+    if (brErr) return { success: false, error: brErr.message };
+
+    const branchMap = new Map((branches ?? []).map((b) => [b.id, b.name as string]));
+    const branchIds = Array.from(branchMap.keys());
+
+    // Org-scoped assignments
+    const { data: orgAssign, error: orgErr } = await supabase
+      .from("user_role_assignments")
+      .select("id, role_id, scope, scope_id, roles!inner(id, name, is_basic, scope_type)")
+      .eq("user_id", userId)
+      .eq("scope", "org")
+      .eq("scope_id", orgId)
+      .is("deleted_at", null);
+
+    if (orgErr) return { success: false, error: orgErr.message };
+
+    // Branch-scoped assignments
+    let branchAssign: typeof orgAssign = [];
+    if (branchIds.length > 0) {
+      const { data: ba, error: baErr } = await supabase
+        .from("user_role_assignments")
+        .select("id, role_id, scope, scope_id, roles!inner(id, name, is_basic, scope_type)")
+        .eq("user_id", userId)
+        .eq("scope", "branch")
+        .in("scope_id", branchIds)
+        .is("deleted_at", null);
+
+      if (baErr) return { success: false, error: baErr.message };
+      branchAssign = ba ?? [];
+    }
+
+    const allAssignments = [...(orgAssign ?? []), ...branchAssign];
+    const result: OrgRoleAssignment[] = allAssignments.map((a) => {
+      const roleData = (
+        a as unknown as {
+          roles: { id: string; name: string; is_basic: boolean; scope_type: string };
+        }
+      ).roles;
+      return {
+        id: a.id,
+        role_id: a.role_id,
+        role_name: roleData?.name ?? "Unknown",
+        role_is_basic: roleData?.is_basic ?? false,
+        role_scope_type: roleData?.scope_type ?? "org",
+        scope: a.scope,
+        scope_id: a.scope_id,
+        branch_name: a.scope === "branch" ? (branchMap.get(a.scope_id) ?? null) : null,
+      };
+    });
+
+    return { success: true, data: { user_id: userId, assignments: result } };
   }
 }
 

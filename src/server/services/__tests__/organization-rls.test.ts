@@ -249,7 +249,17 @@ describe("OrgMembersService", () => {
         eq: vi.fn().mockReturnThis(),
         is: vi.fn().mockResolvedValue({ data: null, error: null }),
       });
-      const supabase = { from: vi.fn().mockReturnValue({ update: capturedUpdate }) };
+      // branches query (step 3): select chain that returns empty list
+      const branchSelectChain = {
+        eq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+      const supabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "branches") return { select: vi.fn().mockReturnValue(branchSelectChain) };
+          return { update: capturedUpdate };
+        }),
+      };
 
       await OrgMembersService.removeMember(supabase as never, "org-123", "user-456");
 

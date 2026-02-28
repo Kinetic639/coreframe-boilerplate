@@ -32,7 +32,8 @@
 - [x] Sidebar integration tests use `buildSidebarModelUncached`.
   > ✅ `src/app/[locale]/dashboard/__tests__/sidebar-ssr.test.tsx` — 5 org-specific tests added (org-1 through org-5, verified 2026-02-26). Tests: module absent when not entitled, profile absent/present by ORG_READ, branches absent/present by BRANCHES_READ, billing hidden for non-owner.
 - [x] RLS tests run against real Postgres, not mocked clients.
-  > ✅ `src/server/services/__tests__/organization-rls.test.ts` — 15 tests covering RLS behavior, `is_org_member` semantics, constraint validation.
+  > ⚠️ **T1 tests are mock-based**: `src/server/services/__tests__/organization-rls.test.ts` — 23 tests using `makeRlsDeniedClient()` / `makeRlsEmptyClient()`. Verifies service error propagation and DB constraint compliance but does NOT connect to real Postgres.
+  > ✅ **T-RLS real-DB tests**: `src/server/services/__tests__/organization-rls-integration.test.ts` — 4 integration tests that connect to the actual Supabase project (skipped when env vars absent). Covers P1-A SELECT policy and P1-B stale-role fix at real Postgres level.
 - [x] `clearPermissionRegexCache()` called in `afterEach` in sidebar tests.
   > ✅ `afterEach(() => clearPermissionRegexCache())` present in `sidebar-ssr.test.tsx:43`.
 
@@ -43,7 +44,7 @@
 - [x] Every route that hides a link in the sidebar also has a server-side guard that enforces access independently.
   > ✅ Profile (`ORG_READ`), Users layout (`MEMBERS_READ`), Invitations page (`INVITES_READ`), Branches page (`BRANCHES_READ`), Billing (`ORG_UPDATE`), Module gate (`requireModuleOrRedirect`).
 - [x] Every server action behind a hidden sidebar item also has a permission check.
-  > ✅ All 30 server actions use `checkPermission(context.user.permissionSnapshot, PERM)` before any data access.
+  > ✅ All 31 server actions use `checkPermission(context.user.permissionSnapshot, PERM)` before any data access.
 
 ### Fail-Closed Principles
 
@@ -116,11 +117,12 @@
 
 - [x] RLS enabled on all affected tables.
 - [x] `is_org_member(org_id)` used for SELECT policies on org_profiles, org_positions, org_position_assignments, branches, roles.
-  > ⚠️ **Exception**: `organization_members` SELECT uses pre-V2 legacy policy `"Users can view organization members"` with `(user_id = auth.uid()) OR is_org_creator(org_id) OR has_any_org_role(org_id)`. `has_any_org_role` checks `user_role_assignments` only — no member status check. Inactive and soft-deleted members with live role assignments can read the member list. `removeMember()` does not clean up role assignments. No cross-tenant risk. See MODULE.md §RLS and Known Compliance Gap #7.
+  > ⚠️ **Exception**: `organization_members` SELECT uses pre-V2 legacy policy `"Users can view organization members"` with `(user_id = auth.uid()) OR is_org_creator(org_id) OR has_any_org_role(org_id)`. `has_any_org_role` checks `user_role_assignments` only — no member status check. See MODULE.md Known Compliance Gap #7.
+  > ✅ **P1-A/P1-B mitigations applied (2026-02-27)**: `removeMember()` now soft-deletes `user_role_assignments` for the removed user (P1-B); `"V2 view org role assignments"` SELECT policy added on `user_role_assignments` requiring `members.read + is_org_member` (P1-A). See migration `20260227320000`.
 - [x] `has_permission(org_id, slug)` used for mutation policies.
-- [x] `FORCE ROW LEVEL SECURITY` applied on all 9 module tables (verified via Supabase MCP 2026-02-27).
+- [x] `FORCE ROW LEVEL SECURITY` applied on all org-management-related tables (see policy table in MODULE.md, verified via Supabase MCP 2026-02-27).
   > ✅ Applied via migration `20260227100000_force_rls_org_tables.sql` to: organization_profiles, invitations, org_positions, org_position_assignments, branches. Already applied: organization_members, organization_entitlements, roles, role_permissions.
-- [x] Migrations tracked in `supabase/migrations/` (8 migration files for this module).
+- [x] Migrations tracked in `supabase/migrations/` (12 migration files for this module as of 2026-02-27).
 
 ### Schema Correctness
 
@@ -153,6 +155,7 @@
 - [x] All actions return `{ success: true, data: T } | { success: false, error: string }`.
 - [x] No action throws to callers — all errors caught and returned as structured results.
 - [x] No action bypasses RLS (all use `createClient()` — authenticated Supabase client only).
+- [x] All 31 server actions (across 7 files) use `requireModuleAccess` + `checkPermission`.
 
 ### Service Layer
 
@@ -221,7 +224,8 @@
 - [x] Documents: `is_org_member` semantics, DB constraint values, soft-delete behavior.
 - [x] Key invariant: `removeMember` does NOT write `status = 'removed'` — confirmed by test.
 - [x] Gap #6 fix documented: `cancelInvitation` only writes `status='cancelled'`; both `invitations_update_self_cancel` and `invitations_update_self_accept` WITH CHECK semantics documented (exploit path blocked; acceptance path restored).
-- [x] **NOTE — real-DB integration test limitation**: T1 tests are mock-based (no live Postgres). They document per-policy WITH CHECK logic but do not verify permissive-policy OR-combination at DB level. A real integration test suite against a seeded Supabase instance would be needed to prove cross-policy behaviour end-to-end.
+- [x] **Real-DB integration tests added (2026-02-27)**: `src/server/services/__tests__/organization-rls-integration.test.ts` — 4 T-RLS tests connecting to actual Supabase. Verifies P1-A SELECT policy (T-RLS-1 through T-RLS-3) and P1-B stale-role cleanup (T-RLS-4). Skipped gracefully when env vars absent (CI-safe). The T1 mock tests remain for service-layer unit coverage.
+- [x] **RLS assertion client discipline enforced**: policy ALLOW/DENY assertions (T-RLS-1/2/3) use `RlsClient` (anon key + JWT sign-in) via `rlsQuery()` helper only. Service role (`SetupClient`) is restricted to setup/cleanup and DB-state verification (T-RLS-4). `assertIsRlsClient()` runtime guard throws if service-role key is accidentally passed to `rlsQuery()`.
 
 ### Sidebar SSR Tests
 
@@ -235,12 +239,17 @@
 
 ### Frontend Component Tests (RTL)
 
-- [x] 5 RTL tests in `src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx`.
+- [x] 10 RTL tests in `src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx`.
   - roles-1: Create Role button visible when user has `MEMBERS_MANAGE` ✅
   - roles-2: Create Role button absent when user lacks `MEMBERS_MANAGE` ✅
   - roles-3: All 4 permission group labels render in create dialog (Organization/Members/Invitations/Branches) ✅
   - roles-4: `createRoleAction` called with correct `permission_slugs` on submit ✅
   - roles-5: `listRolesAction` NOT called on mount (SSR-first regression) ✅
+  - roles-6: Create dialog scope selector defaults to `org` ✅
+  - roles-7: `createRoleAction` receives `scope_type: "branch"` when branch scope selected ✅
+  - roles-8: Branch-scoped role shows `branch` badge in list ✅
+  - roles-9: `both`-scoped role shows `both` badge in list ✅
+  - roles-10: Edit dialog shows scope as read-only text, no combobox ✅
 - [x] 4 RTL tests in `src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx`.
   - branches-1: Create Branch button visible when user has `BRANCHES_CREATE` ✅
   - branches-2: `createBranchAction` called with branch name on submit ✅
@@ -251,10 +260,16 @@
   - invitations-2: Invite button absent when user lacks `INVITES_CREATE` ✅
   - invitations-3: `listInvitationsAction` NOT called on mount (SSR-first regression) ✅
   - invitations-4: `createInvitationAction` called with email on submit ✅
-- [x] 3 RTL tests in `src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx`.
-  - members-1: List actions NOT called on mount (SSR-first regression — inverted from old "calls 4 on mount") ✅
+- [x] 7 RTL tests in `src/app/[locale]/dashboard/organization/users/members/__tests__/members-client.test.tsx`.
+  - members-1: List actions NOT called on mount (SSR-first regression) ✅
   - members-2: Empty state message renders when member list is empty ✅
   - members-3: Member name renders immediately from `initialMembers` (no fetch) ✅
+  - members-4: View link per row links to member detail page (href contains userId) ✅
+  - members-5: Branch-scoped role shows `branch` badge in Manage Roles dialog ✅
+  - members-6: `both`-scoped role shows org/branch toggle when checked in dialog ✅
+  - members-7: Branch multiselect appears when branch scope selected for `both` role ✅
+- [x] 10 RTL tests in `src/app/[locale]/dashboard/organization/users/members/[memberId]/__tests__/member-detail-client.test.tsx`.
+  - detail-1 through detail-10: member detail display, Info/Access tabs, role assignment with scope, remove assignment, SSR-first regression ✅
 - [x] 6 RTL tests in `src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx` (NEW 2026-02-26).
   - positions-1: Create Position button visible when user has `MEMBERS_MANAGE` ✅
   - positions-2: Create Position button absent when user lacks permission ✅
@@ -267,14 +282,15 @@
 
 ## 9. Known Gaps
 
-| #   | Section  | Description                                                                                                                                               | Priority     | Status                                                                                                                                                                                                          |
-| --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | UI       | No `loading.tsx` / `error.tsx` in org route tree                                                                                                          | LOW          | ✅ Closed 2026-02-26 — `loading.tsx` and `error.tsx` added at `organization/` and `organization/users/`                                                                                                         |
-| 2   | SSR      | All 7 org pages violate guide §2731 Mandatory SSR-first (client-fetch-on-mount)                                                                           | MEDIUM       | ✅ Closed 2026-02-26 — all 7 pages use SSR-first; `initialXxx` props passed from Server Components                                                                                                              |
-| 3   | Legacy   | `src/modules/organization-managment/config.ts` still has legacy `/dashboard-old/` routes                                                                  | PRE-EXISTING | ✅ Closed 2026-02-26 — `items` replaced with `[]`                                                                                                                                                               |
-| 4   | SECURITY | `invitations` UPDATE RLS — email-match branch had no column restriction. Invitee could update any column (role_id, branch_id, expires_at) via direct API. | MEDIUM       | ✅ Closed 2026-02-27 — `20260227200000` + `20260227200001` applied; three UPDATE policies now cover all legitimate invitee transitions; no policy permits `status='pending'` new-row writes. +8 T1 tests total. |
-| 5   | INFO     | `organization_members` SELECT — `has_any_org_role` does not check status/deleted_at; removed members with lingering role assignments can read member list | LOW          | ⏳ Open — pending business decision: add role cleanup in `removeMember()`, restrict SELECT, or accept as-is                                                                                                     |
+| #   | Section  | Description                                                                                                                                                             | Priority     | Status                                                                                                                                                                                                                                                  |
+| --- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | UI       | No `loading.tsx` / `error.tsx` in org route tree                                                                                                                        | LOW          | ✅ Closed 2026-02-26 — `loading.tsx` and `error.tsx` added at `organization/` and `organization/users/`                                                                                                                                                 |
+| 2   | SSR      | All 7 org pages violate guide §2731 Mandatory SSR-first (client-fetch-on-mount)                                                                                         | MEDIUM       | ✅ Closed 2026-02-26 — all 7 pages use SSR-first; `initialXxx` props passed from Server Components                                                                                                                                                      |
+| 3   | Legacy   | `src/modules/organization-managment/config.ts` still has legacy `/dashboard-old/` routes                                                                                | PRE-EXISTING | ✅ Closed 2026-02-26 — `items` replaced with `[]`                                                                                                                                                                                                       |
+| 4   | SECURITY | `invitations` UPDATE RLS — email-match branch had no column restriction. Invitee could update any column (role_id, branch_id, expires_at) via direct API.               | MEDIUM       | ✅ Closed 2026-02-27 — `20260227200000` + `20260227200001` applied; three UPDATE policies now cover all legitimate invitee transitions; no policy permits `status='pending'` new-row writes. +8 T1 tests total.                                         |
+| 5   | INFO     | `organization_members` SELECT — `has_any_org_role` does not check status/deleted_at; removed members with lingering role assignments can read member list               | LOW          | ✅ Mitigated 2026-02-27 — P1-A + P1-B applied (see MODULE.md Gap #7). Legacy `has_any_org_role` SELECT on `organization_members` unchanged; `user_role_assignments` SELECT now gated by `members.read`; `removeMember()` soft-deletes role assignments. |
+| 6   | INFO     | Invitation acceptance is a legacy client-side flow (`src/lib/api/invitations.ts`) that only updates `invitations.status` — does NOT insert into `organization_members`. | LOW          | ⏳ Open (P1-C, documented-only) — no fix needed until a V2 server-action invite acceptance flow is implemented. See MODULE.md Gap #8.                                                                                                                   |
 
 ---
 
-_Last updated: 2026-02-27 — Regression fix applied. Migration `20260227200001_fix_invitations_self_accept_regression.sql` adds self-accept policy. T1 test count updated to 23 (+5). Migration count updated to 8. Gap #4 remains closed. Gap #5 open._
+_Last updated: 2026-02-27 — Phase 3 hardening. P1-A SELECT policy, P1-B stale-role cleanup, P2-C {public}→{authenticated} (13 policies), T-RLS real DB tests (+4). Migrations: 8→12. Known gaps: #7 mitigated, #8 documented._
