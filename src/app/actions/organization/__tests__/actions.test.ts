@@ -100,6 +100,23 @@ const CTX_ORG_ADMIN = {
   app: { activeOrgId: "org-123" },
   user: {
     user: { id: "user-123" },
+    permissionSnapshot: {
+      allow: [
+        "module.organization-management.access",
+        "org.*",
+        "members.*",
+        "invites.*",
+        "branches.*",
+      ],
+      deny: [],
+    },
+  },
+};
+// Has all capability permissions but is missing module access — used to test the module gate
+const CTX_HAS_ORG_PERMS_NO_MODULE_ACCESS = {
+  app: { activeOrgId: "org-123" },
+  user: {
+    user: { id: "user-123" },
     permissionSnapshot: { allow: ["org.*", "members.*", "invites.*", "branches.*"], deny: [] },
   },
 };
@@ -501,6 +518,57 @@ describe("createBranchAction", () => {
     const result = await createBranchAction({ name: "Warsaw Branch" });
     expect(result).toEqual({ success: false, error: "Unauthorized" });
     expect(OrgBranchesService.createBranch).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Module access gate ───────────────────────────────────────────────────────
+
+describe("Module access gate — Unauthorized when module.organization-management.access absent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_HAS_ORG_PERMS_NO_MODULE_ACCESS);
+  });
+
+  it("getOrgProfileAction: blocked despite org.read being present", async () => {
+    const result = await getOrgProfileAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgProfileService.getProfile).not.toHaveBeenCalled();
+  });
+
+  it("listMembersAction: blocked despite members.read being present", async () => {
+    const result = await listMembersAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgMembersService.listMembers).not.toHaveBeenCalled();
+  });
+
+  it("listRolesAction: blocked despite members.read being present", async () => {
+    const result = await listRolesAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.listRoles).not.toHaveBeenCalled();
+  });
+
+  it("listInvitationsAction: blocked despite invites.read being present", async () => {
+    const result = await listInvitationsAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgInvitationsService.listInvitations).not.toHaveBeenCalled();
+  });
+
+  it("getBillingOverviewAction: blocked despite org.update being present", async () => {
+    const result = await getBillingOverviewAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBillingService.getBillingOverview).not.toHaveBeenCalled();
+  });
+
+  it("listPositionsAction: blocked despite members.read being present", async () => {
+    const result = await listPositionsAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgPositionsService.listPositions).not.toHaveBeenCalled();
+  });
+
+  it("listBranchesAction: blocked despite branches.read being present", async () => {
+    const result = await listBranchesAction();
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgBranchesService.listBranches).not.toHaveBeenCalled();
   });
 });
 

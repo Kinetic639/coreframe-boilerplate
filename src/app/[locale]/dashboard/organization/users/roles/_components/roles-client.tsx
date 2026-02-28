@@ -26,6 +26,7 @@ import { Shield, Plus, Pencil, Trash2, Lock, Building2, GitBranch } from "lucide
 import { useRouter } from "@/i18n/navigation";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   ORG_READ,
   ORG_UPDATE,
   MEMBERS_READ,
@@ -129,6 +130,16 @@ const PERMISSION_GROUPS = [
       {
         slug: BRANCHES_DELETE,
         label: "Delete branches",
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
+    ],
+  },
+  {
+    label: "Module Access",
+    permissions: [
+      {
+        slug: MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+        label: "Access Organization Management module",
         allowedScopes: ["org"] as ("org" | "branch")[],
       },
     ],

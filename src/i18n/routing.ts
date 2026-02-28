@@ -135,6 +135,10 @@ export const routing = defineRouting({
       en: "/dashboard/support",
       pl: "/dashboard/wsparcie",
     },
+    "/dashboard/access-denied": {
+      en: "/dashboard/access-denied",
+      pl: "/dashboard/brak-dostepu",
+    },
 
     "/dashboard-old": {
       en: "/dashboard-old",

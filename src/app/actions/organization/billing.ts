@@ -6,7 +6,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { OrgBillingService } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
-import { ORG_UPDATE } from "@/lib/constants/permissions";
+import { MODULE_ORGANIZATION_MANAGEMENT_ACCESS, ORG_UPDATE } from "@/lib/constants/permissions";
 
 export async function getBillingOverviewAction() {
   try {
@@ -14,6 +14,8 @@ export async function getBillingOverviewAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     // Billing is restricted to users with ORG_UPDATE (org owners)
     const canView = checkPermission(context.user.permissionSnapshot, ORG_UPDATE);

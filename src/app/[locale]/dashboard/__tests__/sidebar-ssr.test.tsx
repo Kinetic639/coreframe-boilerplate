@@ -101,7 +101,13 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["org.read", "org.update", "members.read", "members.manage"],
+        allow: [
+          "module.organization-management.access",
+          "org.read",
+          "org.update",
+          "members.read",
+          "members.manage",
+        ],
         deny: [],
       },
     };
@@ -117,7 +123,7 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["org.read", "members.read"],
+        allow: ["module.organization-management.access", "org.read", "members.read"],
         deny: [],
       },
     };
@@ -402,7 +408,7 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["org.read"],
+        allow: ["module.organization-management.access", "org.read"],
         deny: [],
       },
     };
@@ -472,7 +478,7 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["org.read", "branches.read"],
+        allow: ["module.organization-management.access", "org.read", "branches.read"],
         deny: [],
       },
     };

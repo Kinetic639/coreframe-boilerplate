@@ -6,6 +6,7 @@ import {
   ORG_UPDATE,
   MEMBERS_READ,
   BRANCHES_READ,
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
 } from "@/lib/constants/permissions";
 import {
   MODULE_WAREHOUSE,
@@ -71,6 +72,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     iconKey: "users",
     visibility: {
       requiresModules: [MODULE_ORGANIZATION_MANAGEMENT],
+      requiresPermissions: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS],
     },
     children: [
       {

@@ -10,7 +10,12 @@ import {
   type CreateInvitationInput,
 } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
-import { INVITES_READ, INVITES_CREATE, INVITES_CANCEL } from "@/lib/constants/permissions";
+import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  INVITES_READ,
+  INVITES_CREATE,
+  INVITES_CANCEL,
+} from "@/lib/constants/permissions";
 
 const createInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -28,6 +33,8 @@ export async function listInvitationsAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, INVITES_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };
@@ -48,6 +55,8 @@ export async function createInvitationAction(rawInput: unknown) {
     if (!context?.app.activeOrgId || !context.user.user.id) {
       return { success: false, error: "No active organization" };
     }
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canCreate = checkPermission(context.user.permissionSnapshot, INVITES_CREATE);
     if (!canCreate) return { success: false, error: "Unauthorized" };
@@ -74,6 +83,8 @@ export async function cancelInvitationAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canCancel = checkPermission(context.user.permissionSnapshot, INVITES_CANCEL);
     if (!canCancel) return { success: false, error: "Unauthorized" };
@@ -95,6 +106,8 @@ export async function resendInvitationAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     // Resending is a create-level operation (new token + expiry)
     const canCreate = checkPermission(context.user.permissionSnapshot, INVITES_CREATE);
@@ -117,6 +130,8 @@ export async function cleanupExpiredInvitationsAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canCancel = checkPermission(context.user.permissionSnapshot, INVITES_CANCEL);
     if (!canCancel) return { success: false, error: "Unauthorized" };
