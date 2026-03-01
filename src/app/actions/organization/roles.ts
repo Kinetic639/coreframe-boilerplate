@@ -8,6 +8,7 @@ import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-
 import { OrgRolesService, type CreateRoleInput } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   MEMBERS_READ,
   MEMBERS_MANAGE,
   ORG_READ,
@@ -24,6 +25,7 @@ const ORG_ONLY_SLUGS = new Set<string>([
   BRANCHES_CREATE,
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
 ]);
 
 const createRoleSchema = z.object({
@@ -55,6 +57,8 @@ export async function listRolesAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };
@@ -73,6 +77,8 @@ export async function createRoleAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
     if (!canManage) return { success: false, error: "Unauthorized" };
@@ -109,6 +115,8 @@ export async function updateRoleAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
     if (!canManage) return { success: false, error: "Unauthorized" };
@@ -131,6 +139,8 @@ export async function deleteRoleAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
     if (!canManage) return { success: false, error: "Unauthorized" };
@@ -152,6 +162,8 @@ export async function assignRoleToUserAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
     if (!canManage) return { success: false, error: "Unauthorized" };
@@ -185,6 +197,8 @@ export async function removeRoleFromUserAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
     if (!canManage) return { success: false, error: "Unauthorized" };
@@ -218,6 +232,8 @@ export async function getUserRoleAssignmentsAction(userId: string) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };
@@ -240,6 +256,8 @@ export async function getMemberAccessAction(userId: string) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };

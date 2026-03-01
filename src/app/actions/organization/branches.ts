@@ -8,6 +8,7 @@ import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-
 import { OrgBranchesService, type CreateBranchInput } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   BRANCHES_READ,
   BRANCHES_CREATE,
   BRANCHES_UPDATE,
@@ -43,6 +44,8 @@ export async function listBranchesAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, BRANCHES_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };
@@ -61,6 +64,8 @@ export async function createBranchAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canCreate = checkPermission(context.user.permissionSnapshot, BRANCHES_CREATE);
     if (!canCreate) return { success: false, error: "Unauthorized" };
@@ -86,6 +91,8 @@ export async function updateBranchAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canUpdate = checkPermission(context.user.permissionSnapshot, BRANCHES_UPDATE);
     if (!canUpdate) return { success: false, error: "Unauthorized" };
@@ -113,6 +120,8 @@ export async function deleteBranchAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canDelete = checkPermission(context.user.permissionSnapshot, BRANCHES_DELETE);
     if (!canDelete) return { success: false, error: "Unauthorized" };

@@ -1595,6 +1595,13 @@
           "viewChangelog": "Zobacz pełny dziennik zmian"
         }
       }
+    },
+    "accessDenied": {
+      "title": "Brak dostępu",
+      "description": "Nie masz uprawnień do tej sekcji.",
+      "moduleHint": "Moduł \"{module}\" nie jest włączony dla Twojego konta.",
+      "contactAdmin": "Skontaktuj się z administratorem organizacji, aby poprosić o dostęp.",
+      "goToDashboard": "Wróć do panelu"
     }
   },
   "productsModule": {

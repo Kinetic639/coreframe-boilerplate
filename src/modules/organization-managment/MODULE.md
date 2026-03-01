@@ -21,7 +21,7 @@
 ## Status
 
 - **Implementation:** ✅ done
-- **Last updated:** 2026-02-27 (Phase 3 hardening: P1-A org-scope SELECT, P1-B stale-role cleanup, P2-C policy hygiene, T-RLS integration tests)
+- **Last updated:** 2026-02-28 (Module access permission gate added: `module.organization-management.access` enforced at layout, actions, and sidebar)
 - **Owner:** coreframe
 
 ---
@@ -32,15 +32,17 @@
 - **Module constant:** `MODULE_ORGANIZATION_MANAGEMENT` (`"organization-management"`) — `src/lib/constants/modules.ts`
 - **Entitlements source of truth:** `organization_entitlements.enabled_modules` — slug `"organization-management"` present in all standard plan tiers
 - **Where enforced:**
-  - Page layout gate: ✅ `src/app/[locale]/dashboard/organization/layout.tsx` calls `entitlements.requireModuleOrRedirect(MODULE_ORGANIZATION_MANAGEMENT)` — redirects to `/upgrade` on denial
-  - Server actions: ✅ All 7 action files call `entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT)` in every action
+  - Page layout gate (plan): ✅ `src/app/[locale]/dashboard/organization/layout.tsx` → `entitlements.requireModuleOrRedirect(MODULE_ORGANIZATION_MANAGEMENT)` — redirects to `/upgrade` on denial
+  - Page layout gate (user): ✅ same layout checks `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` permission — redirects to `/dashboard/start` on denial
+  - Server actions: ✅ All 7 action files check `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` after the `activeOrgId` guard, before capability checks
 
 ### Verification checklist
 
 - [x] Module slug `"organization-management"` present in `organization_entitlements.enabled_modules` for all plans
 - [x] Module layout gate enforced via `entitlements.requireModuleOrRedirect`
-- [x] Server actions enforce via `entitlements.requireModuleAccess`
-- [x] Sidebar item hidden when module not entitled (`requiresModules: [MODULE_ORGANIZATION_MANAGEMENT]`)
+- [x] User-level module access enforced via `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` permission check
+- [x] Server actions enforce via `entitlements.requireModuleAccess` (plan) + `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` (user)
+- [x] Sidebar item hidden when module not entitled or user lacks `MODULE_ORGANIZATION_MANAGEMENT_ACCESS`
 
 ---
 
@@ -50,27 +52,28 @@
 
 > No raw strings. Must match DB slugs exactly.
 
-|          Action | Permission constant | DB slug           |
-| --------------: | ------------------- | ----------------- |
-|        Org read | `ORG_READ`          | `org.read`        |
-|      Org update | `ORG_UPDATE`        | `org.update`      |
-|    Members read | `MEMBERS_READ`      | `members.read`    |
-|  Members manage | `MEMBERS_MANAGE`    | `members.manage`  |
-|    Invites read | `INVITES_READ`      | `invites.read`    |
-|  Invites create | `INVITES_CREATE`    | `invites.create`  |
-|  Invites cancel | `INVITES_CANCEL`    | `invites.cancel`  |
-|   Branches read | `BRANCHES_READ`     | `branches.read`   |
-| Branches create | `BRANCHES_CREATE`   | `branches.create` |
-| Branches update | `BRANCHES_UPDATE`   | `branches.update` |
-| Branches delete | `BRANCHES_DELETE`   | `branches.delete` |
+|          Action | Permission constant                     | DB slug                                 |
+| --------------: | --------------------------------------- | --------------------------------------- |
+|   Module access | `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` | `module.organization-management.access` |
+|        Org read | `ORG_READ`                              | `org.read`                              |
+|      Org update | `ORG_UPDATE`                            | `org.update`                            |
+|    Members read | `MEMBERS_READ`                          | `members.read`                          |
+|  Members manage | `MEMBERS_MANAGE`                        | `members.manage`                        |
+|    Invites read | `INVITES_READ`                          | `invites.read`                          |
+|  Invites create | `INVITES_CREATE`                        | `invites.create`                        |
+|  Invites cancel | `INVITES_CANCEL`                        | `invites.cancel`                        |
+|   Branches read | `BRANCHES_READ`                         | `branches.read`                         |
+| Branches create | `BRANCHES_CREATE`                       | `branches.create`                       |
+| Branches update | `BRANCHES_UPDATE`                       | `branches.update`                       |
+| Branches delete | `BRANCHES_DELETE`                       | `branches.delete`                       |
 
 All constants defined in `src/lib/constants/permissions.ts`.
 
 Role assignments (DB):
 
-- `org_owner` → `org.*`, `members.*`, `invites.*`, `branches.*` (wildcards — full module access)
-- `org_admin` → `org.read`, `members.manage`, `invites.*`, `branches.*`
-- `org_member` → `org.read`, `members.read`
+- `org_owner` → `module.*` (wildcard covers all module access), `org.*`, `members.*`, `invites.*`, `branches.*`
+- `org_member` → `org.read`, `members.read` (no module access by default — must be granted via custom role)
+- Custom roles → can include `module.organization-management.access` (org-scope only, not branch-scope)
 
 ### Guard pattern used (V2)
 
@@ -115,7 +118,7 @@ Context loaded via `loadDashboardContextV2()` which returns `context.user.permis
 - [x] Server actions return `{ success: false, error: "Unauthorized" }` on permission denial (T2 tests cover this)
 - [x] `is_org_member` excludes `status != 'active'` and `deleted_at IS NOT NULL` (verified 2026-02-26)
 - [x] `has_any_org_role` (used in legacy SELECT on `organization_members`) checks only `user_role_assignments` — does NOT gate on member status or deleted_at (verified 2026-02-27 via MCP)
-- [x] No raw permission strings in TypeScript — all slugs imported from `@/lib/constants/permissions` (architecture pass 2026-02-26; fixed in phase 3: `member-detail-client.tsx` PERM*OPTIONS used wrong `invitations.*` slugs, now replaced with grouped `CUSTOM_ACCESS_PERM_GROUPS` using correct `INVITES*\*` constants)
+- [x] No raw permission strings in TypeScript — all slugs imported from `@/lib/constants/permissions` (architecture pass 2026-02-26; fixed in phase 3: `member-detail-client.tsx` PERM*OPTIONS used wrong `invitations.*`slugs, now replaced with grouped`CUSTOM_ACCESS_PERM_GROUPS`using correct`INVITES\*\*` constants)
 
 ---
 

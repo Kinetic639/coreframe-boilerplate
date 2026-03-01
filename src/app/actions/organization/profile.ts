@@ -10,7 +10,11 @@ import {
   type UpdateOrgProfileInput,
 } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
-import { ORG_READ, ORG_UPDATE } from "@/lib/constants/permissions";
+import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  ORG_READ,
+  ORG_UPDATE,
+} from "@/lib/constants/permissions";
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(200).nullable().optional(),
@@ -33,6 +37,8 @@ export async function getOrgProfileAction() {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, ORG_READ);
     if (!canRead) return { success: false, error: "Unauthorized" };
@@ -51,6 +57,8 @@ export async function updateOrgProfileAction(rawInput: unknown) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canUpdate = checkPermission(context.user.permissionSnapshot, ORG_UPDATE);
     if (!canUpdate) return { success: false, error: "Unauthorized" };
@@ -80,6 +88,8 @@ export async function uploadOrgLogoAction(formData: FormData) {
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
     if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
 
     const canUpdate = checkPermission(context.user.permissionSnapshot, ORG_UPDATE);
     if (!canUpdate) return { success: false, error: "Unauthorized" };

@@ -11,6 +11,7 @@ import {
   MODULE_SUPPORT,
 } from "@/lib/constants/modules";
 import {
+  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   ORG_READ,
   ORG_UPDATE,
   MEMBERS_READ,
@@ -105,6 +106,46 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       expect(warehouseItem).toBeDefined();
     });
 
+    it("should hide organization when module entitled but module access permission absent", () => {
+      const userWithOrgPermsNoModuleAccess: UserContextV2 = {
+        ...baseUserContext,
+        permissionSnapshot: {
+          allow: [ORG_READ, ORG_UPDATE, MEMBERS_READ], // org perms present, module access absent
+          deny: [],
+        },
+      };
+
+      const model = buildSidebarModel(
+        baseAppContext,
+        userWithOrgPermsNoModuleAccess,
+        baseEntitlements,
+        "en"
+      );
+
+      // Organization parent requires MODULE_ORGANIZATION_MANAGEMENT_ACCESS → hidden
+      const orgItem = model.main.find((item) => item.id === "organization");
+      expect(orgItem).toBeUndefined();
+    });
+
+    it("should show organization when module entitled AND module access permission both present", () => {
+      const userWithModuleAccess: UserContextV2 = {
+        ...baseUserContext,
+        permissionSnapshot: {
+          allow: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, ORG_READ, MEMBERS_READ],
+          deny: [],
+        },
+      };
+
+      const model = buildSidebarModel(baseAppContext, userWithModuleAccess, baseEntitlements, "en");
+
+      // Organization parent: module entitled + permission present → visible
+      const orgItem = model.main.find((item) => item.id === "organization");
+      expect(orgItem).toBeDefined();
+
+      // organization.profile: ORG_READ granted → visible child
+      expect(orgItem?.children?.find((child) => child.id === "organization.profile")).toBeDefined();
+    });
+
     it("should hide permission-gated items when allow array is empty", () => {
       const userWithNoPermissions: UserContextV2 = {
         ...baseUserContext,
@@ -135,6 +176,7 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
         ...baseUserContext,
         permissionSnapshot: {
           allow: [
+            MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
             ORG_READ,
             ORG_UPDATE,
             MEMBERS_READ,
@@ -187,12 +229,15 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
     it("should return different output for different permission inputs", () => {
       const userWithOrgRead: UserContextV2 = {
         ...baseUserContext,
-        permissionSnapshot: { allow: [ORG_READ], deny: [] },
+        permissionSnapshot: { allow: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, ORG_READ], deny: [] },
       };
 
       const userWithOrgUpdate: UserContextV2 = {
         ...baseUserContext,
-        permissionSnapshot: { allow: [ORG_UPDATE], deny: [] },
+        permissionSnapshot: {
+          allow: [MODULE_ORGANIZATION_MANAGEMENT_ACCESS, ORG_UPDATE],
+          deny: [],
+        },
       };
 
       const model1 = buildSidebarModel(baseAppContext, userWithOrgRead, baseEntitlements, "en");
