@@ -41,6 +41,7 @@ describe("loadDashboardContextV2", () => {
         created_at: "2024-01-01T00:00:00Z",
       },
       availableBranches: [],
+      accessibleBranches: [],
       userModules: [],
     };
 
@@ -55,6 +56,13 @@ describe("loadDashboardContextV2", () => {
   });
 
   it("should return combined context when both loaders succeed", async () => {
+    const mockBranch = {
+      id: "branch-456",
+      name: "Main Branch",
+      organization_id: "org-123",
+      slug: "main-branch",
+      created_at: "2024-01-01T00:00:00Z",
+    };
     const mockAppContext = {
       activeOrgId: "org-123",
       activeBranchId: "branch-456",
@@ -65,14 +73,9 @@ describe("loadDashboardContextV2", () => {
         slug: "test-org",
         logo_url: null,
       },
-      activeBranch: {
-        id: "branch-456",
-        name: "Main Branch",
-        organization_id: "org-123",
-        slug: "main-branch",
-        created_at: "2024-01-01T00:00:00Z",
-      },
-      availableBranches: [],
+      activeBranch: mockBranch,
+      availableBranches: [mockBranch],
+      accessibleBranches: [],
       userModules: [],
     };
 
@@ -86,7 +89,8 @@ describe("loadDashboardContextV2", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: ["warehouse.products.view"], deny: [] },
+      // branches.view.any → fast path in _computeAccessibleBranches (no createClient call)
+      permissionSnapshot: { allow: ["warehouse.products.view", "branches.view.any"], deny: [] },
     };
 
     vi.mocked(loadAppContextV2).mockResolvedValue(mockAppContext);
@@ -95,7 +99,7 @@ describe("loadDashboardContextV2", () => {
     const result = await loadDashboardContextV2();
 
     expect(result).toEqual({
-      app: mockAppContext,
+      app: { ...mockAppContext, accessibleBranches: [mockBranch] },
       user: mockUserContext,
     });
     expect(loadAppContextV2).toHaveBeenCalledTimes(1);
@@ -103,6 +107,13 @@ describe("loadDashboardContextV2", () => {
   });
 
   it("should pass resolved org/branch IDs to user context loader", async () => {
+    const mockBranch = {
+      id: "branch-888",
+      name: "Main Branch",
+      organization_id: "org-999",
+      slug: "main-branch",
+      created_at: "2024-01-01T00:00:00Z",
+    };
     const mockAppContext = {
       activeOrgId: "org-999",
       activeBranchId: "branch-888",
@@ -113,14 +124,9 @@ describe("loadDashboardContextV2", () => {
         slug: "test-org",
         logo_url: null,
       },
-      activeBranch: {
-        id: "branch-888",
-        name: "Main Branch",
-        organization_id: "org-999",
-        slug: "main-branch",
-        created_at: "2024-01-01T00:00:00Z",
-      },
-      availableBranches: [],
+      activeBranch: mockBranch,
+      availableBranches: [mockBranch],
+      accessibleBranches: [],
       userModules: [],
     };
 
@@ -134,7 +140,8 @@ describe("loadDashboardContextV2", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: ["warehouse.products.view"], deny: [] },
+      // branches.view.any → fast path in _computeAccessibleBranches (no createClient call)
+      permissionSnapshot: { allow: ["warehouse.products.view", "branches.view.any"], deny: [] },
     };
 
     vi.mocked(loadAppContextV2).mockResolvedValue(mockAppContext);
@@ -154,6 +161,7 @@ describe("loadDashboardContextV2", () => {
       activeOrg: null,
       activeBranch: null,
       availableBranches: [],
+      accessibleBranches: [],
       userModules: [],
     };
 

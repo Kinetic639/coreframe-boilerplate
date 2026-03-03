@@ -39,6 +39,7 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       created_at: "2024-01-01T00:00:00Z",
     },
     availableBranches: [],
+    accessibleBranches: [],
     userModules: [],
   };
 

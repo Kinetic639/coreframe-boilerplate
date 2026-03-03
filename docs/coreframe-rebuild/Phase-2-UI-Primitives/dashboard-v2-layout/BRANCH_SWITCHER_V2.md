@@ -1,25 +1,61 @@
 # Branch Switcher V2 - Component Verification & Progress Tracker
 
 **Component**: Branch Switcher V2
-**File**: `src/components/v2/layout/branch-switcher.tsx`
+**Files**: `src/components/v2/layout/branch-switcher.tsx`, `src/app/[locale]/dashboard/_components/sidebar-branch-switcher.tsx`
 **Created**: 2026-01-17
-**Updated**: 2026-01-19
-**Status**: ✅ Implementation Complete - Pending Verification
+**Updated**: 2026-03-02 (Phase 2: server-computed accessible branches + `changeBranch` access control)
+**Status**: ✅ Phase 2 Complete — props-driven UI, secure server action, accessible branches
+
+---
+
+## Architecture (Phase 2 — 2026-03-02)
+
+The branch switcher was rearchitected to use a **server-computed, props-driven model**:
+
+| Concern              | Before                                         | After                                                                   |
+| -------------------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
+| Branch list source   | Zustand `availableBranches` (all org branches) | Server-computed `accessibleBranches` passed as props                    |
+| Access control       | None — any org branch switchable               | `changeBranch` validates org membership + accessibility                 |
+| Active branch source | Zustand store                                  | `activeBranchId` prop from server layout                                |
+| UI coupling          | Reads from global store                        | Dumb component — only reads `activeOrg` name + `setActiveBranch` action |
+
+### Data flow
+
+```
+loadDashboardContextV2()
+  └─ _computeAccessibleBranches(userId, orgId, allBranches, permissionSnapshot)
+       ├─ FAST PATH: if branches.view.any → return allBranches
+       └─ SLOW PATH: query user_role_assignments (scope='branch') → filter allBranches
+  └─ Re-validates activeBranch against accessibleBranches (falls back to first or null)
+
+layout.tsx
+  └─ <DashboardShell accessibleBranches={...} activeBranchId={...} />
+       └─ <SidebarBranchSwitcher branches={accessibleBranches} activeBranchId={activeBranchId} />
+```
+
+### New permissions (migration `20260302100000`)
+
+| Constant                   | DB slug                    | Scope | Purpose                                                  |
+| -------------------------- | -------------------------- | ----- | -------------------------------------------------------- |
+| `BRANCHES_VIEW_ANY`        | `branches.view.any`        | org   | Fast path: user sees all org branches in switcher        |
+| `BRANCHES_VIEW_UPDATE_ANY` | `branches.view.update.any` | org   | Can switch to any org branch (bypasses accessible check) |
+| `BRANCHES_VIEW_REMOVE_ANY` | `branches.view.remove.any` | org   | Reserved for admin branch-preference reset               |
+
+`org_owner` has all three. `org_member` has none by default.
 
 ---
 
 ## Progress Overview
 
-| Category               | Progress        | Status                    |
-| ---------------------- | --------------- | ------------------------- |
-| Implementation         | 100% (12/12)    | ✅ Complete               |
-| Branch Switching Logic | 0% (0/10)       | ⬜ Not Verified           |
-| Permission Sync        | 0% (0/8)        | ⬜ Not Verified           |
-| Visual Design          | 0% (0/6)        | ⬜ Not Verified           |
-| Error Handling         | 0% (0/7)        | ⬜ Not Verified           |
-| Accessibility          | 0% (0/6)        | ⬜ Not Verified           |
-| Performance            | 0% (0/5)        | ⬜ Not Verified           |
-| **TOTAL**              | **22% (12/54)** | **⬜ Needs Verification** |
+| Category               | Progress     | Status          |
+| ---------------------- | ------------ | --------------- |
+| Implementation         | 100% (12/12) | ✅ Complete     |
+| Branch Switching Logic | 80% (8/10)   | ✅ Implemented  |
+| Permission Sync        | 100% (8/8)   | ✅ Verified     |
+| Visual Design          | 0% (0/6)     | ⬜ Not Verified |
+| Error Handling         | 60% (4/7)    | ✅ Implemented  |
+| Accessibility          | 0% (0/6)     | ⬜ Not Verified |
+| Performance            | 0% (0/5)     | ⬜ Not Verified |
 
 ---
 
@@ -28,24 +64,25 @@
 ### Core Structure
 
 - [x] Client component with `"use client"` directive
-- [x] Uses shadcn/ui Popover + Command components
-- [x] Reads `activeBranch` from `useAppStoreV2`
-- [x] Reads `availableBranches` from `useAppStoreV2`
+- [x] Uses shadcn/ui DropdownMenu components (sidebar) / Popover+Command (header)
+- [x] Receives `branches: BranchDataV2[]` and `activeBranchId: string | null` as props
+- [x] Does NOT read branch list from `useAppStoreV2` — props only
+- [x] Reads `activeOrg` (org name) and `setActiveBranch` action from store
 - [x] Displays current branch name with icon
 
 ### Branch Selection UI
 
-- [x] Popover opens on click
-- [x] Command palette with search/filter functionality
-- [x] Lists all available branches
+- [x] Dropdown/popover opens on click
+- [x] Lists only server-computed accessible branches (not all org branches)
 - [x] Shows checkmark on currently active branch
-- [x] Branch items styled as clickable commands
+- [x] Disabled during `isPending` state
 
 ### State Management
 
 - [x] Uses `useTransition()` for pending state
-- [x] Calls `changeBranch(branchId)` server action
-- [x] Updates store with `setActiveBranch(branchId)` after success
+- [x] Calls `changeBranch(branchId)` server action (returns `ActionResult` discriminated union)
+- [x] Handles `{ success: false, error }` with `"error" in result ?` narrowing
+- [x] Updates store with `setActiveBranch(branchId)` after success (optimistic UI)
 
 ---
 
@@ -53,26 +90,26 @@
 
 ### Server Action Flow
 
-- [ ] `changeBranch(branchId)` validates session exists
-- [ ] Server action updates `user_preferences.active_branch_id`
-- [ ] Server action returns success/error response
-- [ ] Handles case where branch doesn't exist
-- [ ] Handles case where user doesn't have access to branch
+- [x] `changeBranch(branchId)` validates session via `getUser()` (not `getSession()`)
+- [x] Server action updates `user_preferences.default_branch_id`
+- [x] Server action returns `ActionResult` discriminated union (`{ success: true } | { success: false; error: string }`)
+- [x] Rejects branch from a different org (cross-org spoofing protection)
+- [x] Rejects branch not in `accessibleBranches` unless user has `BRANCHES_VIEW_UPDATE_ANY`
 
 ### Store Update Flow
 
-- [ ] `setActiveBranch(branchId)` updates `activeAppStoreV2.activeBranchId`
-- [ ] Store update is immediate (no delay)
-- [ ] Store update triggers React re-render
-- [ ] Component reflects new branch name immediately
+- [x] `setActiveBranch(branchId)` updates `useAppStoreV2.activeBranchId` (looks up in `accessibleBranches`)
+- [x] Store update is immediate (optimistic)
+- [x] Store update triggers React re-render
+- [x] Component reflects new branch name immediately
 
 ### Permission Refetch Flow
 
-- [ ] Query key change detected: `["v2", "permissions", orgId, branchId]`
-- [ ] `useBranchPermissionsQuery` automatically refetches
-- [ ] New permissions loaded from server
-- [ ] `PermissionsSync` syncs to `useUserStoreV2`
-- [ ] Components re-render with new permissions
+- [x] Query key change detected: `["v2", "permissions", orgId, branchId]`
+- [x] `useBranchPermissionsQuery` automatically refetches
+- [x] New permissions loaded from server
+- [x] `PermissionsSync` syncs to `useUserStoreV2`
+- [x] Components re-render with new permissions
 
 ### Navigation Behavior
 
@@ -216,50 +253,32 @@
 
 ### Server Action
 
-**File**: `src/app/actions/v2/branches.ts`
+**File**: `src/app/actions/shared/changeBranch.ts`
+
+Three-layer validation:
+
+1. `getUser()` — JWT validated server-side (not cookie-only `getSession()`)
+2. `branchId` must be in `availableBranches` (org membership — prevents cross-org spoofing)
+3. `branchId` must be in `accessibleBranches` **OR** user has `BRANCHES_VIEW_UPDATE_ANY`
+
+Returns `ActionResult = { success: true } | { success: false; error: string }` — never throws.
 
 ```typescript
-export async function changeBranch(branchId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// Validation summary:
+const branchInOrg = availableBranches.find((b) => b.id === branchId);
+if (!branchInOrg) return { success: false, error: "Branch not found in your organization" };
 
-  if (!user) {
-    return { error: "Not authenticated" };
-  }
-
-  // Validate user has access to branch
-  const { data: branch, error: branchError } = await supabase
-    .from("branches")
-    .select("*")
-    .eq("id", branchId)
-    .single();
-
-  if (branchError || !branch) {
-    return { error: "Branch not found or access denied" };
-  }
-
-  // Update user preference
-  const { error } = await supabase.from("user_preferences").upsert({
-    user_id: user.id,
-    active_branch_id: branchId,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  return { success: true };
-}
+const canSwitchToAny = checkPermission(permissionSnapshot, BRANCHES_VIEW_UPDATE_ANY);
+const isAccessible = accessibleBranches.some((b) => b.id === branchId);
+if (!canSwitchToAny && !isAccessible)
+  return { success: false, error: "You do not have access to this branch" };
 ```
 
 ### Store Actions
 
 **useAppStoreV2.setActiveBranch(branchId)**
 
-- Updates `activeBranchId` in store
+- Updates `activeBranchId` in store (looks up branch object in `accessibleBranches`)
 - Does NOT fetch data (dumb setter)
 - Triggers React Query refetch via key change
 
@@ -349,9 +368,14 @@ export function BranchSwitcher() {
 ### Props Interface
 
 ```typescript
-interface BranchSwitcherProps {
-  // No props - reads from stores
+interface SidebarBranchSwitcherProps {
+  /** Server-computed accessible branches for the current user */
+  branches: BranchDataV2[];
+  /** Server-resolved active branch ID */
+  activeBranchId: string | null;
 }
+// Branch list is NOT read from store — server-computed and passed as props.
+// Only activeOrg (name) and setActiveBranch (action) are read from useAppStoreV2.
 ```
 
 ### Translation Keys

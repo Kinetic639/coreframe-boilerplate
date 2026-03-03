@@ -13,6 +13,7 @@
   - Create, update, delete custom roles with scope (`org` | `branch`) and permission assignment
   - View system (basic) roles
   - Assign roles to members with scope selection (branch multiselect for `branch`/`both` roles)
+  - **Branch Access view** (`/dashboard/organization/users/branch-access`): org admins see all branches + members; branch managers see only their assigned branches and can assign/remove branch-scoped roles
   - Create, update, delete job positions
   - Assign positions to members
   - List, create, update, delete branches
@@ -21,7 +22,7 @@
 ## Status
 
 - **Implementation:** ✅ done
-- **Last updated:** 2026-02-28 (Module access permission gate added: `module.organization-management.access` enforced at layout, actions, and sidebar)
+- **Last updated:** 2026-03-03 (Phase 4 Enterprise UX Hardening: unified deny → `/dashboard/access-denied?reason=<slug>`; new `/organization/users/branch-access` route + `BranchAccessClient` component; `listRolesAction`/`getUserRoleAssignmentsAction`/`getMemberAccessAction` dual-gated for branch managers; `normalizeDbError` for RLS 42501 errors; sidebar item with `requiresAnyPermissions`; 3 stale tests fixed)
 - **Owner:** coreframe
 
 ---
@@ -33,7 +34,7 @@
 - **Entitlements source of truth:** `organization_entitlements.enabled_modules` — slug `"organization-management"` present in all standard plan tiers
 - **Where enforced:**
   - Page layout gate (plan): ✅ `src/app/[locale]/dashboard/organization/layout.tsx` → `entitlements.requireModuleOrRedirect(MODULE_ORGANIZATION_MANAGEMENT)` — redirects to `/upgrade` on denial
-  - Page layout gate (user): ✅ same layout checks `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` permission — redirects to `/dashboard/start` on denial
+  - Page layout gate (user): ✅ same layout checks `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` permission — redirects to `/dashboard/access-denied?reason=module_access&module=organization-management` on denial
   - Server actions: ✅ All 7 action files check `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` after the `activeOrgId` guard, before capability checks
 
 ### Verification checklist
@@ -52,22 +53,39 @@
 
 > No raw strings. Must match DB slugs exactly.
 
-|          Action | Permission constant                     | DB slug                                 |
-| --------------: | --------------------------------------- | --------------------------------------- |
-|   Module access | `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` | `module.organization-management.access` |
-|        Org read | `ORG_READ`                              | `org.read`                              |
-|      Org update | `ORG_UPDATE`                            | `org.update`                            |
-|    Members read | `MEMBERS_READ`                          | `members.read`                          |
-|  Members manage | `MEMBERS_MANAGE`                        | `members.manage`                        |
-|    Invites read | `INVITES_READ`                          | `invites.read`                          |
-|  Invites create | `INVITES_CREATE`                        | `invites.create`                        |
-|  Invites cancel | `INVITES_CANCEL`                        | `invites.cancel`                        |
-|   Branches read | `BRANCHES_READ`                         | `branches.read`                         |
-| Branches create | `BRANCHES_CREATE`                       | `branches.create`                       |
-| Branches update | `BRANCHES_UPDATE`                       | `branches.update`                       |
-| Branches delete | `BRANCHES_DELETE`                       | `branches.delete`                       |
+|              Action | Permission constant                     | DB slug                                 | Scope         |
+| ------------------: | --------------------------------------- | --------------------------------------- | ------------- |
+|       Module access | `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` | `module.organization-management.access` | org-only      |
+|            Org read | `ORG_READ`                              | `org.read`                              | org-only      |
+|          Org update | `ORG_UPDATE`                            | `org.update`                            | org-only      |
+|        Members read | `MEMBERS_READ`                          | `members.read`                          | org-only      |
+|      Members manage | `MEMBERS_MANAGE`                        | `members.manage`                        | org-only      |
+|        Invites read | `INVITES_READ`                          | `invites.read`                          | org-only      |
+|      Invites create | `INVITES_CREATE`                        | `invites.create`                        | org-only      |
+|      Invites cancel | `INVITES_CANCEL`                        | `invites.cancel`                        | org-only      |
+|       Branches read | `BRANCHES_READ`                         | `branches.read`                         | org or branch |
+|     Branches create | `BRANCHES_CREATE`                       | `branches.create`                       | org-only      |
+|     Branches update | `BRANCHES_UPDATE`                       | `branches.update`                       | org-only      |
+|     Branches delete | `BRANCHES_DELETE`                       | `branches.delete`                       | org-only      |
+| Branch role manager | `BRANCH_ROLES_MANAGE`                   | `branch.roles.manage`                   | branch-only   |
 
 All constants defined in `src/lib/constants/permissions.ts`.
+
+### Permission scope: org-only vs branch-assignable
+
+Custom roles have a `scope_type` of `"org"` or `"branch"`. Permissions in `ORG_ONLY_SLUGS` (server-enforced) cannot be assigned to branch-scoped roles:
+
+| Permission slug                         | Assignable to org role | Assignable to branch role |
+| --------------------------------------- | ---------------------- | ------------------------- |
+| `module.organization-management.access` | ✅                     | ❌                        |
+| `org.read`, `org.update`                | ✅                     | ❌                        |
+| `branches.create/update/delete`         | ✅                     | ❌                        |
+| `members.read`, `members.manage`        | ✅                     | ❌                        |
+| `invites.read/create/cancel`            | ✅                     | ❌                        |
+| `branches.read`                         | ✅                     | ✅                        |
+| `branch.roles.manage`                   | ❌                     | ✅                        |
+
+`branch.roles.manage` semantics: a user who holds this permission on a specific branch can manage branch-scoped role assignments for members within that branch (assign, remove, update, view). They do NOT gain org-wide `members.manage` or `members.read` access. RLS enforces the per-branch restriction via `has_branch_permission(org_id, branch_id, 'branch.roles.manage')`.
 
 Role assignments (DB):
 
@@ -114,7 +132,7 @@ Context loaded via `loadDashboardContextV2()` which returns `context.user.permis
 - [x] Permission constants exist in `src/lib/constants/permissions.ts`
 - [x] V2 guard pattern used (no `PermissionServiceV2.currentUserHasPermission` calls)
 - [x] RLS enforced on `organization_profiles`, `organization_members`, `invitations`, `roles`, `org_positions`, `org_position_assignments`, `branches` (pre-existing table used for branch management)
-- [x] RLS enforced on `user_role_assignments` — V2 policies (phase 3): INSERT/DELETE/UPDATE/SELECT all support both `scope='org'` and `scope='branch'` via `has_permission(org_id, 'members.manage')`
+- [x] RLS enforced on `user_role_assignments` — V2 policies (phase 3): INSERT/DELETE/UPDATE/SELECT all support both `scope='org'` and `scope='branch'`. Branch path: `(has_permission(org_id, 'members.manage') OR has_branch_permission(org_id, branch_id, 'branch.roles.manage')) AND is_org_member(org_id)`. SELECT branch path: `has_permission(org_id, 'members.read') OR has_branch_permission(org_id, branch_id, 'branch.roles.manage')`. Org path unchanged.
 - [x] Server actions return `{ success: false, error: "Unauthorized" }` on permission denial (T2 tests cover this)
 - [x] `is_org_member` excludes `status != 'active'` and `deleted_at IS NOT NULL` (verified 2026-02-26)
 - [x] `has_any_org_role` (used in legacy SELECT on `organization_members`) checks only `user_role_assignments` — does NOT gate on member status or deleted_at (verified 2026-02-27 via MCP)
@@ -190,7 +208,7 @@ Registry file: `src/lib/sidebar/v2/registry.ts` (lines ~66–121).
 | `organization_entitlements`   | `is_org_member(organization_id)` for SELECT; service-role only for mutations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `storage.objects (org-logos)` | Public SELECT; `is_org_member + org.update` for INSERT/UPDATE/DELETE                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-Migrations applied (12 total):
+Migrations applied (15 total):
 
 - `20260226100000_enable_rls_organization_profiles.sql`
 - `20260226100001_org_members_v2_permission_policy.sql`
@@ -204,6 +222,9 @@ Migrations applied (12 total):
 - `20260227310000_fix_user_role_assignments_update_policy.sql` — Phase 3 P0b: drops `"Org owners and creators can update role assignments"` UPDATE policy (scope='org' only, blocked: upsert retry for branch rows, `removeRoleFromUser` soft-delete for branch rows). Replaces with `"V2 update role assignments"` supporting both scopes via `has_permission(org_id, 'members.manage')`.
 - `20260227320000_add_ura_org_scope_select_v2.sql` — P1-A: adds `"V2 view org role assignments"` PERMISSIVE SELECT policy on `user_role_assignments` (scope='org', `is_org_member` + `has_permission(members.read)`, TO authenticated). Closes Gap #7 SELECT gap.
 - `20260227330000_fix_policy_roles_to_authenticated.sql` — P2-C: converts 13 `{public}` policies across `invitations`, `org_positions`, `org_position_assignments`, `organization_members`, `organization_profiles`, and `user_effective_permissions` to `{authenticated}`. Ensures anon callers are rejected before predicate evaluation. **Cross-cutting note**: `user_effective_permissions` is shared infrastructure; the specific policy altered (`"Users can view own effective permissions"`, `user_id = auth.uid()`) was `{public}` — any anon caller could query their own non-existent permissions. Changing to `{authenticated}` is safe (unauthenticated callers have no `auth.uid()`) and reduces attack surface.
+- `20260303120000_branch_aware_permissions.sql` — Phase 2: adds `branch_id` column to `user_effective_permissions`; replaces unique constraint with `UNIQUE NULLS NOT DISTINCT`; updates `compile_user_permissions` to compile branch-scoped role assignments (branch_id = ura.scope_id); fixes `has_permission` and `user_has_effective_permission` to filter `branch_id IS NULL`; updates `trigger_compile_on_role_assignment` for branch scope; adds `has_branch_permission(org_id, branch_id, slug)` function; backfills all active users.
+- `20260303130000_add_branch_roles_manage_permission.sql` — Phase 3 Migration A: inserts `branch.roles.manage` permission row (category=branches, action=roles.manage, scope_types=['branch']).
+- `20260303140000_update_ura_rls_branch_manager.sql` — Phase 3 Migration B: updates branch paths of 4 `user_role_assignments` RLS policies to also allow `has_branch_permission(org_id, scope_id, 'branch.roles.manage')`. Org paths unchanged.
 
 ---
 
@@ -211,44 +232,44 @@ Migrations applied (12 total):
 
 ### Server actions
 
-| Action                           | File             | Input schema                                                              | Permission enforced  | Entitlement enforced |
-| -------------------------------- | ---------------- | ------------------------------------------------------------------------- | -------------------- | -------------------- |
-| `getOrgProfileAction`            | `profile.ts`     | none                                                                      | ✅ `ORG_READ`        | ✅                   |
-| `updateOrgProfileAction`         | `profile.ts`     | `updateProfileSchema` (Zod)                                               | ✅ `ORG_UPDATE`      | ✅                   |
-| `uploadOrgLogoAction`            | `profile.ts`     | `FormData` (file: image, ≤5 MB)                                           | ✅ `ORG_UPDATE`      | ✅                   |
-| `listMembersAction`              | `members.ts`     | none                                                                      | ✅ `MEMBERS_READ`    | ✅                   |
-| `updateMemberStatusAction`       | `members.ts`     | `{ userId, status: "active"\|"inactive" }`                                | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `removeMemberAction`             | `members.ts`     | `{ userId }`                                                              | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `listInvitationsAction`          | `invitations.ts` | none                                                                      | ✅ `INVITES_READ`    | ✅                   |
-| `createInvitationAction`         | `invitations.ts` | `{ email, role_id?, branch_id? }`                                         | ✅ `INVITES_CREATE`  | ✅                   |
-| `cancelInvitationAction`         | `invitations.ts` | `{ invitationId }`                                                        | ✅ `INVITES_CANCEL`  | ✅                   |
-| `resendInvitationAction`         | `invitations.ts` | `{ invitationId }`                                                        | ✅ `INVITES_CREATE`  | ✅                   |
-| `listRolesAction`                | `roles.ts`       | none                                                                      | ✅ `MEMBERS_READ`    | ✅                   |
-| `createRoleAction`               | `roles.ts`       | `{ name, description?, permission_slugs?, scope_type?: "org"\|"branch" }` | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `updateRoleAction`               | `roles.ts`       | `{ roleId, name?, description?, permission_slugs? }`                      | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `deleteRoleAction`               | `roles.ts`       | `{ roleId }`                                                              | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `assignRoleToUserAction`         | `roles.ts`       | `{ userId, roleId, scope?: "org"\|"branch", scopeId?: uuid }`             | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `removeRoleFromUserAction`       | `roles.ts`       | `{ userId, roleId, scope?: "org"\|"branch", scopeId?: uuid }`             | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `getUserRoleAssignmentsAction`   | `roles.ts`       | `{ userId }`                                                              | ✅ `MEMBERS_READ`    | ✅                   |
-| `getMemberAccessAction`          | `roles.ts`       | `{ userId: uuid }`                                                        | ✅ `MEMBERS_READ`    | ✅                   |
-| `listPositionsAction`            | `positions.ts`   | none                                                                      | ✅ `MEMBERS_READ`    | ✅                   |
-| `listPositionAssignmentsAction`  | `positions.ts`   | none                                                                      | ✅ `MEMBERS_READ`    | ✅                   |
-| `createPositionAction`           | `positions.ts`   | `{ name, description? }`                                                  | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `updatePositionAction`           | `positions.ts`   | `{ positionId, name?, description? }`                                     | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `deletePositionAction`           | `positions.ts`   | `{ positionId }`                                                          | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `assignPositionAction`           | `positions.ts`   | `{ userId, positionId, branch_id? }`                                      | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `removePositionAssignmentAction` | `positions.ts`   | `{ assignmentId }`                                                        | ✅ `MEMBERS_MANAGE`  | ✅                   |
-| `listBranchesAction`             | `branches.ts`    | none                                                                      | ✅ `BRANCHES_READ`   | ✅                   |
-| `createBranchAction`             | `branches.ts`    | `{ name, slug? }`                                                         | ✅ `BRANCHES_CREATE` | ✅                   |
-| `updateBranchAction`             | `branches.ts`    | `{ branchId, name?, slug? }`                                              | ✅ `BRANCHES_UPDATE` | ✅                   |
-| `deleteBranchAction`             | `branches.ts`    | `{ branchId }`                                                            | ✅ `BRANCHES_DELETE` | ✅                   |
-| `getBillingOverviewAction`       | `billing.ts`     | none                                                                      | ✅ `ORG_UPDATE`      | ✅                   |
+| Action                           | File             | Input schema                                                                                                             | Permission enforced                                                 | Entitlement enforced |
+| -------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- | -------------------- |
+| `getOrgProfileAction`            | `profile.ts`     | none                                                                                                                     | ✅ `ORG_READ`                                                       | ✅                   |
+| `updateOrgProfileAction`         | `profile.ts`     | `updateProfileSchema` (Zod)                                                                                              | ✅ `ORG_UPDATE`                                                     | ✅                   |
+| `uploadOrgLogoAction`            | `profile.ts`     | `FormData` (file: image, ≤5 MB)                                                                                          | ✅ `ORG_UPDATE`                                                     | ✅                   |
+| `listMembersAction`              | `members.ts`     | none                                                                                                                     | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `updateMemberStatusAction`       | `members.ts`     | `{ userId, status: "active"\|"inactive" }`                                                                               | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `removeMemberAction`             | `members.ts`     | `{ userId }`                                                                                                             | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `listInvitationsAction`          | `invitations.ts` | none                                                                                                                     | ✅ `INVITES_READ`                                                   | ✅                   |
+| `createInvitationAction`         | `invitations.ts` | `{ email, role_id?, branch_id? }`                                                                                        | ✅ `INVITES_CREATE`                                                 | ✅                   |
+| `cancelInvitationAction`         | `invitations.ts` | `{ invitationId }`                                                                                                       | ✅ `INVITES_CANCEL`                                                 | ✅                   |
+| `resendInvitationAction`         | `invitations.ts` | `{ invitationId }`                                                                                                       | ✅ `INVITES_CREATE`                                                 | ✅                   |
+| `listRolesAction`                | `roles.ts`       | none                                                                                                                     | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `createRoleAction`               | `roles.ts`       | `{ name, description?, permission_slugs?, scope_type?: "org"\|"branch" }`                                                | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `updateRoleAction`               | `roles.ts`       | `{ roleId, name?, description?, permission_slugs? }` — scope_type immutable; rejects ORG_ONLY slugs on branch roles (G2) | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `deleteRoleAction`               | `roles.ts`       | `{ roleId }`                                                                                                             | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `assignRoleToUserAction`         | `roles.ts`       | `{ userId, roleId, scope?: "org"\|"branch", scopeId?: uuid }`                                                            | ✅ `MEMBERS_MANAGE` OR (`scope='branch'` AND `BRANCH_ROLES_MANAGE`) | ✅                   |
+| `removeRoleFromUserAction`       | `roles.ts`       | `{ userId, roleId, scope?: "org"\|"branch", scopeId?: uuid }`                                                            | ✅ `MEMBERS_MANAGE` OR (`scope='branch'` AND `BRANCH_ROLES_MANAGE`) | ✅                   |
+| `getUserRoleAssignmentsAction`   | `roles.ts`       | `{ userId }`                                                                                                             | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `getMemberAccessAction`          | `roles.ts`       | `{ userId: uuid }`                                                                                                       | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `listPositionsAction`            | `positions.ts`   | none                                                                                                                     | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `listPositionAssignmentsAction`  | `positions.ts`   | none                                                                                                                     | ✅ `MEMBERS_READ`                                                   | ✅                   |
+| `createPositionAction`           | `positions.ts`   | `{ name, description? }`                                                                                                 | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `updatePositionAction`           | `positions.ts`   | `{ positionId, name?, description? }`                                                                                    | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `deletePositionAction`           | `positions.ts`   | `{ positionId }`                                                                                                         | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `assignPositionAction`           | `positions.ts`   | `{ userId, positionId, branch_id? }`                                                                                     | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `removePositionAssignmentAction` | `positions.ts`   | `{ assignmentId }`                                                                                                       | ✅ `MEMBERS_MANAGE`                                                 | ✅                   |
+| `listBranchesAction`             | `branches.ts`    | none                                                                                                                     | ✅ `BRANCHES_READ`                                                  | ✅                   |
+| `createBranchAction`             | `branches.ts`    | `{ name, slug? }`                                                                                                        | ✅ `BRANCHES_CREATE`                                                | ✅                   |
+| `updateBranchAction`             | `branches.ts`    | `{ branchId, name?, slug? }`                                                                                             | ✅ `BRANCHES_UPDATE`                                                | ✅                   |
+| `deleteBranchAction`             | `branches.ts`    | `{ branchId }`                                                                                                           | ✅ `BRANCHES_DELETE`                                                | ✅                   |
+| `getBillingOverviewAction`       | `billing.ts`     | none                                                                                                                     | ✅ `ORG_UPDATE`                                                     | ✅                   |
 
 ### Services
 
 - `src/server/services/organization.service.ts` — all service classes:
   - `OrgProfileService` — `getProfile`, `updateProfile`, `uploadLogo`
-  - `OrgMembersService` — `listMembers`, `updateMemberStatus`, `removeMember`, `getMember`
+  - `OrgMembersService` — `listMembers`, `updateMemberStatus`, `removeMember`, `getMember`, `getMembersGroupedByBranch`
   - `OrgInvitationsService` — `listInvitations`, `createInvitation`, `cancelInvitation`, `resendInvitation`
   - `OrgRolesService` — `listRoles`, `createRole`, `updateRole`, `deleteRole`, `assignRoleToUser`, `removeRoleFromUser`, `getUserRoleAssignments`, `getMemberAccess`
   - `OrgPositionsService` — `listPositions`, `listAssignmentsForOrg`, `createPosition`, `updatePosition`, `deletePosition`, `assignPosition`, `removePositionAssignment`
@@ -290,7 +311,7 @@ Migrations applied (12 total):
   - `organization/users/members/_components/members-client.tsx` — member list + activate/deactivate/remove, scope-aware role management dialog (branch multiselect for branch/both roles), position assignment dialog, view detail link
   - `organization/users/members/[memberId]/_components/member-detail-client.tsx` — member detail (Info + Access tabs): displays all role assignments with scope badges; add role dialog with scope selection; remove assignment
   - `organization/users/invitations/_components/invitations-client.tsx` — invitation list + create/resend/cancel dialog
-  - `organization/users/roles/_components/roles-client.tsx` — role list + create/edit/delete dialog; create includes scope selector (`org`|`branch`); scope badge on rows; scope read-only in edit dialog
+  - `organization/users/roles/_components/roles-client.tsx` — role list + create/edit/delete dialog; create includes scope selector (`org`|`branch`); scope badge on rows; scope read-only in edit dialog; **both create and edit dialogs filter PERMISSION_GROUPS by role scope_type** (`allowedScopes` metadata); openEdit sanitizes pre-selected slugs against the role's scope; server enforces ORG_ONLY_SLUGS in both `createRoleAction` and `updateRoleAction`
   - `organization/users/positions/_components/positions-client.tsx` — position list + create/edit/delete dialog
   - `organization/branches/_components/branches-client.tsx` — branch list + create/edit/delete dialog
 

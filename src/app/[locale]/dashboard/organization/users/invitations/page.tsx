@@ -13,7 +13,10 @@ export default async function InvitationsPage() {
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
 
   if (!checkPermission(context.user.permissionSnapshot, INVITES_READ)) {
-    return redirect({ href: "/dashboard/organization/users/members", locale });
+    return redirect({
+      href: { pathname: "/dashboard/access-denied", query: { reason: "invites_read_required" } },
+      locale,
+    });
   }
 
   const supabase = await createClient();

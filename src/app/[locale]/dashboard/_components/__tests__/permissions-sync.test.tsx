@@ -92,6 +92,7 @@ describe("PermissionsSync", () => {
             created_at: "2024-01-01",
           },
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -159,6 +160,7 @@ describe("PermissionsSync", () => {
           },
           activeBranch: null,
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -234,6 +236,7 @@ describe("PermissionsSync", () => {
               created_at: "2024-01-01",
             },
           ],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -326,6 +329,7 @@ describe("PermissionsSync", () => {
             created_at: "2024-01-01",
           },
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -374,6 +378,7 @@ describe("PermissionsSync", () => {
             created_at: "2024-01-01",
           },
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -424,6 +429,7 @@ describe("PermissionsSync", () => {
             created_at: "2024-01-01",
           },
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });
@@ -469,6 +475,7 @@ describe("PermissionsSync", () => {
             created_at: "2024-01-01",
           },
           availableBranches: [],
+          accessibleBranches: [],
           userModules: [],
         });
       });

@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useMemo, useId } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { usePermissions } from "@/hooks/v2/use-permissions";
+import { getDetailedPermissions } from "@/app/actions/v2/permissions";
+import type { DetailedPermission } from "@/app/actions/v2/permissions";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +14,100 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, XCircle, Shield, Zap, Globe, Building2, GitBranch } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Shield,
+  Zap,
+  Globe,
+  Building2,
+  GitBranch,
+  Loader2,
+} from "lucide-react";
+
+/**
+ * Renders a grouped, scope-annotated list of permission entries.
+ * Groups: first by scope (org vs branch), then within branch by branch name.
+ */
+function ScopedPermissionList({
+  permissions,
+  availableBranches,
+}: {
+  permissions: DetailedPermission[];
+  availableBranches: { id: string; name: string }[];
+}) {
+  const branchName = (id: string) =>
+    availableBranches.find((b) => b.id === id)?.name ?? id.slice(0, 8) + "…";
+
+  const orgPerms = permissions.filter((p) => p.scope === "org");
+  const branchPerms = permissions.filter((p) => p.scope === "branch");
+
+  // Group branch permissions by branch_id
+  const byBranch = new Map<string, DetailedPermission[]>();
+  for (const p of branchPerms) {
+    const list = byBranch.get(p.branch_id!) ?? [];
+    list.push(p);
+    byBranch.set(p.branch_id!, list);
+  }
+
+  if (permissions.length === 0) {
+    return <p className="text-sm text-muted-foreground py-4 text-center">No permissions found</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Org-scoped */}
+      {orgPerms.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Org scope</span>
+            <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
+              {orgPerms.length}
+            </Badge>
+          </div>
+          <div className="space-y-1 pl-5">
+            {orgPerms.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                {p.slug.includes("*") && <Globe className="h-3 w-3 text-blue-500 shrink-0" />}
+                <code className="text-xs">{p.slug}</code>
+                <Badge className="ml-auto text-[10px] px-1.5 py-0 h-4 bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300">
+                  org
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Branch-scoped, grouped per branch */}
+      {[...byBranch.entries()].map(([branchId, perms]) => (
+        <div key={branchId}>
+          <div className="flex items-center gap-2 mb-2">
+            <GitBranch className="h-3.5 w-3.5 text-orange-500" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase">
+              Branch: {branchName(branchId)}
+            </span>
+            <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
+              {perms.length}
+            </Badge>
+          </div>
+          <div className="space-y-1 pl-5">
+            {perms.map((p, i) => (
+              <div key={i} className="flex items-center gap-2">
+                {p.slug.includes("*") && <Globe className="h-3 w-3 text-blue-500 shrink-0" />}
+                <code className="text-xs">{p.slug}</code>
+                <Badge className="ml-auto text-[10px] px-1.5 py-0 h-4 bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300">
+                  branch
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Permission Debug Panel
@@ -53,6 +149,14 @@ export function PermissionDebugPanel() {
 
   const permissionSnapshot = getSnapshot();
 
+  // Fetch detailed permissions (scope + branch per entry) for the debug panel
+  const { data: detailedPerms, isLoading: detailedLoading } = useQuery<DetailedPermission[]>({
+    queryKey: ["debug", "detailed-permissions", activeOrgId],
+    queryFn: () => getDetailedPermissions(activeOrgId!),
+    enabled: !!activeOrgId,
+    staleTime: 30 * 1000,
+  });
+
   // Filter permissions based on search
   const filteredAllowPermissions = useMemo(() => {
     if (!permissionFilter) return permissionSnapshot.allow;
@@ -60,13 +164,6 @@ export function PermissionDebugPanel() {
       perm.toLowerCase().includes(permissionFilter.toLowerCase())
     );
   }, [permissionSnapshot.allow, permissionFilter]);
-
-  const filteredDenyPermissions = useMemo(() => {
-    if (!permissionFilter) return permissionSnapshot.deny;
-    return permissionSnapshot.deny.filter((perm) =>
-      perm.toLowerCase().includes(permissionFilter.toLowerCase())
-    );
-  }, [permissionSnapshot.deny, permissionFilter]);
 
   // Test permission
   const testResult = testPermission ? can(testPermission) : null;
@@ -245,90 +342,75 @@ export function PermissionDebugPanel() {
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Allowed Permissions */}
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    Allowed Permissions
-                  </h3>
-                  <Badge variant="secondary">{filteredAllowPermissions.length}</Badge>
+            {/* Scope-aware permission breakdown (from DB assignments) */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  All Permissions by Scope
+                </h3>
+                {detailedLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Badge variant="secondary">{detailedPerms?.length ?? 0}</Badge>
+                )}
+              </div>
+              <Separator />
+              {detailedLoading ? (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                  Loading assignment details...
                 </div>
-                <Separator />
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-3">
-                    {Object.entries(allowGroups).map(([category, perms]) => (
-                      <div key={category}>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                          {category}
-                        </h4>
-                        <div className="space-y-1">
-                          {perms.map((perm, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              {hasWildcard(perm) && (
-                                <span title="Wildcard">
-                                  <Globe className="h-3 w-3 text-blue-600" />
-                                </span>
-                              )}
-                              <code className="text-xs">{perm}</code>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredAllowPermissions.length === 0 && (
-                      <p className="text-sm text-muted-foreground">No allowed permissions</p>
+              ) : (
+                <ScrollArea className="h-[380px]">
+                  <ScopedPermissionList
+                    permissions={(detailedPerms ?? []).filter(
+                      (p) =>
+                        !permissionFilter ||
+                        p.slug.toLowerCase().includes(permissionFilter.toLowerCase())
                     )}
-                  </div>
+                    availableBranches={availableBranches}
+                  />
                 </ScrollArea>
-              </div>
-
-              {/* Denied Permissions - V2: Always empty (deny handled at compile time) */}
-              <div className="rounded-lg border p-4 space-y-3 opacity-60">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <XCircle className="h-4 w-4 text-red-600" />
-                    Denied Permissions
-                  </h3>
-                  <Badge variant="secondary">{filteredDenyPermissions.length}</Badge>
-                </div>
-                <Separator />
-                <div className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">✅ Always empty in V2</p>
-                  <p className="text-xs text-muted-foreground">
-                    In V2 architecture, deny overrides are applied during compilation. The effective
-                    permissions table only contains what you CAN do.
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-4">
-              <h4 className="text-sm font-semibold mb-2">
-                Permission System V2 - &quot;Compile, don&apos;t evaluate&quot;
-              </h4>
-              <ul className="text-xs space-y-1 text-muted-foreground">
-                <li>
-                  • <strong>Compiled permissions:</strong> Permissions are calculated when
-                  roles/overrides change, not at request time
-                </li>
-                <li>
-                  • <strong>No wildcards at runtime:</strong> Wildcards are expanded during
-                  compilation
-                </li>
-                <li>
-                  • <strong>No deny at runtime:</strong> Deny overrides are applied during
-                  compilation (deny list is always empty)
-                </li>
-                <li>
-                  • <strong>Simple checks:</strong> Just check if permission exists in allow list
-                </li>
-                <li>
-                  • <strong>Debugging:</strong> Query `user_effective_permissions` table to see
-                  compiled facts
-                </li>
-              </ul>
+            {/* Active snapshot (what usePermissions() sees right now) */}
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Active Snapshot (usePermissions)
+                </h3>
+                <Badge variant="secondary">{filteredAllowPermissions.length}</Badge>
+              </div>
+              <Separator />
+              <ScrollArea className="h-[220px]">
+                <div className="space-y-3">
+                  {Object.entries(allowGroups).map(([category, perms]) => (
+                    <div key={category}>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                        {category}
+                      </h4>
+                      <div className="space-y-1">
+                        {perms.map((perm, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            {hasWildcard(perm) && (
+                              <span title="Wildcard">
+                                <Globe className="h-3 w-3 text-blue-600" />
+                              </span>
+                            )}
+                            <code className="text-xs">{perm}</code>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {filteredAllowPermissions.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No allowed permissions</p>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </TabsContent>
 

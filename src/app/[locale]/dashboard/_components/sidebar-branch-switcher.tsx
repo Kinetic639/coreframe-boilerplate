@@ -19,20 +19,38 @@ import {
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
 import { toast } from "react-toastify";
+import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
 
-export function SidebarBranchSwitcher() {
+interface SidebarBranchSwitcherProps {
+  /** Server-computed accessible branches for the current user */
+  branches: BranchDataV2[];
+  /** Server-resolved active branch ID */
+  activeBranchId: string | null;
+}
+
+export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranchSwitcherProps) {
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
 
-  const { activeOrg, activeBranch, activeBranchId, availableBranches, setActiveBranch } =
-    useAppStoreV2();
+  // Branch list comes from server-computed props — NOT from the store.
+  // activeBranchId from the store is used for display (updated optimistically on switch).
+  // The prop is the server-authoritative initial value and SSR fallback.
+  const { activeOrg, setActiveBranch, activeBranchId: storeActiveBranchId } = useAppStoreV2();
+
+  // Prefer store value (reflects optimistic switch), fall back to server prop for SSR
+  const currentActiveBranchId = storeActiveBranchId ?? activeBranchId;
+  const activeBranch = branches.find((b) => b.id === currentActiveBranchId) ?? null;
 
   const handleBranchSelect = (branchId: string) => {
-    if (branchId === activeBranchId) return;
+    if (branchId === currentActiveBranchId) return;
 
     startTransition(async () => {
       try {
-        await changeBranch(branchId);
+        const result = await changeBranch(branchId);
+        if (!result.success) {
+          toast.error("error" in result ? result.error : "Failed to switch branch");
+          return;
+        }
         setActiveBranch(branchId);
         toast.success("Branch switched successfully");
       } catch (error) {
@@ -75,7 +93,7 @@ export function SidebarBranchSwitcher() {
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Branches
             </DropdownMenuLabel>
-            {availableBranches.map((branch) => (
+            {branches.map((branch) => (
               <DropdownMenuItem
                 key={branch.id}
                 onClick={() => handleBranchSelect(branch.id)}
@@ -86,7 +104,9 @@ export function SidebarBranchSwitcher() {
                   <Building2 className="size-4 shrink-0" />
                 </div>
                 <span className="flex-1">{branch.name}</span>
-                {activeBranchId === branch.id && <Check className="size-4 text-muted-foreground" />}
+                {currentActiveBranchId === branch.id && (
+                  <Check className="size-4 text-muted-foreground" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

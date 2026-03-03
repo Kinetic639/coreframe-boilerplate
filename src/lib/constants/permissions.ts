@@ -11,7 +11,7 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 26 permissions (20 org-scoped + 4 superadmin + 2 module-access)
+ * Expected Count: 30 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management)
  */
 
 // Account Permissions (global scope, system permissions)
@@ -23,11 +23,25 @@ export const ACCOUNT_PROFILE_UPDATE = "account.profile.update" as const;
 export const ACCOUNT_SETTINGS_READ = "account.settings.read" as const;
 export const ACCOUNT_SETTINGS_UPDATE = "account.settings.update" as const;
 
-// Branch Permissions (org-scoped)
+// Branch Permissions (org-scoped) — CRUD administration
 export const BRANCHES_CREATE = "branches.create" as const;
 export const BRANCHES_DELETE = "branches.delete" as const;
 export const BRANCHES_READ = "branches.read" as const;
 export const BRANCHES_UPDATE = "branches.update" as const;
+
+// Branch Management Permission (branch-scoped) — delegate role assignment within a branch
+// Allows the holder to manage branch-scoped role assignments for the specific branch(es)
+// where they hold this permission. Does NOT grant org-wide members.manage/read access.
+export const BRANCH_ROLES_MANAGE = "branch.roles.manage" as const;
+
+// Branch Visibility Permissions (org-scoped) — controls branch switcher access
+// Separate from CRUD admin permissions; granted to org_owner by default.
+// branches.view.any        — user sees ALL non-deleted org branches in the switcher
+// branches.view.update.any — user may switch default branch to any org branch (no assignment needed)
+// branches.view.remove.any — user may clear/reset their default branch preference
+export const BRANCHES_VIEW_ANY = "branches.view.any" as const;
+export const BRANCHES_VIEW_UPDATE_ANY = "branches.view.update.any" as const;
+export const BRANCHES_VIEW_REMOVE_ANY = "branches.view.remove.any" as const;
 
 // Invite Permissions (org-scoped)
 export const INVITES_CANCEL = "invites.cancel" as const;
@@ -76,6 +90,10 @@ export type PermissionSlug =
   | typeof BRANCHES_DELETE
   | typeof BRANCHES_READ
   | typeof BRANCHES_UPDATE
+  | typeof BRANCH_ROLES_MANAGE
+  | typeof BRANCHES_VIEW_ANY
+  | typeof BRANCHES_VIEW_UPDATE_ANY
+  | typeof BRANCHES_VIEW_REMOVE_ANY
   | typeof INVITES_CANCEL
   | typeof INVITES_CREATE
   | typeof INVITES_READ
@@ -108,6 +126,10 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   BRANCHES_DELETE,
   BRANCHES_READ,
   BRANCHES_UPDATE,
+  BRANCH_ROLES_MANAGE,
+  BRANCHES_VIEW_ANY,
+  BRANCHES_VIEW_UPDATE_ANY,
+  BRANCHES_VIEW_REMOVE_ANY,
   INVITES_CANCEL,
   INVITES_CREATE,
   INVITES_READ,

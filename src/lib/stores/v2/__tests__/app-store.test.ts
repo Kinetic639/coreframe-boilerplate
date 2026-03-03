@@ -78,6 +78,7 @@ describe("useAppStoreV2", () => {
         activeOrg: mockOrg,
         activeBranch: mockBranches[0],
         availableBranches: mockBranches,
+        accessibleBranches: [],
         userModules: mockModules,
       };
 
@@ -127,6 +128,7 @@ describe("useAppStoreV2", () => {
         },
         activeBranch: firstBranches[0],
         availableBranches: firstBranches,
+        accessibleBranches: [],
         userModules: firstModules,
       };
 
@@ -171,6 +173,7 @@ describe("useAppStoreV2", () => {
         },
         activeBranch: secondBranches[0],
         availableBranches: secondBranches,
+        accessibleBranches: [],
         userModules: secondModules,
       };
 
@@ -205,6 +208,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -243,6 +247,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -288,6 +293,9 @@ describe("useAppStoreV2", () => {
         },
         activeBranch: branches[0],
         availableBranches: branches,
+        // setActiveBranch resolves activeBranch from accessibleBranches (not availableBranches).
+        // Include both branches so branch-2 lookup succeeds.
+        accessibleBranches: branches,
         userModules: [],
       };
 
@@ -331,9 +339,9 @@ describe("useAppStoreV2", () => {
       expect(newState.userModules).toEqual(initialState.userModules);
     });
 
-    it("should update activeBranch from availableBranches array", () => {
+    it("should update activeBranch from accessibleBranches array", () => {
       const state = useAppStoreV2.getState();
-      const expectedBranch = state.availableBranches.find((b) => b.id === "branch-2");
+      const expectedBranch = state.accessibleBranches.find((b) => b.id === "branch-2");
 
       useAppStoreV2.getState().setActiveBranch("branch-2");
 
@@ -372,6 +380,7 @@ describe("useAppStoreV2", () => {
             created_at: "2024-01-01T00:00:00Z",
           },
         ],
+        accessibleBranches: [],
         userModules: [
           {
             id: "module-1",
@@ -417,6 +426,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -453,6 +463,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -496,6 +507,7 @@ describe("useAppStoreV2", () => {
         },
         activeBranch: branches[0],
         availableBranches: branches,
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -555,6 +567,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -593,6 +606,7 @@ describe("useAppStoreV2", () => {
         },
         activeBranch: branch,
         availableBranches: [branch],
+        accessibleBranches: [],
         userModules: [],
       };
 
@@ -629,6 +643,7 @@ describe("useAppStoreV2", () => {
           created_at: "2024-01-01T00:00:00Z",
         },
         availableBranches: [],
+        accessibleBranches: [],
         userModules: [module],
       };
 

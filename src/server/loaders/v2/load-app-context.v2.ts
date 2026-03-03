@@ -243,6 +243,10 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
     activeOrg,
     activeBranch,
     availableBranches,
+    // accessibleBranches is intentionally empty here — it is computed and
+    // stitched in by loadDashboardContextV2 after the permission snapshot
+    // is available. Direct consumers of loadAppContextV2 must not rely on this.
+    accessibleBranches: [] as typeof availableBranches,
     userModules,
   };
 }

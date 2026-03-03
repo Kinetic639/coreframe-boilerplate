@@ -1332,7 +1332,8 @@
           "positions": "Positions",
           "branches": "Branches"
         },
-        "billing": "Billing & Subscriptions"
+        "billing": "Billing & Subscriptions",
+        "branchAccess": "Branch Access"
       },
       "roles": {
         "createButton": "Create Role",

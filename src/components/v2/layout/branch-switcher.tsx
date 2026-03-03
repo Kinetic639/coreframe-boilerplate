@@ -18,37 +18,52 @@ import {
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { changeBranch } from "@/app/actions/shared/changeBranch";
 import { toast } from "react-toastify";
+import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
+
+interface BranchSwitcherV2Props {
+  /** Server-computed accessible branches for the current user */
+  branches: BranchDataV2[];
+  /** Server-resolved active branch ID */
+  activeBranchId: string | null;
+}
 
 /**
  * Branch Switcher V2
  *
- * Allows users to switch between available branches
- * Styled to match shadcn sidebar-07 example (TeamSwitcher)
+ * Dumb UI: receives server-computed `branches` and `activeBranchId` as props.
+ * Does NOT read the branch list from Zustand — only reads org name for display.
  *
  * Flow:
- * 1. User selects branch from dropdown
- * 2. Calls changeBranch() server action (persists to DB)
- * 3. Calls setActiveBranch() (updates Zustand)
+ * 1. User selects branch from dropdown (from server-filtered list only)
+ * 2. Calls changeBranch() server action (validates + persists to DB)
+ * 3. On success: calls setActiveBranch() (updates Zustand active ID)
  * 4. React Query detects activeBranchId change and refetches permissions
  * 5. PermissionsSync updates user store
  */
-export function BranchSwitcherV2() {
+export function BranchSwitcherV2({ branches, activeBranchId }: BranchSwitcherV2Props) {
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = React.useTransition();
 
-  const { activeOrg, activeBranch, availableBranches, setActiveBranch } = useAppStoreV2();
+  // Branch list comes from server-computed props — NOT from the store.
+  // activeBranchId from the store is used for display (updated optimistically on switch).
+  // The prop is the server-authoritative initial value and SSR fallback.
+  const { activeOrg, setActiveBranch, activeBranchId: storeActiveBranchId } = useAppStoreV2();
+
+  // Prefer store value (reflects optimistic switch), fall back to server prop for SSR
+  const currentActiveBranchId = storeActiveBranchId ?? activeBranchId;
+  const activeBranch = branches.find((b) => b.id === currentActiveBranchId) ?? null;
 
   const handleBranchSelect = (branchId: string) => {
-    if (branchId === activeBranch?.id) return;
+    if (branchId === currentActiveBranchId) return;
 
     startTransition(async () => {
       try {
-        // Persist to database
-        await changeBranch(branchId);
-
-        // Update Zustand store (triggers React Query refetch via query key change)
+        const result = await changeBranch(branchId);
+        if (!result.success) {
+          toast.error("error" in result ? result.error : "Failed to switch branch");
+          return;
+        }
         setActiveBranch(branchId);
-
         toast.success("Branch switched successfully");
       } catch (error) {
         console.error("Failed to change branch:", error);
@@ -90,7 +105,7 @@ export function BranchSwitcherV2() {
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Branches
             </DropdownMenuLabel>
-            {availableBranches.map((branch) => (
+            {branches.map((branch) => (
               <DropdownMenuItem
                 key={branch.id}
                 onClick={() => handleBranchSelect(branch.id)}
@@ -101,7 +116,7 @@ export function BranchSwitcherV2() {
                   <Building className="size-3.5 shrink-0" />
                 </div>
                 {branch.name}
-                {branch.id === activeBranch?.id && (
+                {branch.id === currentActiveBranchId && (
                   <span className="ml-auto text-xs text-muted-foreground">✓</span>
                 )}
               </DropdownMenuItem>

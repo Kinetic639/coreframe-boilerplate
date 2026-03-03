@@ -6,6 +6,7 @@ import {
   ORG_UPDATE,
   MEMBERS_READ,
   BRANCHES_READ,
+  BRANCH_ROLES_MANAGE,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
 } from "@/lib/constants/permissions";
 import {
@@ -95,6 +96,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { startsWith: "/dashboard/organization/users" },
         visibility: {
           requiresPermissions: [MEMBERS_READ],
+        },
+      },
+      {
+        id: "organization.branch-access",
+        title: "Branch Access",
+        titleKey: "modules.organizationManagement.items.branchAccess",
+        iconKey: "users",
+        href: "/dashboard/organization/users/branch-access",
+        match: { exact: "/dashboard/organization/users/branch-access" },
+        visibility: {
+          requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE],
         },
       },
       {

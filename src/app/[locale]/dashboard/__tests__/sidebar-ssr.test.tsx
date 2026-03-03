@@ -32,6 +32,7 @@ const BASE_APP_CONTEXT = {
   activeOrg: null,
   activeBranch: null,
   availableBranches: [],
+  accessibleBranches: [],
   userModules: [],
 };
 
@@ -498,5 +499,45 @@ describe("Sidebar SSR Integration", () => {
 
     const branchesItem = findItemById(model, "organization.branches");
     expect(branchesItem).toBeDefined(); // Shown: has branches.read
+  });
+
+  // org-6: branch-access visible when user has BRANCH_ROLES_MANAGE but NOT MEMBERS_READ (G2)
+  it("should show organization.branch-access when user has branch.roles.manage but not members.read", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.organization-management.access", "branch.roles.manage"],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: ["home", "organization-management"],
+      enabled_contexts: [],
+      features: {},
+      limits: {},
+      updated_at: "2026-02-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    // branch-access uses requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE] (OR logic)
+    const branchAccessItem = findItemById(model, "organization.branch-access");
+    expect(branchAccessItem).toBeDefined(); // Shown: branch.roles.manage satisfies OR gate
+
+    // organization.users requires MEMBERS_READ (AND logic) — must NOT be visible
+    const usersItem = findItemById(model, "organization.users");
+    expect(usersItem).toBeUndefined(); // Hidden: no members.read
   });
 });

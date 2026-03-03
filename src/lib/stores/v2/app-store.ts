@@ -30,7 +30,12 @@ export interface AppContextV2 {
   activeBranchId: string | null;
   activeOrg: ActiveOrgV2 | null;
   activeBranch: BranchDataV2 | null;
+  /** ALL non-deleted org branches — kept server-side for changeBranch validation */
   availableBranches: BranchDataV2[];
+  /** User-filtered subset: branches the user may see and switch to in the UI.
+   *  Computed by loadDashboardContextV2 after permission snapshot is available.
+   *  Branch switcher UI must use this, not availableBranches. */
+  accessibleBranches: BranchDataV2[];
   userModules: LoadedUserModuleV2[];
   // ❌ NO subscription field
 }
@@ -42,6 +47,7 @@ interface AppStoreV2State {
   activeOrg: ActiveOrgV2 | null;
   activeBranch: BranchDataV2 | null;
   availableBranches: BranchDataV2[];
+  accessibleBranches: BranchDataV2[];
   userModules: LoadedUserModuleV2[];
   isLoaded: boolean;
 }
@@ -60,6 +66,7 @@ const initialState: AppStoreV2State = {
   activeOrg: null,
   activeBranch: null,
   availableBranches: [],
+  accessibleBranches: [],
   userModules: [],
   isLoaded: false,
 };
@@ -80,6 +87,7 @@ export const useAppStoreV2 = create<AppStoreV2State & AppStoreV2Actions>((set, g
       activeOrg: context.activeOrg,
       activeBranch: context.activeBranch,
       availableBranches: context.availableBranches || [],
+      accessibleBranches: context.accessibleBranches || [],
       userModules: context.userModules || [],
       isLoaded: true,
     });
@@ -87,7 +95,8 @@ export const useAppStoreV2 = create<AppStoreV2State & AppStoreV2Actions>((set, g
 
   setActiveBranch: (branchId: string) => {
     const state = get();
-    const branch = state.availableBranches.find((b) => b.id === branchId);
+    // Look up in accessibleBranches — that is what the UI rendered
+    const branch = state.accessibleBranches.find((b) => b.id === branchId);
 
     set({
       activeBranchId: branchId,

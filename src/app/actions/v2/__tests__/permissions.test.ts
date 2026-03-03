@@ -8,9 +8,16 @@ vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
+// getBranchPermissions uses PermissionService (branch-aware), not PermissionServiceV2.
+// PermissionServiceV2 ignores branchId and only returns org-compiled permissions.
+vi.mock("@/server/services/permission.service", () => ({
+  PermissionService: {
+    getPermissionSnapshotForUser: vi.fn(),
+  },
+}));
+
 vi.mock("@/server/services/permission-v2.service", () => ({
   PermissionServiceV2: {
-    getPermissionSnapshotForUser: vi.fn(),
     getEffectivePermissionsArray: vi.fn(),
     currentUserHasPermission: vi.fn(),
     currentUserIsOrgMember: vi.fn(),
@@ -24,6 +31,7 @@ import {
   checkOrgMembership,
 } from "../permissions";
 import { createClient } from "@/utils/supabase/server";
+import { PermissionService } from "@/server/services/permission.service";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 
 describe("getBranchPermissions", () => {
@@ -42,17 +50,16 @@ describe("getBranchPermissions", () => {
     };
     (createClient as any).mockResolvedValue(mockSupabase);
 
-    // Mock permission service - V2 returns explicit permissions, no wildcards at runtime
     const mockSnapshot = {
       allow: ["org.read", "org.update", "branches.read"],
-      deny: [], // V2: deny is always empty (handled at compile time)
+      deny: [],
     };
-    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
+    (PermissionService.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
 
     const result = await getBranchPermissions("org-123", "branch-456");
 
     expect(result.permissions).toEqual(mockSnapshot);
-    expect(PermissionServiceV2.getPermissionSnapshotForUser).toHaveBeenCalledWith(
+    expect(PermissionService.getPermissionSnapshotForUser).toHaveBeenCalledWith(
       mockSupabase,
       "user-123",
       "org-123",
@@ -73,7 +80,7 @@ describe("getBranchPermissions", () => {
     const result = await getBranchPermissions("org-123", "branch-456");
 
     expect(result.permissions).toEqual({ allow: [], deny: [] });
-    expect(PermissionServiceV2.getPermissionSnapshotForUser).not.toHaveBeenCalled();
+    expect(PermissionService.getPermissionSnapshotForUser).not.toHaveBeenCalled();
   });
 
   it("should handle null branchId (org-level permissions)", async () => {
@@ -87,12 +94,12 @@ describe("getBranchPermissions", () => {
     (createClient as any).mockResolvedValue(mockSupabase);
 
     const mockSnapshot = { allow: ["org.read", "members.read"], deny: [] };
-    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
+    (PermissionService.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
 
     const result = await getBranchPermissions("org-123", null);
 
     expect(result.permissions).toEqual(mockSnapshot);
-    expect(PermissionServiceV2.getPermissionSnapshotForUser).toHaveBeenCalledWith(
+    expect(PermissionService.getPermissionSnapshotForUser).toHaveBeenCalledWith(
       mockSupabase,
       "user-123",
       "org-123",
@@ -100,7 +107,7 @@ describe("getBranchPermissions", () => {
     );
   });
 
-  it("should return empty snapshot on PermissionServiceV2 error", async () => {
+  it("should return empty snapshot on PermissionService error", async () => {
     const mockSupabase = {
       auth: {
         getSession: vi.fn().mockResolvedValue({
@@ -110,8 +117,7 @@ describe("getBranchPermissions", () => {
     };
     (createClient as any).mockResolvedValue(mockSupabase);
 
-    // Mock service throwing error
-    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockRejectedValue(
+    (PermissionService.getPermissionSnapshotForUser as any).mockRejectedValue(
       new Error("Database connection failed")
     );
 
@@ -141,7 +147,7 @@ describe("getBranchPermissions", () => {
     expect(result.permissions).toEqual({ allow: [], deny: [] });
   });
 
-  it("should pass correct parameters to PermissionServiceV2", async () => {
+  it("should pass correct parameters to PermissionService", async () => {
     const mockSupabase = {
       auth: {
         getSession: vi.fn().mockResolvedValue({
@@ -150,15 +156,15 @@ describe("getBranchPermissions", () => {
       },
     };
     (createClient as any).mockResolvedValue(mockSupabase);
-    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue({
+    (PermissionService.getPermissionSnapshotForUser as any).mockResolvedValue({
       allow: [],
       deny: [],
     });
 
     await getBranchPermissions("specific-org-id", "specific-branch-id");
 
-    expect(PermissionServiceV2.getPermissionSnapshotForUser).toHaveBeenCalledTimes(1);
-    expect(PermissionServiceV2.getPermissionSnapshotForUser).toHaveBeenCalledWith(
+    expect(PermissionService.getPermissionSnapshotForUser).toHaveBeenCalledTimes(1);
+    expect(PermissionService.getPermissionSnapshotForUser).toHaveBeenCalledWith(
       mockSupabase,
       "specific-user-id",
       "specific-org-id",
@@ -166,7 +172,7 @@ describe("getBranchPermissions", () => {
     );
   });
 
-  it("should return V2 explicit permissions (no wildcards at runtime)", async () => {
+  it("should return branch-aware permissions (includes branch-scoped role permissions)", async () => {
     const mockSupabase = {
       auth: {
         getSession: vi.fn().mockResolvedValue({
@@ -176,7 +182,7 @@ describe("getBranchPermissions", () => {
     };
     (createClient as any).mockResolvedValue(mockSupabase);
 
-    // V2: Wildcards are expanded at compile time, so we get explicit permissions
+    // PermissionService returns both org and branch-scoped permissions expanded
     const mockSnapshot = {
       allow: [
         "org.read",
@@ -188,15 +194,15 @@ describe("getBranchPermissions", () => {
         "members.read",
         "members.manage",
       ],
-      deny: [], // V2: deny is always empty
+      deny: [],
     };
-    (PermissionServiceV2.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
+    (PermissionService.getPermissionSnapshotForUser as any).mockResolvedValue(mockSnapshot);
 
     const result = await getBranchPermissions("org-123", "branch-456");
 
     expect(result.permissions.allow).toContain("org.read");
     expect(result.permissions.allow).toContain("branches.read");
-    expect(result.permissions.deny).toEqual([]); // V2: deny is always empty
+    expect(result.permissions.deny).toEqual([]);
   });
 });
 

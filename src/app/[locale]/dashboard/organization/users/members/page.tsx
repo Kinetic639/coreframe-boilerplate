@@ -18,7 +18,10 @@ export default async function MembersPage() {
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
 
   if (!checkPermission(context.user.permissionSnapshot, MEMBERS_READ)) {
-    return redirect({ href: "/dashboard/start", locale });
+    return redirect({
+      href: { pathname: "/dashboard/access-denied", query: { reason: "members_read_required" } },
+      locale,
+    });
   }
 
   const supabase = await createClient();
