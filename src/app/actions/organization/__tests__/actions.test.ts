@@ -43,6 +43,7 @@ vi.mock("@/server/services/organization.service", () => ({
     assignRoleToUser: vi.fn(),
     removeRoleFromUser: vi.fn(),
     getUserRoleAssignments: vi.fn(),
+    getMemberAccess: vi.fn(),
   },
   OrgBillingService: { getBillingOverview: vi.fn() },
   OrgPositionsService: {
@@ -84,8 +85,10 @@ import {
 import {
   listRolesAction,
   createRoleAction,
+  updateRoleAction,
   deleteRoleAction,
   assignRoleToUserAction,
+  removeRoleFromUserAction,
 } from "../roles";
 import { getBillingOverviewAction } from "../billing";
 import { listPositionsAction, createPositionAction } from "../positions";
@@ -368,9 +371,9 @@ describe("createRoleAction", () => {
       data: { id: "r-new" },
     });
     const result = await createRoleAction({
-      name: "Branch Viewer",
+      name: "Branch Manager",
       scope_type: "branch",
-      permission_slugs: ["members.read", "invites.read", "branches.read"],
+      permission_slugs: ["branches.read", "branch.roles.manage"],
     });
     expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
     expect(result.success).toBe(true);
@@ -393,6 +396,112 @@ describe("createRoleAction", () => {
   });
 });
 
+describe("updateRoleAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_ORG_ADMIN);
+  });
+
+  it("Unauthorized — no members.manage", async () => {
+    setCtx(CTX_NO_PERM);
+    const result = await updateRoleAction({
+      roleId: "00000000-0000-0000-0000-000000000001",
+      permission_slugs: ["members.read"],
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.updateRole).not.toHaveBeenCalled();
+  });
+
+  // G2: branch-scoped role edit is rejected when org-only permissions are submitted
+  it("G2: rejects update with org-only permission when role.scope_type='branch'", async () => {
+    // Provide a supabase mock that returns scope_type='branch' for the role lookup
+    const { createClient } = await import("@/utils/supabase/server");
+    const mockChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { scope_type: "branch" }, error: null }),
+    };
+    (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => mockChain),
+    });
+
+    const result = await updateRoleAction({
+      roleId: "00000000-0000-0000-0000-000000000001",
+      permission_slugs: ["org.read", "members.read"],
+    });
+
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.updateRole).not.toHaveBeenCalled();
+  });
+
+  // G2: branch-scoped role update with only branch-allowed permissions passes
+  it("G2: allows update when branch role contains only branch-allowed permissions", async () => {
+    const { createClient } = await import("@/utils/supabase/server");
+    const mockChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { scope_type: "branch" }, error: null }),
+    };
+    (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => mockChain),
+    });
+    (OrgRolesService.updateRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+
+    const result = await updateRoleAction({
+      roleId: "00000000-0000-0000-0000-000000000001",
+      permission_slugs: ["branches.read", "branch.roles.manage"],
+    });
+
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.updateRole).toHaveBeenCalledOnce();
+  });
+
+  // G2: org-scoped role may freely include org-only permissions
+  it("G2: org-scoped role update with org.read passes without restriction", async () => {
+    const { createClient } = await import("@/utils/supabase/server");
+    const mockChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { scope_type: "org" }, error: null }),
+    };
+    (createClient as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      from: vi.fn(() => mockChain),
+    });
+    (OrgRolesService.updateRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+
+    const result = await updateRoleAction({
+      roleId: "00000000-0000-0000-0000-000000000001",
+      permission_slugs: ["org.read", "branches.create"],
+    });
+
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.updateRole).toHaveBeenCalledOnce();
+  });
+
+  // G2: when only name/description are updated (no permission_slugs), role lookup is skipped
+  it("G2: skips role lookup when permission_slugs not in payload", async () => {
+    (OrgRolesService.updateRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+
+    const result = await updateRoleAction({
+      roleId: "00000000-0000-0000-0000-000000000001",
+      name: "Renamed Role",
+    });
+
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.updateRole).toHaveBeenCalledOnce();
+  });
+});
+
 describe("deleteRoleAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -412,13 +521,179 @@ describe("assignRoleToUserAction", () => {
     setCtx(CTX_NO_PERM);
   });
 
-  it("Unauthorized — no members.manage", async () => {
+  it("Unauthorized — no members.manage and no branch.roles.manage", async () => {
     const result = await assignRoleToUserAction({
       userId: "00000000-0000-0000-0000-000000000001",
       roleId: "00000000-0000-0000-0000-000000000002",
     });
     expect(result).toEqual({ success: false, error: "Unauthorized" });
     expect(OrgRolesService.assignRoleToUser).not.toHaveBeenCalled();
+  });
+
+  // Branch manager allow: branch.roles.manage is sufficient for branch-scoped assignment
+  it("BM: branch manager can assign branch-scoped role (branch.roles.manage, no members.manage)", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: {
+        user: { id: "user-123" },
+        permissionSnapshot: {
+          allow: ["module.organization-management.access", "branch.roles.manage"],
+          deny: [],
+        },
+      },
+    });
+    (OrgRolesService.assignRoleToUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+    const result = await assignRoleToUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+      scope: "branch",
+      scopeId: "00000000-0000-0000-0000-000000000003",
+    });
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.assignRoleToUser).toHaveBeenCalledOnce();
+  });
+
+  // Branch manager deny: branch.roles.manage does NOT allow org-scoped assignment
+  it("BM: branch manager cannot assign org-scoped role (branch.roles.manage only)", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: {
+        user: { id: "user-123" },
+        permissionSnapshot: {
+          allow: ["module.organization-management.access", "branch.roles.manage"],
+          deny: [],
+        },
+      },
+    });
+    const result = await assignRoleToUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+      scope: "org",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.assignRoleToUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("removeRoleFromUserAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_NO_PERM);
+  });
+
+  it("Unauthorized — no members.manage and no branch.roles.manage", async () => {
+    const result = await removeRoleFromUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.removeRoleFromUser).not.toHaveBeenCalled();
+  });
+
+  // Branch manager allow: branch.roles.manage is sufficient for branch-scoped removal
+  it("BM: branch manager can remove branch-scoped role (branch.roles.manage, no members.manage)", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: {
+        user: { id: "user-123" },
+        permissionSnapshot: {
+          allow: ["module.organization-management.access", "branch.roles.manage"],
+          deny: [],
+        },
+      },
+    });
+    (OrgRolesService.removeRoleFromUser as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: undefined,
+    });
+    const result = await removeRoleFromUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+      scope: "branch",
+      scopeId: "00000000-0000-0000-0000-000000000003",
+    });
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.removeRoleFromUser).toHaveBeenCalledOnce();
+  });
+
+  // Branch manager deny: branch.roles.manage does NOT allow org-scoped removal
+  it("BM: branch manager cannot remove org-scoped role (branch.roles.manage only)", async () => {
+    setCtx({
+      app: { activeOrgId: "org-123" },
+      user: {
+        user: { id: "user-123" },
+        permissionSnapshot: {
+          allow: ["module.organization-management.access", "branch.roles.manage"],
+          deny: [],
+        },
+      },
+    });
+    const result = await removeRoleFromUserAction({
+      userId: "00000000-0000-0000-0000-000000000001",
+      roleId: "00000000-0000-0000-0000-000000000002",
+      scope: "org",
+    });
+    expect(result).toEqual({ success: false, error: "Unauthorized" });
+    expect(OrgRolesService.removeRoleFromUser).not.toHaveBeenCalled();
+  });
+});
+
+// ─── ORG_ONLY_SLUGS enforcement ───────────────────────────────────────────────
+
+describe("ORG_ONLY_SLUGS enforcement — members.* and invites.* blocked for branch roles", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setCtx(CTX_ORG_ADMIN);
+  });
+
+  it("createRoleAction: rejects branch role with members.read", async () => {
+    const result = await createRoleAction({
+      name: "Bad Role",
+      scope_type: "branch",
+      permission_slugs: ["members.read"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  it("createRoleAction: rejects branch role with members.manage", async () => {
+    const result = await createRoleAction({
+      name: "Bad Role",
+      scope_type: "branch",
+      permission_slugs: ["members.manage"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  it("createRoleAction: rejects branch role with invites.create", async () => {
+    const result = await createRoleAction({
+      name: "Bad Role",
+      scope_type: "branch",
+      permission_slugs: ["invites.create"],
+    });
+    expect(result).toMatchObject({ success: false });
+    expect((result as { error: string }).error).toMatch(/not allowed for branch-scoped/i);
+    expect(OrgRolesService.createRole).not.toHaveBeenCalled();
+  });
+
+  it("createRoleAction: allows branch role with branch.roles.manage", async () => {
+    (OrgRolesService.createRole as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { id: "r-bm" },
+    });
+    const result = await createRoleAction({
+      name: "Branch Manager",
+      scope_type: "branch",
+      permission_slugs: ["branch.roles.manage"],
+    });
+    expect(result.success).toBe(true);
+    expect(OrgRolesService.createRole).toHaveBeenCalledOnce();
   });
 });
 

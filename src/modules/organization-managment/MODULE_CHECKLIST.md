@@ -42,7 +42,8 @@
 - [x] Understood: the sidebar is a UX boundary, not a security boundary.
 - [x] Hiding or disabling a sidebar item never prevents direct URL access.
 - [x] Every route that hides a link in the sidebar also has a server-side guard that enforces access independently.
-  > ✅ Profile (`ORG_READ`), Users layout (`MEMBERS_READ`), Invitations page (`INVITES_READ`), Branches page (`BRANCHES_READ`), Billing (`ORG_UPDATE`), Module gate (`requireModuleOrRedirect`).
+  > ✅ Profile (`ORG_READ`), Users layout (`MEMBERS_READ OR BRANCH_ROLES_MANAGE`), Members page (`MEMBERS_READ`), Invitations page (`INVITES_READ`), Roles page (`MEMBERS_READ`), Branch Access page (`MEMBERS_READ OR BRANCH_ROLES_MANAGE`), Branches page (`BRANCHES_READ`), Billing (`ORG_UPDATE`), Module gate (`requireModuleOrRedirect`).
+  > ✅ All deny paths (Phase 4) redirect to `/dashboard/access-denied?reason=<slug>` — no silent redirect to `/dashboard/start`.
 - [x] Every server action behind a hidden sidebar item also has a permission check.
   > ✅ All 31 server actions use `checkPermission(context.user.permissionSnapshot, PERM)` before any data access.
 
@@ -99,15 +100,16 @@
 
 ### Permission Coverage
 
-| Domain      | Read perm       | Write perm                                              | Guard location            |
-| ----------- | --------------- | ------------------------------------------------------- | ------------------------- |
-| Org profile | `ORG_READ`      | `ORG_UPDATE`                                            | page.tsx + action         |
-| Members     | `MEMBERS_READ`  | `MEMBERS_MANAGE`                                        | users/layout.tsx + action |
-| Invitations | `INVITES_READ`  | `INVITES_CREATE`, `INVITES_CANCEL`                      | page.tsx + action         |
-| Roles       | `MEMBERS_READ`  | `MEMBERS_MANAGE`                                        | users/layout.tsx + action |
-| Positions   | `MEMBERS_READ`  | `MEMBERS_MANAGE`                                        | users/layout.tsx + action |
-| Branches    | `BRANCHES_READ` | `BRANCHES_CREATE`, `BRANCHES_UPDATE`, `BRANCHES_DELETE` | page.tsx + action         |
-| Billing     | `ORG_UPDATE`    | (view only; same perm as sidebar)                       | page.tsx + action         |
+| Domain        | Read perm                               | Write perm                                              | Guard location                 |
+| ------------- | --------------------------------------- | ------------------------------------------------------- | ------------------------------ |
+| Org profile   | `ORG_READ`                              | `ORG_UPDATE`                                            | page.tsx + action              |
+| Members       | `MEMBERS_READ`                          | `MEMBERS_MANAGE`                                        | layout.tsx + page.tsx + action |
+| Invitations   | `INVITES_READ`                          | `INVITES_CREATE`, `INVITES_CANCEL`                      | page.tsx + action              |
+| Roles         | `MEMBERS_READ`                          | `MEMBERS_MANAGE`                                        | page.tsx + action              |
+| Branch Access | `MEMBERS_READ` OR `BRANCH_ROLES_MANAGE` | `BRANCH_ROLES_MANAGE` (branch-scoped only)              | page.tsx + action (dual-gate)  |
+| Positions     | `MEMBERS_READ`                          | `MEMBERS_MANAGE`                                        | layout.tsx + action            |
+| Branches      | `BRANCHES_READ`                         | `BRANCHES_CREATE`, `BRANCHES_UPDATE`, `BRANCHES_DELETE` | page.tsx + action              |
+| Billing       | `ORG_UPDATE`                            | (view only; same perm as sidebar)                       | page.tsx + action              |
 
 ---
 
@@ -200,8 +202,10 @@
 - [x] `requiresModules: [MODULE_ORGANIZATION_MANAGEMENT]` on parent group.
 - [x] Profile child: `requiresPermissions: [ORG_READ]`.
 - [x] Users child: `requiresPermissions: [MEMBERS_READ]`.
+- [x] Branch Access child: `requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE]` (OR logic — visible to branch managers too).
+  > ✅ `organization.branch-access` entry added at `src/lib/sidebar/v2/registry.ts`, links to `/dashboard/organization/users/branch-access`.
 - [x] Branches child: `requiresPermissions: [BRANCHES_READ]`.
-  > ✅ `organization.branches` entry added at `src/lib/sidebar/v2/registry.ts:99-108`, links to `/dashboard/organization/branches`.
+  > ✅ `organization.branches` entry added at `src/lib/sidebar/v2/registry.ts`, links to `/dashboard/organization/branches`.
 - [x] Billing child: `requiresPermissions: [ORG_UPDATE]`.
 - [x] Sidebar SSR tests for organization module added and verified.
   > ✅ 5 tests added to `src/app/[locale]/dashboard/__tests__/sidebar-ssr.test.tsx` (org-1 through org-5), all passing.
@@ -212,9 +216,12 @@
 
 ### Action Tests (T2)
 
-- [x] 26 deny-path tests in `src/app/actions/organization/__tests__/actions.test.ts`.
+- [x] 51 tests in `src/app/actions/organization/__tests__/actions.test.ts` — deny-path, G2 scope guards, branch manager allow/deny (BM), ORG_ONLY_SLUGS enforcement. New tests (Phase 3): `assignRoleToUserAction` BM allow (branch scope) + BM deny (org scope), `removeRoleFromUserAction` same, ORG_ONLY_SLUGS: members.read/manage/invites.create rejected for branch roles, branch.roles.manage allowed for branch roles.
+- [x] **Phase 4 dual-gate**: `listRolesAction` (branch managers get only `scope_type='branch'` roles), `getUserRoleAssignmentsAction` (MEMBERS_READ OR BRANCH_ROLES_MANAGE), `getMemberAccessAction` (branch managers get only `scope='branch'` assignments).
+- [x] **Phase 4 error normalization**: `normalizeDbError()` in `organization.service.ts` maps Postgres 42501 / row-level security errors to human-readable messages. Applied to `assignRoleToUser` + `removeRoleFromUser`.
+- [x] **Phase 4 test fixes**: 3 stale test files fixed: `permissions.test.ts` (wrong mock target `PermissionServiceV2` → `PermissionService`), `app-store.test.ts` (`accessibleBranches` fixture populated for `setActiveBranch` tests), `load-dashboard-context.v2.test.ts` (`branches.view.any` added to fast-path tests to avoid `createClient()` outside request scope).
 - [x] Tests use `vi.mock` with inlined context factory (correct Vitest hoisting pattern).
-- [x] Tests cover: all 7 domains, entitlement gate, permission denial, Zod schema enforcement, permission scope (read does not imply write).
+- [x] Tests cover: all 7 domains, entitlement gate, permission denial, Zod schema enforcement, permission scope (read does not imply write), G2 server-side branch role scope invariant.
 - [x] No `PermissionServiceV2` mocked — tests use `checkPermission` snapshot pattern directly.
 
 ### RLS Tests (T1)
@@ -239,10 +246,10 @@
 
 ### Frontend Component Tests (RTL)
 
-- [x] 10 RTL tests in `src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx`.
+- [x] 16 RTL tests in `src/app/[locale]/dashboard/organization/users/roles/__tests__/roles-client.test.tsx`.
   - roles-1: Create Role button visible when user has `MEMBERS_MANAGE` ✅
   - roles-2: Create Role button absent when user lacks `MEMBERS_MANAGE` ✅
-  - roles-3: All 4 permission group labels render in create dialog (Organization/Members/Invitations/Branches) ✅
+  - roles-3: Permission group labels render in create dialog for org scope (Organization/Members/Invitations/Branches; Branch Management group only visible in branch scope) ✅
   - roles-4: `createRoleAction` called with correct `permission_slugs` on submit ✅
   - roles-5: `listRolesAction` NOT called on mount (SSR-first regression) ✅
   - roles-6: Create dialog scope selector defaults to `org` ✅
@@ -250,6 +257,12 @@
   - roles-8: Branch-scoped role shows `branch` badge in list ✅
   - roles-9: `both`-scoped role shows `both` badge in list ✅
   - roles-10: Edit dialog shows scope as read-only text, no combobox ✅
+  - roles-11: Permission picker uses grid layout, no overflow scroll container ✅
+  - roles-12: Switching to branch scope hides org-only permissions in create dialog ✅
+  - roles-13: Switching scope back to org restores org-only permissions ✅
+  - roles-14: **G1** — Edit dialog for branch-scoped role omits org-only permissions ✅
+  - roles-15: **G3** — Edit dialog sanitizes: invalid org-only perm pre-checked on branch role is NOT checked ✅
+  - roles-16: **G1** — Edit dialog for org-scoped role shows org-only permissions ✅
 - [x] 4 RTL tests in `src/app/[locale]/dashboard/organization/branches/__tests__/branches-client.test.tsx`.
   - branches-1: Create Branch button visible when user has `BRANCHES_CREATE` ✅
   - branches-2: `createBranchAction` called with branch name on submit ✅
@@ -293,4 +306,17 @@
 
 ---
 
-_Last updated: 2026-02-27 — Phase 3 hardening. P1-A SELECT policy, P1-B stale-role cleanup, P2-C {public}→{authenticated} (13 policies), T-RLS real DB tests (+4). Migrations: 8→12. Known gaps: #7 mitigated, #8 documented._
+### Permission Scope Filtering Invariant (added 2026-03-02)
+
+- [x] **UI (create):** `PERMISSION_GROUPS.allowedScopes` metadata filters which permissions are shown when creating a role, based on selected `scope_type`.
+- [x] **UI (edit):** Same `allowedScopes` filter applied to edit dialog, using the role's persisted `scope_type`. Branch-scoped roles cannot visually select org-only permissions.
+- [x] **UI (openEdit sanitize):** `openEdit` strips any pre-existing `permission_slugs` that are invalid for the role's `scope_type` before populating the edit form. Stale/illegal data in `permission_slugs` is never shown as checked.
+- [x] **Server (create):** `createRoleAction` rejects `branch`-scoped roles containing slugs in `ORG_ONLY_SLUGS`.
+- [x] **Server (update):** `updateRoleAction` fetches `role.scope_type` before applying permissions; rejects if role is `branch`-scoped and any submitted slug is in `ORG_ONLY_SLUGS`. Guard runs before `OrgRolesService.updateRole`.
+- [x] `ORG_ONLY_SLUGS` = `{ org.read, org.update, branches.create, branches.update, branches.delete, module.organization-management.access, members.read, members.manage, invites.read, invites.create, invites.cancel }` — defined once in `roles.ts`, used by both `createRoleAction` and `updateRoleAction`. `branch.roles.manage` is the only branch-assignable non-CRUD permission.
+- [x] `assignRoleToUserAction` and `removeRoleFromUserAction` use dual-gate: allow if `MEMBERS_MANAGE` OR (`scope='branch'` AND `BRANCH_ROLES_MANAGE`). RLS is still the authoritative per-branch enforcement; action gate is a coarse allow.
+- [x] `getMembersGroupedByBranch` added to `OrgMembersService` — derived grouping from `listMembers` result; no new table. Org-only members grouped as `branchId: null`; branch-assigned members grouped per branch.
+
+---
+
+_Last updated: 2026-03-03 — Phase 4 Enterprise UX Hardening: unified deny → `/dashboard/access-denied?reason=<slug>` (5 SSR guards); new `/organization/users/branch-access` route + `BranchAccessClient` + sidebar item (`requiresAnyPermissions`); `listRolesAction`/`getUserRoleAssignmentsAction`/`getMemberAccessAction` dual-gated; `normalizeDbError` helper; 3 stale tests fixed (permissions, app-store, load-dashboard-context)._

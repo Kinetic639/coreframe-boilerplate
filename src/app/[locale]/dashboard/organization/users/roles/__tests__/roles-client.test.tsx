@@ -167,7 +167,7 @@ describe("RolesClient", () => {
     expect(screen.queryByRole("button", { name: /create role/i })).not.toBeInTheDocument();
   });
 
-  // roles-3: All 4 permission group headings render inside the create dialog
+  // roles-3: Permission group headings render inside the create dialog (org scope)
   it("renders all 4 permission group labels in create dialog", async () => {
     setup(true);
 
@@ -311,6 +311,89 @@ describe("RolesClient", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
+  // roles-14: Edit dialog for branch-scoped role — org-only permissions NOT rendered (G1)
+  it("edit dialog for branch-scoped role omits org-only permissions", async () => {
+    setupPermissions(true);
+    render(<RolesClient initialRoles={[sampleBranchRole]} />, { wrapper: createWrapper() });
+
+    const editButtons = screen.getAllByRole("button");
+    const pencilBtn = editButtons.find((b) => b.querySelector("svg.lucide-pencil"));
+    if (pencilBtn) fireEvent.click(pencilBtn);
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    // Org-only permissions must not appear in the edit dialog for a branch role
+    expect(screen.queryByLabelText(/view organization profile/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/edit organization profile/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/create branches/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/edit branches/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/delete branches/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/access organization management module/i)
+    ).not.toBeInTheDocument();
+    // members.* and invites.* are now org-only — must not appear for branch-scoped roles
+    expect(screen.queryByLabelText(/view members list/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/view invitations/i)).not.toBeInTheDocument();
+
+    // Branch-allowed permission must still be present
+    expect(screen.getByLabelText(/manage branch role assignments/i)).toBeInTheDocument();
+  });
+
+  // roles-15: Edit dialog for branch-scoped role with invalid perm in payload — not checked (G3)
+  it("edit dialog sanitizes: invalid org-only perm pre-checked on branch role is NOT checked", async () => {
+    const branchRoleWithInvalidPerm: OrgRole = {
+      ...sampleBranchRole,
+      // org.read and members.read are both org-only — not valid for branch roles
+      // branch.roles.manage is branch-scoped and should be pre-checked
+      permission_slugs: ["org.read", "members.read", "branch.roles.manage"],
+    };
+    setupPermissions(true);
+    render(<RolesClient initialRoles={[branchRoleWithInvalidPerm]} />, {
+      wrapper: createWrapper(),
+    });
+
+    const editButtons = screen.getAllByRole("button");
+    const pencilBtn = editButtons.find((b) => b.querySelector("svg.lucide-pencil"));
+    if (pencilBtn) fireEvent.click(pencilBtn);
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    // org.read is not rendered at all for branch roles (G1 filter)
+    expect(screen.queryByLabelText(/view organization profile/i)).not.toBeInTheDocument();
+    // members.read is now org-only — also not rendered for branch roles
+    expect(screen.queryByLabelText(/view members list/i)).not.toBeInTheDocument();
+
+    // branch.roles.manage IS valid for branch roles and must be pre-checked
+    const branchMgrCheckbox = screen.getByLabelText(/manage branch role assignments/i);
+    expect(branchMgrCheckbox).toBeChecked();
+  });
+
+  // roles-16: Edit dialog for org-scoped role — org-only permissions ARE present (G1 positive)
+  it("edit dialog for org-scoped role shows org-only permissions", async () => {
+    const orgRole: OrgRole = {
+      id: "r-org",
+      name: "Org Manager",
+      description: null,
+      is_basic: false,
+      scope_type: "org",
+      permission_slugs: [],
+      organization_id: "org-1",
+      deleted_at: null,
+    };
+    setupPermissions(true);
+    render(<RolesClient initialRoles={[orgRole]} />, { wrapper: createWrapper() });
+
+    const editButtons = screen.getAllByRole("button");
+    const pencilBtn = editButtons.find((b) => b.querySelector("svg.lucide-pencil"));
+    if (pencilBtn) fireEvent.click(pencilBtn);
+
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    // Org-only permissions must be visible for org-scoped role edit
+    expect(screen.getByLabelText(/view organization profile/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/create branches/i)).toBeInTheDocument();
+  });
+
   // roles-11: Permission grid — no max-h scrollable container in create dialog (P1)
   it("permission picker uses grid layout, no overflow scroll container", async () => {
     setup(true);
@@ -340,14 +423,15 @@ describe("RolesClient", () => {
     const branchOption = await screen.findByText(/branch.*assigned per branch/i);
     fireEvent.click(branchOption);
 
-    // Org-only permissions now hidden
+    // Org-only permissions now hidden (org/branch admin perms + members.* + invites.*)
     await waitFor(() => {
       expect(screen.queryByLabelText(/view organization profile/i)).not.toBeInTheDocument();
       expect(screen.queryByLabelText(/create branches/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/view members list/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/view invitations/i)).not.toBeInTheDocument();
     });
-    // Branch-allowed permissions still present
-    expect(screen.getByLabelText(/view members list/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/view invitations/i)).toBeInTheDocument();
+    // Branch-only permission now visible
+    expect(screen.getByLabelText(/manage branch role assignments/i)).toBeInTheDocument();
   });
 
   // roles-13: Switching from branch back to org restores org-only permissions (P2)

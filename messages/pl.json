@@ -1303,7 +1303,8 @@
           "positions": "Stanowiska",
           "branches": "Oddziały"
         },
-        "billing": "Rozliczenia i subskrypcje"
+        "billing": "Rozliczenia i subskrypcje",
+        "branchAccess": "Dostęp do oddziałów"
       },
       "roles": {
         "createButton": "Utwórz rolę",

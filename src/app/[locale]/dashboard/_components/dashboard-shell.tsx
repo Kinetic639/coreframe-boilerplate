@@ -22,6 +22,7 @@ import {
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
 import { SidebarOrgHeader } from "./sidebar-org-header";
+import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { getUserDisplayName } from "@/utils/user-helpers";
@@ -319,9 +320,17 @@ function NavSection({
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   model: SidebarModel;
   isAdmin?: boolean;
+  accessibleBranches: BranchDataV2[];
+  activeBranchId: string | null;
 }
 
-function AppSidebar({ model, isAdmin, ...props }: AppSidebarProps) {
+function AppSidebar({
+  model,
+  isAdmin,
+  accessibleBranches,
+  activeBranchId,
+  ...props
+}: AppSidebarProps) {
   const { user } = useUserStoreV2();
   const pathname = usePathname();
   const t = useTranslations();
@@ -347,7 +356,7 @@ function AppSidebar({ model, isAdmin, ...props }: AppSidebarProps) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="bg-muted border-b">
         <SidebarOrgHeader />
-        <SidebarBranchSwitcher />
+        <SidebarBranchSwitcher branches={accessibleBranches} activeBranchId={activeBranchId} />
       </SidebarHeader>
       <SidebarContent>
         <NavSection items={model.main} pathname={pathname} getLabel={getItemLabel} />
@@ -368,9 +377,19 @@ interface DashboardShellProps {
   children: React.ReactNode;
   sidebarModel: SidebarModel;
   isAdmin?: boolean;
+  /** Server-computed accessible branches — passed through to the branch switcher */
+  accessibleBranches: BranchDataV2[];
+  /** Server-resolved active branch ID */
+  activeBranchId: string | null;
 }
 
-export function DashboardShell({ children, sidebarModel, isAdmin }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  sidebarModel,
+  isAdmin,
+  accessibleBranches,
+  activeBranchId,
+}: DashboardShellProps) {
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
 
@@ -380,7 +399,12 @@ export function DashboardShell({ children, sidebarModel, isAdmin }: DashboardShe
 
   return (
     <SidebarProvider open={!sidebarCollapsed} onOpenChange={handleSidebarOpenChange}>
-      <AppSidebar model={sidebarModel} isAdmin={isAdmin} />
+      <AppSidebar
+        model={sidebarModel}
+        isAdmin={isAdmin}
+        accessibleBranches={accessibleBranches}
+        activeBranchId={activeBranchId}
+      />
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
         <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>

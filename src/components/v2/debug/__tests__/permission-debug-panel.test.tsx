@@ -9,6 +9,12 @@ import * as userStoreModule from "@/lib/stores/v2/user-store";
 import * as appStoreModule from "@/lib/stores/v2/app-store";
 import * as permissionsHook from "@/hooks/v2/use-permissions";
 
+// Mock react-query — the debug panel uses useQuery for detailed permissions;
+// tests don't need real async data fetching so return empty stub.
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: vi.fn(() => ({ data: undefined, isLoading: false })),
+}));
+
 // Mock the stores and hooks
 vi.mock("@/lib/stores/v2/user-store");
 vi.mock("@/lib/stores/v2/app-store");
@@ -162,8 +168,9 @@ describe("PermissionDebugPanel", () => {
       // Click Permissions tab
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      expect(screen.getByText("Allowed Permissions")).toBeInTheDocument();
-      expect(screen.getByText("4")).toBeInTheDocument(); // Badge count
+      // Active Snapshot section shows snapshot-based permissions
+      expect(screen.getByText("Active Snapshot (usePermissions)")).toBeInTheDocument();
+      expect(screen.getByText("4")).toBeInTheDocument(); // Badge count for 4 snapshot perms
 
       // Check for V2 canonical permissions
       expect(screen.getByText("org.read")).toBeInTheDocument();
@@ -171,16 +178,16 @@ describe("PermissionDebugPanel", () => {
       expect(screen.getByText("branches.read")).toBeInTheDocument();
     });
 
-    it("should display V2 denied permissions section (always empty)", async () => {
+    it("should display scope-aware permission breakdown section", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      // V2: Denied permissions section exists but shows explanation that it's always empty
-      expect(screen.getByText("Denied Permissions")).toBeInTheDocument();
-      expect(screen.getByText("0")).toBeInTheDocument(); // Badge count should be 0
-      expect(screen.getByText(/Always empty in V2/i)).toBeInTheDocument();
+      // V2: Shows scope-aware breakdown from DB assignments (detailedPerms, from useQuery)
+      expect(screen.getByText("All Permissions by Scope")).toBeInTheDocument();
+      // Badge shows 0 when detailedPerms is not loaded (mocked as undefined)
+      expect(screen.getByText("0")).toBeInTheDocument();
     });
 
     it("should filter permissions based on search input", async () => {
@@ -197,17 +204,17 @@ describe("PermissionDebugPanel", () => {
       expect(screen.queryByText("members.read")).not.toBeInTheDocument();
     });
 
-    it("should display V2 permission system explanation", async () => {
+    it("should display both permissions sections in the tab", async () => {
       const user = userEvent.setup();
       render(<PermissionDebugPanel />);
 
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      // V2 explanation text
-      expect(screen.getByText(/Permission System V2/i)).toBeInTheDocument();
-      expect(screen.getByText(/Compiled permissions/i)).toBeInTheDocument();
-      expect(screen.getByText(/No wildcards at runtime/i)).toBeInTheDocument();
-      expect(screen.getByText(/No deny at runtime/i)).toBeInTheDocument();
+      // Permissions tab contains two sections:
+      // 1. Scope-aware breakdown from DB (All Permissions by Scope)
+      expect(screen.getByText("All Permissions by Scope")).toBeInTheDocument();
+      // 2. Current snapshot from usePermissions (Active Snapshot)
+      expect(screen.getByText("Active Snapshot (usePermissions)")).toBeInTheDocument();
     });
 
     it("should show message when no permissions exist", async () => {
@@ -477,9 +484,8 @@ describe("PermissionDebugPanel", () => {
       render(<PermissionDebugPanel />);
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
+      // Active Snapshot section shows "No allowed permissions" when snapshot is empty
       expect(screen.getByText("No allowed permissions")).toBeInTheDocument();
-      // V2: Deny section shows explanation, not "No denied permissions"
-      expect(screen.getByText(/Always empty in V2/i)).toBeInTheDocument();
     });
 
     it("should handle null user", () => {
@@ -567,16 +573,18 @@ describe("PermissionDebugPanel", () => {
       render(<PermissionDebugPanel />);
       await user.click(screen.getByRole("tab", { name: /permissions/i }));
 
-      // Get initial permission count by finding <code> elements
-      const allowedSection = screen.getByText("Allowed Permissions").parentElement!;
-      const initialPermissions = allowedSection.querySelectorAll("code");
+      // Get initial permission count by finding <code> elements in Active Snapshot section
+      const snapshotSection = screen
+        .getByText("Active Snapshot (usePermissions)")
+        .closest(".rounded-lg")!;
+      const initialPermissions = snapshotSection.querySelectorAll("code");
 
       // Type in filter
       const filterInput = screen.getByLabelText("Filter Permissions");
       await user.type(filterInput, "org");
 
       // Permissions should be filtered (fewer shown)
-      const filteredPermissions = allowedSection.querySelectorAll("code");
+      const filteredPermissions = snapshotSection.querySelectorAll("code");
 
       // Either filtered list is smaller, or same if all permissions match "org"
       expect(filteredPermissions.length).toBeLessThanOrEqual(initialPermissions.length);

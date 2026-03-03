@@ -6,13 +6,18 @@
       "Bash(npx eslint src/app/actions/user-preferences/index.ts src/modules/user-account/config.ts src/hooks/queries/user-preferences/index.ts \"src/app/[locale]/dashboard/account/profile/page.tsx\" \"src/app/[locale]/dashboard/account/preferences/page.tsx\" \"src/app/[locale]/dashboard/account/notifications/page.tsx\")",
       "Bash(git show HEAD:src/app/[locale]/dashboard/account/profile/page.tsx)",
       "Bash(pnpm run test -- --reporter=verbose --testPathPattern=\"members-client|roles-client\")",
-      "Bash(pnpm run test:run)"
+      "Bash(pnpm run test:run)",
+      "Bash(npx eslint src --ext .ts,.tsx --max-warnings=50)",
+      "Bash(pnpm -s test)",
+      "Bash(pnpm -s typecheck)",
+      "Bash(pnpm typecheck)"
     ],
     "additionalDirectories": [
       "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/__tests__",
-      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/members/[memberId]"
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/members/[memberId]",
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/branch-access"
     ]
   }
 }

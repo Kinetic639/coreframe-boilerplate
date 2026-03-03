@@ -38,6 +38,7 @@ import {
   BRANCHES_CREATE,
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
+  BRANCH_ROLES_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   useRolesQuery,
@@ -80,12 +81,12 @@ const PERMISSION_GROUPS = [
       {
         slug: MEMBERS_READ,
         label: "View members list",
-        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+        allowedScopes: ["org"] as ("org" | "branch")[],
       },
       {
         slug: MEMBERS_MANAGE,
         label: "Manage members (activate, remove, assign roles & positions)",
-        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+        allowedScopes: ["org"] as ("org" | "branch")[],
       },
     ],
   },
@@ -95,17 +96,27 @@ const PERMISSION_GROUPS = [
       {
         slug: INVITES_READ,
         label: "View invitations",
-        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+        allowedScopes: ["org"] as ("org" | "branch")[],
       },
       {
         slug: INVITES_CREATE,
         label: "Send invitations",
-        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+        allowedScopes: ["org"] as ("org" | "branch")[],
       },
       {
         slug: INVITES_CANCEL,
         label: "Cancel invitations",
-        allowedScopes: ["org", "branch"] as ("org" | "branch")[],
+        allowedScopes: ["org"] as ("org" | "branch")[],
+      },
+    ],
+  },
+  {
+    label: "Branch Management",
+    permissions: [
+      {
+        slug: BRANCH_ROLES_MANAGE,
+        label: "Manage branch role assignments (branch manager delegation)",
+        allowedScopes: ["branch"] as ("org" | "branch")[],
       },
     ],
   },
@@ -201,7 +212,21 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
     setEditingRole(role);
     setRoleName(role.name);
     setRoleDesc(role.description ?? "");
-    setSelectedPerms(role.permission_slugs ?? []);
+    // G3: strip any slugs that are invalid for this role's scope_type
+    const scopeFilter: "org" | "branch" | null =
+      role.scope_type === "org" || role.scope_type === "branch" ? role.scope_type : null;
+    const validSlugs = scopeFilter
+      ? new Set<string>(
+          PERMISSION_GROUPS.flatMap((g) =>
+            g.permissions.filter((p) => p.allowedScopes.includes(scopeFilter)).map((p) => p.slug)
+          )
+        )
+      : null;
+    setSelectedPerms(
+      validSlugs
+        ? (role.permission_slugs ?? []).filter((s) => validSlugs.has(s))
+        : (role.permission_slugs ?? [])
+    );
     // scope_type is read-only in edit — just reflect what's stored
     setDialogMode("edit");
   };
@@ -414,14 +439,21 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
             )}
             <div className="space-y-3">
               <Label>{t("dialog.permissions")}</Label>
-              {/* P2: in create mode, only show permissions valid for the selected scope */}
+              {/* G1/P2: filter permissions by scope in both create and edit modes */}
               {(() => {
+                // In create: use scopeType state. In edit: use persisted role.scope_type.
+                // "both" roles (G4, out of scope) fall through with no filtering.
+                const effectiveScopeFilter: "org" | "branch" | null =
+                  dialogMode === "edit" && editingRole
+                    ? editingRole.scope_type === "org" || editingRole.scope_type === "branch"
+                      ? (editingRole.scope_type as "org" | "branch")
+                      : null
+                    : scopeType;
                 const visibleGroups = PERMISSION_GROUPS.map((g) => ({
                   ...g,
-                  permissions:
-                    dialogMode === "create"
-                      ? g.permissions.filter((p) => p.allowedScopes.includes(scopeType))
-                      : g.permissions,
+                  permissions: effectiveScopeFilter
+                    ? g.permissions.filter((p) => p.allowedScopes.includes(effectiveScopeFilter))
+                    : g.permissions,
                 })).filter((g) => g.permissions.length > 0);
 
                 return (

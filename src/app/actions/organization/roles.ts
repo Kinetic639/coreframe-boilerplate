@@ -16,9 +16,15 @@ import {
   BRANCHES_CREATE,
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
+  BRANCH_ROLES_MANAGE,
+  INVITES_READ,
+  INVITES_CREATE,
+  INVITES_CANCEL,
 } from "@/lib/constants/permissions";
 
-// P2: permissions that are meaningful only at org scope — not valid for branch-scoped roles.
+// Permissions that are meaningful only at org scope — not valid for branch-scoped roles.
+// members.* and invites.* are org-level concepts (member list, invitations, activation).
+// branch.roles.manage is the branch-scoped alternative for role assignment delegation.
 const ORG_ONLY_SLUGS = new Set<string>([
   ORG_READ,
   ORG_UPDATE,
@@ -26,6 +32,11 @@ const ORG_ONLY_SLUGS = new Set<string>([
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  MEMBERS_READ,
+  MEMBERS_MANAGE,
+  INVITES_READ,
+  INVITES_CREATE,
+  INVITES_CANCEL,
 ]);
 
 const createRoleSchema = z.object({
@@ -61,9 +72,19 @@ export async function listRolesAction() {
       return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
-    if (!canRead) return { success: false, error: "Unauthorized" };
+    const canBranchManage = checkPermission(context.user.permissionSnapshot, BRANCH_ROLES_MANAGE);
+    if (!canRead && !canBranchManage) return { success: false, error: "Unauthorized" };
 
-    return await OrgRolesService.listRoles(supabase, context.app.activeOrgId);
+    const rolesResult = await OrgRolesService.listRoles(supabase, context.app.activeOrgId);
+    if (!rolesResult.success) return rolesResult;
+
+    // Branch managers (no MEMBERS_READ) see only branch-scoped roles.
+    // This limits the role picker in branch-access UI to appropriate roles only.
+    if (!canRead && canBranchManage) {
+      return { success: true, data: rolesResult.data.filter((r) => r.scope_type === "branch") };
+    }
+
+    return rolesResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -125,6 +146,26 @@ export async function updateRoleAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const { roleId, ...updateInput } = parsed.data;
+
+    // G2: branch-scoped roles may not contain org-only permissions (mirrors createRoleAction guard)
+    if (updateInput.permission_slugs?.length) {
+      const { data: role, error: roleErr } = await supabase
+        .from("roles")
+        .select("scope_type")
+        .eq("id", roleId)
+        .maybeSingle();
+      if (roleErr) return { success: false, error: roleErr.message };
+      if (role?.scope_type === "branch") {
+        const invalid = updateInput.permission_slugs.filter((s) => ORG_ONLY_SLUGS.has(s));
+        if (invalid.length > 0) {
+          return {
+            success: false,
+            error: `Permissions not allowed for branch-scoped roles: ${invalid.join(", ")}`,
+          };
+        }
+      }
+    }
+
     return await OrgRolesService.updateRole(supabase, roleId, updateInput);
   } catch (error) {
     const mapped = mapEntitlementError(error);
@@ -165,13 +206,19 @@ export async function assignRoleToUserAction(rawInput: unknown) {
     if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
       return { success: false, error: "Unauthorized" };
 
-    const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
-    if (!canManage) return { success: false, error: "Unauthorized" };
-
     const parsed = assignRoleSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const { userId, roleId, scope, scopeId } = parsed.data;
+
+    // Org admins (members.manage) may assign to any scope.
+    // Branch managers (branch.roles.manage) may only assign branch-scoped roles;
+    // RLS enforces the per-branch restriction — the action gate is a coarse allow.
+    const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
+    const canManageBranch =
+      scope === "branch" && checkPermission(context.user.permissionSnapshot, BRANCH_ROLES_MANAGE);
+    if (!canManage && !canManageBranch) return { success: false, error: "Unauthorized" };
+
     if (scope === "branch" && !scopeId) {
       return { success: false, error: "scopeId required for branch assignments" };
     }
@@ -200,13 +247,17 @@ export async function removeRoleFromUserAction(rawInput: unknown) {
     if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
       return { success: false, error: "Unauthorized" };
 
-    const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
-    if (!canManage) return { success: false, error: "Unauthorized" };
-
     const parsed = assignRoleSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const { userId, roleId, scope, scopeId } = parsed.data;
+
+    // Same dual-gate as assignRoleToUserAction. RLS enforces the per-branch restriction.
+    const canManage = checkPermission(context.user.permissionSnapshot, MEMBERS_MANAGE);
+    const canManageBranch =
+      scope === "branch" && checkPermission(context.user.permissionSnapshot, BRANCH_ROLES_MANAGE);
+    if (!canManage && !canManageBranch) return { success: false, error: "Unauthorized" };
+
     if (scope === "branch" && !scopeId) {
       return { success: false, error: "scopeId required for branch removals" };
     }
@@ -236,7 +287,8 @@ export async function getUserRoleAssignmentsAction(userId: string) {
       return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
-    if (!canRead) return { success: false, error: "Unauthorized" };
+    const canBranchManage = checkPermission(context.user.permissionSnapshot, BRANCH_ROLES_MANAGE);
+    if (!canRead && !canBranchManage) return { success: false, error: "Unauthorized" };
 
     if (!z.string().uuid().safeParse(userId).success) {
       return { success: false, error: "Invalid user ID" };
@@ -260,13 +312,33 @@ export async function getMemberAccessAction(userId: string) {
       return { success: false, error: "Unauthorized" };
 
     const canRead = checkPermission(context.user.permissionSnapshot, MEMBERS_READ);
-    if (!canRead) return { success: false, error: "Unauthorized" };
+    const canBranchManage = checkPermission(context.user.permissionSnapshot, BRANCH_ROLES_MANAGE);
+    if (!canRead && !canBranchManage) return { success: false, error: "Unauthorized" };
 
     if (!z.string().uuid().safeParse(userId).success) {
       return { success: false, error: "Invalid user ID" };
     }
 
-    return await OrgRolesService.getMemberAccess(supabase, context.app.activeOrgId, userId);
+    const accessResult = await OrgRolesService.getMemberAccess(
+      supabase,
+      context.app.activeOrgId,
+      userId
+    );
+    if (!accessResult.success) return accessResult;
+
+    // Branch managers (no MEMBERS_READ) see only branch-scoped assignments.
+    // This prevents leaking org-scoped role data to users without members.read.
+    if (!canRead && canBranchManage) {
+      return {
+        success: true,
+        data: {
+          ...accessResult.data,
+          assignments: accessResult.data.assignments.filter((a) => a.scope === "branch"),
+        },
+      };
+    }
+
+    return accessResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

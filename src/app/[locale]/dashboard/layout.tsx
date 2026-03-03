@@ -62,7 +62,12 @@ export default async function DashboardV2Layout({ children }: { children: React.
         }}
       />
       <DashboardV2Providers context={context}>
-        <DashboardShell sidebarModel={sidebarModel} isAdmin={isAdmin}>
+        <DashboardShell
+          sidebarModel={sidebarModel}
+          isAdmin={isAdmin}
+          accessibleBranches={context.app.accessibleBranches}
+          activeBranchId={context.app.activeBranchId}
+        >
           {children}
         </DashboardShell>
       </DashboardV2Providers>
