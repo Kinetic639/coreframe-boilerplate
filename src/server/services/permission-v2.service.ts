@@ -17,18 +17,21 @@
  *
  * **Wildcards in UEP — critical for callers**
  *
- * The DB compiler (`compile_user_permissions`) inserts `permissions.slug` verbatim —
- * it does NOT expand wildcards. UEP rows may contain `account.*`, `module.*`, etc.
+ * The DB compiler (`compile_user_permissions`) **expands wildcards at write time**:
+ * a role with `account.*` produces one UEP row per matching concrete slug in the
+ * permissions registry. `permission_slug_exact` is always a concrete slug.
+ * `permission_slug` retains the original source slug for traceability.
  *
- * | Check type | Method | Wildcard-aware? | Scope |
+ * | Check type | Column used | Wildcard-aware? | Scope |
  * |---|---|---|---|
- * | Client/SSR snapshot | `checkPermission(snapshot, slug)` | ✅ YES | org + branch |
- * | DB RPC (current user) | `has_permission(org_id, slug)` | ❌ exact match | org-only (`branch_id IS NULL`) |
- * | DB RPC (explicit user) | `user_has_effective_permission(uid, org_id, slug)` | ❌ exact match | org-only (`branch_id IS NULL`) |
+ * | Client/SSR snapshot | `permission_slug_exact` | ✅ concrete only, exact match | org + branch |
+ * | DB RPC (current user) | `permission_slug_exact` | ✅ wildcard-safe (expanded at compile) | org-only |
+ * | DB RPC (explicit user) | `permission_slug_exact` | ✅ wildcard-safe (expanded at compile) | org-only |
  *
- * **Rule**: Always use `checkPermission(snapshot, requiredSlug)` at runtime.
- * The RPC helpers are only appropriate for simple exact-match org-level gates where
- * you know the slug will never be a wildcard (e.g. feature-flag checks).
+ * **Rule**: Use `checkPermission(snapshot, requiredSlug)` at runtime (still correct).
+ * DB RPCs are now fully wildcard-safe: `has_permission(org_id, 'account.profile.read')`
+ * returns `true` even when the user's role only has `account.*`. No TS-side wildcard
+ * expansion is needed anymore.
  *
  * @example
  * ```typescript
@@ -36,7 +39,9 @@
  *
  * // Get org-scope effective permissions for user
  * const permissions = await PermissionServiceV2.getOrgEffectivePermissions(supabase, userId, orgId);
- * // Returns: Set<string> { "org.read", "branches.read", "members.manage", "account.*", ... }
+ * // Returns: Set<string> { "org.read", "branches.read", "members.manage",
+ * //                        "account.profile.read", "account.profile.update", ... }
+ * // NOTE: wildcards (e.g. "account.*") are expanded at compile time — never appear here.
  *
  * // Check permission
  * if (permissions.has("members.manage")) {
@@ -72,7 +77,7 @@ export class PermissionServiceV2 {
   ): Promise<Set<string>> {
     const { data, error } = await supabase
       .from("user_effective_permissions")
-      .select("permission_slug")
+      .select("permission_slug_exact")
       .eq("user_id", userId)
       .eq("organization_id", orgId)
       .is("branch_id", null);
@@ -82,15 +87,15 @@ export class PermissionServiceV2 {
       return new Set();
     }
 
-    return new Set((data ?? []).map((row) => row.permission_slug));
+    return new Set((data ?? []).map((row) => row.permission_slug_exact));
   }
 
   /**
    * Get org-scope effective permissions as a sorted array (for serialization).
    *
    * Reads only org-scope rows (`branch_id IS NULL`) from the compiled UEP table.
-   * Wildcard slugs (e.g. `account.*`, `module.*`) are preserved as-is — use
-   * `checkPermission` for wildcard-aware checks, not exact string matching.
+   * All values are concrete slugs — wildcards were expanded at compile time.
+   * Use `checkPermission` or direct Set.has() for runtime checks.
    *
    * @param supabase - Supabase client
    * @param userId - User ID
@@ -104,7 +109,7 @@ export class PermissionServiceV2 {
   ): Promise<string[]> {
     const { data, error } = await supabase
       .from("user_effective_permissions")
-      .select("permission_slug")
+      .select("permission_slug_exact")
       .eq("user_id", userId)
       .eq("organization_id", orgId)
       .is("branch_id", null);
@@ -114,7 +119,7 @@ export class PermissionServiceV2 {
       return [];
     }
 
-    return (data ?? []).map((row) => row.permission_slug).sort();
+    return (data ?? []).map((row) => row.permission_slug_exact).sort();
   }
 
   /**
@@ -126,12 +131,12 @@ export class PermissionServiceV2 {
    *   - When branchId is null/undefined, only org-wide rows are returned
    *     (mirrors `has_permission` org-only semantics).
    *
-   * **Implementation: two queries instead of OR**
-   * The previous implementation used a single query with an OR filter
-   * (`branch_id IS NULL OR branch_id = X`), which prevents PostgreSQL from
-   * using partial indexes. This implementation runs two separate queries:
-   *   1) Org-scope: `WHERE branch_id IS NULL` → uses `uep_org_exact_active_idx`
-   *   2) Branch-scope: `WHERE branch_id = X` → uses `uep_branch_exact_active_idx`
+   * **Implementation: two queries, concrete slugs only**
+   * Runs two separate queries to satisfy partial index predicates exactly:
+   *   1) Org-scope: `WHERE branch_id IS NULL` → uses `uep_org_slug_exact_idx`
+   *   2) Branch-scope: `WHERE branch_id = X` → uses `uep_branch_slug_exact_idx`
+   * Both queries read `permission_slug_exact` — always concrete (no wildcards),
+   * because the compiler (`compile_user_permissions`) expands wildcards at write time.
    * Results are merged, deduplicated, and sorted in JavaScript.
    *
    * Deny is always empty: deny overrides are resolved at compile time by
@@ -154,12 +159,12 @@ export class PermissionServiceV2 {
     if (!orgId) return { allow: [], deny: [] };
 
     // ── Query 1: org-scope rows (branch_id IS NULL) ─────────────────────────
-    // Uses partial index: uep_org_exact_active_idx
-    //   (organization_id, user_id, permission_slug) WHERE branch_id IS NULL
-    // Avoids OR filter — separate queries give the planner stable partial-index paths.
+    // Uses partial index: uep_org_slug_exact_idx
+    //   (organization_id, user_id, permission_slug_exact) WHERE branch_id IS NULL
+    // Returns only concrete slugs — wildcards are expanded at compile time.
     const { data: orgData, error: orgError } = await supabase
       .from("user_effective_permissions")
-      .select("permission_slug")
+      .select("permission_slug_exact")
       .eq("user_id", userId)
       .eq("organization_id", orgId)
       .is("branch_id", null);
@@ -170,14 +175,14 @@ export class PermissionServiceV2 {
     }
 
     // ── Query 2: branch-scope rows (only when branchId is set) ──────────────
-    // Uses partial index: uep_branch_exact_active_idx
-    //   (organization_id, user_id, branch_id, permission_slug) WHERE branch_id IS NOT NULL
+    // Uses partial index: uep_branch_slug_exact_idx
+    //   (organization_id, user_id, branch_id, permission_slug_exact) WHERE branch_id IS NOT NULL
     // Skipped entirely when branchId is null/undefined (mirrors has_permission org-only semantics).
     let branchSlugs: string[] = [];
     if (branchId) {
       const { data: branchData, error: branchError } = await supabase
         .from("user_effective_permissions")
-        .select("permission_slug")
+        .select("permission_slug_exact")
         .eq("user_id", userId)
         .eq("organization_id", orgId)
         .eq("branch_id", branchId);
@@ -189,12 +194,13 @@ export class PermissionServiceV2 {
         );
         return { allow: [], deny: [] };
       }
-      branchSlugs = (branchData ?? []).map((r) => r.permission_slug);
+      branchSlugs = (branchData ?? []).map((r) => r.permission_slug_exact);
     }
 
     // Merge org + branch slugs, dedup, sort deterministically.
-    // Set dedup handles the theoretical case where a slug appears in both scopes.
-    const orgSlugs = (orgData ?? []).map((r) => r.permission_slug);
+    // All values are concrete (no wildcards) — the compiler expanded them at write time.
+    // checkPermission(snapshot, slug) still works: concrete slugs match via exact equality.
+    const orgSlugs = (orgData ?? []).map((r) => r.permission_slug_exact);
     const allow = [...new Set([...orgSlugs, ...branchSlugs])].sort();
     return { allow, deny: [] };
   }

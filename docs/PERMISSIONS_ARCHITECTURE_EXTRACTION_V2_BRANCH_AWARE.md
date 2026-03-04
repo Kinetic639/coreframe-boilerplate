@@ -1,7 +1,7 @@
-# Permissions Architecture — V2 Branch-Aware (Verified 2026-03-04, Hardened + 10k-ready)
+# Permissions Architecture — V2 Branch-Aware (Verified 2026-03-04, Hardened + 10k-ready + 100k-ready)
 
-> **Status**: Fully verified against live DB + source code. Hardening patches applied (Phase 2 + follow-up audit + 10k-ready performance package).
-> Branch: `org-managment-v2`. Hardening: `canFromSnapshot` wildcard-safe, action renamed, UPO index dropped, RLS slug inventory expanded to 10 slugs, DB-backed invariant test added, 10k-ready partial indexes + two-query snapshot strategy.
+> **Status**: Fully verified against live DB + source code. Hardening patches applied (Phase 2 + follow-up audit + 10k-ready + 100k-ready performance packages).
+> Branch: `org-managment-v2`. Hardening: `canFromSnapshot` wildcard-safe, action renamed, UPO index dropped, RLS slug inventory expanded to 10 slugs, DB-backed invariant test added, 10k-ready partial indexes + two-query snapshot strategy, 100k-ready compiler-side wildcard expansion (`permission_slug_exact`).
 
 ---
 
@@ -27,6 +27,7 @@
 18. [Permission Slug Inventory](#18-permission-slug-inventory)
 19. [Diff vs Previous Doc](#19-diff-vs-previous-doc)
 20. [10k-ready Performance Package](#20-10k-ready-performance-package)
+21. [100k-ready: Compiler-side Wildcard Expansion](#21-100k-ready-compiler-side-wildcard-expansion)
 
 ---
 
@@ -592,27 +593,49 @@ The compiler inserts `permissions.slug` verbatim. UEP may contain `"account.*"`,
 When a revoke override (`upo.effect='revoke'`) exists for a user+org+slug, the compiler's `NOT EXISTS` guard applies to **both** the org-scoped INSERT and the branch-scoped INSERT:
 
 ```sql
--- Applied in BOTH step 4 (org) and step 5 (branch) of compile_user_permissions:
+-- Applied in BOTH org-scope and branch-scope INSERTs of compile_user_permissions.
+-- Fixed in migration 20260304151000: also matches against the EXPANDED exact slug
+-- so that revoking a concrete slug (e.g. 'account.profile.read') suppresses the
+-- row produced by wildcard expansion (source = 'account.*').
 AND NOT EXISTS (
   SELECT 1 FROM user_permission_overrides upo
-  WHERE upo.user_id = p_user_id
+  WHERE upo.user_id        = p_user_id
     AND upo.organization_id = p_organization_id
-    AND upo.permission_slug = p.slug
-    AND upo.effect = 'revoke'
-    AND upo.deleted_at IS NULL
+    AND (upo.permission_slug = p.slug                        -- revoke by source slug
+         OR upo.permission_slug = COALESCE(p2.slug, p.slug)) -- revoke by expanded exact slug
+    AND upo.effect          = 'revoke'
+    AND upo.deleted_at      IS NULL
 )
 ```
 
-**Concrete example**:
+**Revoke match matrix** (post-fix, migration `20260304151000`):
 
-| Scenario                                                          | UEP result                                                                     |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| User has org-scoped role with `warehouse.products.delete`         | UEP row: `permission_slug='warehouse.products.delete', branch_id=NULL`         |
-| User also has branch-scoped role with `warehouse.products.delete` | UEP row: `permission_slug='warehouse.products.delete', branch_id='branch-xyz'` |
-| Org-level revoke added for `warehouse.products.delete`            | **Both** UEP rows are ABSENT after next compile                                |
-| Branch-level grant remains after revoke                           | ❌ Branch grant is ALSO suppressed — org revoke wins everywhere                |
+| Revoke `permission_slug` | Source `p.slug`        | `permission_slug_exact`  | Suppressed?                                  |
+| ------------------------ | ---------------------- | ------------------------ | -------------------------------------------- |
+| `account.*`              | `account.*`            | `account.profile.read`   | ✅ YES (source match)                        |
+| `account.profile.read`   | `account.*`            | `account.profile.read`   | ✅ YES (exact match — was P0 bug before fix) |
+| `account.profile.read`   | `account.profile.read` | `account.profile.read`   | ✅ YES (source = exact)                      |
+| `account.profile.read`   | `account.*`            | `account.profile.update` | ❌ NO (different exact slug)                 |
+| `org.read`               | `account.*`            | `account.profile.read`   | ❌ NO (unrelated slug)                       |
 
-**Invariant**: An org-level revoke override removes the permission from ALL branches for that user in that org. There is no way to grant a branch permission that overrides an org-level revoke.
+**Concrete example (concrete slug)**:
+
+| Scenario                                                          | UEP result                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| User has org-scoped role with `warehouse.products.delete`         | UEP row: `permission_slug_exact='warehouse.products.delete', branch_id=NULL`         |
+| User also has branch-scoped role with `warehouse.products.delete` | UEP row: `permission_slug_exact='warehouse.products.delete', branch_id='branch-xyz'` |
+| Org-level revoke added for `warehouse.products.delete`            | **Both** UEP rows are ABSENT after next compile                                      |
+| Branch-level grant remains after revoke                           | ❌ Branch grant is ALSO suppressed — org revoke wins everywhere                      |
+
+**Concrete example (wildcard expansion + concrete revoke)**:
+
+| Scenario                                                          | UEP result                                                          |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------- |
+| User has org-scoped role with `account.*`                         | UEP rows for all 6 `account.*` expansions                           |
+| Org-level revoke added for `account.profile.read` (concrete slug) | `account.profile.read` absent; other 5 account expansions remain ✅ |
+| Org-level revoke added for `account.*` (wildcard source)          | All 6 account expansion rows absent                                 |
+
+**Invariant**: An org-level revoke override removes the permission from ALL branches for that user in that org. This applies to both concrete source slugs and slugs produced by wildcard expansion. There is no way to grant a branch permission that overrides an org-level revoke.
 
 ---
 
@@ -752,19 +775,19 @@ const { data, error } = await (branchId
 **After** (two separate queries, each targeting one partition):
 
 ```typescript
-// Query 1: org-scope rows — uses uep_org_exact_active_idx
+// Query 1: org-scope rows — uses uep_org_slug_exact_idx
 const { data: orgData, error: orgError } = await supabase
   .from("user_effective_permissions")
-  .select("permission_slug")
+  .select("permission_slug_exact")
   .eq("user_id", userId)
   .eq("organization_id", orgId)
   .is("branch_id", null); // ← partial index predicate satisfied exactly
 
 // Query 2: branch-scope rows (only when branchId is set)
-// — uses uep_branch_exact_active_idx
+// — uses uep_branch_slug_exact_idx
 const { data: branchData, error: branchError } = await supabase
   .from("user_effective_permissions")
-  .select("permission_slug")
+  .select("permission_slug_exact")
   .eq("user_id", userId)
   .eq("organization_id", orgId)
   .eq("branch_id", branchId); // ← partial index predicate satisfied exactly
@@ -779,43 +802,44 @@ Semantics are **identical** to the previous implementation: org-wide rows always
 
 Two new partial indexes provide stable, efficient query plans:
 
-#### (1) `uep_org_exact_active_idx` — org-scope lookups
+#### (1) `uep_org_slug_exact_idx` — org-scope lookups
 
 ```sql
-CREATE INDEX uep_org_exact_active_idx
-  ON public.user_effective_permissions (organization_id, user_id, permission_slug)
+CREATE INDEX uep_org_slug_exact_idx
+  ON public.user_effective_permissions (organization_id, user_id, permission_slug_exact)
   WHERE branch_id IS NULL;
 ```
 
 - **Covers**: `has_permission()`, `user_has_effective_permission()`, `getOrgEffectivePermissions*`, Query 1 of the two-query snapshot.
 - **Why `organization_id` first**: matches the order used by RLS policy expressions (`has_permission(org_id, slug)`) and gives the planner a narrow org-based scan before filtering by user.
 - **Index size**: roughly half the total UEP rows (only org-scope; branch rows excluded by predicate).
+- **Note**: supersedes `uep_org_exact_active_idx` (which was on `permission_slug`; dropped in 100k migration).
 
-#### (2) `uep_branch_exact_active_idx` — branch-scope lookups
+#### (2) `uep_branch_slug_exact_idx` — branch-scope lookups
 
 ```sql
-CREATE INDEX uep_branch_exact_active_idx
-  ON public.user_effective_permissions (organization_id, user_id, branch_id, permission_slug)
+CREATE INDEX uep_branch_slug_exact_idx
+  ON public.user_effective_permissions (organization_id, user_id, branch_id, permission_slug_exact)
   WHERE branch_id IS NOT NULL;
 ```
 
-- **Covers**: `has_branch_permission()` (the `branch_id = X` path), Query 2 of the two-query snapshot.
-- **Index size**: complementary to the org index — only branch rows. At scale, branch rows are a smaller fraction of UEP.
-- **Note**: `has_branch_permission()` still uses an OR internally (`branch_id IS NULL OR branch_id = X`). The DB function itself was not modified — its OR can be satisfied by a bitmap OR of both partial indexes, which is cheaper than scanning the full-table index. A future migration could split the function into two explicit lookups for maximum performance.
+- **Covers**: `has_branch_permission()`, Query 2 of the two-query snapshot.
+- **Index size**: complementary to the org index — only branch rows.
+- **Note**: supersedes `uep_branch_exact_active_idx` (which was on `permission_slug`; dropped in 100k migration).
 
 #### Why not CONCURRENTLY?
 
 `CREATE INDEX CONCURRENTLY` cannot run inside a transaction. Supabase MCP `apply_migration` runs DDL inside a transaction, so `CONCURRENTLY` is not supported in migration files. The migration uses regular `CREATE INDEX IF NOT EXISTS`, which holds an exclusive lock on UEP during index build. This is acceptable at initial deployment time. For zero-downtime index builds on large production tables, run the `CONCURRENTLY` variant manually via `psql`.
 
-### Solution 3: Compiler dedup invariant (verified, no change needed)
+### Solution 3: Compiler dedup invariant (verified, no change needed in 10k phase)
 
 The `compile_user_permissions` DB function was **verified** to already produce deduplicated output:
 
 - Both INSERT phases use `SELECT DISTINCT` on the projected rowset.
-- An `ON CONFLICT ON CONSTRAINT user_effective_permissions_unique_v2 DO UPDATE SET compiled_at = now()` clause provides an upsert safety net.
+- An `ON CONFLICT ON CONSTRAINT user_effective_permissions_unique_v2 DO UPDATE SET compiled_at = now()` clause provided an upsert safety net (updated to `unique_v3` in the 100k migration).
 - An advisory lock (`pg_advisory_xact_lock`) prevents concurrent compilation races for the same user+org.
 
-No change was made to the compiler. A regression test (`T-10K-COMPILER` suite) was added in `src/server/services/__tests__/permission-v2.service.test.ts` to prove the service-layer output is always deduplicated and sorted, even when the DB returns duplicate slugs.
+No compiler change in the 10k phase. The 100k phase significantly rewrote the compiler to add wildcard expansion. See §21.
 
 ### Test coverage added
 
@@ -829,12 +853,168 @@ File: `src/server/services/__tests__/permission-v2.service.test.ts`
 
 ### Before / After summary
 
-| Aspect                                | Before                                                   | After                                                            |
-| ------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| Snapshot query (branch-aware)         | Single query, OR filter                                  | Two queries, one per scope                                       |
-| Org-scope index                       | `idx_uep_user_org_permission` (full-table, no predicate) | `uep_org_exact_active_idx` (partial, `branch_id IS NULL`)        |
-| Branch-scope index                    | `idx_uep_user_org_branch` (full-table, no predicate)     | `uep_branch_exact_active_idx` (partial, `branch_id IS NOT NULL`) |
-| Index usability on branch-aware query | Low (OR defeats partial index)                           | High (each query satisfies its partial index exactly)            |
-| Compiler dedup                        | Already correct (`SELECT DISTINCT` + `ON CONFLICT`)      | Unchanged + regression tests added                               |
-| Wildcard semantics                    | Unchanged                                                | Unchanged                                                        |
-| Exact-match RPC gates                 | Unchanged                                                | Unchanged                                                        |
+| Aspect                                | Before (pre-10k)                                         | After (10k-ready)                                              |
+| ------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------- |
+| Snapshot query (branch-aware)         | Single query, OR filter                                  | Two queries, one per scope                                     |
+| Org-scope index                       | `idx_uep_user_org_permission` (full-table, no predicate) | `uep_org_slug_exact_idx` (partial, `branch_id IS NULL`)        |
+| Branch-scope index                    | `idx_uep_user_org_branch` (full-table, no predicate)     | `uep_branch_slug_exact_idx` (partial, `branch_id IS NOT NULL`) |
+| Index usability on branch-aware query | Low (OR defeats partial index)                           | High (each query satisfies its partial index exactly)          |
+| Compiler dedup                        | Already correct (`SELECT DISTINCT` + `ON CONFLICT`)      | Unchanged + regression tests added                             |
+| Wildcard semantics (TS)               | Unchanged                                                | Unchanged                                                      |
+| Exact-match RPC gates                 | Wildcard-blind                                           | Still wildcard-blind (fixed in 100k phase, §21)                |
+
+---
+
+## 21. 100k-ready: Compiler-side Wildcard Expansion
+
+> **Migration**: `supabase/migrations/20260304150000_add_permission_slug_exact_compiler_expansion.sql`
+> **Verification**: `docs/PHASE_VERIFY_PERMISSIONS_100K_READY.md`
+
+### Problem
+
+After the 10k-ready package, partial indexes and two-query snapshot were in place. However, DB RPC functions still matched on `permission_slug` — an **exact string match**. Wildcards (`account.*`, `module.*`) were stored verbatim in UEP.
+
+This meant `has_permission(org_id, 'account.profile.read')` returned **false** for a user whose role granted `account.*`. RLS policies could not safely use granular slug checks unless the user had that exact concrete slug stored. At 100k+ UEP rows this is a correctness hazard, not just a performance one.
+
+### Solution
+
+**Compiler-side expansion**: the `compile_user_permissions` function now expands wildcards at write time by JOINing the `permissions` registry.
+
+| Column                  | Contents                                           | Purpose                                                     |
+| ----------------------- | -------------------------------------------------- | ----------------------------------------------------------- |
+| `permission_slug`       | Source pattern (`account.*`, `org.read`, …)        | Traceability — tracks which role/override produced this row |
+| `permission_slug_exact` | Always a concrete slug (`account.profile.read`, …) | Query target for DB functions and TS snapshot               |
+
+### Schema Changes
+
+```sql
+-- New column
+ALTER TABLE public.user_effective_permissions
+  ADD COLUMN permission_slug_exact text NOT NULL;
+
+-- New unique constraint (identity is now on exact slug)
+UNIQUE NULLS NOT DISTINCT (user_id, organization_id, permission_slug_exact, branch_id)
+-- (old unique_v2 on permission_slug was dropped)
+
+-- New partial indexes (on permission_slug_exact)
+CREATE INDEX uep_org_slug_exact_idx
+  ON public.user_effective_permissions (organization_id, user_id, permission_slug_exact)
+  WHERE branch_id IS NULL;
+
+CREATE INDEX uep_branch_slug_exact_idx
+  ON public.user_effective_permissions (organization_id, user_id, branch_id, permission_slug_exact)
+  WHERE branch_id IS NOT NULL;
+```
+
+### Compiler Expansion Logic
+
+```sql
+-- For a wildcard source slug (e.g. "account.*"):
+LEFT JOIN public.permissions p2
+  ON  p.slug LIKE '%*%'                      -- source is a wildcard
+  AND p2.slug NOT LIKE '%*%'                 -- target must be concrete
+  AND p2.deleted_at IS NULL
+  AND p2.slug LIKE replace(p.slug, '*', '%') -- e.g. 'account.%'
+
+-- permission_slug       = p.slug   (source, e.g. "account.*")
+-- permission_slug_exact = COALESCE(p2.slug, p.slug)
+--                         → p2.slug  for wildcard rows (expanded)
+--                         → p.slug   for concrete rows (unchanged)
+```
+
+Each wildcard source produces **one UEP row per matching concrete slug** in the registry. If no registry slugs match the wildcard pattern, no UEP rows are produced (no implicit permission granted for unknown slugs).
+
+### Expansion Results (live registry)
+
+| Source slug        | Expanded `permission_slug_exact` values                                                                                                                        |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account.*`        | `account.preferences.read`, `account.preferences.update`, `account.profile.read`, `account.profile.update`, `account.settings.read`, `account.settings.update` |
+| `module.*`         | `module.organization-management.access`                                                                                                                        |
+| `superadmin.*`     | `superadmin.admin.read`, `superadmin.plans.read`, `superadmin.pricing.read`                                                                                    |
+| All concrete slugs | `permission_slug_exact = permission_slug` (pass-through)                                                                                                       |
+
+### DB Function Updates
+
+All three RPC functions now match on `permission_slug_exact`:
+
+```sql
+-- has_permission (was: permission_slug = permission)
+SELECT EXISTS (
+  SELECT 1 FROM public.user_effective_permissions
+  WHERE organization_id       = org_id
+    AND user_id               = auth.uid()
+    AND permission_slug_exact = permission   -- ← changed
+    AND branch_id             IS NULL
+);
+
+-- has_branch_permission (was: permission_slug = p_permission_slug)
+SELECT EXISTS (
+  SELECT 1 FROM public.user_effective_permissions
+  WHERE user_id               = auth.uid()
+    AND organization_id       = p_org_id
+    AND permission_slug_exact = p_permission_slug  -- ← changed
+    AND (branch_id IS NULL OR branch_id = p_branch_id)
+);
+
+-- user_has_effective_permission (was: permission_slug = p_permission_slug)
+SELECT EXISTS (
+  SELECT 1 FROM public.user_effective_permissions
+  WHERE user_id               = p_user_id
+    AND organization_id       = p_organization_id
+    AND permission_slug_exact = p_permission_slug  -- ← changed
+    AND branch_id             IS NULL
+);
+```
+
+### TypeScript Service Updates
+
+`getPermissionSnapshotForUser`, `getOrgEffectivePermissions`, `getOrgEffectivePermissionsArray` — all now `SELECT permission_slug_exact`. The `allow` array in `PermissionSnapshot` contains concrete slugs only.
+
+`checkPermission(snapshot, slug)` is unchanged and still correct — with concrete slugs in `allow`, it uses the fast exact-equality path (`p === required`) rather than the regex path.
+
+### Revoke Semantics (fixed in migration `20260304151000`)
+
+**Bug (P0)**: After the 100k migration, the NOT EXISTS revoke checks compared only against the source slug (`p.slug`). A revoke override for the concrete expanded slug (e.g. `account.profile.read`) was silently ignored — the expanded row was still inserted.
+
+**Fix**: Both NOT EXISTS clauses now also match against `COALESCE(p2.slug, p.slug)` (= `permission_slug_exact`):
+
+```sql
+AND NOT EXISTS (
+  SELECT 1 FROM public.user_permission_overrides upo
+  WHERE upo.user_id        = p_user_id
+    AND upo.organization_id = p_organization_id
+    AND (upo.permission_slug = p.slug
+         OR upo.permission_slug = COALESCE(p2.slug, p.slug))
+    AND upo.effect          = 'revoke'
+    AND upo.deleted_at      IS NULL
+)
+```
+
+**Revoke match matrix (post-fix):**
+
+| Revoke override slug   | Source `p.slug`        | Suppressed?                                       |
+| ---------------------- | ---------------------- | ------------------------------------------------- |
+| `account.*`            | `account.*`            | YES — entire wildcard                             |
+| `account.profile.read` | `account.*`            | YES — exact expanded slug ← was broken before fix |
+| `account.profile.read` | `account.profile.read` | YES — exact concrete slug                         |
+| `account.profile.read` | `org.read`             | NO — unrelated slug                               |
+
+**NULL-safe**: For concrete source slugs (no `*`), `p2` is NULL (LEFT JOIN predicate fails), so `COALESCE(p2.slug, p.slug) = p.slug`. The OR clause reduces to `upo.permission_slug = p.slug` — identical to the previous behavior for concrete slugs.
+
+### Before / After Summary
+
+| Aspect                                                             | Before (10k-ready)                   | After (100k-ready)                                    |
+| ------------------------------------------------------------------ | ------------------------------------ | ----------------------------------------------------- |
+| `permission_slug_exact` column                                     | Did not exist                        | `text NOT NULL`                                       |
+| Wildcards in UEP                                                   | Stored verbatim in `permission_slug` | Expanded to concrete slugs in `permission_slug_exact` |
+| `has_permission('account.profile.read')` for user with `account.*` | ❌ false                             | ✅ true                                               |
+| Unique constraint                                                  | `unique_v2` on `permission_slug`     | `unique_v3` on `permission_slug_exact`                |
+| Partial indexes                                                    | On `permission_slug`                 | On `permission_slug_exact`                            |
+| TS snapshot field                                                  | `permission_slug`                    | `permission_slug_exact`                               |
+| TS wildcard regex evaluation                                       | Required at runtime                  | No longer needed (concrete slugs in snapshot)         |
+| Compiler complexity                                                | Simple verbatim insert               | LEFT JOIN expansion against registry                  |
+
+### Caveats
+
+- **New registry slugs**: If a new `permissions` table entry is added, existing UEP rows are not automatically expanded to include it. Re-compilation is needed (triggered automatically by role/override changes, or call `compile_user_permissions` manually).
+- **Registry-gated expansion**: Wildcards only expand to slugs that **exist in the `permissions` table**. Future-proof additions require registry entries first.

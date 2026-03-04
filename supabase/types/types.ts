@@ -2057,6 +2057,109 @@ export type Database = {
           },
         ];
       };
+      org_position_assignments: {
+        Row: {
+          branch_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          id: string;
+          org_id: string;
+          position_id: string;
+          user_id: string;
+        };
+        Insert: {
+          branch_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id: string;
+          position_id: string;
+          user_id: string;
+        };
+        Update: {
+          branch_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id?: string;
+          position_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "org_position_assignments_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branch_stock_summary";
+            referencedColumns: ["branch_id"];
+          },
+          {
+            foreignKeyName: "org_position_assignments_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "org_position_assignments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "org_position_assignments_position_id_fkey";
+            columns: ["position_id"];
+            isOneToOne: false;
+            referencedRelation: "org_positions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      org_positions: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          org_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          org_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "org_positions_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organization_entitlements: {
         Row: {
           enabled_contexts: string[];
@@ -5601,31 +5704,37 @@ export type Database = {
       };
       user_effective_permissions: {
         Row: {
+          branch_id: string | null;
           compiled_at: string;
           created_at: string;
           id: string;
           organization_id: string;
           permission_slug: string;
+          permission_slug_exact: string;
           source_id: string | null;
           source_type: string;
           user_id: string;
         };
         Insert: {
+          branch_id?: string | null;
           compiled_at?: string;
           created_at?: string;
           id?: string;
           organization_id: string;
           permission_slug: string;
+          permission_slug_exact: string;
           source_id?: string | null;
           source_type?: string;
           user_id: string;
         };
         Update: {
+          branch_id?: string | null;
           compiled_at?: string;
           created_at?: string;
           id?: string;
           organization_id?: string;
           permission_slug?: string;
+          permission_slug_exact?: string;
           source_id?: string | null;
           source_type?: string;
           user_id?: string;
@@ -6618,6 +6727,13 @@ export type Database = {
         }[];
       };
       assert_dev_mode_enabled: { Args: never; Returns: undefined };
+      audit_uep_partial_indexes: {
+        Args: never;
+        Returns: {
+          indexdef: string;
+          indexname: string;
+        }[];
+      };
       calculate_current_stock: {
         Args: {
           p_branch_id: string;
@@ -6789,6 +6905,7 @@ export type Database = {
         Returns: Json;
       };
       custom_access_token_hook: { Args: { event: Json }; Returns: Json };
+      delete_org_role: { Args: { p_role_id: string }; Returns: undefined };
       dev_add_module_addon: {
         Args: { p_module_slug: string; p_org_id: string };
         Returns: undefined;
@@ -7108,6 +7225,14 @@ export type Database = {
       };
       handle_user_signup_hook: { Args: { event: Json }; Returns: Json };
       has_any_org_role: { Args: { org_id: string }; Returns: boolean };
+      has_branch_permission: {
+        Args: {
+          p_branch_id: string;
+          p_org_id: string;
+          p_permission_slug: string;
+        };
+        Returns: boolean;
+      };
       has_org_role: {
         Args: { org_id: string; role_name: string };
         Returns: boolean;
