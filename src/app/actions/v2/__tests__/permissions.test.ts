@@ -22,7 +22,7 @@ import {
   getBranchPermissions,
   getEffectivePermissions,
   getDetailedPermissions,
-  checkPermission,
+  checkOrgPermissionExact,
   checkOrgMembership,
 } from "../permissions";
 import { createClient } from "@/utils/supabase/server";
@@ -519,7 +519,7 @@ describe("getDetailedPermissions", () => {
   });
 });
 
-describe("checkPermission", () => {
+describe("checkOrgPermissionExact", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -529,7 +529,7 @@ describe("checkPermission", () => {
     (createClient as any).mockResolvedValue(mockSupabase);
     (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(true);
 
-    const result = await checkPermission("org-123", "org.read");
+    const result = await checkOrgPermissionExact("org-123", "org.read");
 
     expect(result).toBe(true);
     expect(PermissionServiceV2.currentUserHasPermission).toHaveBeenCalledWith(
@@ -544,7 +544,7 @@ describe("checkPermission", () => {
     (createClient as any).mockResolvedValue(mockSupabase);
     (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
 
-    const result = await checkPermission("org-123", "members.manage");
+    const result = await checkOrgPermissionExact("org-123", "members.manage");
 
     expect(result).toBe(false);
   });
@@ -552,9 +552,30 @@ describe("checkPermission", () => {
   it("should return false on error", async () => {
     (createClient as any).mockRejectedValue(new Error("Failed"));
 
-    const result = await checkPermission("org-123", "org.read");
+    const result = await checkOrgPermissionExact("org-123", "org.read");
 
     expect(result).toBe(false);
+  });
+
+  it("is exact-match only — does NOT expand wildcards (use checkPermission utility for that)", async () => {
+    // This test documents the intentional limitation: the DB RPC is exact-match.
+    // A user whose UEP contains "warehouse.*" will get false from this action
+    // when checked against "warehouse.products.read" because has_permission() is exact-match.
+    // To check wildcards, use checkPermission(snapshot, slug) from @/lib/utils/permissions.
+    const mockSupabase = {};
+    (createClient as any).mockResolvedValue(mockSupabase);
+    // DB RPC returns false for wildcard slug check (exact match only)
+    (PermissionServiceV2.currentUserHasPermission as any).mockResolvedValue(false);
+
+    const result = await checkOrgPermissionExact("org-123", "warehouse.products.read");
+
+    expect(result).toBe(false);
+    // Callers must use non-wildcard slugs with this action.
+    expect(PermissionServiceV2.currentUserHasPermission).toHaveBeenCalledWith(
+      mockSupabase,
+      "org-123",
+      "warehouse.products.read"
+    );
   });
 });
 

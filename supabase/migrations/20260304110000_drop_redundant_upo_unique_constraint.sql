@@ -1,0 +1,28 @@
+-- Drop redundant unique index on user_permission_overrides
+--
+-- Background:
+--   Two unique indexes cover the same set of columns with identical predicates:
+--
+--   user_permission_overrides_uniq:
+--     UNIQUE (user_id, permission_id, scope, scope_id) WHERE deleted_at IS NULL
+--
+--   user_permission_overrides_unique_active:
+--     UNIQUE (user_id, scope, scope_id, permission_id) WHERE deleted_at IS NULL
+--
+--   PostgreSQL uniqueness is enforced over the SET of indexed columns, not their order.
+--   Both indexes prevent the same duplicate rows and enforce the same constraint.
+--   The duplication was introduced by migration 20260110141056 which noted:
+--     "Note: Existing table already has unique(user_id, permission_id, scope, scope_id)"
+--   but added a second partial index anyway (for soft-delete semantics).
+--
+-- Decision:
+--   Drop `user_permission_overrides_uniq` (older, less descriptive name).
+--   Keep `user_permission_overrides_unique_active` (newer, explicit soft-delete semantics name).
+--
+-- Safety:
+--   - No ON CONFLICT ON CONSTRAINT references to either name exist in migrations or TypeScript.
+--   - The compiler (`compile_user_permissions`) does not reference UPO uniqueness constraints.
+--   - Application code soft-deletes overrides (sets deleted_at) — no upsert pattern used.
+--   - Behaviour is unchanged: `user_permission_overrides_unique_active` enforces the same rule.
+
+DROP INDEX IF EXISTS public.user_permission_overrides_uniq;

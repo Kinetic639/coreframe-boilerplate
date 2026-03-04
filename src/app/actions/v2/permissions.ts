@@ -83,15 +83,23 @@ export async function getEffectivePermissions(orgId: string): Promise<string[]> 
 }
 
 /**
- * Server action to check if current user has a specific permission
+ * Server action to check if current user has a specific permission via DB RPC.
  *
- * More efficient than fetching all permissions when you only need to check one.
+ * Uses `has_permission(org_id, slug)` — an **exact string match** against
+ * `user_effective_permissions WHERE branch_id IS NULL`. This is intentionally
+ * NOT wildcard-aware: it is appropriate only for checking concrete non-wildcard slugs.
+ *
+ * For wildcard-aware checks use `checkPermission(snapshot, slug)` from
+ * `@/lib/utils/permissions` with a pre-fetched PermissionSnapshot.
+ *
+ * Renamed from `checkPermission` to avoid collision with the wildcard-aware utility
+ * function of the same name exported from `@/lib/utils/permissions`.
  *
  * @param orgId - Organization ID
- * @param permission - Permission slug to check
- * @returns True if user has the permission
+ * @param permission - Non-wildcard permission slug to check
+ * @returns True if user has the exact permission (org-scope, DB RPC)
  */
-export async function checkPermission(orgId: string, permission: string): Promise<boolean> {
+export async function checkOrgPermissionExact(orgId: string, permission: string): Promise<boolean> {
   try {
     const supabase = await createClient();
 
