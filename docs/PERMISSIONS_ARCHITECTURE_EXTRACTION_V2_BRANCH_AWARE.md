@@ -1,878 +1,710 @@
-# PERMISSIONS_ARCHITECTURE_EXTRACTION_V2_BRANCH_AWARE
+# Permissions Architecture — V2 Branch-Aware (Verified 2026-03-04, Hardened)
 
-**Extraction Date:** 2026-03-03
-**Extractor:** Claude Code forensic pass
-**Source of Truth:** Supabase MCP (live DB) + source code reads
-**Branch:** `org-managment-v2`
+> **Status**: Fully verified against live DB + source code. Hardening patches applied (Phase 2 + follow-up audit).
+> Branch: `org-managment-v2`. Hardening: `canFromSnapshot` wildcard-safe, action renamed, UPO index dropped, RLS slug inventory expanded to 10 slugs, DB-backed invariant test added.
 
 ---
 
-## 0. Executive Summary
+## Table of Contents
 
-This document is a complete forensic extraction of the RBAC and permission compilation architecture as it stands on 2026-03-03. The system has undergone a **major upgrade** from V1 (org-only UEP) to V2 (branch-aware UEP). The key change is that `user_effective_permissions` now carries a `branch_id` column, enabling branch-scoped permission facts to be stored and checked independently from org-scoped facts.
-
-### Architectural Philosophy
-
-The system follows **two concurrent permission evaluation strategies**:
-
-| Strategy                              | Used By                                                                                    | How                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| **Compile-then-read (V2 / "cached")** | RLS policies, `PermissionServiceV2`, `has_permission()`, `user_has_effective_permission()` | DB triggers compile roles → UEP at write-time; RLS checks UEP at read-time     |
-| **Dynamic query (V1 / "real-time")**  | `PermissionService`, `loadUserContextV2`, `getBranchPermissions` action                    | Query URA → role_permissions at read-time; supports wildcards + deny-overrides |
-
-**Critical architectural constraint:** The V2 "compiled" path (`PermissionServiceV2`, RLS functions) only reads UEP where `branch_id IS NULL` — it is **org-scope only**. Branch-scoped permissions are only visible through the V1 dynamic query path. This is the root cause of the bug fixed in `getBranchPermissions` (previously used `PermissionServiceV2`, now correctly uses `PermissionService`).
-
-### Live DB Snapshot (2026-03-03)
-
-| Table                                                              | Count                     |
-| ------------------------------------------------------------------ | ------------------------- |
-| `user_effective_permissions` (org-scope, branch_id IS NULL)        | **31**                    |
-| `user_effective_permissions` (branch-scope, branch_id IS NOT NULL) | **5**                     |
-| Orphaned branch UEP (no matching URA branch assignment)            | **0** (data integrity OK) |
+1. [Architecture Summary](#1-architecture-summary)
+2. [Core Principle: Compile, Don't Evaluate](#2-core-principle-compile-dont-evaluate)
+3. [URA Usage Invariant](#3-ura-usage-invariant)
+4. [Database Tables](#4-database-tables)
+5. [Database Functions](#5-database-functions)
+6. [Database Triggers](#6-database-triggers)
+7. [RLS Policies](#7-rls-policies)
+8. [RLS / RPC Exact-Match Rule](#8-rls--rpc-exact-match-rule)
+9. [TypeScript Layer](#9-typescript-layer)
+10. [Server Actions (V2)](#10-server-actions-v2)
+11. [Client-Side Permission Checking](#11-client-side-permission-checking)
+12. [SSR Loading Pipeline](#12-ssr-loading-pipeline)
+13. [Wildcard Handling](#13-wildcard-handling)
+14. [Org Revoke Cascade Behaviour](#14-org-revoke-cascade-behaviour)
+15. [Live DB Sanity Check (2026-03-04)](#15-live-db-sanity-check-2026-03-04)
+16. [Known Issues and Design Decisions](#16-known-issues-and-design-decisions)
+17. [Deprecated / Retired Code](#17-deprecated--retired-code)
+18. [Permission Slug Inventory](#18-permission-slug-inventory)
+19. [Diff vs Previous Doc](#19-diff-vs-previous-doc)
 
 ---
 
-## 1. Live Permissions Registry
+## 1. Architecture Summary
 
-All 30 active permissions queried from `public.permissions` table. DB is source of truth.
+```
+User changes role assignment or override
+         │
+         ▼
+  DB TRIGGER (AFTER INSERT/UPDATE/DELETE)
+  ┌─ user_role_assignments → trigger_compile_on_role_assignment()
+  └─ user_permission_overrides → trigger_compile_on_override()
+         │
+         ▼
+  compile_user_permissions(user_id, organization_id)
+  ┌─ Advisory lock (prevents races)
+  ├─ Active membership guard (wipes UEP if not active member)
+  ├─ DELETE existing UEP rows for user+org
+  ├─ INSERT org-scoped rows   (branch_id = NULL)
+  └─ INSERT branch-scoped rows (branch_id = <uuid>)
+         │
+         ▼
+  user_effective_permissions  ←── SINGLE SOURCE OF TRUTH
+         │
+         ├── SSR: PermissionServiceV2.getPermissionSnapshotForUser()
+         │         → loadUserContextV2 → permissionSnapshot
+         │
+         ├── Client sync: getBranchPermissions() server action
+         │         → PermissionsSync component → usePermissions hook
+         │
+         ├── DB gate: has_permission(org_id, slug)
+         │         → RLS policies (exact match, org-scope only)
+         │
+         └── DB gate: has_branch_permission(org_id, branch_id, slug)
+                    → RLS policies (exact match, branch-aware)
+```
 
-| Slug                                    | Category   | Action                         | Scope Types  | Is System |
-| --------------------------------------- | ---------- | ------------------------------ | ------------ | --------- |
-| `account.*`                             | account    | \*                             | `["global"]` | true      |
-| `account.preferences.read`              | account    | preferences.read               | `["global"]` | true      |
-| `account.preferences.update`            | account    | preferences.update             | `["global"]` | true      |
-| `account.profile.read`                  | account    | profile.read                   | `["global"]` | true      |
-| `account.profile.update`                | account    | profile.update                 | `["global"]` | true      |
-| `account.settings.read`                 | account    | settings.read                  | `["global"]` | true      |
-| `account.settings.update`               | account    | settings.update                | `["global"]` | true      |
-| `branch.roles.manage`                   | branch     | roles.manage                   | `["branch"]` | **false** |
-| `branches.create`                       | branches   | create                         | null         | false     |
-| `branches.delete`                       | branches   | delete                         | null         | false     |
-| `branches.read`                         | branches   | read                           | null         | false     |
-| `branches.update`                       | branches   | update                         | null         | false     |
-| `branches.view.any`                     | branches   | view.any                       | null         | false     |
-| `branches.view.remove.any`              | branches   | view.remove.any                | null         | false     |
-| `branches.view.update.any`              | branches   | view.update.any                | null         | false     |
-| `invites.cancel`                        | invites    | cancel                         | null         | false     |
-| `invites.create`                        | invites    | create                         | null         | false     |
-| `invites.read`                          | invites    | read                           | null         | false     |
-| `members.manage`                        | members    | manage                         | null         | false     |
-| `members.read`                          | members    | read                           | null         | false     |
-| `module.*`                              | module     | \*                             | null         | false     |
-| `module.organization-management.access` | module     | organization-management.access | null         | false     |
-| `org.read`                              | org        | read                           | null         | false     |
-| `org.update`                            | org        | update                         | null         | false     |
-| `self.read`                             | self       | read                           | null         | false     |
-| `self.update`                           | self       | update                         | null         | false     |
-| `superadmin.*`                          | superadmin | \*                             | `["global"]` | true      |
-| `superadmin.admin.read`                 | superadmin | admin.read                     | `["global"]` | true      |
-| `superadmin.plans.read`                 | superadmin | plans.read                     | `["global"]` | true      |
-| `superadmin.pricing.read`               | superadmin | pricing.read                   | `["global"]` | true      |
+---
 
-**Key notes:**
+## 2. Core Principle: Compile, Don't Evaluate
 
-- `branch.roles.manage` is the only permission with `scope_types: ["branch"]` and `is_system: false` — it is a user-assignable, branch-scoped delegation permission.
-- `account.*` and `superadmin.*` are system wildcards (`is_system: true`), used by the admin module.
-- `module.*` is org-scoped but not is_system — granted to `org_owner` role via migration.
-- Permissions with `scope_types: null` are treated as org-scoped by convention.
+The V2 permission system **never computes permissions at request time**. Instead:
 
-### TypeScript Constants
+- Permissions are **compiled** once into `user_effective_permissions` (UEP) whenever role assignments or overrides change.
+- All request-time checks **read** pre-compiled facts from UEP.
+- The compiler (`compile_user_permissions`) is a DB SECURITY DEFINER function, not TypeScript code.
+- No TypeScript code derives effective permissions from `user_role_assignments` at runtime.
 
-All slugs are exported from `src/lib/constants/permissions.ts`. No raw permission strings exist outside this file (enforced by code review convention).
+---
+
+## 3. URA Usage Invariant
+
+**"TS code must not derive effective permissions from URA. URA reads are permitted only for branch accessibility discovery."**
+
+There is exactly one legitimate TypeScript read of `user_role_assignments` in the V2 pipeline:
+
+**`_computeAccessibleBranches`** — `src/server/loaders/v2/load-dashboard-context.v2.ts`
 
 ```typescript
-// Key constants (full list in file)
-BRANCH_ROLES_MANAGE = "branch.roles.manage";
-BRANCHES_VIEW_ANY = "branches.view.any";
-MEMBERS_READ = "members.read";
-MEMBERS_MANAGE = "members.manage";
-MODULE_ORGANIZATION_MANAGEMENT_ACCESS = "module.organization-management.access";
+// SLOW PATH: user lacks BRANCHES_VIEW_ANY — find which branches they have any role in
+const { data: assignments } = await supabase
+  .from("user_role_assignments")
+  .select("scope_id") // only branch UUIDs — no permission content
+  .eq("user_id", userId)
+  .eq("scope", "branch")
+  .is("deleted_at", null);
+```
+
+- **Purpose**: discover WHICH BRANCHES exist for this user (accessibility discovery), not WHAT they can do.
+- Only `scope_id` (branch UUID) is selected — no permission slugs read from URA.
+- Permission content **always** comes from UEP via `getPermissionSnapshotForUser`.
+- RLS "View own role assignments" (`user_id = auth.uid()`) permits this without `members.read`.
+- This is NOT permission derivation. The "compile, don't evaluate" invariant is preserved.
+
+Any other TypeScript read of `user_role_assignments` for permission computation would be an architectural violation.
+
+---
+
+## 4. Database Tables
+
+### 4.1 `permissions` (30 active rows)
+
+| Column                               | Type        | Nullable | Default           |
+| ------------------------------------ | ----------- | -------- | ----------------- | ------ |
+| id                                   | uuid        | NO       | gen_random_uuid() |
+| slug                                 | text        | NO       | —                 | UNIQUE |
+| label                                | text        | YES      | —                 |
+| name                                 | text        | YES      | —                 |
+| description                          | text        | YES      | —                 |
+| category                             | text        | NO       | —                 |
+| subcategory                          | text        | YES      | —                 |
+| resource_type                        | text        | YES      | —                 |
+| action                               | text        | NO       | —                 |
+| scope_types                          | text[]      | YES      | —                 |
+| is_system                            | bool        | YES      | false             |
+| is_dangerous                         | bool        | YES      | false             |
+| requires_mfa                         | bool        | YES      | false             |
+| priority                             | int         | YES      | 0                 |
+| metadata                             | jsonb       | YES      | '{}'              |
+| created_at / updated_at / deleted_at | timestamptz | —        | —                 |
+
+**Indexes**: `permissions_pkey`, `permissions_slug_key` (UNIQUE), `idx_permissions_category`, `idx_permissions_system`, `idx_permissions_dangerous`.
+
+---
+
+### 4.2 `roles`
+
+| Column          | Type        | Nullable | Default           |
+| --------------- | ----------- | -------- | ----------------- | ---------------------------------- |
+| id              | uuid        | NO       | gen_random_uuid() |
+| organization_id | uuid        | YES      | —                 | FK → organizations (NULL = system) |
+| name            | text        | NO       | —                 |
+| is_basic        | bool        | NO       | false             | true = system role                 |
+| scope_type      | text        | NO       | 'org'             | 'org' \| 'branch' \| 'both'        |
+| deleted_at      | timestamptz | YES      | —                 |
+
+---
+
+### 4.3 `role_permissions`
+
+| Column        | Type        | Nullable | Default           |
+| ------------- | ----------- | -------- | ----------------- | ---------------- |
+| id            | uuid        | NO       | gen_random_uuid() |
+| role_id       | uuid        | NO       | —                 | FK → roles       |
+| permission_id | uuid        | NO       | —                 | FK → permissions |
+| allowed       | bool        | NO       | true              |
+| deleted_at    | timestamptz | YES      | —                 |
+
+---
+
+### 4.4 `user_role_assignments` (URA)
+
+| Column     | Type        | Nullable |
+| ---------- | ----------- | -------- | ------------------- |
+| id         | uuid        | NO       |
+| user_id    | uuid        | NO       |
+| role_id    | uuid        | NO       |
+| scope      | text        | NO       | 'org' or 'branch'   |
+| scope_id   | uuid        | NO       | org_id or branch_id |
+| deleted_at | timestamptz | YES      |
+
+**Indexes**: PK, UNIQUE(user_id, role_id, scope, scope_id), `idx_user_role_assignments_compiler`(user_id, scope, scope_id WHERE deleted_at IS NULL).
+
+**Triggers**: BEFORE INSERT/UPDATE: `validate_role_assignment_scope`. AFTER INSERT/UPDATE/DELETE: `trigger_compile_on_role_assignment`.
+
+---
+
+### 4.5 `user_permission_overrides` (UPO)
+
+| Column                  | Type        | Nullable | Default           |
+| ----------------------- | ----------- | -------- | ----------------- | ------------------- |
+| id                      | uuid        | NO       | gen_random_uuid() |
+| user_id                 | uuid        | NO       | —                 |
+| organization_id         | uuid        | YES      | —                 |
+| permission_id           | uuid        | NO       | —                 |
+| permission_slug         | text        | YES      | —                 | Denormalized        |
+| allowed                 | bool        | NO       | —                 | Legacy column       |
+| effect                  | text        | NO       | 'grant'           | 'grant' \| 'revoke' |
+| scope                   | text        | NO       | —                 |
+| scope_id                | uuid        | YES      | —                 |
+| deleted_at              | timestamptz | YES      | —                 |
+| created_at / updated_at | timestamptz | NO       | now()             |
+
+**Indexes (post-hardening):**
+| Index | Definition |
+|---|---|
+| `user_permission_overrides_pkey` | UNIQUE(id) |
+| `user_permission_overrides_unique_active` | UNIQUE(user_id, scope, scope_id, permission_id) WHERE deleted_at IS NULL |
+| `idx_user_permission_overrides_compiler` | (user_id, organization_id, effect) WHERE deleted_at IS NULL |
+| `idx_user_permission_overrides_created_at` | (created_at DESC) |
+
+**Note**: `user_permission_overrides_uniq` was dropped in migration `20260304110000` — it was functionally redundant with `user_permission_overrides_unique_active` (same 4 columns, same WHERE predicate, only column order differed).
+
+**Triggers**: BEFORE INSERT/UPDATE: `validate_permission_slug_on_override`. AFTER INSERT/UPDATE/DELETE: `trigger_compile_on_override`. BEFORE UPDATE: `update_user_permission_overrides_updated_at`.
+
+---
+
+### 4.6 `user_effective_permissions` (UEP) — Single Source of Truth
+
+| Column          | Type        | Nullable | Default           |
+| --------------- | ----------- | -------- | ----------------- | ---------------------------------------------------- |
+| id              | uuid        | NO       | gen_random_uuid() |
+| user_id         | uuid        | NO       | —                 |
+| organization_id | uuid        | NO       | —                 |
+| permission_slug | text        | NO       | —                 | Verbatim from permissions.slug (wildcards preserved) |
+| source_type     | text        | NO       | 'role'            | 'role' \| 'override'                                 |
+| source_id       | uuid        | YES      | —                 |
+| branch_id       | uuid        | YES      | —                 | **NULL = org-scoped; UUID = branch-scoped**          |
+| created_at      | timestamptz | NO       | now()             |
+| compiled_at     | timestamptz | NO       | now()             |
+
+**Constraints**: UNIQUE `user_effective_permissions_unique_v2`(user_id, org_id, permission_slug, branch_id) NULLS NOT DISTINCT.
+
+**Indexes**: `idx_uep_user_org`, `idx_uep_user_org_branch`, `idx_uep_user_org_permission`, `idx_uep_permission`.
+
+**Critical semantics**:
+
+- `branch_id IS NULL` = org-scoped (applies everywhere in the org)
+- `branch_id = <uuid>` = branch-scoped (applies only in that branch)
+- Compiler does **NOT** expand wildcards — `module.*`, `account.*` stored verbatim
+
+---
+
+### 4.7 `organization_members`
+
+| Column          | Type        | Notes                                 |
+| --------------- | ----------- | ------------------------------------- |
+| organization_id | uuid        | FK → organizations                    |
+| user_id         | uuid        | FK → users                            |
+| status          | text        | 'active' \| 'inactive' \| 'suspended' |
+| deleted_at      | timestamptz | Soft delete                           |
+
+**Role in compiler**: If user is not an active member, compiler wipes all UEP rows for that user+org and exits.
+
+---
+
+### 4.8 `branches`
+
+| Column          | Type        | Notes                                   |
+| --------------- | ----------- | --------------------------------------- |
+| id              | uuid        | PK                                      |
+| organization_id | uuid        | FK — org isolation enforced in compiler |
+| name            | text        |                                         |
+| slug            | text        |                                         |
+| deleted_at      | timestamptz | Soft delete                             |
+
+---
+
+## 5. Database Functions
+
+### 5.1 `compile_user_permissions(p_user_id, p_organization_id)` — SECURITY DEFINER
+
+**The sole authoritative permission compiler.** Called only by triggers.
+
+```
+1. Active membership guard:
+   IF NOT (active org member) → DELETE UEP rows + RETURN
+
+2. Advisory lock: pg_advisory_xact_lock(hashtext(user_id || org_id))
+   → Prevents concurrent compilation races for same user+org
+
+3. DELETE all UEP rows for user+org  (full wipe before recompile)
+
+4. INSERT org-scoped (branch_id = NULL):
+   URA(scope='org', scope_id=org_id)
+     → role_permissions(allowed=true)
+     → permissions.slug
+   UNION upo(effect='grant')
+   MINUS upo(effect='revoke')     ← applied here, prevents slug from appearing
+
+5. INSERT branch-scoped (branch_id = ura.scope_id):
+   URA(scope='branch')
+     → role_permissions
+     → permissions.slug
+   JOIN branches b ON b.id=scope_id AND b.organization_id=p_org_id  ← cross-org guard
+   MINUS upo(effect='revoke')     ← same revoke check as org-scoped
+
+ON CONFLICT (unique_v2) DO UPDATE SET compiled_at=now(), source_type=EXCLUDED.source_type
 ```
 
 ---
 
-## 2. RBAC Data Model
-
-### 2.1 `roles`
-
-```
-id              uuid PK  gen_random_uuid()
-organization_id uuid     nullable  -- NULL = system/global role
-name            text     NOT NULL
-is_basic        boolean  default false
-scope_type      text     NOT NULL  default 'org'  -- 'org' | 'branch' | 'both'
-description     text     nullable
-deleted_at      timestamptz nullable
-```
-
-- `scope_type` controls which URA scope is valid for assignments to this role.
-- `organization_id IS NULL` = system roles (e.g., `org_owner`, `org_member`).
-- `is_basic` marks roles that cannot be deleted by org admins.
-
-**RLS Policies (5):**
-
-- `roles_select_system` (SELECT): `organization_id IS NULL` — everyone can see system roles
-- `roles_select_org` (SELECT): `is_org_member(organization_id)` — members see org roles
-- `roles_insert_permission` (INSERT): `has_permission(organization_id, 'members.manage')` AND `is_org_member`
-- `roles_update_permission` (UPDATE): same as insert
-- `roles_delete_permission` (DELETE): same as insert
-
-### 2.2 `role_permissions`
-
-Joins roles to permission slugs. Mirrors roles RLS (5 policies, same pattern as roles write policies).
-
-Key columns: `role_id`, `permission_id`, `allowed` (bool), `deleted_at`.
-
-### 2.3 `user_role_assignments` (URA)
-
-```
-id       uuid PK  gen_random_uuid()
-user_id  uuid     FK → auth.users(id) ON DELETE RESTRICT  NOT NULL
-role_id  uuid     FK → roles(id) ON DELETE RESTRICT       NOT NULL
-scope    text     NOT NULL   CHECK (scope IN ('org', 'branch'))
-scope_id uuid     NOT NULL   -- org_id when scope='org', branch_id when scope='branch'
-deleted_at timestamptz nullable
-```
-
-**Unique Constraint:** `(user_id, role_id, scope, scope_id)` — prevents duplicate assignments.
-
-**RLS Policies (7):**
-
-| Policy Name                            | CMD    | Gate                                                                                                                            |
-| -------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `View own role assignments`            | SELECT | `user_id = auth.uid()`                                                                                                          |
-| `V2 view org role assignments`         | SELECT | `scope='org' AND is_org_member(scope_id) AND has_permission(scope_id, 'members.read')`                                          |
-| `V2 view branch role assignments`      | SELECT | `scope='branch' AND (has_permission(org_id, 'members.read') OR has_branch_permission(org_id, scope_id, 'branch.roles.manage'))` |
-| `Org admins view org role assignments` | SELECT | `scope='org' AND (is_org_creator(scope_id) OR has_org_role(scope_id, 'org_owner'))`                                             |
-| `V2 assign roles`                      | INSERT | See dual-gate below                                                                                                             |
-| `V2 update role assignments`           | UPDATE | See dual-gate below                                                                                                             |
-| `V2 delete role assignments`           | DELETE | See dual-gate below                                                                                                             |
-
-**Dual-gate pattern for INSERT/UPDATE/DELETE:**
+### 5.2 `has_permission(org_id, permission) → boolean`
 
 ```sql
--- Org path:
-(scope = 'org' AND is_org_member(scope_id) AND has_permission(scope_id, 'members.manage'))
-OR
--- Branch path:
-(scope = 'branch'
-  AND (
-    has_permission(branch.organization_id, 'members.manage')
-    OR has_branch_permission(branch.organization_id, scope_id, 'branch.roles.manage')
-  )
-  AND is_org_member(branch.organization_id)
+SELECT EXISTS (
+  SELECT 1 FROM user_effective_permissions
+  WHERE organization_id = org_id AND user_id = auth.uid()
+    AND permission_slug = permission AND branch_id IS NULL
+);
+```
+
+Exact match. Org-scope only. Used in RLS policies.
+
+---
+
+### 5.3 `has_branch_permission(p_org_id, p_branch_id, p_slug) → boolean`
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM user_effective_permissions
+  WHERE user_id = auth.uid() AND organization_id = p_org_id
+    AND permission_slug = p_slug
+    AND (branch_id IS NULL OR branch_id = p_branch_id)
+);
+```
+
+Exact match. Branch-aware (org-wide grants satisfy branch checks). Used in RLS policies.
+
+---
+
+### 5.4 `user_has_effective_permission(p_user_id, p_org_id, p_slug) → boolean`
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM user_effective_permissions
+  WHERE user_id = p_user_id AND organization_id = p_org_id
+    AND permission_slug = p_slug AND branch_id IS NULL
+);
+```
+
+Exact match. Org-scope. Explicit user_id. Used by `PermissionServiceV2.hasPermission()`.
+
+---
+
+### 5.5 `is_org_member(org_id) → boolean`
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM organization_members
+  WHERE organization_id = org_id AND user_id = auth.uid()
+    AND status = 'active' AND deleted_at IS NULL
+);
+```
+
+---
+
+### 5.6 `validate_role_assignment_scope() → trigger`
+
+Prevents assigning `scope_type='org'` roles at branch scope and vice versa.
+
+---
+
+## 6. Database Triggers
+
+| Table                     | Trigger                                      | Timing | Events                 | Function                                      |
+| ------------------------- | -------------------------------------------- | ------ | ---------------------- | --------------------------------------------- |
+| user_role_assignments     | trigger_role_assignment_compile              | AFTER  | INSERT, UPDATE, DELETE | trigger_compile_on_role_assignment()          |
+| user_role_assignments     | check_role_assignment_scope                  | BEFORE | INSERT, UPDATE         | validate_role_assignment_scope()              |
+| user_permission_overrides | trigger_override_compile                     | AFTER  | INSERT, UPDATE, DELETE | trigger_compile_on_override()                 |
+| user_permission_overrides | trigger_user_permission_overrides_updated_at | BEFORE | UPDATE                 | update_user_permission_overrides_updated_at() |
+| user_permission_overrides | trigger_validate_permission_slug             | BEFORE | INSERT, UPDATE         | validate_permission_slug_on_override()        |
+
+---
+
+## 7. RLS Policies
+
+### 7.1 `user_effective_permissions`
+
+| Policy                                   | Cmd    | Condition                                    |
+| ---------------------------------------- | ------ | -------------------------------------------- |
+| Users can view own effective permissions | SELECT | `user_id = auth.uid()`                       |
+| Org owners can view member permissions   | SELECT | `has_org_role(organization_id, 'org_owner')` |
+
+No write policies — UEP is written **exclusively by the SECURITY DEFINER compiler**.
+
+---
+
+### 7.2 `user_role_assignments`
+
+| Policy                               | Roles         | Cmd           | Condition                                                                                                                       |
+| ------------------------------------ | ------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| View own role assignments            | authenticated | SELECT        | `user_id = auth.uid()`                                                                                                          |
+| V2 view org role assignments         | authenticated | SELECT        | `scope='org' AND is_org_member(scope_id) AND has_permission(scope_id, 'members.read')`                                          |
+| V2 view branch role assignments      | public        | SELECT        | `scope='branch' AND (has_permission(org_id, 'members.read') OR has_branch_permission(org_id, scope_id, 'branch.roles.manage'))` |
+| Org admins view org role assignments | authenticated | SELECT        | `scope='org' AND (is_org_creator OR has_org_role('org_owner'))`                                                                 |
+| V2 assign roles                      | public        | INSERT        | Org: `is_org_member + members.manage`; Branch: `(members.manage OR branch.roles.manage) AND is_org_member`                      |
+| V2 update / delete role assignments  | public        | UPDATE/DELETE | Same dual-gate as insert                                                                                                        |
+
+---
+
+### 7.3 `user_permission_overrides`
+
+| Policy                                    | Cmd                  | Condition                                                                   |
+| ----------------------------------------- | -------------------- | --------------------------------------------------------------------------- |
+| overrides_select_self                     | SELECT               | `user_id = auth.uid() AND deleted_at IS NULL`                               |
+| overrides_select_admin                    | SELECT               | `is_org_member AND has_permission('members.manage') AND deleted_at IS NULL` |
+| overrides_insert/update/delete_permission | INSERT/UPDATE/DELETE | `is_org_member AND has_permission('members.manage') AND deleted_at IS NULL` |
+
+---
+
+### 7.4 `organization_members`
+
+| Policy                                 | Cmd    | Condition                                                                         |
+| -------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| Users can view                         | SELECT | `user_id=auth.uid() OR is_org_creator OR has_any_org_role`                        |
+| Org creators and owners can add        | INSERT | `is_org_creator OR has_org_role('org_owner')`                                     |
+| Org owners / members.manage can update | UPDATE | `has_org_role('org_owner')` OR `is_org_member + has_permission('members.manage')` |
+| Org owners can remove                  | DELETE | `has_org_role('org_owner')`                                                       |
+
+---
+
+### 7.5 `permissions`
+
+| Policy                           | Cmd    | Condition            |
+| -------------------------------- | ------ | -------------------- |
+| permissions_select_authenticated | SELECT | `deleted_at IS NULL` |
+
+---
+
+### 7.6 `roles`
+
+| Policy                                | Cmd                  | Condition                                                               |
+| ------------------------------------- | -------------------- | ----------------------------------------------------------------------- |
+| roles_select_system                   | SELECT               | `is_basic = true AND organization_id IS NULL AND deleted_at IS NULL`    |
+| roles_select_org                      | SELECT               | `org_id IS NOT NULL AND is_org_member AND deleted_at IS NULL`           |
+| roles_insert/update/delete_permission | INSERT/UPDATE/DELETE | `is_org_member AND has_permission('members.manage') AND is_basic=false` |
+
+---
+
+## 8. RLS / RPC Exact-Match Rule
+
+**Rule**: RLS policies and DB RPC permission checks must only use non-wildcard permission slugs.
+
+**Rationale**: DB functions `has_permission`, `has_branch_permission`, `user_has_effective_permission` all perform **exact string comparisons** against `permission_slug` in UEP. UEP may contain wildcard rows such as `"warehouse.*"` or `"module.*"` stored verbatim. If an RLS policy used a wildcard slug (e.g. `has_permission(org_id, "warehouse.*")`), it would only match UEP rows where `permission_slug = "warehouse.*"` exactly — it would NOT expand to cover all `"warehouse.X"` rows. This would cause a silent security bypass.
+
+**Complete canonical RLS gate slugs (all non-wildcard, verified 2026-03-04 via `pg_policies` regexp_matches):**
+
+| Slug                  | Constant              | Tables / Policies                                                                           |
+| --------------------- | --------------------- | ------------------------------------------------------------------------------------------- |
+| `members.read`        | `MEMBERS_READ`        | user_role_assignments SELECT; user_permission_overrides SELECT; organization_members SELECT |
+| `members.manage`      | `MEMBERS_MANAGE`      | URA/UPO INSERT/UPDATE/DELETE; organization_members UPDATE                                   |
+| `branch.roles.manage` | `BRANCH_ROLES_MANAGE` | user_role_assignments branch-scoped dual-gate                                               |
+| `branches.create`     | `BRANCHES_CREATE`     | branches INSERT                                                                             |
+| `branches.delete`     | `BRANCHES_DELETE`     | branches DELETE                                                                             |
+| `branches.update`     | `BRANCHES_UPDATE`     | branches UPDATE                                                                             |
+| `invites.create`      | `INVITES_CREATE`      | invitations INSERT                                                                          |
+| `invites.read`        | `INVITES_READ`        | invitations SELECT                                                                          |
+| `invites.cancel`      | `INVITES_CANCEL`      | invitations UPDATE/DELETE                                                                   |
+| `org.update`          | `ORG_UPDATE`          | org_positions UPDATE; org_profiles UPDATE                                                   |
+
+**Invariant tests**:
+
+- **Contract** (`src/lib/constants/__tests__/rls-permission-invariants.test.ts`): asserts all 10 RLS gate slugs + 4 RPC gate slugs are non-wildcard; exact-value assertions for each; asserts registry wildcards are only `["account.*", "module.*", "superadmin.*"]`.
+- **DB-backed** (`src/server/services/__tests__/rls-wildcard-db-invariant.test.ts`): calls `public.audit_rls_permission_gate_slugs()` RPC (migration `20260304120000`) against live DB; asserts no extracted policy string literal contains `*`; asserts all 10 expected slugs present. Skips when `SUPABASE_SERVICE_ROLE_KEY` absent (CI-safe).
+
+---
+
+## 9. TypeScript Layer
+
+### 9.1 `PermissionServiceV2` — `src/server/services/permission-v2.service.ts`
+
+All methods read from UEP. No dynamic permission derivation.
+
+| Method                                                             | Query filter                         | Wildcard-aware    | Auth model              |
+| ------------------------------------------------------------------ | ------------------------------------ | ----------------- | ----------------------- |
+| `getOrgEffectivePermissions(supabase, userId, orgId)`              | `branch_id IS NULL`                  | Result preserved  | Caller provides userId  |
+| `getOrgEffectivePermissionsArray(supabase, userId, orgId)`         | `branch_id IS NULL`                  | Result preserved  | Caller provides userId  |
+| `getPermissionSnapshotForUser(supabase, userId, orgId, branchId?)` | `IS NULL` or `IS NULL OR = branchId` | Result preserved  | Caller provides userId  |
+| `hasPermission(supabase, userId, orgId, slug)`                     | RPC `user_has_effective_permission`  | ❌ Exact match    | Caller provides userId  |
+| `currentUserHasPermission(supabase, orgId, slug)`                  | RPC `has_permission`                 | ❌ Exact match    | auth.uid() via RPC      |
+| `currentUserIsOrgMember(supabase, orgId)`                          | RPC `is_org_member`                  | N/A               | auth.uid() via RPC      |
+| `can(permissions: Set<string>, slug)`                              | `Set.has()`                          | ❌ Exact match    | None (pure)             |
+| `canFromSnapshot(snapshot, slug)`                                  | delegates to `checkPermission`       | ✅ Wildcard-aware | None (pure, deprecated) |
+
+**Note on `canFromSnapshot`**: Now delegates to `checkPermission(snapshot, permission)` from the utility — wildcard-aware and deny-first. Previously used `Array.includes()` (bug). Marked `@deprecated` — use `checkPermission(snapshot, slug)` directly.
+
+---
+
+### 9.2 `checkPermission` utility — `src/lib/utils/permissions.ts`
+
+The **canonical wildcard-aware runtime check** for PermissionSnapshot.
+
+```typescript
+export function checkPermission(snapshot: PermissionSnapshot, requiredPermission: string): boolean;
+```
+
+- **Deny-first**: `snapshot.deny` patterns checked first; any match → false.
+- **Wildcard-aware**: `warehouse.*` matches `warehouse.products.read`, etc. Uses cached regex.
+- Greedy `*` matches across segment boundaries.
+- `clearPermissionRegexCache()` exported for test cleanup.
+
+**Always use `checkPermission(snapshot, slug)` for runtime checks. Never use `snapshot.allow.includes(slug)` where wildcards may be present.**
+
+---
+
+### 9.3 `usePermissions` hook — `src/hooks/v2/use-permissions.ts`
+
+Client-side, reads from Zustand store. `can(slug)` is wildcard-aware (delegates to `checkPermission`).
+
+---
+
+### 9.4 `PermissionCompiler` — `src/server/services/permission-compiler.service.ts`
+
+**RETIRED**. All 3 public methods throw via `_throwRetired()`.
+
+---
+
+## 10. Server Actions (V2)
+
+All in `src/app/actions/v2/permissions.ts`. All use `getUser()` (JWT-validated). Fail-closed.
+
+| Action                                  | Auth               | Reads                | Returns                               | Notes                       |
+| --------------------------------------- | ------------------ | -------------------- | ------------------------------------- | --------------------------- |
+| `getBranchPermissions(orgId, branchId)` | `getUser()`        | UEP branch-aware     | `{ permissions: PermissionSnapshot }` |                             |
+| `getEffectivePermissions(orgId)`        | `getUser()`        | UEP org-only         | `string[]`                            |                             |
+| `getDetailedPermissions(orgId)`         | `getUser()`        | UEP + branches       | `DetailedPermission[]`                |                             |
+| `checkOrgPermissionExact(orgId, slug)`  | auth.uid() via RPC | RPC `has_permission` | `boolean`                             | Exact match, org-scope only |
+| `checkOrgMembership(orgId)`             | auth.uid() via RPC | RPC `is_org_member`  | `boolean`                             |                             |
+
+**Rename note**: `checkPermission(orgId, slug)` was renamed to `checkOrgPermissionExact(orgId, slug)` to eliminate the name collision with the wildcard-aware utility `checkPermission(snapshot, slug)` from `@/lib/utils/permissions`.
+
+---
+
+## 11. Client-Side Permission Checking
+
+### Flow
+
+```
+SSR render → loadUserContextV2 → permissionSnapshot → serialized to client
+     │
+     └── PermissionsSync component (client)
+            → getBranchPermissions(orgId, branchId) server action
+                 → PermissionServiceV2.getPermissionSnapshotForUser (branch-aware UEP read)
+                       → stores in Zustand → usePermissions().can(slug)
+```
+
+### Consistency guarantee
+
+Both SSR loader (`loadUserContextV2`) and client sync (`getBranchPermissions`) call `PermissionServiceV2.getPermissionSnapshotForUser` with the same branch-aware UEP filter. Snapshot is always consistent.
+
+---
+
+## 12. SSR Loading Pipeline
+
+```
+loadDashboardContextV2()
+  ├── loadAppContextV2()
+  │     └── resolves activeOrgId, activeBranchId, availableBranches
+  │
+  ├── loadUserContextV2(activeOrgId, activeBranchId)
+  │     ├── supabase.auth.getUser()      ← JWT validated (auth gate)
+  │     ├── supabase.auth.getSession()   ← access_token for JWT role extraction ONLY
+  │     ├── users table                  ← identity
+  │     ├── AuthService.getUserRoles()   ← roles from JWT
+  │     └── PermissionServiceV2.getPermissionSnapshotForUser(supabase, userId, orgId, branchId)
+  │               └── UEP: branch_id IS NULL OR branch_id = branchId
+  │
+  ├── _computeAccessibleBranches(userId, orgId, allBranches, snapshot)
+  │     ├── FAST: checkPermission(snapshot, BRANCHES_VIEW_ANY) → allBranches
+  │     └── SLOW: URA SELECT scope_id WHERE scope='branch' (own rows, RLS allows)
+  │                → filter allBranches to assigned branch IDs
+  │               [This is branch accessibility discovery, NOT permission computation]
+  │
+  └── Re-validate activeBranchId against accessibleBranches
+        → reload loadUserContextV2 if branch changed
+```
+
+---
+
+## 13. Wildcard Handling
+
+The compiler inserts `permissions.slug` verbatim. UEP may contain `"account.*"`, `"module.*"`, `"superadmin.*"` stored as-is.
+
+### Wildcard-aware check matrix (post-hardening)
+
+| Check type             | Method                                             | Wildcard-aware                    | Scope        |
+| ---------------------- | -------------------------------------------------- | --------------------------------- | ------------ |
+| Client/SSR snapshot    | `checkPermission(snapshot, slug)` (utility)        | ✅ YES                            | org + branch |
+| Client hook            | `usePermissions().can(slug)`                       | ✅ YES                            | org + branch |
+| Deprecated compat      | `PermissionServiceV2.canFromSnapshot(snap, slug)`  | ✅ YES (now delegates to utility) | org + branch |
+| DB RPC (current user)  | `has_permission(org_id, slug)`                     | ❌ Exact match                    | org-only     |
+| DB RPC (explicit user) | `user_has_effective_permission(uid, org_id, slug)` | ❌ Exact match                    | org-only     |
+| DB RPC (branch-aware)  | `has_branch_permission(org_id, branch_id, slug)`   | ❌ Exact match                    | org + branch |
+| Service static         | `PermissionServiceV2.can(set, slug)`               | ❌ Exact match                    | n/a          |
+
+**Rule**: Always use `checkPermission(snapshot, slug)` or `usePermissions().can(slug)` for runtime checks where wildcards may be present. DB RPCs must only receive non-wildcard slugs.
+
+---
+
+## 14. Org Revoke Cascade Behaviour
+
+When a revoke override (`upo.effect='revoke'`) exists for a user+org+slug, the compiler's `NOT EXISTS` guard applies to **both** the org-scoped INSERT and the branch-scoped INSERT:
+
+```sql
+-- Applied in BOTH step 4 (org) and step 5 (branch) of compile_user_permissions:
+AND NOT EXISTS (
+  SELECT 1 FROM user_permission_overrides upo
+  WHERE upo.user_id = p_user_id
+    AND upo.organization_id = p_organization_id
+    AND upo.permission_slug = p.slug
+    AND upo.effect = 'revoke'
+    AND upo.deleted_at IS NULL
 )
 ```
 
-This is the **DB-level enforcement** of the branch manager delegation model: holders of `branch.roles.manage` on a specific branch can assign/remove branch-scoped roles on that branch without `members.manage`.
+**Concrete example**:
 
-### 2.4 `user_effective_permissions` (UEP) — V2 with branch_id
+| Scenario                                                          | UEP result                                                                     |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| User has org-scoped role with `warehouse.products.delete`         | UEP row: `permission_slug='warehouse.products.delete', branch_id=NULL`         |
+| User also has branch-scoped role with `warehouse.products.delete` | UEP row: `permission_slug='warehouse.products.delete', branch_id='branch-xyz'` |
+| Org-level revoke added for `warehouse.products.delete`            | **Both** UEP rows are ABSENT after next compile                                |
+| Branch-level grant remains after revoke                           | ❌ Branch grant is ALSO suppressed — org revoke wins everywhere                |
 
-```
-id              uuid PK  gen_random_uuid()
-user_id         uuid     NOT NULL
-organization_id uuid     NOT NULL
-permission_slug text     NOT NULL
-source_type     text     default 'role'   -- 'role' | 'override'
-source_id       uuid     nullable
-created_at      timestamptz
-compiled_at     timestamptz
-branch_id       uuid     nullable   -- NULL = org-scope; UUID = branch-scope (ADDED IN V2)
-```
-
-**Unique Constraint:** `user_effective_permissions_unique_v2` on `(user_id, organization_id, permission_slug, branch_id)`
-
-**Indexes:**
-| Index | Unique | Columns |
-|---|---|---|
-| `user_effective_permissions_pkey` | YES (PK) | `id` |
-| `user_effective_permissions_unique_v2` | YES | `user_id, organization_id, permission_slug, branch_id` |
-| `idx_uep_user_org` | no | `user_id, organization_id` |
-| `idx_uep_user_org_branch` | no | `user_id, organization_id, branch_id` |
-| `idx_uep_user_org_permission` | no | `user_id, organization_id, permission_slug` |
-| `idx_uep_permission` | no | `permission_slug` |
-
-**RLS Policies (2):**
-
-- `Users can view own effective permissions` (SELECT): `user_id = auth.uid()`
-- `Org owners can view member permissions` (SELECT): `has_org_role(organization_id, 'org_owner')`
-
-### 2.5 `user_permission_overrides` (UPO)
-
-```
-id              uuid PK  gen_random_uuid()
-user_id         uuid     NOT NULL
-permission_id   uuid     NOT NULL
-allowed         boolean  NOT NULL
-scope           text     NOT NULL
-scope_id        uuid     nullable
-deleted_at      timestamptz nullable
-created_at      timestamptz NOT NULL  default now()
-updated_at      timestamptz NOT NULL  default now()
-effect          text     NOT NULL  default 'grant'   -- 'grant' | 'revoke'
-permission_slug text     nullable
-organization_id uuid     nullable
-```
-
-**RLS Policies (5):**
-
-- `overrides_select_self` (SELECT): `user_id = auth.uid() AND deleted_at IS NULL`
-- `overrides_select_admin` (SELECT): `is_org_member AND has_permission('members.manage') AND deleted_at IS NULL`
-- `overrides_insert_permission` (INSERT): `is_org_member AND has_permission('members.manage') AND deleted_at IS NULL`
-- `overrides_update_permission` (UPDATE): same
-- `overrides_delete_permission` (DELETE): same
-
-### 2.6 `organization_members`
-
-```
-id              uuid PK  gen_random_uuid()
-organization_id uuid     NOT NULL
-user_id         uuid     NOT NULL
-status          text     NOT NULL  default 'active'
-joined_at       timestamptz nullable  default now()
-created_at      timestamptz nullable  default now()
-updated_at      timestamptz nullable  default now()
-deleted_at      timestamptz nullable
-```
-
-Used by `compile_user_permissions` as the membership guard — if a user is not an `active` member, their UEP is wiped.
+**Invariant**: An org-level revoke override removes the permission from ALL branches for that user in that org. There is no way to grant a branch permission that overrides an org-level revoke.
 
 ---
 
-## 3. Permission Compilation Pipeline
+## 15. Live DB Sanity Check (2026-03-04)
 
-### 3.1 DB Function: `compile_user_permissions(p_user_id, p_organization_id)`
-
-This is the **canonical compiler** called by DB triggers on every URA change.
-
-```sql
-BEGIN
-  -- ============================================================
-  -- STEP 1: Active membership guard
-  -- If user is not active member → wipe UEP and return.
-  -- ============================================================
-  IF NOT EXISTS (
-    SELECT 1 FROM public.organization_members
-    WHERE user_id = p_user_id
-      AND organization_id = p_organization_id
-      AND status = 'active'
-      AND deleted_at IS NULL
-  ) THEN
-    DELETE FROM public.user_effective_permissions
-    WHERE user_id = p_user_id AND organization_id = p_organization_id;
-    RETURN;
-  END IF;
-
-  -- ============================================================
-  -- STEP 2: Advisory lock (prevent concurrent compilation races)
-  -- ============================================================
-  PERFORM pg_advisory_xact_lock(
-    hashtext(p_user_id::text || p_organization_id::text)
-  );
-
-  -- ============================================================
-  -- STEP 3: Delete all existing UEP for this user/org (all scopes)
-  -- ============================================================
-  DELETE FROM public.user_effective_permissions
-  WHERE user_id = p_user_id AND organization_id = p_organization_id;
-
-  -- ============================================================
-  -- STEP 4: Insert ORG-SCOPED permissions (branch_id = NULL)
-  -- Source: URA scope='org' → roles → role_permissions
-  --         UNION grant overrides
-  -- Excludes: any slug with active revoke override
-  -- ============================================================
-  INSERT INTO public.user_effective_permissions (
-    user_id, organization_id, permission_slug, source_type, branch_id, compiled_at
-  )
-  SELECT DISTINCT p_user_id, p_organization_id, slug, source_type, NULL::uuid, now()
-  FROM (
-    -- From org-scoped role assignments
-    SELECT p.slug, 'role' AS source_type
-    FROM user_role_assignments ura
-    JOIN roles r           ON ura.role_id = r.id
-    JOIN role_permissions rp ON r.id = rp.role_id AND rp.allowed = true
-    JOIN permissions p     ON rp.permission_id = p.id
-    WHERE ura.user_id = p_user_id
-      AND ura.scope = 'org' AND ura.scope_id = p_organization_id
-      AND ura.deleted_at IS NULL AND r.deleted_at IS NULL
-      AND rp.deleted_at IS NULL AND p.deleted_at IS NULL
-      AND NOT EXISTS (
-        SELECT 1 FROM user_permission_overrides upo
-        WHERE upo.user_id = p_user_id AND upo.organization_id = p_organization_id
-          AND upo.permission_slug = p.slug AND upo.effect = 'revoke'
-          AND upo.deleted_at IS NULL
-      )
-    UNION
-    -- From explicit grant overrides
-    SELECT upo.permission_slug, 'override' AS source_type
-    FROM user_permission_overrides upo
-    WHERE upo.user_id = p_user_id AND upo.organization_id = p_organization_id
-      AND upo.effect = 'grant' AND upo.permission_slug IS NOT NULL
-      AND upo.deleted_at IS NULL
-  ) AS final_perms
-  ON CONFLICT ON CONSTRAINT user_effective_permissions_unique_v2
-  DO UPDATE SET compiled_at = now(), source_type = EXCLUDED.source_type;
-
-  -- ============================================================
-  -- STEP 5: Insert BRANCH-SCOPED permissions (branch_id = ura.scope_id)
-  -- Source: URA scope='branch' for branches in this org
-  -- Excludes: any slug with active revoke override (org-level revokes apply)
-  -- ============================================================
-  INSERT INTO public.user_effective_permissions (
-    user_id, organization_id, permission_slug, source_type, branch_id, compiled_at
-  )
-  SELECT DISTINCT p_user_id, p_organization_id, p.slug, 'role', ura.scope_id, now()
-  FROM user_role_assignments ura
-  JOIN roles r            ON ura.role_id = r.id
-  JOIN role_permissions rp ON r.id = rp.role_id AND rp.allowed = true
-  JOIN permissions p      ON rp.permission_id = p.id
-  JOIN branches b         ON b.id = ura.scope_id AND b.deleted_at IS NULL
-  WHERE ura.user_id = p_user_id AND ura.scope = 'branch'
-    AND b.organization_id = p_organization_id
-    AND ura.deleted_at IS NULL AND r.deleted_at IS NULL
-    AND rp.deleted_at IS NULL AND p.deleted_at IS NULL
-    AND NOT EXISTS (
-      SELECT 1 FROM user_permission_overrides upo
-      WHERE upo.user_id = p_user_id AND upo.organization_id = p_organization_id
-        AND upo.permission_slug = p.slug AND upo.effect = 'revoke'
-        AND upo.deleted_at IS NULL
-    )
-  ON CONFLICT ON CONSTRAINT user_effective_permissions_unique_v2
-  DO UPDATE SET compiled_at = now(), source_type = EXCLUDED.source_type;
-END;
-```
-
-**Key behaviours:**
-
-- Advisory lock prevents race conditions when multiple URA changes fire simultaneously.
-- Step 3 wipes UEP before re-inserting — full recompile, not incremental.
-- Org-level revoke overrides apply to branch-scoped permissions too (Step 5 exclusion).
-- ON CONFLICT upserts prevent failures if the unique constraint is hit mid-compilation.
-
-### 3.2 Trigger: `trigger_compile_on_role_assignment`
-
-Fires **AFTER INSERT, UPDATE, DELETE on `user_role_assignments`**.
-
-```sql
-DECLARE v_org_id uuid;
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    IF OLD.scope = 'org' THEN
-      PERFORM compile_user_permissions(OLD.user_id, OLD.scope_id);
-    ELSIF OLD.scope = 'branch' THEN
-      SELECT organization_id INTO v_org_id FROM branches WHERE id = OLD.scope_id;
-      IF v_org_id IS NOT NULL THEN
-        PERFORM compile_user_permissions(OLD.user_id, v_org_id);
-      END IF;
-    END IF;
-    RETURN OLD;
-  ELSE
-    IF NEW.scope = 'org' THEN
-      PERFORM compile_user_permissions(NEW.user_id, NEW.scope_id);
-    ELSIF NEW.scope = 'branch' THEN
-      SELECT organization_id INTO v_org_id FROM branches WHERE id = NEW.scope_id;
-      IF v_org_id IS NOT NULL THEN
-        PERFORM compile_user_permissions(NEW.user_id, v_org_id);
-      END IF;
-    END IF;
-    RETURN NEW;
-  END IF;
-END;
-```
-
-**Key behaviour:** For branch-scope assignments, the trigger resolves `organization_id` from `branches` and passes it to `compile_user_permissions`. The compiler then recompiles all UEP (both org-scope and branch-scope) for that user/org pair.
-
-### 3.3 Trigger: `validate_role_assignment_scope`
-
-Fires **BEFORE INSERT, UPDATE on `user_role_assignments`**.
-
-```sql
-DECLARE role_scope_type text;
-BEGIN
-  SELECT scope_type INTO role_scope_type FROM roles WHERE id = NEW.role_id;
-
-  IF role_scope_type = 'org' AND NEW.scope != 'org' THEN
-    RAISE EXCEPTION 'Role % can only be assigned at org scope', NEW.role_id;
-  END IF;
-
-  IF role_scope_type = 'branch' AND NEW.scope != 'branch' THEN
-    RAISE EXCEPTION 'Role % can only be assigned at branch scope', NEW.role_id;
-  END IF;
-  -- 'both' allows either scope, no check needed
-  RETURN NEW;
-END;
-```
-
-Enforces `roles.scope_type` at the database level. Application layer (TypeScript) also enforces `ORG_ONLY_SLUGS` at the server action level for defense in depth.
-
-### 3.4 DB RPC Functions
-
-#### `has_permission(org_id uuid, permission text)` → boolean
-
-**Org-scope only. Used by RLS policies.**
-
-```sql
-SELECT EXISTS (
-  SELECT 1 FROM user_effective_permissions
-  WHERE organization_id = org_id
-    AND user_id = auth.uid()
-    AND permission_slug = permission
-    AND branch_id IS NULL        -- ← org-scope only
-);
-```
-
-#### `has_branch_permission(org_id uuid, branch_id uuid, slug text)` → boolean
-
-**Branch-aware. Used by URA RLS policies for branch manager delegation.**
-
-```sql
-SELECT EXISTS (
-  SELECT 1 FROM user_effective_permissions
-  WHERE user_id = auth.uid()
-    AND organization_id = p_org_id
-    AND permission_slug = p_permission_slug
-    AND (
-      branch_id IS NULL          -- org-wide grant satisfies any branch check
-      OR branch_id = p_branch_id -- branch-specific grant for exact branch
-    )
-);
-```
-
-**Critical:** An org-scope grant (branch_id IS NULL) satisfies `has_branch_permission`. This means if a user has `members.manage` via an org role, they automatically pass the branch manager RLS checks too.
-
-#### `user_has_effective_permission(user_id uuid, org_id uuid, slug text)` → boolean
-
-**Explicit user lookup. Org-scope only. Used by `PermissionServiceV2.hasPermission`.**
-
-```sql
-SELECT EXISTS (
-  SELECT 1 FROM user_effective_permissions
-  WHERE user_id = p_user_id
-    AND organization_id = p_organization_id
-    AND permission_slug = p_permission_slug
-    AND branch_id IS NULL        -- ← org-scope only
-);
-```
-
-**Note:** Unlike `has_permission`, this takes an explicit `user_id` rather than relying on `auth.uid()`. Used for checking specific users (e.g., in admin operations).
+| Check                                                  | Result                                |
+| ------------------------------------------------------ | ------------------------------------- |
+| `COUNT(*) FROM permissions WHERE deleted_at IS NULL`   | 30                                    |
+| `COUNT(*) FROM user_effective_permissions`             | 31                                    |
+| UEP org-scope rows (branch_id IS NULL)                 | 30                                    |
+| UEP branch-scope rows (branch_id IS NOT NULL)          | 1                                     |
+| `user_permission_overrides_uniq` index exists          | ❌ Dropped (migration 20260304110000) |
+| `user_permission_overrides_unique_active` index exists | ✅ Present                            |
 
 ---
 
-## 4. Application Layer — Permission Services
+## 16. Known Issues and Design Decisions
 
-### 4.1 `PermissionService` — Dynamic Branch-Aware (V1)
+### 16.1 `PermissionServiceV2.can()` is NOT wildcard-aware (intentional)
 
-**File:** `src/server/services/permission.service.ts`
+`can(permissions: Set<string>, slug)` uses `Set.has()` — exact match. Use `checkPermission(snapshot, slug)` when wildcards may be present.
 
-```typescript
-static async getPermissionSnapshotForUser(
-  supabase: SupabaseClient,
-  userId: string,
-  orgId: string,
-  branchId?: string | null
-): Promise<PermissionSnapshot>
-```
+### 16.2 V1 `PermissionService` still exists (isolated to legacy route)
 
-**Algorithm:**
+`src/server/services/permission.service.ts` + `src/lib/api/load-user-context-server.ts` are used only by the legacy `dashboard-old` layout, not V2 production routes.
 
-1. Query URA for org-scoped role IDs (`scope='org', scope_id=orgId`)
-2. If `branchId` provided: additionally query URA for branch-scoped role IDs (`scope='branch', scope_id=branchId`)
-3. Call RPC `get_permissions_for_roles(role_ids[])` → get allow slug list
-4. Fetch UPO with scope filter (`global` always; `org` if orgId; `branch` if branchId)
-5. Apply override precedence: branch > org > global; same scope → newest `created_at` wins
-6. Return `{ allow: string[], deny: string[] }` (deny = slugs with `allowed: false`)
+### 16.3 `load-user-context-server.ts` uses `getSession()` only
 
-**Supports wildcards at runtime** (wildcard slugs stored as-is in allow/deny arrays; matched by `checkPermission` utility).
+Legacy loader uses `getSession()` without JWT re-validation. Not used by V2 routes. V2 uses `loadUserContextV2` which calls `getUser()` first.
 
-**This service is used for SSR permission loading (`loadUserContextV2`) and the `getBranchPermissions` client-sync action.**
+### 16.4 Module access permissions are org-scoped only
 
-### 4.2 `PermissionServiceV2` — Compiled Read-Only (V2)
+`module.<slug>.access` slugs are in `ORG_ONLY_SLUGS` and cannot be assigned at branch scope. Enforced at the TypeScript roles action layer.
 
-**File:** `src/server/services/permission-v2.service.ts`
+### 16.5 `canFromSnapshot()` now wildcard-safe but still deprecated
 
-```typescript
-static async getPermissionSnapshotForUser(
-  supabase: SupabaseClient,
-  userId: string,
-  orgId: string,
-  _branchId?: string | null  // ← IGNORED — not used in query
-): Promise<PermissionSnapshot>
-```
-
-Reads from `user_effective_permissions` **without filtering by branch_id** (implicit: selects all rows for user+org, including both branch_id IS NULL and branch_id IS NOT NULL). However `getEffectivePermissionsArray` also has no branch_id filter, so it returns all compiled permissions (org + all branches mixed together).
-
-**`_branchId` is silently ignored.** This was the root cause of a bug where branch-scoped permissions were stripped during client-side `PermissionsSync` — fixed by switching `getBranchPermissions` to `PermissionService`.
-
-Key methods:
-
-- `getEffectivePermissions(supabase, userId, orgId)` → `Set<string>` (all compiled slugs, no branch filter)
-- `getEffectivePermissionsArray(supabase, userId, orgId)` → `string[]` (sorted)
-- `hasPermission(supabase, userId, orgId, permission)` → calls `user_has_effective_permission` RPC (org-scope only)
-- `currentUserHasPermission(supabase, orgId, permission)` → calls `has_permission` RPC (org-scope only, auth.uid())
-- `currentUserIsOrgMember(supabase, orgId)` → calls `is_org_member` RPC
-
-### 4.3 `PermissionCompiler` — TypeScript-Side Compiler
-
-**File:** `src/server/services/permission-compiler.service.ts`
-
-Application-layer compiler (complement to the DB trigger). Used in orchestration scenarios:
-
-- `compileForUser(supabase, userId, orgId)` — used after invitation acceptance, org creation
-- `recompileForRole(supabase, roleId)` — used after role permission changes
-- `recompileForOrganization(supabase, orgId)` — bulk recompile
-
-**Important limitation:** The TypeScript compiler's `compileForUser` does NOT set `branch_id` when inserting UEP rows. It calls `get_permissions_for_roles` on all role IDs (both org and branch) without differentiating them, then inserts as `branch_id = undefined` (i.e., null). This means TypeScript-triggered recompiles may lose branch-scope differentiation. The **DB trigger** (`trigger_compile_on_role_assignment` calling `compile_user_permissions`) is the authoritative compiler that correctly sets `branch_id`.
-
-### 4.4 `checkPermission` Utility — Client + Server Wildcard Matcher
-
-**File:** `src/lib/utils/permissions.ts`
-
-```typescript
-function checkPermission(snapshot: PermissionSnapshot, required: string): boolean {
-  // Deny-first: if any deny pattern matches → false
-  if (matchesAnyPattern(snapshot.deny, required)) return false;
-  // Then check allow patterns
-  return matchesAnyPattern(snapshot.allow, required);
-}
-
-function matchesAnyPattern(patterns: string[], required: string): boolean {
-  for (const p of patterns) {
-    if (p === "*" || p === required) return true;
-    if (!p.includes("*")) continue;
-    if (getCachedRegex(p).test(required)) return true;
-  }
-  return false;
-}
-```
-
-Wildcard semantics: `*` matches greedily across segment boundaries. `warehouse.*` matches `warehouse.products.read`. Uses a module-level `Map<string, RegExp>` regex cache. `clearPermissionRegexCache()` exported for test teardown.
-
-This function is shared between server (page guards, loaders) and client (Zustand `usePermissions` hook).
+Now delegates to `checkPermission(snapshot, slug)`. The `@deprecated` tag is preserved to steer new code to import from `@/lib/utils/permissions` directly.
 
 ---
 
-## 5. Server-Side Context Loading
+## 17. Deprecated / Retired Code
 
-### 5.1 `loadAppContextV2`
-
-**File:** `src/server/loaders/v2/load-app-context.v2.ts`
-
-Resolves org/branch for the current session. Does **not** load permissions.
-
-```
-1. auth.getUser() — JWT validation
-2. Resolve activeOrgId:
-   a. preferences.organization_id (validated against organizations table)
-   b. Oldest org where user has URA scope='org' (member)
-   c. Oldest org created_by user
-3. Load org snapshot (with organization_profiles join)
-4. Load ALL branches (availableBranches) for org (deleted_at IS NULL, sorted by created_at)
-5. Resolve activeBranchId:
-   a. preferences.default_branch_id (if in availableBranches)
-   b. First available branch
-6. Return AppContextV2 with accessibleBranches: [] (stub — not computed here)
-```
-
-**Contract:** `accessibleBranches` is always `[]` from this loader. Only `loadDashboardContextV2` populates it.
-
-### 5.2 `loadUserContextV2`
-
-**File:** `src/server/loaders/v2/load-user-context.v2.ts`
-
-Loads user identity + permissions. Uses `PermissionService` (branch-aware).
-
-```
-1. auth.getUser() — JWT validation (preferred over getSession)
-2. auth.getSession() — get access_token for JWT role extraction
-3. Load user identity from users table (with avatar signed URL)
-4. AuthService.getUserRoles(access_token) — extract JWTRole[] from JWT
-5. PermissionService.getPermissionSnapshotForUser(supabase, userId, activeOrgId, activeBranchId)
-   → dynamic query: org URA roles + branch URA roles (if activeBranchId) + overrides
-   → returns { allow: string[], deny: string[] }
-6. Return UserContextV2 { user, roles, permissionSnapshot }
-```
-
-**Cached with React `cache()`** — deduplicates calls within same request.
-
-### 5.3 `loadDashboardContextV2`
-
-**File:** `src/server/loaders/v2/load-dashboard-context.v2.ts`
-
-The **single entrypoint** for dashboard pages. Orchestrates app + user context + accessible branches.
-
-```
-1. loadAppContextV2() → AppContextV2 (org, branch, availableBranches)
-2. loadUserContextV2(activeOrgId, activeBranchId) → UserContextV2 (perms)
-3. _computeAccessibleBranches(userId, orgId, allBranches, permissionSnapshot):
-   FAST PATH: if BRANCHES_VIEW_ANY → return allBranches
-   SLOW PATH: query URA scope='branch' (own assignments via RLS) → filter allBranches
-4. Re-validate activeBranch vs accessibleBranches:
-   if current activeBranchId NOT in accessibleBranches:
-     fallback to first accessible branch (or null)
-     if activeBranchId changed → reload loadUserContextV2 for new branch
-5. Return { app: { ...appContext, accessibleBranches, activeBranchId, activeBranch }, user }
-```
-
-**Re-validation bug fix (Mar 2026):** Step 4 now calls `loadUserContextV2` again if `activeBranchId` changed, so the permission snapshot reflects the corrected branch's role assignments.
-
-**Cached with React `cache()`.**
+| Component                                   | Location                                             | Status         | Notes                                                                |
+| ------------------------------------------- | ---------------------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| `PermissionCompiler`                        | `src/server/services/permission-compiler.service.ts` | **RETIRED**    | All methods throw `_throwRetired()`                                  |
+| `PermissionService` (V1)                    | `src/server/services/permission.service.ts`          | **DEPRECATED** | Functional, legacy `dashboard-old` only                              |
+| `load-user-context-server.ts`               | `src/lib/api/load-user-context-server.ts`            | **LEGACY**     | Uses `getSession()` + V1; not in V2 pipeline                         |
+| Old `getEffectivePermissions` method name   | `permission-v2.service.ts`                           | **RENAMED**    | Now `getOrgEffectivePermissions` / `getOrgEffectivePermissionsArray` |
+| Old `getDetailedPermissions` (dynamic path) | `actions/v2/permissions.ts`                          | **REPLACED**   | Now reads UEP directly                                               |
+| `canFromSnapshot` (Array.includes bug)      | `permission-v2.service.ts`                           | **FIXED**      | Now delegates to wildcard-aware `checkPermission`                    |
+| `checkPermission(orgId, slug)` action name  | `actions/v2/permissions.ts`                          | **RENAMED**    | Now `checkOrgPermissionExact`                                        |
+| `user_permission_overrides_uniq` index      | DB                                                   | **DROPPED**    | Redundant — migration `20260304110000`                               |
 
 ---
 
-## 6. Client-Side Permission Sync
+## 18. Permission Slug Inventory
 
-### 6.1 `getBranchPermissions` Server Action
+30 active slugs. Constants: `src/lib/constants/permissions.ts`.
 
-**File:** `src/app/actions/v2/permissions.ts`
+| Category            | Slug constants                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Organization        | `ORG_READ`, `ORG_UPDATE`                                                                                                           |
+| Members             | `MEMBERS_READ`, `MEMBERS_MANAGE`                                                                                                   |
+| Invitations         | `INVITES_READ`, `INVITES_CREATE`, `INVITES_CANCEL`                                                                                 |
+| Account             | `ACCOUNT_WILDCARD` (`account.*`), `ACCOUNT_PREFERENCES_READ/UPDATE`, `ACCOUNT_PROFILE_READ/UPDATE`, `ACCOUNT_SETTINGS_READ/UPDATE` |
+| Branches CRUD       | `BRANCHES_CREATE`, `BRANCHES_READ`, `BRANCHES_UPDATE`, `BRANCHES_DELETE`                                                           |
+| Branches visibility | `BRANCHES_VIEW_ANY`, `BRANCHES_VIEW_UPDATE_ANY`, `BRANCHES_VIEW_REMOVE_ANY`                                                        |
+| Branch management   | `BRANCH_ROLES_MANAGE` (`branch.roles.manage`)                                                                                      |
+| Module access       | `MODULE_ACCESS_WILDCARD` (`module.*`), `MODULE_ORGANIZATION_MANAGEMENT_ACCESS`                                                     |
+| Superadmin          | `SUPERADMIN_WILDCARD` (`superadmin.*`), `SUPERADMIN_ADMIN_READ`, `SUPERADMIN_PLANS_READ`, `SUPERADMIN_PRICING_READ`                |
+| Self                | `SELF_READ`, `SELF_UPDATE`                                                                                                         |
 
-```typescript
-export async function getBranchPermissions(
-  orgId: string,
-  branchId: string | null
-): Promise<{ permissions: PermissionSnapshot }>;
-```
-
-Called by the `PermissionsSync` React component via React Query. Invokes `PermissionService.getPermissionSnapshotForUser` (branch-aware, NOT V2) so that branch-scoped role permissions are included.
-
-**Bug history:** Previously called `PermissionServiceV2.getPermissionSnapshotForUser` which ignores `branchId`. This caused branch-scoped permissions to be absent after `PermissionsSync` fired on the client, making branch managers appear to have no permissions. Fixed by switching to `PermissionService`.
-
-### 6.2 `PermissionsSync` Component
-
-React component that bridges Zustand stores and React Query:
-
-1. Reads `activeOrgId` + `activeBranchId` from `useAppStoreV2`
-2. Only enabled if both IDs present
-3. Calls `getBranchPermissions(orgId, branchId)` via React Query
-4. On success: syncs `permissionSnapshot` to `useUserStoreV2`
-5. Refetches automatically when `activeBranchId` changes (query key includes both IDs)
+Wildcard slugs (stored verbatim in UEP): `account.*`, `module.*`, `superadmin.*`.
 
 ---
 
-## 7. Sidebar & Routing Enforcement
+## 19. Diff vs Previous Doc
 
-### 7.1 Sidebar Resolver (`src/lib/sidebar/v2/resolver.ts`)
+Changes between this version and the previous `PERMISSIONS_ARCHITECTURE_EXTRACTION_V2_BRANCH_AWARE.md`:
 
-Two gating mechanisms on sidebar items:
+| Section                       | Change                                                                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §3 URA Usage Invariant        | **NEW** — explicit invariant statement clarifying `_computeAccessibleBranches` reads URA for discovery only, not permission computation                               |
+| §4.5 UPO table                | Updated: `user_permission_overrides_uniq` index removed from list (dropped in migration `20260304110000`)                                                             |
+| §8 RLS / RPC Exact-Match Rule | **NEW** then **EXPANDED** — formal rule with rationale; slug table expanded from 3→10 slugs (full pg_policies inventory); dual invariant tests (contract + DB-backed) |
+| §9.1 `canFromSnapshot`        | Updated: now ✅ wildcard-aware (delegates to utility), previous: ❌ exact match (bug)                                                                                 |
+| §10 Server actions table      | Updated: `checkPermission(orgId, slug)` renamed to `checkOrgPermissionExact(orgId, slug)`                                                                             |
+| §13 Wildcard matrix           | Updated: `canFromSnapshot` row changed from ❌ to ✅                                                                                                                  |
+| §14 Org Revoke Cascade        | **NEW** — concrete example showing org-level revoke suppresses all branch-scoped rows                                                                                 |
+| §15 Sanity check              | Updated: added `user_permission_overrides_uniq` dropped confirmation                                                                                                  |
+| §16.5                         | **NEW** — `canFromSnapshot` fixed note                                                                                                                                |
+| §17 Deprecated table          | Updated: added `canFromSnapshot` fix, `checkPermission` rename, UPO index drop                                                                                        |
 
-| Field                              | Logic          | Operator  |
-| ---------------------------------- | -------------- | --------- |
-| `requiresPermissions: string[]`    | ALL must match | `every()` |
-| `requiresAnyPermissions: string[]` | ANY must match | `some()`  |
+| §8 Follow-up audit P0–P3 | **NEW** (follow-up session) — P0: DB audit function + expanded contract test (3→10 slugs); P1: confirmed utility server-safe; P2: confirmed UPO drop was index-only (`DROP INDEX` correct); P3: confirmed zero old `checkPermission` action callers |
 
-Both use `checkPermission(snapshot, slug)` which supports wildcards. Sidebar items filtered at build time (SSR); parent pruned if all children filtered.
-
-### 7.2 Registry Examples (`src/lib/sidebar/v2/registry.ts`)
-
-```typescript
-// organization.users — AND gate — only full admins
-requiresPermissions: [MEMBERS_READ];
-
-// organization.branch-access — OR gate — admins OR branch managers
-requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE];
-
-// organization.branches — single AND gate
-requiresPermissions: [BRANCHES_READ];
-
-// organization.billing — single AND gate
-requiresPermissions: [ORG_UPDATE];
-```
-
-### 7.3 Users Layout Guard (`src/app/[locale]/dashboard/organization/users/layout.tsx`)
-
-```typescript
-const canRead = checkPermission(snapshot, MEMBERS_READ);
-const canBranchManage = checkPermission(snapshot, BRANCH_ROLES_MANAGE);
-
-if (!canRead && !canBranchManage) {
-  redirect({
-    href: { pathname: "/dashboard/access-denied", query: { reason: "members_read_required" } },
-    locale,
-  });
-}
-
-// Org admins (canRead) get tab navigation (UsersLayoutClient)
-// Branch managers (canBranchManage only) get children directly — no tab nav
-```
-
-### 7.4 Individual Page Guards
-
-| Page                     | Guard Permission                        | Redirect Reason                |
-| ------------------------ | --------------------------------------- | ------------------------------ |
-| `members/page.tsx`       | `MEMBERS_READ`                          | `members_read_required`        |
-| `invitations/page.tsx`   | `INVITES_READ`                          | `invites_read_required`        |
-| `roles/page.tsx`         | `MEMBERS_READ`                          | `members_read_required`        |
-| `branch-access/page.tsx` | `MEMBERS_READ` OR `BRANCH_ROLES_MANAGE` | `branch_roles_manage_required` |
-
-### 7.5 Server Action Gates (`src/app/actions/organization/roles.ts`)
-
-Every action applies **double-gate**: module access + permission.
-
-```typescript
-// Step 1: Module access gate (applied to every action)
-await requireModuleAccess(context, MODULE_ORGANIZATION_MANAGEMENT_ACCESS);
-
-// Step 2: Permission gate (example — assignRoleToUserAction)
-const canManage = checkPermission(snapshot, MEMBERS_MANAGE);
-const canManageBranch = scope === "branch" && checkPermission(snapshot, BRANCH_ROLES_MANAGE);
-if (!canManage && !canManageBranch) throw new Error("Unauthorized");
-```
-
-**`ORG_ONLY_SLUGS` Set** (server-enforced, blocks branch-role assignments):
-
-```
-ORG_READ, ORG_UPDATE, BRANCHES_CREATE, BRANCHES_UPDATE, BRANCHES_DELETE,
-MODULE_ORGANIZATION_MANAGEMENT_ACCESS, MEMBERS_READ, MEMBERS_MANAGE,
-INVITES_READ, INVITES_CREATE, INVITES_CANCEL
-```
-
-These 11 slugs cannot be assigned to branch-scoped roles. Enforced in `updateRoleAction` (reads role `scope_type` from DB before checking) and `assignRoleToUserAction`.
-
----
-
-## 8. Branch Switcher & `changeBranch` Action
-
-### 8.1 `accessibleBranches` Computation
-
-Server-computed in `loadDashboardContextV2._computeAccessibleBranches`:
-
-- **Fast path:** `BRANCHES_VIEW_ANY` → all org branches
-- **Slow path:** query user's own URA `scope='branch'` (RLS "View own role assignments" allows this without `members.read`) → filter `availableBranches` to those with matching branch_id
-
-`accessibleBranches` is passed as server props to `SidebarBranchSwitcher` and `BranchSwitcher` — they are **props-driven, not store-driven**.
-
-### 8.2 `changeBranch` Server Action
-
-**File:** `src/app/actions/shared/changeBranch.ts`
-
-Double validation before allowing branch switch:
-
-1. `availableBranches.find(b => b.id === branchId)` — org membership check
-2. `BRANCHES_VIEW_UPDATE_ANY || accessibleBranches.some(b => b.id === branchId)` — access check
-
-Returns `ActionResult` discriminated union (`{ success: true }` | `{ success: false, error: string }`).
-
----
-
-## 9. Live DB Sanity Checks
-
-All queries run against live production DB (2026-03-03).
-
-### 9.1 UEP Row Distribution
-
-```sql
-SELECT
-  CASE WHEN branch_id IS NULL THEN 'org-scope' ELSE 'branch-scope' END AS scope,
-  count(*) AS count
-FROM public.user_effective_permissions
-GROUP BY 1 ORDER BY 1;
-```
-
-| Scope          | Count  |
-| -------------- | ------ |
-| `branch-scope` | **5**  |
-| `org-scope`    | **31** |
-
-### 9.2 Branch UEP Integrity Check
-
-```sql
-SELECT count(*) AS orphaned_branch_uep
-FROM public.user_effective_permissions uep
-WHERE uep.branch_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM public.user_role_assignments ura
-    WHERE ura.user_id = uep.user_id
-      AND ura.scope = 'branch'
-      AND ura.scope_id = uep.branch_id
-      AND ura.deleted_at IS NULL
-  );
-```
-
-| Result                                                                   |
-| ------------------------------------------------------------------------ |
-| **0** — all branch UEP rows have a matching active URA branch assignment |
-
-### 9.3 Interpretation
-
-- The 5 branch-scope UEP rows indicate 1 user has been assigned a branch-scoped role (`branch.roles.manage`) on specific branches.
-- The 31 org-scope rows are from org-level role assignments (org_owner, org_member, custom roles).
-- Zero orphaned rows confirm the DB trigger pipeline is operating correctly.
-
----
-
-## 10. Diff vs Previous Extraction
-
-This section captures what changed between the V1 architecture (before Mar 2026) and the current V2 state.
-
-### Schema Changes
-
-| Change                                                                            | Detail                                                                                                                     |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `user_effective_permissions.branch_id` added                                      | UUID nullable — `NULL` = org-scope, UUID = branch-scope                                                                    |
-| Unique constraint renamed                                                         | `user_effective_permissions_unique` → `user_effective_permissions_unique_v2` covering `(user_id, org_id, slug, branch_id)` |
-| Indexes added                                                                     | `idx_uep_user_org_branch` on `(user_id, organization_id, branch_id)`                                                       |
-| `roles.scope_type` added                                                          | `text NOT NULL default 'org'` — validates URA scope at DB level                                                            |
-| `branch.roles.manage` permission added                                            | `scope_types: ["branch"]`, not a system permission                                                                         |
-| `branches.view.any`, `branches.view.update.any`, `branches.view.remove.any` added | New branch visibility permissions granted to `org_owner`                                                                   |
-
-### Function Changes
-
-| Change                                                 | Detail                                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `compile_user_permissions` updated                     | Now inserts branch-scoped UEP rows (Step 5) with `branch_id = ura.scope_id`                |
-| `has_branch_permission(org_id, branch_id, slug)` added | NEW function — checks UEP for either org-scope OR matching branch-scope                    |
-| `trigger_compile_on_role_assignment` updated           | Now handles `scope='branch'` — resolves org_id from branches table before calling compiler |
-| `validate_role_assignment_scope` added                 | NEW trigger — enforces `roles.scope_type` constraint on URA inserts                        |
-
-### RLS Policy Changes
-
-| Table                   | Change                                                                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `user_role_assignments` | V2 assign/update/delete policies added — dual-gate (`members.manage` OR `has_branch_permission(..., 'branch.roles.manage')`) |
-| `user_role_assignments` | "V2 view branch role assignments" added — branch managers can see their branch assignments                                   |
-| `user_role_assignments` | "V2 view org role assignments" added — replaces implicit org admin view                                                      |
-
-### Application Code Changes
-
-| File                                                       | Change                                                                                                   |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- | ------------------------------------------------------------------ |
-| `src/app/actions/v2/permissions.ts`                        | `getBranchPermissions` switched from `PermissionServiceV2` to `PermissionService` (branch-aware fix)     |
-| `src/server/loaders/v2/load-dashboard-context.v2.ts`       | `_computeAccessibleBranches` + activeBranch re-validation + userContext reload on branch change          |
-| `src/app/actions/organization/roles.ts`                    | Dual-gate (`MEMBERS_MANAGE                                                                               |     | (scope=branch && BRANCH_ROLES_MANAGE)`); `ORG_ONLY_SLUGS` expanded |
-| `src/app/[locale]/dashboard/organization/users/layout.tsx` | Dual-gate guard (`MEMBERS_READ                                                                           |     | BRANCH_ROLES_MANAGE`)                                              |
-| `src/lib/sidebar/v2/registry.ts`                           | `organization.branch-access` item with `requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE]`     |
-| `src/lib/constants/permissions.ts`                         | Added `BRANCH_ROLES_MANAGE`, `BRANCHES_VIEW_ANY`, `BRANCHES_VIEW_UPDATE_ANY`, `BRANCHES_VIEW_REMOVE_ANY` |
-
----
-
-## 11. Enterprise Invariants Checklist
-
-| #    | Invariant                                                           | Status              | Evidence                                                                                  |
-| ---- | ------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------- | --- | ------------------------------------- |
-| I-01 | Every URA change triggers UEP recompilation                         | ✅ HOLD             | `trigger_compile_on_role_assignment` fires AFTER INSERT/UPDATE/DELETE on URA              |
-| I-02 | Advisory lock prevents concurrent compilation races                 | ✅ HOLD             | `pg_advisory_xact_lock(hashtext(user_id                                                   |     | org_id))`in`compile_user_permissions` |
-| I-03 | Revoke overrides apply to branch-scoped permissions                 | ✅ HOLD             | Branch UEP INSERT in `compile_user_permissions` excludes slugs with active revoke UPO     |
-| I-04 | Org-scope UEP always has `branch_id IS NULL`                        | ✅ HOLD             | Step 4 of `compile_user_permissions` explicitly inserts `NULL::uuid`                      |
-| I-05 | Branch UEP is scoped to the exact branch of the URA                 | ✅ HOLD             | Step 5 inserts `ura.scope_id` (branch_id), verified by `has_branch_permission`            |
-| I-06 | Org-wide grants satisfy `has_branch_permission`                     | ✅ HOLD             | `has_branch_permission` checks `branch_id IS NULL OR branch_id = param`                   |
-| I-07 | `has_permission` is strictly org-scope (branch_id IS NULL)          | ✅ HOLD             | DB function has `AND branch_id IS NULL` filter                                            |
-| I-08 | `PermissionServiceV2.getPermissionSnapshotForUser` ignores branchId | ⚠️ KNOWN            | `_branchId` param unused; `getBranchPermissions` fixed to use `PermissionService` instead |
-| I-09 | Branch manager cannot access org-only pages                         | ✅ HOLD             | `members/page.tsx` requires `MEMBERS_READ`; branch manager has only `BRANCH_ROLES_MANAGE` |
-| I-10 | `ORG_ONLY_SLUGS` prevents org permissions on branch roles           | ✅ HOLD             | Server action guard + DB `validate_role_assignment_scope` trigger                         |
-| I-11 | `accessibleBranches` is re-validated against permissions            | ✅ HOLD             | `loadDashboardContextV2` step 4 re-validates and reloads user context if branch changes   |
-| I-12 | `changeBranch` validates both org membership and branch access      | ✅ HOLD             | Dual validation in `changeBranch` action                                                  |
-| I-13 | Branch UEP integrity (no orphaned rows)                             | ✅ HOLD             | Live sanity check returns 0 orphaned rows                                                 |
-| I-14 | TypeScript compiler (`PermissionCompiler`) does not set branch_id   | ⚠️ KNOWN LIMITATION | TypeScript service inserts without branch_id; DB trigger is authoritative                 |
-| I-15 | Deny overrides take precedence over wildcard allows                 | ✅ HOLD             | `checkPermission` utility: deny checked first via `matchesAnyPattern`                     |
-| I-16 | Permission constants are the only string source                     | ✅ HOLD             | All code uses `src/lib/constants/permissions.ts` exports; no raw strings                  |
-| I-17 | Module access permission gates all org management actions           | ✅ HOLD             | `requireModuleAccess(context, MODULE_ORGANIZATION_MANAGEMENT_ACCESS)` in every action     |
-| I-18 | UEP is wiped when user is not an active org member                  | ✅ HOLD             | `compile_user_permissions` membership guard (Step 1) wipes and returns early              |
-
-**Legend:**
-
-- ✅ HOLD — invariant is maintained, evidence confirmed from DB + code
-- ⚠️ KNOWN — documented limitation or design choice, not a regression
-
----
-
-_Document generated: 2026-03-03 | Source: Supabase MCP (live DB) + source code forensic reads_
+_Document verified and hardened: 2026-03-04 (Phase 2 + follow-up P0–P3). Re-verify after any DB function or RLS policy changes._

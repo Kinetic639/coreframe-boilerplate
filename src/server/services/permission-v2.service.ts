@@ -50,6 +50,7 @@
 
 import { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
+import { checkPermission } from "@/lib/utils/permissions";
 
 export class PermissionServiceV2 {
   /**
@@ -279,13 +280,25 @@ export class PermissionServiceV2 {
   }
 
   /**
-   * Check permission against a PermissionSnapshot (V1 compatibility)
+   * Check permission against a PermissionSnapshot.
    *
-   * @param snapshot - Permission snapshot
-   * @param permission - Permission to check
-   * @returns True if permission is in allow list
+   * @deprecated Use `checkPermission(snapshot, slug)` from `@/lib/utils/permissions` instead.
+   *   This method delegates to `checkPermission` and is kept only for backwards compatibility.
+   *   `checkPermission` is wildcard-aware and deny-first; this method is now equivalent.
+   *
+   * **Why this was unsafe before**: The original implementation used `Array.includes()`,
+   * which is NOT wildcard-aware. A snapshot with `allow: ["warehouse.*"]` would return
+   * `false` for `canFromSnapshot(snap, "warehouse.products.read")`.
+   *
+   * **Now fixed**: Delegates to `checkPermission(snapshot, permission)` from the utility,
+   * which correctly matches wildcards using regex and applies deny-first semantics.
+   *
+   * @param snapshot - Permission snapshot with allow/deny arrays
+   * @param permission - Permission slug to check
+   * @returns True if permission is allowed (wildcard-aware, deny-first)
    */
+  /** @deprecated Use `checkPermission(snapshot, slug)` from `@/lib/utils/permissions` */
   static canFromSnapshot(snapshot: PermissionSnapshot, permission: string): boolean {
-    return snapshot.allow.includes(permission);
+    return checkPermission(snapshot, permission);
   }
 }
