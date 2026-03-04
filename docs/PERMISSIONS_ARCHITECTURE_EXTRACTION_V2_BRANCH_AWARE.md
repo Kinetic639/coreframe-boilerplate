@@ -1,7 +1,7 @@
-# Permissions Architecture — V2 Branch-Aware (Verified 2026-03-04, Hardened)
+# Permissions Architecture — V2 Branch-Aware (Verified 2026-03-04, Hardened + 10k-ready)
 
-> **Status**: Fully verified against live DB + source code. Hardening patches applied (Phase 2 + follow-up audit).
-> Branch: `org-managment-v2`. Hardening: `canFromSnapshot` wildcard-safe, action renamed, UPO index dropped, RLS slug inventory expanded to 10 slugs, DB-backed invariant test added.
+> **Status**: Fully verified against live DB + source code. Hardening patches applied (Phase 2 + follow-up audit + 10k-ready performance package).
+> Branch: `org-managment-v2`. Hardening: `canFromSnapshot` wildcard-safe, action renamed, UPO index dropped, RLS slug inventory expanded to 10 slugs, DB-backed invariant test added, 10k-ready partial indexes + two-query snapshot strategy.
 
 ---
 
@@ -26,6 +26,7 @@
 17. [Deprecated / Retired Code](#17-deprecated--retired-code)
 18. [Permission Slug Inventory](#18-permission-slug-inventory)
 19. [Diff vs Previous Doc](#19-diff-vs-previous-doc)
+20. [10k-ready Performance Package](#20-10k-ready-performance-package)
 
 ---
 
@@ -625,6 +626,8 @@ AND NOT EXISTS (
 | UEP branch-scope rows (branch_id IS NOT NULL)          | 1                                     |
 | `user_permission_overrides_uniq` index exists          | ❌ Dropped (migration 20260304110000) |
 | `user_permission_overrides_unique_active` index exists | ✅ Present                            |
+| `uep_org_exact_active_idx` partial index exists        | ✅ Present (migration 20260304130000) |
+| `uep_branch_exact_active_idx` partial index exists     | ✅ Present (migration 20260304130000) |
 
 ---
 
@@ -706,5 +709,132 @@ Changes between this version and the previous `PERMISSIONS_ARCHITECTURE_EXTRACTI
 | §17 Deprecated table          | Updated: added `canFromSnapshot` fix, `checkPermission` rename, UPO index drop                                                                                        |
 
 | §8 Follow-up audit P0–P3 | **NEW** (follow-up session) — P0: DB audit function + expanded contract test (3→10 slugs); P1: confirmed utility server-safe; P2: confirmed UPO drop was index-only (`DROP INDEX` correct); P3: confirmed zero old `checkPermission` action callers |
+| §15 Live DB Sanity Check | **UPDATED** — added `uep_org_exact_active_idx` and `uep_branch_exact_active_idx` index presence rows |
+| §20 10k-ready Performance Package | **NEW** — rationale, SQL, two-query strategy, compiler invariant verification, before/after summary |
 
-_Document verified and hardened: 2026-03-04 (Phase 2 + follow-up P0–P3). Re-verify after any DB function or RLS policy changes._
+_Document verified and hardened: 2026-03-04 (Phase 2 + follow-up P0–P3 + 10k-ready package). Re-verify after any DB function or RLS policy changes._
+
+---
+
+## 20. 10k-ready Performance Package
+
+> **Applied**: 2026-03-04. Migration: `20260304130000_add_uep_partial_indexes_10k_ready.sql`.
+> Code change: `src/server/services/permission-v2.service.ts` — `getPermissionSnapshotForUser`.
+
+### Rationale
+
+As `user_effective_permissions` (UEP) grows (many orgs, many users, many permissions per user), the previous implementation suffered two performance hazards:
+
+1. **OR filter defeats partial indexes.** The branch-aware snapshot fetch used:
+
+   ```sql
+   WHERE user_id = $1 AND organization_id = $2 AND (branch_id IS NULL OR branch_id = $3)
+   ```
+
+   PostgreSQL cannot use a partial index (predicated on `branch_id IS NULL` or `branch_id IS NOT NULL`) to answer an OR across both halves. The planner must either do a full-table scan or a bitmap OR of two indexes — neither is optimal at scale.
+
+2. **Full-table indexes with no predicate.** The existing indexes were broad:
+   - `idx_uep_user_org_permission`: `(user_id, organization_id, permission_slug)` — no WHERE
+   - `idx_uep_user_org_branch`: `(user_id, organization_id, branch_id)` — no WHERE
+     These indexes must scan all rows for a given user+org regardless of `branch_id`, wasting I/O on rows irrelevant to the query.
+
+### Solution 1: Two-query snapshot strategy (replaces OR)
+
+**Before** (`getPermissionSnapshotForUser`, single query with OR):
+
+```typescript
+// BEFORE: single query with OR — cannot use partial indexes
+const { data, error } = await (branchId
+  ? baseQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
+  : baseQuery.is("branch_id", null));
+```
+
+**After** (two separate queries, each targeting one partition):
+
+```typescript
+// Query 1: org-scope rows — uses uep_org_exact_active_idx
+const { data: orgData, error: orgError } = await supabase
+  .from("user_effective_permissions")
+  .select("permission_slug")
+  .eq("user_id", userId)
+  .eq("organization_id", orgId)
+  .is("branch_id", null); // ← partial index predicate satisfied exactly
+
+// Query 2: branch-scope rows (only when branchId is set)
+// — uses uep_branch_exact_active_idx
+const { data: branchData, error: branchError } = await supabase
+  .from("user_effective_permissions")
+  .select("permission_slug")
+  .eq("user_id", userId)
+  .eq("organization_id", orgId)
+  .eq("branch_id", branchId); // ← partial index predicate satisfied exactly
+
+// Merge + dedup + sort in JS
+const allow = [...new Set([...orgSlugs, ...branchSlugs])].sort();
+```
+
+Semantics are **identical** to the previous implementation: org-wide rows always included; branch rows added only when branchId is set; fail-closed (errors return empty allow).
+
+### Solution 2: Partial index strategy for UEP
+
+Two new partial indexes provide stable, efficient query plans:
+
+#### (1) `uep_org_exact_active_idx` — org-scope lookups
+
+```sql
+CREATE INDEX uep_org_exact_active_idx
+  ON public.user_effective_permissions (organization_id, user_id, permission_slug)
+  WHERE branch_id IS NULL;
+```
+
+- **Covers**: `has_permission()`, `user_has_effective_permission()`, `getOrgEffectivePermissions*`, Query 1 of the two-query snapshot.
+- **Why `organization_id` first**: matches the order used by RLS policy expressions (`has_permission(org_id, slug)`) and gives the planner a narrow org-based scan before filtering by user.
+- **Index size**: roughly half the total UEP rows (only org-scope; branch rows excluded by predicate).
+
+#### (2) `uep_branch_exact_active_idx` — branch-scope lookups
+
+```sql
+CREATE INDEX uep_branch_exact_active_idx
+  ON public.user_effective_permissions (organization_id, user_id, branch_id, permission_slug)
+  WHERE branch_id IS NOT NULL;
+```
+
+- **Covers**: `has_branch_permission()` (the `branch_id = X` path), Query 2 of the two-query snapshot.
+- **Index size**: complementary to the org index — only branch rows. At scale, branch rows are a smaller fraction of UEP.
+- **Note**: `has_branch_permission()` still uses an OR internally (`branch_id IS NULL OR branch_id = X`). The DB function itself was not modified — its OR can be satisfied by a bitmap OR of both partial indexes, which is cheaper than scanning the full-table index. A future migration could split the function into two explicit lookups for maximum performance.
+
+#### Why not CONCURRENTLY?
+
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction. Supabase MCP `apply_migration` runs DDL inside a transaction, so `CONCURRENTLY` is not supported in migration files. The migration uses regular `CREATE INDEX IF NOT EXISTS`, which holds an exclusive lock on UEP during index build. This is acceptable at initial deployment time. For zero-downtime index builds on large production tables, run the `CONCURRENTLY` variant manually via `psql`.
+
+### Solution 3: Compiler dedup invariant (verified, no change needed)
+
+The `compile_user_permissions` DB function was **verified** to already produce deduplicated output:
+
+- Both INSERT phases use `SELECT DISTINCT` on the projected rowset.
+- An `ON CONFLICT ON CONSTRAINT user_effective_permissions_unique_v2 DO UPDATE SET compiled_at = now()` clause provides an upsert safety net.
+- An advisory lock (`pg_advisory_xact_lock`) prevents concurrent compilation races for the same user+org.
+
+No change was made to the compiler. A regression test (`T-10K-COMPILER` suite) was added in `src/server/services/__tests__/permission-v2.service.test.ts` to prove the service-layer output is always deduplicated and sorted, even when the DB returns duplicate slugs.
+
+### Test coverage added
+
+File: `src/server/services/__tests__/permission-v2.service.test.ts`
+
+| Suite                                                      | Tests                              | Purpose                                                                                                            |
+| ---------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `T-10K: getPermissionSnapshotForUser — two-query strategy` | 8 tests                            | Verify query count (1 for null branchId, 2 for set branchId), merge/dedup/sort, fail-closed, wildcard preservation |
+| `T-10K-COMPILER: Compiler dedup invariant`                 | 2 tests                            | Verify allow array is deduplicated and sorted even with duplicate DB rows                                          |
+| `T-10K-DB: UEP partial indexes exist on live DB`           | 2 tests (skipped without env vars) | Verify index existence and predicates via `pg_indexes` using service-role key                                      |
+
+### Before / After summary
+
+| Aspect                                | Before                                                   | After                                                            |
+| ------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
+| Snapshot query (branch-aware)         | Single query, OR filter                                  | Two queries, one per scope                                       |
+| Org-scope index                       | `idx_uep_user_org_permission` (full-table, no predicate) | `uep_org_exact_active_idx` (partial, `branch_id IS NULL`)        |
+| Branch-scope index                    | `idx_uep_user_org_branch` (full-table, no predicate)     | `uep_branch_exact_active_idx` (partial, `branch_id IS NOT NULL`) |
+| Index usability on branch-aware query | Low (OR defeats partial index)                           | High (each query satisfies its partial index exactly)            |
+| Compiler dedup                        | Already correct (`SELECT DISTINCT` + `ON CONFLICT`)      | Unchanged + regression tests added                               |
+| Wildcard semantics                    | Unchanged                                                | Unchanged                                                        |
+| Exact-match RPC gates                 | Unchanged                                                | Unchanged                                                        |

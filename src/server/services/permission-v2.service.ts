@@ -118,7 +118,7 @@ export class PermissionServiceV2 {
   }
 
   /**
-   * Get permission snapshot from compiled UEP — branch-aware.
+   * Get permission snapshot from compiled UEP — branch-aware, index-friendly.
    *
    * Mirrors the DB `has_branch_permission(org_id, branch_id, slug)` semantics:
    *   - Org-wide rows (branch_id IS NULL) are always included.
@@ -126,10 +126,18 @@ export class PermissionServiceV2 {
    *   - When branchId is null/undefined, only org-wide rows are returned
    *     (mirrors `has_permission` org-only semantics).
    *
+   * **Implementation: two queries instead of OR**
+   * The previous implementation used a single query with an OR filter
+   * (`branch_id IS NULL OR branch_id = X`), which prevents PostgreSQL from
+   * using partial indexes. This implementation runs two separate queries:
+   *   1) Org-scope: `WHERE branch_id IS NULL` → uses `uep_org_exact_active_idx`
+   *   2) Branch-scope: `WHERE branch_id = X` → uses `uep_branch_exact_active_idx`
+   * Results are merged, deduplicated, and sorted in JavaScript.
+   *
    * Deny is always empty: deny overrides are resolved at compile time by
    * `compile_user_permissions` and are never written into UEP.
    *
-   * Fail-closed: on query error or missing orgId returns empty allow[].
+   * Fail-closed: on any query error or missing orgId returns empty allow[].
    *
    * @param supabase - Supabase client
    * @param userId - User ID
@@ -145,26 +153,49 @@ export class PermissionServiceV2 {
   ): Promise<PermissionSnapshot> {
     if (!orgId) return { allow: [], deny: [] };
 
-    // Build base query
-    const baseQuery = supabase
+    // ── Query 1: org-scope rows (branch_id IS NULL) ─────────────────────────
+    // Uses partial index: uep_org_exact_active_idx
+    //   (organization_id, user_id, permission_slug) WHERE branch_id IS NULL
+    // Avoids OR filter — separate queries give the planner stable partial-index paths.
+    const { data: orgData, error: orgError } = await supabase
       .from("user_effective_permissions")
       .select("permission_slug")
       .eq("user_id", userId)
-      .eq("organization_id", orgId);
+      .eq("organization_id", orgId)
+      .is("branch_id", null);
 
-    // Branch-aware filter: mirrors has_branch_permission semantics
-    //   branchId set   → branch_id IS NULL OR branch_id = branchId
-    //   branchId unset → branch_id IS NULL (org-only, mirrors has_permission)
-    const { data, error } = await (branchId
-      ? baseQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
-      : baseQuery.is("branch_id", null));
-
-    if (error) {
-      console.error("[PermissionServiceV2] Failed to fetch branch-aware permissions:", error);
+    if (orgError) {
+      console.error("[PermissionServiceV2] Failed to fetch org-scope permissions:", orgError);
       return { allow: [], deny: [] };
     }
 
-    const allow = [...new Set((data ?? []).map((r) => r.permission_slug))].sort();
+    // ── Query 2: branch-scope rows (only when branchId is set) ──────────────
+    // Uses partial index: uep_branch_exact_active_idx
+    //   (organization_id, user_id, branch_id, permission_slug) WHERE branch_id IS NOT NULL
+    // Skipped entirely when branchId is null/undefined (mirrors has_permission org-only semantics).
+    let branchSlugs: string[] = [];
+    if (branchId) {
+      const { data: branchData, error: branchError } = await supabase
+        .from("user_effective_permissions")
+        .select("permission_slug")
+        .eq("user_id", userId)
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId);
+
+      if (branchError) {
+        console.error(
+          "[PermissionServiceV2] Failed to fetch branch-scope permissions:",
+          branchError
+        );
+        return { allow: [], deny: [] };
+      }
+      branchSlugs = (branchData ?? []).map((r) => r.permission_slug);
+    }
+
+    // Merge org + branch slugs, dedup, sort deterministically.
+    // Set dedup handles the theoretical case where a slug appears in both scopes.
+    const orgSlugs = (orgData ?? []).map((r) => r.permission_slug);
+    const allow = [...new Set([...orgSlugs, ...branchSlugs])].sort();
     return { allow, deny: [] };
   }
 
