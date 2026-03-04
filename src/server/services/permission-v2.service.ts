@@ -15,17 +15,28 @@
  *
  * This service just reads those facts. Simple.
  *
- * **No wildcards at runtime!**
- * Wildcards are expanded at compile time. The effective permissions table
- * contains only explicit permission slugs.
+ * **Wildcards in UEP — critical for callers**
+ *
+ * The DB compiler (`compile_user_permissions`) inserts `permissions.slug` verbatim —
+ * it does NOT expand wildcards. UEP rows may contain `account.*`, `module.*`, etc.
+ *
+ * | Check type | Method | Wildcard-aware? | Scope |
+ * |---|---|---|---|
+ * | Client/SSR snapshot | `checkPermission(snapshot, slug)` | ✅ YES | org + branch |
+ * | DB RPC (current user) | `has_permission(org_id, slug)` | ❌ exact match | org-only (`branch_id IS NULL`) |
+ * | DB RPC (explicit user) | `user_has_effective_permission(uid, org_id, slug)` | ❌ exact match | org-only (`branch_id IS NULL`) |
+ *
+ * **Rule**: Always use `checkPermission(snapshot, requiredSlug)` at runtime.
+ * The RPC helpers are only appropriate for simple exact-match org-level gates where
+ * you know the slug will never be a wildcard (e.g. feature-flag checks).
  *
  * @example
  * ```typescript
  * import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
  *
- * // Get effective permissions for user
- * const permissions = await PermissionServiceV2.getEffectivePermissions(supabase, userId, orgId);
- * // Returns: Set<string> { "org.read", "branches.read", "members.manage", ... }
+ * // Get org-scope effective permissions for user
+ * const permissions = await PermissionServiceV2.getOrgEffectivePermissions(supabase, userId, orgId);
+ * // Returns: Set<string> { "org.read", "branches.read", "members.manage", "account.*", ... }
  *
  * // Check permission
  * if (permissions.has("members.manage")) {
@@ -42,30 +53,18 @@ import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 export class PermissionServiceV2 {
   /**
-   * Get effective permissions for a user in an organization
+   * Get org-scope effective permissions for a user (Set form).
    *
-   * This reads from the compiled `user_effective_permissions` table.
-   * No complex logic - just a simple SELECT.
+   * Reads only org-scope rows (`branch_id IS NULL`) from the compiled UEP table.
+   * Branch-scoped permission rows are excluded by design — use
+   * `getPermissionSnapshotForUser` when branch context is needed.
    *
    * @param supabase - Supabase client
    * @param userId - User ID
    * @param orgId - Organization ID
-   * @returns Set of permission slugs the user has
-   *
-   * @example
-   * ```typescript
-   * const permissions = await PermissionServiceV2.getEffectivePermissions(
-   *   supabase,
-   *   "user-123",
-   *   "org-456"
-   * );
-   *
-   * if (permissions.has("members.manage")) {
-   *   // User can manage members
-   * }
-   * ```
+   * @returns Set of org-scope permission slugs (wildcards preserved as-is)
    */
-  static async getEffectivePermissions(
+  static async getOrgEffectivePermissions(
     supabase: SupabaseClient,
     userId: string,
     orgId: string
@@ -74,10 +73,11 @@ export class PermissionServiceV2 {
       .from("user_effective_permissions")
       .select("permission_slug")
       .eq("user_id", userId)
-      .eq("organization_id", orgId);
+      .eq("organization_id", orgId)
+      .is("branch_id", null);
 
     if (error) {
-      console.error("[PermissionServiceV2] Failed to fetch effective permissions:", error);
+      console.error("[PermissionServiceV2] Failed to fetch org effective permissions:", error);
       return new Set();
     }
 
@@ -85,17 +85,18 @@ export class PermissionServiceV2 {
   }
 
   /**
-   * Get effective permissions as an array (for serialization)
+   * Get org-scope effective permissions as a sorted array (for serialization).
    *
-   * Same as getEffectivePermissions but returns an array instead of Set.
-   * Useful for passing to frontend via server actions.
+   * Reads only org-scope rows (`branch_id IS NULL`) from the compiled UEP table.
+   * Wildcard slugs (e.g. `account.*`, `module.*`) are preserved as-is — use
+   * `checkPermission` for wildcard-aware checks, not exact string matching.
    *
    * @param supabase - Supabase client
    * @param userId - User ID
    * @param orgId - Organization ID
-   * @returns Array of permission slugs
+   * @returns Sorted array of org-scope permission slugs
    */
-  static async getEffectivePermissionsArray(
+  static async getOrgEffectivePermissionsArray(
     supabase: SupabaseClient,
     userId: string,
     orgId: string
@@ -104,10 +105,11 @@ export class PermissionServiceV2 {
       .from("user_effective_permissions")
       .select("permission_slug")
       .eq("user_id", userId)
-      .eq("organization_id", orgId);
+      .eq("organization_id", orgId)
+      .is("branch_id", null);
 
     if (error) {
-      console.error("[PermissionServiceV2] Failed to fetch effective permissions:", error);
+      console.error("[PermissionServiceV2] Failed to fetch org effective permissions:", error);
       return [];
     }
 
@@ -115,29 +117,54 @@ export class PermissionServiceV2 {
   }
 
   /**
-   * Get permission snapshot for backwards compatibility with V1 code
+   * Get permission snapshot from compiled UEP — branch-aware.
    *
-   * Returns a PermissionSnapshot with allow list populated and deny list empty.
-   * In V2, deny logic is handled at compile time, not runtime.
+   * Mirrors the DB `has_branch_permission(org_id, branch_id, slug)` semantics:
+   *   - Org-wide rows (branch_id IS NULL) are always included.
+   *   - When branchId is set, rows for that exact branch are also included.
+   *   - When branchId is null/undefined, only org-wide rows are returned
+   *     (mirrors `has_permission` org-only semantics).
+   *
+   * Deny is always empty: deny overrides are resolved at compile time by
+   * `compile_user_permissions` and are never written into UEP.
+   *
+   * Fail-closed: on query error or missing orgId returns empty allow[].
    *
    * @param supabase - Supabase client
    * @param userId - User ID
    * @param orgId - Organization ID
-   * @param _branchId - Ignored in V2 (kept for API compatibility)
+   * @param branchId - Active branch ID (null/undefined = org-scope only)
    * @returns PermissionSnapshot with allow array and empty deny array
    */
   static async getPermissionSnapshotForUser(
     supabase: SupabaseClient,
     userId: string,
     orgId: string,
-    _branchId?: string | null
+    branchId?: string | null
   ): Promise<PermissionSnapshot> {
-    const permissions = await this.getEffectivePermissionsArray(supabase, userId, orgId);
+    if (!orgId) return { allow: [], deny: [] };
 
-    return {
-      allow: permissions,
-      deny: [], // V2: Deny is handled at compile time
-    };
+    // Build base query
+    const baseQuery = supabase
+      .from("user_effective_permissions")
+      .select("permission_slug")
+      .eq("user_id", userId)
+      .eq("organization_id", orgId);
+
+    // Branch-aware filter: mirrors has_branch_permission semantics
+    //   branchId set   → branch_id IS NULL OR branch_id = branchId
+    //   branchId unset → branch_id IS NULL (org-only, mirrors has_permission)
+    const { data, error } = await (branchId
+      ? baseQuery.or(`branch_id.is.null,branch_id.eq.${branchId}`)
+      : baseQuery.is("branch_id", null));
+
+    if (error) {
+      console.error("[PermissionServiceV2] Failed to fetch branch-aware permissions:", error);
+      return { allow: [], deny: [] };
+    }
+
+    const allow = [...new Set((data ?? []).map((r) => r.permission_slug))].sort();
+    return { allow, deny: [] };
   }
 
   /**

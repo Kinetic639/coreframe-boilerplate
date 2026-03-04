@@ -5,26 +5,19 @@ import { checkPermission, matchesAnyPattern } from "@/lib/utils/permissions";
 export type { PermissionSnapshot };
 
 /**
- * Permission Service
+ * @deprecated PermissionService (dynamic path) is RETIRED from authoritative use.
  *
- * Provides utilities for fetching and validating user permissions with full scope support.
- * Combines role-based permissions with user-specific overrides.
- * Supports both organization-wide and branch-specific permissions.
+ * **DO NOT USE for new code.** Use `PermissionServiceV2` instead.
  *
- * **IMPORTANT:** Returns PermissionSnapshot with separate allow/deny lists to support
- * deny overrides with wildcard permissions.
+ * The authoritative permission snapshot is now read from compiled
+ * `user_effective_permissions` via `PermissionServiceV2.getPermissionSnapshotForUser`,
+ * which mirrors `has_branch_permission` DB semantics and is consistent with
+ * the DB trigger pipeline (`compile_user_permissions`).
  *
- * @example
- * ```typescript
- * // Org-level permissions only
- * const orgPerms = await PermissionService.getPermissionSnapshotForUser(supabase, userId, orgId);
- *
- * // Branch-level permissions (includes org + branch roles)
- * const branchPerms = await PermissionService.getPermissionSnapshotForUser(supabase, userId, orgId, branchId);
- *
- * const canRead = PermissionService.can(branchPerms, "warehouse.products.read");
- * const canManage = PermissionService.can(branchPerms, "warehouse.*");
- * ```
+ * This class is kept to avoid breaking any remaining references during transition,
+ * but no authoritative SSR loader or server action should call it. Run:
+ *   `grep -r "PermissionService\." src/ --include="*.ts" | grep -v "V2\|__tests__\|\.test\."`
+ * to confirm zero non-V2 production call sites remain.
  */
 export class PermissionService {
   /**

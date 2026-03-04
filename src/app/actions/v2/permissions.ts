@@ -1,22 +1,27 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { PermissionService } from "@/server/services/permission.service";
 import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 /**
- * Server action to fetch permissions for a given org/branch context
+ * Server action to fetch permissions for a given org/branch context.
  *
- * Uses branch-aware dynamic permission lookup (PermissionService) so that
- * branch-scoped role assignments are included in the result. This keeps
- * PermissionsSync consistent with the SSR-computed permission snapshot.
+ * Reads from the compiled `user_effective_permissions` table (branch-aware) —
+ * the same source of truth as the DB `has_branch_permission` function and the
+ * SSR `loadUserContextV2` loader. This ensures PermissionsSync delivers an
+ * identical snapshot to what was rendered server-side.
+ *
+ * Branch-aware semantics (mirrors DB `has_branch_permission`):
+ *   - Includes org-wide rows (branch_id IS NULL) always.
+ *   - When branchId is set, also includes rows for that exact branch.
+ *   - When branchId is null, returns org-scope rows only.
  *
  * @param orgId - Organization ID
- * @param branchId - Branch ID — passed to PermissionService for branch-scoped role lookup
+ * @param branchId - Active branch ID (null = org-scope only)
  * @returns Object with permissions snapshot (allow array, empty deny array)
  *
- * Security: Validates session server-side
+ * Security: JWT-validated via getUser() server-side; fail-closed (empty snapshot on error).
  */
 export async function getBranchPermissions(
   orgId: string,
@@ -25,20 +30,19 @@ export async function getBranchPermissions(
   try {
     const supabase = await createClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    // Return empty snapshot if no session
-    if (!session) {
+    // Fail-closed: no user or auth error → empty snapshot
+    if (authError || !user) {
       return { permissions: { allow: [], deny: [] } };
     }
 
-    // Use branch-aware PermissionService so branch-scoped role permissions are included.
-    // PermissionServiceV2 ignores branchId and only returns org-compiled permissions,
-    // which causes branch-scoped permissions to be stripped after PermissionsSync fires.
-    const permissions = await PermissionService.getPermissionSnapshotForUser(
+    // Use compiled UEP query — branch-aware, mirrors has_branch_permission semantics.
+    const permissions = await PermissionServiceV2.getPermissionSnapshotForUser(
       supabase,
-      session.user.id,
+      user.id,
       orgId,
       branchId
     );
@@ -63,14 +67,15 @@ export async function getEffectivePermissions(orgId: string): Promise<string[]> 
   try {
     const supabase = await createClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (authError || !user) {
       return [];
     }
 
-    return await PermissionServiceV2.getEffectivePermissionsArray(supabase, session.user.id, orgId);
+    return await PermissionServiceV2.getOrgEffectivePermissionsArray(supabase, user.id, orgId);
   } catch (error) {
     console.error("Failed to fetch effective permissions:", error);
     return [];
@@ -111,8 +116,14 @@ export interface DetailedPermission {
  * Server action to get all permission assignments with scope and branch metadata.
  *
  * Used by the debug panel to show per-permission scope and branch context.
- * Queries role assignments directly — org-scoped and branch-scoped separately.
- * Branch names are resolved server-side and included in the result.
+ * Reads directly from the compiled `user_effective_permissions` table (UEP) —
+ * the single source of truth — rather than deriving from role assignments.
+ *
+ * Wildcard slugs (e.g. `account.*`, `module.*`) are preserved as-is from UEP.
+ * Branch names are resolved server-side with org isolation; RLS failure on the
+ * branches lookup is handled gracefully (branch_name → null, no throw).
+ *
+ * Sort order: org-scope first, then branch_name ASC, then slug ASC.
  *
  * @param orgId - Organization ID
  * @returns Array of detailed permission entries (slug + scope + branch_id + branch_name)
@@ -120,94 +131,68 @@ export interface DetailedPermission {
 export async function getDetailedPermissions(orgId: string): Promise<DetailedPermission[]> {
   try {
     const supabase = await createClient();
+
+    // Use getUser() to validate JWT server-side (not getSession() which is cookie-only).
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) return [];
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) return [];
 
-    const userId = session.user.id;
-    const results: DetailedPermission[] = [];
+    const userId = user.id;
 
-    // 1. Org-scoped role assignments
-    const { data: orgAssignments } = await supabase
-      .from("user_role_assignments")
-      .select("role_id")
+    // Read compiled UEP — single source of truth (org-isolated by organization_id).
+    const { data: uepRows, error: uepError } = await supabase
+      .from("user_effective_permissions")
+      .select("permission_slug, branch_id")
       .eq("user_id", userId)
-      .eq("scope", "org")
-      .eq("scope_id", orgId)
-      .is("deleted_at", null);
+      .eq("organization_id", orgId);
 
-    const orgRoleIds = (orgAssignments ?? []).map((a) => a.role_id);
-
-    if (orgRoleIds.length > 0) {
-      const { data: orgPerms } = await supabase.rpc("get_permissions_for_roles", {
-        role_ids: orgRoleIds,
-      });
-      const seen = new Set<string>();
-      (orgPerms ?? []).forEach((slug: string) => {
-        if (!seen.has(slug)) {
-          seen.add(slug);
-          results.push({ slug, scope: "org", branch_id: null, branch_name: null });
-        }
-      });
+    if (uepError) {
+      console.error("[getDetailedPermissions] UEP query failed:", uepError);
+      return [];
     }
 
-    // 2. Branch-scoped role assignments
-    // RLS "View own role assignments" (user_id = auth.uid()) allows this read.
-    // We do NOT filter by org here — instead we fetch branch names by scope_id IDs
-    // directly (avoiding a separate branches-by-org query that may have stricter RLS).
-    const { data: branchAssignments } = await supabase
-      .from("user_role_assignments")
-      .select("role_id, scope_id")
-      .eq("user_id", userId)
-      .eq("scope", "branch")
-      .is("deleted_at", null);
+    const rows = uepRows ?? [];
 
-    if (branchAssignments?.length) {
-      // Collect unique branch IDs from this user's branch assignments
-      const uniqueBranchIds = [
-        ...new Set(branchAssignments.map((a) => a.scope_id).filter(Boolean)),
-      ];
+    // Collect unique branch IDs from branch-scoped rows.
+    const branchIds = [
+      ...new Set(rows.map((r) => r.branch_id).filter((id): id is string => id !== null)),
+    ];
 
-      // Resolve branch names and org in a single query by IDs (no org filter needed —
-      // we own these scope_ids from user_role_assignments RLS, and we filter by orgId below).
-      const { data: branchRows } = await supabase
+    // Resolve branch names with org isolation — prevents cross-org name leakage.
+    // On RLS failure or query error, gracefully set branch_name = null (no throw).
+    const branchNameMap = new Map<string, string>();
+    if (branchIds.length > 0) {
+      const { data: branchRows, error: branchError } = await supabase
         .from("branches")
-        .select("id, name, organization_id")
-        .in("id", uniqueBranchIds);
+        .select("id, name")
+        .in("id", branchIds)
+        .eq("organization_id", orgId);
 
-      // Build id→{name, org} lookup; filter to this org only
-      const branchMeta = new Map<string, { name: string; org_id: string }>();
-      (branchRows ?? []).forEach((b) => {
-        branchMeta.set(b.id, { name: b.name, org_id: b.organization_id });
-      });
-
-      // Group role IDs by branch (only for this org's branches)
-      const byBranch = new Map<string, { roleIds: string[]; name: string }>();
-      for (const a of branchAssignments) {
-        if (!a.scope_id) continue;
-        const meta = branchMeta.get(a.scope_id);
-        if (!meta || meta.org_id !== orgId) continue; // skip cross-org assignments
-        const entry = byBranch.get(a.scope_id) ?? { roleIds: [], name: meta.name };
-        entry.roleIds.push(a.role_id);
-        byBranch.set(a.scope_id, entry);
-      }
-
-      for (const [branchId, { roleIds, name }] of byBranch) {
-        const { data: branchPerms } = await supabase.rpc("get_permissions_for_roles", {
-          role_ids: roleIds,
-        });
-        const seen = new Set<string>();
-        (branchPerms ?? []).forEach((slug: string) => {
-          if (!seen.has(slug)) {
-            seen.add(slug);
-            results.push({ slug, scope: "branch", branch_id: branchId, branch_name: name });
-          }
-        });
+      if (!branchError) {
+        (branchRows ?? []).forEach((b) => branchNameMap.set(b.id, b.name));
       }
     }
 
-    return results;
+    // Map UEP rows → DetailedPermission.
+    const result: DetailedPermission[] = rows.map((r) => ({
+      slug: r.permission_slug,
+      scope: r.branch_id === null ? "org" : "branch",
+      branch_id: r.branch_id,
+      branch_name: r.branch_id !== null ? (branchNameMap.get(r.branch_id) ?? null) : null,
+    }));
+
+    // Deterministic sort: org first, then branch_name ASC (nulls last), then slug ASC.
+    result.sort((a, b) => {
+      if (a.scope !== b.scope) return a.scope === "org" ? -1 : 1;
+      const aName = a.branch_name ?? "\uFFFF";
+      const bName = b.branch_name ?? "\uFFFF";
+      if (aName !== bName) return aName.localeCompare(bName);
+      return a.slug.localeCompare(b.slug);
+    });
+
+    return result;
   } catch (error) {
     console.error("Failed to fetch detailed permissions:", error);
     return [];
