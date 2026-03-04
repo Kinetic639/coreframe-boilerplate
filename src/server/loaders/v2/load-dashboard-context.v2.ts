@@ -6,7 +6,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { BRANCHES_VIEW_ANY } from "@/lib/constants/permissions";
 import type { AppContextV2, BranchDataV2 } from "@/lib/stores/v2/app-store";
 import type { UserContextV2 } from "@/lib/stores/v2/user-store";
-import type { PermissionSnapshot } from "@/server/services/permission.service";
+import type { PermissionSnapshot } from "@/lib/types/permissions";
 
 /**
  * Combined Dashboard Context V2

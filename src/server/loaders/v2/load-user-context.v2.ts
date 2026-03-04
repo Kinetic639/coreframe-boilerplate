@@ -1,7 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { cache } from "react";
 import { AuthService, type JWTRole } from "@/server/services/auth.service";
-import { PermissionService, type PermissionSnapshot } from "@/server/services/permission.service";
+import { PermissionServiceV2 } from "@/server/services/permission-v2.service";
+import type { PermissionSnapshot } from "@/lib/types/permissions";
 import type { UserContextV2, UserV2 } from "@/lib/stores/v2/user-store";
 
 /**
@@ -112,7 +113,7 @@ async function _loadUserContextV2(
   let permissionSnapshot: PermissionSnapshot = { allow: [], deny: [] };
 
   if (activeOrgId) {
-    permissionSnapshot = await PermissionService.getPermissionSnapshotForUser(
+    permissionSnapshot = await PermissionServiceV2.getPermissionSnapshotForUser(
       supabase,
       userId,
       activeOrgId,
