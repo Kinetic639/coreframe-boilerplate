@@ -1,23 +1,92 @@
 /**
  * @vitest-environment node
  *
- * Tools Service — Unit Test Stubs
+ * Tools Service — Unit Tests
  *
  * These tests validate:
  * T-TOOLS-SERVICE: ToolsCatalogService + UserToolsService behaviour
  * T-TOOLS-RLS:     RLS enforcement (self-only on user_enabled_tools)
- * T-TOOLS-ACTIONS: Server action auth + permission gating stubs
+ * T-TOOLS-ACTIONS: Server action auth + permission gating
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ToolsCatalogService, UserToolsService } from "../tools.service";
 import type { ServiceResult, ToolCatalogItem, UserEnabledTool } from "../tools.service";
 
 // ---------------------------------------------------------------------------
-// Mock Supabase helpers
+// Module mocks for server action tests
+// ---------------------------------------------------------------------------
+
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn(),
+}));
+
+vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({
+  loadDashboardContextV2: vi.fn(),
+}));
+
+import { createClient } from "@/utils/supabase/server";
+import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
+import {
+  listToolsCatalogAction,
+  listMyEnabledToolsAction,
+  setToolEnabledAction,
+  setToolPinnedAction,
+} from "@/app/actions/tools/index";
+
+// ---------------------------------------------------------------------------
+// Shared test constants
 // ---------------------------------------------------------------------------
 
 const USER_ID = "user-uuid-1";
 const TOOL_SLUG = "qr-generator";
+
+// ---------------------------------------------------------------------------
+// Action test helpers
+// ---------------------------------------------------------------------------
+
+const ORG_ID = "org-uuid-1";
+const AUTH_USER = { id: USER_ID };
+
+function makeActionSupabase(userResult: { user: typeof AUTH_USER | null; error: unknown }) {
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: userResult, error: userResult.error }),
+    },
+    from: vi.fn((table: string) => {
+      if (table === "tools_catalog") {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({ data: [], error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        upsert: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: { id: "r1", user_id: USER_ID, tool_slug: TOOL_SLUG, enabled: true, pinned: false },
+          error: null,
+        }),
+      };
+    }),
+  };
+}
+
+function makeContext(permissions: string[]) {
+  return {
+    app: { activeOrgId: ORG_ID },
+    user: {
+      permissionSnapshot: { allow: permissions, deny: [] },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mock Supabase helpers
+// ---------------------------------------------------------------------------
 
 function makeSupabase(overrides: {
   selectResult?: { data: unknown; error: unknown };
@@ -195,16 +264,128 @@ describe("[T-TOOLS-RLS] RLS integration stubs (live DB only)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// T-TOOLS-ACTIONS: Server action auth + permission stubs
+// T-TOOLS-ACTIONS: Server action auth + permission gating
 // ---------------------------------------------------------------------------
 
-describe("[T-TOOLS-ACTIONS] Server action auth + permission stubs", () => {
-  it.todo("listToolsCatalogAction: returns Unauthorized when tools.read permission is missing");
-  it.todo("listToolsCatalogAction: returns success when tools.read is present");
-  it.todo("setToolEnabledAction: returns Unauthorized when tools.manage permission is missing");
-  it.todo("setToolEnabledAction: validates toolSlug — rejects empty string");
-  it.todo("setToolEnabledAction: upserts row when input is valid");
-  it.todo("setToolPinnedAction: returns Unauthorized when tools.manage permission is missing");
-  it.todo("updateToolSettingsAction: validates input schema and rejects invalid settings");
-  it.todo("getToolBySlugAction: returns null data for inactive tool slug");
+describe("[T-TOOLS-ACTIONS] Server action auth + permission gating", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // --- listToolsCatalogAction ---
+
+  it("listToolsCatalogAction: returns Unauthenticated when no user session", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: null, error: new Error("no session") }) as any
+    );
+    const result = await listToolsCatalogAction();
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthenticated");
+  });
+
+  it("listToolsCatalogAction: returns Unauthorized when tools.read permission is missing", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext([]) as any);
+    const result = await listToolsCatalogAction();
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthorized");
+  });
+
+  it("listToolsCatalogAction: returns success when tools.read is present", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(["tools.read"]) as any);
+    const result = await listToolsCatalogAction();
+    expect(result.success).toBe(true);
+  });
+
+  // --- listMyEnabledToolsAction ---
+
+  it("listMyEnabledToolsAction: returns Unauthenticated when no user session", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: null, error: new Error("no session") }) as any
+    );
+    const result = await listMyEnabledToolsAction();
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthenticated");
+  });
+
+  it("listMyEnabledToolsAction: returns Unauthorized when tools.read is missing", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext([]) as any);
+    const result = await listMyEnabledToolsAction();
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthorized");
+  });
+
+  // --- setToolEnabledAction ---
+
+  it("setToolEnabledAction: returns Unauthenticated when no user session", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: null, error: new Error("no session") }) as any
+    );
+    const result = await setToolEnabledAction({ toolSlug: TOOL_SLUG, enabled: true });
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthenticated");
+  });
+
+  it("setToolEnabledAction: returns Unauthorized when tools.manage is missing", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(["tools.read"]) as any);
+    const result = await setToolEnabledAction({ toolSlug: TOOL_SLUG, enabled: true });
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthorized");
+  });
+
+  it("setToolEnabledAction: validates toolSlug — rejects empty string", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["tools.read", "tools.manage"]) as any
+    );
+    const result = await setToolEnabledAction({ toolSlug: "", enabled: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("setToolEnabledAction: succeeds with valid input and tools.manage permission", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["tools.read", "tools.manage"]) as any
+    );
+    const result = await setToolEnabledAction({ toolSlug: TOOL_SLUG, enabled: true });
+    expect(result.success).toBe(true);
+  });
+
+  // --- setToolPinnedAction ---
+
+  it("setToolPinnedAction: returns Unauthorized when tools.manage is missing", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext([]) as any);
+    const result = await setToolPinnedAction({ toolSlug: TOOL_SLUG, pinned: true });
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toBe("Unauthorized");
+  });
+
+  it("setToolPinnedAction: succeeds with valid input and tools.manage permission", async () => {
+    vi.mocked(createClient).mockResolvedValue(
+      makeActionSupabase({ user: AUTH_USER, error: null }) as any
+    );
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext(["tools.read", "tools.manage"]) as any
+    );
+    const result = await setToolPinnedAction({ toolSlug: TOOL_SLUG, pinned: true });
+    expect(result.success).toBe(true);
+  });
 });

@@ -16,11 +16,11 @@ The Tools module gives every org member access to a personal catalog of producti
 
 ## Routes
 
-| Route                     | File                                               | Description                                      |
-| ------------------------- | -------------------------------------------------- | ------------------------------------------------ |
-| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/page.tsx`        | My Tools — lists user's enabled tools            |
-| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`    | Full catalog with search/filter + enable toggles |
-| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx` | Tool detail — enable/disable/pin                 |
+| Route                     | File                                               | Description                                                             |
+| ------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/page.tsx`        | Unified page — shadcn Tabs switching between "My Tools" and "All Tools" |
+| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`    | Direct URL alias for the catalog tab (renders same unified component)   |
+| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx` | Tool detail — preview (disabled) or active tool UI (enabled)            |
 
 All routes are registered in `src/i18n/routing.ts`:
 
@@ -117,18 +117,21 @@ Contains:
 | Module config        | `src/modules/tools/config.ts`                                                           |
 | Module registration  | `src/modules/index.ts`                                                                  |
 | Sidebar entry        | `src/lib/sidebar/v2/registry.ts`                                                        |
+| Sidebar injection    | `src/app/[locale]/dashboard/layout.tsx` (`injectPinnedToolsIntoSidebar`)                |
 | Permission constants | `src/lib/constants/permissions.ts` (`PERMISSION_TOOLS_READ`, `PERMISSION_TOOLS_MANAGE`) |
 | Module constant      | `src/lib/constants/modules.ts` (`MODULE_TOOLS`)                                         |
 | Zod validations      | `src/lib/validations/tools.ts`                                                          |
 | Service layer        | `src/server/services/tools.service.ts`                                                  |
 | Server actions       | `src/app/actions/tools/index.ts`                                                        |
 | React Query hooks    | `src/hooks/queries/tools/index.ts`                                                      |
+| Tool registry        | `src/lib/tools/registry.tsx`                                                            |
 | Layout (SSR gate)    | `src/app/[locale]/dashboard/tools/layout.tsx`                                           |
-| My Tools page        | `src/app/[locale]/dashboard/tools/page.tsx`                                             |
-| Catalog page         | `src/app/[locale]/dashboard/tools/all/page.tsx`                                         |
+| Unified page         | `src/app/[locale]/dashboard/tools/page.tsx`                                             |
+| Catalog page (alias) | `src/app/[locale]/dashboard/tools/all/page.tsx`                                         |
 | Detail page          | `src/app/[locale]/dashboard/tools/[slug]/page.tsx`                                      |
 | Loading              | `src/app/[locale]/dashboard/tools/loading.tsx`                                          |
 | Error                | `src/app/[locale]/dashboard/tools/error.tsx`                                            |
+| Unified client       | `src/app/[locale]/dashboard/tools/_components/tools-unified-client.tsx`                 |
 | My Tools client      | `src/app/[locale]/dashboard/tools/_components/tools-my-tools-client.tsx`                |
 | Catalog client       | `src/app/[locale]/dashboard/tools/_components/tools-catalog-client.tsx`                 |
 | Detail client        | `src/app/[locale]/dashboard/tools/_components/tool-detail-client.tsx`                   |
@@ -142,9 +145,13 @@ Contains:
 ## Sidebar Registration
 
 **Registry:** `src/lib/sidebar/v2/registry.ts`
-**Position:** First item in `MAIN_NAV_ITEMS` (before Home)
+**Position:** Last item in `MAIN_NAV_ITEMS` (before the Account footer section)
 **Icon:** `tools` (maps to `Wrench` from lucide-react in icon-map)
 **No `requiresModules` gate** — Tools is always visible to any user with `tools.read`.
+
+### Dynamic Children (Pinned Tools)
+
+Pinned tools are injected as sidebar children server-side in `src/app/[locale]/dashboard/layout.tsx` via `injectPinnedToolsIntoSidebar()`. Pinned tools appear above a fixed "All Tools" child item. When a user pins/unpins a tool, `router.refresh()` is called from the React Query mutation `onSuccess` callback to re-run the server layout and update the sidebar.
 
 ```typescript
 {
@@ -184,6 +191,11 @@ Key sub-namespaces:
 - **No plan gating**: Tools module does not check `entitlements.requireModuleOrRedirect()`. The layout only calls `loadDashboardContextV2()` and `checkPermission(... PERMISSION_TOOLS_READ)`.
 - **User-scoped catalog state**: The catalog (`tools_catalog`) is global; the user's personal state (`user_enabled_tools`) is user-scoped via RLS.
 - **Upsert pattern**: `setToolEnabled` and `setToolPinned` use upsert with `onConflict: "user_id,tool_slug"` to handle first-time interactions without requiring a prior row.
+- **Auto-unpin on disable**: `UserToolsService.setToolEnabled(enabled=false)` atomically sets `pinned: false` in the same upsert payload. Ensures a disabled tool is never left in a pinned state.
 - **SSR-first**: All pages are Server Components by default; client interactivity is delegated to `*-client.tsx` components that receive SSR initial data.
+- **Unified tabs page**: `/dashboard/tools` uses a single page with shadcn `Tabs` to switch between My Tools and All Tools views. `/dashboard/tools/all` is a URL alias that renders the same data.
+- **Two-mode detail page**: `/dashboard/tools/[slug]` renders a preview (Enable CTA) when the tool is disabled, and the actual tool UI (from registry) when enabled. Tools with no registered component show `ToolPlaceholder`.
+- **Tool registry**: `src/lib/tools/registry.tsx` maps `slug → ComponentType`. New tool UIs are registered here. `getToolComponent(slug)` returns `null` for unregistered slugs.
+- **Dynamic sidebar injection**: Pinned tools are injected as sidebar children server-side in `layout.tsx`. `router.refresh()` from mutation hooks re-runs the server layout to update the sidebar after pin/unpin or disable operations.
 - **Primitives reuse**: UI uses `LoadingSkeleton`, `Badge`, `SearchForm` from `src/components/v2/`.
 - **No org-scoped data**: `user_enabled_tools` stores only `user_id` (not `org_id`), so tool state is consistent across org switches. The layout still requires an org context (via `loadDashboardContextV2`) for permission validation.

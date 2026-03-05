@@ -53,7 +53,7 @@ export function ToolsMyToolsClient({ initialMyTools, initialCatalog }: ToolsMyTo
         <Wrench className="mb-3 h-8 w-8 text-muted-foreground" />
         <p className="mb-1 font-medium text-foreground">{t("pages.myTools.empty")}</p>
         <p className="text-sm text-muted-foreground">
-          <Link href="/dashboard/tools/all" className="underline underline-offset-2">
+          <Link href="/dashboard/tools" className="underline underline-offset-2">
             {t("pages.myTools.emptyAction")}
           </Link>
         </p>
