@@ -112,14 +112,17 @@
 - [x] `user_enabled_tools` UPDATE: USING + WITH CHECK both `(user_id = auth.uid())` — fail-closed mirroring.
 - [x] `user_enabled_tools` DELETE: `USING (user_id = auth.uid())` — own rows only.
 - [x] No INSERT/UPDATE/DELETE policies on `tools_catalog` — admin-only via direct DB access.
-- [x] Migration tracked: `supabase/migrations/20260305120000_tools_module.sql`.
+- [x] `FORCE ROW LEVEL SECURITY` applied to `user_enabled_tools` — SECURITY DEFINER functions cannot bypass `user_id = auth.uid()` policies.
+  > ✅ Applied via migration `20260305130000_tools_force_rls_user_enabled_tools.sql` (2026-03-05 verification pass). `tools_catalog` intentionally excluded: `USING (true)` policy means FORCE RLS adds no security benefit there.
+- [x] Migrations tracked: `20260305120000_tools_module.sql` + `20260305130000_tools_force_rls_user_enabled_tools.sql` + `20260305140000_tools_pinned_partial_idx.sql`.
 
 ### Schema Correctness
 
 - [x] `tools_catalog`: `slug TEXT PK`, `name TEXT NOT NULL`, `is_active BOOLEAN DEFAULT true`, `sort_order INT DEFAULT 0`, `metadata JSONB DEFAULT '{}'`.
 - [x] `user_enabled_tools`: `id UUID PK`, `user_id UUID NOT NULL REFERENCES auth.users`, `tool_slug TEXT NOT NULL REFERENCES tools_catalog(slug)`, `enabled BOOLEAN NOT NULL DEFAULT true`, `pinned BOOLEAN NOT NULL DEFAULT false`, `settings JSONB NOT NULL DEFAULT '{}'`.
 - [x] Unique constraint on `(user_id, tool_slug)` — prevents duplicate rows, enables upsert conflict target.
-- [x] Indexes: `user_enabled_tools_user_enabled_idx (user_id, enabled)`, `user_enabled_tools_tool_slug_idx (tool_slug)`.
+- [x] Indexes: `user_enabled_tools_user_enabled_idx (user_id, enabled)`, `user_enabled_tools_tool_slug_idx (tool_slug)`, `user_enabled_tools_pinned_idx (user_id, created_at) WHERE pinned = true`.
+  > ✅ Partial index added in surgical hardening pass (2026-03-05): migration `20260305140000`.
 - [x] Cascade deletes: `user_id` → `auth.users ON DELETE CASCADE`, `tool_slug` → `tools_catalog ON DELETE CASCADE`.
 
 ### Upsert Pattern
@@ -173,6 +176,8 @@
 - [x] Error states: `ToolsError` component in `tools/error.tsx` with refresh + go-home actions.
 - [x] Empty states: inline with Wrench icon + action link.
 - [x] Mutation buttons disabled during `isPending` state.
+- [x] View-detail arrow buttons (`→`) have `aria-label={t("aria.viewDetail", { name })}`.
+  > ✅ Fixed in verification pass (2026-03-05): `tools-my-tools-client.tsx` and `tools-catalog-client.tsx`. `aria.viewDetail` key added to both `messages/en.json` and `messages/pl.json`.
 
 ### Unified Tabs Page
 
@@ -205,9 +210,16 @@
 ### Dynamic Pinned Tools Injection
 
 - [x] `injectPinnedToolsIntoSidebar()` called in `src/app/[locale]/dashboard/layout.tsx` after `buildSidebarModel()`.
-- [x] Pinned tools fetched server-side in parallel with catalog for name lookup.
+- [x] Pinned tools fetched via lean join query (`listPinnedToolsForSidebar`) — single DB round-trip returning only `tool_slug, created_at, tools_catalog(name)`. No separate catalog fetch for names.
+  > ✅ Added in surgical hardening pass (2026-03-05): `UserToolsService.listPinnedToolsForSidebar` replaces the previous two parallel full-row fetches.
+- [x] Fetch wrapped in `React.cache()` (`fetchPinnedToolsForSidebar`) — deduplicated per SSR request.
+  > ✅ Added in surgical hardening pass (2026-03-05): `const fetchPinnedToolsForSidebar = cache(async (userId) => {...})` in `dashboard/layout.tsx`.
+- [x] Partial index `user_enabled_tools_pinned_idx (user_id, created_at) WHERE pinned = true` supports the sidebar query efficiently.
+  > ✅ Migration `20260305140000_tools_pinned_partial_idx.sql`.
 - [x] Pinned tools appear as `children` of the tools sidebar item (above "All Tools" fixed child).
 - [x] "All Tools" child is always last in the children array.
+- [x] "All Tools" child links to `/dashboard/tools/all` (catalog page), NOT `/dashboard/tools` (unified page).
+  > ✅ Fixed in verification pass (2026-03-05): `TOOLS_ALL_CHILD.href` was incorrectly `/dashboard/tools` (shows My Tools tab by default). Now `/dashboard/tools/all` which renders the catalog directly.
 - [x] `router.refresh()` in `useSetToolPinnedMutation` `onSuccess` triggers layout re-run for sidebar update.
 - [x] `router.refresh()` in `useSetToolEnabledMutation` `onSuccess` triggers refresh when tool is disabled (auto-unpin side effect).
 
@@ -218,7 +230,10 @@
 - [x] All UI strings under `modules.tools.*` namespace in both `messages/en.json` and `messages/pl.json`.
 - [x] Sub-namespaces: `pages.myTools.*`, `pages.catalog.*`, `pages.detail.*`, `actions.*`, `toasts.*`, `loading.*`, `errors.*`, `aria.*`.
 - [x] Detail page keys added: `enableToUse`, `uiNotRegistered`, `uiNotRegisteredDesc`, `uiNotRegisteredHint`.
+- [x] `aria.viewDetail` key added for view-detail button accessibility labels.
+  > ✅ Added in verification pass (2026-03-05): EN `"View {name} details"`, PL `"Zobacz szczegóły {name}"`.
 - [x] No hardcoded English strings in client components — all use `useTranslations`.
+  > ⚠️ Exception: `→` Unicode arrow used as visual icon inside view-detail buttons — acceptable as a non-semantic symbol. `aria-label` is present, so accessibility is covered.
 
 ---
 
@@ -250,13 +265,21 @@
 
 ## 10. Known Gaps
 
-| #   | Section  | Description                                                                        | Priority | Status                                               |
-| --- | -------- | ---------------------------------------------------------------------------------- | -------- | ---------------------------------------------------- |
-| 1   | Tests    | No sidebar SSR tests for `tools.read` show/hide of tools sidebar item              | LOW      | ⏳ Open                                              |
-| 2   | Tests    | T-TOOLS-RLS live DB integration tests (require real Supabase connection)           | LOW      | ⏳ Open (stubs present)                              |
-| 3   | Tests    | RTL tests for `ToolsMyToolsClient`, `ToolsCatalogClient`, `ToolDetailClient`       | LOW      | ⏳ Open                                              |
-| 4   | Registry | `src/lib/tools/registry.tsx` has no registered tool components (all commented out) | N/A      | Expected — placeholder until real tool UIs are built |
+| #   | Section   | Description                                                                                            | Priority | Status                                                                                                                                     |
+| --- | --------- | ------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| G1  | a11y/i18n | `→` view-detail buttons in `tools-my-tools-client` and `tools-catalog-client` had no `aria-label`      | MEDIUM   | ✅ **Closed 2026-03-05** — `aria-label={t("aria.viewDetail")}` added; `aria.viewDetail` key added to EN+PL                                 |
+| G2  | Security  | `FORCE ROW LEVEL SECURITY` not applied to `user_enabled_tools`                                         | MEDIUM   | ✅ **Closed 2026-03-05** — migration `20260305130000` applies `ALTER TABLE ... FORCE ROW LEVEL SECURITY`                                   |
+| G3  | Tests     | Raw `"tools.read"` / `"tools.manage"` string literals in test fixture helpers                          | LOW      | ⏳ Accepted — test fixture data; low ROI to import constants. Documented as known/accepted.                                                |
+| G4  | UX/Bug    | `TOOLS_ALL_CHILD.href` was `/dashboard/tools` — labeled "All Tools" but showed My Tools tab by default | HIGH     | ✅ **Closed 2026-03-05** — changed to `/dashboard/tools/all` (catalog page)                                                                |
+| G5  | Docs      | `listUserEnabledTools` JSDoc said "enabled or disabled" but filters `enabled = true` only              | LOW      | ✅ **Closed 2026-03-05** — JSDoc corrected in `tools.service.ts`                                                                           |
+| G6  | Tests     | No sidebar SSR tests for `tools.read` show/hide of tools sidebar item                                  | LOW      | ⏳ Open                                                                                                                                    |
+| G7  | Tests     | T-TOOLS-RLS live DB integration tests (require real Supabase connection)                               | LOW      | ⏳ Open (stubs present)                                                                                                                    |
+| G8  | Tests     | RTL tests for `ToolsMyToolsClient`, `ToolsCatalogClient`, `ToolDetailClient`                           | LOW      | ⏳ Open                                                                                                                                    |
+| G9  | Registry  | `src/lib/tools/registry.tsx` has no registered tool components (all commented out)                     | N/A      | Expected — placeholder until real tool UIs are built                                                                                       |
+| G10 | PERF      | `listPinnedTools` used `select("*")` + separate catalog fetch for sidebar injection                    | MEDIUM   | ✅ **Closed 2026-03-05** — `listPinnedToolsForSidebar` lean join + `React.cache()` in layout.tsx; partial index migration `20260305140000` |
+| G11 | Routing   | MODULE.md described `/dashboard/tools/all` as "URL alias rendering same unified component"             | LOW      | ✅ **Closed 2026-03-05** — Fixed to "Dedicated catalog page renders ToolsCatalogClient directly"                                           |
+| G12 | Docs      | No explicit user-global vs org-scoped documentation or guardrail comments in service/actions           | LOW      | ✅ **Closed 2026-03-05** — State Scoping section in MODULE.md; guardrail comments in service.ts + actions                                  |
 
 ---
 
-_Last updated: 2026-03-05 — Initial implementation and Phase 1–2 verification pass complete._
+_Last updated: 2026-03-05 — Surgical hardening pass: G10 (lean+cached sidebar fetch), G11 (routing docs), G12 (user-global scoping docs) closed._

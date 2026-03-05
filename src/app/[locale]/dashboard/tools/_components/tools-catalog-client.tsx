@@ -151,7 +151,12 @@ export function ToolsCatalogClient({ initialCatalog, initialMyTools }: ToolsCata
                   >
                     {isEnabled ? t("actions.disable") : t("actions.enable")}
                   </Button>
-                  <Button size="sm" variant="ghost" asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    asChild
+                    aria-label={t("aria.viewDetail", { name: tool.name })}
+                  >
                     <Link
                       href={{
                         pathname: "/dashboard/tools/[slug]",

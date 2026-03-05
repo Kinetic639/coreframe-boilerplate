@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
@@ -5,60 +6,65 @@ import { loadAdminContextV2 } from "@/server/loaders/v2/load-admin-context.v2";
 import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
 import { createClient } from "@/utils/supabase/server";
-import { ToolsCatalogService, UserToolsService } from "@/server/services/tools.service";
+import { UserToolsService } from "@/server/services/tools.service";
 import type { SidebarItem } from "@/lib/types/v2/sidebar";
 import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
 import Script from "next/script";
 
-// Fixed "All Tools" item always shown last in the tools collapsible group
+// Fixed "All Tools" item always shown last in the tools collapsible group.
+// Points to /dashboard/tools/all (catalog page) not /dashboard/tools (unified page
+// which defaults to My Tools tab) so clicking "All Tools" shows the catalog.
 const TOOLS_ALL_CHILD: SidebarItem = {
   id: "tools.allTools",
   title: "All Tools",
   titleKey: "modules.tools.items.allTools",
   iconKey: "tools",
-  href: "/dashboard/tools",
-  match: { exact: "/dashboard/tools" },
+  href: "/dashboard/tools/all",
+  match: { exact: "/dashboard/tools/all" },
 };
 
 /**
- * Fetches pinned tools for the user and injects them as children of the "tools"
- * sidebar item (turning it into a collapsible group).
- * Always includes "My Tools" and "All Tools" as fixed sub-items.
+ * Per-request memoized fetch of pinned tools for the sidebar.
+ *
+ * Uses a minimal join query (tool_slug + tools_catalog name) instead of two
+ * parallel full-row fetches. React.cache() deduplicates within a single SSR
+ * request so multiple server components querying the same userId never re-hit
+ * the database.
+ *
+ * State scoping: user_enabled_tools has no org_id — tool state is user-global.
+ */
+const fetchPinnedToolsForSidebar = cache(async (userId: string) => {
+  if (!userId) return [];
+  const supabase = await createClient();
+  const result = await UserToolsService.listPinnedToolsForSidebar(supabase, userId);
+  return result.success ? result.data : [];
+});
+
+/**
+ * Injects pinned tools as children of the "tools" sidebar item, turning it
+ * into a collapsible group. Pinned tools appear above the fixed "All Tools"
+ * child. Skips silently if the tools item was pruned (no tools.read permission).
  */
 async function injectPinnedToolsIntoSidebar(
   model: ReturnType<typeof buildSidebarModel>,
   userId: string
 ): Promise<ReturnType<typeof buildSidebarModel>> {
   const toolsIndex = model.main.findIndex((item) => item.id === "tools");
-  // If tools item was pruned (no permission) or not found, skip injection
   if (toolsIndex === -1) return model;
 
-  // Fetch pinned tools; skip DB call if no user
-  let pinnedChildren: SidebarItem[] = [];
-  if (userId) {
-    const supabase = await createClient();
-    const [pinnedResult, catalogResult] = await Promise.all([
-      UserToolsService.listPinnedTools(supabase, userId),
-      ToolsCatalogService.listCatalog(supabase),
-    ]);
+  const pinned = await fetchPinnedToolsForSidebar(userId);
 
-    if (pinnedResult.success && pinnedResult.data.length > 0) {
-      const catalogMap = new Map(
-        (catalogResult.success ? catalogResult.data : []).map((t) => [t.slug, t])
-      );
-      pinnedChildren = pinnedResult.data.map((pt) => {
-        const tool = catalogMap.get(pt.tool_slug);
-        return {
-          id: `tools.pinned.${pt.tool_slug}`,
-          title: tool?.name ?? pt.tool_slug,
-          iconKey: "tools" as const,
-          href: `/dashboard/tools/${pt.tool_slug}`,
-          match: { exact: `/dashboard/tools/${pt.tool_slug}` },
-        } satisfies SidebarItem;
-      });
-    }
-  }
+  const pinnedChildren: SidebarItem[] = pinned.map(
+    (pt) =>
+      ({
+        id: `tools.pinned.${pt.tool_slug}`,
+        title: pt.name,
+        iconKey: "tools" as const,
+        href: `/dashboard/tools/${pt.tool_slug}`,
+        match: { exact: `/dashboard/tools/${pt.tool_slug}` },
+      }) satisfies SidebarItem
+  );
 
   const updatedMain = model.main.map((item) => {
     if (item.id !== "tools") return item;

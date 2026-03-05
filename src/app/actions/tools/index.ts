@@ -20,6 +20,15 @@ import {
 } from "@/lib/validations/tools";
 
 // ---------------------------------------------------------------------------
+// State scoping note
+//
+// All UserToolsService calls use the authenticated user's id (from getUser()).
+// user_enabled_tools has NO org_id column — tool state is USER-GLOBAL and
+// consistent across org/branch switches. The org context (activeOrgId) is used
+// only for permission validation, never as a filter on the data itself.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

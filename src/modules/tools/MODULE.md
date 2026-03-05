@@ -16,11 +16,11 @@ The Tools module gives every org member access to a personal catalog of producti
 
 ## Routes
 
-| Route                     | File                                               | Description                                                             |
-| ------------------------- | -------------------------------------------------- | ----------------------------------------------------------------------- |
-| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/page.tsx`        | Unified page — shadcn Tabs switching between "My Tools" and "All Tools" |
-| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`    | Direct URL alias for the catalog tab (renders same unified component)   |
-| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx` | Tool detail — preview (disabled) or active tool UI (enabled)            |
+| Route                     | File                                               | Description                                                                                              |
+| ------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `/dashboard/tools`        | `src/app/[locale]/dashboard/tools/page.tsx`        | Unified page — shadcn Tabs switching between "My Tools" and "All Tools"                                  |
+| `/dashboard/tools/all`    | `src/app/[locale]/dashboard/tools/all/page.tsx`    | **Dedicated catalog page** — renders `ToolsCatalogClient` directly (no tabs). Always shows catalog view. |
+| `/dashboard/tools/[slug]` | `src/app/[locale]/dashboard/tools/[slug]/page.tsx` | Tool detail — preview (disabled) or active tool UI (enabled)                                             |
 
 All routes are registered in `src/i18n/routing.ts`:
 
@@ -93,14 +93,19 @@ Constants defined in: `src/lib/constants/permissions.ts`
 - `INSERT WITH CHECK (user_id = auth.uid())`
 - `UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid())`
 - `DELETE USING (user_id = auth.uid())`
+- `FORCE ROW LEVEL SECURITY` applied (migration `20260305130000`) — prevents SECURITY DEFINER bypass
 
 ---
 
 ## Migration
 
-**File:** `supabase/migrations/20260305120000_tools_module.sql`
+**Files:**
 
-Contains:
+- `supabase/migrations/20260305120000_tools_module.sql` — initial module (tables, RLS, seed, permissions, role mappings)
+- `supabase/migrations/20260305130000_tools_force_rls_user_enabled_tools.sql` — `FORCE ROW LEVEL SECURITY` on `user_enabled_tools`
+- `supabase/migrations/20260305140000_tools_pinned_partial_idx.sql` — partial index `(user_id, created_at) WHERE pinned = true` for sidebar query
+
+Migration `20260305120000` contains:
 
 1. `tools_catalog` table + RLS
 2. `user_enabled_tools` table + indexes + RLS
@@ -127,7 +132,7 @@ Contains:
 | Tool registry        | `src/lib/tools/registry.tsx`                                                            |
 | Layout (SSR gate)    | `src/app/[locale]/dashboard/tools/layout.tsx`                                           |
 | Unified page         | `src/app/[locale]/dashboard/tools/page.tsx`                                             |
-| Catalog page (alias) | `src/app/[locale]/dashboard/tools/all/page.tsx`                                         |
+| Catalog page         | `src/app/[locale]/dashboard/tools/all/page.tsx`                                         |
 | Detail page          | `src/app/[locale]/dashboard/tools/[slug]/page.tsx`                                      |
 | Loading              | `src/app/[locale]/dashboard/tools/loading.tsx`                                          |
 | Error                | `src/app/[locale]/dashboard/tools/error.tsx`                                            |
@@ -138,6 +143,8 @@ Contains:
 | i18n keys            | `messages/en.json` → `modules.tools.*`                                                  |
 | i18n keys (PL)       | `messages/pl.json` → `modules.tools.*`                                                  |
 | DB migration         | `supabase/migrations/20260305120000_tools_module.sql`                                   |
+| DB migration (FROWL) | `supabase/migrations/20260305130000_tools_force_rls_user_enabled_tools.sql`             |
+| DB migration (index) | `supabase/migrations/20260305140000_tools_pinned_partial_idx.sql`                       |
 | Tests                | `src/server/services/__tests__/tools.service.test.ts`                                   |
 
 ---
@@ -182,20 +189,35 @@ Key sub-namespaces:
 - `modules.tools.toasts.*` — Toast messages
 - `modules.tools.loading.*` — Loading states
 - `modules.tools.errors.*` — Error boundary strings
-- `modules.tools.aria.*` — Accessibility labels
+- `modules.tools.aria.*` — Accessibility labels (includes `aria.viewDetail` for view-detail buttons)
 
 ---
 
 ## Architecture Notes
 
 - **No plan gating**: Tools module does not check `entitlements.requireModuleOrRedirect()`. The layout only calls `loadDashboardContextV2()` and `checkPermission(... PERMISSION_TOOLS_READ)`.
-- **User-scoped catalog state**: The catalog (`tools_catalog`) is global; the user's personal state (`user_enabled_tools`) is user-scoped via RLS.
+- **User-global state (no org_id)**: `user_enabled_tools` stores only `user_id` — no `org_id` column. Tool state (enabled/pinned/settings) is consistent across org and branch switches for the same user. Org context is used only for permission validation (via `permissionSnapshot`), never as a data filter. See "State Scoping" below.
 - **Upsert pattern**: `setToolEnabled` and `setToolPinned` use upsert with `onConflict: "user_id,tool_slug"` to handle first-time interactions without requiring a prior row.
 - **Auto-unpin on disable**: `UserToolsService.setToolEnabled(enabled=false)` atomically sets `pinned: false` in the same upsert payload. Ensures a disabled tool is never left in a pinned state.
 - **SSR-first**: All pages are Server Components by default; client interactivity is delegated to `*-client.tsx` components that receive SSR initial data.
-- **Unified tabs page**: `/dashboard/tools` uses a single page with shadcn `Tabs` to switch between My Tools and All Tools views. `/dashboard/tools/all` is a URL alias that renders the same data.
+- **Routing semantics**: `/dashboard/tools` is the unified tabs page (My Tools default tab). `/dashboard/tools/all` is a **dedicated catalog page** that renders `ToolsCatalogClient` directly (no tabs) — always shows the full catalog. The sidebar "All Tools" child links to `/dashboard/tools/all` for deterministic catalog navigation.
+- **Lean sidebar fetch**: `UserToolsService.listPinnedToolsForSidebar` uses a single join query (`tool_slug, created_at, tools_catalog(name)`) instead of two parallel full-row fetches. The call is wrapped in `React.cache()` in `dashboard/layout.tsx` so multiple server components in the same request never re-hit the database.
 - **Two-mode detail page**: `/dashboard/tools/[slug]` renders a preview (Enable CTA) when the tool is disabled, and the actual tool UI (from registry) when enabled. Tools with no registered component show `ToolPlaceholder`.
 - **Tool registry**: `src/lib/tools/registry.tsx` maps `slug → ComponentType`. New tool UIs are registered here. `getToolComponent(slug)` returns `null` for unregistered slugs.
 - **Dynamic sidebar injection**: Pinned tools are injected as sidebar children server-side in `layout.tsx`. `router.refresh()` from mutation hooks re-runs the server layout to update the sidebar after pin/unpin or disable operations.
 - **Primitives reuse**: UI uses `LoadingSkeleton`, `Badge`, `SearchForm` from `src/components/v2/`.
-- **No org-scoped data**: `user_enabled_tools` stores only `user_id` (not `org_id`), so tool state is consistent across org switches. The layout still requires an org context (via `loadDashboardContextV2`) for permission validation.
+
+---
+
+## State Scoping
+
+`user_enabled_tools` is **user-global** — it has no `org_id` column.
+
+| Dimension     | Behaviour                                                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Org switch    | Tool enabled/pinned state **does not change**. The same tools are shown regardless of active org.                                                                       |
+| Branch switch | Tool enabled/pinned state **does not change**. Branch context is irrelevant to tool state.                                                                              |
+| Permissions   | `tools.read` / `tools.manage` are org-scoped and validated via `permissionSnapshot` in server actions. The data layer (service + RLS) uses only `user_id = auth.uid()`. |
+| RLS           | `user_enabled_tools` policies use only `user_id = auth.uid()`. `FORCE ROW LEVEL SECURITY` prevents SECURITY DEFINER bypass.                                             |
+
+**Implication for future features**: If per-org tool configuration is ever needed, it must be added as a separate table (e.g. `org_enabled_tools`) — do NOT add `org_id` to `user_enabled_tools`.

@@ -17,6 +17,7 @@ import {
   MEMBERS_READ,
   ACCOUNT_PROFILE_READ,
   ACCOUNT_PREFERENCES_READ,
+  PERMISSION_TOOLS_READ,
 } from "@/lib/constants/permissions";
 
 describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
@@ -102,9 +103,9 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       const analyticsItem = model.main.find((item) => item.id === "analytics");
       expect(analyticsItem).toBeUndefined();
 
-      // Warehouse is in enabled_modules → should be visible (if permissions allow)
+      // Warehouse is no longer in the V2 sidebar registry → always absent
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeDefined();
+      expect(warehouseItem).toBeUndefined();
     });
 
     it("should hide organization when module entitled but module access permission absent", () => {
@@ -190,9 +191,9 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
 
       const model = buildSidebarModel(baseAppContext, userWithPermissions, baseEntitlements, "en");
 
-      // Warehouse: module enabled + no permissions required → visible
+      // Warehouse is no longer in the V2 sidebar registry → always absent
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeDefined();
+      expect(warehouseItem).toBeUndefined();
 
       // Organization: module enabled → visible parent
       const orgItem = model.main.find((item) => item.id === "organization");
@@ -283,21 +284,24 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       const userWithPermissions: UserContextV2 = {
         ...baseUserContext,
         permissionSnapshot: {
-          allow: [ORG_READ, ACCOUNT_PROFILE_READ],
+          allow: [ORG_READ, ACCOUNT_PROFILE_READ, PERMISSION_TOOLS_READ],
           deny: [],
         },
       };
 
       const model = buildSidebarModel(baseAppContext, userWithPermissions, baseEntitlements, "en");
 
-      // Check warehouse item structure
+      // Warehouse is no longer in the V2 sidebar registry → always absent
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeDefined();
-      expect(warehouseItem?.id).toBe("warehouse");
-      expect(warehouseItem?.title).toBe("Warehouse");
-      expect(warehouseItem?.iconKey).toBe("warehouse");
-      expect(warehouseItem?.href).toBe("/dashboard/warehouse");
-      expect(warehouseItem?.match).toEqual({ startsWith: "/dashboard/warehouse" });
+      expect(warehouseItem).toBeUndefined();
+
+      // Check tools item structure (always available, requires PERMISSION_TOOLS_READ)
+      const toolsItem = model.main.find((item) => item.id === "tools");
+      expect(toolsItem).toBeDefined();
+      expect(toolsItem?.id).toBe("tools");
+      expect(toolsItem?.iconKey).toBe("tools");
+      expect(toolsItem?.href).toBe("/dashboard/tools");
+      expect(toolsItem?.match).toEqual({ startsWith: "/dashboard/tools" });
     });
   });
 
