@@ -214,8 +214,8 @@ describe("Sidebar SSR Integration", () => {
     expect(toolsItem).toBeDefined(); // Shown: has tools.read (no module gate required)
   });
 
-  // 7.4a — account.profile visible when user has ACCOUNT_PROFILE_READ
-  it("should show account.profile item when user has account.profile.read", () => {
+  // 7.4 — account.profile is never in the sidebar (accessible via NavUser dropdown only)
+  it("should never show account.profile in sidebar regardless of permissions", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -227,7 +227,7 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["account.profile.read"],
+        allow: ["account.*", "account.profile.read"],
         deny: [],
       },
     };
@@ -245,79 +245,11 @@ describe("Sidebar SSR Integration", () => {
 
     const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
 
+    // Account items removed from sidebar — accessible via NavUser dropdown instead
     const profileItem = findItemById(model, "account.profile");
-    expect(profileItem).toBeDefined(); // Shown: user has account.profile.read
-  });
-
-  // 7.4b — account.profile hidden when user lacks ACCOUNT_PROFILE_READ
-  it("should hide account.profile item when user lacks account.profile.read", () => {
-    const userContext = {
-      user: {
-        id: "user-123",
-        email: "test@example.com",
-        first_name: null,
-        last_name: null,
-        avatar_url: null,
-        avatar_signed_url: null,
-      },
-      roles: [],
-      permissionSnapshot: {
-        allow: ["org.read"], // Has other permissions but NOT account.profile.read
-        deny: [],
-      },
-    };
-
-    const entitlements = {
-      organization_id: "org-123",
-      plan_id: "plan-free",
-      plan_name: "free",
-      enabled_modules: [],
-      enabled_contexts: [],
-      features: {},
-      limits: {},
-      updated_at: "2026-02-13T10:00:00.000Z",
-    };
-
-    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
-
-    const profileItem = findItemById(model, "account.profile");
-    expect(profileItem).toBeUndefined(); // Hidden: no account.profile.read
-  });
-
-  // 7.4 — wildcard permission matching
-  it("should grant access when wildcard permission matches", () => {
-    const userContext = {
-      user: {
-        id: "user-123",
-        email: "test@example.com",
-        first_name: null,
-        last_name: null,
-        avatar_url: null,
-        avatar_signed_url: null,
-      },
-      roles: [],
-      permissionSnapshot: {
-        allow: ["account.*"], // Wildcard
-        deny: [],
-      },
-    };
-
-    const entitlements = {
-      organization_id: "org-123",
-      plan_id: "plan-free",
-      plan_name: "free",
-      enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
-      limits: {},
-      updated_at: "2026-02-13T10:00:00.000Z",
-    };
-
-    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
-
-    // account.profile requires "account.profile.read"; "account.*" should match it
-    const profileItem = findItemById(model, "account.profile");
-    expect(profileItem).toBeDefined(); // Shown (account.* matches account.profile.read)
+    expect(profileItem).toBeUndefined();
+    const preferencesItem = findItemById(model, "account.preferences");
+    expect(preferencesItem).toBeUndefined();
   });
 
   // ── Organization Management Module ─────────────────────────────────────────
