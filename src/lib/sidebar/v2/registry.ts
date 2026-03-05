@@ -1,7 +1,5 @@
 import type { SidebarItem, SidebarModel } from "@/lib/types/v2/sidebar";
 import {
-  ACCOUNT_PROFILE_READ,
-  ACCOUNT_PREFERENCES_READ,
   ORG_READ,
   ORG_UPDATE,
   MEMBERS_READ,
@@ -26,7 +24,9 @@ import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
  * Active modules (V2 scope):
  * - Tools        — always visible for users with tools.read
  * - Organization Management — visible for org members with module access + org.read
- * - User Account — always visible (footer)
+ *
+ * User Account is intentionally NOT in the sidebar. It is accessible via the
+ * user menu (NavUser dropdown) in the sidebar footer.
  *
  * All other modules (Warehouse, Analytics, Development, Support, Home)
  * have been removed from the sidebar. Their routes return 404 via the
@@ -121,40 +121,11 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
 ];
 
 /**
- * Footer navigation (user account)
+ * Footer navigation — empty.
+ * User Account is accessed via the NavUser dropdown in the sidebar footer,
+ * not via a dedicated sidebar section.
  */
-export const FOOTER_NAV_ITEMS: SidebarItem[] = [
-  {
-    id: "account",
-    title: "Account",
-    titleKey: "modules.userAccount.title",
-    iconKey: "settings",
-    children: [
-      {
-        id: "account.profile",
-        title: "Profile",
-        titleKey: "modules.userAccount.items.profile",
-        iconKey: "settings",
-        href: "/dashboard/account/profile",
-        match: { exact: "/dashboard/account/profile" },
-        visibility: {
-          requiresPermissions: [ACCOUNT_PROFILE_READ],
-        },
-      },
-      {
-        id: "account.preferences",
-        title: "Preferences",
-        titleKey: "modules.userAccount.items.preferences",
-        iconKey: "settings",
-        href: "/dashboard/account/preferences",
-        match: { exact: "/dashboard/account/preferences" },
-        visibility: {
-          requiresPermissions: [ACCOUNT_PREFERENCES_READ],
-        },
-      },
-    ],
-  },
-];
+export const FOOTER_NAV_ITEMS: SidebarItem[] = [];
 
 /**
  * Get full sidebar registry
