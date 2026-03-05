@@ -1,6 +1,14 @@
 "use client";
 
-import { BadgeCheck, ChevronsUpDown, Home, LayoutDashboard, LogOut, Shield } from "lucide-react";
+import {
+  ActivitySquare,
+  BadgeCheck,
+  ChevronsUpDown,
+  Home,
+  LayoutDashboard,
+  LogOut,
+  Shield,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -44,6 +52,7 @@ export function NavUser({
   const router = useRouter();
   const pathname = usePathname();
   const isInAdminPanel = pathname.startsWith("/admin");
+  const isOnDiagnostics = pathname.startsWith("/dashboard/diagnostics");
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -65,6 +74,10 @@ export function NavUser({
 
   const handleGoToDashboard = () => {
     router.push("/dashboard/start");
+  };
+
+  const handleGoToDiagnostics = () => {
+    router.push("/dashboard/diagnostics");
   };
 
   return (
@@ -127,6 +140,12 @@ export function NavUser({
                     Admin Panel
                   </DropdownMenuItem>
                 ))}
+              {isAdmin && !isOnDiagnostics && (
+                <DropdownMenuItem onClick={handleGoToDiagnostics}>
+                  <ActivitySquare />
+                  Diagnostics
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
