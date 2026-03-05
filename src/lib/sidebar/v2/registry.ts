@@ -8,14 +8,9 @@ import {
   BRANCHES_READ,
   BRANCH_ROLES_MANAGE,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  PERMISSION_TOOLS_READ,
 } from "@/lib/constants/permissions";
-import {
-  MODULE_WAREHOUSE,
-  MODULE_ORGANIZATION_MANAGEMENT,
-  MODULE_ANALYTICS,
-  MODULE_DEVELOPMENT,
-  MODULE_SUPPORT,
-} from "@/lib/constants/modules";
+import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 
 /**
  * Sidebar V2 Registry
@@ -28,43 +23,20 @@ import {
  * - All module slugs MUST be imported from @/lib/constants/modules
  * - Raw strings are NOT allowed (enforced by tests)
  *
- * NOTE ON WAREHOUSE PERMISSIONS:
- * Warehouse does NOT have fine-grained permissions in database yet.
- * Use module gating (MODULE_WAREHOUSE) instead of permissions for now.
- * Fine-grained warehouse permissions are future work (separate project).
+ * Active modules (V2 scope):
+ * - Tools        — always visible for users with tools.read
+ * - Organization Management — visible for org members with module access + org.read
+ * - User Account — always visible (footer)
  *
- * NOTE ON TITLE KEYS:
- * titleKey references next-intl translation keys resolved client-side.
- * Items without an exact-match key keep English `title` as fallback.
+ * All other modules (Warehouse, Analytics, Development, Support, Home)
+ * have been removed from the sidebar. Their routes return 404 via the
+ * dashboard catch-all ([...slug]/page.tsx → notFound()).
  */
 
 /**
  * Main navigation sections
  */
 export const MAIN_NAV_ITEMS: SidebarItem[] = [
-  // Home
-  {
-    id: "home",
-    title: "Home",
-    titleKey: "modules.home.title",
-    iconKey: "home",
-    href: "/dashboard/start",
-    match: { exact: "/dashboard/start" },
-  },
-
-  // Warehouse (module-gated only, no fine-grained permissions yet)
-  {
-    id: "warehouse",
-    title: "Warehouse",
-    titleKey: "modules.warehouse.title",
-    iconKey: "warehouse",
-    href: "/dashboard/warehouse",
-    match: { startsWith: "/dashboard/warehouse" },
-    visibility: {
-      requiresModules: [MODULE_WAREHOUSE],
-    },
-  },
-
   // Organization Management
   {
     id: "organization",
@@ -134,35 +106,22 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     ],
   },
 
-  // Analytics (Premium)
+  // Tools (always available — no requiresModules gate, last in main nav)
   {
-    id: "analytics",
-    title: "Analytics",
-    titleKey: "modules.analytics.title",
-    iconKey: "analytics",
-    href: "/dashboard/analytics",
-    match: { startsWith: "/dashboard/analytics" },
+    id: "tools",
+    title: "Tools",
+    titleKey: "modules.tools.titleSidebar",
+    iconKey: "tools",
+    href: "/dashboard/tools",
+    match: { startsWith: "/dashboard/tools" },
     visibility: {
-      requiresModules: [MODULE_ANALYTICS],
-    },
-  },
-
-  // Development (Premium)
-  {
-    id: "development",
-    title: "Development",
-    titleKey: "modules.development.title",
-    iconKey: "settings",
-    href: "/dashboard/development",
-    match: { startsWith: "/dashboard/development" },
-    visibility: {
-      requiresModules: [MODULE_DEVELOPMENT],
+      requiresPermissions: [PERMISSION_TOOLS_READ],
     },
   },
 ];
 
 /**
- * Footer navigation (settings, help, etc.)
+ * Footer navigation (user account)
  */
 export const FOOTER_NAV_ITEMS: SidebarItem[] = [
   {
@@ -194,17 +153,6 @@ export const FOOTER_NAV_ITEMS: SidebarItem[] = [
         },
       },
     ],
-  },
-  {
-    id: "support",
-    title: "Support",
-    titleKey: "modules.support.title",
-    iconKey: "documentation",
-    href: "/dashboard/support",
-    match: { startsWith: "/dashboard/support" },
-    visibility: {
-      requiresModules: [MODULE_SUPPORT],
-    },
   },
 ];
 

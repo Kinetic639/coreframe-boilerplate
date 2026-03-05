@@ -144,6 +144,20 @@ export const routing = defineRouting({
       pl: "/dashboard/brak-dostepu",
     },
 
+    // === Tools module ===
+    "/dashboard/tools": {
+      en: "/dashboard/tools",
+      pl: "/dashboard/narzedzia",
+    },
+    "/dashboard/tools/all": {
+      en: "/dashboard/tools/all",
+      pl: "/dashboard/narzedzia/wszystkie",
+    },
+    "/dashboard/tools/[slug]": {
+      en: "/dashboard/tools/[slug]",
+      pl: "/dashboard/narzedzia/[slug]",
+    },
+
     "/dashboard-old": {
       en: "/dashboard-old",
       pl: "/dashboard-old",

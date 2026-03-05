@@ -35,6 +35,9 @@ export const MODULE_DOCUMENTATION = "documentation" as const;
 export const MODULE_ANALYTICS = "analytics" as const;
 export const MODULE_DEVELOPMENT = "development" as const;
 
+// Tools Module (Always available — no plan gating; not in enabled_modules)
+export const MODULE_TOOLS = "tools" as const;
+
 // Admin Module (Not in any plan - superadmin only)
 export const MODULE_ADMIN = "admin" as const;
 
@@ -53,6 +56,7 @@ export type ModuleSlug =
   | typeof MODULE_DOCUMENTATION
   | typeof MODULE_ANALYTICS
   | typeof MODULE_DEVELOPMENT
+  | typeof MODULE_TOOLS
   | typeof MODULE_ADMIN;
 
 /**

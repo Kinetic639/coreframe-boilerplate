@@ -10,14 +10,19 @@
       "Bash(npx eslint src --ext .ts,.tsx --max-warnings=50)",
       "Bash(pnpm -s test)",
       "Bash(pnpm -s typecheck)",
-      "Bash(pnpm typecheck)"
+      "Bash(pnpm typecheck)",
+      "Bash(head -5 grep -r \"dashboard-old\" /home/user/coreframe-boilerplate/next.config*)",
+      "Bash(grep -A2 '\"\"packageManager\"\"' /home/user/coreframe-boilerplate/package.json)"
     ],
     "additionalDirectories": [
       "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/__tests__",
       "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/members/[memberId]",
-      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/branch-access"
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/organization/users/branch-access",
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard-old/organization/users/manage",
+      "/home/user/coreframe-boilerplate/src/app/[locale]/dashboard/tools",
+      "/home/user/coreframe-boilerplate"
     ]
   }
 }

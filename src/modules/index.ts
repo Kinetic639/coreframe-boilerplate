@@ -1,4 +1,5 @@
 import { teamsModule } from "./teams/config";
+import { toolsModule } from "./tools/config";
 import { orgManagmentModule } from "./organization-managment/config";
 import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
@@ -37,6 +38,7 @@ export async function getAllModules(
   // Define all modules with their access requirements based on updated subscription tiers
   const allModulesConfig = [
     // Free tier modules (always available)
+    { module: toolsModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: homeModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: warehouseModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: contactsModule, alwaysAvailable: true, requiredPlan: "free" },

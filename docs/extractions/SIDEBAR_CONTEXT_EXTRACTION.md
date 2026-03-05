@@ -1243,3 +1243,68 @@ To verify this extraction:
 2. Run `SELECT * FROM organization_entitlements LIMIT 1;` via Supabase MCP
 3. Read each file listed in section 10 to confirm contents match
 4. Compare module config `requiredPermissions` against `user_effective_permissions` to confirm the slug mismatch
+
+---
+
+# 13. V2 SIDEBAR REGISTRY — CURRENT STATE (2026-03-05)
+
+> **Status**: Hard-locked to 3 V2 modules. Analytics, Development, Warehouse, Home, Support, Teams removed from registry.
+
+## 13.1 Active Registry File
+
+`src/lib/sidebar/v2/registry.ts`
+
+## 13.2 MAIN_NAV_ITEMS (current)
+
+| id                           | href                                          | requiresModules           | requiresPermissions                     |
+| ---------------------------- | --------------------------------------------- | ------------------------- | --------------------------------------- |
+| `tools`                      | `/dashboard/tools`                            | —                         | `tools.read`                            |
+| `organization`               | — (parent)                                    | `organization-management` | `module.organization-management.access` |
+| `organization.profile`       | `/dashboard/organization/profile`             | —                         | `org.read`                              |
+| `organization.users`         | `/dashboard/organization/users`               | —                         | `members.read`                          |
+| `organization.branch-access` | `/dashboard/organization/users/branch-access` | —                         | `members.read` OR `branch.roles.manage` |
+| `organization.branches`      | `/dashboard/organization/branches`            | —                         | `branches.read`                         |
+| `organization.billing`       | `/dashboard/organization/billing`             | —                         | `org.update`                            |
+
+## 13.3 FOOTER_NAV_ITEMS (current)
+
+| id                    | href                             | requiresPermissions        |
+| --------------------- | -------------------------------- | -------------------------- |
+| `account`             | — (parent)                       | —                          |
+| `account.profile`     | `/dashboard/account/profile`     | `account.profile.read`     |
+| `account.preferences` | `/dashboard/account/preferences` | `account.preferences.read` |
+
+**Removed from footer**: `support` (was gated by `MODULE_SUPPORT`).
+
+## 13.4 Route Hard Lock
+
+`src/app/[locale]/dashboard/[...slug]/page.tsx` — catch-all now redirects to `/dashboard/tools` (previously called `notFound()`). Any `/dashboard/*` path without a physical page file redirects here.
+
+**Allowed physical pages (not caught by catch-all):**
+
+- `/dashboard/start` — welcome landing
+- `/dashboard/diagnostics` — diagnostics panel (admin user-menu link)
+- `/dashboard/tools/**` — Tools V2 module
+- `/dashboard/account/**` — User Account V2 module
+- `/dashboard/organization/**` — Org Management V2 module
+- `/dashboard/access-denied` — permission gate redirect target
+
+## 13.5 Removed Registry Items
+
+The following items were removed from the registry as part of the V2 scope hard-lock (2026-03-05):
+
+| id            | Was at                   | Reason                                                |
+| ------------- | ------------------------ | ----------------------------------------------------- |
+| `home`        | `/dashboard/start`       | Not a V2 module                                       |
+| `warehouse`   | `/dashboard/warehouse`   | Not a V2 module (page never existed in new dashboard) |
+| `analytics`   | `/dashboard/analytics`   | Not a V2 module                                       |
+| `development` | `/dashboard/development` | Not a V2 module                                       |
+| `support`     | `/dashboard/support`     | Not a V2 module                                       |
+
+Removed module imports from registry: `MODULE_WAREHOUSE`, `MODULE_ANALYTICS`, `MODULE_DEVELOPMENT`, `MODULE_SUPPORT`, `MODULE_HOME`.
+
+## 13.6 Test Coverage
+
+- `src/lib/sidebar/v2/__tests__/registry.test.ts` — registry structural invariants
+- `src/app/[locale]/dashboard/__tests__/sidebar-ssr.test.tsx` — SSR integration tests (updated: tests 7.1, 7.3a, 7.3b)
+- `src/lib/sidebar/v2/__tests__/resolver.test.ts` — resolver logic

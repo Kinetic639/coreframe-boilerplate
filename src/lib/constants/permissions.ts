@@ -11,7 +11,7 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 30 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management)
+ * Expected Count: 32 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools)
  */
 
 // Account Permissions (global scope, system permissions)
@@ -68,6 +68,12 @@ export const MODULE_ACCESS_WILDCARD = "module.*" as const;
 export const MODULE_ORGANIZATION_MANAGEMENT_ACCESS =
   "module.organization-management.access" as const;
 
+// Tools Permissions (user-scoped — always available, no plan gating)
+// tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
+// tools.manage — enable, disable, pin, and update settings for tools
+export const PERMISSION_TOOLS_READ = "tools.read" as const;
+export const PERMISSION_TOOLS_MANAGE = "tools.manage" as const;
+
 // Superadmin Permissions (global scope, super-admin only)
 export const SUPERADMIN_WILDCARD = "superadmin.*" as const;
 export const SUPERADMIN_ADMIN_READ = "superadmin.admin.read" as const;
@@ -105,6 +111,8 @@ export type PermissionSlug =
   | typeof SELF_UPDATE
   | typeof MODULE_ACCESS_WILDCARD
   | typeof MODULE_ORGANIZATION_MANAGEMENT_ACCESS
+  | typeof PERMISSION_TOOLS_READ
+  | typeof PERMISSION_TOOLS_MANAGE
   | typeof SUPERADMIN_WILDCARD
   | typeof SUPERADMIN_ADMIN_READ
   | typeof SUPERADMIN_PLANS_READ
@@ -141,6 +149,8 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   SELF_UPDATE,
   MODULE_ACCESS_WILDCARD,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  PERMISSION_TOOLS_READ,
+  PERMISSION_TOOLS_MANAGE,
   SUPERADMIN_WILDCARD,
   SUPERADMIN_ADMIN_READ,
   SUPERADMIN_PLANS_READ,

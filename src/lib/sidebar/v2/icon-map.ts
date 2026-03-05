@@ -15,6 +15,7 @@ import {
   Code,
   UserCircle,
   SlidersHorizontal,
+  Wrench,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -39,6 +40,7 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   development: Code,
   profile: UserCircle,
   preferences: SlidersHorizontal,
+  tools: Wrench,
 };
 
 /**

@@ -40,7 +40,8 @@ export type IconKey =
   | "support"
   | "development"
   | "profile"
-  | "preferences";
+  | "preferences"
+  | "tools";
 
 /**
  * Active route matching rules (strict discriminated union)

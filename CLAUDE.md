@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run type-check` - Run TypeScript type checking
-- `npm run lint` - Run ESLint
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
+- `pnpm dev` - Start development server
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+- `pnpm type-check` - Run TypeScript type checking
+- `pnpm lint` - Run ESLint
+- `pnpm format` - Format code with Prettier
+- `pnpm format:check` - Check code formatting
 
 **CRITICAL**: ALWAYS kill the development server (bash_1 or any background process) when finished testing or implementing a task. Use KillBash tool to terminate any running processes before completing tasks. Never leave servers running in the background.
 
@@ -18,11 +18,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **IMPORTANT: NEVER run local Supabase. Always use remote project ID: zlcnlalwfmmtusigeuyk**
 
-- `npm run supabase:link:dev` - Link to development Supabase project
-- `npm run supabase:link:prod` - Link to production Supabase project
-- `npm run supabase:migration:new` - Create new database migration
-- `npm run supabase:migration:up` - Apply migrations
-- `npm run supabase:gen:types` - Generate TypeScript types from Supabase schema
+- `pnpm supabase:link:dev` - Link to development Supabase project
+- `pnpm supabase:link:prod` - Link to production Supabase project
+- `pnpm supabase:migration:new` - Create new database migration
+- `pnpm supabase:migration:up` - Apply migrations
+- `pnpm supabase:gen:types` - Generate TypeScript types from Supabase schema
 
 ## Architecture Overview
 
@@ -118,9 +118,9 @@ import { toast } from "sonner"; // Wrong library
 
 ### Testing and Quality Assurance
 
-- Always run `npm run type-check` and `npm run lint` before committing changes
-- Format code with `npm run format` to maintain consistency
-- Build must succeed with `npm run build` before deployment
+- Always run `pnpm type-check` and `pnpm lint` before committing changes
+- Format code with `pnpm format` to maintain consistency
+- Build must succeed with `pnpm build` before deployment
 
 ### Security & Authorization Requirements
 

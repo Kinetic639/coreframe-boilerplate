@@ -46,7 +46,7 @@ describe("Sidebar SSR Integration", () => {
     clearPermissionRegexCache();
   });
 
-  // 7.1 — SSR renders expected items
+  // 7.1 — SSR renders expected items (Tools + Organization for entitled user)
   it("should render sidebar model with expected items", () => {
     const userContext = {
       user: {
@@ -58,14 +58,14 @@ describe("Sidebar SSR Integration", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: ["org.read", "members.read"], deny: [] },
+      permissionSnapshot: { allow: ["tools.read", "org.read", "members.read"], deny: [] },
     };
 
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "warehouse", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -75,7 +75,8 @@ describe("Sidebar SSR Integration", () => {
     const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
 
     expect(model.main.length).toBeGreaterThan(0);
-    expect(model.main.find((item) => item.id === "home")).toBeDefined();
+    // Tools is always present for users with tools.read (no module gate)
+    expect(model.main.find((item) => item.id === "tools")).toBeDefined();
   });
 
   // 7.2 — org_owner sees billing; org_member does not
@@ -84,7 +85,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "warehouse", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -149,8 +150,8 @@ describe("Sidebar SSR Integration", () => {
     expect(memberBilling).toBeUndefined(); // Member does NOT see billing
   });
 
-  // 7.3a — free plan hides analytics
-  it("should hide analytics module for free plan", () => {
+  // 7.3a — tools item hidden when user lacks tools.read
+  it("should hide tools item when user lacks tools.read permission", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -164,25 +165,25 @@ describe("Sidebar SSR Integration", () => {
       permissionSnapshot: { allow: ["org.read"], deny: [] },
     };
 
-    const freeEntitlements = {
+    const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "warehouse", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
 
-    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, freeEntitlements, "en");
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
 
-    const analyticsItem = findItemById(model, "analytics");
-    expect(analyticsItem).toBeUndefined(); // Hidden on free plan
+    const toolsItem = findItemById(model, "tools");
+    expect(toolsItem).toBeUndefined(); // Hidden: no tools.read
   });
 
-  // 7.3b — professional plan shows analytics
-  it("should show analytics module for professional plan", () => {
+  // 7.3b — tools item visible when user has tools.read (no module gate)
+  it("should show tools item when user has tools.read permission", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -193,24 +194,24 @@ describe("Sidebar SSR Integration", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: ["org.read"], deny: [] },
+      permissionSnapshot: { allow: ["tools.read"], deny: [] },
     };
 
-    const proEntitlements = {
+    const entitlements = {
       organization_id: "org-123",
-      plan_id: "plan-pro",
-      plan_name: "professional",
-      enabled_modules: ["home", "warehouse", "organization-management", "analytics"],
+      plan_id: "plan-free",
+      plan_name: "free",
+      enabled_modules: [],
       enabled_contexts: [],
       features: {},
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
 
-    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, proEntitlements, "en");
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
 
-    const analyticsItem = findItemById(model, "analytics");
-    expect(analyticsItem).toBeDefined(); // Shown on professional plan
+    const toolsItem = findItemById(model, "tools");
+    expect(toolsItem).toBeDefined(); // Shown: has tools.read (no module gate required)
   });
 
   // 7.4a — account.profile visible when user has ACCOUNT_PROFILE_READ
@@ -235,7 +236,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home"],
+      enabled_modules: [],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -270,7 +271,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home"],
+      enabled_modules: [],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -305,7 +306,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "warehouse", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -343,7 +344,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "warehouse"], // organization-management NOT present
+      enabled_modules: [], // organization-management NOT present
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -383,7 +384,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -418,7 +419,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -453,7 +454,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -488,7 +489,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},
@@ -523,7 +524,7 @@ describe("Sidebar SSR Integration", () => {
       organization_id: "org-123",
       plan_id: "plan-free",
       plan_name: "free",
-      enabled_modules: ["home", "organization-management"],
+      enabled_modules: ["organization-management"],
       enabled_contexts: [],
       features: {},
       limits: {},

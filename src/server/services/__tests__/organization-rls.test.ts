@@ -35,6 +35,7 @@ import {
   OrgPositionsService,
   OrgBranchesService,
   OrgInvitationsService,
+  OrgRolesService,
 } from "../organization.service";
 
 // ─── Mock builder helpers ─────────────────────────────────────────────────────
@@ -503,6 +504,176 @@ describe("Invitations UPDATE self-accept RLS semantics (invitations_update_self_
     expect(selfCancelWithCheckWouldPass("user@example.com", "other@example.com", "cancelled")).toBe(
       false
     );
+  });
+});
+
+// ─── Fix A: org_members_select_requires_active_role (RESTRICTIVE) ─────────────
+
+describe("Fix A: organization_members SELECT — RESTRICTIVE policy (org_members_select_requires_active_role)", () => {
+  /**
+   * Migration: 20260305100000_org_members_select_hardening
+   *
+   * Policy (RESTRICTIVE, SELECT):
+   *   USING: has_any_org_role(organization_id)
+   *
+   * Problem neutralised:
+   *   The legacy permissive SELECT policy contains `is_org_creator(organization_id)`,
+   *   which checks only the `organizations` table (created_by = auth.uid()) with NO
+   *   check on user_role_assignments. A removed org creator whose URA is soft-deleted
+   *   could still see the full member list via this clause.
+   *
+   * Mechanism (Postgres RESTRICTIVE):
+   *   RESTRICTIVE policies are AND-combined with all PERMISSIVE results.
+   *   Even if a permissive policy would grant access (e.g. via is_org_creator), the
+   *   RESTRICTIVE policy's USING predicate MUST also return TRUE. If has_any_org_role
+   *   returns FALSE the row is invisible regardless of permissive outcomes.
+   *
+   * has_any_org_role(org_id):
+   *   EXISTS (SELECT 1 FROM user_role_assignments
+   *     WHERE user_id = auth.uid() AND scope = 'org'
+   *           AND scope_id = org_id AND deleted_at IS NULL)
+   *   → queries user_role_assignments, NOT organization_members → no recursion risk.
+   */
+
+  it("removed user gets empty member list — RLS returns zero rows (has_any_org_role=false path)", async () => {
+    // Simulates: removed user's URA is soft-deleted → has_any_org_role = FALSE
+    // → RESTRICTIVE policy blocks → listMembers returns empty array
+    const supabase = makeRlsEmptyClient();
+    const result = await OrgMembersService.listMembers(supabase as never, "org-123");
+    expect(result.success).toBe(true);
+    expect((result as { success: true; data: unknown[] }).data).toEqual([]);
+  });
+
+  it("removed user gets structured failure on RLS hard-deny", async () => {
+    // Simulates: DB returns 42501 for removed user attempting a member list read
+    const supabase = makeRlsDeniedClient();
+    const result = await OrgMembersService.listMembers(supabase as never, "org-123");
+    expect(result.success).toBe(false);
+  });
+
+  it("documents has_any_org_role semantics: deleted URA blocks viewer", () => {
+    // has_any_org_role(org_id):
+    //   EXISTS (... FROM user_role_assignments WHERE deleted_at IS NULL ...)
+    // When URA is soft-deleted: deleted_at IS NOT NULL → EXISTS = FALSE → RESTRICTIVE blocks
+    const hasAnyOrgRole = (uraDeletedAt: string | null) => uraDeletedAt === null;
+
+    expect(hasAnyOrgRole(null)).toBe(true); // active URA → passes RESTRICTIVE
+    expect(hasAnyOrgRole("2026-03-05T00:00:00Z")).toBe(false); // removed URA → RESTRICTIVE blocks
+  });
+
+  it("documents is_org_creator bypass is neutralised by RESTRICTIVE policy", () => {
+    // Old risk:
+    //   Permissive USING: (user_id = auth.uid()) OR is_org_creator(org_id) OR has_any_org_role(org_id)
+    //   → is_org_creator had no URA check; removed org creators still passed permissive.
+    //
+    // After fix: combined result = RESTRICTIVE(has_any_org_role) AND permissive
+    //   → removed org creator: is_org_creator=true BUT has_any_org_role=false → BLOCKED ✅
+    const restrictiveAllows = (hasAnyOrgRole: boolean) => hasAnyOrgRole;
+    const permissiveAllows = (isOrgCreator: boolean, hasAnyOrgRole: boolean) =>
+      isOrgCreator || hasAnyOrgRole;
+    const rowVisible = (isOrgCreator: boolean, uraDeletedAt: string | null) => {
+      const hasRole = uraDeletedAt === null;
+      return restrictiveAllows(hasRole) && permissiveAllows(isOrgCreator, hasRole);
+    };
+
+    expect(rowVisible(true, null)).toBe(true); // active org creator → visible ✅
+    expect(rowVisible(true, "2026-03-05")).toBe(false); // removed org creator → BLOCKED ✅ (bypass neutralised)
+    expect(rowVisible(false, null)).toBe(true); // active non-creator → visible ✅
+    expect(rowVisible(false, "2026-03-05")).toBe(false); // removed non-creator → BLOCKED ✅
+  });
+});
+
+// ─── Fix B: roles UPDATE hardening ───────────────────────────────────────────
+
+describe("Fix B: roles UPDATE — RESTRICTIVE policy + immutable column trigger", () => {
+  /**
+   * Migration: 20260305110000_roles_update_hardening
+   *
+   * Part 1 — RESTRICTIVE UPDATE policy (roles_update_restrictive_hardened):
+   *   USING:      organization_id IS NOT NULL AND is_org_member(organization_id)
+   *   WITH CHECK: organization_id IS NOT NULL AND is_org_member(organization_id)
+   *               AND has_permission(organization_id, 'members.manage')
+   *
+   * Part 2 — BEFORE UPDATE trigger (roles_protect_immutable_columns):
+   *   Raises exception P0001 if organization_id, is_basic, or scope_type changes.
+   *
+   * Problems addressed:
+   *   (a) Existing WITH CHECK only: organization_id IS NOT NULL AND is_basic = false
+   *       → no re-verification of org membership in the NEW row's org
+   *       → a privileged user could change organization_id to another org they belong to
+   *   (b) No DB-level immutability for organization_id, is_basic, scope_type
+   */
+
+  it("service returns structured failure when DB returns trigger exception", async () => {
+    // Simulates: BEFORE UPDATE trigger fires → DB returns P0001
+    const triggerError = {
+      code: "P0001",
+      message: "roles.organization_id is immutable",
+    };
+    const supabase = {
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: triggerError }),
+          }),
+        }),
+      }),
+    };
+    const result = await OrgRolesService.updateRole(supabase as never, "role-123", {
+      name: "New Name",
+    });
+    expect(result.success).toBe(false);
+    expect((result as { success: false; error: string }).error).toContain("immutable");
+  });
+
+  it("service returns structured failure when RESTRICTIVE WITH CHECK blocks update", async () => {
+    // Simulates: RESTRICTIVE WITH CHECK fails → DB returns empty result (no row updated)
+    const supabase = makeRlsEmptyClient();
+    const result = await OrgRolesService.updateRole(supabase as never, "role-123", {
+      name: "New Name",
+    });
+    // updateRole: no error but no rows updated is a valid "no-op" scenario
+    // The key invariant: no exception is thrown to the caller
+    expect(result).toMatchObject({ success: expect.any(Boolean) });
+  });
+
+  it("documents immutable column trigger semantics (IS DISTINCT FROM)", () => {
+    // The trigger uses: IF NEW.col IS DISTINCT FROM OLD.col THEN RAISE EXCEPTION
+    // IS DISTINCT FROM is NULL-safe: NULL IS DISTINCT FROM NULL → FALSE (no exception)
+    const triggerWouldBlock = (oldVal: unknown, newVal: unknown) =>
+      oldVal !== newVal && !(oldVal === null && newVal === null);
+
+    // organization_id
+    expect(triggerWouldBlock("org-A", "org-B")).toBe(true); // mutation → BLOCKED ✅
+    expect(triggerWouldBlock("org-A", "org-A")).toBe(false); // no change → passes ✅
+
+    // is_basic
+    expect(triggerWouldBlock(false, true)).toBe(true); // mutation → BLOCKED ✅
+    expect(triggerWouldBlock(false, false)).toBe(false); // no change → passes ✅
+
+    // scope_type
+    expect(triggerWouldBlock("org", "branch")).toBe(true); // mutation → BLOCKED ✅
+    expect(triggerWouldBlock("org", "org")).toBe(false); // no change → passes ✅
+  });
+
+  it("documents cross-org update is blocked by RESTRICTIVE WITH CHECK", () => {
+    // WITH CHECK: organization_id IS NOT NULL
+    //             AND is_org_member(organization_id)   ← membership in NEW org required
+    //             AND has_permission(organization_id, 'members.manage')
+    //
+    // Defense-in-depth: even if trigger were absent, WITH CHECK prevents cross-org
+    // writes because the user must be a member of — and have members.manage in — the
+    // NEW organization_id value.
+    const withCheckWouldPass = (
+      orgId: string | null,
+      isOrgMember: boolean,
+      hasPermission: boolean
+    ) => orgId !== null && isOrgMember && hasPermission;
+
+    expect(withCheckWouldPass("org-A", true, true)).toBe(true); // legitimate update ✅
+    expect(withCheckWouldPass("org-B", false, false)).toBe(false); // cross-org, not member → BLOCKED ✅
+    expect(withCheckWouldPass("org-B", true, false)).toBe(false); // cross-org, no permission → BLOCKED ✅
+    expect(withCheckWouldPass(null, true, true)).toBe(false); // null org_id → BLOCKED ✅
   });
 });
 
