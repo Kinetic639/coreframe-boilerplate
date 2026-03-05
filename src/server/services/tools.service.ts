@@ -1,6 +1,16 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
 // ---------------------------------------------------------------------------
+// State scoping note
+//
+// user_enabled_tools stores ONLY user_id — no org_id column.
+// Tool state (enabled / pinned / settings) is USER-GLOBAL: consistent across
+// organisation switches and branch switches for the same user.
+// Permission gates (tools.read / tools.manage) are still org-scoped and are
+// enforced in server actions via permissionSnapshot — NOT in this service.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -32,6 +42,17 @@ export interface UserEnabledTool {
 
 export interface UserEnabledToolWithCatalog extends UserEnabledTool {
   tool: ToolCatalogItem;
+}
+
+/**
+ * Minimal projection returned by listPinnedToolsForSidebar.
+ * Only the fields required to build sidebar navigation items are fetched.
+ */
+export interface PinnedToolSidebarRow {
+  tool_slug: string;
+  created_at: string;
+  /** Resolved from the tools_catalog join; falls back to tool_slug if missing. */
+  name: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,8 +112,8 @@ export class ToolsCatalogService {
 
 export class UserToolsService {
   /**
-   * List tools that the current user has any record for (enabled or disabled).
-   * Used to hydrate the "My Tools" page with current state.
+   * List tools the current user has enabled (enabled = true only).
+   * Used to hydrate the "My Tools" page and catalog "enabled" badges.
    */
   static async listUserEnabledTools(
     supabase: SupabaseClient,
@@ -209,6 +230,40 @@ export class UserToolsService {
 
     if (error) return { success: false, error: normalizeDbError(error) };
     return { success: true, data: data as UserEnabledTool };
+  }
+
+  /**
+   * Minimal fetch for building sidebar navigation items.
+   *
+   * Selects only tool_slug + created_at from user_enabled_tools and joins
+   * tools_catalog for the display name — a single DB round-trip instead of two.
+   * Used exclusively by the dashboard layout's pinned-tools injection; prefer
+   * listPinnedTools for other call-sites that need full row data.
+   *
+   * State scoping: filters by user_id only (no org_id — tool state is user-global).
+   */
+  static async listPinnedToolsForSidebar(
+    supabase: SupabaseClient,
+    userId: string
+  ): Promise<ServiceResult<PinnedToolSidebarRow[]>> {
+    const { data, error } = await supabase
+      .from("user_enabled_tools")
+      .select("tool_slug, created_at, tools_catalog(name)")
+      .eq("user_id", userId)
+      .eq("pinned", true)
+      .order("created_at", { ascending: true });
+
+    if (error) return { success: false, error: normalizeDbError(error) };
+
+    const rows: PinnedToolSidebarRow[] = (data ?? []).map(
+      (row: { tool_slug: string; created_at: string; tools_catalog: { name: string } | null }) => ({
+        tool_slug: row.tool_slug,
+        created_at: row.created_at,
+        name: row.tools_catalog?.name ?? row.tool_slug,
+      })
+    );
+
+    return { success: true, data: rows };
   }
 
   /**

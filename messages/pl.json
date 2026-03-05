@@ -1480,7 +1480,8 @@
         "pinTool": "Przypnij {name}",
         "unpinTool": "Odepnij {name}",
         "searchTools": "Szukaj narzędzi",
-        "toolCard": "Karta narzędzia {name}"
+        "toolCard": "Karta narzędzia {name}",
+        "viewDetail": "Zobacz szczegóły {name}"
       }
     }
   },

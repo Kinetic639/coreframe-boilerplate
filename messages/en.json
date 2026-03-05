@@ -1509,7 +1509,8 @@
         "pinTool": "Pin {name}",
         "unpinTool": "Unpin {name}",
         "searchTools": "Search tools",
-        "toolCard": "{name} tool card"
+        "toolCard": "{name} tool card",
+        "viewDetail": "View {name} details"
       }
     }
   },
