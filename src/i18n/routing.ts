@@ -75,6 +75,10 @@ export const routing = defineRouting({
       en: "/dashboard/start",
       pl: "/dashboard/start",
     },
+    "/dashboard/diagnostics": {
+      en: "/dashboard/diagnostics",
+      pl: "/dashboard/diagnostyka",
+    },
     "/dashboard/home": {
       en: "/dashboard/home",
       pl: "/dashboard/dom",
