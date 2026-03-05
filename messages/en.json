@@ -1429,6 +1429,88 @@
         "deliveryDebugger": "Delivery Debugger",
         "reservationsTest": "Reservations Test"
       }
+    },
+    "tools": {
+      "title": "Tools",
+      "titleSidebar": "Tools",
+      "description": "Productivity tools and integrations for your team",
+      "items": {
+        "myTools": "My Tools",
+        "allTools": "All Tools",
+        "detail": "Tool Details"
+      },
+      "pages": {
+        "myTools": {
+          "title": "My Tools",
+          "subtitle": "Tools you have enabled for quick access",
+          "empty": "You have not enabled any tools yet.",
+          "emptyAction": "Browse the catalog to find tools"
+        },
+        "catalog": {
+          "title": "All Tools",
+          "subtitle": "Browse and enable tools for your workflow",
+          "searchPlaceholder": "Search tools…",
+          "filterAll": "All",
+          "empty": "No tools match your search.",
+          "categories": {
+            "productivity": "Productivity",
+            "data": "Data",
+            "analytics": "Analytics",
+            "integrations": "Integrations",
+            "compliance": "Compliance"
+          }
+        },
+        "detail": {
+          "enabledBadge": "Enabled",
+          "disabledBadge": "Disabled",
+          "pinnedBadge": "Pinned",
+          "notFound": "Tool not found",
+          "notFoundDescription": "This tool does not exist or is no longer available.",
+          "backToAll": "Back to all tools",
+          "backToMyTools": "My Tools",
+          "category": "Category",
+          "status": "Status",
+          "enableToUse": "Enable this tool to start using it",
+          "uiNotRegistered": "UI not implemented yet",
+          "uiNotRegisteredDesc": "Add a component to the tool registry to implement this tool's interface.",
+          "uiNotRegisteredHint": "src/lib/tools/registry.tsx"
+        }
+      },
+      "actions": {
+        "enable": "Enable",
+        "disable": "Disable",
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "enabling": "Enabling…",
+        "disabling": "Disabling…"
+      },
+      "toasts": {
+        "toolEnabled": "Tool enabled",
+        "toolDisabled": "Tool disabled",
+        "toolPinned": "Tool pinned",
+        "toolUnpinned": "Tool unpinned",
+        "settingsSaved": "Settings saved",
+        "errorGeneric": "Something went wrong. Please try again."
+      },
+      "loading": {
+        "catalog": "Loading tools…",
+        "detail": "Loading tool…",
+        "myTools": "Loading your tools…"
+      },
+      "errors": {
+        "title": "Something went wrong",
+        "description": "An unexpected error occurred in the Tools module.",
+        "refresh": "Try again",
+        "goHome": "Go home"
+      },
+      "aria": {
+        "enableTool": "Enable {name}",
+        "disableTool": "Disable {name}",
+        "pinTool": "Pin {name}",
+        "unpinTool": "Unpin {name}",
+        "searchTools": "Search tools",
+        "toolCard": "{name} tool card"
+      }
     }
   },
   "organization": {

@@ -1400,6 +1400,88 @@
         "deliveryDebugger": "Debugger Dostaw",
         "reservationsTest": "Test Rezerwacji"
       }
+    },
+    "tools": {
+      "title": "Narzędzia",
+      "titleSidebar": "Narzędzia",
+      "description": "Narzędzia produktywności i integracje dla Twojego zespołu",
+      "items": {
+        "myTools": "Moje Narzędzia",
+        "allTools": "Wszystkie Narzędzia",
+        "detail": "Szczegóły narzędzia"
+      },
+      "pages": {
+        "myTools": {
+          "title": "Moje Narzędzia",
+          "subtitle": "Narzędzia, które włączyłeś do szybkiego dostępu",
+          "empty": "Nie masz jeszcze włączonych żadnych narzędzi.",
+          "emptyAction": "Przeglądaj katalog, aby znaleźć narzędzia"
+        },
+        "catalog": {
+          "title": "Wszystkie Narzędzia",
+          "subtitle": "Przeglądaj i włączaj narzędzia dla swojego przepływu pracy",
+          "searchPlaceholder": "Szukaj narzędzi…",
+          "filterAll": "Wszystkie",
+          "empty": "Brak narzędzi pasujących do wyszukiwania.",
+          "categories": {
+            "productivity": "Produktywność",
+            "data": "Dane",
+            "analytics": "Analityka",
+            "integrations": "Integracje",
+            "compliance": "Zgodność"
+          }
+        },
+        "detail": {
+          "enabledBadge": "Włączone",
+          "disabledBadge": "Wyłączone",
+          "pinnedBadge": "Przypięte",
+          "notFound": "Narzędzie nie znalezione",
+          "notFoundDescription": "To narzędzie nie istnieje lub nie jest już dostępne.",
+          "backToAll": "Wróć do wszystkich narzędzi",
+          "backToMyTools": "Moje narzędzia",
+          "category": "Kategoria",
+          "status": "Status",
+          "enableToUse": "Włącz to narzędzie, aby zacząć z niego korzystać",
+          "uiNotRegistered": "Interfejs nie jest jeszcze zaimplementowany",
+          "uiNotRegisteredDesc": "Dodaj komponent do rejestru narzędzi, aby zaimplementować interfejs tego narzędzia.",
+          "uiNotRegisteredHint": "src/lib/tools/registry.tsx"
+        }
+      },
+      "actions": {
+        "enable": "Włącz",
+        "disable": "Wyłącz",
+        "pin": "Przypnij",
+        "unpin": "Odepnij",
+        "enabling": "Włączanie…",
+        "disabling": "Wyłączanie…"
+      },
+      "toasts": {
+        "toolEnabled": "Narzędzie włączone",
+        "toolDisabled": "Narzędzie wyłączone",
+        "toolPinned": "Narzędzie przypięte",
+        "toolUnpinned": "Narzędzie odpięte",
+        "settingsSaved": "Ustawienia zapisane",
+        "errorGeneric": "Coś poszło nie tak. Spróbuj ponownie."
+      },
+      "loading": {
+        "catalog": "Ładowanie narzędzi…",
+        "detail": "Ładowanie narzędzia…",
+        "myTools": "Ładowanie Twoich narzędzi…"
+      },
+      "errors": {
+        "title": "Coś poszło nie tak",
+        "description": "Wystąpił nieoczekiwany błąd w module Narzędzia.",
+        "refresh": "Spróbuj ponownie",
+        "goHome": "Strona główna"
+      },
+      "aria": {
+        "enableTool": "Włącz {name}",
+        "disableTool": "Wyłącz {name}",
+        "pinTool": "Przypnij {name}",
+        "unpinTool": "Odepnij {name}",
+        "searchTools": "Szukaj narzędzi",
+        "toolCard": "Karta narzędzia {name}"
+      }
     }
   },
   "organization": {

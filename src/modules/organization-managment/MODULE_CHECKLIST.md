@@ -119,12 +119,22 @@
 
 - [x] RLS enabled on all affected tables.
 - [x] `is_org_member(org_id)` used for SELECT policies on org_profiles, org_positions, org_position_assignments, branches, roles.
-  > ⚠️ **Exception**: `organization_members` SELECT uses pre-V2 legacy policy `"Users can view organization members"` with `(user_id = auth.uid()) OR is_org_creator(org_id) OR has_any_org_role(org_id)`. `has_any_org_role` checks `user_role_assignments` only — no member status check. See MODULE.md Known Compliance Gap #7.
-  > ✅ **P1-A/P1-B mitigations applied (2026-02-27)**: `removeMember()` now soft-deletes `user_role_assignments` for the removed user (P1-B); `"V2 view org role assignments"` SELECT policy added on `user_role_assignments` requiring `members.read + is_org_member` (P1-A). See migration `20260227320000`.
+  > ⚠️ **Exception**: `organization_members` SELECT — legacy permissive policy `"Users can view organization members"` retained (additive-only rule). Contains `is_org_creator` clause with no URA check.
+  > ✅ **Fix A applied (2026-03-05)**: RESTRICTIVE SELECT policy `"org_members_select_requires_active_role"` added via migration `20260305100000`. USING: `has_any_org_role(organization_id)`. AND-combined with permissive policy: removed users (URA soft-deleted) and org creators with revoked roles see zero rows. Recursion-safe. Legacy permissive policy kept.
+  > ✅ **P1-B (2026-02-27)**: `removeMember()` soft-deletes `user_role_assignments` → removed users fail `has_any_org_role` immediately.
 - [x] `has_permission(org_id, slug)` used for mutation policies.
 - [x] `FORCE ROW LEVEL SECURITY` applied on all org-management-related tables (see policy table in MODULE.md, verified via Supabase MCP 2026-02-27).
   > ✅ Applied via migration `20260227100000_force_rls_org_tables.sql` to: organization_profiles, invitations, org_positions, org_position_assignments, branches. Already applied: organization_members, organization_entitlements, roles, role_permissions.
-- [x] Migrations tracked in `supabase/migrations/` (12 migration files for this module as of 2026-02-27).
+- [x] Migrations tracked in `supabase/migrations/` (28 migration files total as of 2026-03-05: 12 from initial implementation 2026-02-27, +3 bug-fix migrations 20260227340000–360000, +2 module/branch-view permission inserts 20260228100000/20260302100000, +3 Phase 3 branch-aware migrations 20260303120000–140000, +6 100k-ready permission-compiler migrations 20260304110000–151000, +2 security hardening migrations 20260305100000–110000).
+
+### 100k-Ready Permission Compiler (applied 2026-03-04)
+
+- [x] `permission_slug_exact` column added to `user_effective_permissions` — stores the concrete resolved slug (never a wildcard). All RLS helper functions (`has_permission`, `has_branch_permission`, `user_has_effective_permission`) now match on `permission_slug_exact`.
+  > ✅ Migration `20260304150000`. This module's permissions (`org.read`, `members.read`, etc.) are all concrete slugs — no behaviour change for explicit grants. The change affects wildcard role expansion: `org_owner`'s `module.*` wildcard now compiles to explicit `module.organization-management.access` row in UEP.
+- [x] Old partial indexes on `user_effective_permissions` dropped and replaced with `permission_slug_exact`-based indexes for O(log n) lookups at scale.
+  > ✅ Migration `20260304130000`. New indexes: `uep_org_slug_exact_idx`, `uep_branch_slug_exact_idx`.
+- [x] Compiler revoke path fixed to delete by `permission_slug_exact` (avoids stale concrete rows when wildcard override revoked).
+  > ✅ Migration `20260304151000`.
 
 ### Schema Correctness
 
@@ -132,6 +142,9 @@
 - [x] `inactive` status fully blocks RLS access (is_org_member returns false for inactive members).
 - [x] Member removal only sets `deleted_at` — no status mutation (avoids constraint violation).
 - [x] `is_basic = true` roles are immutable system roles — protected by permission check (`MEMBERS_MANAGE`) and UI guard.
+- [x] **Fix B applied (2026-03-05)**: `roles` UPDATE hardened via migration `20260305110000`:
+  - RESTRICTIVE UPDATE policy `"roles_update_restrictive_hardened"`: WITH CHECK requires `is_org_member(organization_id) AND has_permission(organization_id, 'members.manage')` — prevents cross-org `organization_id` mutation.
+  - `protect_roles_immutable_columns` BEFORE UPDATE trigger (SECURITY DEFINER): raises P0001 if `organization_id`, `is_basic`, or `scope_type` changes. DB-level immutability independent of RLS.
 
 ### Soft Delete
 
@@ -226,11 +239,13 @@
 
 ### RLS Tests (T1)
 
-- [x] 23 tests in `src/server/services/__tests__/organization-rls.test.ts`.
+- [x] 31 tests in `src/server/services/__tests__/organization-rls.test.ts` (+8 from security hardening pass 2026-03-05).
 - [x] `makeRlsDeniedClient()` uses fully-chainable recursive proxy (fixes Supabase chain failures).
 - [x] Documents: `is_org_member` semantics, DB constraint values, soft-delete behavior.
 - [x] Key invariant: `removeMember` does NOT write `status = 'removed'` — confirmed by test.
 - [x] Gap #6 fix documented: `cancelInvitation` only writes `status='cancelled'`; both `invitations_update_self_cancel` and `invitations_update_self_accept` WITH CHECK semantics documented (exploit path blocked; acceptance path restored).
+- [x] **Fix A tests (2026-03-05)**: `"Fix A: organization_members SELECT — RESTRICTIVE policy"` describe block — 4 tests: (1) removed user → empty list (makeRlsEmptyClient), (2) removed user → structured failure on hard-deny, (3) `has_any_org_role` semantics: deleted URA blocks viewer, (4) `is_org_creator` bypass neutralised by RESTRICTIVE (combinatorial table).
+- [x] **Fix B tests (2026-03-05)**: `"Fix B: roles UPDATE — RESTRICTIVE policy + immutable column trigger"` describe block — 4 tests: (1) service returns structured failure when trigger returns P0001, (2) makeRlsEmptyClient path handled gracefully, (3) immutable column IS DISTINCT FROM semantics for org_id/is_basic/scope_type, (4) cross-org WITH CHECK semantics: is_org_member required in new org.
 - [x] **Real-DB integration tests added (2026-02-27)**: `src/server/services/__tests__/organization-rls-integration.test.ts` — 4 T-RLS tests connecting to actual Supabase. Verifies P1-A SELECT policy (T-RLS-1 through T-RLS-3) and P1-B stale-role cleanup (T-RLS-4). Skipped gracefully when env vars absent (CI-safe). The T1 mock tests remain for service-layer unit coverage.
 - [x] **RLS assertion client discipline enforced**: policy ALLOW/DENY assertions (T-RLS-1/2/3) use `RlsClient` (anon key + JWT sign-in) via `rlsQuery()` helper only. Service role (`SetupClient`) is restricted to setup/cleanup and DB-state verification (T-RLS-4). `assertIsRlsClient()` runtime guard throws if service-role key is accidentally passed to `rlsQuery()`.
 
@@ -281,8 +296,12 @@
   - members-5: Branch-scoped role shows `branch` badge in Manage Roles dialog ✅
   - members-6: `both`-scoped role shows org/branch toggle when checked in dialog ✅
   - members-7: Branch multiselect appears when branch scope selected for `both` role ✅
-- [x] 10 RTL tests in `src/app/[locale]/dashboard/organization/users/members/[memberId]/__tests__/member-detail-client.test.tsx`.
+- [x] 12 RTL tests in `src/app/[locale]/dashboard/organization/users/members/[memberId]/__tests__/member-detail-client.test.tsx`.
   - detail-1 through detail-10: member detail display, Info/Access tabs, role assignment with scope, remove assignment, SSR-first regression ✅
+  - detail-11: Custom access dialog renders grouped permission headings ✅
+  - detail-12: Custom access dialog permission slugs use `invites.*` (not `invitations.*`) ✅
+    **RTL total: 49 tests** (16 roles + 4 invitations + 12 member-detail + 7 members + 6 positions + 4 branches)
+
 - [x] 6 RTL tests in `src/app/[locale]/dashboard/organization/users/positions/__tests__/positions-client.test.tsx` (NEW 2026-02-26).
   - positions-1: Create Position button visible when user has `MEMBERS_MANAGE` ✅
   - positions-2: Create Position button absent when user lacks permission ✅
@@ -295,14 +314,14 @@
 
 ## 9. Known Gaps
 
-| #   | Section  | Description                                                                                                                                                             | Priority     | Status                                                                                                                                                                                                                                                  |
-| --- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | UI       | No `loading.tsx` / `error.tsx` in org route tree                                                                                                                        | LOW          | ✅ Closed 2026-02-26 — `loading.tsx` and `error.tsx` added at `organization/` and `organization/users/`                                                                                                                                                 |
-| 2   | SSR      | All 7 org pages violate guide §2731 Mandatory SSR-first (client-fetch-on-mount)                                                                                         | MEDIUM       | ✅ Closed 2026-02-26 — all 7 pages use SSR-first; `initialXxx` props passed from Server Components                                                                                                                                                      |
-| 3   | Legacy   | `src/modules/organization-managment/config.ts` still has legacy `/dashboard-old/` routes                                                                                | PRE-EXISTING | ✅ Closed 2026-02-26 — `items` replaced with `[]`                                                                                                                                                                                                       |
-| 4   | SECURITY | `invitations` UPDATE RLS — email-match branch had no column restriction. Invitee could update any column (role_id, branch_id, expires_at) via direct API.               | MEDIUM       | ✅ Closed 2026-02-27 — `20260227200000` + `20260227200001` applied; three UPDATE policies now cover all legitimate invitee transitions; no policy permits `status='pending'` new-row writes. +8 T1 tests total.                                         |
-| 5   | INFO     | `organization_members` SELECT — `has_any_org_role` does not check status/deleted_at; removed members with lingering role assignments can read member list               | LOW          | ✅ Mitigated 2026-02-27 — P1-A + P1-B applied (see MODULE.md Gap #7). Legacy `has_any_org_role` SELECT on `organization_members` unchanged; `user_role_assignments` SELECT now gated by `members.read`; `removeMember()` soft-deletes role assignments. |
-| 6   | INFO     | Invitation acceptance is a legacy client-side flow (`src/lib/api/invitations.ts`) that only updates `invitations.status` — does NOT insert into `organization_members`. | LOW          | ⏳ Open (P1-C, documented-only) — no fix needed until a V2 server-action invite acceptance flow is implemented. See MODULE.md Gap #8.                                                                                                                   |
+| #   | Section  | Description                                                                                                                                                                                         | Priority     | Status                                                                                                                                                                                                                                                                                                                                                                          |
+| --- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | UI       | No `loading.tsx` / `error.tsx` in org route tree                                                                                                                                                    | LOW          | ✅ Closed 2026-02-26 — `loading.tsx` and `error.tsx` added at `organization/` and `organization/users/`                                                                                                                                                                                                                                                                         |
+| 2   | SSR      | All 7 org pages violate guide §2731 Mandatory SSR-first (client-fetch-on-mount)                                                                                                                     | MEDIUM       | ✅ Closed 2026-02-26 — all 7 pages use SSR-first; `initialXxx` props passed from Server Components                                                                                                                                                                                                                                                                              |
+| 3   | Legacy   | `src/modules/organization-managment/config.ts` still has legacy `/dashboard-old/` routes                                                                                                            | PRE-EXISTING | ✅ Closed 2026-02-26 — `items` replaced with `[]`                                                                                                                                                                                                                                                                                                                               |
+| 4   | SECURITY | `invitations` UPDATE RLS — email-match branch had no column restriction. Invitee could update any column (role_id, branch_id, expires_at) via direct API.                                           | MEDIUM       | ✅ Closed 2026-02-27 — `20260227200000` + `20260227200001` applied; three UPDATE policies now cover all legitimate invitee transitions; no policy permits `status='pending'` new-row writes. +8 T1 tests total.                                                                                                                                                                 |
+| 5   | INFO     | `organization_members` SELECT — `has_any_org_role` does not check status/deleted_at; removed members with lingering role assignments can read member list; `is_org_creator` clause had no URA check | LOW          | ✅ **Closed 2026-03-05** — Fix A: RESTRICTIVE SELECT policy `"org_members_select_requires_active_role"` added (migration `20260305100000`). AND-combined with permissive: removed users + org creators with revoked roles see zero rows. Combined with P1-B (2026-02-27): `removeMember()` soft-deletes URAs → `has_any_org_role=FALSE` immediately. Defense-in-depth achieved. |
+| 6   | INFO     | Invitation acceptance is a legacy client-side flow (`src/lib/api/invitations.ts`) that only updates `invitations.status` — does NOT insert into `organization_members`.                             | LOW          | ⏳ Open (P1-C, documented-only) — no fix needed until a V2 server-action invite acceptance flow is implemented. See MODULE.md Gap #8.                                                                                                                                                                                                                                           |
 
 ---
 
@@ -319,4 +338,4 @@
 
 ---
 
-_Last updated: 2026-03-03 — Phase 4 Enterprise UX Hardening: unified deny → `/dashboard/access-denied?reason=<slug>` (5 SSR guards); new `/organization/users/branch-access` route + `BranchAccessClient` + sidebar item (`requiresAnyPermissions`); `listRolesAction`/`getUserRoleAssignmentsAction`/`getMemberAccessAction` dual-gated; `normalizeDbError` helper; 3 stale tests fixed (permissions, app-store, load-dashboard-context)._
+_Last updated: 2026-03-05 — Security & Enterprise Hardening pass: Fix A (RESTRICTIVE SELECT on organization_members, migration 20260305100000, +4 T1 tests, known gap #5 closed); Fix B (RESTRICTIVE UPDATE + immutable-column trigger on roles, migration 20260305110000, +4 T1 tests); Fix C (legacy organization-management/ directory already deleted — zero imports remain); migration count 26 → 28; T1 test count 23 → 31. Previous: Verification pass (migration count 26, RTL 49, 100k-Ready Permission Compiler section added)._

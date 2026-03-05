@@ -977,3 +977,93 @@ MODULE_WAREHOUSE;
 ---
 
 **END OF EXTRACTION**
+
+---
+
+# 9. V2 SCOPE HARD-LOCK UPDATE (2026-03-05)
+
+> **Status**: Permission constants and module constants are now aligned with the 3 active V2 modules. Sidebar hard-locked.
+
+## 9.1 V2 Active Modules (Sidebar-Visible)
+
+Only these modules are registered in the **Sidebar V2 registry** (`src/lib/sidebar/v2/registry.ts`):
+
+| Module                  | Constant                         | Sidebar Gating                                  |
+| ----------------------- | -------------------------------- | ----------------------------------------------- |
+| Tools                   | `MODULE_TOOLS`                   | No module gate — permission-only (`tools.read`) |
+| Organization Management | `MODULE_ORGANIZATION_MANAGEMENT` | `requiresModules + requiresPermissions`         |
+| User Account            | —                                | Footer only, no module gate                     |
+
+**Removed from sidebar registry**: `MODULE_HOME`, `MODULE_WAREHOUSE`, `MODULE_TEAMS`, `MODULE_ANALYTICS`, `MODULE_DEVELOPMENT`, `MODULE_SUPPORT`.
+
+Note: These constants still exist in `src/lib/constants/modules.ts` because they are referenced by entitlements/subscription plan data. They are NOT referenced by the sidebar registry anymore.
+
+## 9.2 PERMISSIONS_KEEP_SET (V2 Scope)
+
+The minimal permission set required by the 3 active V2 modules:
+
+### Tools V2
+
+| Slug           | Constant                  | Usage                       |
+| -------------- | ------------------------- | --------------------------- |
+| `tools.read`   | `PERMISSION_TOOLS_READ`   | Sidebar gate, actions       |
+| `tools.manage` | `PERMISSION_TOOLS_MANAGE` | Tool enable/disable actions |
+
+### User Account V2
+
+| Slug                         | Constant                     | Usage                          |
+| ---------------------------- | ---------------------------- | ------------------------------ |
+| `account.*`                  | `ACCOUNT_WILDCARD`           | Wildcard for all account perms |
+| `account.profile.read`       | `ACCOUNT_PROFILE_READ`       | Sidebar gate, profile page     |
+| `account.profile.update`     | `ACCOUNT_PROFILE_UPDATE`     | Profile update actions         |
+| `account.preferences.read`   | `ACCOUNT_PREFERENCES_READ`   | Sidebar gate, preferences page |
+| `account.preferences.update` | `ACCOUNT_PREFERENCES_UPDATE` | Preferences update actions     |
+| `account.settings.read`      | `ACCOUNT_SETTINGS_READ`      | Settings page                  |
+| `account.settings.update`    | `ACCOUNT_SETTINGS_UPDATE`    | Settings update actions        |
+| `self.read`                  | `SELF_READ`                  | Own user data                  |
+| `self.update`                | `SELF_UPDATE`                | Own user update                |
+
+### Organization Management V2
+
+| Slug                                    | Constant                                | Usage                            |
+| --------------------------------------- | --------------------------------------- | -------------------------------- |
+| `org.read`                              | `ORG_READ`                              | Profile sidebar gate, org data   |
+| `org.update`                            | `ORG_UPDATE`                            | Billing sidebar gate, org update |
+| `members.read`                          | `MEMBERS_READ`                          | Users sidebar gate, member list  |
+| `members.manage`                        | `MEMBERS_MANAGE`                        | Add/remove members               |
+| `invites.read`                          | `INVITES_READ`                          | Invitation list                  |
+| `invites.create`                        | `INVITES_CREATE`                        | Send invites                     |
+| `invites.cancel`                        | `INVITES_CANCEL`                        | Cancel invites                   |
+| `branches.read`                         | `BRANCHES_READ`                         | Branches sidebar gate            |
+| `branches.create`                       | `BRANCHES_CREATE`                       | Create branches                  |
+| `branches.update`                       | `BRANCHES_UPDATE`                       | Update branches                  |
+| `branches.delete`                       | `BRANCHES_DELETE`                       | Delete branches                  |
+| `branch.roles.manage`                   | `BRANCH_ROLES_MANAGE`                   | Branch-scoped role delegation    |
+| `branches.view.any`                     | `BRANCHES_VIEW_ANY`                     | See all branches in switcher     |
+| `branches.view.update.any`              | `BRANCHES_VIEW_UPDATE_ANY`              | Switch to any branch             |
+| `branches.view.remove.any`              | `BRANCHES_VIEW_REMOVE_ANY`              | Clear branch preference          |
+| `module.organization-management.access` | `MODULE_ORGANIZATION_MANAGEMENT_ACCESS` | Module access gate               |
+
+### System / Superadmin
+
+| Slug                      | Constant                  | Usage                            |
+| ------------------------- | ------------------------- | -------------------------------- |
+| `module.*`                | `MODULE_ACCESS_WILDCARD`  | Org owner wildcard module access |
+| `superadmin.*`            | `SUPERADMIN_WILDCARD`     | Superadmin wildcard              |
+| `superadmin.admin.read`   | `SUPERADMIN_ADMIN_READ`   | Admin panel access               |
+| `superadmin.plans.read`   | `SUPERADMIN_PLANS_READ`   | Plans admin page                 |
+| `superadmin.pricing.read` | `SUPERADMIN_PRICING_READ` | Pricing admin page               |
+
+**Total: 32 permissions** — all currently in `src/lib/constants/permissions.ts` and `ALL_PERMISSION_SLUGS`.
+
+## 9.3 Permission Constants File Status
+
+`src/lib/constants/permissions.ts` — **already clean** as of this update. Contains only permissions in the keep-set above. No warehouse, analytics, or legacy permissions.
+
+## 9.4 DB Permissions Table Status
+
+All 32 permission rows exist in the DB `permissions` table. No rows deleted (safe approach: remove from role mappings via migration, keep DB rows for audit trail and foreign key integrity).
+
+## 9.5 Route Hard Lock
+
+`src/app/[locale]/dashboard/[...slug]/page.tsx` — redirects to `/dashboard/tools` for all unmatched `/dashboard/*` routes.
