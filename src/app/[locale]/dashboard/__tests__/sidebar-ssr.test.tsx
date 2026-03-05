@@ -434,8 +434,8 @@ describe("Sidebar SSR Integration", () => {
     expect(branchesItem).toBeDefined(); // Shown: has branches.read
   });
 
-  // org-6: branch-access visible when user has BRANCH_ROLES_MANAGE but NOT MEMBERS_READ (G2)
-  it("should show organization.branch-access when user has branch.roles.manage but not members.read", () => {
+  // org-6: organization.branch-access no longer exists in the sidebar registry
+  it("should never show organization.branch-access (page removed)", () => {
     const userContext = {
       user: {
         id: "user-123",
@@ -447,7 +447,7 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["module.organization-management.access", "branch.roles.manage"],
+        allow: ["module.organization-management.access", "branch.roles.manage", "members.read"],
         deny: [],
       },
     };
@@ -465,12 +465,8 @@ describe("Sidebar SSR Integration", () => {
 
     const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
 
-    // branch-access uses requiresAnyPermissions: [MEMBERS_READ, BRANCH_ROLES_MANAGE] (OR logic)
+    // branch-access page removed — item must never appear regardless of permissions
     const branchAccessItem = findItemById(model, "organization.branch-access");
-    expect(branchAccessItem).toBeDefined(); // Shown: branch.roles.manage satisfies OR gate
-
-    // organization.users requires MEMBERS_READ (AND logic) — must NOT be visible
-    const usersItem = findItemById(model, "organization.users");
-    expect(usersItem).toBeUndefined(); // Hidden: no members.read
+    expect(branchAccessItem).toBeUndefined();
   });
 });
