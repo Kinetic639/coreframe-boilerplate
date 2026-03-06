@@ -29,7 +29,16 @@ vi.mock("next-intl", () => ({
       inviteMemberButton: "Invite Member",
       noInvitations: "No invitations found.",
       dialogTitle: "Invite Member",
+      firstNameLabel: "First Name",
+      firstNamePlaceholder: "Jane",
+      lastNameLabel: "Last Name",
+      lastNamePlaceholder: "Smith",
       emailAddressLabel: "Email Address",
+      rolesLabel: "Additional Roles",
+      rolesHint: "The invited member always receives the base org_member role.",
+      addRoleButton: "Add role",
+      roleSelectPlaceholder: "Select a role",
+      branchSelectPlaceholder: "Select a branch",
       cancelButton: "Cancel",
       sendButton: "Send Invite",
       sendingButton: "Sending…",
@@ -82,21 +91,27 @@ describe("InvitationsClient", () => {
   // invitations-1: Invite button visible when user has invites.create
   it("renders Invite button when user has invites.create permission", () => {
     setupPermissions(true);
-    render(<InvitationsClient initialInvitations={[]} />, { wrapper: createWrapper() });
+    render(<InvitationsClient initialInvitations={[]} initialRoles={[]} initialBranches={[]} />, {
+      wrapper: createWrapper(),
+    });
     expect(screen.getByRole("button", { name: /invite member/i })).toBeInTheDocument();
   });
 
   // invitations-2: Invite button absent when user lacks invites.create
   it("hides Invite button when user lacks invites.create permission", () => {
     setupPermissions(false);
-    render(<InvitationsClient initialInvitations={[]} />, { wrapper: createWrapper() });
+    render(<InvitationsClient initialInvitations={[]} initialRoles={[]} initialBranches={[]} />, {
+      wrapper: createWrapper(),
+    });
     expect(screen.queryByRole("button", { name: /invite member/i })).not.toBeInTheDocument();
   });
 
   // invitations-3: listInvitationsAction NOT called on mount (SSR-first)
   it("does not call listInvitationsAction on mount", () => {
     setupPermissions(true);
-    render(<InvitationsClient initialInvitations={[]} />, { wrapper: createWrapper() });
+    render(<InvitationsClient initialInvitations={[]} initialRoles={[]} initialBranches={[]} />, {
+      wrapper: createWrapper(),
+    });
     expect(listInvitationsAction).not.toHaveBeenCalled();
   });
 
@@ -108,7 +123,9 @@ describe("InvitationsClient", () => {
       success: true,
       data: { id: "inv-1" } as never,
     });
-    render(<InvitationsClient initialInvitations={[]} />, { wrapper: createWrapper() });
+    render(<InvitationsClient initialInvitations={[]} initialRoles={[]} initialBranches={[]} />, {
+      wrapper: createWrapper(),
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());

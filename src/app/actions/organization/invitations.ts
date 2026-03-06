@@ -5,11 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
-import {
-  OrgInvitationsService,
-  OrgProfileService,
-  type CreateInvitationInput,
-} from "@/server/services/organization.service";
+import { OrgInvitationsService, OrgProfileService } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
@@ -19,10 +15,17 @@ import {
 } from "@/lib/constants/permissions";
 import { EmailService } from "@/server/services/email.service";
 
+const roleAssignmentSchema = z.object({
+  role_id: z.string().uuid(),
+  scope: z.enum(["org", "branch"]),
+  scope_id: z.string().uuid().nullable().optional(),
+});
+
 const createInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
-  role_id: z.string().uuid().nullable().optional(),
-  branch_id: z.string().uuid().nullable().optional(),
+  invited_first_name: z.string().max(100).nullable().optional(),
+  invited_last_name: z.string().max(100).nullable().optional(),
+  role_assignments: z.array(roleAssignmentSchema).max(20).optional(),
 });
 
 const inviteIdSchema = z.object({
@@ -70,7 +73,7 @@ export async function createInvitationAction(rawInput: unknown) {
       supabase,
       context.app.activeOrgId,
       context.user.user!.id,
-      parsed.data as CreateInvitationInput
+      parsed.data as import("@/server/services/organization.service").CreateInvitationInput
     );
 
     if (result.success) {
@@ -181,7 +184,11 @@ export async function resendInvitationAction(rawInput: unknown) {
   }
 }
 
-export async function acceptInvitationAction(token: string) {
+export async function acceptInvitationAction(
+  token: string
+): Promise<
+  { success: true; data: { organization_id: string } } | { success: false; error: string }
+> {
   try {
     const supabase = await createClient();
     return await OrgInvitationsService.acceptInvitation(supabase, token);

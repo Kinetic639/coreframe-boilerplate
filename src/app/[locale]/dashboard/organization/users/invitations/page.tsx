@@ -4,7 +4,11 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { INVITES_READ } from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
-import { OrgInvitationsService } from "@/server/services/organization.service";
+import {
+  OrgInvitationsService,
+  OrgRolesService,
+  OrgBranchesService,
+} from "@/server/services/organization.service";
 import { InvitationsClient } from "./_components/invitations-client";
 
 export default async function InvitationsPage() {
@@ -20,14 +24,17 @@ export default async function InvitationsPage() {
   }
 
   const supabase = await createClient();
-  const invitationsResult = await OrgInvitationsService.listInvitations(
-    supabase,
-    context.app.activeOrgId
-  );
+  const [invitationsResult, rolesResult, branchesResult] = await Promise.all([
+    OrgInvitationsService.listInvitations(supabase, context.app.activeOrgId),
+    OrgRolesService.listRoles(supabase, context.app.activeOrgId),
+    OrgBranchesService.listBranches(supabase, context.app.activeOrgId),
+  ]);
 
   return (
     <InvitationsClient
       initialInvitations={invitationsResult.success ? invitationsResult.data : []}
+      initialRoles={rolesResult.success ? rolesResult.data : []}
+      initialBranches={branchesResult.success ? branchesResult.data : []}
     />
   );
 }

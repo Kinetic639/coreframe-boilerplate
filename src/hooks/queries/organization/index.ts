@@ -187,8 +187,12 @@ export function useCreateInvitationMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: { email: string; role_id?: string; branch_id?: string }) =>
-      unwrapSR((await createInvitationAction(input)) as SR<OrgInvitation>),
+    mutationFn: async (input: {
+      email: string;
+      invited_first_name?: string | null;
+      invited_last_name?: string | null;
+      role_assignments?: { role_id: string; scope: "org" | "branch"; scope_id?: string | null }[];
+    }) => unwrapSR((await createInvitationAction(input)) as SR<OrgInvitation>),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
       toast.success("Invitation sent");

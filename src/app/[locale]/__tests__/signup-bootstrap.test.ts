@@ -125,7 +125,7 @@ describe("signUpAction — UX message differentiation", () => {
 
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining("success="));
     // The redirect message should NOT mention org creation
-    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const call = (redirect as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(call).not.toContain("organization");
     expect(call).not.toContain("Organization");
   });
@@ -141,7 +141,7 @@ describe("signUpAction — UX message differentiation", () => {
 
     // Both regular and invited paths call encodedRedirect("success", ...) which uses next/navigation redirect
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining("success="));
-    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const call = (redirect as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     // The invited key is "signUpSuccessInvited" — translations mock returns the key itself
     expect(call).toContain("signUpSuccessInvited");
   });
@@ -156,7 +156,7 @@ describe("signUpAction — UX message differentiation", () => {
     await signUpAction(makeFormData({ email: "existing@example.com" }));
 
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining("error="));
-    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    const call = (redirect as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(call).toContain("emailAlreadyRegistered");
   });
 
