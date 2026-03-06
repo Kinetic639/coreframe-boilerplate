@@ -22,7 +22,7 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
   }
 
-  // Build callback URL — include invitation token so callback can auto-accept
+  // Build callback URL — include invitation token so the auth/confirm handler can forward it
   const callbackUrl = invitationToken
     ? `${siteUrl}/auth/callback?invitation_token=${encodeURIComponent(invitationToken)}`
     : `${siteUrl}/auth/callback`;
@@ -48,13 +48,17 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", error?.message || t("errors.registrationFailed"));
   }
 
-  // The database trigger will automatically:
-  // 1. Insert the user into public.users table
-  // 2. Create a new organization based on email domain
-  // 3. Create organization profile
-  // 4. Assign org_owner role to the user
+  // Supabase silently returns success for already-registered emails to prevent enumeration.
+  // Detect this case via empty identities array and show an actionable error.
+  if (!data.user.identities || data.user.identities.length === 0) {
+    return encodedRedirect("error", "/sign-up", t("errors.emailAlreadyRegistered"));
+  }
 
-  return encodedRedirect("success", "/sign-up", t("success.signUpSuccess"));
+  const successMessage = invitationToken
+    ? t("success.signUpSuccessInvited")
+    : t("success.signUpSuccess");
+
+  return encodedRedirect("success", "/sign-up", successMessage);
 };
 
 export const signInAction = async (formData: FormData) => {

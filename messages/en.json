@@ -160,10 +160,12 @@
       "registrationFailed": "Registration failed",
       "invalidCredentials": "Invalid login credentials",
       "emailRequired": "Email is required",
-      "invalidEmailFormat": "Invalid email format"
+      "invalidEmailFormat": "Invalid email format",
+      "emailAlreadyRegistered": "An account with this email already exists. Please sign in."
     },
     "success": {
-      "signUpSuccess": "Thanks for signing up! Please check your email for a verification link. Your organization has been created automatically.",
+      "signUpSuccess": "Thanks for signing up! Please check your email for a verification link.",
+      "signUpSuccessInvited": "Account created! Please confirm your email, then return to your invitation link to complete joining.",
       "passwordResetSent": "If an account exists with this email, you will receive a password reset link.",
       "logoutSuccess": "Logged out successfully"
     },

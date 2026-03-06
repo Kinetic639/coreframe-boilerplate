@@ -108,6 +108,71 @@ describe("signUpAction — invitation_token in metadata", () => {
   });
 });
 
+describe("signUpAction — UX message differentiation", () => {
+  beforeEach(() => {
+    signUpMock.mockReset();
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.com";
+  });
+
+  it("shows regular success message (no org mention) for standard signup", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "user-1", identities: [{ identity_id: "id-1" }] } },
+      error: null,
+    });
+
+    const { redirect } = await import("next/navigation");
+    await signUpAction(makeFormData());
+
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining("success="));
+    // The redirect message should NOT mention org creation
+    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(call).not.toContain("organization");
+    expect(call).not.toContain("Organization");
+  });
+
+  it("shows invited success message for signup with invitation token", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "user-2", identities: [{ identity_id: "id-2" }] } },
+      error: null,
+    });
+
+    const { redirect } = await import("next/navigation");
+    await signUpAction(makeFormData({ invitationToken: "tok-invite-123" }));
+
+    // Both regular and invited paths call encodedRedirect("success", ...) which uses next/navigation redirect
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining("success="));
+    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    // The invited key is "signUpSuccessInvited" — translations mock returns the key itself
+    expect(call).toContain("signUpSuccessInvited");
+  });
+
+  it("shows error for already-registered email (empty identities)", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "existing-user", identities: [] } },
+      error: null,
+    });
+
+    const { redirect } = await import("next/navigation");
+    await signUpAction(makeFormData({ email: "existing@example.com" }));
+
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining("error="));
+    const call = (redirect as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(call).toContain("emailAlreadyRegistered");
+  });
+
+  it("shows error for already-registered email (null identities)", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "existing-user", identities: null } },
+      error: null,
+    });
+
+    const { redirect } = await import("next/navigation");
+    await signUpAction(makeFormData({ email: "existing@example.com" }));
+
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining("error="));
+  });
+});
+
 describe("Legacy invitation mutations — removed from lib/api/invitations", () => {
   it("acceptInvitation is no longer exported from lib/api/invitations", async () => {
     const api = await import("@/lib/api/invitations");
