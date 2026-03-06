@@ -433,6 +433,7 @@ export interface OrgInvitation {
   status: string;
   expires_at: string | null;
   accepted_at: string | null;
+  declined_at: string | null;
   created_at: string | null;
   deleted_at: string | null;
 }
@@ -452,7 +453,7 @@ export class OrgInvitationsService {
     const { data, error } = await supabase
       .from("invitations")
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, created_at, deleted_at"
+        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at"
       )
       .eq("organization_id", orgId)
       .is("deleted_at", null)
@@ -485,7 +486,7 @@ export class OrgInvitationsService {
         expires_at: expiresAt,
       })
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, created_at, deleted_at"
+        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at"
       )
       .maybeSingle();
 
@@ -512,7 +513,7 @@ export class OrgInvitationsService {
   static async resendInvitation(
     supabase: SupabaseClient,
     invitationId: string
-  ): Promise<ServiceResult<string>> {
+  ): Promise<ServiceResult<{ token: string; email: string; organization_id: string }>> {
     // Generate a new token and extend expiry
     const newToken = crypto.randomUUID();
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -522,12 +523,33 @@ export class OrgInvitationsService {
       .update({ token: newToken, expires_at: newExpiry, status: "pending" })
       .eq("id", invitationId)
       .is("deleted_at", null)
-      .select("token")
+      .select("token, email, organization_id")
       .maybeSingle();
 
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Invitation not found or unauthorized" };
-    return { success: true, data: data.token };
+    if (!data.organization_id) return { success: false, error: "Invitation has no organization" };
+    return {
+      success: true,
+      data: { token: data.token, email: data.email, organization_id: data.organization_id },
+    };
+  }
+
+  static async acceptInvitation(
+    supabase: SupabaseClient,
+    token: string
+  ): Promise<ServiceResult<{ organization_id: string }>> {
+    const { data, error } = await supabase.rpc("accept_invitation_and_join_org", {
+      p_token: token,
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    const result = data as { success: boolean; error_code?: string; organization_id?: string };
+    if (!result.success) return { success: false, error: result.error_code ?? "Acceptance failed" };
+    if (!result.organization_id) return { success: false, error: "No organization returned" };
+
+    return { success: true, data: { organization_id: result.organization_id } };
   }
 
   static async cleanupExpiredInvitations(

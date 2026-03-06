@@ -7,6 +7,7 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import {
   OrgInvitationsService,
+  OrgProfileService,
   type CreateInvitationInput,
 } from "@/server/services/organization.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
@@ -16,6 +17,7 @@ import {
   INVITES_CREATE,
   INVITES_CANCEL,
 } from "@/lib/constants/permissions";
+import { EmailService } from "@/server/services/email.service";
 
 const createInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -52,7 +54,7 @@ export async function createInvitationAction(rawInput: unknown) {
     const supabase = await createClient();
     await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
     const context = await loadDashboardContextV2();
-    if (!context?.app.activeOrgId || !context.user.user.id) {
+    if (!context?.app.activeOrgId || !context.user.user?.id) {
       return { success: false, error: "No active organization" };
     }
     if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
@@ -64,12 +66,38 @@ export async function createInvitationAction(rawInput: unknown) {
     const parsed = createInviteSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgInvitationsService.createInvitation(
+    const result = await OrgInvitationsService.createInvitation(
       supabase,
       context.app.activeOrgId,
-      context.user.user.id,
+      context.user.user!.id,
       parsed.data as CreateInvitationInput
     );
+
+    if (result.success) {
+      const profileResult = await OrgProfileService.getProfile(supabase, context.app.activeOrgId);
+      const orgName = profileResult.success
+        ? (profileResult.data.name ?? "your organization")
+        : "your organization";
+      const inviterName =
+        `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
+        (context.user.user?.email ?? "");
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const invitationLink = `${siteUrl}/invite/${result.data.token}`;
+
+      try {
+        const emailService = new EmailService();
+        await emailService.sendInvitationEmailWithTemplate(
+          result.data.email,
+          orgName,
+          inviterName,
+          invitationLink
+        );
+      } catch (emailError) {
+        console.error("[createInvitationAction] Failed to send invitation email:", emailError);
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -116,11 +144,66 @@ export async function resendInvitationAction(rawInput: unknown) {
     const parsed = inviteIdSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgInvitationsService.resendInvitation(supabase, parsed.data.invitationId);
+    const result = await OrgInvitationsService.resendInvitation(supabase, parsed.data.invitationId);
+
+    if (result.success) {
+      const profileResult = await OrgProfileService.getProfile(
+        supabase,
+        result.data.organization_id
+      );
+      const orgName = profileResult.success
+        ? (profileResult.data.name ?? "your organization")
+        : "your organization";
+      const inviterName =
+        `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
+        (context.user.user?.email ?? "");
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+      const invitationLink = `${siteUrl}/invite/${result.data.token}`;
+
+      try {
+        const emailService = new EmailService();
+        await emailService.sendInvitationEmailWithTemplate(
+          result.data.email,
+          orgName,
+          inviterName,
+          invitationLink
+        );
+      } catch (emailError) {
+        console.error("[resendInvitationAction] Failed to send invitation email:", emailError);
+      }
+    }
+
+    return result.success ? { success: true, data: result.data.token } : result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
     return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function acceptInvitationAction(token: string) {
+  try {
+    const supabase = await createClient();
+    return await OrgInvitationsService.acceptInvitation(supabase, token);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function declineInvitationAction(token: string) {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("decline_invitation", { p_token: token });
+    if (error) return { success: false as const, error: error.message };
+    const result = data as { success: boolean; error_code?: string } | null;
+    if (!result?.success)
+      return {
+        success: false as const,
+        error: result?.error_code ?? "Failed to decline invitation",
+      };
+    return { success: true as const };
+  } catch {
+    return { success: false as const, error: "Unexpected error" };
   }
 }
 

@@ -10,6 +10,7 @@ export const signUpAction = async (formData: FormData) => {
   const password = formData.get("password")?.toString();
   const firstName = formData.get("firstName")?.toString();
   const lastName = formData.get("lastName")?.toString();
+  const invitationToken = formData.get("invitationToken")?.toString();
   const supabase = await createClient();
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "auth" });
@@ -21,15 +22,23 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
   }
 
-  // Register user with metadata for names
+  // Build callback URL — include invitation token so callback can auto-accept
+  const callbackUrl = invitationToken
+    ? `${siteUrl}/auth/callback?invitation_token=${encodeURIComponent(invitationToken)}`
+    : `${siteUrl}/auth/callback`;
+
+  // Register user with metadata for names and optional invitation token.
+  // invitation_token in data triggers the hook's invitation-aware branch,
+  // which skips personal-org creation and joins the invited org instead.
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      emailRedirectTo: callbackUrl,
       data: {
         first_name: firstName || "",
         last_name: lastName || "",
+        ...(invitationToken ? { invitation_token: invitationToken } : {}),
       },
     },
   });
@@ -76,15 +85,30 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", errorMessage);
   }
 
-  // If there's a returnUrl, redirect there, otherwise go to dashboard
+  // If there's a returnUrl (e.g. /invite/[token]), honor it directly
   if (returnUrl && returnUrl.trim() !== "") {
-    console.log("[DEBUG] Processing returnUrl:", returnUrl);
-    console.log("[DEBUG] Locale:", locale);
-
-    // Use direct Next.js redirect to the exact returnUrl
     const { redirect: nextRedirect } = await import("next/navigation");
-    console.log("[DEBUG] Using Next.js redirect to:", returnUrl);
     return nextRedirect(returnUrl);
+  }
+
+  // Check for pending invites — route to resolution if found
+  const { data: pendingData } = await supabase.rpc("get_my_pending_invitations");
+  const pendingResult = pendingData as { success: boolean; invitations?: unknown[] } | null;
+  if (pendingResult?.success && (pendingResult.invitations?.length ?? 0) > 0) {
+    return redirect({ href: "/invite/resolve", locale });
+  }
+
+  // Check if user has any active org membership — if not, route to onboarding
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership) {
+    return redirect({ href: "/onboarding", locale });
   }
 
   return redirect({ href: "/dashboard/start", locale });
@@ -109,30 +133,12 @@ export const forgotPasswordAction = async (formData: FormData) => {
     return encodedRedirect("error", "/forgot-password", t("errors.invalidEmailFormat"));
   }
 
-  // Build redirect URL - encode the 'next' parameter to ensure it's passed correctly
   const nextPath = `/${locale}/reset-password`;
   const redirectUrl = `${siteUrl}/auth/confirm?next=${encodeURIComponent(nextPath)}`;
 
-  console.log("[Password Reset] Email:", email);
-  console.log("[Password Reset] Redirect URL:", redirectUrl);
-  console.log("[Password Reset] Site URL:", siteUrl);
-  console.log("[Password Reset] Locale:", locale);
-  console.log("[Password Reset] Next path:", nextPath);
-
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    // PKCE flow with token_hash verification
+  await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: redirectUrl,
   });
-
-  if (error) {
-    console.error("[Password Reset] Supabase error:", {
-      message: error.message,
-      status: error.status,
-      name: error.name,
-    });
-  } else {
-    console.log("[Password Reset] Request successful - email should be sent by Supabase SMTP");
-  }
 
   // Always show success message for security (don't reveal if email exists)
   return encodedRedirect("success", "/forgot-password", t("success.passwordResetSent"));

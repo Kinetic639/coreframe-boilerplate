@@ -23,6 +23,24 @@ vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => {
+    const map: Record<string, string> = {
+      inviteMemberButton: "Invite Member",
+      noInvitations: "No invitations found.",
+      dialogTitle: "Invite Member",
+      emailAddressLabel: "Email Address",
+      cancelButton: "Cancel",
+      sendButton: "Send Invite",
+      sendingButton: "Sending…",
+      expiresLabel: "Expires:",
+      resendTitle: "Resend",
+      cancelTitle: "Cancel invitation",
+    };
+    return map[key] ?? key;
+  },
+}));
+
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
 import { InvitationsClient } from "../_components/invitations-client";

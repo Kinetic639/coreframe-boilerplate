@@ -8,11 +8,8 @@ import {
   cancelInvitation,
   checkEmailInvited,
   checkEmailIsUser,
-  acceptInvitation as acceptInvitationAPI,
-  rejectInvitation as rejectInvitationAPI,
   markExpiredInvitations,
 } from "@/lib/api/invitations";
-import { refreshBranchContext } from "@/lib/api/refresh-branch-context";
 
 export interface CreateInvitationFormData {
   email: string;
@@ -244,59 +241,6 @@ export async function resendInvitationAction(
     return { success: true, data: updatedInvitation };
   } catch (error) {
     console.error("Error resending invitation:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
-  }
-}
-
-/**
- * Server action to accept an invitation
- */
-export async function acceptInvitationAction(token: string): Promise<InvitationActionResult> {
-  try {
-    const supabase = await createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return { success: false, error: "Musisz być zalogowany aby zaakceptować zaproszenie" };
-    }
-
-    // Accept the invitation
-    const invitation = await acceptInvitationAPI(token);
-
-    // Refresh branch context for the user
-    await refreshBranchContext(invitation.organization_id!);
-
-    // Revalidate relevant paths
-    revalidatePath("/dashboard-old");
-    revalidatePath("/dashboard-old/organization");
-
-    return { success: true, data: invitation };
-  } catch (error) {
-    console.error("Error accepting invitation:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-    };
-  }
-}
-
-/**
- * Server action to reject an invitation
- */
-export async function rejectInvitationAction(token: string): Promise<InvitationActionResult> {
-  try {
-    // No authentication required for rejecting invitations
-    const invitation = await rejectInvitationAPI(token);
-
-    return { success: true, data: invitation };
-  } catch (error) {
-    console.error("Error rejecting invitation:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Unknown error occurred",

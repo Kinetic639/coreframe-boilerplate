@@ -25,6 +25,14 @@ vi.mock("@/server/guards/entitlements-guards", () => ({
   mapEntitlementError: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/server/services/email.service", () => {
+  function EmailServiceMock() {}
+  EmailServiceMock.prototype.sendInvitationEmailWithTemplate = vi
+    .fn()
+    .mockResolvedValue({ success: true });
+  return { EmailService: EmailServiceMock };
+});
+
 vi.mock("@/server/services/organization.service", () => ({
   OrgProfileService: { getProfile: vi.fn(), updateProfile: vi.fn(), uploadLogo: vi.fn() },
   OrgMembersService: { listMembers: vi.fn(), updateMemberStatus: vi.fn(), removeMember: vi.fn() },
@@ -34,6 +42,7 @@ vi.mock("@/server/services/organization.service", () => ({
     cancelInvitation: vi.fn(),
     resendInvitation: vi.fn(),
     cleanupExpiredInvitations: vi.fn(),
+    acceptInvitation: vi.fn(),
   },
   OrgRolesService: {
     listRoles: vi.fn(),
@@ -81,6 +90,7 @@ import {
   listInvitationsAction,
   createInvitationAction,
   cancelInvitationAction,
+  acceptInvitationAction,
 } from "../invitations";
 import {
   listRolesAction,
@@ -293,6 +303,28 @@ describe("createInvitationAction", () => {
     expect(result).toEqual({ success: false, error: "Unauthorized" });
     expect(OrgInvitationsService.createInvitation).not.toHaveBeenCalled();
   });
+
+  it("calls service when authorized and returns the invitation", async () => {
+    setCtx(CTX_ORG_ADMIN);
+    const mockInvitation = {
+      id: "inv-1",
+      email: "newuser@example.com",
+      token: "tok-abc",
+      organization_id: "org-123",
+      status: "pending",
+    };
+    (OrgInvitationsService.createInvitation as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: mockInvitation,
+    });
+    (OrgProfileService.getProfile as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { name: "Test Org" },
+    });
+    const result = await createInvitationAction({ email: "newuser@example.com" });
+    expect(result).toEqual({ success: true, data: mockInvitation });
+    expect(OrgInvitationsService.createInvitation).toHaveBeenCalledOnce();
+  });
 });
 
 describe("cancelInvitationAction", () => {
@@ -307,6 +339,44 @@ describe("cancelInvitationAction", () => {
     });
     expect(result).toEqual({ success: false, error: "Unauthorized" });
     expect(OrgInvitationsService.cancelInvitation).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Accept Invitation ────────────────────────────────────────────────────────
+
+describe("acceptInvitationAction", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls service with the provided token", async () => {
+    (OrgInvitationsService.acceptInvitation as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: true,
+      data: { organization_id: "org-123" },
+    });
+    const result = await acceptInvitationAction("test-token-abc");
+    expect(result).toEqual({ success: true, data: { organization_id: "org-123" } });
+    expect(OrgInvitationsService.acceptInvitation).toHaveBeenCalledWith(
+      expect.anything(),
+      "test-token-abc"
+    );
+  });
+
+  it("returns service error when acceptance fails", async () => {
+    (OrgInvitationsService.acceptInvitation as ReturnType<typeof vi.fn>).mockResolvedValue({
+      success: false,
+      error: "Invitation has expired",
+    });
+    const result = await acceptInvitationAction("expired-token");
+    expect(result).toEqual({ success: false, error: "Invitation has expired" });
+  });
+
+  it("returns unexpected error when service throws", async () => {
+    (OrgInvitationsService.acceptInvitation as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("DB connection failed")
+    );
+    const result = await acceptInvitationAction("bad-token");
+    expect(result).toEqual({ success: false, error: "Unexpected error" });
   });
 });
 

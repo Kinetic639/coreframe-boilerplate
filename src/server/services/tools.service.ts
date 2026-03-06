@@ -255,13 +255,14 @@ export class UserToolsService {
 
     if (error) return { success: false, error: normalizeDbError(error) };
 
-    const rows: PinnedToolSidebarRow[] = (data ?? []).map(
-      (row: { tool_slug: string; created_at: string; tools_catalog: { name: string } | null }) => ({
-        tool_slug: row.tool_slug,
-        created_at: row.created_at,
-        name: row.tools_catalog?.name ?? row.tool_slug,
-      })
-    );
+    const rows: PinnedToolSidebarRow[] = (data ?? []).map((row) => ({
+      tool_slug: row.tool_slug as string,
+      created_at: row.created_at as string,
+      name:
+        (Array.isArray(row.tools_catalog)
+          ? (row.tools_catalog[0] as { name: string } | undefined)?.name
+          : (row.tools_catalog as { name: string } | null)?.name) ?? (row.tool_slug as string),
+    }));
 
     return { success: true, data: rows };
   }

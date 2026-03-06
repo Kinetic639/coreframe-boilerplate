@@ -10,13 +10,15 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ message?: string; error?: string; success?: string }>;
 }) {
   const supabase = await createClient();
+  // getUser() re-validates the JWT with the Supabase Auth server on every
+  // request; getSession() only reads the cookie without server verification.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
   const locale = await getLocale();
 
   // User must have a recovery session to access this page
-  if (!session) {
+  if (!user) {
     redirect({ href: "/forgot-password", locale });
   }
 

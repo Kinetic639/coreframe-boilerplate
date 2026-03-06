@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,11 +34,13 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   accepted: "default",
   cancelled: "secondary",
   expired: "destructive",
+  declined: "secondary",
 };
 
 export function InvitationsClient({ initialInvitations }: InvitationsClientProps) {
   const router = useRouter();
   const { can } = usePermissions();
+  const t = useTranslations("adminInvitations");
 
   const { data: invitations } = useInvitationsQuery(initialInvitations);
   const createMutation = useCreateInvitationMutation();
@@ -81,13 +84,13 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
         <div className="flex justify-end">
           <Button onClick={() => setShowInviteDialog(true)} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Invite Member
+            {t("inviteMemberButton")}
           </Button>
         </div>
       )}
 
       {invitations.length === 0 ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">No invitations found.</div>
+        <div className="py-8 text-center text-sm text-muted-foreground">{t("noInvitations")}</div>
       ) : (
         <div className="space-y-2">
           {invitations.map((inv) => (
@@ -101,7 +104,7 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
                   <p className="text-sm font-medium">{inv.email}</p>
                   {inv.expires_at && (
                     <p className="text-xs text-muted-foreground">
-                      Expires: {new Date(inv.expires_at).toLocaleDateString()}
+                      {t("expiresLabel")} {new Date(inv.expires_at).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -117,7 +120,7 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
                         className="h-8 w-8"
                         disabled={isPending}
                         onClick={() => handleResend(inv)}
-                        title="Resend"
+                        title={t("resendTitle")}
                       >
                         <RefreshCw className="h-4 w-4" />
                       </Button>
@@ -129,7 +132,7 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         disabled={isPending}
                         onClick={() => handleCancel(inv)}
-                        title="Cancel"
+                        title={t("cancelTitle")}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -145,10 +148,10 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite Member</DialogTitle>
+            <DialogTitle>{t("dialogTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Label htmlFor="invite-email">Email Address</Label>
+            <Label htmlFor="invite-email">{t("emailAddressLabel")}</Label>
             <Input
               id="invite-email"
               type="email"
@@ -165,11 +168,11 @@ export function InvitationsClient({ initialInvitations }: InvitationsClientProps
               onClick={() => setShowInviteDialog(false)}
               disabled={isPending}
             >
-              Cancel
+              {t("cancelButton")}
             </Button>
             <Button onClick={handleInvite} disabled={isPending || !email.trim()}>
               <Send className="h-4 w-4 mr-2" />
-              {isPending ? "Sending…" : "Send Invite"}
+              {isPending ? t("sendingButton") : t("sendButton")}
             </Button>
           </DialogFooter>
         </DialogContent>
