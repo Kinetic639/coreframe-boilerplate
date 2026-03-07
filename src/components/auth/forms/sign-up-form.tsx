@@ -17,13 +17,6 @@ import { fetchInvitationByToken, type InvitationWithDetails } from "@/lib/api/in
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one uppercase letter, one lowercase letter, and one number"
-    ),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
 });
@@ -73,7 +66,6 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
   const onSubmit = async (data: SignUpFormData) => {
     const formData = new FormData();
     formData.append("email", data.email);
-    formData.append("password", data.password);
     formData.append("firstName", data.firstName || "");
     formData.append("lastName", data.lastName || "");
     if (invitationToken) {
@@ -137,17 +129,6 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
             disabled={!!invitation}
           />
           {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="password">{t("passwordLabel")}</Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder={t("passwordPlaceholder")}
-            {...register("password")}
-          />
-          {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
 
         <div className="flex flex-col gap-1">
