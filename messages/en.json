@@ -142,14 +142,18 @@
       "signIn": "Sign in"
     },
     "ResetPasswordForm": {
-      "title": "Set new password",
+      "title": "Reset your password",
       "description": "Please enter your new password below.",
+      "setTitle": "Set your password",
+      "setDescription": "Choose a strong password to secure your new account.",
       "passwordLabel": "New password",
       "passwordPlaceholder": "Enter new password",
       "confirmPasswordLabel": "Confirm password",
       "confirmPasswordPlaceholder": "Re-enter password",
       "submit": "Reset password",
+      "setSubmit": "Set password",
       "pending": "Resetting password...",
+      "setPending": "Setting password...",
       "success": "Password reset successfully! Please sign in with your new password.",
       "error": "Failed to reset password. Please try again."
     }
@@ -172,6 +176,12 @@
     "logout": {
       "button": "Sign out",
       "loggingOut": "Signing out..."
+    },
+    "authCodeError": {
+      "title": "Invalid or expired link",
+      "description": "This link is no longer valid. It may have already been used or has expired.",
+      "requestNewLink": "Request a new link",
+      "backToSignIn": "Back to sign in"
     }
   },
   "teams": {

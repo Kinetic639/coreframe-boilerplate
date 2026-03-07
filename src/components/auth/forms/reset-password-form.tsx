@@ -33,10 +33,12 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 interface ResetPasswordFormProps {
   message?: Message;
+  mode?: "set" | "reset";
 }
 
-export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ message, mode = "reset" }: ResetPasswordFormProps) {
   const t = useTranslations("authForms.ResetPasswordForm");
+  const isSet = mode === "set";
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -61,8 +63,8 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">{t("title")}</h1>
-      <p className="text-sm text-foreground/60">{t("description")}</p>
+      <h1 className="text-2xl font-medium">{isSet ? t("setTitle") : t("title")}</h1>
+      <p className="text-sm text-foreground/60">{isSet ? t("setDescription") : t("description")}</p>
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor="password">{t("passwordLabel")}</Label>
@@ -120,8 +122,10 @@ export function ResetPasswordForm({ message }: ResetPasswordFormProps) {
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t("pending")}
+              {isSet ? t("setPending") : t("pending")}
             </>
+          ) : isSet ? (
+            t("setSubmit")
           ) : (
             t("submit")
           )}
