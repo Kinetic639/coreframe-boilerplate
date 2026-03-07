@@ -102,7 +102,7 @@ const buttonContainer = {
 };
 
 const button = {
-  backgroundColor: "#5469d4",
+  backgroundColor: "#F0A205",
   borderRadius: "5px",
   color: "#fff",
   fontFamily:
@@ -117,7 +117,7 @@ const button = {
 };
 
 const link = {
-  color: "#5469d4",
+  color: "#F0A205",
   fontFamily:
     '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
   fontSize: "12px",
