@@ -9,6 +9,10 @@ const localizedPaths: Record<string, Record<string, string>> = {
     en: "/en/reset-password",
     pl: "/zresetuj-haslo",
   },
+  "/auth-code-error": {
+    en: "/en/auth-code-error",
+    pl: "/blad-uwierzytelniania",
+  },
 };
 
 function getLocalizedPath(path: string, locale: string): string {
@@ -52,11 +56,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // For signup, indicate first-time password setup so the form shows correct copy
+      if (type === "signup") {
+        redirectUrl.searchParams.set("mode", "set");
+      }
+
       return NextResponse.redirect(redirectUrl.toString());
     }
 
+    const errorPage = getLocalizedPath("/auth-code-error", locale);
     return NextResponse.redirect(
-      `${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`
+      `${origin}${errorPage}?error=${encodeURIComponent(error.message)}`
     );
   }
 

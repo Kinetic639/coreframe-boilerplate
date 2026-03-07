@@ -7,7 +7,7 @@ import { getLocale } from "next-intl/server";
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string; success?: string }>;
+  searchParams: Promise<{ message?: string; error?: string; success?: string; mode?: string }>;
 }) {
   const supabase = await createClient();
   // getUser() re-validates the JWT with the Supabase Auth server on every
@@ -24,10 +24,11 @@ export default async function ResetPasswordPage({
 
   const params = await searchParams;
   const message = params.error || params.success || params.message;
+  const mode = params.mode === "set" ? "set" : "reset";
 
   return (
     <AuthCard variant="forgot-password">
-      <ResetPasswordForm message={message ? { message } : undefined} />
+      <ResetPasswordForm message={message ? { message } : undefined} mode={mode} />
     </AuthCard>
   );
 }

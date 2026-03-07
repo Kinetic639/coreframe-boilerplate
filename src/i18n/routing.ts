@@ -602,6 +602,10 @@ export const routing = defineRouting({
       en: "/reset-password",
       pl: "/zresetuj-haslo",
     },
+    "/auth-code-error": {
+      en: "/auth-code-error",
+      pl: "/blad-uwierzytelniania",
+    },
     "/dashboard-old/reset-password": {
       en: "/dashboard-old/reset-password",
       pl: "/dashboard-old/resetowanie-hasla",

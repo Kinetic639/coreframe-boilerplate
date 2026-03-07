@@ -142,14 +142,18 @@
       "signIn": "Zaloguj się"
     },
     "ResetPasswordForm": {
-      "title": "Ustaw nowe hasło",
+      "title": "Resetuj hasło",
       "description": "Wprowadź nowe hasło poniżej.",
+      "setTitle": "Ustaw hasło",
+      "setDescription": "Wybierz silne hasło, aby zabezpieczyć swoje nowe konto.",
       "passwordLabel": "Nowe hasło",
       "passwordPlaceholder": "Wprowadź nowe hasło",
       "confirmPasswordLabel": "Potwierdź hasło",
       "confirmPasswordPlaceholder": "Wprowadź ponownie hasło",
       "submit": "Zresetuj hasło",
+      "setSubmit": "Ustaw hasło",
       "pending": "Resetuję hasło...",
+      "setPending": "Ustawiam hasło...",
       "success": "Hasło zostało zresetowane! Zaloguj się używając nowego hasła.",
       "error": "Nie udało się zresetować hasła. Spróbuj ponownie."
     }
@@ -172,6 +176,12 @@
     "logout": {
       "button": "Wyloguj się",
       "loggingOut": "Wylogowywanie..."
+    },
+    "authCodeError": {
+      "title": "Nieprawidłowy lub wygasły link",
+      "description": "Ten link jest już nieważny. Mógł już zostać użyty lub wygasł.",
+      "requestNewLink": "Wyślij nowy link",
+      "backToSignIn": "Wróć do logowania"
     }
   },
   "teams": {
