@@ -4,7 +4,6 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   CheckCircle,
@@ -12,7 +11,6 @@ import {
   AlertCircle,
   Loader2,
   Building2,
-  Shield,
   Mail,
   Calendar,
   Clock,
@@ -49,13 +47,14 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
 
   const dateFnsLocale = locale === "pl" ? pl : enUS;
 
+  const [declineRedirectHref, setDeclineRedirectHref] = React.useState<string | null>(null);
+
   const handleAccept = async () => {
     setActionLoading(true);
     try {
       const result = await acceptInvitationAction(token);
       if (result.success) {
         setActionResult({ type: "success", message: t("successMessage") });
-        setTimeout(() => router.push("/dashboard/start"), 2000);
       } else {
         setActionResult({
           type: "error",
@@ -76,11 +75,11 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
       if (result.success) {
         // Check if more pending invites remain — route to resolve or onboarding
         const pending = await getMyPendingInvitationsAction();
-        if (pending.success && pending.invitations.length > 0) {
-          router.push("/invite/resolve");
-        } else {
-          router.push("/onboarding");
-        }
+        const href =
+          pending.success && pending.invitations.length > 0 ? "/invite/resolve" : "/onboarding";
+        setDeclineRedirectHref(href);
+        setActionResult({ type: "success", message: t("declineSuccessMessage") });
+        setTimeout(() => router.push(href as "/onboarding"), 3000);
       } else {
         setActionResult({
           type: "error",
@@ -164,13 +163,10 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
             </div>
           </div>
         )}
-        {preview.role_name && (
+        {preview.inviter_name && (
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{t("roleLabel")}</span>
-            <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              <Badge variant="outline">{preview.role_name}</Badge>
-            </div>
+            <span className="text-sm font-medium">{t("inviterLabel")}</span>
+            <span className="text-sm">{preview.inviter_name}</span>
           </div>
         )}
         {preview.branch_name && (
@@ -321,31 +317,52 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
 
             {emailMatch ? (
               <div className="space-y-2">
-                <Button
-                  className="w-full"
-                  onClick={handleAccept}
-                  disabled={actionLoading || declineLoading || !!actionResult}
-                >
-                  {actionLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                  )}
-                  {t("acceptButton")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full text-muted-foreground"
-                  onClick={handleDecline}
-                  disabled={actionLoading || declineLoading || !!actionResult}
-                >
-                  {declineLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <XCircle className="mr-2 h-4 w-4" />
-                  )}
-                  {t("declineButton")}
-                </Button>
+                {/* Show accept/decline buttons only when no success result yet */}
+                {!actionResult || actionResult.type === "error" ? (
+                  <>
+                    <Button
+                      className="w-full"
+                      onClick={handleAccept}
+                      disabled={actionLoading || declineLoading}
+                    >
+                      {actionLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                      )}
+                      {t("acceptButton")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-muted-foreground"
+                      onClick={handleDecline}
+                      disabled={actionLoading || declineLoading}
+                    >
+                      {declineLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <XCircle className="mr-2 h-4 w-4" />
+                      )}
+                      {t("declineButton")}
+                    </Button>
+                  </>
+                ) : declineRedirectHref ? (
+                  /* After decline — manual redirect button */
+                  <Button className="w-full" asChild>
+                    <Link href={declineRedirectHref as "/onboarding"}>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t("continueButton")}
+                    </Link>
+                  </Button>
+                ) : (
+                  /* After accept — manual redirect button */
+                  <Button className="w-full" asChild>
+                    <Link href="/dashboard/start">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t("goToDashboardButton")}
+                    </Link>
+                  </Button>
+                )}
               </div>
             ) : (
               <Button variant="outline" className="w-full" asChild>

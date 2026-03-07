@@ -205,6 +205,8 @@ export interface UserPreferences {
  * Profile update input
  */
 export interface UpdateProfileInput {
+  firstName?: string | null;
+  lastName?: string | null;
   displayName?: string | null;
   phone?: string | null;
 }

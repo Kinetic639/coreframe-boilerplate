@@ -11,7 +11,7 @@ const invitationStrings = {
     heading: "Masz zaproszenie!",
     body: (inviterName: string, orgName: string) =>
       `${inviterName} zaprasza Cię do dołączenia do organizacji ${orgName} w Ambra System. Kliknij przycisk poniżej, aby zaakceptować zaproszenie i założyć konto.`,
-    button: "Zaakceptuj zaproszenie",
+    button: "Wyświetl zaproszenie",
     linkLabel: "Lub skopiuj ten link:",
     expiry: "Zaproszenie wygasa po 7 dniach.",
     disclaimer: "Jeśli nie spodziewałeś się tego zaproszenia, możesz zignorować tę wiadomość.",
@@ -23,7 +23,7 @@ const invitationStrings = {
     heading: "You're invited!",
     body: (inviterName: string, orgName: string) =>
       `${inviterName} has invited you to join ${orgName} on Ambra System. Click the button below to accept the invitation and create your account.`,
-    button: "Accept Invitation",
+    button: "View Invitation",
     linkLabel: "Or copy this link:",
     expiry: "This invitation will expire in 7 days.",
     disclaimer: "If you weren't expecting this invitation, you can safely ignore this email.",

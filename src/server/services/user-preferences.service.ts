@@ -124,6 +124,20 @@ export class UserPreferencesService {
     userId: string,
     input: UpdateProfileInput
   ): Promise<UserPreferences> {
+    // Update first_name/last_name in public.users if provided
+    if (input.firstName !== undefined || input.lastName !== undefined) {
+      const userUpdate: Record<string, string | null> = {};
+      if (input.firstName !== undefined) userUpdate.first_name = input.firstName || null;
+      if (input.lastName !== undefined) userUpdate.last_name = input.lastName || null;
+
+      const { error: userError } = await supabase.from("users").update(userUpdate).eq("id", userId);
+
+      if (userError) {
+        console.error("[UserPreferencesService] Failed to update user names:", userError);
+        throw new Error("Failed to update profile");
+      }
+    }
+
     const { data, error } = await supabase
       .from("user_preferences")
       .update({
