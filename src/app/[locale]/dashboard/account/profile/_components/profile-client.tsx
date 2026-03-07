@@ -39,12 +39,22 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
   const updateProfile = useUpdateProfileMutation();
   const router = useRouter();
 
+  const [firstName, setFirstName] = useState<string>("");
+  const [lastName, setLastName] = useState<string>("");
   const [displayName, setDisplayName] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
   const [isPendingAvatar, startAvatarTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize form values from preferences once loaded
+  // Initialize names from user store
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.first_name ?? "");
+      setLastName(user.last_name ?? "");
+    }
+  }, [user?.first_name, user?.last_name]);
+
+  // Initialize display name and phone from preferences once loaded
   useEffect(() => {
     if (preferences) {
       setDisplayName(preferences.displayName ?? "");
@@ -66,10 +76,15 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
   };
 
   const handleSave = () => {
-    updateProfile.mutate({
-      displayName: displayName || null,
-      phone: phone || null,
-    });
+    updateProfile.mutate(
+      {
+        firstName: firstName || null,
+        lastName: lastName || null,
+        displayName: displayName || null,
+        phone: phone || null,
+      },
+      { onSuccess: () => router.refresh() }
+    );
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,6 +191,30 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
             </div>
 
             <Separator />
+
+            {/* First & Last Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">{t("firstName")}</Label>
+                <Input
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder={t("firstNamePlaceholder")}
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">{t("lastName")}</Label>
+                <Input
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder={t("lastNamePlaceholder")}
+                  maxLength={100}
+                />
+              </div>
+            </div>
 
             {/* Display Name */}
             <div className="space-y-2">

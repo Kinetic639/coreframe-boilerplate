@@ -64,6 +64,10 @@
   "ProfilePage": {
     "title": "Profil",
     "description": "Zarządzaj swoimi danymi osobowymi",
+    "firstName": "Imię",
+    "firstNamePlaceholder": "Wpisz swoje imię",
+    "lastName": "Nazwisko",
+    "lastNamePlaceholder": "Wpisz swoje nazwisko",
     "displayName": "Nazwa wyświetlana",
     "displayNamePlaceholder": "Wpisz swoją nazwę wyświetlaną",
     "phone": "Numer telefonu",
@@ -2602,7 +2606,11 @@
     "declinedTitle": "Zaproszenie odrzucone",
     "declinedDescription": "To zaproszenie zostało już przez Ciebie odrzucone.",
     "declineButton": "Odrzuć zaproszenie",
-    "declineError": "Nie udało się odrzucić zaproszenia"
+    "declineError": "Nie udało się odrzucić zaproszenia",
+    "inviterLabel": "Zaproszony przez:",
+    "declineSuccessMessage": "Zaproszenie zostało odrzucone. Możesz kontynuować onboarding.",
+    "continueButton": "Kontynuuj onboarding",
+    "goToDashboardButton": "Przejdź do dashboardu"
   },
   "inviteResolvePage": {
     "title": "Oczekujące zaproszenie",

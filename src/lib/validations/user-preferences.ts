@@ -3,6 +3,8 @@ import { z } from "zod";
 // ─── Profile ─────────────────────────────────────────────────────────────────
 
 export const updateProfileSchema = z.object({
+  firstName: z.string().trim().max(100).nullable().optional(),
+  lastName: z.string().trim().max(100).nullable().optional(),
   displayName: z.string().trim().nullable().optional(),
   phone: z.string().trim().nullable().optional(),
 });

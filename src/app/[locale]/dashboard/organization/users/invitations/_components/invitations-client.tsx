@@ -20,7 +20,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Mail, Send, X, RefreshCw, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Mail, Send, X, RefreshCw, Plus, GitBranch, AlertCircle } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { INVITES_CREATE, INVITES_CANCEL } from "@/lib/constants/permissions";
@@ -33,12 +34,6 @@ import {
   useBranchesQuery,
 } from "@/hooks/queries/organization";
 import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
-
-interface InvitationRoleRow {
-  role_id: string;
-  scope: "org" | "branch";
-  scope_id: string | null;
-}
 
 interface InvitationsClientProps {
   initialInvitations: OrgInvitation[];
@@ -75,7 +70,10 @@ export function InvitationsClient({
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [email, setEmail] = useState("");
-  const [roleRows, setRoleRows] = useState<InvitationRoleRow[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [roleScopeConfigs, setRoleScopeConfigs] = useState<
+    Map<string, { scope: "org" | "branch"; branchId: string | null }>
+  >(new Map());
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const canCreate = can(INVITES_CREATE);
@@ -99,7 +97,8 @@ export function InvitationsClient({
 
   const resetDialog = () => {
     setEmail("");
-    setRoleRows([]);
+    setSelectedRoleIds([]);
+    setRoleScopeConfigs(new Map());
     setDialogError(null);
   };
 
@@ -108,48 +107,53 @@ export function InvitationsClient({
     setShowInviteDialog(true);
   };
 
-  const handleAddRole = () => {
-    setRoleRows((prev) => [...prev, { role_id: "", scope: "org", scope_id: null }]);
+  const toggleRole = (roleId: string, scopeType: string) => {
+    const isSelected = selectedRoleIds.includes(roleId);
+    if (isSelected) {
+      setSelectedRoleIds((prev) => prev.filter((id) => id !== roleId));
+      setRoleScopeConfigs((prev) => {
+        const next = new Map(prev);
+        next.delete(roleId);
+        return next;
+      });
+    } else {
+      const defaultScope: "org" | "branch" = scopeType === "branch" ? "branch" : "org";
+      setSelectedRoleIds((prev) => [...prev, roleId]);
+      setRoleScopeConfigs((prev) =>
+        new Map(prev).set(roleId, { scope: defaultScope, branchId: null })
+      );
+    }
   };
 
-  const handleRemoveRole = (idx: number) => {
-    setRoleRows((prev) => prev.filter((_, i) => i !== idx));
+  const setRoleScope = (roleId: string, scope: "org" | "branch") => {
+    setRoleScopeConfigs((prev) => new Map(prev).set(roleId, { scope, branchId: null }));
   };
 
-  const handleRoleChange = (idx: number, roleId: string) => {
-    const role = roles.find((r) => r.id === roleId);
-    const defaultScope: "org" | "branch" = role?.scope_type === "branch" ? "branch" : "org";
-    setRoleRows((prev) =>
-      prev.map((row, i) =>
-        i === idx ? { role_id: roleId, scope: defaultScope, scope_id: null } : row
-      )
-    );
-  };
-
-  const handleBranchChange = (idx: number, branchId: string) => {
-    setRoleRows((prev) =>
-      prev.map((row, i) => (i === idx ? { ...row, scope_id: branchId || null } : row))
-    );
+  const setRoleBranch = (roleId: string, branchId: string) => {
+    setRoleScopeConfigs((prev) => {
+      const existing = prev.get(roleId) ?? { scope: "branch" as const, branchId: null };
+      return new Map(prev).set(roleId, { ...existing, branchId: branchId || null });
+    });
   };
 
   const handleInvite = () => {
     if (!email.trim()) return;
     setDialogError(null);
 
-    const validRoleRows = roleRows.filter((r) => r.role_id);
+    const role_assignments =
+      selectedRoleIds.length > 0
+        ? selectedRoleIds.map((roleId) => {
+            const config = roleScopeConfigs.get(roleId);
+            return {
+              role_id: roleId,
+              scope: config?.scope ?? "org",
+              scope_id: config?.scope === "branch" ? config.branchId : null,
+            };
+          })
+        : undefined;
 
     createMutation.mutate(
-      {
-        email: email.trim(),
-        role_assignments:
-          validRoleRows.length > 0
-            ? validRoleRows.map((r) => ({
-                role_id: r.role_id,
-                scope: r.scope,
-                scope_id: r.scope === "branch" ? r.scope_id : null,
-              }))
-            : undefined,
-      },
+      { email: email.trim(), role_assignments },
       {
         onSuccess: () => {
           resetDialog();
@@ -271,80 +275,105 @@ export function InvitationsClient({
             {/* Role assignments */}
             {assignableRoles.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>{t("rolesLabel")}</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddRole}
-                    disabled={isPending}
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    {t("addRoleButton")}
-                  </Button>
-                </div>
+                <Label>{t("rolesLabel")}</Label>
                 <p className="text-xs text-muted-foreground">{t("rolesHint")}</p>
+                <div className="space-y-1 rounded-md border p-2">
+                  {assignableRoles.map((role) => {
+                    const isChecked = selectedRoleIds.includes(role.id);
+                    const config = roleScopeConfigs.get(role.id);
+                    const showBranchSelector =
+                      isChecked &&
+                      (role.scope_type === "branch" ||
+                        (role.scope_type === "both" && config?.scope === "branch"));
 
-                {roleRows.map((row, idx) => {
-                  const selectedRole = roles.find((r) => r.id === row.role_id);
-                  const needsBranch =
-                    selectedRole?.scope_type === "branch" || selectedRole?.scope_type === "both";
-
-                  return (
-                    <div key={idx} className="flex items-start gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Select
-                          value={row.role_id}
-                          onValueChange={(v) => handleRoleChange(idx, v)}
-                          disabled={isPending}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={t("roleSelectPlaceholder")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assignableRoles.map((r) => (
-                              <SelectItem key={r.id} value={r.id}>
-                                {r.name}{" "}
-                                <span className="text-xs text-muted-foreground ml-1">
-                                  ({r.scope_type})
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {needsBranch && activeBranches.length > 0 && (
-                          <Select
-                            value={row.scope_id ?? ""}
-                            onValueChange={(v) => handleBranchChange(idx, v)}
+                    return (
+                      <div key={role.id} className="space-y-2">
+                        <div className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                          <Checkbox
+                            id={`inv-role-${role.id}`}
+                            checked={isChecked}
+                            onCheckedChange={() => toggleRole(role.id, role.scope_type)}
                             disabled={isPending}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder={t("branchSelectPlaceholder")} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {activeBranches.map((b) => (
-                                <SelectItem key={b.id} value={b.id}>
-                                  {b.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            className="mt-0.5"
+                          />
+                          <Label htmlFor={`inv-role-${role.id}`} className="flex-1 cursor-pointer">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{role.name}</span>
+                              {role.scope_type === "branch" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs gap-1 py-0 text-blue-600 border-blue-300"
+                                >
+                                  <GitBranch className="h-2.5 w-2.5" />
+                                  branch
+                                </Badge>
+                              )}
+                              {role.scope_type === "both" && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs py-0 text-purple-600 border-purple-300"
+                                >
+                                  both
+                                </Badge>
+                              )}
+                            </div>
+                            {role.description && (
+                              <p className="text-xs text-muted-foreground">{role.description}</p>
+                            )}
+                          </Label>
+                        </div>
+
+                        {/* Scope toggle for 'both' roles */}
+                        {isChecked && role.scope_type === "both" && (
+                          <div className="ml-7 flex gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={config?.scope === "org" ? "default" : "outline"}
+                              className="h-7 text-xs"
+                              onClick={() => setRoleScope(role.id, "org")}
+                              disabled={isPending}
+                            >
+                              Org
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={config?.scope === "branch" ? "default" : "outline"}
+                              className="h-7 text-xs"
+                              onClick={() => setRoleScope(role.id, "branch")}
+                              disabled={isPending}
+                            >
+                              Branch
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Branch selector for branch-scoped roles */}
+                        {showBranchSelector && activeBranches.length > 0 && (
+                          <div className="ml-7">
+                            <Select
+                              value={config?.branchId ?? ""}
+                              onValueChange={(v) => setRoleBranch(role.id, v)}
+                              disabled={isPending}
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue placeholder={t("branchSelectPlaceholder")} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {activeBranches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>
+                                    {b.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-destructive hover:text-destructive mt-0"
-                        onClick={() => handleRemoveRole(idx)}
-                        disabled={isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

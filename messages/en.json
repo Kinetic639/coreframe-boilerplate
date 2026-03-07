@@ -64,6 +64,10 @@
   "ProfilePage": {
     "title": "Profile",
     "description": "Manage your personal information",
+    "firstName": "First Name",
+    "firstNamePlaceholder": "Enter your first name",
+    "lastName": "Last Name",
+    "lastNamePlaceholder": "Enter your last name",
     "displayName": "Display Name",
     "displayNamePlaceholder": "Enter your display name",
     "phone": "Phone Number",
@@ -2628,7 +2632,11 @@
     "declinedTitle": "Invitation Declined",
     "declinedDescription": "You have already declined this invitation.",
     "declineButton": "Decline invitation",
-    "declineError": "Failed to decline the invitation"
+    "declineError": "Failed to decline the invitation",
+    "inviterLabel": "Invited by:",
+    "declineSuccessMessage": "Invitation declined. You can continue to onboarding.",
+    "continueButton": "Continue to Onboarding",
+    "goToDashboardButton": "Go to Dashboard"
   },
   "inviteResolvePage": {
     "title": "Invitation Pending",

@@ -550,11 +550,16 @@ export function MembersClient({
                       <Checkbox
                         id={`role-${role.id}`}
                         checked={isChecked}
-                        onCheckedChange={() => toggleRole(role.id, role.scope_type)}
-                        disabled={isPending}
+                        onCheckedChange={() =>
+                          !role.is_basic && toggleRole(role.id, role.scope_type)
+                        }
+                        disabled={isPending || role.is_basic}
                         className="mt-0.5"
                       />
-                      <Label htmlFor={`role-${role.id}`} className="flex-1 cursor-pointer">
+                      <Label
+                        htmlFor={`role-${role.id}`}
+                        className={`flex-1 ${role.is_basic ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                      >
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium">{role.name}</span>
                           {role.is_basic && (
