@@ -2662,6 +2662,7 @@
       "INVALID_EMAIL": "Podaj prawidłowy adres e-mail.",
       "UNKNOWN": "Coś poszło nie tak. Spróbuj ponownie."
     },
+    "inviteSentSuccess": "Zaproszenie zostało wysłane",
     "resendSuccess": "Zaproszenie zostało wysłane ponownie",
     "emailDeliveryWarning": "Zaproszenie zostało utworzone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
     "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie."

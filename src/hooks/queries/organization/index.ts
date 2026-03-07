@@ -206,7 +206,9 @@ export function useCreateInvitationMutation() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
-      if (!data.emailDelivered) {
+      if (data.emailDelivered) {
+        toast.success(t("inviteSentSuccess"));
+      } else {
         toast.warning(
           `${t("emailDeliveryWarning")}${data.emailError ? ` (${data.emailError})` : ""}`
         );
