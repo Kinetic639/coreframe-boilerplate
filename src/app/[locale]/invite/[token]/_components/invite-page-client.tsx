@@ -253,31 +253,21 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
             <CardHeader className="text-center">
               <Mail className="mx-auto h-12 w-12 text-blue-500" />
               <CardTitle>{t("loginRequired")}</CardTitle>
-              <CardDescription>
-                {preview.inviter_name
-                  ? t("loginRequiredDescriptionFrom", {
-                      inviterName: preview.inviter_name,
-                      orgName: preview.org_name ?? "",
-                    })
-                  : t("loginRequiredDescription")}
-              </CardDescription>
+              <CardDescription>{t("loginRequiredDescription")}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {renderPreviewCard()}
-              <div className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={{ pathname: "/sign-in", query: { returnUrl: `/invite/${token}` } }}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    {t("hasAccount")}
-                  </Link>
-                </Button>
-                <Button variant="outline" className="w-full" asChild>
-                  <Link href={{ pathname: "/sign-up", query: { invitation: token } }}>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    {t("noAccount")}
-                  </Link>
-                </Button>
-              </div>
+            <CardContent className="space-y-2">
+              <Button className="w-full" asChild>
+                <Link href={{ pathname: "/sign-in", query: { returnUrl: `/invite/${token}` } }}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t("hasAccount")}
+                </Link>
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link href={{ pathname: "/sign-up", query: { invitation: token } }}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {t("noAccount")}
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </motion.div>
