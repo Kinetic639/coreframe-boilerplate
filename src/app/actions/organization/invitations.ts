@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { getLocale } from "next-intl/server";
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
@@ -75,13 +76,17 @@ export async function createInvitationAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      const profileResult = await OrgProfileService.getProfile(supabase, context.app.activeOrgId);
+      const [profileResult, rawLocale] = await Promise.all([
+        OrgProfileService.getProfile(supabase, context.app.activeOrgId),
+        getLocale(),
+      ]);
       const orgName = profileResult.success
         ? (profileResult.data.name ?? "your organization")
         : "your organization";
       const inviterName =
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
         (context.user.user?.email ?? "");
+      const locale = rawLocale === "en" ? "en" : "pl";
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
@@ -93,7 +98,8 @@ export async function createInvitationAction(rawInput: unknown) {
           result.data.email,
           orgName,
           inviterName,
-          invitationLink
+          invitationLink,
+          locale
         );
         emailDelivered = emailResult.success;
         if (!emailResult.success) {
@@ -158,16 +164,17 @@ export async function resendInvitationAction(rawInput: unknown) {
     const result = await OrgInvitationsService.resendInvitation(supabase, parsed.data.invitationId);
 
     if (result.success) {
-      const profileResult = await OrgProfileService.getProfile(
-        supabase,
-        result.data.organization_id
-      );
+      const [profileResult, rawLocale] = await Promise.all([
+        OrgProfileService.getProfile(supabase, result.data.organization_id),
+        getLocale(),
+      ]);
       const orgName = profileResult.success
         ? (profileResult.data.name ?? "your organization")
         : "your organization";
       const inviterName =
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
         (context.user.user?.email ?? "");
+      const locale = rawLocale === "en" ? "en" : "pl";
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
@@ -179,7 +186,8 @@ export async function resendInvitationAction(rawInput: unknown) {
           result.data.email,
           orgName,
           inviterName,
-          invitationLink
+          invitationLink,
+          locale
         );
         emailDelivered = emailResult.success;
         if (!emailResult.success) {
