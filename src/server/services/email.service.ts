@@ -55,7 +55,8 @@ export class EmailService {
     }
 
     this.resend = new Resend(apiKey);
-    this.fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@ambra-system.com";
+    this.fromEmail =
+      process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || "noreply@ambra-system.com";
     this.fromName = process.env.RESEND_FROM_NAME || "Ambra";
   }
 

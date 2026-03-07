@@ -322,7 +322,7 @@ describe("createInvitationAction", () => {
       data: { name: "Test Org" },
     });
     const result = await createInvitationAction({ email: "newuser@example.com" });
-    expect(result).toEqual({ success: true, data: mockInvitation });
+    expect(result).toEqual({ success: true, data: mockInvitation, emailDelivered: true });
     expect(OrgInvitationsService.createInvitation).toHaveBeenCalledOnce();
   });
 });
