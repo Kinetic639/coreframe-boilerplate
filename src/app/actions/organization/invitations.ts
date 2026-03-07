@@ -87,17 +87,27 @@ export async function createInvitationAction(rawInput: unknown) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
+      let emailDelivered = false;
+      let emailError: string | undefined;
       try {
         const emailService = new EmailService();
-        await emailService.sendInvitationEmailWithTemplate(
+        const emailResult = await emailService.sendInvitationEmailWithTemplate(
           result.data.email,
           orgName,
           inviterName,
           invitationLink
         );
-      } catch (emailError) {
-        console.error("[createInvitationAction] Failed to send invitation email:", emailError);
+        emailDelivered = emailResult.success;
+        if (!emailResult.success) {
+          emailError = emailResult.error;
+          console.error("[createInvitationAction] Email delivery failed:", emailError);
+        }
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : "Unknown error";
+        console.error("[createInvitationAction] Failed to send invitation email:", err);
       }
+
+      return { ...result, emailDelivered, ...(emailError ? { emailError } : {}) };
     }
 
     return result;
@@ -163,17 +173,32 @@ export async function resendInvitationAction(rawInput: unknown) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
       const invitationLink = `${siteUrl}/invite/${result.data.token}`;
 
+      let emailDelivered = false;
+      let emailError: string | undefined;
       try {
         const emailService = new EmailService();
-        await emailService.sendInvitationEmailWithTemplate(
+        const emailResult = await emailService.sendInvitationEmailWithTemplate(
           result.data.email,
           orgName,
           inviterName,
           invitationLink
         );
-      } catch (emailError) {
-        console.error("[resendInvitationAction] Failed to send invitation email:", emailError);
+        emailDelivered = emailResult.success;
+        if (!emailResult.success) {
+          emailError = emailResult.error;
+          console.error("[resendInvitationAction] Email delivery failed:", emailError);
+        }
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : "Unknown error";
+        console.error("[resendInvitationAction] Failed to send invitation email:", err);
       }
+
+      return {
+        success: true as const,
+        data: result.data.token,
+        emailDelivered,
+        ...(emailError ? { emailError } : {}),
+      };
     }
 
     return result.success ? { success: true, data: result.data.token } : result;

@@ -253,7 +253,14 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
             <CardHeader className="text-center">
               <Mail className="mx-auto h-12 w-12 text-blue-500" />
               <CardTitle>{t("loginRequired")}</CardTitle>
-              <CardDescription>{t("loginRequiredDescription")}</CardDescription>
+              <CardDescription>
+                {preview.inviter_name
+                  ? t("loginRequiredDescriptionFrom", {
+                      inviterName: preview.inviter_name,
+                      orgName: preview.org_name ?? "",
+                    })
+                  : t("loginRequiredDescription")}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {renderPreviewCard()}

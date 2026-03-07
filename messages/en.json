@@ -2579,6 +2579,7 @@
     "notFoundDescription": "We couldn't find an invitation with the provided token.",
     "loginRequired": "Login Required",
     "loginRequiredDescription": "You need to be logged in to accept this invitation",
+    "loginRequiredDescriptionFrom": "{inviterName} has invited you to join {orgName}. Sign in or create an account to view your invitation.",
     "invitationFor": "Invitation for:",
     "hasAccount": "I have an account — Sign in",
     "noAccount": "No account — Sign up",
@@ -2686,6 +2687,9 @@
       "UNAUTHORIZED": "You don't have permission to send invitations.",
       "INVALID_EMAIL": "Please enter a valid email address.",
       "UNKNOWN": "Something went wrong. Please try again."
-    }
+    },
+    "resendSuccess": "Invitation resent",
+    "emailDeliveryWarning": "Invitation created, but the email could not be delivered. Share the invite link manually.",
+    "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually."
   }
 }

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
+import { useTranslations } from "next-intl";
 
 import {
   getOrgProfileAction,
@@ -185,6 +186,7 @@ export function useInvitationsQuery(initialInvitations: OrgInvitation[]) {
 
 export function useCreateInvitationMutation() {
   const queryClient = useQueryClient();
+  const t = useTranslations("adminInvitations");
 
   return useMutation({
     mutationFn: async (input: {
@@ -192,10 +194,16 @@ export function useCreateInvitationMutation() {
       invited_first_name?: string | null;
       invited_last_name?: string | null;
       role_assignments?: { role_id: string; scope: "org" | "branch"; scope_id?: string | null }[];
-    }) => unwrapSR((await createInvitationAction(input)) as SR<OrgInvitation>),
-    onSuccess: () => {
+    }) => {
+      const raw = await createInvitationAction(input);
+      if (!raw.success) throw new Error((raw as { error: string }).error);
+      return raw as { success: true; data: OrgInvitation; emailDelivered: boolean };
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
-      // Success toast intentionally omitted — dialog shows success by closing itself.
+      if (!data.emailDelivered) {
+        toast.warning(t("emailDeliveryWarning"));
+      }
     },
     // onError intentionally omitted — invite dialog handles errors in-dialog, not via toast.
   });
@@ -220,14 +228,21 @@ export function useCancelInvitationMutation() {
 
 export function useResendInvitationMutation() {
   const queryClient = useQueryClient();
+  const t = useTranslations("adminInvitations");
 
   return useMutation({
     mutationFn: async (input: { invitationId: string }) => {
-      unwrapSR((await resendInvitationAction(input)) as SR<void>);
+      const raw = await resendInvitationAction(input);
+      if (!raw.success) throw new Error((raw as { error: string }).error);
+      return raw as { success: true; data: string; emailDelivered: boolean };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
-      toast.success("Invitation resent");
+      if (data.emailDelivered) {
+        toast.success(t("resendSuccess"));
+      } else {
+        toast.warning(t("emailResendWarning"));
+      }
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to resend invitation");

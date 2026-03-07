@@ -34,13 +34,11 @@ export const InvitationEmail = ({
             {inviterName} has invited you to join <strong>{organizationName}</strong> on Ambra.
           </Text>
 
-          <Text style={text}>
-            Click the button below to accept the invitation and create your account.
-          </Text>
+          <Text style={text}>Click the button below to view and accept your invitation.</Text>
 
           <Section style={buttonContainer}>
             <Button style={button} href={invitationLink}>
-              Accept Invitation
+              View Invitation
             </Button>
           </Section>
 

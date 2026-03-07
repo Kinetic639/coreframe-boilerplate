@@ -22,11 +22,12 @@ export async function GET(request: Request) {
       });
       if (error) {
         console.error("[auth/callback] Invitation acceptance RPC error:", error.message);
-      } else {
-        const result = data as { success: boolean; error?: string; organization_id?: string };
-        if (!result.success) {
-          console.error("[auth/callback] Invitation acceptance failed:", result.error);
-        }
+        return NextResponse.redirect(`${origin}/invite/${invitationToken}`);
+      }
+      const result = data as { success: boolean; error?: string; organization_id?: string };
+      if (!result.success) {
+        console.error("[auth/callback] Invitation acceptance failed:", result.error);
+        return NextResponse.redirect(`${origin}/invite/${invitationToken}`);
       }
     }
   }

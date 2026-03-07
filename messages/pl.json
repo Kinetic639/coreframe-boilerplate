@@ -2553,6 +2553,7 @@
     "notFoundDescription": "Nie udało się znaleźć zaproszenia o podanym tokenie.",
     "loginRequired": "Logowanie wymagane",
     "loginRequiredDescription": "Aby zaakceptować zaproszenie, musisz być zalogowany",
+    "loginRequiredDescriptionFrom": "{inviterName} zaprosił(a) Cię do dołączenia do {orgName}. Zaloguj się lub utwórz konto, aby wyświetlić zaproszenie.",
     "invitationFor": "Zaproszenie dla:",
     "hasAccount": "Mam już konto - Zaloguj się",
     "noAccount": "Nie mam konta - Zarejestruj się",
@@ -2660,6 +2661,9 @@
       "UNAUTHORIZED": "Nie masz uprawnień do wysyłania zaproszeń.",
       "INVALID_EMAIL": "Podaj prawidłowy adres e-mail.",
       "UNKNOWN": "Coś poszło nie tak. Spróbuj ponownie."
-    }
+    },
+    "resendSuccess": "Zaproszenie zostało wysłane ponownie",
+    "emailDeliveryWarning": "Zaproszenie zostało utworzone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
+    "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie."
   }
 }

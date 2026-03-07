@@ -21,6 +21,7 @@ export interface InvitePreview {
   org_name: string | null;
   role_name: string | null;
   branch_name: string | null;
+  inviter_name: string | null;
 }
 
 export interface PendingInviteItem {
@@ -52,6 +53,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
       org_name: null,
       role_name: null,
       branch_name: null,
+      inviter_name: null,
     };
   }
 
@@ -70,6 +72,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
       org_name: null,
       role_name: null,
       branch_name: null,
+      inviter_name: null,
     };
   }
 
@@ -83,6 +86,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
     org_name: (raw.org_name as string) ?? null,
     role_name: (raw.role_name as string) ?? null,
     branch_name: (raw.branch_name as string) ?? null,
+    inviter_name: (raw.inviter_name as string) ?? null,
   };
 }
 
