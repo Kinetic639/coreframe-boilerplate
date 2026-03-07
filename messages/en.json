@@ -2688,6 +2688,7 @@
       "INVALID_EMAIL": "Please enter a valid email address.",
       "UNKNOWN": "Something went wrong. Please try again."
     },
+    "inviteSentSuccess": "Invitation sent successfully",
     "resendSuccess": "Invitation resent",
     "emailDeliveryWarning": "Invitation created, but the email could not be delivered. Share the invite link manually.",
     "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually."

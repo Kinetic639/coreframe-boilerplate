@@ -197,12 +197,21 @@ export function useCreateInvitationMutation() {
     }) => {
       const raw = await createInvitationAction(input);
       if (!raw.success) throw new Error((raw as { error: string }).error);
-      return raw as { success: true; data: OrgInvitation; emailDelivered: boolean };
+      return raw as {
+        success: true;
+        data: OrgInvitation;
+        emailDelivered: boolean;
+        emailError?: string;
+      };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
-      if (!data.emailDelivered) {
-        toast.warning(t("emailDeliveryWarning"));
+      if (data.emailDelivered) {
+        toast.success(t("inviteSentSuccess"));
+      } else {
+        toast.warning(
+          `${t("emailDeliveryWarning")}${data.emailError ? ` (${data.emailError})` : ""}`
+        );
       }
     },
     // onError intentionally omitted — invite dialog handles errors in-dialog, not via toast.
