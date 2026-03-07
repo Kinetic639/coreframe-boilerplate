@@ -434,6 +434,16 @@ export const routing = defineRouting({
       en: "/invite/[token]",
       pl: "/zaproszenie/[token]",
     },
+    "/invite/resolve": {
+      en: "/invite/resolve",
+      pl: "/zaproszenie/resolve",
+    },
+
+    // === Onboarding entry ===
+    "/onboarding": {
+      en: "/onboarding",
+      pl: "/onboarding",
+    },
 
     // === QR redirect system ===
     "/qr/[token]": {

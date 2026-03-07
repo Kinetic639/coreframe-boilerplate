@@ -326,9 +326,8 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       const orgItem = model.main.find((item) => item.id === "organization");
       expect(orgItem).toBeUndefined();
 
-      // Account parent should be visible (has children with ACCOUNT_PROFILE_READ)
-      const accountItem = model.footer.find((item) => item.id === "account");
-      expect(accountItem).toBeDefined();
+      // Footer is empty — account is in the NavUser dropdown, not a sidebar section
+      expect(model.footer).toHaveLength(0);
     });
   });
 });

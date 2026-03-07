@@ -84,10 +84,10 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">{invitation ? "Dołącz do organizacji" : t("title")}</h1>
+      <h1 className="text-2xl font-medium">{invitation ? t("invitationTitle") : t("title")}</h1>
       <p className="text-sm text-foreground">
         {invitation ? (
-          "Utwórz konto aby zaakceptować zaproszenie"
+          t("invitationDescription")
         ) : (
           <>
             {t("haveAccount")}{" "}
@@ -104,13 +104,17 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
           <Mail className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-1">
-              <div className="font-medium">Zaproszenie do: {invitation.organization?.name}</div>
-              <div className="text-sm text-muted-foreground">
-                Rola: {invitation.role?.display_name || invitation.role?.name}
+              <div className="font-medium">
+                {t("invitationTo")} {invitation.organization?.name}
               </div>
               <div className="text-sm text-muted-foreground">
-                Oddział: {invitation.branch?.name}
+                {t("invitationRole")} {invitation.role?.display_name || invitation.role?.name}
               </div>
+              {invitation.branch?.name && (
+                <div className="text-sm text-muted-foreground">
+                  {t("invitationBranch")} {invitation.branch.name}
+                </div>
+              )}
             </div>
           </AlertDescription>
         </Alert>
@@ -119,7 +123,7 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
       {invitationLoading && (
         <Alert className="mt-4">
           <CheckCircle className="h-4 w-4" />
-          <AlertDescription>Ładowanie szczegółów zaproszenia...</AlertDescription>
+          <AlertDescription>{t("invitationLoadingDetails")}</AlertDescription>
         </Alert>
       )}
       <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">

@@ -433,14 +433,25 @@ export interface OrgInvitation {
   status: string;
   expires_at: string | null;
   accepted_at: string | null;
+  declined_at: string | null;
   created_at: string | null;
   deleted_at: string | null;
+  invited_first_name: string | null;
+  invited_last_name: string | null;
+  role_summary: string | null; // computed from IRA rows (comma-separated role names)
+}
+
+export interface InvitationRoleAssignment {
+  role_id: string;
+  scope: "org" | "branch";
+  scope_id?: string | null; // null for org-scope
 }
 
 export interface CreateInvitationInput {
   email: string;
-  role_id?: string | null;
-  branch_id?: string | null;
+  invited_first_name?: string | null;
+  invited_last_name?: string | null;
+  role_assignments?: InvitationRoleAssignment[];
   expires_at?: string | null;
 }
 
@@ -452,14 +463,31 @@ export class OrgInvitationsService {
     const { data, error } = await supabase
       .from("invitations")
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, created_at, deleted_at"
+        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name, invitation_role_assignments(role_id, roles(name))"
       )
       .eq("organization_id", orgId)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data ?? [] };
+
+    const rows = (data ?? []).map((row) => {
+      const ira = row.invitation_role_assignments as unknown as
+        | { role_id: string; roles: { name: string } | null }[]
+        | null;
+      const roleNames = (ira ?? [])
+        .map((r) => r.roles?.name)
+        .filter(Boolean)
+        .sort()
+        .join(", ");
+      return {
+        ...row,
+        invitation_role_assignments: undefined,
+        role_summary: roleNames || null,
+      } as OrgInvitation;
+    });
+
+    return { success: true, data: rows };
   }
 
   static async createInvitation(
@@ -468,6 +496,19 @@ export class OrgInvitationsService {
     invitedBy: string,
     input: CreateInvitationInput
   ): Promise<ServiceResult<OrgInvitation>> {
+    // Eligibility check via RPC (self-invite, already member, duplicate pending)
+    const { data: eligData, error: eligErr } = await supabase.rpc("check_invitation_eligibility", {
+      p_org_id: orgId,
+      p_email: input.email,
+      p_inviter_id: invitedBy,
+    });
+    if (eligErr) return { success: false, error: eligErr.message };
+    const eligResult = eligData as { eligible: boolean; reason?: string };
+    if (!eligResult.eligible) {
+      const reason = eligResult.reason ?? "INVITE_INELIGIBLE";
+      return { success: false, error: reason };
+    }
+
     const token = crypto.randomUUID();
     const expiresAt =
       input.expires_at ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
@@ -478,20 +519,37 @@ export class OrgInvitationsService {
         email: input.email.toLowerCase().trim(),
         invited_by: invitedBy,
         organization_id: orgId,
-        role_id: input.role_id ?? null,
-        branch_id: input.branch_id ?? null,
         token,
         status: "pending",
         expires_at: expiresAt,
+        invited_first_name: input.invited_first_name ?? null,
+        invited_last_name: input.invited_last_name ?? null,
       })
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, created_at, deleted_at"
+        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name"
       )
       .maybeSingle();
 
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Failed to create invitation" };
-    return { success: true, data };
+
+    // Insert role assignments if provided
+    if (input.role_assignments && input.role_assignments.length > 0) {
+      const iraRows = input.role_assignments.map((ra) => ({
+        invitation_id: data.id,
+        role_id: ra.role_id,
+        scope: ra.scope,
+        scope_id: ra.scope === "branch" ? (ra.scope_id ?? null) : null,
+      }));
+      const { error: iraErr } = await supabase.from("invitation_role_assignments").insert(iraRows);
+      if (iraErr) {
+        // Rollback the invitation (best effort)
+        await supabase.from("invitations").delete().eq("id", data.id);
+        return { success: false, error: iraErr.message };
+      }
+    }
+
+    return { success: true, data: { ...data, role_summary: null } };
   }
 
   static async cancelInvitation(
@@ -512,7 +570,7 @@ export class OrgInvitationsService {
   static async resendInvitation(
     supabase: SupabaseClient,
     invitationId: string
-  ): Promise<ServiceResult<string>> {
+  ): Promise<ServiceResult<{ token: string; email: string; organization_id: string }>> {
     // Generate a new token and extend expiry
     const newToken = crypto.randomUUID();
     const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -522,12 +580,33 @@ export class OrgInvitationsService {
       .update({ token: newToken, expires_at: newExpiry, status: "pending" })
       .eq("id", invitationId)
       .is("deleted_at", null)
-      .select("token")
+      .select("token, email, organization_id")
       .maybeSingle();
 
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Invitation not found or unauthorized" };
-    return { success: true, data: data.token };
+    if (!data.organization_id) return { success: false, error: "Invitation has no organization" };
+    return {
+      success: true,
+      data: { token: data.token, email: data.email, organization_id: data.organization_id },
+    };
+  }
+
+  static async acceptInvitation(
+    supabase: SupabaseClient,
+    token: string
+  ): Promise<ServiceResult<{ organization_id: string }>> {
+    const { data, error } = await supabase.rpc("accept_invitation_and_join_org", {
+      p_token: token,
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    const result = data as { success: boolean; error_code?: string; organization_id?: string };
+    if (!result.success) return { success: false, error: result.error_code ?? "Acceptance failed" };
+    if (!result.organization_id) return { success: false, error: "No organization returned" };
+
+    return { success: true, data: { organization_id: result.organization_id } };
   }
 
   static async cleanupExpiredInvitations(

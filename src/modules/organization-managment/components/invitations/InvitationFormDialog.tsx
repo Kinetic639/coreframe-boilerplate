@@ -21,18 +21,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Mail, Shield, Building2, Calendar, AlertCircle } from "lucide-react";
+import { Loader2, Mail, Shield, Calendar, AlertCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createInvitationAction } from "@/app/actions/invitations";
-import { useAppStore } from "@/lib/stores/app-store";
+import { createInvitationAction } from "@/app/actions/organization/invitations";
+import { useTranslations } from "next-intl";
 import { useRoles } from "@/hooks/useRoles";
+import { toast } from "react-toastify";
 
 const invitationSchema = z.object({
-  email: z.string().min(1, "Email jest wymagany").email("Nieprawidłowy format email").toLowerCase(),
-  role_id: z.string().min(1, "Rola jest wymagana"),
-  branch_id: z.string().min(1, "Oddział jest wymagany"),
+  email: z.string().min(1).email().toLowerCase(),
+  // role_id is optional — org_member base role is always assigned on acceptance
+  role_id: z.string().uuid().optional().or(z.literal("")),
   expires_at: z.string().optional(),
 });
 
@@ -45,10 +46,10 @@ interface InvitationFormDialogProps {
 }
 
 export function InvitationFormDialog({ open, onOpenChange, onSuccess }: InvitationFormDialogProps) {
+  const t = useTranslations("invitationFormDialog");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const { availableBranches, activeOrgId } = useAppStore();
   const { roles, loading: rolesLoading } = useRoles();
 
   const {
@@ -60,18 +61,11 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
     formState: { errors },
   } = useForm<InvitationFormData>({
     resolver: zodResolver(invitationSchema),
-    defaultValues: {
-      email: "",
-      role_id: "",
-      branch_id: "",
-      expires_at: "",
-    },
+    defaultValues: { email: "", role_id: "", expires_at: "" },
   });
 
-  const watchedBranchId = watch("branch_id");
   const watchedRoleId = watch("role_id");
 
-  // Reset form when dialog closes
   React.useEffect(() => {
     if (!open) {
       reset();
@@ -79,50 +73,47 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
     }
   }, [open, reset]);
 
-  // Set default expiry to 7 days from now
   React.useEffect(() => {
     if (open) {
-      const sevenDaysFromNow = new Date();
-      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-      setValue("expires_at", sevenDaysFromNow.toISOString().split("T")[0]);
+      const sevenDays = new Date();
+      sevenDays.setDate(sevenDays.getDate() + 7);
+      setValue("expires_at", sevenDays.toISOString().split("T")[0]);
     }
   }, [open, setValue]);
 
   const onSubmit = async (data: InvitationFormData) => {
-    if (!activeOrgId) {
-      setError("Brak aktywnej organizacji");
-      return;
-    }
-
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Convert date to ISO string if provided
-      const formattedData: any = {
-        ...data,
+      const payload = {
+        email: data.email,
+        // Send null when no role chosen — org_member is assigned automatically
+        role_id: data.role_id && data.role_id.length > 0 ? data.role_id : null,
+        branch_id: null,
         expires_at: data.expires_at
           ? new Date(data.expires_at + "T23:59:59").toISOString()
           : undefined,
       };
 
-      const result = await createInvitationAction(formattedData);
+      const result = await createInvitationAction(payload);
 
       if (result.success) {
+        toast.success(t("successToast"));
         onOpenChange(false);
         onSuccess?.();
       } else {
-        setError(result.error || "Nie udało się utworzyć zaproszenia");
+        setError(("error" in result ? result.error : undefined) || t("errorFallback"));
       }
     } catch (err) {
-      console.error("Error creating invitation:", err);
-      setError("Wystąpił nieoczekiwany błąd");
+      console.error("[InvitationFormDialog] Error creating invitation:", err);
+      setError(t("errorFallback"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Filter roles that are assignable (not org_owner typically)
+  // Exclude system and owner roles from the optional selector
   const assignableRoles = roles.filter(
     (role) => role.name !== "org_owner" && !role.name.includes("system")
   );
@@ -133,12 +124,9 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-blue-500" />
-            Zaproś nowego użytkownika
+            {t("title")}
           </DialogTitle>
-          <DialogDescription>
-            Wyślij zaproszenie do dołączenia do organizacji. Użytkownik otrzyma link do
-            zaakceptowania zaproszenia.
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -155,12 +143,12 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
             className="space-y-2"
           >
             <Label htmlFor="email">
-              Adres email <span className="text-red-500">*</span>
+              {t("emailLabel")} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="email"
               type="email"
-              placeholder="np. jan.kowalski@example.com"
+              placeholder={t("emailPlaceholder")}
               {...register("email")}
               disabled={isSubmitting}
             />
@@ -174,28 +162,36 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
             className="space-y-2"
           >
             <Label htmlFor="role_id">
-              Rola <span className="text-red-500">*</span>
+              {t("roleLabel")}
+              <span className="ml-1 text-xs text-muted-foreground">{t("roleOptionalHint")}</span>
             </Label>
             <Select
-              value={watchedRoleId}
-              onValueChange={(value) => setValue("role_id", value)}
+              value={watchedRoleId ?? ""}
+              onValueChange={(value) => setValue("role_id", value === "__none__" ? "" : value)}
               disabled={isSubmitting || rolesLoading}
             >
               <SelectTrigger>
-                <SelectValue placeholder={rolesLoading ? "Ładowanie ról..." : "Wybierz rolę"} />
+                <SelectValue placeholder={rolesLoading ? t("roleLoading") : t("rolePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
+                {/* Explicit "no extra role" choice */}
+                <SelectItem value="__none__">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{t("roleNoneLabel")}</span>
+                  </div>
+                </SelectItem>
                 {assignableRoles.map((role) => (
                   <SelectItem key={role.id} value={role.id}>
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
-                      <span>{(role as any).display_name || role.name}</span>
+                      <span>{(role as { display_name?: string }).display_name || role.name}</span>
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {errors.role_id && <p className="text-sm text-red-500">{errors.role_id.message}</p>}
+            <p className="text-xs text-muted-foreground">{t("roleBaseHint")}</p>
           </motion.div>
 
           <motion.div
@@ -204,38 +200,7 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
             transition={{ delay: 0.2 }}
             className="space-y-2"
           >
-            <Label htmlFor="branch_id">
-              Oddział <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={watchedBranchId}
-              onValueChange={(value) => setValue("branch_id", value)}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wybierz oddział" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableBranches.map((branch) => (
-                  <SelectItem key={branch.branch_id} value={branch.branch_id}>
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span>{branch.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.branch_id && <p className="text-sm text-red-500">{errors.branch_id.message}</p>}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-2"
-          >
-            <Label htmlFor="expires_at">Data wygaśnięcia</Label>
+            <Label htmlFor="expires_at">{t("expiresLabel")}</Label>
             <Input
               id="expires_at"
               type="date"
@@ -245,11 +210,8 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
             />
             <p className="flex items-center gap-1 text-sm text-muted-foreground">
               <Calendar className="h-3 w-3" />
-              Zaproszenie wygaśnie o północy w wybranym dniu
+              {t("expiresHint")}
             </p>
-            {errors.expires_at && (
-              <p className="text-sm text-red-500">{errors.expires_at.message}</p>
-            )}
           </motion.div>
 
           <DialogFooter className="gap-2">
@@ -259,18 +221,18 @@ export function InvitationFormDialog({ open, onOpenChange, onSuccess }: Invitati
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
-              Anuluj
+              {t("cancelButton")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Wysyłanie...
+                  {t("pendingButton")}
                 </>
               ) : (
                 <>
                   <Mail className="mr-2 h-4 w-4" />
-                  Wyślij zaproszenie
+                  {t("submitButton")}
                 </>
               )}
             </Button>

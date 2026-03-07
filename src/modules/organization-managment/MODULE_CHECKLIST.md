@@ -125,7 +125,8 @@
 - [x] `has_permission(org_id, slug)` used for mutation policies.
 - [x] `FORCE ROW LEVEL SECURITY` applied on all org-management-related tables (see policy table in MODULE.md, verified via Supabase MCP 2026-02-27).
   > ✅ Applied via migration `20260227100000_force_rls_org_tables.sql` to: organization_profiles, invitations, org_positions, org_position_assignments, branches. Already applied: organization_members, organization_entitlements, roles, role_permissions.
-- [x] Migrations tracked in `supabase/migrations/` (28 migration files total as of 2026-03-05: 12 from initial implementation 2026-02-27, +3 bug-fix migrations 20260227340000–360000, +2 module/branch-view permission inserts 20260228100000/20260302100000, +3 Phase 3 branch-aware migrations 20260303120000–140000, +6 100k-ready permission-compiler migrations 20260304110000–151000, +2 security hardening migrations 20260305100000–110000).
+- [x] Migrations tracked in `supabase/migrations/` (29 migration files total as of 2026-03-06: 12 from initial implementation 2026-02-27, +3 bug-fix migrations 20260227340000–360000, +2 module/branch-view permission inserts 20260228100000/20260302100000, +3 Phase 3 branch-aware migrations 20260303120000–140000, +6 100k-ready permission-compiler migrations 20260304110000–151000, +2 security hardening migrations 20260305100000–110000, +1 invitation acceptance flow migration 20260306120000).
+- [x] **Invitation acceptance flow implemented (2026-03-06)**: `accept_invitation_and_join_org` SECURITY DEFINER function atomically creates `organization_members` + `user_role_assignments` + marks invitation accepted. `acceptInvitationAction` server action wraps the RPC call. Signup PKCE flow preserves invitation token via `emailRedirectTo` URL param → auto-accepted in `/auth/callback` after code exchange. Email sent on create + resend via `EmailService`. Acceptance page uses V2 action, redirects to `/dashboard/start`, fully i18n-translated.
 
 ### 100k-Ready Permission Compiler (applied 2026-03-04)
 
@@ -229,7 +230,7 @@
 
 ### Action Tests (T2)
 
-- [x] 51 tests in `src/app/actions/organization/__tests__/actions.test.ts` — deny-path, G2 scope guards, branch manager allow/deny (BM), ORG_ONLY_SLUGS enforcement. New tests (Phase 3): `assignRoleToUserAction` BM allow (branch scope) + BM deny (org scope), `removeRoleFromUserAction` same, ORG_ONLY_SLUGS: members.read/manage/invites.create rejected for branch roles, branch.roles.manage allowed for branch roles.
+- [x] 55 tests in `src/app/actions/organization/__tests__/actions.test.ts` — deny-path, G2 scope guards, branch manager allow/deny (BM), ORG_ONLY_SLUGS enforcement, invitation acceptance (success/error/throw paths), createInvitationAction success with email sending. New tests (Phase 3): `assignRoleToUserAction` BM allow (branch scope) + BM deny (org scope), `removeRoleFromUserAction` same, ORG_ONLY_SLUGS: members.read/manage/invites.create rejected for branch roles, branch.roles.manage allowed for branch roles.
 - [x] **Phase 4 dual-gate**: `listRolesAction` (branch managers get only `scope_type='branch'` roles), `getUserRoleAssignmentsAction` (MEMBERS_READ OR BRANCH_ROLES_MANAGE), `getMemberAccessAction` (branch managers get only `scope='branch'` assignments).
 - [x] **Phase 4 error normalization**: `normalizeDbError()` in `organization.service.ts` maps Postgres 42501 / row-level security errors to human-readable messages. Applied to `assignRoleToUser` + `removeRoleFromUser`.
 - [x] **Phase 4 test fixes**: 3 stale test files fixed: `permissions.test.ts` (wrong mock target `PermissionServiceV2` → `PermissionService`), `app-store.test.ts` (`accessibleBranches` fixture populated for `setActiveBranch` tests), `load-dashboard-context.v2.test.ts` (`branches.view.any` added to fast-path tests to avoid `createClient()` outside request scope).
@@ -338,4 +339,17 @@
 
 ---
 
-_Last updated: 2026-03-05 — Security & Enterprise Hardening pass: Fix A (RESTRICTIVE SELECT on organization_members, migration 20260305100000, +4 T1 tests, known gap #5 closed); Fix B (RESTRICTIVE UPDATE + immutable-column trigger on roles, migration 20260305110000, +4 T1 tests); Fix C (legacy organization-management/ directory already deleted — zero imports remain); migration count 26 → 28; T1 test count 23 → 31. Previous: Verification pass (migration count 26, RTL 49, 100k-Ready Permission Compiler section added)._
+### Invitation Lifecycle Completion (2026-03-07)
+
+- [x] **Full invite creation flow**: `createInvitationAction` (V2), optional role, email delivery, resend, cancel — all solid.
+- [x] **Public invite preview**: SSR page + client island. Reason codes: `INVITE_PENDING`, `INVITE_NOT_FOUND`, `INVITE_EXPIRED`, `INVITE_CANCELLED`, `INVITE_DECLINED`, `INVITE_ACCEPTED`, `INVITE_INVALID`.
+- [x] **Invite decline implemented**: `decline_invitation` SECURITY DEFINER function (migration `20260307100000`). `declineInvitationAction` server action. Decline button in `InvitePageClient` (email-match users only). After decline: routes to `/invite/resolve` if more invites remain, else `/onboarding`.
+- [x] **Post-auth invite resolution deterministic**: signInAction + auth/callback both check pending invites. Routing: pending invites → `/invite/resolve`, no org + no invites → `/onboarding`, has org → `/dashboard/start`.
+- [x] **Onboarding entry handoff**: `/onboarding` route added. Simple entry page for users with no org. Routes here: auth/callback (new signup, no invite), signInAction (no org membership), invite decline/skip.
+- [x] **Skip behavior**: "Continue without accepting" on resolve page routes to `/onboarding`. Invites remain pending (not cancelled).
+- [x] **Routing consistency**: `auth/callback` now routes to `/onboarding` (not `/dashboard`). `signInAction` checks org membership before routing to `/dashboard/start`. `resolve/page.tsx` uses `skipHref="/onboarding"`.
+- [x] **i18n**: Added `declinedTitle`, `declinedDescription`, `declineButton`, `declineError` to `invitationPage` namespace. Added `onboardingEntry` namespace in en.json + pl.json.
+- [x] **Tests**: 15 new tests in `invite-lifecycle.test.ts` covering `declineInvitationAction` (7 paths), `INVITE_DECLINED` preview mapping (2), routing decision logic (6 combinatorial cases).
+- [x] **Branch-scoped invite**: deferred — `InvitationFormDialog` sends `branch_id: null`. Documented as deferred.
+
+_Last updated: 2026-03-07 — Invitation lifecycle completion + onboarding handoff: `decline_invitation` DB function, INVITE_DECLINED reason code, /onboarding route, routing fixes (auth/callback → /onboarding, signInAction org check → /onboarding, skip → /onboarding), 15 new tests. Migration count 28 → 31. Previous: 2026-03-05 Security & Enterprise Hardening pass._

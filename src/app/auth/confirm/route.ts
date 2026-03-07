@@ -2,16 +2,12 @@ import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
-// Map of internal paths to localized URLs
-// Polish is default locale, so no prefix needed for Polish URLs
+// Map of internal paths to localized URLs.
+// Polish is the default locale so no /pl/ prefix is needed for Polish URLs.
 const localizedPaths: Record<string, Record<string, string>> = {
   "/reset-password": {
     en: "/en/reset-password",
     pl: "/zresetuj-haslo",
-  },
-  "/dashboard-old/start": {
-    en: "/en/dashboard-old/start",
-    pl: "/dashboard-old/start",
   },
 };
 
@@ -41,20 +37,11 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next") ?? "/reset-password";
   const locale = searchParams.get("locale") ?? "pl"; // Default to Polish
 
-  console.log("[Auth Confirm] Token hash:", token_hash ? "present" : "missing");
-  console.log("[Auth Confirm] Type:", type);
-  console.log("[Auth Confirm] Next (raw):", next);
-  console.log("[Auth Confirm] Locale:", locale);
-  console.log("[Auth Confirm] Origin:", origin);
-
   if (token_hash && type) {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.verifyOtp({ type, token_hash });
-
-    console.log("[Auth Confirm] Verify result:", { data: !!data, error: error?.message });
+    const { error } = await supabase.auth.verifyOtp({ type, token_hash });
 
     if (!error) {
-      // Get the localized redirect URL
       const localizedNext = getLocalizedPath(next, locale);
 
       // Preserve other query parameters (except token_hash, type, next, locale)
@@ -65,18 +52,13 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      console.log("[Auth Confirm] Redirecting to:", redirectUrl.toString());
       return NextResponse.redirect(redirectUrl.toString());
     }
 
-    // Verification failed
-    console.error("[Auth Confirm] Verification error:", error.message);
     return NextResponse.redirect(
       `${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`
     );
   }
 
-  // Missing token_hash or type
-  console.error("[Auth Confirm] Missing token_hash or type");
   return NextResponse.redirect(`${origin}/auth/auth-code-error?error=missing_params`);
 }

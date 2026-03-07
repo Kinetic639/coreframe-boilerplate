@@ -231,65 +231,12 @@ export async function cancelInvitation(invitationId: string): Promise<void> {
 
   const { error } = await supabase
     .from("invitations")
-    .update({
-      status: "cancelled",
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "cancelled" })
     .eq("id", invitationId);
 
   if (error) {
     throw new Error(`Failed to cancel invitation: ${error.message}`);
   }
-}
-
-/**
- * Accept invitation
- */
-export async function acceptInvitation(token: string): Promise<Invitation> {
-  const supabase = createClient();
-
-  const { data: invitation, error } = await supabase
-    .from("invitations")
-    .update({
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("token", token)
-    .eq("status", "pending")
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to accept invitation: ${error.message}`);
-  }
-
-  return invitation;
-}
-
-/**
- * Reject invitation
- */
-export async function rejectInvitation(token: string): Promise<Invitation> {
-  const supabase = createClient();
-
-  const { data: invitation, error } = await supabase
-    .from("invitations")
-    .update({
-      status: "rejected",
-      rejected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("token", token)
-    .eq("status", "pending")
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to reject invitation: ${error.message}`);
-  }
-
-  return invitation;
 }
 
 /**
@@ -401,10 +348,7 @@ export async function markExpiredInvitations(): Promise<number> {
 
   const { data, error } = await supabase
     .from("invitations")
-    .update({
-      status: "expired",
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "expired" })
     .eq("status", "pending")
     .lt("expires_at", new Date().toISOString())
     .select("id");
