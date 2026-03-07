@@ -4,6 +4,33 @@ import { PasswordResetEmail } from "@/components/emails/password-reset";
 import { WelcomeEmail as WelcomeEmailTemplate } from "@/components/emails/welcome";
 import { InvitationEmail as InvitationEmailTemplate } from "@/components/emails/invitation";
 
+const invitationStrings = {
+  pl: {
+    subject: (orgName: string) => `Zaproszenie do ${orgName} w Ambra System`,
+    preview: (orgName: string) => `Masz zaproszenie do organizacji ${orgName} w Ambra System`,
+    heading: "Masz zaproszenie!",
+    body: (inviterName: string, orgName: string) =>
+      `${inviterName} zaprasza Cię do dołączenia do organizacji ${orgName} w Ambra System. Kliknij przycisk poniżej, aby zaakceptować zaproszenie i założyć konto.`,
+    button: "Zaakceptuj zaproszenie",
+    linkLabel: "Lub skopiuj ten link:",
+    expiry: "Zaproszenie wygasa po 7 dniach.",
+    disclaimer: "Jeśli nie spodziewałeś się tego zaproszenia, możesz zignorować tę wiadomość.",
+    footer: "© 2025 Ambra System. Wszelkie prawa zastrzeżone.",
+  },
+  en: {
+    subject: (orgName: string) => `You've been invited to join ${orgName} on Ambra System`,
+    preview: (orgName: string) => `You have an invitation to join ${orgName} on Ambra System`,
+    heading: "You're invited!",
+    body: (inviterName: string, orgName: string) =>
+      `${inviterName} has invited you to join ${orgName} on Ambra System. Click the button below to accept the invitation and create your account.`,
+    button: "Accept Invitation",
+    linkLabel: "Or copy this link:",
+    expiry: "This invitation will expire in 7 days.",
+    disclaimer: "If you weren't expecting this invitation, you can safely ignore this email.",
+    footer: "© 2025 Ambra System. All rights reserved.",
+  },
+};
+
 /**
  * Email sending options
  */
@@ -226,27 +253,33 @@ The Ambra Team
     email: string,
     organizationName: string,
     inviterName: string,
-    invitationLink: string
+    invitationLink: string,
+    locale: "pl" | "en" = "pl"
   ): Promise<EmailServiceResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ambra-system.com";
+
+    const strings = invitationStrings[locale];
+    const body = strings.body(inviterName, organizationName);
+
     const html = await render(
-      InvitationEmailTemplate({ inviterName, organizationName, invitationLink })
+      InvitationEmailTemplate({
+        heading: strings.heading,
+        body,
+        button: strings.button,
+        linkLabel: strings.linkLabel,
+        disclaimer: strings.disclaimer,
+        footer: strings.footer,
+        preview: strings.preview(organizationName),
+        invitationLink,
+        siteUrl,
+      })
     );
 
-    const text = `
-${inviterName} has invited you to join ${organizationName} on Ambra.
-
-Click the link below to accept the invitation and create your account:
-${invitationLink}
-
-This invitation will expire in 7 days.
-
-Best regards,
-The Ambra Team
-    `;
+    const text = `${body}\n\n${strings.button}: ${invitationLink}\n\n${strings.expiry}\n\n${strings.footer}`;
 
     return this.sendEmail({
       to: email,
-      subject: `You've been invited to join ${organizationName}`,
+      subject: strings.subject(organizationName),
       html,
       text,
     });

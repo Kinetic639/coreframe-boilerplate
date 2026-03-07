@@ -3,58 +3,86 @@ import {
   Button,
   Container,
   Head,
-  Heading,
   Html,
+  Link,
   Preview,
   Section,
-  Text,
 } from "@react-email/components";
 import * as React from "react";
 
 interface InvitationEmailProps {
-  inviterName: string;
-  organizationName: string;
+  heading: string;
+  body: string;
+  button: string;
+  linkLabel: string;
+  disclaimer: string;
+  footer: string;
+  preview: string;
   invitationLink: string;
+  siteUrl?: string;
 }
 
 export const InvitationEmail = ({
-  inviterName = "A team member",
-  organizationName = "their organization",
+  heading,
+  body,
+  button: buttonText,
+  linkLabel,
+  disclaimer,
+  footer,
+  preview,
   invitationLink,
+  siteUrl = "https://ambra-system.com",
 }: InvitationEmailProps) => {
   return (
     <Html>
       <Head />
-      <Preview>You've been invited to join {organizationName} on Ambra</Preview>
+      <Preview>{preview}</Preview>
       <Body style={main}>
-        <Container style={container}>
-          <Heading style={h1}>You're invited!</Heading>
+        <Container style={wrapper}>
+          <table width="100%" cellPadding="0" cellSpacing="0">
+            {/* Logo header */}
+            <tr>
+              <td style={logoCell}>
+                <Link href={siteUrl} style={logoLink}>
+                  <span style={logoAmbra}>Ambra</span>
+                  <span style={logoSystem}>system</span>
+                </Link>
+              </td>
+            </tr>
 
-          <Text style={text}>
-            {inviterName} has invited you to join <strong>{organizationName}</strong> on Ambra.
-          </Text>
+            {/* Body */}
+            <tr>
+              <td style={bodyCell}>
+                <p style={heading1}>{heading}</p>
+                <p style={bodyText}>{body}</p>
+                <Section style={buttonSection}>
+                  <Button style={buttonStyle} href={invitationLink}>
+                    {buttonText}
+                  </Button>
+                </Section>
+                <p style={linkLabelText}>{linkLabel}</p>
+                <p style={linkText}>
+                  <Link href={invitationLink} style={linkAnchor}>
+                    {invitationLink}
+                  </Link>
+                </p>
+              </td>
+            </tr>
 
-          <Text style={text}>Click the button below to view and accept your invitation.</Text>
+            {/* Disclaimer footer */}
+            <tr>
+              <td style={disclaimerCell}>
+                <p style={disclaimerText}>{disclaimer}</p>
+              </td>
+            </tr>
 
-          <Section style={buttonContainer}>
-            <Button style={button} href={invitationLink}>
-              View Invitation
-            </Button>
-          </Section>
-
-          <Text style={footer}>
-            If the button doesn't work, copy and paste this link into your browser:
-          </Text>
-
-          <Text style={link}>{invitationLink}</Text>
-
-          <Text style={footer}>This invitation will expire in 7 days.</Text>
-
-          <Text style={footer}>
-            Best regards,
-            <br />
-            The Ambra Team
-          </Text>
+            {/* Copyright */}
+            <tr>
+              <td style={copyrightCell}>
+                <p style={copyrightText}>{footer}</p>
+              </td>
+            </tr>
+          </table>
         </Container>
       </Body>
     </Html>
@@ -64,74 +92,117 @@ export const InvitationEmail = ({
 export default InvitationEmail;
 
 const main = {
-  backgroundColor: "#f6f9fc",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-};
-
-const container = {
-  backgroundColor: "#ffffff",
-  margin: "0 auto",
-  padding: "20px 0 48px",
-  marginBottom: "64px",
-};
-
-const h1 = {
-  color: "#333",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-  fontSize: "24px",
-  fontWeight: "bold",
-  margin: "40px 0",
+  margin: "0",
   padding: "0",
-  textAlign: "center" as const,
+  backgroundColor: "#f3f4f6",
+  fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',sans-serif",
 };
 
-const text = {
-  color: "#333",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-  fontSize: "14px",
-  lineHeight: "24px",
-  padding: "0 40px",
+const wrapper = {
+  maxWidth: "520px",
+  margin: "0 auto",
+  padding: "40px 20px",
 };
 
-const buttonContainer = {
-  padding: "27px 0 27px",
-  textAlign: "center" as const,
+const logoCell = {
+  backgroundColor: "#ffffff",
+  padding: "24px 40px",
+  borderRadius: "8px 8px 0 0",
+  borderBottom: "1px solid #e9ecef",
 };
 
-const button = {
-  backgroundColor: "#F0A205",
-  borderRadius: "5px",
-  color: "#fff",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
-  fontSize: "16px",
-  fontWeight: "bold",
+const logoLink = {
   textDecoration: "none",
-  textAlign: "center" as const,
-  display: "block",
-  width: "200px",
-  padding: "14px 7px",
+  display: "inline-flex",
+  alignItems: "baseline",
 };
 
-const link = {
+const logoAmbra = {
   color: "#F0A205",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  fontSize: "20px",
+  fontWeight: "700",
+};
+
+const logoSystem = {
+  color: "#9ca3af",
+  fontSize: "13px",
+  fontWeight: "500",
+  marginLeft: "2px",
+};
+
+const bodyCell = {
+  backgroundColor: "#ffffff",
+  padding: "40px 40px 48px",
+};
+
+const heading1 = {
+  margin: "0 0 12px",
+  color: "#111827",
+  fontSize: "20px",
+  fontWeight: "600",
+  letterSpacing: "-0.3px",
+};
+
+const bodyText = {
+  margin: "0 0 28px",
+  color: "#6b7280",
+  fontSize: "15px",
+  lineHeight: "1.6",
+};
+
+const buttonSection = {
+  marginBottom: "28px",
+};
+
+const buttonStyle = {
+  display: "inline-block",
+  padding: "12px 28px",
+  backgroundColor: "#F0A205",
+  color: "#ffffff",
+  fontSize: "15px",
+  fontWeight: "600",
+  textDecoration: "none",
+  borderRadius: "6px",
+};
+
+const linkLabelText = {
+  margin: "0 0 6px",
+  color: "#9ca3af",
   fontSize: "12px",
-  lineHeight: "16px",
-  padding: "0 40px",
+};
+
+const linkText = {
+  margin: "0",
+  fontSize: "12px",
   wordBreak: "break-all" as const,
 };
 
-const footer = {
-  color: "#898989",
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+const linkAnchor = {
+  color: "#F0A205",
+  textDecoration: "none",
+};
+
+const disclaimerCell = {
+  backgroundColor: "#f9fafb",
+  border: "1px solid #e9ecef",
+  borderTop: "none",
+  borderRadius: "0 0 8px 8px",
+  padding: "16px 40px",
+};
+
+const disclaimerText = {
+  margin: "0",
+  color: "#d1d5db",
   fontSize: "12px",
-  lineHeight: "16px",
-  padding: "0 40px",
-  marginTop: "24px",
+};
+
+const copyrightCell = {
+  padding: "20px 0",
+  textAlign: "center" as const,
+};
+
+const copyrightText = {
+  margin: "0",
+  color: "#d1d5db",
+  fontSize: "12px",
 };
