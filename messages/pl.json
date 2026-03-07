@@ -2655,6 +2655,7 @@
     "inviteErrors": {
       "DUPLICATE_PENDING": "Zaproszenie dla tego adresu e-mail jest już oczekujące.",
       "ALREADY_MEMBER": "Ta osoba jest już członkiem Twojej organizacji.",
+      "ALREADY_IN_ORG": "Ta osoba należy już do innej organizacji.",
       "SELF_INVITE": "Nie możesz zaprosić samego siebie.",
       "UNAUTHORIZED": "Nie masz uprawnień do wysyłania zaproszeń.",
       "INVALID_EMAIL": "Podaj prawidłowy adres e-mail.",

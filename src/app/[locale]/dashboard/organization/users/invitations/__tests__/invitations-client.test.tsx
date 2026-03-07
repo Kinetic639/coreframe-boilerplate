@@ -47,6 +47,7 @@ vi.mock("next-intl", () => ({
       cancelTitle: "Cancel invitation",
       "inviteErrors.DUPLICATE_PENDING": "An invitation is already pending for this email address.",
       "inviteErrors.ALREADY_MEMBER": "This person is already a member of your organization.",
+      "inviteErrors.ALREADY_IN_ORG": "This person already belongs to another organization.",
       "inviteErrors.SELF_INVITE": "You cannot invite yourself.",
       "inviteErrors.UNAUTHORIZED": "You don't have permission to send invitations.",
       "inviteErrors.INVALID_EMAIL": "Please enter a valid email address.",

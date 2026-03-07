@@ -90,6 +90,7 @@ export function InvitationsClient({
   const INVITE_ERROR_KEYS: Record<string, string> = {
     DUPLICATE_PENDING: t("inviteErrors.DUPLICATE_PENDING"),
     ALREADY_MEMBER: t("inviteErrors.ALREADY_MEMBER"),
+    ALREADY_IN_ORG: t("inviteErrors.ALREADY_IN_ORG"),
     SELF_INVITE: t("inviteErrors.SELF_INVITE"),
     UNAUTHORIZED: t("inviteErrors.UNAUTHORIZED"),
     INVALID_EMAIL: t("inviteErrors.INVALID_EMAIL"),

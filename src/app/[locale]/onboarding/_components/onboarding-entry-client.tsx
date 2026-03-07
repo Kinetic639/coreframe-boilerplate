@@ -44,7 +44,8 @@ export function OnboardingEntryClient({
                   {t("pendingInviteHint")}
                 </div>
                 <Button className="w-full" asChild>
-                  <Link href={`/invite/${pendingInviteToken}`}>
+                  {}
+                  <Link href={`/invite/${pendingInviteToken}` as any}>
                     <Mail className="mr-2 h-4 w-4" />
                     {t("reviewInviteButton")}
                   </Link>
