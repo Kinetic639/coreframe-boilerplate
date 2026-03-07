@@ -4,16 +4,16 @@ import { getLocale } from "next-intl/server";
 import { OnboardingEntryClient } from "./_components/onboarding-entry-client";
 
 /**
- * Onboarding entry page — the handoff point after signup or invite decline/skip.
+ * Onboarding entry page — protection screen for authenticated users with no active org.
  *
  * Routes here:
  * - auth/callback after email confirmation (no invite)
  * - signInAction when user has no active org membership
+ * - Dashboard layout when activeOrgId is null
  * - InvitePageClient after declining an invite (no more pending invites)
- * - InviteResolveClient "continue without accepting" skip button
  *
- * This page does NOT implement a full onboarding wizard.
- * It is a clean entry point for future org creation or browsing.
+ * Checks for pending invitations so the UI can guide the user appropriately.
+ * Does NOT implement a full onboarding wizard.
  */
 export default async function OnboardingPage() {
   const locale = await getLocale();
@@ -27,5 +27,18 @@ export default async function OnboardingPage() {
     return redirect({ href: "/sign-in", locale });
   }
 
-  return <OnboardingEntryClient userEmail={user.email ?? ""} />;
+  // Check if the user has any pending invitations by email
+  const { data: pendingInvites } = await supabase
+    .from("invitations")
+    .select("id, token, organization_id")
+    .eq("status", "pending")
+    .is("deleted_at", null)
+    .ilike("email", user.email ?? "")
+    .limit(1);
+
+  const pendingInviteToken = pendingInvites?.[0]?.token ?? null;
+
+  return (
+    <OnboardingEntryClient userEmail={user.email ?? ""} pendingInviteToken={pendingInviteToken} />
+  );
 }

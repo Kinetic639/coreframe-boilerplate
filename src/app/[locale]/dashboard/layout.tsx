@@ -98,9 +98,14 @@ export default async function DashboardV2Layout({ children }: { children: React.
   const context = await loadDashboardContextV2();
   const locale = await getLocale();
 
-  // Redirect to sign-in if no context (unauthenticated or no organization)
+  // Unauthenticated — go to sign-in
   if (!context) {
     return redirect({ href: "/sign-in", locale });
+  }
+
+  // Authenticated but no org membership — show protection screen, not broken shell
+  if (!context.app.activeOrgId) {
+    return redirect({ href: "/onboarding", locale });
   }
 
   // Load entitlements for sidebar (SSR only)

@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Mail, Send, X, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { Mail, Send, X, RefreshCw, Plus, Trash2, AlertCircle } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { INVITES_CREATE, INVITES_CANCEL } from "@/lib/constants/permissions";
@@ -78,6 +78,7 @@ export function InvitationsClient({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [roleRows, setRoleRows] = useState<InvitationRoleRow[]>([]);
+  const [dialogError, setDialogError] = useState<string | null>(null);
 
   const canCreate = can(INVITES_CREATE);
   const canCancel = can(INVITES_CANCEL);
@@ -86,11 +87,23 @@ export function InvitationsClient({
   const assignableRoles = roles.filter((r) => !r.is_basic && !r.deleted_at);
   const activeBranches = branches.filter((b) => !b.deleted_at);
 
+  const INVITE_ERROR_KEYS: Record<string, string> = {
+    DUPLICATE_PENDING: t("inviteErrors.DUPLICATE_PENDING"),
+    ALREADY_MEMBER: t("inviteErrors.ALREADY_MEMBER"),
+    SELF_INVITE: t("inviteErrors.SELF_INVITE"),
+    UNAUTHORIZED: t("inviteErrors.UNAUTHORIZED"),
+    INVALID_EMAIL: t("inviteErrors.INVALID_EMAIL"),
+  };
+
+  const mapInviteError = (raw: string): string =>
+    INVITE_ERROR_KEYS[raw] ?? t("inviteErrors.UNKNOWN");
+
   const resetDialog = () => {
     setEmail("");
     setFirstName("");
     setLastName("");
     setRoleRows([]);
+    setDialogError(null);
   };
 
   const handleOpenDialog = () => {
@@ -124,6 +137,7 @@ export function InvitationsClient({
 
   const handleInvite = () => {
     if (!email.trim()) return;
+    setDialogError(null);
 
     const validRoleRows = roleRows.filter((r) => r.role_id);
 
@@ -146,6 +160,9 @@ export function InvitationsClient({
           resetDialog();
           setShowInviteDialog(false);
           router.refresh();
+        },
+        onError: (err: Error) => {
+          setDialogError(mapInviteError(err.message));
         },
       }
     );
@@ -277,7 +294,10 @@ export function InvitationsClient({
                 id="invite-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setDialogError(null);
+                }}
                 placeholder="colleague@example.com"
                 onKeyDown={(e) => e.key === "Enter" && handleInvite()}
                 disabled={isPending}
@@ -364,6 +384,12 @@ export function InvitationsClient({
               </div>
             )}
           </div>
+          {dialogError && (
+            <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{dialogError}</span>
+            </div>
+          )}
           <DialogFooter>
             <Button
               variant="outline"

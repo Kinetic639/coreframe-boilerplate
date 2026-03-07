@@ -2623,9 +2623,13 @@
   },
   "onboardingEntry": {
     "title": "Witaj!",
-    "description": "Twoje konto jest gotowe. Nie należysz jeszcze do żadnej organizacji.",
+    "description": "Twoje konto jest gotowe. Nie jesteś jeszcze przypisany do żadnej organizacji.",
+    "signedInAs": "Zalogowany jako",
+    "pendingInviteHint": "Masz oczekujące zaproszenie. Zaakceptuj je, aby dołączyć do organizacji.",
+    "reviewInviteButton": "Przejrzyj zaproszenie",
     "browseDashboardButton": "Przejdź do dashboardu",
-    "createOrgHint": "Tworzenie organizacji będzie dostępne wkrótce."
+    "createOrgHint": "Tworzenie organizacji będzie dostępne wkrótce.",
+    "signOutButton": "Wyloguj się"
   },
   "adminInvitations": {
     "inviteMemberButton": "Zaproś członka",
@@ -2647,6 +2651,14 @@
     "expiresLabel": "Wygasa:",
     "resendTitle": "Wyślij ponownie",
     "cancelTitle": "Anuluj zaproszenie",
-    "statusDeclined": "odrzucone"
+    "statusDeclined": "odrzucone",
+    "inviteErrors": {
+      "DUPLICATE_PENDING": "Zaproszenie dla tego adresu e-mail jest już oczekujące.",
+      "ALREADY_MEMBER": "Ta osoba jest już członkiem Twojej organizacji.",
+      "SELF_INVITE": "Nie możesz zaprosić samego siebie.",
+      "UNAUTHORIZED": "Nie masz uprawnień do wysyłania zaproszeń.",
+      "INVALID_EMAIL": "Podaj prawidłowy adres e-mail.",
+      "UNKNOWN": "Coś poszło nie tak. Spróbuj ponownie."
+    }
   }
 }

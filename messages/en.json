@@ -2649,9 +2649,13 @@
   },
   "onboardingEntry": {
     "title": "Welcome!",
-    "description": "Your account is ready. You don't have an organization yet.",
+    "description": "Your account is ready. You are not connected to any organization yet.",
+    "signedInAs": "Signed in as",
+    "pendingInviteHint": "You have a pending invitation. Accept it to join an organization.",
+    "reviewInviteButton": "Review Invitation",
     "browseDashboardButton": "Go to Dashboard",
-    "createOrgHint": "Organization creation is coming soon."
+    "createOrgHint": "Organization creation is coming soon.",
+    "signOutButton": "Sign out"
   },
   "adminInvitations": {
     "inviteMemberButton": "Invite Member",
@@ -2673,6 +2677,14 @@
     "expiresLabel": "Expires:",
     "resendTitle": "Resend",
     "cancelTitle": "Cancel invitation",
-    "statusDeclined": "declined"
+    "statusDeclined": "declined",
+    "inviteErrors": {
+      "DUPLICATE_PENDING": "An invitation is already pending for this email address.",
+      "ALREADY_MEMBER": "This person is already a member of your organization.",
+      "SELF_INVITE": "You cannot invite yourself.",
+      "UNAUTHORIZED": "You don't have permission to send invitations.",
+      "INVALID_EMAIL": "Please enter a valid email address.",
+      "UNKNOWN": "Something went wrong. Please try again."
+    }
   }
 }

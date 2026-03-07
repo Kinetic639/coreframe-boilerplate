@@ -195,11 +195,9 @@ export function useCreateInvitationMutation() {
     }) => unwrapSR((await createInvitationAction(input)) as SR<OrgInvitation>),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
-      toast.success("Invitation sent");
+      // Success toast intentionally omitted — dialog shows success by closing itself.
     },
-    onError: (err: Error) => {
-      toast.error(err.message || "Failed to send invitation");
-    },
+    // onError intentionally omitted — invite dialog handles errors in-dialog, not via toast.
   });
 }
 

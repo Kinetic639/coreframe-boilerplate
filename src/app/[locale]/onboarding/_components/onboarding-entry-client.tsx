@@ -4,15 +4,20 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Compass } from "lucide-react";
+import { Compass, Mail, LogOut } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
+import { signOutAction } from "@/app/[locale]/actions";
 
 interface OnboardingEntryClientProps {
   userEmail: string;
+  pendingInviteToken: string | null;
 }
 
-export function OnboardingEntryClient({ userEmail }: OnboardingEntryClientProps) {
+export function OnboardingEntryClient({
+  userEmail,
+  pendingInviteToken,
+}: OnboardingEntryClientProps) {
   const t = useTranslations("onboardingEntry");
 
   return (
@@ -27,16 +32,34 @@ export function OnboardingEntryClient({ userEmail }: OnboardingEntryClientProps)
             <Compass className="mx-auto h-12 w-12 text-blue-500" />
             <CardTitle className="text-2xl">{t("title")}</CardTitle>
             <CardDescription>{t("description")}</CardDescription>
-            <p className="text-xs text-muted-foreground">{userEmail}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("signedInAs")} <span className="font-medium">{userEmail}</span>
+            </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button className="w-full" asChild>
-              <Link href="/dashboard/start">
-                <Compass className="mr-2 h-4 w-4" />
-                {t("browseDashboardButton")}
-              </Link>
-            </Button>
-            <p className="text-center text-xs text-muted-foreground">{t("createOrgHint")}</p>
+            {pendingInviteToken ? (
+              <>
+                <div className="rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                  <Mail className="mb-1 inline-block h-4 w-4 mr-1" />
+                  {t("pendingInviteHint")}
+                </div>
+                <Button className="w-full" asChild>
+                  <Link href={`/invite/${pendingInviteToken}`}>
+                    <Mail className="mr-2 h-4 w-4" />
+                    {t("reviewInviteButton")}
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <p className="text-center text-xs text-muted-foreground">{t("createOrgHint")}</p>
+            )}
+
+            <form action={signOutAction}>
+              <Button variant="outline" className="w-full" type="submit">
+                <LogOut className="mr-2 h-4 w-4" />
+                {t("signOutButton")}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </motion.div>
