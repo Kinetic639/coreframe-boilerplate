@@ -7,7 +7,6 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
-  const password = formData.get("password")?.toString();
   const firstName = formData.get("firstName")?.toString();
   const lastName = formData.get("lastName")?.toString();
   const invitationToken = formData.get("invitationToken")?.toString();
@@ -18,9 +17,12 @@ export const signUpAction = async (formData: FormData) => {
   // Use environment variable for site URL - more reliable than origin header
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-  if (!email || !password) {
+  if (!email) {
     return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
   }
+
+  // Generate a random temporary password — user will set their real password after email confirmation
+  const tempPassword = crypto.randomUUID() + crypto.randomUUID();
 
   // Build callback URL — include invitation token so the auth/confirm handler can forward it
   const callbackUrl = invitationToken
@@ -32,7 +34,7 @@ export const signUpAction = async (formData: FormData) => {
   // which skips personal-org creation and joins the invited org instead.
   const { data, error } = await supabase.auth.signUp({
     email,
-    password,
+    password: tempPassword,
     options: {
       emailRedirectTo: callbackUrl,
       data: {

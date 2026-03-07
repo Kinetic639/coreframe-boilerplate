@@ -209,9 +209,7 @@ export function useCreateInvitationMutation() {
       if (data.emailDelivered) {
         toast.success(t("inviteSentSuccess"));
       } else {
-        toast.warning(
-          `${t("emailDeliveryWarning")}${data.emailError ? ` (${data.emailError})` : ""}`
-        );
+        toast.warning(t("emailDeliveryWarning"));
       }
     },
     // onError intentionally omitted — invite dialog handles errors in-dialog, not via toast.
