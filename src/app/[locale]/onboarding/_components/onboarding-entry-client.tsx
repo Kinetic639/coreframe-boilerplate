@@ -11,11 +11,13 @@ import { signOutAction } from "@/app/[locale]/actions";
 
 interface OnboardingEntryClientProps {
   userEmail: string;
+  firstName?: string;
   pendingInviteToken: string | null;
 }
 
 export function OnboardingEntryClient({
   userEmail,
+  firstName,
   pendingInviteToken,
 }: OnboardingEntryClientProps) {
   const t = useTranslations("onboardingEntry");
@@ -30,7 +32,9 @@ export function OnboardingEntryClient({
         <Card>
           <CardHeader className="text-center">
             <Compass className="mx-auto h-12 w-12 text-blue-500" />
-            <CardTitle className="text-2xl">{t("title")}</CardTitle>
+            <CardTitle className="text-2xl">
+              {firstName ? t("titleWithName", { name: firstName }) : t("title")}
+            </CardTitle>
             <CardDescription>{t("description")}</CardDescription>
             <p className="text-xs text-muted-foreground">
               {t("signedInAs")} <span className="font-medium">{userEmail}</span>

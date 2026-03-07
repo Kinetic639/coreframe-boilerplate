@@ -23,8 +23,6 @@ const roleAssignmentSchema = z.object({
 
 const createInviteSchema = z.object({
   email: z.string().email("Invalid email address"),
-  invited_first_name: z.string().max(100).nullable().optional(),
-  invited_last_name: z.string().max(100).nullable().optional(),
   role_assignments: z.array(roleAssignmentSchema).max(20).optional(),
 });
 

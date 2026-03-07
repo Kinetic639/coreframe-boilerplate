@@ -2634,6 +2634,7 @@
   },
   "onboardingEntry": {
     "title": "Witaj!",
+    "titleWithName": "Witaj, {name}!",
     "description": "Twoje konto jest gotowe. Nie jesteś jeszcze przypisany do żadnej organizacji.",
     "signedInAs": "Zalogowany jako",
     "pendingInviteHint": "Masz oczekujące zaproszenie. Zaakceptuj je, aby dołączyć do organizacji.",
@@ -2646,10 +2647,6 @@
     "inviteMemberButton": "Zaproś członka",
     "noInvitations": "Brak zaproszeń.",
     "dialogTitle": "Zaproś członka",
-    "firstNameLabel": "Imię",
-    "firstNamePlaceholder": "Jan",
-    "lastNameLabel": "Nazwisko",
-    "lastNamePlaceholder": "Kowalski",
     "emailAddressLabel": "Adres e-mail",
     "rolesLabel": "Dodatkowe role",
     "rolesHint": "Zaproszony zawsze otrzymuje bazową rolę org_member. Tu możesz dodać dodatkowe role.",

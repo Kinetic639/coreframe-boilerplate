@@ -188,9 +188,19 @@ Deno.serve(async (req: Request) => {
     const strings = t[locale][email_action_type as "signup" | "recovery"];
     const confirmUrl = buildConfirmUrl(email_action_type, token_hash, locale);
 
+    const firstName = (user.user_metadata?.first_name as string | undefined) ?? "";
+    const lastName = (user.user_metadata?.last_name as string | undefined) ?? "";
+    const fullName = [firstName, lastName].filter(Boolean).join(" ");
+    const greeting = fullName
+      ? locale === "pl"
+        ? `Cześć, ${fullName}!\n\n`
+        : `Hi, ${fullName}!\n\n`
+      : "";
+    const bodyWithGreeting = greeting + strings.body;
+
     const html = renderEmail({
       heading: strings.heading,
-      body: strings.body,
+      body: bodyWithGreeting,
       button: strings.button,
       confirmUrl,
       linkLabel: strings.linkLabel,
