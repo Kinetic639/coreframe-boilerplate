@@ -75,8 +75,6 @@ export function InvitationsClient({
 
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [roleRows, setRoleRows] = useState<InvitationRoleRow[]>([]);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
@@ -101,8 +99,6 @@ export function InvitationsClient({
 
   const resetDialog = () => {
     setEmail("");
-    setFirstName("");
-    setLastName("");
     setRoleRows([]);
     setDialogError(null);
   };
@@ -145,8 +141,6 @@ export function InvitationsClient({
     createMutation.mutate(
       {
         email: email.trim(),
-        invited_first_name: firstName.trim() || null,
-        invited_last_name: lastName.trim() || null,
         role_assignments:
           validRoleRows.length > 0
             ? validRoleRows.map((r) => ({
@@ -177,11 +171,6 @@ export function InvitationsClient({
     resendMutation.mutate({ invitationId: invitation.id });
   };
 
-  const getInvitedName = (inv: OrgInvitation) => {
-    const parts = [inv.invited_first_name, inv.invited_last_name].filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : null;
-  };
-
   return (
     <div className="space-y-4">
       {canCreate && (
@@ -198,7 +187,6 @@ export function InvitationsClient({
       ) : (
         <div className="space-y-2">
           {invitations.map((inv) => {
-            const invitedName = getInvitedName(inv);
             return (
               <div
                 key={inv.id}
@@ -207,7 +195,6 @@ export function InvitationsClient({
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                   <div>
-                    {invitedName && <p className="text-sm font-semibold">{invitedName}</p>}
                     <p className="text-sm font-medium">{inv.email}</p>
                     {inv.role_summary && (
                       <p className="text-xs text-muted-foreground">{inv.role_summary}</p>
@@ -262,30 +249,6 @@ export function InvitationsClient({
             <DialogTitle>{t("dialogTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Name fields */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="invite-first-name">{t("firstNameLabel")}</Label>
-                <Input
-                  id="invite-first-name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder={t("firstNamePlaceholder")}
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="invite-last-name">{t("lastNameLabel")}</Label>
-                <Input
-                  id="invite-last-name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder={t("lastNamePlaceholder")}
-                  disabled={isPending}
-                />
-              </div>
-            </div>
-
             {/* Email */}
             <div className="space-y-1">
               <Label htmlFor="invite-email">

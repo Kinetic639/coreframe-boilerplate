@@ -38,7 +38,13 @@ export default async function OnboardingPage() {
 
   const pendingInviteToken = pendingInvites?.[0]?.token ?? null;
 
+  const firstName = (user.user_metadata?.first_name as string | undefined) ?? "";
+
   return (
-    <OnboardingEntryClient userEmail={user.email ?? ""} pendingInviteToken={pendingInviteToken} />
+    <OnboardingEntryClient
+      userEmail={user.email ?? ""}
+      firstName={firstName}
+      pendingInviteToken={pendingInviteToken}
+    />
   );
 }

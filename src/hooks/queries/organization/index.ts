@@ -191,8 +191,6 @@ export function useCreateInvitationMutation() {
   return useMutation({
     mutationFn: async (input: {
       email: string;
-      invited_first_name?: string | null;
-      invited_last_name?: string | null;
       role_assignments?: { role_id: string; scope: "org" | "branch"; scope_id?: string | null }[];
     }) => {
       const raw = await createInvitationAction(input);

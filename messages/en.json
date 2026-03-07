@@ -2660,6 +2660,7 @@
   },
   "onboardingEntry": {
     "title": "Welcome!",
+    "titleWithName": "Welcome, {name}!",
     "description": "Your account is ready. You are not connected to any organization yet.",
     "signedInAs": "Signed in as",
     "pendingInviteHint": "You have a pending invitation. Accept it to join an organization.",
@@ -2672,10 +2673,6 @@
     "inviteMemberButton": "Invite Member",
     "noInvitations": "No invitations found.",
     "dialogTitle": "Invite Member",
-    "firstNameLabel": "First Name",
-    "firstNamePlaceholder": "Jane",
-    "lastNameLabel": "Last Name",
-    "lastNamePlaceholder": "Smith",
     "emailAddressLabel": "Email Address",
     "rolesLabel": "Additional Roles",
     "rolesHint": "The invited member always receives the base org_member role. Add extra roles here.",
