@@ -24,6 +24,18 @@ const TOOLS_ALL_CHILD: SidebarItem = {
   match: { exact: "/dashboard/tools/all" },
 };
 
+// My Tools child — matches the main tools page (/dashboard/tools).
+// Added as the first child when pinned tools are injected so the parent
+// group is active whenever the user is on the root tools page.
+const TOOLS_MY_TOOLS_CHILD: SidebarItem = {
+  id: "tools.myTools",
+  title: "My Tools",
+  titleKey: "modules.tools.items.myTools",
+  iconKey: "tools",
+  href: "/dashboard/tools",
+  match: { exact: "/dashboard/tools" },
+};
+
 /**
  * Per-request memoized fetch of pinned tools for the sidebar.
  *
@@ -72,8 +84,8 @@ async function injectPinnedToolsIntoSidebar(
       ...item,
       // Remove href so the L1 item acts as a group trigger, not a link
       href: undefined,
-      // Pinned tools at top, "All Tools" browse link always last
-      children: [...pinnedChildren, TOOLS_ALL_CHILD],
+      // My Tools (root page) first, pinned tools next, "All Tools" browse link always last
+      children: [TOOLS_MY_TOOLS_CHILD, ...pinnedChildren, TOOLS_ALL_CHILD],
     };
   });
 
