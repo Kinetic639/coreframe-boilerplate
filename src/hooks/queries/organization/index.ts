@@ -293,6 +293,43 @@ export function useInvitationsRealtimeSync(orgId: string | null) {
   }, [orgId, queryClient]);
 }
 
+// ─── Members Realtime ─────────────────────────────────────────────────────────
+
+/**
+ * Subscribes to Supabase Realtime changes on organization_members for the
+ * given org and invalidates the members React Query cache on INSERT or UPDATE.
+ * This lets the admin members list update automatically when a user accepts
+ * an invitation and joins the org.
+ */
+export function useMembersRealtimeSync(orgId: string | null) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!orgId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`org_members:org:${orgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "organization_members",
+          filter: `organization_id=eq.${orgId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: organizationKeys.members() });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, queryClient]);
+}
+
 // ─── Roles ────────────────────────────────────────────────────────────────────
 
 export function useRolesQuery(initialRoles: OrgRole[]) {

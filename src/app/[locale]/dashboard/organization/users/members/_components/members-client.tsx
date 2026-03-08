@@ -54,7 +54,9 @@ import {
   useRemoveRoleFromUserMutation,
   useAssignPositionMutation,
   useRemovePositionAssignmentMutation,
+  useMembersRealtimeSync,
 } from "@/hooks/queries/organization";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type {
   OrgMember,
   OrgPosition,
@@ -86,6 +88,9 @@ export function MembersClient({
 }: MembersClientProps) {
   const router = useRouter();
   const { can } = usePermissions();
+  const activeOrgId = useAppStoreV2((s) => s.activeOrgId);
+
+  useMembersRealtimeSync(activeOrgId);
 
   const { data: members } = useMembersQuery(initialMembers);
   const { data: positions } = usePositionsQuery(initialPositions);
