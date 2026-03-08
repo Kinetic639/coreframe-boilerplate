@@ -81,7 +81,8 @@ export async function createInvitationAction(rawInput: unknown) {
         getLocale(),
       ]);
       const orgName = profileResult.success
-        ? (profileResult.data.name ?? "your organization")
+        ? [profileResult.data.name, profileResult.data.name_2].filter(Boolean).join(" ") ||
+          "your organization"
         : "your organization";
       const inviterName =
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
@@ -169,7 +170,8 @@ export async function resendInvitationAction(rawInput: unknown) {
         getLocale(),
       ]);
       const orgName = profileResult.success
-        ? (profileResult.data.name ?? "your organization")
+        ? [profileResult.data.name, profileResult.data.name_2].filter(Boolean).join(" ") ||
+          "your organization"
         : "your organization";
       const inviterName =
         `${context.user.user?.first_name ?? ""} ${context.user.user?.last_name ?? ""}`.trim() ||
