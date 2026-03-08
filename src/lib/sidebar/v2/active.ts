@@ -16,15 +16,23 @@ export function isPrefixMatch(pathname: string, prefix: string): boolean {
  * Determines if a sidebar item is active based on the current pathname.
  *
  * Rules (checked in priority order):
- * 1. Parent active if any child is active (recursive)
+ * 1. If any child is active (recursive) → parent is active
  * 2. Exact match: item.match.exact === pathname
  * 3. StartsWith match: segment-aware prefix (uses isPrefixMatch)
  * 4. No match rule and no children → false
+ *
+ * Note: when an item has both children AND a match rule (e.g. the tools group
+ * which gains children via pinned-tools injection), both are checked. This
+ * allows the parent to stay active on dynamic sub-routes even when no specific
+ * child's exact match fires (e.g. next-intl returns the route pattern
+ * `/dashboard/tools/[slug]` rather than the resolved slug).
  */
 export function isItemActive(item: SidebarItem, pathname: string): boolean {
-  // Parent is active if any child is active (recursive)
+  // Check children first (recursive)
   if (item.children && item.children.length > 0) {
-    return item.children.some((child) => isItemActive(child, pathname));
+    if (item.children.some((child) => isItemActive(child, pathname))) return true;
+    // Fall through to own match rule — handles dynamic sub-routes where a
+    // child's exact slug match may not fire but the parent's startsWith does.
   }
 
   // No match rule → not active

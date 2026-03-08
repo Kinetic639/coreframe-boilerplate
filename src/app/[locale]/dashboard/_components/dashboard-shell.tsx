@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -194,6 +194,13 @@ function NavL1Item({
   const active = item.disabledReason ? false : isItemActive(item, pathname);
   const label = getLabel(item);
 
+  // Controlled open state for collapsible groups — auto-opens when a child becomes active.
+  // Hooks must be at the top level (before any early returns) per Rules of Hooks.
+  const [isOpen, setIsOpen] = useState(active);
+  useEffect(() => {
+    if (active) setIsOpen(true);
+  }, [active]);
+
   if (!item.children?.length) {
     if (item.disabledReason) {
       // G3: keep pointer events so tooltip still works; cursor communicates disabled state
@@ -264,7 +271,7 @@ function NavL1Item({
   }
 
   return (
-    <Collapsible asChild defaultOpen={active} className="group/l1">
+    <Collapsible asChild open={isOpen} onOpenChange={setIsOpen} className="group/l1">
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={label} isActive={active}>
