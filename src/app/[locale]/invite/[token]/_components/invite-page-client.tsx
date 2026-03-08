@@ -159,7 +159,10 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
             <span className="text-sm font-medium">{t("orgLabel")}</span>
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{preview.org_name}</span>
+              <span className="font-medium">
+                {preview.org_name}
+                {preview.org_name_2 ? ` ${preview.org_name_2}` : ""}
+              </span>
             </div>
           </div>
         )}

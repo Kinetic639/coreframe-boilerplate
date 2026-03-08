@@ -2,6 +2,7 @@
 
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
+import { createServiceClient } from "@/utils/supabase/service";
 import { redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
@@ -54,6 +55,22 @@ export const signUpAction = async (formData: FormData) => {
   // Detect this case via empty identities array and show an actionable error.
   if (!data.user.identities || data.user.identities.length === 0) {
     return encodedRedirect("error", "/sign-up", t("errors.emailAlreadyRegistered"));
+  }
+
+  // Save first_name/last_name directly to public.users using service role.
+  // The auth hook runs in a separate transaction and cannot reliably read auth.users
+  // at hook time — so we write names here where we have the data in-hand.
+  if (firstName || lastName) {
+    const serviceClient = createServiceClient();
+    await serviceClient.from("users").upsert(
+      {
+        id: data.user.id,
+        email,
+        first_name: firstName || null,
+        last_name: lastName || null,
+      },
+      { onConflict: "id" }
+    );
   }
 
   const successMessage = invitationToken

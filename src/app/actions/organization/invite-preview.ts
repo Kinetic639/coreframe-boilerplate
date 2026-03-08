@@ -19,6 +19,7 @@ export interface InvitePreview {
   expires_at: string | null;
   invited_email: string | null;
   org_name: string | null;
+  org_name_2: string | null;
   role_name: string | null;
   branch_name: string | null;
   inviter_name: string | null;
@@ -51,6 +52,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
       expires_at: null,
       invited_email: null,
       org_name: null,
+      org_name_2: null,
       role_name: null,
       branch_name: null,
       inviter_name: null,
@@ -70,6 +72,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
       expires_at: null,
       invited_email: null,
       org_name: null,
+      org_name_2: null,
       role_name: null,
       branch_name: null,
       inviter_name: null,
@@ -84,6 +87,7 @@ export async function getPublicInvitationPreviewAction(token: string): Promise<I
     expires_at: (raw.expires_at as string) ?? null,
     invited_email: (raw.invited_email as string) ?? null,
     org_name: (raw.org_name as string) ?? null,
+    org_name_2: (raw.org_name_2 as string) ?? null,
     role_name: (raw.role_name as string) ?? null,
     branch_name: (raw.branch_name as string) ?? null,
     inviter_name: (raw.inviter_name as string) ?? null,
