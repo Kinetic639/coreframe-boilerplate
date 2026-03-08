@@ -2617,6 +2617,7 @@
     "singleInviteDescription": "Masz oczekujące zaproszenie do dołączenia do organizacji.",
     "multipleInviteDescription": "Masz oczekujące zaproszenia do dołączenia do organizacji.",
     "joinButton": "Zobacz i zaakceptuj zaproszenie",
+    "detailsButton": "Szczegóły Zaproszenia",
     "skipButton": "Kontynuuj bez akceptowania",
     "skipHint": "Twoje zaproszenia pozostaną oczekujące i będą mogły być zaakceptowane później.",
     "expiresLabel": "Wygasa"

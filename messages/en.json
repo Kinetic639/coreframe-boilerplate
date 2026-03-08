@@ -2643,6 +2643,7 @@
     "singleInviteDescription": "You have a pending invitation to join an organization.",
     "multipleInviteDescription": "You have pending invitations to join organizations.",
     "joinButton": "View & Accept Invitation",
+    "detailsButton": "Invitation Details",
     "skipButton": "Continue without accepting",
     "skipHint": "Your invitations will remain pending and can be accepted later.",
     "expiresLabel": "Expires"

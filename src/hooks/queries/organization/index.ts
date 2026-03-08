@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useTranslations } from "next-intl";
+import { createClient } from "@/utils/supabase/client";
 
 import {
   getOrgProfileAction,
@@ -253,6 +255,42 @@ export function useResendInvitationMutation() {
       toast.error(err.message || "Failed to resend invitation");
     },
   });
+}
+
+// ─── Invitations Realtime ─────────────────────────────────────────────────────
+
+/**
+ * Subscribes to Supabase Realtime changes on the invitations table for the
+ * given org and invalidates the React Query cache on any INSERT or UPDATE.
+ * This lets the admin dashboard reflect accepted/declined status in real time.
+ */
+export function useInvitationsRealtimeSync(orgId: string | null) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!orgId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`invitations:org:${orgId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "invitations",
+          filter: `organization_id=eq.${orgId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: organizationKeys.invitations() });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId, queryClient]);
 }
 
 // ─── Roles ────────────────────────────────────────────────────────────────────

@@ -27,7 +27,10 @@ function InviteCard({ inv }: { inv: PendingInviteItem }) {
           {inv.org_name && (
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{inv.org_name}</span>
+              <span className="font-medium">
+                {inv.org_name}
+                {inv.org_name_2 ? ` ${inv.org_name_2}` : ""}
+              </span>
             </div>
           )}
           {inv.role_name && (
@@ -58,7 +61,7 @@ function InviteCard({ inv }: { inv: PendingInviteItem }) {
             }}
           >
             <ArrowRight className="mr-2 h-4 w-4" />
-            {t("joinButton")}
+            {t("detailsButton")}
           </Link>
         </Button>
       </CardContent>

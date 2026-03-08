@@ -25,7 +25,9 @@ import {
   useResendInvitationMutation,
   useRolesQuery,
   useBranchesQuery,
+  useInvitationsRealtimeSync,
 } from "@/hooks/queries/organization";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
 
 interface InvitationsClientProps {
@@ -51,12 +53,15 @@ export function InvitationsClient({
   const { can } = usePermissions();
   const t = useTranslations("adminInvitations");
 
+  const activeOrgId = useAppStoreV2((s) => s.activeOrgId);
   const { data: invitations } = useInvitationsQuery(initialInvitations);
   const { data: roles } = useRolesQuery(initialRoles);
   const { data: branches } = useBranchesQuery(initialBranches);
   const createMutation = useCreateInvitationMutation();
   const cancelMutation = useCancelInvitationMutation();
   const resendMutation = useResendInvitationMutation();
+
+  useInvitationsRealtimeSync(activeOrgId);
 
   const isPending =
     createMutation.isPending || cancelMutation.isPending || resendMutation.isPending;
