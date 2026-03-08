@@ -30,6 +30,7 @@ export interface PendingInviteItem {
   token: string;
   expires_at: string | null;
   org_name: string | null;
+  org_name_2: string | null;
   role_name: string | null;
   branch_name: string | null;
 }
@@ -135,6 +136,7 @@ export async function getMyPendingInvitationsAction(): Promise<{
     token: String(inv.token),
     expires_at: inv.expires_at ?? null,
     org_name: inv.org_name ?? null,
+    org_name_2: inv.org_name_2 ?? null,
     role_name: inv.role_name ?? null,
     branch_name: inv.branch_name ?? null,
   }));
