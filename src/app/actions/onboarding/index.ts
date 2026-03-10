@@ -21,8 +21,6 @@ export type CreateOrganizationResult =
 export async function getAvailablePlansAction(): Promise<SubscriptionPlan[]> {
   const supabase = await createClient();
 
-  // TARGET schema stores pricing as decimal dollars (price_monthly) and limits
-  // in a JSONB blob, not as flat cents/count columns. Select what exists.
   const { data, error } = await supabase
     .from("subscription_plans")
     .select("id, name, price_monthly, price_yearly, limits, enabled_modules")
@@ -38,24 +36,37 @@ export async function getAvailablePlansAction(): Promise<SubscriptionPlan[]> {
     return {
       id: p.id,
       name: p.name,
-      // Capitalize plan name as display_name (TARGET has no display_name column)
       display_name: p.name.charAt(0).toUpperCase() + p.name.slice(1),
-      // TARGET stores prices as numeric dollars; convert to integer cents
       price_monthly_cents: Math.round(monthly * 100),
       price_yearly_cents: Math.round(yearly * 100),
-      // TARGET stores limits in JSONB; extract relevant keys
       max_branches: limits["warehouse.max_branches"] ?? -1,
       max_members: limits["organization.max_users"] ?? -1,
-      max_storage_mb: -1, // not tracked in TARGET schema
+      max_storage_mb: -1,
       enabled_modules: Array.isArray(p.enabled_modules) ? p.enabled_modules : [],
     };
   });
 }
 
+export async function checkOrgSlugAction(slug: string): Promise<{ available: boolean }> {
+  if (!slug || !/^[a-z0-9-]+$/.test(slug)) return { available: false };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("slug", slug)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  return { available: data === null };
+}
+
 export async function createOrganizationAction(
   orgName: string,
   branchName: string,
-  planId: string | null
+  planId: string | null,
+  orgName2?: string | null,
+  orgSlug?: string | null
 ): Promise<CreateOrganizationResult> {
   const supabase = await createClient();
 
@@ -63,6 +74,8 @@ export async function createOrganizationAction(
     p_name: orgName.trim(),
     p_branch_name: branchName.trim(),
     p_plan_id: planId ?? null,
+    p_name_2: orgName2?.trim() || null,
+    p_slug: orgSlug?.trim() || null,
   });
 
   if (error) {
