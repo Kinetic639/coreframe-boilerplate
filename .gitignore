@@ -48,3 +48,5 @@ next-env.d.ts
 test-results/
 .idx/
 .env.production
+.mcp.json
+.env.production

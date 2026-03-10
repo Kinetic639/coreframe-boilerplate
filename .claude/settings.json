@@ -12,7 +12,8 @@
       "Bash(pnpm -s typecheck)",
       "Bash(pnpm typecheck)",
       "Bash(head -5 grep -r \"dashboard-old\" /home/user/coreframe-boilerplate/next.config*)",
-      "Bash(grep -A2 '\"\"packageManager\"\"' /home/user/coreframe-boilerplate/package.json)"
+      "Bash(grep -A2 '\"\"packageManager\"\"' /home/user/coreframe-boilerplate/package.json)",
+      "Bash(pnpm supabase:db:push:target)"
     ],
     "additionalDirectories": [
       "/home/user/coreframe-boilerplate/src/app/[locale]/admin",
