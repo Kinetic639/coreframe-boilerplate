@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import {
   EntitlementError,
   type EntitlementErrorCode,
@@ -68,19 +68,14 @@ const getOrgContext = cache(async (): Promise<OrgContext> => {
     throw new Error("EntitlementsGuard: Unauthorized - no user");
   }
 
-  const appContext = await loadAppContextServer();
+  const appContext = await loadAppContextV2();
   if (!appContext?.activeOrgId) {
     throw new Error("EntitlementsGuard: No active organization");
   }
 
-  // Snapshot trust boundary: verify entitlements belong to the active org.
-  // If mismatch (edge case / bug), discard snapshot — service will fall back to DB.
-  // Use undefined (not null) so resolveEntitlements triggers a fresh DB load.
-  let ents: OrganizationEntitlements | null | undefined = appContext.entitlements;
-  const entOrgId = ents?.organization_id;
-  if (entOrgId && entOrgId !== appContext.activeOrgId) {
-    ents = undefined;
-  }
+  // AppContextV2 does not carry entitlements — always let EntitlementsService
+  // load them fresh from the DB for this request.
+  const ents: OrganizationEntitlements | null | undefined = undefined;
 
   return {
     userId: user.id,
