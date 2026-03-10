@@ -103,12 +103,21 @@ export class OrgProfileService {
     orgId: string,
     file: File
   ): Promise<ServiceResult<string>> {
+    // Delete any existing logo files for this org to avoid storage UPDATE path
+    const { data: existingFiles } = await supabase.storage
+      .from("org-logos")
+      .list(orgId, { limit: 10 });
+    if (existingFiles && existingFiles.length > 0) {
+      const paths = existingFiles.map((f) => `${orgId}/${f.name}`);
+      await supabase.storage.from("org-logos").remove(paths);
+    }
+
     const ext = file.name.split(".").pop() ?? "jpg";
     const path = `${orgId}/logo.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("org-logos")
-      .upload(path, file, { upsert: true, contentType: file.type });
+      .upload(path, file, { upsert: false, contentType: file.type });
 
     if (uploadError) return { success: false, error: uploadError.message };
 

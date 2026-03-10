@@ -13,6 +13,7 @@ import {
   useOrgProfileQuery,
   useUpdateOrgProfileMutation,
   useUploadOrgLogoMutation,
+  useRemoveOrgLogoMutation,
 } from "@/hooks/queries/organization";
 import type { OrgProfileData } from "@/server/services/organization.service";
 
@@ -28,8 +29,10 @@ export function OrgProfileClient({ canEdit, initialProfile }: OrgProfileClientPr
   const { data: profile } = useOrgProfileQuery(initialProfile);
   const updateProfileMutation = useUpdateOrgProfileMutation();
   const uploadLogoMutation = useUploadOrgLogoMutation();
+  const removeLogoMutation = useRemoveOrgLogoMutation();
 
-  const isPending = updateProfileMutation.isPending || uploadLogoMutation.isPending;
+  const isPending =
+    updateProfileMutation.isPending || uploadLogoMutation.isPending || removeLogoMutation.isPending;
 
   const [name, setName] = useState(initialProfile?.name ?? "");
   const [name2, setName2] = useState(initialProfile?.name_2 ?? "");
@@ -56,7 +59,7 @@ export function OrgProfileClient({ canEdit, initialProfile }: OrgProfileClientPr
   };
 
   const handleRemoveLogo = () => {
-    updateProfileMutation.mutate({ logo_url: null }, { onSuccess: () => router.refresh() });
+    removeLogoMutation.mutate(undefined, { onSuccess: () => router.refresh() });
   };
 
   return (
