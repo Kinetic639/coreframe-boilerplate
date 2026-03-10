@@ -4,13 +4,27 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, GitBranch, Sparkles, Check, Loader2, ChevronRight } from "lucide-react";
+import {
+  Building2,
+  GitBranch,
+  Sparkles,
+  Check,
+  Loader2,
+  ChevronRight,
+  RefreshCw,
+  X,
+  CircleCheck,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "react-toastify";
-import { createOrganizationAction, type SubscriptionPlan } from "@/app/actions/onboarding";
+import {
+  createOrganizationAction,
+  checkOrgSlugAction,
+  type SubscriptionPlan,
+} from "@/app/actions/onboarding";
 
 interface Props {
   userEmail: string;
@@ -19,12 +33,21 @@ interface Props {
 }
 
 type Step = "org" | "branch" | "plan" | "creating";
+type SlugStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 const STEPS: Step[] = ["org", "branch", "plan"];
 const STEP_INDEX: Record<Step, number> = { org: 0, branch: 1, plan: 2, creating: 3 };
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
   const t = useTranslations("onboardingWizard");
+  const router = useRouter();
 
   function formatPrice(cents: number): string {
     if (cents === 0) return t("priceFree");
@@ -36,30 +59,96 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
     if (val === -1) return t("limitUnlimited", { unit });
     return t("limitCount", { count: val, unit });
   }
-  const router = useRouter();
 
   const [step, setStep] = React.useState<Step>("org");
   const [orgName, setOrgName] = React.useState(firstName ? `${firstName}'s Organization` : "");
+  const [orgName2, setOrgName2] = React.useState("");
+  const [orgSlug, setOrgSlug] = React.useState("");
+  const [slugStatus, setSlugStatus] = React.useState<SlugStatus>("idle");
   const [branchName, setBranchName] = React.useState("Main Branch");
   const [selectedPlanId, setSelectedPlanId] = React.useState<string | null>(
     plans.find((p) => p.name === "free")?.id ?? plans[0]?.id ?? null
   );
   const [orgNameError, setOrgNameError] = React.useState("");
+  const [orgSlugError, setOrgSlugError] = React.useState("");
   const [isPending, startTransition] = React.useTransition();
 
+  const checkTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepIndex = STEP_INDEX[step];
 
-  function validateOrgName(): boolean {
+  // Debounced slug uniqueness check
+  const scheduleSlugCheck = React.useCallback((slug: string) => {
+    if (checkTimeout.current) clearTimeout(checkTimeout.current);
+
+    if (!slug) {
+      setSlugStatus("idle");
+      return;
+    }
+    if (slug.length < 2) {
+      setSlugStatus("invalid");
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      setSlugStatus("invalid");
+      return;
+    }
+
+    setSlugStatus("checking");
+    checkTimeout.current = setTimeout(async () => {
+      const result = await checkOrgSlugAction(slug);
+      setSlugStatus(result.available ? "available" : "taken");
+    }, 500);
+  }, []);
+
+  const handleSlugChange = (value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    setOrgSlug(cleaned);
+    setOrgSlugError("");
+    scheduleSlugCheck(cleaned);
+  };
+
+  const handleGenerateSlug = () => {
+    const combined = [orgName.trim(), orgName2.trim()].filter(Boolean).join(" ");
+    const generated = slugify(combined);
+    setOrgSlug(generated);
+    setOrgSlugError("");
+    scheduleSlugCheck(generated);
+  };
+
+  function validateOrgStep(): boolean {
+    let valid = true;
+
     if (orgName.trim().length < 2) {
       setOrgNameError(t("orgNameTooShort"));
-      return false;
+      valid = false;
+    } else {
+      setOrgNameError("");
     }
-    setOrgNameError("");
-    return true;
+
+    if (!orgSlug) {
+      setOrgSlugError(t("orgSlugRequired"));
+      valid = false;
+    } else if (orgSlug.length < 2) {
+      setOrgSlugError(t("orgSlugTooShort"));
+      valid = false;
+    } else if (!/^[a-z0-9-]+$/.test(orgSlug)) {
+      setOrgSlugError(t("orgSlugInvalid"));
+      valid = false;
+    } else if (slugStatus === "taken") {
+      setOrgSlugError(t("orgSlugTaken"));
+      valid = false;
+    } else if (slugStatus === "checking") {
+      setOrgSlugError(t("orgSlugChecking"));
+      valid = false;
+    } else {
+      setOrgSlugError("");
+    }
+
+    return valid;
   }
 
   function handleOrgNext() {
-    if (!validateOrgName()) return;
+    if (!validateOrgStep()) return;
     setStep("branch");
   }
 
@@ -74,7 +163,9 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
       const result = await createOrganizationAction(
         orgName,
         branchName || "Main Branch",
-        selectedPlanId
+        selectedPlanId,
+        orgName2 || null,
+        orgSlug || null
       );
       if (!result.success) {
         toast.error(t("createError"));
@@ -84,6 +175,14 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
       router.push("/dashboard/start");
     });
   }
+
+  const slugStatusIcon = () => {
+    if (slugStatus === "checking")
+      return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+    if (slugStatus === "available") return <CircleCheck className="h-4 w-4 text-green-500" />;
+    if (slugStatus === "taken") return <X className="h-4 w-4 text-destructive" />;
+    return null;
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 px-4">
@@ -115,7 +214,7 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
         )}
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Org name */}
+          {/* Step 1: Org name + slug */}
           {step === "org" && (
             <motion.div
               key="org"
@@ -135,6 +234,7 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Primary name */}
                   <div className="space-y-2">
                     <Label htmlFor="org-name">{t("orgNameLabel")}</Label>
                     <Input
@@ -150,7 +250,67 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
                     />
                     {orgNameError && <p className="text-sm text-destructive">{orgNameError}</p>}
                   </div>
-                  <Button className="w-full" onClick={handleOrgNext}>
+
+                  {/* Secondary name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="org-name-2">{t("orgName2Label")}</Label>
+                    <Input
+                      id="org-name-2"
+                      value={orgName2}
+                      onChange={(e) => setOrgName2(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleOrgNext()}
+                      placeholder={t("orgName2Placeholder")}
+                    />
+                    <p className="text-xs text-muted-foreground">{t("orgName2Hint")}</p>
+                  </div>
+
+                  {/* Slug */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="org-slug">{t("orgSlugLabel")}</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-0 px-1 text-xs text-muted-foreground"
+                        onClick={handleGenerateSlug}
+                        disabled={!orgName.trim()}
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        {t("orgSlugGenerate")}
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="org-slug"
+                        value={orgSlug}
+                        onChange={(e) => handleSlugChange(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleOrgNext()}
+                        placeholder={t("orgSlugPlaceholder")}
+                        className={`pr-8 ${slugStatus === "taken" ? "border-destructive" : slugStatus === "available" ? "border-green-500" : ""}`}
+                      />
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                        {slugStatusIcon()}
+                      </div>
+                    </div>
+                    {orgSlugError ? (
+                      <p className="text-sm text-destructive">{orgSlugError}</p>
+                    ) : slugStatus === "available" ? (
+                      <p className="text-sm text-green-600">{t("orgSlugAvailable")}</p>
+                    ) : slugStatus === "checking" ? (
+                      <p className="text-sm text-muted-foreground">{t("orgSlugChecking")}</p>
+                    ) : slugStatus === "taken" ? (
+                      <p className="text-sm text-destructive">{t("orgSlugTaken")}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{t("orgSlugHint")}</p>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={handleOrgNext}
+                    disabled={slugStatus === "checking"}
+                  >
                     {t("nextButton")} <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 </CardContent>
