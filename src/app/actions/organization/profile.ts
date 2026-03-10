@@ -29,6 +29,7 @@ const updateProfileSchema = z.object({
   website: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
   theme_color: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.literal(""), z.null()]).optional(),
   font_color: z.union([z.string().regex(/^#[0-9A-Fa-f]{6}$/), z.literal(""), z.null()]).optional(),
+  logo_url: z.string().url().nullable().optional(),
 });
 
 export async function getOrgProfileAction() {
@@ -102,6 +103,38 @@ export async function uploadOrgLogoAction(formData: FormData) {
     }
 
     return await OrgProfileService.uploadLogo(supabase, context.app.activeOrgId, file);
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function removeOrgLogoAction() {
+  try {
+    const supabase = await createClient();
+    await entitlements.requireModuleAccess(MODULE_ORGANIZATION_MANAGEMENT);
+    const context = await loadDashboardContextV2();
+    if (!context?.app.activeOrgId) return { success: false, error: "No active organization" };
+    if (!checkPermission(context.user.permissionSnapshot, MODULE_ORGANIZATION_MANAGEMENT_ACCESS))
+      return { success: false, error: "Unauthorized" };
+
+    const canUpdate = checkPermission(context.user.permissionSnapshot, ORG_UPDATE);
+    if (!canUpdate) return { success: false, error: "Unauthorized" };
+
+    const orgId = context.app.activeOrgId;
+
+    // Delete all logo files for this org from storage
+    const { data: existingFiles } = await supabase.storage
+      .from("org-logos")
+      .list(orgId, { limit: 10 });
+    if (existingFiles && existingFiles.length > 0) {
+      const paths = existingFiles.map((f) => `${orgId}/${f.name}`);
+      await supabase.storage.from("org-logos").remove(paths);
+    }
+
+    // Clear logo_url from profile
+    return await OrgProfileService.updateProfile(supabase, orgId, { logo_url: null });
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

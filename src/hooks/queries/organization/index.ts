@@ -10,6 +10,7 @@ import {
   getOrgProfileAction,
   updateOrgProfileAction,
   uploadOrgLogoAction,
+  removeOrgLogoAction,
 } from "@/app/actions/organization/profile";
 import {
   listMembersAction,
@@ -125,6 +126,21 @@ export function useUploadOrgLogoMutation() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "Failed to upload logo");
+    },
+  });
+}
+
+export function useRemoveOrgLogoMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => unwrapSR((await removeOrgLogoAction()) as SR<OrgProfileData>),
+    onSuccess: (data) => {
+      queryClient.setQueryData(organizationKeys.profile(), data);
+      toast.success("Logo removed");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to remove logo");
     },
   });
 }
