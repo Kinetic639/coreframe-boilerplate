@@ -208,34 +208,9 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
     }
   }
 
-  // 6. Load user modules with proper join (if activeOrgId exists)
-  let userModules: LoadedUserModuleV2[] = [];
-
-  if (activeOrgId) {
-    // NOTE: If user_modules has organization_id column, add .eq("organization_id", activeOrgId)
-    // to prevent loading modules from other orgs when user belongs to multiple orgs
-    const { data: userModulesRaw, error: modulesError } = await supabase
-      .from("user_modules")
-      .select("setting_overrides, modules!left(id, slug, label, settings)")
-      .eq("user_id", userId)
-      .is("deleted_at", null);
-
-    if (modulesError && process.env.NODE_ENV === "development") {
-      console.error("[loadAppContextV2] Modules query failed:", modulesError);
-    }
-
-    userModules = (userModulesRaw || [])
-      .filter((um: any) => um.modules) // Filter out rows where module was deleted or join failed
-      .map((um: any) => ({
-        id: um.modules.id,
-        slug: um.modules.slug,
-        label: um.modules.label,
-        settings: {
-          ...um.modules.settings,
-          ...um.setting_overrides, // Merge user overrides
-        },
-      }));
-  }
+  // 6. User modules — the modules/user_modules tables were removed; the module
+  //    system is now entirely driven by the static registry in src/modules/index.ts.
+  const userModules: LoadedUserModuleV2[] = [];
 
   return {
     activeOrgId,
