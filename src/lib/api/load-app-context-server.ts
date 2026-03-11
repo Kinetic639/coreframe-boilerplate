@@ -7,15 +7,6 @@ import { AppContext, BranchData } from "@/lib/stores/app-store";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Helper function to safely spread objects (avoid spreading non-objects)
- */
-function safeObject(obj: unknown): Record<string, unknown> {
-  return obj && typeof obj === "object" && !Array.isArray(obj)
-    ? (obj as Record<string, unknown>)
-    : {};
-}
-
-/**
  * Load application context from server (SSR-safe)
  *
  * Contract:
@@ -142,36 +133,9 @@ async function _loadAppContextServerWithClient(
   // This ensures activeBranchId is consistent with activeBranch
   const finalActiveBranchId = activeBranch?.id ?? null;
 
-  // 6. Load user modules with merged settings (for feature gating)
-  const { data: userModulesRaw, error: userModulesError } = await supabase
-    .from("user_modules")
-    .select("setting_overrides, modules(*)")
-    .eq("user_id", userId)
-    .is("deleted_at", null);
-
-  if (userModulesError) {
-    console.error("[AppContext] Failed to load user_modules:", userModulesError);
-  }
-
-  const userModules = (userModulesRaw ?? [])
-    .map((entry) => {
-      const module = Array.isArray(entry.modules)
-        ? (entry.modules[0] as Tables<"modules"> | undefined)
-        : (entry.modules as Tables<"modules"> | undefined);
-
-      if (!module) return null;
-
-      return {
-        id: module.id,
-        slug: module.slug,
-        label: module.label,
-        settings: {
-          ...safeObject(module.settings),
-          ...safeObject(entry.setting_overrides),
-        },
-      };
-    })
-    .filter((m): m is NonNullable<typeof m> => m !== null);
+  // 6. User modules — the modules/user_modules tables were removed; the module
+  //    system is now entirely driven by the static registry in src/modules/index.ts.
+  const userModules: AppContext["userModules"] = [];
 
   // 7. Map branches to BranchData format
   const mappedBranches: BranchData[] = (availableBranches ?? []).map((branch) => ({

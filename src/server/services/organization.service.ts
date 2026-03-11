@@ -446,8 +446,6 @@ export interface OrgInvitation {
   email: string;
   invited_by: string;
   organization_id: string | null;
-  branch_id: string | null;
-  role_id: string | null;
   token: string;
   status: string;
   expires_at: string | null;
@@ -482,7 +480,7 @@ export class OrgInvitationsService {
     const { data, error } = await supabase
       .from("invitations")
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name, invitation_role_assignments(role_id, roles(name))"
+        "id, email, invited_by, organization_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name, invitation_role_assignments(role_id, roles(name))"
       )
       .eq("organization_id", orgId)
       .is("deleted_at", null)
@@ -545,7 +543,7 @@ export class OrgInvitationsService {
         invited_last_name: input.invited_last_name ?? null,
       })
       .select(
-        "id, email, invited_by, organization_id, branch_id, role_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name"
+        "id, email, invited_by, organization_id, token, status, expires_at, accepted_at, declined_at, created_at, deleted_at, invited_first_name, invited_last_name"
       )
       .maybeSingle();
 
