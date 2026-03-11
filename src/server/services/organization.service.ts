@@ -84,6 +84,16 @@ export class OrgProfileService {
     orgId: string,
     input: UpdateOrgProfileInput
   ): Promise<ServiceResult<OrgProfileData>> {
+    // If slug is being updated, sync it to organizations.slug (canonical + unique constraint).
+    // The trigger trg_sync_org_slug_to_profile will propagate it back to organization_profiles.
+    if (input.slug !== undefined) {
+      const { error: orgSlugError } = await supabase
+        .from("organizations")
+        .update({ slug: input.slug })
+        .eq("id", orgId);
+      if (orgSlugError) return { success: false, error: orgSlugError.message };
+    }
+
     const { data, error } = await supabase
       .from("organization_profiles")
       .update(input)
