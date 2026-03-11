@@ -48,17 +48,13 @@ export async function getAvailablePlansAction(): Promise<SubscriptionPlan[]> {
 }
 
 export async function checkOrgSlugAction(slug: string): Promise<{ available: boolean }> {
-  if (!slug || !/^[a-z0-9-]+$/.test(slug)) return { available: false };
+  if (!slug || slug.length < 2 || !/^[a-z0-9-]+$/.test(slug)) return { available: false };
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("organizations")
-    .select("id")
-    .eq("slug", slug)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  return { available: data === null };
+  // Uses SECURITY DEFINER function to bypass RLS (user has no org during onboarding)
+  const { data, error } = await supabase.rpc("check_org_slug_available", { p_slug: slug });
+  if (error) return { available: false };
+  return { available: data === true };
 }
 
 export async function createOrganizationAction(
