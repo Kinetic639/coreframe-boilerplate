@@ -6,6 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { OrgBranchesService, type CreateBranchInput } from "@/server/services/organization.service";
+import { eventService } from "@/server/services/event.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
@@ -73,11 +74,37 @@ export async function createBranchAction(rawInput: unknown) {
     const parsed = createBranchSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgBranchesService.createBranch(
+    const result = await OrgBranchesService.createBranch(
       supabase,
       context.app.activeOrgId,
       parsed.data as CreateBranchInput
     );
+
+    if (result.success) {
+      try {
+        await eventService.emit({
+          actionKey: "org.branch.created",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "branch",
+          entityId: result.data.id,
+          metadata: { branch_id: result.data.id, branch_name: result.data.name },
+          eventTier: "baseline",
+        });
+      } catch (emitError) {
+        console.error("[createBranchAction] Failed to emit org.branch.created:", {
+          actionKey: "org.branch.created",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "branch",
+          entityId: result.data.id,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -101,12 +128,46 @@ export async function updateBranchAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const { branchId, ...updateInput } = parsed.data;
-    return await OrgBranchesService.updateBranch(
+
+    const result = await OrgBranchesService.updateBranch(
       supabase,
       branchId,
       context.app.activeOrgId,
       updateInput
     );
+
+    if (result.success) {
+      const updatedFields = Object.keys(updateInput).filter(
+        (k) => (updateInput as Record<string, unknown>)[k] !== undefined
+      );
+      try {
+        await eventService.emit({
+          actionKey: "org.branch.updated",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "branch",
+          entityId: branchId,
+          metadata: {
+            branch_id: branchId,
+            branch_name: updateInput.name,
+            updated_fields: updatedFields,
+          },
+          eventTier: "baseline",
+        });
+      } catch (emitError) {
+        console.error("[updateBranchAction] Failed to emit org.branch.updated:", {
+          actionKey: "org.branch.updated",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "branch",
+          entityId: branchId,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -129,11 +190,37 @@ export async function deleteBranchAction(rawInput: unknown) {
     const parsed = branchIdSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgBranchesService.deleteBranch(
+    const result = await OrgBranchesService.deleteBranch(
       supabase,
       parsed.data.branchId,
       context.app.activeOrgId
     );
+
+    if (result.success) {
+      try {
+        await eventService.emit({
+          actionKey: "org.branch.deleted",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "branch",
+          entityId: parsed.data.branchId,
+          metadata: { branch_id: parsed.data.branchId },
+          eventTier: "enhanced",
+        });
+      } catch (emitError) {
+        console.error("[deleteBranchAction] Failed to emit org.branch.deleted:", {
+          actionKey: "org.branch.deleted",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "branch",
+          entityId: parsed.data.branchId,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

@@ -21,41 +21,131 @@ This document translates the canonical Event System architecture into a practica
 
 ### Phase 1 — Core database foundation
 
-- [ ] Create `platform_events` migration file
-- [ ] Create required indexes migration (separate or combined)
-- [ ] Add append-only protections (`REVOKE INSERT, UPDATE, DELETE FROM public/authenticated/anon`)
-- [ ] Add RLS policies (org isolation, no UPDATE/DELETE policies)
-- [ ] Validate raw DB access model (service-role only for inserts via event.service.ts or security-definer RPC)
+- [x] Create `platform_events` migration file
+- [x] Create required indexes migration (separate or combined)
+- [x] Add append-only protections (`REVOKE INSERT, UPDATE, DELETE FROM public/authenticated/anon`)
+- [x] Add RLS policies (org isolation, no INSERT/UPDATE/DELETE policies)
+- [x] Validate raw DB access model (service-role only for inserts via event.service.ts or security-definer RPC)
+
+**Notes (2026-03-21):**
+
+- Migration file: `supabase/migrations/20260321000001_platform_events.sql`
+- Applied to project `rjeraydumwechpjjzrus` via Supabase MCP — success
+- Verified: `authenticated` and `anon` roles have only SELECT privilege; INSERT/UPDATE/DELETE absent
+- Verified: `service_role` retains full privileges (bypasses RLS — correct for Mode A backend emission)
+- Verified: all 5 named indexes present (`pe_org_created_idx`, `pe_actor_user_idx`, `pe_action_key_idx`, `pe_entity_idx`, `pe_request_id_idx`)
+- Verified: RLS enabled, single SELECT-only policy `platform_events_org_members_read` — requires `organization_id IS NOT NULL AND is_org_member(organization_id)`
+- Verified: both check constraints present — `actor_type` (6 values) and `event_tier` (3 values)
+- Verified: both FK constraints present — `organization_id → organizations(id) ON DELETE SET NULL`, `actor_user_id → users(id) ON DELETE SET NULL`
+- Confirmed: `organizations.id` and `users.id` are both `uuid NOT NULL` — FK chain is correct
+- Confirmed: `is_org_member()` function exists in `public` schema
+- No `summary`, `visibility`, or `sensitivity` columns present
 
 ### Phase 2 — Backend infrastructure
 
-- [ ] Create `src/server/audit/types.ts`
-- [ ] Create `src/server/audit/event-registry.ts` with initial entries
-- [ ] Create `src/server/services/event.service.ts`
-- [ ] Implement Zod metadata validation per action key
-- [ ] Implement actor normalization helper
-- [ ] Implement request_id propagation pattern
-- [ ] Verify central emission invariant (no direct table inserts)
+- [x] Create `src/server/audit/types.ts`
+- [x] Create `src/server/audit/event-registry.ts` with initial entries
+- [x] Create `src/server/services/event.service.ts`
+- [x] Implement Zod metadata validation per action key
+- [x] Implement actor normalization helper
+- [x] Implement request_id propagation pattern
+- [x] Verify central emission invariant (no direct table inserts)
+
+**Notes (2026-03-21):**
+
+- Service-role client used: `createServiceClient()` from `@supabase/service` (`src/utils/supabase/service.ts`) — matches existing codebase pattern
+- `platform_events` not yet in generated DB types (migration applied after last type gen); used `client as any` for the `.from('platform_events')` call only — all application-level types remain strongly typed
+- `import "server-only"` added to both `event-registry.ts` and `event.service.ts` — `types.ts` deliberately has no runtime guard so it can be imported for type-checking in tests
+- `event_tier` in the insert always comes from the registry entry, never the caller-supplied `input.eventTier` — prevents callers from misusing tier classification
+- Actor normalization: any `actorType !== 'user'` forces `actorUserId = null` before insert
+- `validateMetadata()` exported separately for Mode B pre-validation use at action layer
+- TS discriminated union narrowing note: `EventServiceResult<T>` across different `T` does not narrow cleanly with `if (!result.success)` in this TypeScript config; used `(result as { success: false; error: string })` cast pattern in service and tests (consistent with existing codebase convention — see MEMORY.md)
+- `request_id` propagation: service accepts `requestId` as input, never generates it; generation is caller responsibility at workflow entry point
+- Tests: 239 tests pass (24 event service, 215 registry contract); all type errors resolved
+  - Test files: `src/server/audit/__tests__/event-registry.test.ts`, `src/server/services/__tests__/event.service.test.ts`
+  - Test suites: `T-REGISTRY-CONTRACT`, `T-REGISTRY-LOOKUP`, `T-REGISTRY-SCHEMA`, `T-REGISTRY-COVERAGE`, `T-EVENT-SERVICE`, `T-EVENT-VALIDATE`, `T-EVENT-INVARIANT`
 
 ### Phase 3 — Projection/read layer
 
-- [ ] Create `src/server/audit/projection.ts`
-- [ ] Implement event visibility filtering (per registry)
-- [ ] Implement field sensitivity filtering (per registry)
-- [ ] Implement summary generation (template interpolation)
-- [ ] Implement pagination support (limit/offset or cursor) in all projection queries
-- [ ] Define and test personal activity projection
-- [ ] Define and test organization activity projection
-- [ ] Define and test admin/audit projection
+- [x] Create `src/server/audit/projection.ts`
+- [x] Implement event visibility filtering (per registry)
+- [x] Implement field sensitivity filtering (per registry)
+- [x] Implement summary generation (template interpolation)
+- [x] Implement pagination support (limit/offset or cursor) in all projection queries
+- [x] Define and test personal activity projection
+- [x] Define and test organization activity projection
+- [x] Define and test admin/audit projection
+
+**Notes (2026-03-21):**
+
+- `projectEvents(input: ProjectionInput): ProjectionResult` — single entry point for all three scopes
+- Scope qualifiers: `personal` → `['self']`, `org` → `['self','org_member','org_admin']`, `audit` → all four
+- Personal scope applies additional actor guard: `event.actor_user_id === viewerUserId`
+- Sensitive fields stripped for personal + org scopes; audit scope always receives full metadata
+- `ip_address` / `user_agent` only included in result for audit scope; absent (not null) for personal/org
+- Summary generated by `{{actor}}`, `{{entity}}`, `{{target}}` interpolation against `summaryTemplate`
+- Unknown action keys: skipped with `console.warn` — no crash; allows registry gaps without service failure
+- Pagination: default limit=50; `total` reflects filtered count before pagination
+- Tests: 34 tests in `src/server/audit/__tests__/projection.test.ts`
+  - Suites: `T-PROJECTION-VISIBILITY`, `T-PROJECTION-PERSONAL`, `T-PROJECTION-SENSITIVITY`,
+    `T-PROJECTION-SUMMARY`, `T-PROJECTION-IPUA`, `T-PROJECTION-PAGINATION`, `T-PROJECTION-UNKNOWN`,
+    `T-PROJECTION-SHAPE`
 
 ### Phase 4 — First platform event integrations
 
-- [ ] Auth events (`auth.login`, `auth.login.failed`, `auth.password.*`)
-- [ ] Invitation events (`org.member.invited`, `org.invitation.cancelled`, `org.invitation.accepted`)
-- [ ] Membership events (`org.member.removed`, `org.member.role_changed`)
-- [ ] Organization events (`org.created`, `org.updated`, `org.branch.created`, `org.branch.updated`)
-- [ ] Role/permission events (`org.role.created`, `org.role.updated`, `org.role.deleted`)
-- [ ] Onboarding events (`org.onboarding.completed`, `org.onboarding.step_completed`)
+- [x] Auth events (`auth.login`, `auth.login.failed`, `auth.password.reset_requested`, `auth.password.reset_completed`, `auth.session.revoked`)
+- [x] Invitation events (`org.member.invited`, `org.invitation.cancelled`, `org.invitation.accepted`)
+- [x] Membership events (`org.member.removed`, `org.member.role_assigned`, `org.member.role_removed`)
+- [x] Organization events (`org.created`, `org.updated`, `org.branch.created`, `org.branch.updated`, `org.branch.deleted`)
+- [x] Role/permission events (`org.role.created`, `org.role.deleted`, `org.member.role_assigned`, `org.member.role_removed`)
+- [x] Onboarding events (`org.created`, `org.onboarding.completed`)
+
+**Notes (2026-03-13):**
+
+- All events emitted via `eventService.emit()` — no direct table inserts
+- Emit happens AFTER successful domain write in all cases; emit failure is best-effort (logged, does not rollback)
+- **Auth events** wired in `src/app/[locale]/actions.ts`:
+  - `auth.login.failed` emitted before redirect on sign-in error
+  - `auth.login` emitted before org/invite routing after successful sign-in
+  - `auth.password.reset_requested` emitted in `forgotPasswordAction`
+  - `auth.password.reset_completed` emitted after `updateUser()` succeeds; user fetched before `signOut()`
+  - `auth.session.revoked` emitted in `signOutAction`; user fetched BEFORE `signOut()` to capture ID
+  - All emits placed before `redirect()` calls (which throw exceptions in Next.js)
+- **Org events** wired in `src/app/actions/organization/profile.ts`:
+  - `org.updated` emitted with `updated_fields` computed from input keys
+- **Invitation events** wired in `src/app/actions/organization/invitations.ts`:
+  - `org.member.invited` emitted using `result.data.id` (invitation id) and `result.data.email`
+  - `org.invitation.cancelled`: invitation email pre-fetched before cancel (service returns void)
+  - `org.invitation.accepted`: user and invitation id fetched before `acceptInvitation()` call
+- **Member events** wired in `src/app/actions/organization/members.ts`:
+  - `org.member.removed` emitted with `removed_user_id`
+- **Role events** wired in `src/app/actions/organization/roles.ts`:
+  - `org.role.created`: uses `result.data.id` and `result.data.name`
+  - `org.role.deleted`: role name pre-fetched before deletion (service returns void)
+  - `org.member.role_assigned` / `org.member.role_removed`: role name pre-fetched before operation
+  - IIFE pattern used in `updateRoleAction` for conditional name fetch
+- **Branch events** wired in `src/app/actions/organization/branches.ts`:
+  - `org.branch.created`, `org.branch.updated` (with `updated_fields`), `org.branch.deleted`
+- **Onboarding events** wired in `src/app/actions/onboarding/index.ts`:
+  - `org.created` and `org.onboarding.completed` share a `requestId` (single `crypto.randomUUID()`)
+  - User fetched via `supabase.auth.getUser()` before RPC call
+- **requestId propagation**: `org.created` + `org.onboarding.completed` share one UUID; single-event actions do not set `requestId`
+- **Tests**: 26 tests in `src/app/actions/__tests__/event-wiring.test.ts`
+  - Covers all wired action/event pairs + negative cases (no emit on failure)
+  - Verifies `org.created` and `org.onboarding.completed` share the same non-null `requestId`
+  - Metadata schema validation for 8 action keys via `validateMetadata()`
+  - Uses `vi.hoisted()` for constants and mock helpers to avoid TDZ errors with hoisted `vi.mock()` factories
+
+**Phase 4 correction pass applied (2026-03-13):**
+
+- **Problem**: All `await eventService.emit()` calls were bare inside `if (result.success)` blocks. The outer `try/catch` in each action would convert an emit failure into `{ success: false, error: "Unexpected error" }`, incorrectly failing a successful domain operation. Auth actions had no outer try/catch — an emit throw would break the redirect flow.
+- **Fix**: Every Mode A emit site is now wrapped in its own isolated `try/catch`. Domain write succeeds → business result is confirmed → emit is attempted → any emit failure is logged and swallowed, the action returns its original success result unchanged.
+- **Logging**: Emit failures log with `console.error("[actionName] Failed to emit <actionKey>:", { actionKey, organizationId, actorUserId, entityType, entityId, error })`. Auth actions include `entityId` instead of org fields since those events have no org context.
+- **requestId**: Onboarding `requestId` propagation is fully preserved. The two emits share a single try/catch block so one UUID covers both — if `org.created` emits but `org.onboarding.completed` throws, the catch handles the partial failure without failing the action.
+- **Tests**: 7 Mode A resilience tests added in `T-EVENT-WIRING-MODE-A` suite (total 33 tests, all passing):
+  - Covers: `removeMemberAction`, `createRoleAction`, `createBranchAction`, `updateOrgProfileAction`, `cancelInvitationAction`, `createOrganizationAction` — all return `success: true` when emit throws
+  - Verifies `console.error` is called with structured context including `actionKey` and `error`
+  - Verifies requestId propagation still correct when emits succeed normally
 
 ### Phase 5 — Frontend surfaces
 
@@ -151,7 +241,7 @@ The event system infrastructure will be ready to support warehouse/workshop/VMI 
 1. Will `organization_id` be enforced as NOT NULL for non-auth events at the application layer only, or also via DB constraint? _(Architecture says nullable — confirm that stays as-is)_
 2. Will `event_tier` be enforced as a `check` constraint on the DB column? _(Recommended: yes)_
 3. Will `actor_type` be enforced as a `check` constraint on the DB column? _(Recommended: yes)_
-4. Will request_id generation live in middleware, server actions, or be manually threaded? _(Recommended: server action or service boundary — see Section D)_
+4. Will request*id generation live in middleware, server actions, or be manually threaded? *(Recommended: server action or service boundary — see Section D)\_
 5. Confirm `audit.events.read` as the permission slug for Admin/Audit View access and create the corresponding `permissions` table row before Phase 5 begins.
 
 **Dependencies:** Architecture README reviewed and understood.

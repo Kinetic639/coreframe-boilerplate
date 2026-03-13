@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { eventService } from "@/server/services/event.service";
 
 export type SubscriptionPlan = {
   id: string;
@@ -66,6 +67,11 @@ export async function createOrganizationAction(
 ): Promise<CreateOrganizationResult> {
   const supabase = await createClient();
 
+  // Get the current user for event actor attribution
+  const {
+    data: { user: onboardingUser },
+  } = await supabase.auth.getUser();
+
   const { data, error } = await supabase.rpc("create_organization_for_current_user", {
     p_name: orgName.trim(),
     p_branch_name: branchName.trim(),
@@ -90,9 +96,53 @@ export async function createOrganizationAction(
     return { success: false, error: result.error ?? "Unknown error" };
   }
 
+  const organizationId = result.organization_id!;
+
+  // Generate one requestId so both events are correlated to this onboarding workflow
+  const requestId = crypto.randomUUID();
+
+  try {
+    await eventService.emit({
+      actionKey: "org.created",
+      actorType: "user",
+      actorUserId: onboardingUser?.id ?? null,
+      organizationId,
+      entityType: "organization",
+      entityId: organizationId,
+      metadata: {
+        org_name: orgName.trim(),
+        org_slug: orgSlug?.trim() || undefined,
+      },
+      eventTier: "baseline",
+      requestId,
+    });
+
+    await eventService.emit({
+      actionKey: "org.onboarding.completed",
+      actorType: "user",
+      actorUserId: onboardingUser?.id ?? null,
+      organizationId,
+      entityType: "organization",
+      entityId: organizationId,
+      metadata: { org_name: orgName.trim() },
+      eventTier: "baseline",
+      requestId,
+    });
+  } catch (emitError) {
+    console.error("[createOrganizationAction] Failed to emit org creation events:", {
+      actionKey: "org.created / org.onboarding.completed",
+      organizationId,
+      actorUserId: onboardingUser?.id ?? null,
+      entityType: "organization",
+      entityId: organizationId,
+      requestId,
+      error: emitError,
+    });
+  }
+
   return {
     success: true,
-    organizationId: result.organization_id!,
+    organizationId,
     alreadyExisted: result.already_existed ?? false,
   };
 }

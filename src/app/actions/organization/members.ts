@@ -6,6 +6,7 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { OrgMembersService } from "@/server/services/organization.service";
+import { eventService } from "@/server/services/event.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
@@ -85,11 +86,39 @@ export async function removeMemberAction(rawInput: unknown) {
     const parsed = removeSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgMembersService.removeMember(
+    const result = await OrgMembersService.removeMember(
       supabase,
       context.app.activeOrgId,
       parsed.data.userId
     );
+
+    if (result.success) {
+      try {
+        await eventService.emit({
+          actionKey: "org.member.removed",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "user",
+          entityId: parsed.data.userId,
+          targetType: "user",
+          targetId: parsed.data.userId,
+          metadata: { removed_user_id: parsed.data.userId },
+          eventTier: "enhanced",
+        });
+      } catch (emitError) {
+        console.error("[removeMemberAction] Failed to emit org.member.removed:", {
+          actionKey: "org.member.removed",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "user",
+          entityId: parsed.data.userId,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
