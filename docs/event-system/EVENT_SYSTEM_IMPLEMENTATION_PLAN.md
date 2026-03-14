@@ -273,6 +273,12 @@ Three classes of runtime bugs were identified and fixed. No DB migration was req
 - `T-REGISTRY-VISIBILITY` suite (11 new tests in `src/app/actions/__tests__/event-wiring.test.ts`): all 15 org event keys have `"self"` in `visibleTo`; personal scope shows actor-owned `org.updated`; personal scope hides `org.updated` for a different actor; personal scope shows actor-owned `org.member.invited`; personal scope shows actor-owned `org.branch.created`; org scope shows `org.updated` for any viewer; org scope shows `org.created` for any viewer; audit scope shows all 3 test org events; audit scope preserves sensitive fields in metadata; personal scope strips sensitive fields from `org.member.invited` metadata; personal scope excludes `ip_address`/`user_agent`; audit scope includes `ip_address`/`user_agent`.
 - `projection.test.ts` updated: the test that asserted `org.member.invited` was not visible in personal scope was corrected to use `auth.login.failed` (which genuinely has `visibleTo: ["auditor"]` only) to document the no-self case.
 
+**i18n cleanup pass (2026-03-14) — `nav-user.tsx` hardcoded strings removed:**
+
+- **Issue**: The runtime correction pass for Bug 1 (logout wiring) left `nav-user.tsx` compliant on event emission but non-compliant on i18n — all user-facing menu labels were still hardcoded English strings (`Home`, `Account`, `Dashboard`, `Admin Panel`, `Diagnostics`, `Log out`).
+- **Fix**: Added `useTranslations("dashboard.userMenu")` hook. All 6 hardcoded strings replaced with `t(key)` calls. New keys added to `dashboard.userMenu` namespace in both `messages/en.json` and `messages/pl.json`.
+- **Logout runtime fix is unchanged**: The `<form action={signOutAction}>` pattern is preserved exactly — only the button label text was touched.
+
 ### Phase 7 — Forensic-ready module guidance
 
 - [ ] Document warehouse event integration rules (wiring, not deep version history)
