@@ -215,14 +215,30 @@ This document translates the canonical Event System architecture into a practica
 
 ### Phase 6 — Testing and verification
 
-- [ ] Event service unit tests (emit, validation, actor normalization)
-- [ ] Registry contract tests (all registered events have valid schemas)
-- [ ] Projection unit tests (visibility, field filtering, summary generation)
-- [ ] Integration tests (emit → store → project → UI cycle)
-- [ ] Permission/visibility tests (viewer scope isolation)
-- [ ] Request correlation tests (multi-event workflows)
-- [ ] Transaction rollback consistency tests
-- [ ] Append-only enforcement tests (UPDATE/DELETE rejected)
+- [x] Event service unit tests (emit, validation, actor normalization)
+- [x] Registry contract tests (all registered events have valid schemas)
+- [x] Projection unit tests (visibility, field filtering, summary generation)
+- [x] Integration tests (emit → store → project → UI cycle)
+- [x] Permission/visibility tests (viewer scope isolation)
+- [x] Request correlation tests (multi-event workflows)
+- [x] Transaction rollback consistency tests
+- [x] Append-only enforcement tests (UPDATE/DELETE rejected)
+
+**Notes (2026-03-14):**
+
+- Test files: `event.service.test.ts` (24), `event-registry.test.ts` (215), `projection.test.ts` (34), `feed-actions.test.ts` (46), `event-system-phase6.test.ts` (22) — **341 tests total, all passing**
+- Phase 6 test file: `src/server/audit/__tests__/event-system-phase6.test.ts`
+- Suites: `T-INTEGRATION` (5), `T-REQUEST-CORRELATION` (5), `T-ROLLBACK-CONSISTENCY` (5), `T-APPEND-ONLY` (7)
+- Build fix applied: removed `"use server"` from `src/app/actions/audit/_query.ts` (was blocking Turbopack — only async functions may be exported from "use server" files)
+- Vitest alias added: `@supabase/service` → `src/utils/supabase/service.ts` (enables `vi.mock("@supabase/service")` in tests)
+
+**Hardening pass (2026-03-14):**
+
+- **Emission failure logging improved**: both `[event.emit.failure]` and `[event.emit.unexpected]` log payloads now include `organizationId`, `actorUserId`, `entityType`, `entityId`, `requestId` in addition to `actionKey` and `error` — full diagnostic context for production log search
+- **Standardized log identifiers**: `[eventService.emit] DB insert failed` → `[event.emit.failure]`; `[eventService.emit] Unexpected error` → `[event.emit.unexpected]` — consistent, searchable, parseable in structured log systems
+- **Logout event bug fixed**: `signOutAction` now guards emit behind `if (signingOutUser?.id)` — root cause: when `supabase.auth.getUser()` returns null (expired access token before middleware refresh), the event was stored with `actor_user_id = null`; `fetchPersonalOrgNullEvents` filters by `actor_user_id = userId` (equality, not IS NULL), so null-actor events were permanently invisible in personal feeds; the guard prevents storing unfindable events
+- **Logout event tests added** (`T-LOGOUT-PIPELINE` suite, 10 tests): registry contract, metadata schema, emit insert payload, personal feed visibility, other-user isolation, audit scope fields, sensitive-field passthrough (no sensitive fields on `auth.session.revoked`), null-actor behaviour documentation, null-actor personal feed guard, and full emit→project cycle
+- Updated test totals: `event-system-phase6.test.ts` now has 32 tests
 
 ### Phase 7 — Forensic-ready module guidance
 
