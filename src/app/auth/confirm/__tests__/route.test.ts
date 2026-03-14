@@ -152,7 +152,8 @@ describe("POST /auth/confirm", () => {
 
       const response = await GET(request);
 
-      expect(response.headers.get("location")).toContain("/auth/auth-code-error");
+      // Default locale is Polish — error page is /blad-uwierzytelniania
+      expect(response.headers.get("location")).toContain("/blad-uwierzytelniania");
     });
 
     it("should redirect to error page for expired token", async () => {
@@ -168,7 +169,7 @@ describe("POST /auth/confirm", () => {
 
       const response = await GET(request);
 
-      expect(response.headers.get("location")).toContain("/auth/auth-code-error");
+      expect(response.headers.get("location")).toContain("/blad-uwierzytelniania");
     });
 
     it("should redirect to error page for already-used token", async () => {
@@ -184,7 +185,7 @@ describe("POST /auth/confirm", () => {
 
       const response = await GET(request);
 
-      expect(response.headers.get("location")).toContain("/auth/auth-code-error");
+      expect(response.headers.get("location")).toContain("/blad-uwierzytelniania");
     });
   });
 
@@ -276,7 +277,8 @@ describe("POST /auth/confirm", () => {
 
       const response = await GET(request);
 
-      expect(response.headers.get("location")).toContain("/auth/auth-code-error");
+      // Default locale is Polish — error page is /blad-uwierzytelniania
+      expect(response.headers.get("location")).toContain("/blad-uwierzytelniania");
     });
 
     it("should handle malformed next URL", async () => {

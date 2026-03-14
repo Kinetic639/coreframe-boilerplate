@@ -400,19 +400,7 @@ describe("loadAppContextServer", () => {
       expect(result?.availableBranches).toHaveLength(1);
     });
 
-    it("should load userModules with merged settings", async () => {
-      const mockModulesData = [
-        {
-          setting_overrides: { feature_x: false },
-          modules: {
-            id: "mod-1",
-            slug: "warehouse",
-            label: "Warehouse",
-            settings: { feature_x: true, feature_y: true },
-          },
-        },
-      ];
-
+    it("should return empty userModules (module system now uses static registry)", async () => {
       const mockPrefQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -422,36 +410,21 @@ describe("loadAppContextServer", () => {
       const mockOwnedOrgQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(), // Support .order() for deterministic fallback
+        order: vi.fn().mockReturnThis(),
         limit: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: null }),
-      };
-
-      const mockModulesQuery = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        is: vi.fn().mockResolvedValue({ data: mockModulesData }),
       };
 
       mockSupabase.from.mockImplementation((table: string) => {
         if (table === "user_preferences") return mockPrefQuery;
         if (table === "organizations") return mockOwnedOrgQuery;
-        if (table === "user_modules") return mockModulesQuery;
         return mockPrefQuery;
       });
 
       const result = await _loadAppContextServer();
 
-      expect(result?.userModules).toHaveLength(1);
-      expect(result?.userModules[0]).toEqual({
-        id: "mod-1",
-        slug: "warehouse",
-        label: "Warehouse",
-        settings: {
-          feature_x: false, // Override wins
-          feature_y: true, // From module settings
-        },
-      });
+      // user_modules table was removed; module system uses static registry in src/modules/index.ts
+      expect(result?.userModules).toHaveLength(0);
     });
   });
 
