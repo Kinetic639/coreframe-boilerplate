@@ -3,6 +3,13 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Hoisted mock factory — must come before vi.mock() calls so the reference is
+// available inside the factory closure (Vitest hoists vi.mock to top of file).
+const { mockEmit } = vi.hoisted(() => {
+  const mockEmit = vi.fn().mockResolvedValue({ success: true, data: { id: "evt-test" } });
+  return { mockEmit };
+});
+
 // Mock modules before imports
 const mockSupabaseClient = {
   auth: {
@@ -10,7 +17,16 @@ const mockSupabaseClient = {
     updateUser: vi.fn(),
     signOut: vi.fn(),
     getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-test" } }, error: null }),
+    signInWithPassword: vi.fn(),
   },
+  rpc: vi.fn().mockResolvedValue({ data: { success: true, invitations: [] }, error: null }),
+  from: vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { organization_id: "org-1" }, error: null }),
+  }),
 };
 
 const mockHeaders = new Map([["origin", "http://localhost:3000"]]);
@@ -56,8 +72,12 @@ vi.mock("@/utils/utils", () => ({
   })),
 }));
 
+vi.mock("@/server/services/event.service", () => ({
+  eventService: { emit: mockEmit, validateMetadata: vi.fn() },
+}));
+
 // Import actions and mocked functions after mocks are set up
-import { forgotPasswordAction, resetPasswordAction } from "../actions";
+import { forgotPasswordAction, resetPasswordAction, signInAction, signOutAction } from "../actions";
 import { redirect as mockRedirect } from "@/i18n/navigation";
 
 describe("Auth Actions", () => {
@@ -368,6 +388,180 @@ describe("Auth Actions", () => {
       await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalled();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-EMIT-TYPED-FAILURE — typed result handling for eventService.emit()
+// ---------------------------------------------------------------------------
+// Verifies that:
+//  1. All action-layer emit call sites use the typed result pattern
+//     (not try/catch which is dead code for eventService.emit())
+//  2. When emit() returns { success: false }, the auth flow still completes
+//     (Mode A best-effort: business logic is never blocked by emit failure)
+//  3. When emit() returns { success: false }, console.error is called with
+//     the typed error string from emitResult.error (not a caught exception)
+// ---------------------------------------------------------------------------
+describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Default: emit succeeds — override in specific tests
+    mockEmit.mockResolvedValue({ success: true, data: { id: "evt-test" } });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // -------------------------------------------------------------------------
+  // forgotPasswordAction
+  // -------------------------------------------------------------------------
+  describe("forgotPasswordAction", () => {
+    it("action continues and returns success when emit returns { success: false }", async () => {
+      mockEmit.mockResolvedValue({ success: false, error: "Event insert failed: DB down" });
+
+      mockSupabaseClient.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+
+      const result = await forgotPasswordAction(formData);
+
+      // Business flow is unaffected — security success message still returned
+      expect((result as any).type).toBe("success");
+    });
+
+    it("logs typed error string when emit returns { success: false }", async () => {
+      const typedError = "Event insert failed: connection refused";
+      mockEmit.mockResolvedValue({ success: false, error: typedError });
+
+      mockSupabaseClient.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+
+      await forgotPasswordAction(formData);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[forgotPasswordAction] Failed to emit auth.password.reset_requested:",
+        expect.objectContaining({ error: typedError })
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("does NOT log when emit returns { success: true }", async () => {
+      mockSupabaseClient.auth.resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+
+      await forgotPasswordAction(formData);
+
+      expect(consoleSpy).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // signInAction — failed login path (auth.login.failed event)
+  // -------------------------------------------------------------------------
+  describe("signInAction — failed login emit", () => {
+    it("action returns error redirect when emit returns { success: false }", async () => {
+      mockEmit.mockResolvedValue({ success: false, error: "Event insert failed: timeout" });
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: {},
+        error: { message: "Invalid login credentials" },
+      });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "wrong");
+
+      // Business flow continues — encodedRedirect is returned (not thrown)
+      const result = await signInAction(formData);
+      expect((result as any).type).toBe("error");
+    });
+
+    it("logs typed error string for auth.login.failed when emit fails", async () => {
+      const typedError = "Unregistered action key: auth.login.failed";
+      mockEmit.mockResolvedValue({ success: false, error: typedError });
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: {},
+        error: { message: "Invalid login credentials" },
+      });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "wrong");
+
+      await signInAction(formData);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[signInAction] Failed to emit auth.login.failed:",
+        expect.objectContaining({ error: typedError })
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // signOutAction — session revoked event
+  // -------------------------------------------------------------------------
+  describe("signOutAction", () => {
+    it("redirect still happens when emit returns { success: false }", async () => {
+      mockEmit.mockResolvedValue({ success: false, error: "Event insert failed: DB down" });
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: "user-abc" } },
+        error: null,
+      });
+      mockSupabaseClient.auth.signOut.mockResolvedValue({ error: null });
+
+      // redirect throws NEXT_REDIRECT — action must not swallow it
+      await expect(signOutAction()).rejects.toThrow("NEXT_REDIRECT");
+    });
+
+    it("logs typed error string for auth.session.revoked when emit fails", async () => {
+      const typedError = "Event insert failed: column not found";
+      mockEmit.mockResolvedValue({ success: false, error: typedError });
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: "user-abc" } },
+        error: null,
+      });
+      mockSupabaseClient.auth.signOut.mockResolvedValue({ error: null });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(signOutAction()).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[signOutAction] Failed to emit auth.session.revoked:",
+        expect.objectContaining({ error: typedError })
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("skips emit entirely when getUser returns null (null-actor guard)", async () => {
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: null,
+      });
+      mockSupabaseClient.auth.signOut.mockResolvedValue({ error: null });
+
+      await expect(signOutAction()).rejects.toThrow("NEXT_REDIRECT");
+
+      // emit must NOT be called — null actor produces unfindable events
+      expect(mockEmit).not.toHaveBeenCalled();
     });
   });
 });

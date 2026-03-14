@@ -162,6 +162,7 @@ vi.mock("@/server/services/organization.service", () => ({
 // ---------------------------------------------------------------------------
 
 import { eventService } from "@/server/services/event.service";
+import { createClient } from "@/utils/supabase/server";
 import {
   OrgInvitationsService,
   OrgMembersService,
@@ -187,7 +188,11 @@ import {
   updateBranchAction,
   deleteBranchAction,
 } from "@/app/actions/organization/branches";
-import { updateOrgProfileAction } from "@/app/actions/organization/profile";
+import {
+  updateOrgProfileAction,
+  uploadOrgLogoAction,
+  removeOrgLogoAction,
+} from "@/app/actions/organization/profile";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -548,6 +553,93 @@ describe("T-EVENT-WIRING: org.updated", () => {
 
     expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
   });
+
+  it("uploadOrgLogoAction emits org.updated with updated_fields: [logo_url] on success", async () => {
+    vi.mocked(OrgProfileService.uploadLogo).mockResolvedValue({
+      success: true,
+      data: { logo_url: "https://example.com/logo.png" } as any,
+    });
+
+    const formData = new FormData();
+    const file = new File(["x"], "logo.png", { type: "image/png" });
+    formData.append("file", file);
+
+    await uploadOrgLogoAction(formData);
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.updated",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        metadata: { updated_fields: ["logo_url"] },
+      })
+    );
+  });
+
+  it("uploadOrgLogoAction does NOT emit when upload fails", async () => {
+    vi.mocked(OrgProfileService.uploadLogo).mockResolvedValue({
+      success: false,
+      error: "File too large",
+    });
+
+    const formData = new FormData();
+    const file = new File(["x"], "logo.png", { type: "image/png" });
+    formData.append("file", file);
+
+    await uploadOrgLogoAction(formData);
+
+    expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
+  });
+
+  it("removeOrgLogoAction emits org.updated with updated_fields: [logo_url] on success", async () => {
+    vi.mocked(OrgProfileService.updateProfile).mockResolvedValue({
+      success: true,
+      data: { logo_url: null } as any,
+    });
+    // removeOrgLogoAction calls supabase.storage directly for list/remove
+    vi.mocked(createClient).mockResolvedValueOnce({
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      storage: {
+        from: vi.fn().mockReturnValue({
+          list: vi.fn().mockResolvedValue({ data: [], error: null }),
+          remove: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      },
+    } as any);
+
+    await removeOrgLogoAction();
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.updated",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        metadata: { updated_fields: ["logo_url"] },
+      })
+    );
+  });
+
+  it("removeOrgLogoAction does NOT emit when profile update fails", async () => {
+    vi.mocked(OrgProfileService.updateProfile).mockResolvedValue({
+      success: false,
+      error: "DB error",
+    });
+    vi.mocked(createClient).mockResolvedValueOnce({
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      storage: {
+        from: vi.fn().mockReturnValue({
+          list: vi.fn().mockResolvedValue({ data: [], error: null }),
+          remove: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      },
+    } as any);
+
+    await removeOrgLogoAction();
+
+    expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -780,7 +872,13 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     consoleErrorSpy.mockRestore();
   });
 
-  it("updateOrgProfileAction returns success even when emit throws", async () => {
+  it("updateOrgProfileAction returns success even when emit returns { success: false }", async () => {
+    // updateOrgProfileAction uses typed result pattern — eventService.emit never throws,
+    // so we test the { success: false } typed-failure path (not a thrown exception)
+    vi.mocked(eventService.emit).mockResolvedValue({
+      success: false,
+      error: "Event insert failed: DB down",
+    });
     vi.mocked(OrgProfileService.updateProfile).mockResolvedValue({
       success: true,
       data: { name: "NewName" } as any,
@@ -792,7 +890,10 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[updateOrgProfileAction]"),
-      expect.objectContaining({ actionKey: "org.updated", error: expect.any(Error) })
+      expect.objectContaining({
+        actionKey: "org.updated",
+        error: "Event insert failed: DB down",
+      })
     );
     consoleErrorSpy.mockRestore();
   });
@@ -863,5 +964,228 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
 
     expect(createdCall?.requestId).toBeTruthy();
     expect(createdCall?.requestId).toBe(onboardedCall?.requestId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-REGISTRY-VISIBILITY: personal scope now surfaces actor-owned org events
+// ---------------------------------------------------------------------------
+
+import { projectEvents } from "@/server/audit/projection";
+import { getRegistryEntry } from "@/server/audit/event-registry";
+import type { PlatformEventRow, ProjectionContext } from "@/server/audit/types";
+
+const VIEWER_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const OTHER_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const TEST_ORG_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+function makeOrgRow(
+  actionKey: string,
+  actorUserId: string,
+  overrides: Partial<PlatformEventRow> = {}
+): PlatformEventRow {
+  return {
+    id: "evt-" + actionKey,
+    created_at: "2026-03-14T10:00:00.000Z",
+    organization_id: TEST_ORG_ID,
+    branch_id: null,
+    actor_user_id: actorUserId,
+    actor_type: "user",
+    module_slug: "organization-management",
+    action_key: actionKey,
+    entity_type: "organization",
+    entity_id: TEST_ORG_ID,
+    target_type: null,
+    target_id: null,
+    metadata: {},
+    event_tier: "baseline",
+    request_id: null,
+    ip_address: null,
+    user_agent: null,
+    ...overrides,
+  };
+}
+
+function makePersonalContext(viewerUserId: string): ProjectionContext {
+  return {
+    viewerUserId,
+    viewerScope: "personal",
+    organizationId: TEST_ORG_ID,
+    permissions: [],
+  };
+}
+
+function makeOrgContext(viewerUserId: string): ProjectionContext {
+  return {
+    viewerUserId,
+    viewerScope: "org",
+    organizationId: TEST_ORG_ID,
+    permissions: [],
+  };
+}
+
+function makeAuditContext(viewerUserId: string): ProjectionContext {
+  return {
+    viewerUserId,
+    viewerScope: "audit",
+    organizationId: TEST_ORG_ID,
+    permissions: [],
+  };
+}
+
+describe("T-REGISTRY-VISIBILITY: personal scope now surfaces actor-owned org events", () => {
+  it("all 15 org event action keys have 'self' in visibleTo", () => {
+    const orgEventKeys = [
+      "org.created",
+      "org.updated",
+      "org.member.invited",
+      "org.member.removed",
+      "org.invitation.accepted",
+      "org.invitation.cancelled",
+      "org.role.created",
+      "org.role.updated",
+      "org.role.deleted",
+      "org.member.role_assigned",
+      "org.member.role_removed",
+      "org.branch.created",
+      "org.branch.updated",
+      "org.branch.deleted",
+      "org.onboarding.completed",
+    ];
+
+    for (const key of orgEventKeys) {
+      const entry = getRegistryEntry(key);
+      expect(entry, `Registry entry missing for ${key}`).toBeDefined();
+      expect(entry!.visibleTo, `${key} must include "self" in visibleTo`).toContain("self");
+    }
+  });
+
+  it("personal scope shows org.updated when actor is the viewer", () => {
+    const row = makeOrgRow("org.updated", VIEWER_ID);
+    const result = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+    expect(result.events[0].action_key).toBe("org.updated");
+  });
+
+  it("personal scope hides org.updated when actor is a different user", () => {
+    const row = makeOrgRow("org.updated", OTHER_ID);
+    const result = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(0);
+  });
+
+  it("personal scope shows org.member.invited when actor is the viewer", () => {
+    const row = makeOrgRow("org.member.invited", VIEWER_ID, {
+      event_tier: "enhanced",
+      metadata: { invitee_email: "invite@example.com" },
+    });
+    const result = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("personal scope shows org.branch.created when actor is the viewer", () => {
+    const row = makeOrgRow("org.branch.created", VIEWER_ID, {
+      metadata: { branch_name: "Test Branch" },
+    });
+    const result = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("org scope shows org.updated for any viewer in the org", () => {
+    const row = makeOrgRow("org.updated", OTHER_ID);
+    const result = projectEvents({
+      events: [row],
+      context: makeOrgContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("org scope shows org.created for any viewer in the org", () => {
+    const row = makeOrgRow("org.created", OTHER_ID);
+    const result = projectEvents({
+      events: [row],
+      context: makeOrgContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("audit scope shows all org events regardless of actor", () => {
+    const rows = [
+      makeOrgRow("org.updated", OTHER_ID),
+      makeOrgRow("org.member.invited", OTHER_ID, {
+        event_tier: "enhanced",
+        metadata: { invitee_email: "x@y.com" },
+      }),
+      makeOrgRow("org.role.deleted", OTHER_ID, { event_tier: "enhanced" }),
+    ];
+    const result = projectEvents({
+      events: rows,
+      context: makeAuditContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(3);
+  });
+
+  it("audit scope preserves sensitive fields in metadata", () => {
+    const row = makeOrgRow("org.member.invited", OTHER_ID, {
+      event_tier: "enhanced",
+      metadata: { invitee_email: "secret@example.com", invitee_first_name: "Alice" },
+    });
+    const auditResult = projectEvents({
+      events: [row],
+      context: makeAuditContext(VIEWER_ID),
+    });
+    expect(auditResult.events[0].metadata).toHaveProperty("invitee_email", "secret@example.com");
+    expect(auditResult.events[0].metadata).toHaveProperty("invitee_first_name", "Alice");
+  });
+
+  it("personal scope strips sensitive fields from org.member.invited metadata", () => {
+    const row = makeOrgRow("org.member.invited", VIEWER_ID, {
+      event_tier: "enhanced",
+      metadata: { invitee_email: "secret@example.com", invitee_first_name: "Alice" },
+    });
+    const personalResult = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(personalResult.total).toBe(1);
+    expect(personalResult.events[0].metadata).not.toHaveProperty("invitee_email");
+    expect(personalResult.events[0].metadata).not.toHaveProperty("invitee_first_name");
+  });
+
+  it("personal scope does not include ip_address or user_agent", () => {
+    const row = makeOrgRow("org.updated", VIEWER_ID, {
+      ip_address: "1.2.3.4",
+      user_agent: "Mozilla/5.0",
+    });
+    const result = projectEvents({
+      events: [row],
+      context: makePersonalContext(VIEWER_ID),
+    });
+    expect(result.events[0].ip_address).toBeUndefined();
+    expect(result.events[0].user_agent).toBeUndefined();
+  });
+
+  it("audit scope includes ip_address and user_agent", () => {
+    const row = makeOrgRow("org.updated", VIEWER_ID, {
+      ip_address: "1.2.3.4",
+      user_agent: "Mozilla/5.0",
+    });
+    const result = projectEvents({
+      events: [row],
+      context: makeAuditContext(VIEWER_ID),
+    });
+    expect(result.events[0].ip_address).toBe("1.2.3.4");
+    expect(result.events[0].user_agent).toBe("Mozilla/5.0");
   });
 });

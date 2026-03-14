@@ -101,22 +101,21 @@ export const signInAction = async (formData: FormData) => {
       : error.message;
 
     // Emit failed login — best effort, must not block the redirect
-    try {
-      await eventService.emit({
-        actionKey: "auth.login.failed",
-        actorType: "user",
-        actorUserId: null,
-        organizationId: null,
-        entityType: "auth",
-        entityId: email,
-        metadata: { email, reason: "invalid_credentials" },
-        eventTier: "baseline",
-      });
-    } catch (emitError) {
+    const failedLoginResult = await eventService.emit({
+      actionKey: "auth.login.failed",
+      actorType: "user",
+      actorUserId: null,
+      organizationId: null,
+      entityType: "auth",
+      entityId: email,
+      metadata: { email, reason: "invalid_credentials" },
+      eventTier: "baseline",
+    });
+    if (!failedLoginResult.success) {
       console.error("[signInAction] Failed to emit auth.login.failed:", {
         actionKey: "auth.login.failed",
         entityId: email,
-        error: emitError,
+        error: failedLoginResult.error,
       });
     }
 
@@ -130,23 +129,22 @@ export const signInAction = async (formData: FormData) => {
   }
 
   // Emit successful login — best effort, before redirect logic
-  try {
-    await eventService.emit({
-      actionKey: "auth.login",
-      actorType: "user",
-      actorUserId: signInData.user?.id ?? null,
-      organizationId: null,
-      entityType: "user",
-      entityId: signInData.user?.id ?? email,
-      metadata: { email: signInData.user?.email },
-      eventTier: "baseline",
-    });
-  } catch (emitError) {
+  const loginResult = await eventService.emit({
+    actionKey: "auth.login",
+    actorType: "user",
+    actorUserId: signInData.user?.id ?? null,
+    organizationId: null,
+    entityType: "user",
+    entityId: signInData.user?.id ?? email,
+    metadata: { email: signInData.user?.email },
+    eventTier: "baseline",
+  });
+  if (!loginResult.success) {
     console.error("[signInAction] Failed to emit auth.login:", {
       actionKey: "auth.login",
       actorUserId: signInData.user?.id ?? null,
       entityId: signInData.user?.id ?? email,
-      error: emitError,
+      error: loginResult.error,
     });
   }
 
@@ -207,22 +205,21 @@ export const forgotPasswordAction = async (formData: FormData) => {
 
   // Emit password reset requested — always, regardless of whether email exists
   // (we never reveal if an account exists — Supabase handles that too)
-  try {
-    await eventService.emit({
-      actionKey: "auth.password.reset_requested",
-      actorType: "user",
-      actorUserId: null,
-      organizationId: null,
-      entityType: "auth",
-      entityId: email,
-      metadata: { email },
-      eventTier: "baseline",
-    });
-  } catch (emitError) {
+  const resetRequestedResult = await eventService.emit({
+    actionKey: "auth.password.reset_requested",
+    actorType: "user",
+    actorUserId: null,
+    organizationId: null,
+    entityType: "auth",
+    entityId: email,
+    metadata: { email },
+    eventTier: "baseline",
+  });
+  if (!resetRequestedResult.success) {
     console.error("[forgotPasswordAction] Failed to emit auth.password.reset_requested:", {
       actionKey: "auth.password.reset_requested",
       entityId: email,
-      error: emitError,
+      error: resetRequestedResult.error,
     });
   }
 
@@ -342,23 +339,22 @@ export const resetPasswordAction = async (formData: FormData) => {
   } = await supabase.auth.getUser();
 
   // Emit password reset completed — best effort, must not block signOut + redirect
-  try {
-    await eventService.emit({
-      actionKey: "auth.password.reset_completed",
-      actorType: "user",
-      actorUserId: resetUser?.id ?? null,
-      organizationId: null,
-      entityType: "user",
-      entityId: resetUser?.id ?? "unknown",
-      metadata: {},
-      eventTier: "baseline",
-    });
-  } catch (emitError) {
+  const resetCompletedResult = await eventService.emit({
+    actionKey: "auth.password.reset_completed",
+    actorType: "user",
+    actorUserId: resetUser?.id ?? null,
+    organizationId: null,
+    entityType: "user",
+    entityId: resetUser?.id ?? "unknown",
+    metadata: {},
+    eventTier: "baseline",
+  });
+  if (!resetCompletedResult.success) {
     console.error("[resetPasswordAction] Failed to emit auth.password.reset_completed:", {
       actionKey: "auth.password.reset_completed",
       actorUserId: resetUser?.id ?? null,
       entityId: resetUser?.id ?? "unknown",
-      error: emitError,
+      error: resetCompletedResult.error,
     });
   }
 
@@ -394,23 +390,22 @@ export const signOutAction = async () => {
   // Only emit if we have a valid user ID — null actorUserId produces unfindable events
   if (signingOutUser?.id) {
     // Emit session revoked (voluntary sign-out) — best effort, must not block redirect
-    try {
-      await eventService.emit({
-        actionKey: "auth.session.revoked",
-        actorType: "user",
-        actorUserId: signingOutUser.id,
-        organizationId: null,
-        entityType: "user",
-        entityId: signingOutUser.id,
-        metadata: { reason: "voluntary_signout" },
-        eventTier: "enhanced",
-      });
-    } catch (emitError) {
+    const sessionRevokedResult = await eventService.emit({
+      actionKey: "auth.session.revoked",
+      actorType: "user",
+      actorUserId: signingOutUser.id,
+      organizationId: null,
+      entityType: "user",
+      entityId: signingOutUser.id,
+      metadata: { reason: "voluntary_signout" },
+      eventTier: "enhanced",
+    });
+    if (!sessionRevokedResult.success) {
       console.error("[signOutAction] Failed to emit auth.session.revoked:", {
         actionKey: "auth.session.revoked",
         actorUserId: signingOutUser.id,
         entityId: signingOutUser.id,
-        error: emitError,
+        error: sessionRevokedResult.error,
       });
     }
   }

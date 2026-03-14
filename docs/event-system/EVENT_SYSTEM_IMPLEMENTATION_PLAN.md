@@ -3,7 +3,7 @@
 > **Status:** Working Roadmap
 > **Architecture source of truth:** [docs/event-system/README.md](./README.md)
 > **Branch:** `event-system`
-> **Last updated:** 2026-03-13
+> **Last updated:** 2026-03-14
 
 This document translates the canonical Event System architecture into a practical, phase-by-phase execution roadmap. The README remains the authoritative design reference. This plan defines implementation order, safety rules, and verification gates.
 
@@ -238,7 +238,40 @@ This document translates the canonical Event System architecture into a practica
 - **Standardized log identifiers**: `[eventService.emit] DB insert failed` → `[event.emit.failure]`; `[eventService.emit] Unexpected error` → `[event.emit.unexpected]` — consistent, searchable, parseable in structured log systems
 - **Logout event bug fixed**: `signOutAction` now guards emit behind `if (signingOutUser?.id)` — root cause: when `supabase.auth.getUser()` returns null (expired access token before middleware refresh), the event was stored with `actor_user_id = null`; `fetchPersonalOrgNullEvents` filters by `actor_user_id = userId` (equality, not IS NULL), so null-actor events were permanently invisible in personal feeds; the guard prevents storing unfindable events
 - **Logout event tests added** (`T-LOGOUT-PIPELINE` suite, 10 tests): registry contract, metadata schema, emit insert payload, personal feed visibility, other-user isolation, audit scope fields, sensitive-field passthrough (no sensitive fields on `auth.session.revoked`), null-actor behaviour documentation, null-actor personal feed guard, and full emit→project cycle
-- Updated test totals: `event-system-phase6.test.ts` now has 32 tests
+- Updated test totals: `event-system-phase6.test.ts` now has 33 tests
+
+**Hardening pass 2 (2026-03-14) — emit result-handling correction:**
+
+- **Root problem**: all action-layer emit call sites used `try { await eventService.emit(...) } catch (emitError) { ... }`. `eventService.emit()` never throws — it catches all exceptions internally and returns a typed discriminated union `{ success: true, data } | { success: false, error }`. The outer `catch` was therefore dead code for typed failures: DB-level insert failures were invisible at the action layer (only logged inside the service).
+- **Fix applied** (`src/app/[locale]/actions.ts`): all 5 emit call sites converted to typed result pattern — `const result = await eventService.emit({...}); if (!result.success) { console.error(..., { error: result.error }) }`. Mode A best-effort semantics preserved (business flow continues on failure).
+- **Actions updated**: `signInAction` (auth.login.failed), `signInAction` (auth.login), `forgotPasswordAction` (auth.password.reset_requested), `resetPasswordAction` (auth.password.reset_completed), `signOutAction` (auth.session.revoked — already had null-actor guard, now also typed result).
+- **Tests added** (`T-EMIT-TYPED-FAILURE` suite, 8 tests in `src/app/[locale]/__tests__/actions.test.ts`): `forgotPasswordAction` continues on typed failure; `forgotPasswordAction` logs typed error; `forgotPasswordAction` does not log on success; `signInAction` continues on typed failure (failed-login path); `signInAction` logs typed error string; `signOutAction` redirect still fires on typed failure; `signOutAction` logs typed error; `signOutAction` skips emit when `getUser` returns null (null-actor guard).
+
+**Runtime diagnosis and correction pass (2026-03-14):**
+
+Three classes of runtime bugs were identified and fixed. No DB migration was required — all fixes are code-only.
+
+**Bug 1 — Logout events missing in personal feed (`nav-user.tsx`)**
+
+- **Root cause**: `src/components/nav-user.tsx` (used in the main dashboard sidebar) called `supabase.auth.signOut()` directly from the client, bypassing `signOutAction` entirely. The server action that emits `auth.session.revoked` was never invoked on the most common logout path. `header-user-menu.tsx` and `DashboardHeader.tsx` were already correct.
+- **Fix**: Removed the `createClient` / `handleLogout` click-handler pattern; replaced with `<form action={signOutAction}>` matching the pattern used in other nav components.
+
+**Bug 2 — `org.updated` events missing (logo upload/remove paths)**
+
+- **Root cause**: `uploadOrgLogoAction` and `removeOrgLogoAction` in `src/app/actions/organization/profile.ts` had no event emission at all — only `updateOrgProfileAction` was wired. Logo operations are a substantial subset of org profile changes.
+- **Fix**: Added `eventService.emit({ actionKey: "org.updated", ..., metadata: { updated_fields: ["logo_url"] } })` with typed result logging after successful upload and after successful logo removal. Pattern is identical to `updateOrgProfileAction`.
+
+**Bug 3 — All org events invisible in personal (`/dashboard/activity`) feed**
+
+- **Root cause**: All 15 org-module events in `event-registry.ts` had `visibleTo` arrays that omitted `"self"`. The personal scope uses only the `["self"]` qualifier set (`SCOPE_QUALIFIERS.personal`). With no overlap, every org event was filtered out for the actor's own personal feed even when the actor had performed the action.
+- **Fix**: Added `"self"` to `visibleTo` in all 15 org-module registry entries: `org.created`, `org.updated`, `org.member.invited`, `org.member.removed`, `org.invitation.accepted`, `org.invitation.cancelled`, `org.role.created`, `org.role.updated`, `org.role.deleted`, `org.member.role_assigned`, `org.member.role_removed`, `org.branch.created`, `org.branch.updated`, `org.branch.deleted`, `org.onboarding.completed`.
+- **Scope preservation**: org scope and audit scope are unaffected — both already matched through `org_member`, `org_admin`, `auditor` qualifiers.
+
+**Tests added:**
+
+- `T-EVENT-WIRING: org.updated` suite (4 new tests in `src/app/actions/__tests__/event-wiring.test.ts`): `uploadOrgLogoAction` emits `org.updated` on success; `uploadOrgLogoAction` does not emit on upload failure; `removeOrgLogoAction` emits `org.updated` on success; `removeOrgLogoAction` does not emit on profile-update failure. Existing `updateOrgProfileAction` Mode A test updated: changed from `mockRejectedValue` to `mockResolvedValue({ success: false, error: "..." })` to match the typed result pattern (the action no longer has a try/catch around emit).
+- `T-REGISTRY-VISIBILITY` suite (11 new tests in `src/app/actions/__tests__/event-wiring.test.ts`): all 15 org event keys have `"self"` in `visibleTo`; personal scope shows actor-owned `org.updated`; personal scope hides `org.updated` for a different actor; personal scope shows actor-owned `org.member.invited`; personal scope shows actor-owned `org.branch.created`; org scope shows `org.updated` for any viewer; org scope shows `org.created` for any viewer; audit scope shows all 3 test org events; audit scope preserves sensitive fields in metadata; personal scope strips sensitive fields from `org.member.invited` metadata; personal scope excludes `ip_address`/`user_agent`; audit scope includes `ip_address`/`user_agent`.
+- `projection.test.ts` updated: the test that asserted `org.member.invited` was not visible in personal scope was corrected to use `auth.login.failed` (which genuinely has `visibleTo: ["auditor"]` only) to document the no-self case.
 
 ### Phase 7 — Forensic-ready module guidance
 
