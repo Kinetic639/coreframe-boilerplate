@@ -116,10 +116,13 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
       .single();
 
     if (error) {
-      console.error("[eventService.emit] DB insert failed", {
+      console.error("[event.emit.failure]", {
         actionKey: input.actionKey,
-        organizationId: input.organizationId,
+        organizationId: input.organizationId ?? null,
         actorUserId,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        requestId: input.requestId ?? null,
         error: error.message,
       });
       return {
@@ -131,8 +134,13 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
     return { success: true, data: { id: data.id as string } };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[eventService.emit] Unexpected error", {
+    console.error("[event.emit.unexpected]", {
       actionKey: input.actionKey,
+      organizationId: input.organizationId ?? null,
+      actorUserId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      requestId: input.requestId ?? null,
       error: message,
     });
     return { success: false, error: `Event emit error: ${message}` };

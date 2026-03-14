@@ -379,31 +379,40 @@ export const signOutAction = async () => {
 
   // Get user before signOut — event service uses service-role client so it works post-signOut,
   // but we need the user ID now while the session is still valid.
+  //
+  // IMPORTANT: getUser() must be called before signOut(). If the access token is already
+  // expired (and the middleware refresh did not run), getUser() returns null. In that case
+  // we skip emission entirely — a null-actor event is stored with actor_user_id = null and
+  // can never be retrieved by the personal feed query (which filters actor_user_id = userId).
+  // Skipping prevents permanently invisible noise rows in platform_events.
   const {
     data: { user: signingOutUser },
   } = await supabase.auth.getUser();
 
   await supabase.auth.signOut();
 
-  // Emit session revoked (voluntary sign-out) — best effort, must not block redirect
-  try {
-    await eventService.emit({
-      actionKey: "auth.session.revoked",
-      actorType: "user",
-      actorUserId: signingOutUser?.id ?? null,
-      organizationId: null,
-      entityType: "user",
-      entityId: signingOutUser?.id ?? "unknown",
-      metadata: { reason: "voluntary_signout" },
-      eventTier: "enhanced",
-    });
-  } catch (emitError) {
-    console.error("[signOutAction] Failed to emit auth.session.revoked:", {
-      actionKey: "auth.session.revoked",
-      actorUserId: signingOutUser?.id ?? null,
-      entityId: signingOutUser?.id ?? "unknown",
-      error: emitError,
-    });
+  // Only emit if we have a valid user ID — null actorUserId produces unfindable events
+  if (signingOutUser?.id) {
+    // Emit session revoked (voluntary sign-out) — best effort, must not block redirect
+    try {
+      await eventService.emit({
+        actionKey: "auth.session.revoked",
+        actorType: "user",
+        actorUserId: signingOutUser.id,
+        organizationId: null,
+        entityType: "user",
+        entityId: signingOutUser.id,
+        metadata: { reason: "voluntary_signout" },
+        eventTier: "enhanced",
+      });
+    } catch (emitError) {
+      console.error("[signOutAction] Failed to emit auth.session.revoked:", {
+        actionKey: "auth.session.revoked",
+        actorUserId: signingOutUser.id,
+        entityId: signingOutUser.id,
+        error: emitError,
+      });
+    }
   }
 
   const locale = await getLocale();
