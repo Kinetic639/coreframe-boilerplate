@@ -9,6 +9,7 @@ const mockSupabaseClient = {
     resetPasswordForEmail: vi.fn(),
     updateUser: vi.fn(),
     signOut: vi.fn(),
+    getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-test" } }, error: null }),
   },
 };
 

@@ -15,6 +15,7 @@ import {
   INVITES_CANCEL,
 } from "@/lib/constants/permissions";
 import { EmailService } from "@/server/services/email.service";
+import { eventService } from "@/server/services/event.service";
 
 const roleAssignmentSchema = z.object({
   role_id: z.string().uuid(),
@@ -76,6 +77,35 @@ export async function createInvitationAction(rawInput: unknown) {
     );
 
     if (result.success) {
+      // Emit org.member.invited — best effort, after successful invitation insert
+      try {
+        await eventService.emit({
+          actionKey: "org.member.invited",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "invitation",
+          entityId: result.data.id,
+          targetType: null,
+          targetId: null,
+          metadata: {
+            invitee_email: result.data.email,
+            invitee_first_name: result.data.invited_first_name ?? undefined,
+            invitee_last_name: result.data.invited_last_name ?? undefined,
+          },
+          eventTier: "enhanced",
+        });
+      } catch (emitError) {
+        console.error("[createInvitationAction] Failed to emit org.member.invited:", {
+          actionKey: "org.member.invited",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "invitation",
+          entityId: result.data.id,
+          error: emitError,
+        });
+      }
+
       const [profileResult, rawLocale] = await Promise.all([
         OrgProfileService.getProfile(supabase, context.app.activeOrgId),
         getLocale(),
@@ -138,7 +168,43 @@ export async function cancelInvitationAction(rawInput: unknown) {
     const parsed = inviteIdSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
-    return await OrgInvitationsService.cancelInvitation(supabase, parsed.data.invitationId);
+    // Fetch invitation email before cancelling (service returns void, data unavailable after)
+    const { data: inviteForEvent } = await supabase
+      .from("invitations")
+      .select("email")
+      .eq("id", parsed.data.invitationId)
+      .maybeSingle();
+
+    const result = await OrgInvitationsService.cancelInvitation(supabase, parsed.data.invitationId);
+
+    if (result.success) {
+      try {
+        await eventService.emit({
+          actionKey: "org.invitation.cancelled",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "invitation",
+          entityId: parsed.data.invitationId,
+          metadata: {
+            invitation_id: parsed.data.invitationId,
+            invitee_email: inviteForEvent?.email ?? undefined,
+          },
+          eventTier: "enhanced",
+        });
+      } catch (emitError) {
+        console.error("[cancelInvitationAction] Failed to emit org.invitation.cancelled:", {
+          actionKey: "org.invitation.cancelled",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "invitation",
+          entityId: parsed.data.invitationId,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -224,7 +290,47 @@ export async function acceptInvitationAction(
 > {
   try {
     const supabase = await createClient();
-    return await OrgInvitationsService.acceptInvitation(supabase, token);
+
+    // Get the current user and invitation ID before accepting (RPC returns org_id only)
+    const [
+      {
+        data: { user: acceptingUser },
+      },
+      { data: inviteRow },
+    ] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from("invitations").select("id").eq("token", token).maybeSingle(),
+    ]);
+
+    const result = await OrgInvitationsService.acceptInvitation(supabase, token);
+
+    if (result.success) {
+      try {
+        await eventService.emit({
+          actionKey: "org.invitation.accepted",
+          actorType: "user",
+          actorUserId: acceptingUser?.id ?? null,
+          organizationId: result.data.organization_id,
+          entityType: "user",
+          entityId: acceptingUser?.id ?? "unknown",
+          metadata: {
+            invitation_id: inviteRow?.id ?? undefined,
+          },
+          eventTier: "baseline",
+        });
+      } catch (emitError) {
+        console.error("[acceptInvitationAction] Failed to emit org.invitation.accepted:", {
+          actionKey: "org.invitation.accepted",
+          organizationId: result.data.organization_id,
+          actorUserId: acceptingUser?.id ?? null,
+          entityType: "user",
+          entityId: acceptingUser?.id ?? "unknown",
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch {
     return { success: false, error: "Unexpected error" };
   }

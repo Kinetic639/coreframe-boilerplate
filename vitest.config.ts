@@ -28,7 +28,8 @@ export default defineConfig({
     alias: {
       'next/router': 'next/router.js',
       'next/navigation': 'next/dist/client/components/navigation.js',
-      'server-only': path.resolve(__dirname, 'src/__mocks__/server-only.ts')
+      'server-only': path.resolve(__dirname, 'src/__mocks__/server-only.ts'),
+      '@supabase/service': path.resolve(__dirname, 'src/utils/supabase/service.ts'),
     },
 
     environmentOptions: {

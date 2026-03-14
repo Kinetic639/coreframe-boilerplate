@@ -7,7 +7,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // vi.mock factories must NOT reference outer variables (they are hoisted)
 vi.mock("@/utils/supabase/server", () => ({
-  createClient: vi.fn().mockResolvedValue({}),
+  createClient: vi.fn().mockResolvedValue({
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-test" } }, error: null }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+  }),
+}));
+
+vi.mock("next-intl/server", () => ({
+  getLocale: vi.fn().mockResolvedValue("pl"),
 }));
 
 vi.mock("@/server/loaders/v2/load-dashboard-context.v2", () => ({

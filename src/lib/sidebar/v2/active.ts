@@ -17,28 +17,30 @@ export function isPrefixMatch(pathname: string, prefix: string): boolean {
  *
  * Rules (checked in priority order):
  * 1. If any child is active (recursive) → parent is active
- * 2. Exact match: item.match.exact === pathname
- * 3. StartsWith match: segment-aware prefix (uses isPrefixMatch)
- * 4. No match rule and no children → false
- *
- * Note: when an item has both children AND a match rule (e.g. the tools group
- * which gains children via pinned-tools injection), both are checked. This
- * allows the parent to stay active on dynamic sub-routes even when no specific
- * child's exact match fires (e.g. next-intl returns the route pattern
- * `/dashboard/tools/[slug]` rather than the resolved slug).
+ * 2. If item has children, skip exact match — active state is children-only.
+ *    StartsWith still applies so parents remain active on dynamic sub-routes
+ *    not covered by a specific child (e.g. next-intl pattern `/dashboard/tools/[slug]`).
+ * 3. Exact match: item.match.exact === pathname  (leaf items only)
+ * 4. StartsWith match: segment-aware prefix (uses isPrefixMatch)
+ * 5. No match rule and no children → false
  */
 export function isItemActive(item: SidebarItem, pathname: string): boolean {
+  const hasChildren = item.children && item.children.length > 0;
+
   // Check children first (recursive)
-  if (item.children && item.children.length > 0) {
-    if (item.children.some((child) => isItemActive(child, pathname))) return true;
-    // Fall through to own match rule — handles dynamic sub-routes where a
-    // child's exact slug match may not fire but the parent's startsWith does.
+  if (hasChildren) {
+    if (item.children!.some((child) => isItemActive(child, pathname))) return true;
+    // When children exist, skip exact match — only startsWith falls through.
+    // This prevents a parent's own /exact/url from lighting up the parent when
+    // the user is not on any of its children.
+    if (!item.match?.startsWith) return false;
+    return isPrefixMatch(pathname, item.match.startsWith);
   }
 
   // No match rule → not active
   if (!item.match) return false;
 
-  // Exact match
+  // Exact match (leaf items)
   if (item.match.exact !== undefined) {
     return pathname === item.match.exact;
   }

@@ -11,11 +11,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Mock setup ───────────────────────────────────────────────────────────────
 
-const { mockRpc, mockGetUser, mockFrom } = vi.hoisted(() => ({
-  mockRpc: vi.fn(),
-  mockGetUser: vi.fn(),
-  mockFrom: vi.fn(),
-}));
+const { mockRpc, mockGetUser, mockFrom } = vi.hoisted(() => {
+  const mockFromChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+  };
+  return {
+    mockRpc: vi.fn(),
+    mockGetUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-test-1" } }, error: null }),
+    mockFrom: vi.fn().mockReturnValue(mockFromChain),
+    mockFromChain,
+  };
+});
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({

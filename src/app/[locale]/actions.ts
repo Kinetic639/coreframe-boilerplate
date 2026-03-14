@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/service";
 import { redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
+import { eventService } from "@/server/services/event.service";
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -89,7 +90,7 @@ export const signInAction = async (formData: FormData) => {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "auth" });
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -99,6 +100,26 @@ export const signInAction = async (formData: FormData) => {
       ? t("errors.invalidCredentials")
       : error.message;
 
+    // Emit failed login — best effort, must not block the redirect
+    try {
+      await eventService.emit({
+        actionKey: "auth.login.failed",
+        actorType: "user",
+        actorUserId: null,
+        organizationId: null,
+        entityType: "auth",
+        entityId: email,
+        metadata: { email, reason: "invalid_credentials" },
+        eventTier: "baseline",
+      });
+    } catch (emitError) {
+      console.error("[signInAction] Failed to emit auth.login.failed:", {
+        actionKey: "auth.login.failed",
+        entityId: email,
+        error: emitError,
+      });
+    }
+
     // If there's a returnUrl, include it in the redirect back to sign-in with the error
     if (returnUrl) {
       const { redirect: nextRedirect } = await import("next/navigation");
@@ -106,6 +127,27 @@ export const signInAction = async (formData: FormData) => {
       return nextRedirect(signInUrl);
     }
     return encodedRedirect("error", "/sign-in", errorMessage);
+  }
+
+  // Emit successful login — best effort, before redirect logic
+  try {
+    await eventService.emit({
+      actionKey: "auth.login",
+      actorType: "user",
+      actorUserId: signInData.user?.id ?? null,
+      organizationId: null,
+      entityType: "user",
+      entityId: signInData.user?.id ?? email,
+      metadata: { email: signInData.user?.email },
+      eventTier: "baseline",
+    });
+  } catch (emitError) {
+    console.error("[signInAction] Failed to emit auth.login:", {
+      actionKey: "auth.login",
+      actorUserId: signInData.user?.id ?? null,
+      entityId: signInData.user?.id ?? email,
+      error: emitError,
+    });
   }
 
   // If there's a returnUrl (e.g. /invite/[token]), honor it directly
@@ -162,6 +204,27 @@ export const forgotPasswordAction = async (formData: FormData) => {
   await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: redirectUrl,
   });
+
+  // Emit password reset requested — always, regardless of whether email exists
+  // (we never reveal if an account exists — Supabase handles that too)
+  try {
+    await eventService.emit({
+      actionKey: "auth.password.reset_requested",
+      actorType: "user",
+      actorUserId: null,
+      organizationId: null,
+      entityType: "auth",
+      entityId: email,
+      metadata: { email },
+      eventTier: "baseline",
+    });
+  } catch (emitError) {
+    console.error("[forgotPasswordAction] Failed to emit auth.password.reset_requested:", {
+      actionKey: "auth.password.reset_requested",
+      entityId: email,
+      error: emitError,
+    });
+  }
 
   // Always show success message for security (don't reveal if email exists)
   return encodedRedirect("success", "/forgot-password", t("success.passwordResetSent"));
@@ -273,6 +336,32 @@ export const resetPasswordAction = async (formData: FormData) => {
     });
   }
 
+  // Get current user for event metadata (still authenticated at this point)
+  const {
+    data: { user: resetUser },
+  } = await supabase.auth.getUser();
+
+  // Emit password reset completed — best effort, must not block signOut + redirect
+  try {
+    await eventService.emit({
+      actionKey: "auth.password.reset_completed",
+      actorType: "user",
+      actorUserId: resetUser?.id ?? null,
+      organizationId: null,
+      entityType: "user",
+      entityId: resetUser?.id ?? "unknown",
+      metadata: {},
+      eventTier: "baseline",
+    });
+  } catch (emitError) {
+    console.error("[resetPasswordAction] Failed to emit auth.password.reset_completed:", {
+      actionKey: "auth.password.reset_completed",
+      actorUserId: resetUser?.id ?? null,
+      entityId: resetUser?.id ?? "unknown",
+      error: emitError,
+    });
+  }
+
   // Sign out after password reset for security
   await supabase.auth.signOut();
 
@@ -287,7 +376,35 @@ export const resetPasswordAction = async (formData: FormData) => {
 
 export const signOutAction = async () => {
   const supabase = await createClient();
+
+  // Get user before signOut — event service uses service-role client so it works post-signOut,
+  // but we need the user ID now while the session is still valid.
+  const {
+    data: { user: signingOutUser },
+  } = await supabase.auth.getUser();
+
   await supabase.auth.signOut();
+
+  // Emit session revoked (voluntary sign-out) — best effort, must not block redirect
+  try {
+    await eventService.emit({
+      actionKey: "auth.session.revoked",
+      actorType: "user",
+      actorUserId: signingOutUser?.id ?? null,
+      organizationId: null,
+      entityType: "user",
+      entityId: signingOutUser?.id ?? "unknown",
+      metadata: { reason: "voluntary_signout" },
+      eventTier: "enhanced",
+    });
+  } catch (emitError) {
+    console.error("[signOutAction] Failed to emit auth.session.revoked:", {
+      actionKey: "auth.session.revoked",
+      actorUserId: signingOutUser?.id ?? null,
+      entityId: signingOutUser?.id ?? "unknown",
+      error: emitError,
+    });
+  }
 
   const locale = await getLocale();
   return redirect({ href: "/sign-in", locale });

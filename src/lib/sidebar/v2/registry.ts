@@ -6,6 +6,7 @@ import {
   BRANCHES_READ,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   PERMISSION_TOOLS_READ,
+  AUDIT_EVENTS_READ,
 } from "@/lib/constants/permissions";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 
@@ -91,7 +92,40 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           requiresPermissions: [ORG_UPDATE], // Only owners see billing
         },
       },
+      {
+        id: "organization.activity",
+        title: "Activity",
+        titleKey: "modules.organizationManagement.items.activity",
+        iconKey: "settings",
+        href: "/dashboard/organization/activity",
+        match: { exact: "/dashboard/organization/activity" },
+        visibility: {
+          requiresPermissions: [ORG_READ],
+        },
+      },
+      {
+        id: "organization.audit",
+        title: "Audit Log",
+        titleKey: "modules.organizationManagement.items.audit",
+        iconKey: "settings",
+        href: "/dashboard/organization/audit",
+        match: { exact: "/dashboard/organization/audit" },
+        visibility: {
+          requiresPermissions: [AUDIT_EVENTS_READ],
+        },
+      },
     ],
+  },
+
+  // My Activity (available to any authenticated org member)
+  {
+    id: "activity",
+    title: "My Activity",
+    titleKey: "activityFeed.personalTitle",
+    iconKey: "settings",
+    href: "/dashboard/activity",
+    match: { exact: "/dashboard/activity" },
+    visibility: {},
   },
 
   // Tools (always available — no requiresModules gate, last in main nav)

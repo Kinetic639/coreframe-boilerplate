@@ -328,10 +328,15 @@ describe("ProfileClient", () => {
     const saveButton = screen.getByText("save");
     fireEvent.click(saveButton);
 
-    expect(mockMutate).toHaveBeenCalledWith({
-      displayName: "New Name",
-      phone: "+1234567890",
-    });
+    expect(mockMutate).toHaveBeenCalledWith(
+      {
+        displayName: "New Name",
+        firstName: "John",
+        lastName: "Doe",
+        phone: "+1234567890",
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    );
   });
 
   it("renders CopyToClipboard with user id", () => {

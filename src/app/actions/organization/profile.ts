@@ -9,6 +9,7 @@ import {
   OrgProfileService,
   type UpdateOrgProfileInput,
 } from "@/server/services/organization.service";
+import { eventService } from "@/server/services/event.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
@@ -75,7 +76,36 @@ export async function updateOrgProfileAction(rawInput: unknown) {
       font_color: parsed.data.font_color || null,
     };
 
-    return await OrgProfileService.updateProfile(supabase, context.app.activeOrgId, input);
+    const result = await OrgProfileService.updateProfile(supabase, context.app.activeOrgId, input);
+
+    if (result.success) {
+      const updatedFields = Object.keys(input).filter(
+        (k) => (input as Record<string, unknown>)[k] !== undefined
+      );
+      try {
+        await eventService.emit({
+          actionKey: "org.updated",
+          actorType: "user",
+          actorUserId: context.user.user?.id ?? null,
+          organizationId: context.app.activeOrgId,
+          entityType: "organization",
+          entityId: context.app.activeOrgId,
+          metadata: { updated_fields: updatedFields },
+          eventTier: "baseline",
+        });
+      } catch (emitError) {
+        console.error("[updateOrgProfileAction] Failed to emit org.updated:", {
+          actionKey: "org.updated",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "organization",
+          entityId: context.app.activeOrgId,
+          error: emitError,
+        });
+      }
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
