@@ -1,5 +1,3 @@
-"use server";
-
 /**
  * Shared DB query helpers for audit feed actions.
  *
