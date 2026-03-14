@@ -82,25 +82,23 @@ export async function updateOrgProfileAction(rawInput: unknown) {
       const updatedFields = Object.keys(input).filter(
         (k) => (input as Record<string, unknown>)[k] !== undefined
       );
-      try {
-        await eventService.emit({
-          actionKey: "org.updated",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "organization",
-          entityId: context.app.activeOrgId,
-          metadata: { updated_fields: updatedFields },
-          eventTier: "baseline",
-        });
-      } catch (emitError) {
+      const emitResult = await eventService.emit({
+        actionKey: "org.updated",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "organization",
+        entityId: context.app.activeOrgId,
+        metadata: { updated_fields: updatedFields },
+        eventTier: "baseline",
+      });
+      if (!emitResult.success) {
         console.error("[updateOrgProfileAction] Failed to emit org.updated:", {
           actionKey: "org.updated",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
-          entityType: "organization",
           entityId: context.app.activeOrgId,
-          error: emitError,
+          error: emitResult.error,
         });
       }
     }
@@ -132,7 +130,33 @@ export async function uploadOrgLogoAction(formData: FormData) {
       return { success: false, error: "Unsupported file type" };
     }
 
-    return await OrgProfileService.uploadLogo(supabase, context.app.activeOrgId, file);
+    const uploadResult = await OrgProfileService.uploadLogo(
+      supabase,
+      context.app.activeOrgId,
+      file
+    );
+    if (uploadResult.success) {
+      const emitResult = await eventService.emit({
+        actionKey: "org.updated",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "organization",
+        entityId: context.app.activeOrgId,
+        metadata: { updated_fields: ["logo_url"] },
+        eventTier: "baseline",
+      });
+      if (!emitResult.success) {
+        console.error("[uploadOrgLogoAction] Failed to emit org.updated:", {
+          actionKey: "org.updated",
+          organizationId: context.app.activeOrgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityId: context.app.activeOrgId,
+          error: emitResult.error,
+        });
+      }
+    }
+    return uploadResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -164,7 +188,29 @@ export async function removeOrgLogoAction() {
     }
 
     // Clear logo_url from profile
-    return await OrgProfileService.updateProfile(supabase, orgId, { logo_url: null });
+    const removeResult = await OrgProfileService.updateProfile(supabase, orgId, { logo_url: null });
+    if (removeResult.success) {
+      const emitResult = await eventService.emit({
+        actionKey: "org.updated",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: orgId,
+        entityType: "organization",
+        entityId: orgId,
+        metadata: { updated_fields: ["logo_url"] },
+        eventTier: "baseline",
+      });
+      if (!emitResult.success) {
+        console.error("[removeOrgLogoAction] Failed to emit org.updated:", {
+          actionKey: "org.updated",
+          organizationId: orgId,
+          actorUserId: context.user.user?.id ?? null,
+          entityId: orgId,
+          error: emitResult.error,
+        });
+      }
+    }
+    return removeResult;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

@@ -75,11 +75,11 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(1);
   });
 
-  it("personal scope: events with visibleTo=['org_admin', 'auditor'] only are not visible", () => {
-    // org.member.invited has visibleTo: ['org_admin', 'auditor']
+  it("personal scope: events with visibleTo=['auditor'] only are not visible", () => {
+    // auth.login.failed has visibleTo: ['auditor']
     // personal scope qualifiers: ['self'] — no overlap
     const result = projectEvents({
-      events: [makeRow({ action_key: "org.member.invited", actor_user_id: VIEWER_USER_ID })],
+      events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
       context: makeContext({ viewerScope: "personal" }),
     });
     expect(result.events).toHaveLength(0);

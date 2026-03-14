@@ -107,7 +107,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       org_slug: z.string().optional(),
     }),
     summaryTemplate: "Organization created",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -120,7 +120,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization profile updated by {{actor}}",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -135,7 +135,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_last_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} invited {{target}} to the organization",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["invitee_email", "invitee_first_name", "invitee_last_name"],
   },
 
@@ -149,7 +149,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       removed_user_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} removed {{target}} from the organization",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["removed_user_name"],
   },
 
@@ -162,7 +162,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitation_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{target}} accepted invitation and joined the organization",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -176,7 +176,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_email: z.string().email().optional(),
     }),
     summaryTemplate: "{{actor}} cancelled invitation for {{target}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["invitee_email"],
   },
 
@@ -190,7 +190,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created role {{entity}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -205,7 +205,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated role {{entity}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -219,7 +219,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} deleted role {{entity}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -235,7 +235,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} assigned role to {{target}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -251,7 +251,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} removed role from {{target}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -265,7 +265,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created branch {{entity}}",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -280,7 +280,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated branch {{entity}}",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -294,7 +294,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} deleted branch {{entity}}",
-    visibleTo: ["org_admin", "auditor"],
+    visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 
@@ -308,7 +308,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       completed_steps: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization onboarding completed",
-    visibleTo: ["org_member", "org_admin", "auditor"],
+    visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
 };

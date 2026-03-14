@@ -26,8 +26,8 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter, usePathname } from "@/i18n/navigation";
+import { signOutAction } from "@/app/[locale]/actions";
 
 export function NavUser({
   user,
@@ -53,12 +53,6 @@ export function NavUser({
   const pathname = usePathname();
   const isInAdminPanel = pathname.startsWith("/admin");
   const isOnDiagnostics = pathname.startsWith("/dashboard/diagnostics");
-
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/sign-in");
-  };
 
   const handleGoToAccount = () => {
     router.push("/dashboard/account");
@@ -148,9 +142,13 @@ export function NavUser({
               )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut />
-              Log out
+            <DropdownMenuItem asChild>
+              <form action={signOutAction} className="w-full">
+                <button type="submit" className="flex w-full items-center gap-2 cursor-default">
+                  <LogOut className="size-4" />
+                  Log out
+                </button>
+              </form>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
