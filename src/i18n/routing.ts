@@ -135,6 +135,18 @@ export const routing = defineRouting({
       en: "/dashboard/organization/billing",
       pl: "/dashboard/organizacja/rozliczenia",
     },
+    "/dashboard/organization/activity": {
+      en: "/dashboard/organization/activity",
+      pl: "/dashboard/organizacja/aktywnosc",
+    },
+    "/dashboard/organization/audit": {
+      en: "/dashboard/organization/audit",
+      pl: "/dashboard/organizacja/audyt",
+    },
+    "/dashboard/activity": {
+      en: "/dashboard/activity",
+      pl: "/dashboard/aktywnosc",
+    },
     "/dashboard/support": {
       en: "/dashboard/support",
       pl: "/dashboard/wsparcie",

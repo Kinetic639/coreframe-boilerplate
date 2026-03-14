@@ -2731,6 +2731,22 @@
     "orSeparator": "or",
     "signOutButton": "Sign out"
   },
+  "activityFeed": {
+    "personalTitle": "My Activity",
+    "personalDescription": "Your recent actions within this organization.",
+    "orgTitle": "Organization Activity",
+    "orgDescription": "Recent activity across your organization.",
+    "auditTitle": "Audit Log",
+    "auditDescription": "Full audit event log including IP addresses and browser details.",
+    "empty": "No events found.",
+    "loading": "Loading\u2026",
+    "pagination": "Showing {from}\u2013{to} of {total}",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "ip": "IP",
+    "ua": "User Agent"
+  },
   "adminInvitations": {
     "inviteMemberButton": "Invite Member",
     "noInvitations": "No invitations found.",

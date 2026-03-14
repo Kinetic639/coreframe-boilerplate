@@ -149,12 +149,69 @@ This document translates the canonical Event System architecture into a practica
 
 ### Phase 5 — Frontend surfaces
 
-- [ ] Backend projected event API route / server action for My Activity (with pagination)
-- [ ] Backend projected event API route / server action for Organization Activity (with pagination)
-- [ ] Backend projected event API route / server action for Admin / Audit View (with pagination, `audit.events.read` gated)
-- [ ] My Activity UI page (paginated)
-- [ ] Organization Activity UI page (paginated)
-- [ ] Admin / Audit UI page (privileged, paginated)
+- [x] Backend projected event API route / server action for My Activity (with pagination)
+- [x] Backend projected event API route / server action for Organization Activity (with pagination)
+- [x] Backend projected event API route / server action for Admin / Audit View (with pagination, `audit.events.read` gated)
+- [x] My Activity UI page (paginated)
+- [x] Organization Activity UI page (paginated)
+- [x] Admin / Audit UI page (privileged, paginated)
+
+**Notes (2026-03-13):**
+
+- `audit.events.read` permission added via `supabase/migrations/20260313000001_audit_events_read_permission.sql`, applied to target project. Granted to `org_owner` by default.
+- `AUDIT_EVENTS_READ` constant added to `src/lib/constants/permissions.ts`; `PermissionSlug` union and `ALL_PERMISSION_SLUGS` array updated.
+- Three backend server actions under `src/app/actions/audit/`:
+  - `get-personal-activity.ts` — personal scope; fetches events where `actor_user_id = current user`; no permission check beyond org membership
+  - `get-org-activity.ts` — org scope; all org events; requires `org.read`
+  - `get-audit-feed.ts` — audit scope; all org events with ip/ua; requires `audit.events.read`
+  - All cap DB fetch at 500 rows (`MAX_FETCH`); pagination via `projectEvents` limit/offset
+  - `platform_events` table queried via regular `createClient()` (RLS enforces org isolation)
+- Shared client component `EventFeedClient` at `src/app/[locale]/dashboard/activity/_components/event-feed-client.tsx` — renders event list + pagination controls for all three scopes
+- Pages use server component → client wrapper pattern (SSR initial load, client-side pagination via `useTransition`):
+  - `src/app/[locale]/dashboard/activity/page.tsx` → `PersonalActivityWrapper`
+  - `src/app/[locale]/dashboard/organization/activity/page.tsx` → `OrgActivityWrapper`
+  - `src/app/[locale]/dashboard/organization/audit/page.tsx` → `AuditFeedWrapper`
+- i18n routes added to `src/i18n/routing.ts`: `/dashboard/activity`, `/dashboard/organization/activity`, `/dashboard/organization/audit`
+- Polish localized paths: `/dashboard/aktywnosc`, `/dashboard/organizacja/aktywnosc`, `/dashboard/organizacja/audyt`
+- `activityFeed` namespace added to both `messages/en.json` and `messages/pl.json`
+- Sidebar entries:
+  - `activity` (top-level, no permission gate) → `/dashboard/activity`
+  - `organization.activity` (under org section, requires `org.read`) → `/dashboard/organization/activity`
+  - `organization.audit` (under org section, requires `audit.events.read`) → `/dashboard/organization/audit`
+- **Tests**: 15 tests in `src/app/actions/audit/__tests__/feed-actions.test.ts`
+  - Suites: `T-FEED-ACTIONS-PERSONAL` (5 tests), `T-FEED-ACTIONS-ORG` (4 tests), `T-FEED-ACTIONS-AUDIT` (6 tests)
+  - Covers: happy path, empty result, DB error, missing org context, permission denial, pagination offset/limit
+
+**Phase 5 hardening pass applied (2026-03-14):**
+
+- **What was improved**: Query efficiency, type safety isolation, and test coverage for architectural boundary/security guarantees.
+- **Why improved**: Review found the initial implementation always fetched a flat 500 rows regardless of page size, spread `as any` casts across three files, and lacked tests proving the projection layer strips raw row fields.
+- **Query strategy changed**: Flat `MAX_FETCH=500` replaced with bounded fetch `(offset + limit) * 2` capped at 500 (`computeFetchLimit`). The 2x buffer absorbs projection filtering (e.g. auditor-only rows removed from org scope) without an unbounded window. Personal scope adds a SQL `actor_user_id` filter so projection waste is minimal. Audit scope projects all rows, making the buffer conservative. Documented in `src/app/actions/audit/_query.ts`.
+- **Type safety tightened**: `as any` consolidated to one backend-only helper `_query.ts` — isolated following the `event.service.ts` pattern ("platform_events not yet in generated DB types"). All three action files import typed helpers; zero `as any` in callers.
+- **Tests expanded**: 30 tests total (up from 15).
+  - New suite: `T-FEED-QUERY-HELPER` (5 tests) — `computeFetchLimit` buffer, cap, minimum guarantees
+  - New boundary/security tests per scope (marked `[BOUNDARY]`):
+    - Personal: `ip_address` absent, `user_agent` absent, sensitive `email` stripped, output is `ProjectedEvent` not raw row
+    - Org: `ip_address` absent, `user_agent` absent, auditor-only event not leaked, mixed visibility filtered correctly
+    - Audit: sensitive metadata preserved, all visibility levels visible, ip/ua present, raw row fields absent
+- **Feed architecture**: unchanged — server page → action → `fetchPlatformEvents` → `projectEvents` → client wrapper
+- **Projection boundary**: unchanged — `PlatformEventRow` never crosses to frontend; only `ProjectedEvent[]` returned
+
+**Phase 5 correction pass applied (2026-03-14):**
+
+- **Org-null personal auth events**: Personal feed now includes two query sources merged before projection:
+  1. Org-scoped: `organization_id = activeOrgId AND actor_user_id = userId` via authenticated RLS client (unchanged).
+  2. Org-null: `organization_id IS NULL AND actor_user_id = userId` via service-role client. This path is necessary because the RLS policy on `platform_events` requires `organization_id IS NOT NULL`, so org-null rows (e.g. `auth.login`, `auth.login.failed`, `auth.session.revoked`) are inaccessible through the regular client. The service-role query is tightly restricted to the current user's actor_user_id — no other org-null data is exposed. The projection layer provides a second line of defence: the personal-scope actor guard (`actor_user_id === viewerUserId`) filters any row not belonging to the viewer.
+  - Org-null query failure is non-fatal: logged as a warning, org-scoped rows are still returned.
+  - Both result sets are merged by `mergeAndSortEvents()` (sorted by `created_at` desc) and passed to `projectEvents()` with `viewerScope: "personal"`.
+  - New helpers in `_query.ts`: `fetchPersonalOrgNullEvents(userId, fetchLimit)`, `mergeAndSortEvents(a, b)`.
+- **Server-side pagination validation**: All three feed actions now call `validatePagination(rawLimit, rawOffset)` before use. Policy: `limit` clamped to [1, 50], `offset` clamped to [0, ∞). Fractional values are floor-truncated. Prevents callers from requesting unbounded pages or negative offsets.
+- **Tests expanded**: 46 tests total (up from 30).
+  - New suite `T-FEED-PAGINATION-VALIDATION` (6 tests): covers negative offset, overlimit, undercount, fractional truncation.
+  - Personal feed additions (8 new tests): org-null inclusion, merge sort order, other-user org-null not leaked (projection actor guard), service-client failure non-fatal, pagination clamping for personal action.
+  - Org and audit feed additions (2 new tests each): pagination clamping confirmed.
+  - Test mock extended: `mockServiceFromChain` / `mockServiceFromError` helpers added for `@supabase/service` mock.
+- **Projection boundary**: unchanged — `projectEvents()` is still the only output path.
 
 ### Phase 6 — Testing and verification
 

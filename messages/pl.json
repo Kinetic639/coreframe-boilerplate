@@ -2705,6 +2705,22 @@
     "orSeparator": "lub",
     "signOutButton": "Wyloguj się"
   },
+  "activityFeed": {
+    "personalTitle": "Moja aktywno\u015b\u0107",
+    "personalDescription": "Twoje ostatnie dzia\u0142ania w tej organizacji.",
+    "orgTitle": "Aktywno\u015b\u0107 organizacji",
+    "orgDescription": "Ostatnia aktywno\u015b\u0107 w Twojej organizacji.",
+    "auditTitle": "Dziennik audytu",
+    "auditDescription": "Pe\u0142ny dziennik zdarze\u0144 audytu \u0142\u0105cznie z adresami IP i danymi przegl\u0105darki.",
+    "empty": "Brak zdarze\u0144.",
+    "loading": "\u0141adowanie\u2026",
+    "pagination": "Pokazuje {from}\u2013{to} z {total}",
+    "prev": "Poprzednia",
+    "next": "Nast\u0119pna",
+    "pageOf": "Strona {page} z {total}",
+    "ip": "IP",
+    "ua": "Przegl\u0105darka"
+  },
   "adminInvitations": {
     "inviteMemberButton": "Zaproś członka",
     "noInvitations": "Brak zaproszeń.",
