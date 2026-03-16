@@ -36,6 +36,12 @@ export interface VisibilityInput {
   event: PlatformEventRow;
   /** Registry entry for this event type. null/undefined → deny (unknown event). */
   entry: EventRegistryEntry | null | undefined;
+  /**
+   * The feed scope being rendered. Controls whether the audit superpower fires
+   * and whether audit-class events are visible. Defaults to permissive if omitted
+   * (treated as "audit") for backward compatibility with direct evaluator calls.
+   */
+  viewerScope?: "personal" | "org" | "audit";
 }
 
 /**
@@ -49,7 +55,7 @@ export interface VisibilityInput {
  *
  * Returns false for unknown registry entries (entry is null/undefined).
  */
-export function canViewerSeeEvent({ viewer, event, entry }: VisibilityInput): boolean {
+export function canViewerSeeEvent({ viewer, event, entry, viewerScope }: VisibilityInput): boolean {
   if (!entry) {
     // Unknown event type — deny to prevent info leakage on unregistered events.
     return false;
@@ -76,7 +82,7 @@ export function canViewerSeeEvent({ viewer, event, entry }: VisibilityInput): bo
   }
 
   // -------------------------------------------------------------------------
-  // 3. Audit superpower — audit.events.read grants broad access
+  // 3. Audit superpower — audit.events.read grants broad access IN AUDIT SCOPE
   //
   // WHY this is intentional and not a bypass:
   //  - audit.events.read is a privileged, restricted permission granted only
@@ -86,14 +92,33 @@ export function canViewerSeeEvent({ viewer, event, entry }: VisibilityInput): bo
   //    metadata (ip_address, user_agent) — that is the purpose of the audit log.
   //  - The DB query already scopes to the viewer's org via RLS, so this
   //    superpower applies within the viewer's org only — not cross-tenant.
-  //  - Scope note: if the viewer has audit.events.read as an org-wide grant
-  //    (branch_id IS NULL in user_effective_permissions), it appears in the
-  //    flat permission snapshot and grants access to all events including branch
-  //    events for that org. This is the intended behaviour — auditors need
-  //    full visibility across all branches of their org.
+  //
+  // Scope gate: the superpower only fires in "audit" feed scope (or when no
+  // scope is specified, for backward compat with direct evaluator calls).
+  // In "org" or "personal" scope, having audit.events.read does NOT surface
+  // audit-class events — those belong exclusively to the audit feed.
+  //
+  // Scope note: if the viewer has audit.events.read as an org-wide grant
+  // (branch_id IS NULL in user_effective_permissions), it appears in the
+  // flat permission snapshot and grants access to all events including branch
+  // events for that org. This is the intended behaviour — auditors need
+  // full visibility across all branches of their org.
   // -------------------------------------------------------------------------
-  if (viewer.permissions.includes(VISIBILITY_CLASS_PERMISSIONS.audit)) {
+  if (
+    viewer.permissions.includes(VISIBILITY_CLASS_PERMISSIONS.audit) &&
+    viewerScope !== "personal" &&
+    viewerScope !== "org"
+  ) {
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // 3a. Audit-class events are exclusive to audit feed scope.
+  //     Even if the viewer has audit.events.read, audit-class events must not
+  //     appear in org or personal feeds — they belong only in the audit feed.
+  // -------------------------------------------------------------------------
+  if (entry.visibilityClass === "audit" && (viewerScope === "org" || viewerScope === "personal")) {
+    return false;
   }
 
   // -------------------------------------------------------------------------

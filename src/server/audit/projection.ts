@@ -117,7 +117,12 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
     }
 
     // Central visibility evaluation — replaces old SCOPE_QUALIFIERS / visibleTo logic
-    const isVisible = canViewerSeeEvent({ viewer, event: row, entry });
+    const isVisible = canViewerSeeEvent({
+      viewer,
+      event: row,
+      entry,
+      viewerScope: context.viewerScope,
+    });
     if (!isVisible) {
       continue;
     }
