@@ -18,6 +18,7 @@ import "server-only";
 
 import { createServiceClient } from "@/utils/supabase/service";
 import type { ProjectedEvent } from "@/server/audit/types";
+import { applyActorEnrichmentToSummaries } from "@/server/audit/projection";
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -31,9 +32,13 @@ import type { ProjectedEvent } from "@/server/audit/types";
  * a user. This function replaces those UUIDs with "First Last" or "email"
  * falling back to "User <first-8-chars>" when no user record is found.
  *
+ * Additionally, this function applies the resolved names to the rich summary
+ * fields (summaryParams.actorName, summaryEntities.actor.label) via
+ * applyActorEnrichmentToSummaries().
+ *
  * @param events  Projected events (output of projectEvents()).
- * @returns       Same array with actor_display values enriched in-memory.
- *                Returns the original array unchanged on any error.
+ * @returns       Same array with actor_display values and summary actor names
+ *                enriched in-memory. Returns the original array unchanged on error.
  */
 export async function enrichActorDisplays(events: ProjectedEvent[]): Promise<ProjectedEvent[]> {
   if (events.length === 0) return events;
@@ -62,8 +67,8 @@ export async function enrichActorDisplays(events: ProjectedEvent[]): Promise<Pro
     return events;
   }
 
-  // Enrich in-memory — return new objects to avoid mutating projection output.
-  return events.map((event) => {
+  // Enrich actor_display and summary fields in-memory — return new objects.
+  const withEnrichedActorDisplay = events.map((event) => {
     if (!UUID_PATTERN.test(event.actor_display)) return event;
     const resolved = userMap.get(event.actor_display);
     if (!resolved) {
@@ -72,6 +77,9 @@ export async function enrichActorDisplays(events: ProjectedEvent[]): Promise<Pro
     }
     return { ...event, actor_display: resolved };
   });
+
+  // Apply enriched names to the rich summary fields (summaryParams.actorName, etc.)
+  return applyActorEnrichmentToSummaries(withEnrichedActorDisplay, userMap);
 }
 
 // ---------------------------------------------------------------------------

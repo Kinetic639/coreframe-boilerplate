@@ -65,6 +65,7 @@ function makeEntry(overrides: Partial<EventRegistryEntry> = {}): EventRegistryEn
     description: "Test event",
     metadataSchema: z.object({}),
     summaryTemplate: "{{actor}} acted",
+    i18nKey: "events.auth.login",
     scope: "platform",
     actorVisible: true,
     selfVisible: true,

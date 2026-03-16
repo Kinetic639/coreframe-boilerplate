@@ -126,8 +126,24 @@ export interface EventRegistryEntry {
    * Named interpolation template resolved at projection/read time.
    * Supported variables: {{actor}}, {{entity}}, {{target}}
    * NEVER stored in the database.
+   *
+   * @transitional Use i18nKey for new UI rendering. This field is retained
+   * as a backend fallback for the legacy `summary` field on ProjectedEvent.
    */
   summaryTemplate: string;
+
+  /**
+   * next-intl translation key root for this event, e.g. "events.auth.login".
+   * The UI resolves the full key as `${i18nKey}.${perspective}`.
+   * Required for the rich summary model introduced in the activity-summary phase.
+   */
+  i18nKey: string;
+
+  /**
+   * Optional icon key (maps to lucide icon name via icon-map on the client).
+   * When absent, the UI falls back to a default activity icon.
+   */
+  iconKey?: string;
 
   // ---------------------------------------------------------------------------
   // New permission-based visibility model (replaces visibleTo)
@@ -196,6 +212,50 @@ export interface ProjectionContext {
   viewerBranchId?: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Rich activity summary model
+// ---------------------------------------------------------------------------
+
+/**
+ * Perspective from which a summary string is rendered.
+ *   self    — the viewer is the actor ("You logged in")
+ *   default — the viewer is an observer ("Alice logged in")
+ *   audit   — full audit context including forensic data
+ */
+export type EventSummaryPerspective = "self" | "default" | "audit";
+
+/**
+ * A resolved reference to a named entity within an event.
+ * Used by the UI layer to render clickable links or plain text.
+ */
+export type ActivityEntityRef = {
+  kind:
+    | "user"
+    | "movement"
+    | "document"
+    | "branch"
+    | "role"
+    | "organization"
+    | "invitation"
+    | "unknown";
+  id: string;
+  label: string;
+  href?: string;
+};
+
+/**
+ * Named slots for entity refs within a single event.
+ * Not all slots are populated for every event — check for undefined before use.
+ */
+export type ActivityEntityRefs = {
+  actor?: ActivityEntityRef;
+  target?: ActivityEntityRef;
+  entity?: ActivityEntityRef;
+  branch?: ActivityEntityRef;
+  role?: ActivityEntityRef;
+  organization?: ActivityEntityRef;
+};
+
 /**
  * The only event shape the frontend may ever receive.
  * Raw PlatformEventRow must never be returned to client code.
@@ -220,6 +280,23 @@ export interface ProjectedEvent {
   // They are added by the projection layer for audit-scope responses only.
   ip_address?: string | null;
   user_agent?: string | null;
+
+  // -------------------------------------------------------------------------
+  // Rich summary model (added in activity-summary phase)
+  // -------------------------------------------------------------------------
+
+  /** next-intl translation key for the summary, e.g. "events.auth.login" */
+  summaryKey: string;
+  /** Which perspective to use when resolving the translation sub-key */
+  summaryPerspective: EventSummaryPerspective;
+  /** Named parameters for the translation string, e.g. { actorName: "Alice" } */
+  summaryParams: Record<string, string | number | boolean | null>;
+  /** Entity refs for linked UI rendering */
+  summaryEntities: ActivityEntityRefs;
+  /** Primary navigation target for this event (optional) */
+  primaryHref?: string;
+  /** Icon key for the event (maps to lucide icon name) */
+  iconKey?: string;
 }
 
 // ---------------------------------------------------------------------------
