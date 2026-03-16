@@ -18,6 +18,8 @@
  */
 
 import { describe, it, expect } from "vitest";
+import * as fs from "fs";
+import * as path from "path";
 import { EVENT_REGISTRY, getAllActionKeys, getRegistryEntry } from "../event-registry";
 import type { EventVisibilityScope } from "../types";
 
@@ -41,8 +43,8 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
     expect(actionKeys.length).toBeGreaterThan(0);
   });
 
-  it("has exactly the expected 20 initial entries", () => {
-    expect(actionKeys.length).toBe(20);
+  it("has exactly the expected 22 entries", () => {
+    expect(actionKeys.length).toBe(22);
   });
 
   for (const key of actionKeys) {
@@ -199,13 +201,54 @@ describe("T-REGISTRY-SCHEMA: Zod metadata schema validation", () => {
       expect(() => entry.metadataSchema.parse({})).not.toThrow();
     });
   });
+
+  describe("org.invitation.resent", () => {
+    const entry = getRegistryEntry("org.invitation.resent")!;
+
+    it("accepts valid invitation_id and invitee_email", () => {
+      expect(() =>
+        entry.metadataSchema.parse({
+          invitation_id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+          invitee_email: "user@example.com",
+        })
+      ).not.toThrow();
+    });
+
+    it("accepts empty object (all fields optional)", () => {
+      expect(() => entry.metadataSchema.parse({})).not.toThrow();
+    });
+
+    it("rejects invalid email format", () => {
+      expect(() => entry.metadataSchema.parse({ invitee_email: "not-an-email" })).toThrow();
+    });
+  });
+
+  describe("org.invitation.declined", () => {
+    const entry = getRegistryEntry("org.invitation.declined")!;
+
+    it("accepts valid invitation_id", () => {
+      expect(() =>
+        entry.metadataSchema.parse({
+          invitation_id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+        })
+      ).not.toThrow();
+    });
+
+    it("accepts empty object (all fields optional)", () => {
+      expect(() => entry.metadataSchema.parse({})).not.toThrow();
+    });
+
+    it("rejects non-UUID invitation_id", () => {
+      expect(() => entry.metadataSchema.parse({ invitation_id: "not-a-uuid" })).toThrow();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
 // T-REGISTRY-COVERAGE: Spot-check all 20 expected keys are present
 // ---------------------------------------------------------------------------
 
-describe("T-REGISTRY-COVERAGE: all 20 expected action keys are registered", () => {
+describe("T-REGISTRY-COVERAGE: all 22 expected action keys are registered", () => {
   const expectedKeys = [
     "auth.login",
     "auth.login.failed",
@@ -218,6 +261,8 @@ describe("T-REGISTRY-COVERAGE: all 20 expected action keys are registered", () =
     "org.member.removed",
     "org.invitation.accepted",
     "org.invitation.cancelled",
+    "org.invitation.resent",
+    "org.invitation.declined",
     "org.role.created",
     "org.role.updated",
     "org.role.deleted",
@@ -234,4 +279,35 @@ describe("T-REGISTRY-COVERAGE: all 20 expected action keys are registered", () =
       expect(EVENT_REGISTRY[key]).toBeDefined();
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// T-MIGRATION-FILES: verify expected migration files exist
+// ---------------------------------------------------------------------------
+
+describe("T-MIGRATION-FILES: required migration files exist on disk", () => {
+  const migrationsDir = path.resolve(__dirname, "../../../../supabase/migrations");
+
+  it("platform_events core migration exists", () => {
+    const file = path.join(migrationsDir, "20260321000001_platform_events.sql");
+    expect(fs.existsSync(file), `Missing migration: ${file}`).toBe(true);
+  });
+
+  it("platform_events branch_id FK migration exists", () => {
+    const file = path.join(migrationsDir, "20260321000002_platform_events_branch_id_fk.sql");
+    expect(fs.existsSync(file), `Missing migration: ${file}`).toBe(true);
+  });
+
+  it("branch_id FK migration contains the correct constraint name", () => {
+    const file = path.join(migrationsDir, "20260321000002_platform_events_branch_id_fk.sql");
+    const contents = fs.readFileSync(file, "utf8");
+    expect(contents).toContain("platform_events_branch_id_fk");
+    expect(contents).toContain("on delete set null");
+  });
+
+  it("branch_id FK migration references public.branches", () => {
+    const file = path.join(migrationsDir, "20260321000002_platform_events_branch_id_fk.sql");
+    const contents = fs.readFileSync(file, "utf8");
+    expect(contents).toContain("public.branches");
+  });
 });

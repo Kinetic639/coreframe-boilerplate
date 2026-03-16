@@ -77,32 +77,33 @@ export async function createInvitationAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      // Emit org.member.invited — best effort, after successful invitation insert
-      try {
-        await eventService.emit({
-          actionKey: "org.member.invited",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "invitation",
-          entityId: result.data.id,
-          targetType: null,
-          targetId: null,
-          metadata: {
-            invitee_email: result.data.email,
-            invitee_first_name: result.data.invited_first_name ?? undefined,
-            invitee_last_name: result.data.invited_last_name ?? undefined,
-          },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      // Emit org.member.invited — best effort, after successful invitation insert.
+      // targetType/targetId set to the invitee email so {{target}} renders correctly in
+      // the summary template: "{{actor}} invited {{target}} to the organization".
+      const inviteEmitResult = await eventService.emit({
+        actionKey: "org.member.invited",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "invitation",
+        entityId: result.data.id,
+        targetType: "invitation_email",
+        targetId: result.data.email,
+        metadata: {
+          invitee_email: result.data.email,
+          invitee_first_name: result.data.invited_first_name ?? undefined,
+          invitee_last_name: result.data.invited_last_name ?? undefined,
+        },
+        eventTier: "enhanced",
+      });
+      if (!inviteEmitResult.success) {
         console.error("[createInvitationAction] Failed to emit org.member.invited:", {
           actionKey: "org.member.invited",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "invitation",
           entityId: result.data.id,
-          error: emitError,
+          error: (inviteEmitResult as { success: false; error: string }).error,
         });
       }
 
@@ -178,28 +179,29 @@ export async function cancelInvitationAction(rawInput: unknown) {
     const result = await OrgInvitationsService.cancelInvitation(supabase, parsed.data.invitationId);
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.invitation.cancelled",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "invitation",
-          entityId: parsed.data.invitationId,
-          metadata: {
-            invitation_id: parsed.data.invitationId,
-            invitee_email: inviteForEvent?.email ?? undefined,
-          },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const cancelEmitResult = await eventService.emit({
+        actionKey: "org.invitation.cancelled",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "invitation",
+        entityId: parsed.data.invitationId,
+        targetType: inviteForEvent?.email ? "invitation_email" : null,
+        targetId: inviteForEvent?.email ?? null,
+        metadata: {
+          invitation_id: parsed.data.invitationId,
+          invitee_email: inviteForEvent?.email ?? undefined,
+        },
+        eventTier: "enhanced",
+      });
+      if (!cancelEmitResult.success) {
         console.error("[cancelInvitationAction] Failed to emit org.invitation.cancelled:", {
           actionKey: "org.invitation.cancelled",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "invitation",
           entityId: parsed.data.invitationId,
-          error: emitError,
+          error: (cancelEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -267,6 +269,34 @@ export async function resendInvitationAction(rawInput: unknown) {
         console.error("[resendInvitationAction] Failed to send invitation email:", err);
       }
 
+      // Emit org.invitation.resent — best effort, after domain write succeeds.
+      // targetType/targetId set to invitation_email so {{target}} renders the email.
+      const resentEmitResult = await eventService.emit({
+        actionKey: "org.invitation.resent",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: result.data.organization_id,
+        entityType: "invitation",
+        entityId: parsed.data.invitationId,
+        targetType: "invitation_email",
+        targetId: result.data.email,
+        metadata: {
+          invitation_id: parsed.data.invitationId,
+          invitee_email: result.data.email,
+        },
+        eventTier: "enhanced",
+      });
+      if (!resentEmitResult.success) {
+        console.error("[resendInvitationAction] Failed to emit org.invitation.resent:", {
+          actionKey: "org.invitation.resent",
+          organizationId: result.data.organization_id,
+          actorUserId: context.user.user?.id ?? null,
+          entityType: "invitation",
+          entityId: parsed.data.invitationId,
+          error: (resentEmitResult as { success: false; error: string }).error,
+        });
+      }
+
       return {
         success: true as const,
         data: result.data.token,
@@ -304,28 +334,27 @@ export async function acceptInvitationAction(
 
     const result = await OrgInvitationsService.acceptInvitation(supabase, token);
 
-    if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.invitation.accepted",
-          actorType: "user",
-          actorUserId: acceptingUser?.id ?? null,
-          organizationId: result.data.organization_id,
-          entityType: "user",
-          entityId: acceptingUser?.id ?? "unknown",
-          metadata: {
-            invitation_id: inviteRow?.id ?? undefined,
-          },
-          eventTier: "baseline",
-        });
-      } catch (emitError) {
+    // Guard: acceptingUser.id must be a UUID — skip emission if somehow unavailable
+    if (result.success && acceptingUser?.id) {
+      const acceptEmitResult = await eventService.emit({
+        actionKey: "org.invitation.accepted",
+        actorType: "user",
+        actorUserId: acceptingUser.id,
+        organizationId: result.data.organization_id,
+        entityType: "user",
+        entityId: acceptingUser.id,
+        metadata: {
+          invitation_id: inviteRow?.id ?? undefined,
+        },
+        eventTier: "baseline",
+      });
+      if (!acceptEmitResult.success) {
         console.error("[acceptInvitationAction] Failed to emit org.invitation.accepted:", {
           actionKey: "org.invitation.accepted",
           organizationId: result.data.organization_id,
-          actorUserId: acceptingUser?.id ?? null,
-          entityType: "user",
-          entityId: acceptingUser?.id ?? "unknown",
-          error: emitError,
+          actorUserId: acceptingUser.id,
+          entityId: acceptingUser.id,
+          error: (acceptEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -339,6 +368,16 @@ export async function acceptInvitationAction(
 export async function declineInvitationAction(token: string) {
   try {
     const supabase = await createClient();
+
+    // Pre-fetch invitation row and auth user before calling RPC.
+    // The RPC result carries no metadata (just {success, error_code?}), so we must
+    // capture organization_id and invitation_id here to populate the event.
+    const [{ data: inviteRow }, { data: authData }] = await Promise.all([
+      supabase.from("invitations").select("id, organization_id").eq("token", token).maybeSingle(),
+      supabase.auth.getUser(),
+    ]);
+    const decliningUser = authData?.user ?? null;
+
     const { data, error } = await supabase.rpc("decline_invitation", { p_token: token });
     if (error) return { success: false as const, error: error.message };
     const result = data as { success: boolean; error_code?: string } | null;
@@ -347,6 +386,36 @@ export async function declineInvitationAction(token: string) {
         success: false as const,
         error: result?.error_code ?? "Failed to decline invitation",
       };
+
+    // Emit org.invitation.declined — best effort, only when we could identify the org.
+    // actorType is "user" only when the decliner is authenticated; otherwise "system"
+    // is used so that actorType="user" is never emitted with actorUserId=null.
+    if (inviteRow?.organization_id) {
+      const isAuthenticated = !!decliningUser?.id;
+      const declineEmitResult = await eventService.emit({
+        actionKey: "org.invitation.declined",
+        actorType: isAuthenticated ? "user" : "system",
+        actorUserId: isAuthenticated ? decliningUser!.id : null,
+        organizationId: inviteRow.organization_id,
+        entityType: "invitation",
+        entityId: inviteRow.id,
+        metadata: {
+          invitation_id: inviteRow.id,
+        },
+        eventTier: "baseline",
+      });
+      if (!declineEmitResult.success) {
+        console.error("[declineInvitationAction] Failed to emit org.invitation.declined:", {
+          actionKey: "org.invitation.declined",
+          organizationId: inviteRow.organization_id,
+          actorUserId: decliningUser?.id ?? null,
+          entityType: "invitation",
+          entityId: inviteRow.id,
+          error: (declineEmitResult as { success: false; error: string }).error,
+        });
+      }
+    }
+
     return { success: true as const };
   } catch {
     return { success: false as const, error: "Unexpected error" };

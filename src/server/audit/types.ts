@@ -23,9 +23,34 @@ export type EventTier = "baseline" | "enhanced" | "forensic";
 export type ProjectionScope = "personal" | "org" | "audit";
 
 // ---------------------------------------------------------------------------
-// Visibility scope values used by the registry
+// New permission-based visibility model
 // ---------------------------------------------------------------------------
 
+/** Scope at which the event is contextually meaningful. */
+export type EventScope = "platform" | "organization" | "branch";
+
+/**
+ * Which permission class gates access to this event type.
+ * Maps directly to a permission slug via VISIBILITY_CLASS_PERMISSIONS.
+ */
+export type EventVisibilityClass = "org_activity" | "org_sensitive" | "audit";
+
+/**
+ * Central mapping from visibility class → required permission slug.
+ * Single source of truth — never duplicate these strings elsewhere.
+ */
+export const VISIBILITY_CLASS_PERMISSIONS: Record<EventVisibilityClass, string> = {
+  org_activity: "events.org_activity.read",
+  org_sensitive: "events.org_sensitive.read",
+  audit: "audit.events.read",
+};
+
+// ---------------------------------------------------------------------------
+// Legacy visibility scope values (kept for backward-compat with existing tests)
+// @deprecated Use actorVisible / selfVisible / visibilityClass instead.
+// ---------------------------------------------------------------------------
+
+/** @deprecated */
 export type EventVisibilityScope = "self" | "org_member" | "org_admin" | "auditor";
 
 // ---------------------------------------------------------------------------
@@ -103,11 +128,49 @@ export interface EventRegistryEntry {
    * NEVER stored in the database.
    */
   summaryTemplate: string;
+
+  // ---------------------------------------------------------------------------
+  // New permission-based visibility model (replaces visibleTo)
+  // ---------------------------------------------------------------------------
+
   /**
-   * Which viewer scopes may see this event at all.
-   * Enforced by projection.ts — never by frontend code.
+   * Contextual scope of the event.
+   * platform — auth / global events (no org context)
+   * organization — org-level lifecycle events
+   * branch — branch-level events
+   */
+  scope: EventScope;
+
+  /**
+   * True if the event actor should always be able to see their own event,
+   * regardless of permission snapshot. Applies when actor_user_id === viewerUserId.
+   */
+  actorVisible: boolean;
+
+  /**
+   * True if the event subject (entity_id or target_id matching viewerUserId) can
+   * always see the event, regardless of permission snapshot.
+   */
+  selfVisible?: boolean;
+
+  /**
+   * Permission class required for non-intrinsic access.
+   * If absent, only actor/self intrinsic visibility applies.
+   */
+  visibilityClass?: EventVisibilityClass;
+
+  // ---------------------------------------------------------------------------
+  // Legacy field — kept to avoid breaking existing contract tests
+  // @deprecated Use scope / actorVisible / selfVisible / visibilityClass instead.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * @deprecated Legacy visibility scope array.
+   * Kept for backward compatibility with event-registry.test.ts contract suite.
+   * Projection no longer uses this field — see visibility.ts for the evaluator.
    */
   visibleTo: EventVisibilityScope[];
+
   /**
    * Keys inside `metadata` that are stripped for personal and org projections.
    * Auditor scope always receives full metadata.
@@ -125,6 +188,12 @@ export interface ProjectionContext {
   organizationId: string | null;
   /** Permission snapshot slugs for this viewer — checked by projection layer. */
   permissions: string[];
+  /**
+   * The branch the viewer is currently operating in.
+   * Used for branch-scope evaluation when needed.
+   * Optional — absent for org-wide or platform queries.
+   */
+  viewerBranchId?: string | null;
 }
 
 /**

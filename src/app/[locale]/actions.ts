@@ -1,11 +1,34 @@
 "use server";
 
+import { headers } from "next/headers";
 import { encodedRedirect } from "@/utils/utils";
 import { createClient } from "@/utils/supabase/server";
 import { createServiceClient } from "@/utils/supabase/service";
 import { redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { eventService } from "@/server/services/event.service";
+
+/**
+ * Extract IP and user-agent from the current request headers.
+ * Used to populate security context fields on auth events.
+ */
+async function getRequestContext(): Promise<{
+  ipAddress: string | null;
+  userAgent: string | null;
+}> {
+  try {
+    const headersList = await headers();
+    const ipAddress =
+      headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      headersList.get("x-real-ip") ??
+      null;
+    const userAgent = headersList.get("user-agent") ?? null;
+    return { ipAddress, userAgent };
+  } catch {
+    // headers() can throw outside of request context (e.g. tests)
+    return { ipAddress: null, userAgent: null };
+  }
+}
 
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
@@ -100,22 +123,27 @@ export const signInAction = async (formData: FormData) => {
       ? t("errors.invalidCredentials")
       : error.message;
 
-    // Emit failed login — best effort, must not block the redirect
+    // Emit failed login — best effort, must not block the redirect.
+    // actor_type = "system" because the user is not authenticated — no actor_user_id is available.
+    // Using "user" with null actor_user_id violates the actor model contract.
+    const { ipAddress, userAgent } = await getRequestContext();
     const failedLoginResult = await eventService.emit({
       actionKey: "auth.login.failed",
-      actorType: "user",
+      actorType: "system",
       actorUserId: null,
       organizationId: null,
       entityType: "auth",
       entityId: email,
       metadata: { email, reason: "invalid_credentials" },
       eventTier: "baseline",
+      ipAddress,
+      userAgent,
     });
     if (!failedLoginResult.success) {
       console.error("[signInAction] Failed to emit auth.login.failed:", {
         actionKey: "auth.login.failed",
         entityId: email,
-        error: failedLoginResult.error,
+        error: (failedLoginResult as { success: false; error: string }).error,
       });
     }
 
@@ -128,24 +156,31 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", errorMessage);
   }
 
-  // Emit successful login — best effort, before redirect logic
-  const loginResult = await eventService.emit({
-    actionKey: "auth.login",
-    actorType: "user",
-    actorUserId: signInData.user?.id ?? null,
-    organizationId: null,
-    entityType: "user",
-    entityId: signInData.user?.id ?? email,
-    metadata: { email: signInData.user?.email },
-    eventTier: "baseline",
-  });
-  if (!loginResult.success) {
-    console.error("[signInAction] Failed to emit auth.login:", {
+  // Emit successful login — best effort, before redirect logic.
+  // Guard: after successful auth signInData.user.id is guaranteed present,
+  // but the guard prevents any "unknown" UUID placeholder if the invariant ever breaks.
+  if (signInData.user?.id) {
+    const { ipAddress: loginIp, userAgent: loginUa } = await getRequestContext();
+    const loginResult = await eventService.emit({
       actionKey: "auth.login",
-      actorUserId: signInData.user?.id ?? null,
-      entityId: signInData.user?.id ?? email,
-      error: loginResult.error,
+      actorType: "user",
+      actorUserId: signInData.user.id,
+      organizationId: null,
+      entityType: "user",
+      entityId: signInData.user.id,
+      metadata: { email: signInData.user.email },
+      eventTier: "baseline",
+      ipAddress: loginIp,
+      userAgent: loginUa,
     });
+    if (!loginResult.success) {
+      console.error("[signInAction] Failed to emit auth.login:", {
+        actionKey: "auth.login",
+        actorUserId: signInData.user.id,
+        entityId: signInData.user.id,
+        error: (loginResult as { success: false; error: string }).error,
+      });
+    }
   }
 
   // If there's a returnUrl (e.g. /invite/[token]), honor it directly
@@ -204,22 +239,27 @@ export const forgotPasswordAction = async (formData: FormData) => {
   });
 
   // Emit password reset requested — always, regardless of whether email exists
-  // (we never reveal if an account exists — Supabase handles that too)
+  // (we never reveal if an account exists — Supabase handles that too).
+  // actor_type = "system" because the user is not authenticated at this point.
+  // Using "user" with null actor_user_id would violate the actor model contract.
+  const { ipAddress: resetIp, userAgent: resetUa } = await getRequestContext();
   const resetRequestedResult = await eventService.emit({
     actionKey: "auth.password.reset_requested",
-    actorType: "user",
+    actorType: "system",
     actorUserId: null,
     organizationId: null,
     entityType: "auth",
     entityId: email,
     metadata: { email },
     eventTier: "baseline",
+    ipAddress: resetIp,
+    userAgent: resetUa,
   });
   if (!resetRequestedResult.success) {
     console.error("[forgotPasswordAction] Failed to emit auth.password.reset_requested:", {
       actionKey: "auth.password.reset_requested",
       entityId: email,
-      error: resetRequestedResult.error,
+      error: (resetRequestedResult as { success: false; error: string }).error,
     });
   }
 
@@ -338,24 +378,31 @@ export const resetPasswordAction = async (formData: FormData) => {
     data: { user: resetUser },
   } = await supabase.auth.getUser();
 
-  // Emit password reset completed — best effort, must not block signOut + redirect
-  const resetCompletedResult = await eventService.emit({
-    actionKey: "auth.password.reset_completed",
-    actorType: "user",
-    actorUserId: resetUser?.id ?? null,
-    organizationId: null,
-    entityType: "user",
-    entityId: resetUser?.id ?? "unknown",
-    metadata: {},
-    eventTier: "baseline",
-  });
-  if (!resetCompletedResult.success) {
-    console.error("[resetPasswordAction] Failed to emit auth.password.reset_completed:", {
+  // Emit password reset completed — best effort, must not block signOut + redirect.
+  // Guard: user should be authenticated at this point; skip emission rather than
+  // emitting a non-UUID "unknown" placeholder if the session somehow expired.
+  if (resetUser?.id) {
+    const { ipAddress: pwResetIp, userAgent: pwResetUa } = await getRequestContext();
+    const resetCompletedResult = await eventService.emit({
       actionKey: "auth.password.reset_completed",
-      actorUserId: resetUser?.id ?? null,
-      entityId: resetUser?.id ?? "unknown",
-      error: resetCompletedResult.error,
+      actorType: "user",
+      actorUserId: resetUser.id,
+      organizationId: null,
+      entityType: "user",
+      entityId: resetUser.id,
+      metadata: {},
+      eventTier: "baseline",
+      ipAddress: pwResetIp,
+      userAgent: pwResetUa,
     });
+    if (!resetCompletedResult.success) {
+      console.error("[resetPasswordAction] Failed to emit auth.password.reset_completed:", {
+        actionKey: "auth.password.reset_completed",
+        actorUserId: resetUser.id,
+        entityId: resetUser.id,
+        error: (resetCompletedResult as { success: false; error: string }).error,
+      });
+    }
   }
 
   // Sign out after password reset for security
@@ -389,7 +436,9 @@ export const signOutAction = async () => {
 
   // Only emit if we have a valid user ID — null actorUserId produces unfindable events
   if (signingOutUser?.id) {
-    // Emit session revoked (voluntary sign-out) — best effort, must not block redirect
+    // Emit session revoked (voluntary sign-out) — best effort, must not block redirect.
+    // IP/UA captured before signOut since headers are still available here.
+    const { ipAddress: signOutIp, userAgent: signOutUa } = await getRequestContext();
     const sessionRevokedResult = await eventService.emit({
       actionKey: "auth.session.revoked",
       actorType: "user",
@@ -399,13 +448,15 @@ export const signOutAction = async () => {
       entityId: signingOutUser.id,
       metadata: { reason: "voluntary_signout" },
       eventTier: "enhanced",
+      ipAddress: signOutIp,
+      userAgent: signOutUa,
     });
     if (!sessionRevokedResult.success) {
       console.error("[signOutAction] Failed to emit auth.session.revoked:", {
         actionKey: "auth.session.revoked",
         actorUserId: signingOutUser.id,
         entityId: signingOutUser.id,
-        error: sessionRevokedResult.error,
+        error: (sessionRevokedResult as { success: false; error: string }).error,
       });
     }
   }

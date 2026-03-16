@@ -8,7 +8,7 @@
  *   - which action keys are valid for emission
  *   - what metadata shape is required per action key
  *   - what summary template to use at projection time
- *   - which viewer scopes may see each event
+ *   - visibility model (scope, actorVisible, selfVisible, visibilityClass)
  *   - which metadata fields are sensitive and must be stripped
  *
  * Architecture ref: docs/event-system/README.md
@@ -38,6 +38,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       email: z.string().email().optional(),
     }),
     summaryTemplate: "{{actor}} logged in",
+    // New model
+    scope: "platform",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "audit",
+    // Legacy — kept for contract tests
     visibleTo: ["self", "auditor"],
     sensitiveFields: ["email"],
   },
@@ -52,6 +58,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       reason: z.string().optional(),
     }),
     summaryTemplate: "Failed login attempt",
+    // New model — no actor (failed attempt may have null actorUserId)
+    scope: "platform",
+    actorVisible: false,
+    selfVisible: false,
+    visibilityClass: "audit",
+    // Legacy
     visibleTo: ["auditor"],
     sensitiveFields: ["email"],
   },
@@ -64,8 +76,16 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     metadataSchema: z.object({
       email: z.string().email().optional(),
     }),
-    summaryTemplate: "{{actor}} requested a password reset",
-    visibleTo: ["self", "auditor"],
+    // Auditor-only: emitted with actorType="system" and actorUserId=null
+    // because the requesting user is not yet authenticated.
+    summaryTemplate: "Password reset requested",
+    // New model
+    scope: "platform",
+    actorVisible: false,
+    selfVisible: false,
+    visibilityClass: "audit",
+    // Legacy
+    visibleTo: ["auditor"],
     sensitiveFields: ["email"],
   },
 
@@ -76,6 +96,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     description: "User completed a password reset",
     metadataSchema: z.object({}),
     summaryTemplate: "{{actor}} completed a password reset",
+    // New model
+    scope: "platform",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "audit",
+    // Legacy
     visibleTo: ["self", "auditor"],
     sensitiveFields: [],
   },
@@ -89,6 +115,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       reason: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} session revoked",
+    // New model
+    scope: "platform",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "audit",
+    // Legacy
     visibleTo: ["self", "auditor"],
     sensitiveFields: [],
   },
@@ -107,6 +139,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       org_slug: z.string().optional(),
     }),
     summaryTemplate: "Organization created",
+    // New model — visible to all org members
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -120,6 +158,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization profile updated by {{actor}}",
+    // New model — visible to all org members
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -135,6 +179,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_last_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} invited {{target}} to the organization",
+    // New model — sensitive: invitee PII; visible to org_admin+ only
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["invitee_email", "invitee_first_name", "invitee_last_name"],
   },
@@ -149,6 +199,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       removed_user_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} removed {{target}} from the organization",
+    // New model — sensitive: includes who was removed; selfVisible so the removed user can see it
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["removed_user_name"],
   },
@@ -161,7 +217,13 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
     }),
-    summaryTemplate: "{{target}} accepted invitation and joined the organization",
+    summaryTemplate: "{{actor}} accepted invitation and joined the organization",
+    // New model — a positive membership event; visible to all org members
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -176,8 +238,56 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_email: z.string().email().optional(),
     }),
     summaryTemplate: "{{actor}} cancelled invitation for {{target}}",
+    // New model — sensitive: invitee_email in metadata
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["invitee_email"],
+  },
+
+  "org.invitation.resent": {
+    actionKey: "org.invitation.resent",
+    moduleSlug: "organization-management",
+    eventTier: "enhanced",
+    description: "An invitation was resent with a new token and expiry",
+    metadataSchema: z.object({
+      invitation_id: z.string().uuid().optional(),
+      invitee_email: z.string().email().optional(),
+    }),
+    // targetType/targetId set to invitation_email so {{target}} renders the email address.
+    summaryTemplate: "{{actor}} resent invitation to {{target}}",
+    // New model — sensitive: invitee_email in metadata
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
+    visibleTo: ["self", "org_admin", "auditor"],
+    sensitiveFields: ["invitee_email"],
+  },
+
+  "org.invitation.declined": {
+    actionKey: "org.invitation.declined",
+    moduleSlug: "organization-management",
+    eventTier: "baseline",
+    description: "An invitation was declined by the recipient",
+    metadataSchema: z.object({
+      invitation_id: z.string().uuid().optional(),
+    }),
+    // No {{target}}: the actor IS the recipient — using target would be redundant.
+    // actorUserId may be null if the recipient was not authenticated at decline time.
+    summaryTemplate: "{{actor}} declined the invitation",
+    // New model — sensitive: who declined is relevant to admins
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
+    visibleTo: ["self", "org_admin", "auditor"],
+    sensitiveFields: [],
   },
 
   "org.role.created": {
@@ -190,6 +300,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created role {{entity}}",
+    // New model — role changes are admin-level sensitive
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -205,6 +321,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated role {{entity}}",
+    // New model
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -219,6 +341,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} deleted role {{entity}}",
+    // New model
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -235,6 +363,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} assigned role to {{target}}",
+    // New model — selfVisible: target user can see their own role assignment
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -251,6 +385,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} removed role from {{target}}",
+    // New model — selfVisible: target user can see their own role removal
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -265,6 +405,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created branch {{entity}}",
+    // New model — branch lifecycle visible to all org members
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -280,6 +426,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated branch {{entity}}",
+    // New model — branch lifecycle visible to all org members
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -294,6 +446,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} deleted branch {{entity}}",
+    // New model — sensitive: deletion is an admin-level action
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: false,
+    visibilityClass: "org_sensitive",
+    // Legacy
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -308,6 +466,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       completed_steps: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization onboarding completed",
+    // New model — a milestone visible to all org members
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    // Legacy
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },

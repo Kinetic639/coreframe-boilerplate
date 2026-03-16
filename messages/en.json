@@ -1647,7 +1647,13 @@
       "userMenu": {
         "profile": "Profile",
         "preferences": "Preferences",
-        "signOut": "Sign Out"
+        "signOut": "Sign Out",
+        "home": "Home",
+        "account": "Account",
+        "dashboard": "Dashboard",
+        "adminPanel": "Admin Panel",
+        "diagnostics": "Diagnostics",
+        "logOut": "Log out"
       }
     }
   },

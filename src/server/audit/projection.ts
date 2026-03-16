@@ -10,7 +10,7 @@
  *   audit     — all events in org; full fields including ip/ua and all metadata
  *
  * Visibility rules, sensitive field definitions, and summary templates all come
- * from the Event Registry — never from the DB row.
+ * from the Event Registry and the central visibility evaluator — never from DB rows.
  *
  * Architecture ref: docs/event-system/README.md
  * Plan ref:         docs/event-system/EVENT_SYSTEM_IMPLEMENTATION_PLAN.md
@@ -19,6 +19,7 @@
 import "server-only";
 
 import { getRegistryEntry } from "@/server/audit/event-registry";
+import { canViewerSeeEvent } from "@/server/audit/visibility";
 import type {
   PlatformEventRow,
   ProjectedEvent,
@@ -48,24 +49,6 @@ export interface ProjectionResult {
 }
 
 // ---------------------------------------------------------------------------
-// Scope-to-visibleTo mapping
-// ---------------------------------------------------------------------------
-
-/**
- * Maps a ProjectionScope to the EventVisibilityScope values that qualify.
- * An event is visible to a scope if the registry entry's visibleTo array
- * contains at least one of the values returned here.
- */
-const SCOPE_QUALIFIERS: Record<ProjectionScope, readonly string[]> = {
-  // Personal: viewer sees their own events → self
-  personal: ["self"],
-  // Org: members and admins can see → self, org_member, org_admin
-  org: ["self", "org_member", "org_admin"],
-  // Audit: everything visible to all scopes including auditors
-  audit: ["self", "org_member", "org_admin", "auditor"],
-};
-
-// ---------------------------------------------------------------------------
 // Main projection function
 // ---------------------------------------------------------------------------
 
@@ -74,8 +57,8 @@ const SCOPE_QUALIFIERS: Record<ProjectionScope, readonly string[]> = {
  *
  * Steps per event:
  *  1. Registry lookup — skip with a console.warn if action key is unknown
- *  2. Visibility filter — skip if registry.visibleTo has no overlap with scope qualifiers
- *  3. Personal-scope guard — skip if scope=personal and event.actor_user_id !== viewerUserId
+ *  2. Visibility check — delegate to canViewerSeeEvent() from visibility.ts
+ *  3. Personal-scope guard — additional actor check for personal scope
  *  4. Summary generation — interpolate registry summaryTemplate
  *  5. Field projection — strip sensitive fields and ip/ua for non-audit scopes
  *  6. Pagination — apply limit/offset to the filtered result
@@ -84,7 +67,13 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
   const { events, context } = input;
   const limit = input.limit ?? 50;
   const offset = input.offset ?? 0;
-  const qualifiers = SCOPE_QUALIFIERS[context.viewerScope];
+
+  // Build viewer descriptor for the visibility evaluator
+  const viewer = {
+    userId: context.viewerUserId,
+    permissions: context.permissions,
+    branchId: context.viewerBranchId ?? null,
+  };
 
   // Pass 1: filter and project
   const projected: ProjectedEvent[] = [];
@@ -100,14 +89,36 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
       continue;
     }
 
-    // Visibility check: at least one qualifier must be in registry visibleTo
-    const isVisible = entry.visibleTo.some((scope) => qualifiers.includes(scope));
-    if (!isVisible) {
+    // Personal scope: defence-in-depth check.
+    //
+    // The DB query now fetches rows where the viewer is the actor OR the
+    // entity/target subject (Fix A — self-visible events). We must NOT
+    // pre-filter here by actor alone; that would block selfVisible events
+    // where the viewer is the target (e.g. org.member.role_assigned emitted
+    // by an admin where target_id = viewerUserId).
+    //
+    // Instead we rely entirely on canViewerSeeEvent() below, which evaluates
+    // all three intrinsic paths (actorVisible, selfVisible) plus permission
+    // checks. The only pre-flight we do here is reject null-actor system
+    // events that can never be attributed to any personal feed.
+    //
+    // A system event (actor_user_id = null) cannot satisfy either
+    // actorVisible (actor guard requires non-null actor === viewer) or
+    // selfVisible (requires entity/target === viewerUserId by registry rule).
+    // Explicitly filtering them out here avoids calling the evaluator
+    // unnecessarily, but is not strictly required for correctness.
+    if (
+      context.viewerScope === "personal" &&
+      row.actor_user_id === null &&
+      row.actor_type !== "user"
+    ) {
+      // System/scheduler/worker-originated event with no user actor — not personal.
       continue;
     }
 
-    // Personal scope: only events where viewer is the actor
-    if (context.viewerScope === "personal" && row.actor_user_id !== context.viewerUserId) {
+    // Central visibility evaluation — replaces old SCOPE_QUALIFIERS / visibleTo logic
+    const isVisible = canViewerSeeEvent({ viewer, event: row, entry });
+    if (!isVisible) {
       continue;
     }
 
@@ -117,8 +128,9 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
     // Actor display: prefer user ID representation; projection callers may enrich later
     const actorDisplay = resolveActorDisplay(row);
 
-    // Field projection
-    const metadata = projectMetadata(row.metadata, entry.sensitiveFields, context.viewerScope);
+    // Field projection — metadata stripping
+    const isAuditScope = context.viewerScope === "audit";
+    const metadata = projectMetadata(row.metadata, entry.sensitiveFields, isAuditScope);
 
     const projectedEvent: ProjectedEvent = {
       id: row.id,
@@ -193,14 +205,14 @@ function resolveActorDisplay(row: PlatformEventRow): string {
 
 /**
  * Return a copy of the metadata object with sensitive fields removed,
- * unless the viewer scope is 'audit' (auditors always receive full metadata).
+ * unless the viewer is in audit scope (auditors always receive full metadata).
  */
 function projectMetadata(
   metadata: Record<string, unknown>,
   sensitiveFields: string[],
-  scope: ProjectionScope
+  isAuditScope: boolean
 ): Record<string, unknown> {
-  if (scope === "audit" || sensitiveFields.length === 0) {
+  if (isAuditScope || sensitiveFields.length === 0) {
     return { ...metadata };
   }
 
@@ -212,3 +224,9 @@ function projectMetadata(
   }
   return result;
 }
+
+// ---------------------------------------------------------------------------
+// Re-export ProjectionScope for convenience (avoids deep imports in callers)
+// ---------------------------------------------------------------------------
+
+export type { ProjectionScope };

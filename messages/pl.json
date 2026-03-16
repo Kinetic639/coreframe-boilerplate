@@ -1618,7 +1618,13 @@
       "userMenu": {
         "profile": "Profil",
         "preferences": "Preferencje",
-        "signOut": "Wyloguj się"
+        "signOut": "Wyloguj się",
+        "home": "Strona główna",
+        "account": "Konto",
+        "dashboard": "Panel",
+        "adminPanel": "Panel administracyjny",
+        "diagnostics": "Diagnostyka",
+        "logOut": "Wyloguj się"
       }
     }
   },

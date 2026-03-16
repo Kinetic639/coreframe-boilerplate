@@ -26,6 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useTranslations } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
 import { signOutAction } from "@/app/[locale]/actions";
 
@@ -41,6 +42,7 @@ export function NavUser({
   isAdmin?: boolean;
 }) {
   const { isMobile } = useSidebar();
+  const t = useTranslations("dashboard.userMenu");
 
   const initials =
     user.name
@@ -116,28 +118,28 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem onClick={handleGoHome}>
                 <Home />
-                Home
+                {t("home")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleGoToAccount}>
                 <BadgeCheck />
-                Account
+                {t("account")}
               </DropdownMenuItem>
               {isAdmin &&
                 (isInAdminPanel ? (
                   <DropdownMenuItem onClick={handleGoToDashboard}>
                     <LayoutDashboard />
-                    Dashboard
+                    {t("dashboard")}
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem onClick={handleGoToAdmin}>
                     <Shield />
-                    Admin Panel
+                    {t("adminPanel")}
                   </DropdownMenuItem>
                 ))}
               {isAdmin && !isOnDiagnostics && (
                 <DropdownMenuItem onClick={handleGoToDiagnostics}>
                   <ActivitySquare />
-                  Diagnostics
+                  {t("diagnostics")}
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
@@ -146,7 +148,7 @@ export function NavUser({
               <form action={signOutAction} className="w-full">
                 <button type="submit" className="flex w-full items-center gap-2 cursor-default">
                   <LogOut className="size-4" />
-                  Log out
+                  {t("logOut")}
                 </button>
               </form>
             </DropdownMenuItem>

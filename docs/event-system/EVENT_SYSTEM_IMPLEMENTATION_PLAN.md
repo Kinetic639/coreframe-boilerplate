@@ -273,6 +273,37 @@ Three classes of runtime bugs were identified and fixed. No DB migration was req
 - `T-REGISTRY-VISIBILITY` suite (11 new tests in `src/app/actions/__tests__/event-wiring.test.ts`): all 15 org event keys have `"self"` in `visibleTo`; personal scope shows actor-owned `org.updated`; personal scope hides `org.updated` for a different actor; personal scope shows actor-owned `org.member.invited`; personal scope shows actor-owned `org.branch.created`; org scope shows `org.updated` for any viewer; org scope shows `org.created` for any viewer; audit scope shows all 3 test org events; audit scope preserves sensitive fields in metadata; personal scope strips sensitive fields from `org.member.invited` metadata; personal scope excludes `ip_address`/`user_agent`; audit scope includes `ip_address`/`user_agent`.
 - `projection.test.ts` updated: the test that asserted `org.member.invited` was not visible in personal scope was corrected to use `auth.login.failed` (which genuinely has `visibleTo: ["auditor"]` only) to document the no-self case.
 
+**i18n cleanup pass (2026-03-14) — `nav-user.tsx` hardcoded strings removed:**
+
+- **Issue**: The runtime correction pass for Bug 1 (logout wiring) left `nav-user.tsx` compliant on event emission but non-compliant on i18n — all user-facing menu labels were still hardcoded English strings (`Home`, `Account`, `Dashboard`, `Admin Panel`, `Diagnostics`, `Log out`).
+- **Fix**: Added `useTranslations("dashboard.userMenu")` hook. All 6 hardcoded strings replaced with `t(key)` calls. New keys added to `dashboard.userMenu` namespace in both `messages/en.json` and `messages/pl.json`.
+- **Logout runtime fix is unchanged**: The `<form action={signOutAction}>` pattern is preserved exactly — only the button label text was touched.
+
+**Completion/hardening pass (2026-03-16):**
+
+Three gaps identified in the post-Phase-6 verification report were addressed. No new phases were created — all items are targeted fixes to existing work.
+
+**Gap 1 — `platform_events.branch_id` missing FK constraint:**
+
+- `branch_id` column existed and was already populated by branch-scoped events but had no FK constraint to `public.branches(id)`.
+- Fix: new migration `supabase/migrations/20260321000002_platform_events_branch_id_fk.sql` adds `FOREIGN KEY (branch_id) REFERENCES public.branches(id) ON DELETE SET NULL` — matching the existing soft-FK pattern used for `organization_id` and `actor_user_id`.
+- Applied to target project `rjeraydumwechpjjzrus` via Supabase MCP — verified via `pg_constraint` query: all three soft FKs now present.
+
+**Gap 2 — `resendInvitationAction` emitted no event:**
+
+- New registry entry `org.invitation.resent`: tier=`enhanced`, `visibleTo: ["self", "org_admin", "auditor"]`, sensitive fields: `["invitee_email"]`, summary template: `"{{actor}} resent invitation to {{target}}"`.
+- Action wired in `src/app/actions/organization/invitations.ts`: emits after domain write succeeds; `targetType/targetId` set to `invitation_email` / email address so `{{target}}` renders correctly. Mode A best-effort pattern applied (typed result check, structured `console.error` log, action success unaffected by emit failure).
+
+**Gap 3 — `declineInvitationAction` emitted no event:**
+
+- New registry entry `org.invitation.declined`: tier=`baseline`, `visibleTo: ["self", "org_admin", "auditor"]`, no sensitive fields, summary template: `"{{actor}} declined the invitation"` (no `{{target}}` — the actor IS the recipient).
+- Action wired in `src/app/actions/organization/invitations.ts`: `invitation.id` and `organization_id` pre-fetched from `invitations` table by token (RPC result carries no metadata); auth user fetched in parallel. Emit guarded by `inviteRow?.organization_id` — skipped if invite not found. `actorUserId` set from auth user if authenticated, `null` if not (decliner may not be logged in at decline time). Mode A best-effort pattern applied.
+
+**Tests added/updated:**
+
+- `event-registry.test.ts`: count updated 20 → 22; coverage list updated to include both new keys; schema validation spot-checks for `org.invitation.resent` and `org.invitation.declined`; new `T-MIGRATION-FILES` suite (4 tests) verifying the `branch_id` FK migration file exists and has the correct constraint name and target table.
+- `event-wiring.test.ts`: 10 new tests — resend emits on success, resend does not emit on failure, decline emits on success, decline does not emit on failure (RPC failure), Mode A resilience for resend and decline, metadata schema validation for both new events, summary rendering for both new events, org_admin visibility for declined, personal scope visibility + sensitive field stripping for resent.
+
 ### Phase 7 — Forensic-ready module guidance
 
 - [ ] Document warehouse event integration rules (wiring, not deep version history)
@@ -1408,6 +1439,155 @@ Use this checklist when reviewing any implementation PR against the canonical ar
 - [ ] Does not allow direct inserts into `platform_events` from anywhere except `event.service.ts`
 - [ ] Does not expose raw `PlatformEventRow` data to client-side code
 - [ ] Does not make forensic version history a responsibility of the event system
+
+---
+
+---
+
+## Phase 7 — Final Hardening Pass (2026-03-15)
+
+### Status: COMPLETE
+
+This phase fixed all remaining correctness gaps identified during verification. No architectural changes were made.
+
+---
+
+### 7.1 `auth.password.reset_requested` — Visibility Downgrade to Auditor-Only
+
+**Decision:** `visibleTo` changed from `["self", "auditor"]` → `["auditor"]`.
+
+**Rationale:**
+This event is emitted with `actorType: "system"` and `actorUserId: null` because the user is not yet authenticated at the time of the password reset request. The personal-scope visibility guard in `projection.ts` compares `row.actor_user_id !== context.viewerUserId` — with `actor_user_id = null`, this guard can never match any real user. Including `"self"` in `visibleTo` was therefore semantically meaningless and misleading. Only auditors can query these events. The summary template was updated to `"Password reset requested"` (no `{{actor}}` variable) to reflect the system-actor context.
+
+**Files changed:** `src/server/audit/event-registry.ts`
+
+---
+
+### 7.2 Non-UUID Entity ID Placeholders Removed
+
+**Decision:** All `?? "unknown"` fallbacks on `entityId` fields removed. Emission is now guarded.
+
+**Rationale:**
+The `entity_id` column is typed as text (not UUID) in the DB schema, but the system convention requires UUID values for entity references. Placeholders like `"unknown"` break event lookup by entity ID and pollute the event store with structurally invalid rows.
+
+**Changes applied:**
+
+- `signInAction` → `auth.login`: guarded with `if (signInData.user?.id)` — after successful auth this is always present
+- `resetPasswordAction` → `auth.password.reset_completed`: guarded with `if (resetUser?.id)` — skip emission rather than emit with null/unknown
+- `acceptInvitationAction` → `org.invitation.accepted`: combined guard `if (result.success && acceptingUser?.id)` — skip emission if the user session is absent
+
+**Files changed:** `src/app/[locale]/actions.ts`, `src/app/actions/organization/invitations.ts`
+
+---
+
+### 7.3 Redundant try/catch Wrappers Removed
+
+**Decision:** Removed `try { await eventService.emit(...) } catch (emitError) {}` patterns from all org action files.
+
+**Rationale:**
+`eventService.emit()` has an internal try/catch that catches all exceptions and returns `{ success: false, error: string }`. It is documented as never throwing. Wrapping it in another try/catch created dead code, obscured the typed-result contract, and made the failure path harder to understand. The correct pattern is:
+
+```typescript
+const emitResult = await eventService.emit({...});
+if (!emitResult.success) {
+  console.error("[action] emit failed:", { ..., error: (emitResult as { success: false; error: string }).error });
+}
+```
+
+**Files cleaned:** `invitations.ts`, `members.ts`, `roles.ts`, `branches.ts`, `onboarding/index.ts`
+
+**Note on profile.ts:** This file was already clean (no try/catch wrapper) from a prior session.
+
+---
+
+### 7.4 IP/User-Agent Capture — End-to-End Verification
+
+**Status:** Verified correct. No code changes required.
+
+**Verification path:**
+
+1. `getRequestContext()` in `actions.ts` reads `x-forwarded-for` / `x-real-ip` / `user-agent` from Next.js `headers()`
+2. `event.service.ts` includes `ip_address` and `user_agent` in the `insertRow` object
+3. `projection.ts` adds `ip_address`/`user_agent` to `ProjectedEvent` ONLY when `viewerScope === "audit"` (lines 139–142)
+4. Personal and org scope projections never expose these fields
+
+**Test coverage:** `T-REGISTRY-AUTH-VISIBILITY` suite verifies audit scope receives IP/UA and personal scope does not.
+
+---
+
+### 7.5 Invitation Summary Templates — End-to-End Verification
+
+**Status:** Verified correct. No code changes required.
+
+**Summary template audit:**
+
+| Event                      | Template                                                    | target_type        | target_id     | Renders correctly    |
+| -------------------------- | ----------------------------------------------------------- | ------------------ | ------------- | -------------------- |
+| `org.member.invited`       | `{{actor}} invited {{target}} to the organization`          | `invitation_email` | invitee email | ✅                   |
+| `org.invitation.cancelled` | `{{actor}} cancelled invitation for {{target}}`             | `invitation_email` | invitee email | ✅                   |
+| `org.invitation.accepted`  | `{{actor}} accepted invitation and joined the organization` | N/A                | N/A           | ✅ (no `{{target}}`) |
+
+**Test coverage:** `T-SUMMARY-RENDERING` suite verifies all three templates with live `projectEvents` calls.
+
+---
+
+### 7.6 Branch Event Attribution
+
+**Status:** Verified correct (fixed in prior session).
+
+Branch events now carry `branchId` in the emit call so `platform_events.branch_id` is populated:
+
+- `createBranchAction` → `branchId: result.data.id`
+- `updateBranchAction` → `branchId: branchId`
+- `deleteBranchAction` → `branchId: parsed.data.branchId` (name pre-fetched before delete)
+- `assignRoleToUserAction` / `removeRoleFromUserAction` → `branchId: scope === "branch" ? scopeId : undefined`
+
+---
+
+### 7.7 Final Emission Contract
+
+The canonical emission contract for all server actions is:
+
+```typescript
+// 1. Perform domain write
+const result = await SomeService.doSomething(supabase, ...);
+
+// 2. Emit event — best effort, after domain write succeeds
+if (result.success) {
+  const emitResult = await eventService.emit({
+    actionKey: "module.entity.verb",
+    actorType: "user",
+    actorUserId: context.user.user?.id ?? null,
+    organizationId: context.app.activeOrgId,
+    branchId: branchId ?? undefined,        // set when event is branch-scoped
+    entityType: "entity_type",
+    entityId: result.data.id,               // always a UUID; never "unknown"
+    targetType: "target_type" | null,       // set when template uses {{target}}
+    targetId: targetId | null,
+    metadata: { /* validated by Zod schema */ },
+    eventTier: "baseline" | "enhanced",
+  });
+  if (!emitResult.success) {
+    console.error("[actionName] Failed to emit event_key:", {
+      actionKey: "module.entity.verb",
+      organizationId: context.app.activeOrgId,
+      actorUserId: context.user.user?.id ?? null,
+      entityId: result.data.id,
+      error: (emitResult as { success: false; error: string }).error,
+    });
+  }
+}
+
+// 3. Return domain result — emit failure NEVER causes action failure
+return result;
+```
+
+**Key invariants:**
+
+- `eventService.emit()` is called WITHOUT a try/catch — it returns typed results and never throws
+- `entityId` is always a UUID; guarded with `if (userId)` when user auth cannot be guaranteed
+- `targetType`/`targetId` are set whenever the summaryTemplate references `{{target}}`
+- `branchId` is set when the event is scoped to a specific branch
 
 ---
 

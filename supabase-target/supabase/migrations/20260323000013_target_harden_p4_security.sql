@@ -146,13 +146,16 @@ GRANT  EXECUTE ON FUNCTION public.create_organization_for_current_user(text, tex
   TO authenticated, service_role;
 
 -- Trigger helper functions — not user-callable; restrict from PUBLIC
+-- NOTE: trigger_compile_on_ura_remove, trigger_compile_on_rp_remove, and
+-- trigger_compile_on_override_remove were revoked here and later dropped
+-- entirely in 20260323000018_target_corrective_p9_trigger_dedup (redundant).
 REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_membership()            FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_override()              FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_role_assignment()       FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_role_permission()       FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_ura_remove()            FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_rp_remove()             FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_override_remove()       FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_ura_remove()            FROM PUBLIC; -- dropped in P9
+REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_rp_remove()             FROM PUBLIC; -- dropped in P9
+REVOKE EXECUTE ON FUNCTION public.trigger_compile_on_override_remove()       FROM PUBLIC; -- dropped in P9
 REVOKE EXECUTE ON FUNCTION public.trigger_recompute_entitlements()           FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.sync_org_slug_to_profile()                 FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.protect_roles_immutable_columns()          FROM PUBLIC;

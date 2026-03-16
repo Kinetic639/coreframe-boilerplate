@@ -83,6 +83,10 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
   // a actorUserId — the DB schema allows null and the architecture requires it.
   const actorUserId = input.actorType === "user" ? (input.actorUserId ?? null) : null;
 
+  // Step 3b: Metadata normalization — strip undefined values, preserve null,
+  // ensure the object is JSON-serializable before DB insert.
+  const normalizedMetadata = normalizeMetadata(validatedMetadata);
+
   // Step 4: Build insert row
   const insertRow = {
     organization_id: input.organizationId ?? null,
@@ -95,7 +99,7 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
     entity_id: input.entityId,
     target_type: input.targetType ?? null,
     target_id: input.targetId ?? null,
-    metadata: validatedMetadata,
+    metadata: normalizedMetadata,
     event_tier: entry.eventTier, // always use registry tier, not caller-supplied
     request_id: input.requestId ?? null,
     ip_address: input.ipAddress ?? null,
@@ -145,6 +149,24 @@ async function emit(input: EmitEventInput): Promise<EventServiceResult<{ id: str
     });
     return { success: false, error: `Event emit error: ${message}` };
   }
+}
+
+// ---------------------------------------------------------------------------
+// normalizeMetadata() — internal helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a metadata record before DB insert.
+ *
+ * - Strips undefined values (JSON.stringify drops them; explicit removal avoids
+ *   accidental DB schema surprises when the DB driver serializes the object).
+ * - Preserves null values — semantically meaningful in event metadata.
+ * - Ensures the result is always a plain JSON-serializable object.
+ * - Never throws: if input is somehow not an object, returns {}.
+ */
+function normalizeMetadata(raw: Record<string, unknown>): Record<string, unknown> {
+  if (!raw || typeof raw !== "object") return {};
+  return JSON.parse(JSON.stringify(raw));
 }
 
 // ---------------------------------------------------------------------------

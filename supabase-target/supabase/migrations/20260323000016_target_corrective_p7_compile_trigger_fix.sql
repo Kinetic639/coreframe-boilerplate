@@ -1,12 +1,20 @@
 -- =============================================================================
 -- CORRECTIVE PASS — Phase 7: Fix trigger_compile_on_role_permission
--- Gap: original function only recompiles org-scoped user_role_assignments.
+-- Gap: original function only recompiled org-scoped user_role_assignments.
 -- Branch-scoped URAs were missed when a permission is INSERTed into a role
 -- (or when a soft-deleted role_permission is undeleted).
 --
--- trg_rp_compile_remove (DELETE / soft-delete UPDATE) already uses the
--- comprehensive branch-aware fan-out. This migration aligns the INSERT/UPDATE
--- path with the same logic.
+-- This migration rewrites trigger_compile_on_role_permission() to fan out to
+-- ALL users holding the role, resolving org_id for branch-scoped assignments
+-- via a branches JOIN. After this fix the single trigger
+-- trigger_role_permission_compile (AFTER INSERT OR DELETE OR UPDATE) fully
+-- covers all mutation paths with branch-aware fan-out.
+--
+-- NOTE: A prior comment referenced trg_rp_compile_remove as the narrow
+-- DELETE/soft-delete trigger with the branch-aware fan-out. That trigger was
+-- removed in 20260323000018_target_corrective_p9_trigger_dedup after it was
+-- confirmed redundant — trigger_role_permission_compile already fires on all
+-- events and the two functions were equivalent.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.trigger_compile_on_role_permission()
