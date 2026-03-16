@@ -38,6 +38,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       email: z.string().email().optional(),
     }),
     summaryTemplate: "{{actor}} logged in",
+    i18nKey: "events.auth.login",
+    iconKey: "settings",
     // New model
     scope: "platform",
     actorVisible: true,
@@ -58,6 +60,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       reason: z.string().optional(),
     }),
     summaryTemplate: "Failed login attempt",
+    i18nKey: "events.auth.loginFailed",
+    iconKey: "settings",
     // New model — no actor (failed attempt may have null actorUserId)
     scope: "platform",
     actorVisible: false,
@@ -79,6 +83,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     // Auditor-only: emitted with actorType="system" and actorUserId=null
     // because the requesting user is not yet authenticated.
     summaryTemplate: "Password reset requested",
+    i18nKey: "events.auth.password.resetRequested",
+    iconKey: "settings",
     // New model
     scope: "platform",
     actorVisible: false,
@@ -96,6 +102,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     description: "User completed a password reset",
     metadataSchema: z.object({}),
     summaryTemplate: "{{actor}} completed a password reset",
+    i18nKey: "events.auth.password.resetCompleted",
+    iconKey: "settings",
     // New model
     scope: "platform",
     actorVisible: true,
@@ -115,6 +123,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       reason: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} session revoked",
+    i18nKey: "events.auth.session.revoked",
+    iconKey: "settings",
     // New model
     scope: "platform",
     actorVisible: true,
@@ -139,6 +149,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       org_slug: z.string().optional(),
     }),
     summaryTemplate: "Organization created",
+    i18nKey: "events.org.created",
+    iconKey: "settings",
     // New model — visible to all org members
     scope: "organization",
     actorVisible: true,
@@ -158,6 +170,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization profile updated by {{actor}}",
+    i18nKey: "events.org.updated",
+    iconKey: "settings",
     // New model — visible to all org members
     scope: "organization",
     actorVisible: true,
@@ -179,6 +193,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_last_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} invited {{target}} to the organization",
+    i18nKey: "events.org.member.invited",
+    iconKey: "users",
     // New model — sensitive: invitee PII; visible to org_admin+ only
     scope: "organization",
     actorVisible: true,
@@ -199,6 +215,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       removed_user_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} removed {{target}} from the organization",
+    i18nKey: "events.org.member.removed",
+    iconKey: "users",
     // New model — sensitive: includes who was removed; selfVisible so the removed user can see it
     scope: "organization",
     actorVisible: true,
@@ -218,6 +236,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitation_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} accepted invitation and joined the organization",
+    i18nKey: "events.org.invitation.accepted",
+    iconKey: "users",
     // New model — a positive membership event; visible to all org members
     scope: "organization",
     actorVisible: true,
@@ -238,6 +258,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       invitee_email: z.string().email().optional(),
     }),
     summaryTemplate: "{{actor}} cancelled invitation for {{target}}",
+    i18nKey: "events.org.invitation.cancelled",
+    iconKey: "users",
     // New model — sensitive: invitee_email in metadata
     scope: "organization",
     actorVisible: true,
@@ -259,6 +281,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     }),
     // targetType/targetId set to invitation_email so {{target}} renders the email address.
     summaryTemplate: "{{actor}} resent invitation to {{target}}",
+    i18nKey: "events.org.invitation.resent",
+    iconKey: "users",
     // New model — sensitive: invitee_email in metadata
     scope: "organization",
     actorVisible: true,
@@ -280,6 +304,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     // No {{target}}: the actor IS the recipient — using target would be redundant.
     // actorUserId may be null if the recipient was not authenticated at decline time.
     summaryTemplate: "{{actor}} declined the invitation",
+    i18nKey: "events.org.invitation.declined",
+    iconKey: "users",
     // New model — sensitive: who declined is relevant to admins
     scope: "organization",
     actorVisible: true,
@@ -300,6 +326,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created role {{entity}}",
+    i18nKey: "events.org.role.created",
+    iconKey: "settings",
     // New model — role changes are admin-level sensitive
     scope: "organization",
     actorVisible: true,
@@ -321,6 +349,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated role {{entity}}",
+    i18nKey: "events.org.role.updated",
+    iconKey: "settings",
     // New model
     scope: "organization",
     actorVisible: true,
@@ -341,6 +371,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} deleted role {{entity}}",
+    i18nKey: "events.org.role.deleted",
+    iconKey: "settings",
     // New model
     scope: "organization",
     actorVisible: true,
@@ -363,6 +395,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} assigned role to {{target}}",
+    i18nKey: "events.org.member.roleAssigned",
+    iconKey: "users",
     // New model — selfVisible: target user can see their own role assignment
     scope: "organization",
     actorVisible: true,
@@ -385,6 +419,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_id: z.string().uuid().optional(),
     }),
     summaryTemplate: "{{actor}} removed role from {{target}}",
+    i18nKey: "events.org.member.roleRemoved",
+    iconKey: "users",
     // New model — selfVisible: target user can see their own role removal
     scope: "organization",
     actorVisible: true,
@@ -405,6 +441,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created branch {{entity}}",
+    i18nKey: "events.org.branch.created",
+    iconKey: "settings",
     // New model — branch lifecycle visible to all org members
     scope: "branch",
     actorVisible: true,
@@ -426,6 +464,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       updated_fields: z.array(z.string()).optional(),
     }),
     summaryTemplate: "{{actor}} updated branch {{entity}}",
+    i18nKey: "events.org.branch.updated",
+    iconKey: "settings",
     // New model — branch lifecycle visible to all org members
     scope: "branch",
     actorVisible: true,
@@ -446,6 +486,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       branch_name: z.string().optional(),
     }),
     summaryTemplate: "{{actor}} deleted branch {{entity}}",
+    i18nKey: "events.org.branch.deleted",
+    iconKey: "settings",
     // New model — sensitive: deletion is an admin-level action
     scope: "branch",
     actorVisible: true,
@@ -466,6 +508,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
       completed_steps: z.array(z.string()).optional(),
     }),
     summaryTemplate: "Organization onboarding completed",
+    i18nKey: "events.org.onboarding.completed",
+    iconKey: "settings",
     // New model — a milestone visible to all org members
     scope: "organization",
     actorVisible: true,

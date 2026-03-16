@@ -2783,5 +2783,142 @@
     "resendSuccess": "Invitation resent",
     "emailDeliveryWarning": "Invitation created, but the email could not be delivered. Share the invite link manually.",
     "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually."
+  },
+  "events": {
+    "auth": {
+      "login": {
+        "self": "You logged in",
+        "default": "{actorName} logged in",
+        "audit": "{actorName} logged in"
+      },
+      "loginFailed": {
+        "self": "A failed login attempt occurred",
+        "default": "A failed login attempt occurred",
+        "audit": "Failed login attempt"
+      },
+      "password": {
+        "resetRequested": {
+          "self": "A password reset was requested",
+          "default": "A password reset was requested",
+          "audit": "Password reset requested"
+        },
+        "resetCompleted": {
+          "self": "You reset your password",
+          "default": "{actorName} reset their password",
+          "audit": "{actorName} reset their password"
+        }
+      },
+      "session": {
+        "revoked": {
+          "self": "Your session was signed out",
+          "default": "{actorName} was signed out",
+          "audit": "{actorName} session revoked"
+        }
+      }
+    },
+    "org": {
+      "created": {
+        "self": "You created the organization",
+        "default": "{actorName} created the organization",
+        "audit": "{actorName} created organization {orgName}"
+      },
+      "updated": {
+        "self": "You updated the organization profile",
+        "default": "{actorName} updated the organization profile",
+        "audit": "{actorName} updated the organization profile"
+      },
+      "onboarding": {
+        "completed": {
+          "self": "You completed the organization onboarding",
+          "default": "{actorName} completed the organization onboarding",
+          "audit": "{actorName} completed onboarding for {orgName}"
+        }
+      },
+      "member": {
+        "invited": {
+          "self": "You invited {targetName} to the organization",
+          "default": "{actorName} invited {targetName} to the organization",
+          "audit": "{actorName} invited {targetName} to the organization"
+        },
+        "removed": {
+          "self": "You removed {targetName} from the organization",
+          "default": "{actorName} removed {targetName} from the organization",
+          "audit": "{actorName} removed {targetName} from the organization"
+        },
+        "roleAssigned": {
+          "self": "You assigned the role {roleName} to {targetName}",
+          "default": "{actorName} assigned the role {roleName} to {targetName}",
+          "audit": "{actorName} assigned role {roleName} to {targetName}"
+        },
+        "roleRemoved": {
+          "self": "You removed the role {roleName} from {targetName}",
+          "default": "{actorName} removed the role {roleName} from {targetName}",
+          "audit": "{actorName} removed role {roleName} from {targetName}"
+        }
+      },
+      "invitation": {
+        "accepted": {
+          "self": "You joined the organization",
+          "default": "{actorName} joined the organization",
+          "audit": "{actorName} accepted invitation and joined"
+        },
+        "cancelled": {
+          "self": "You cancelled the invitation for {targetName}",
+          "default": "{actorName} cancelled the invitation for {targetName}",
+          "audit": "{actorName} cancelled invitation for {targetName}"
+        },
+        "resent": {
+          "self": "You resent the invitation to {targetName}",
+          "default": "{actorName} resent the invitation to {targetName}",
+          "audit": "{actorName} resent invitation to {targetName}"
+        },
+        "declined": {
+          "self": "You declined the invitation",
+          "default": "{actorName} declined the invitation",
+          "audit": "{actorName} declined the invitation"
+        }
+      },
+      "role": {
+        "created": {
+          "self": "You created the role {roleName}",
+          "default": "{actorName} created the role {roleName}",
+          "audit": "{actorName} created role {roleName}"
+        },
+        "updated": {
+          "self": "You updated the role {roleName}",
+          "default": "{actorName} updated the role {roleName}",
+          "audit": "{actorName} updated role {roleName}"
+        },
+        "deleted": {
+          "self": "You deleted the role {roleName}",
+          "default": "{actorName} deleted the role {roleName}",
+          "audit": "{actorName} deleted role {roleName}"
+        }
+      },
+      "branch": {
+        "created": {
+          "self": "You created the branch {branchName}",
+          "default": "{actorName} created the branch {branchName}",
+          "audit": "{actorName} created branch {branchName}"
+        },
+        "updated": {
+          "self": "You updated the branch {branchName}",
+          "default": "{actorName} updated the branch {branchName}",
+          "audit": "{actorName} updated branch {branchName}"
+        },
+        "deleted": {
+          "self": "You deleted the branch {branchName}",
+          "default": "{actorName} deleted the branch {branchName}",
+          "audit": "{actorName} deleted branch {branchName}"
+        }
+      }
+    }
+  },
+  "activityDrawer": {
+    "title": "Recent Activity",
+    "description": "Your last 10 actions",
+    "empty": "No recent activity",
+    "viewAll": "View all activity",
+    "loading": "Loading activity…"
   }
 }

@@ -2757,5 +2757,142 @@
     "resendSuccess": "Zaproszenie zostało wysłane ponownie",
     "emailDeliveryWarning": "Zaproszenie zostało utworzone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
     "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie."
+  },
+  "events": {
+    "auth": {
+      "login": {
+        "self": "Zalogowałeś się",
+        "default": "{actorName} zalogował się",
+        "audit": "{actorName} zalogował się"
+      },
+      "loginFailed": {
+        "self": "Wystąpiła nieudana próba logowania",
+        "default": "Wystąpiła nieudana próba logowania",
+        "audit": "Nieudana próba logowania"
+      },
+      "password": {
+        "resetRequested": {
+          "self": "Zażądano resetowania hasła",
+          "default": "Zażądano resetowania hasła",
+          "audit": "Zażądano resetowania hasła"
+        },
+        "resetCompleted": {
+          "self": "Zresetowałeś hasło",
+          "default": "{actorName} zresetował hasło",
+          "audit": "{actorName} zresetował hasło"
+        }
+      },
+      "session": {
+        "revoked": {
+          "self": "Twoja sesja została zakończona",
+          "default": "{actorName} został wylogowany",
+          "audit": "Sesja {actorName} została unieważniona"
+        }
+      }
+    },
+    "org": {
+      "created": {
+        "self": "Utworzyłeś organizację",
+        "default": "{actorName} utworzył organizację",
+        "audit": "{actorName} utworzył organizację {orgName}"
+      },
+      "updated": {
+        "self": "Zaktualizowałeś profil organizacji",
+        "default": "{actorName} zaktualizował profil organizacji",
+        "audit": "{actorName} zaktualizował profil organizacji"
+      },
+      "onboarding": {
+        "completed": {
+          "self": "Ukończyłeś konfigurację organizacji",
+          "default": "{actorName} ukończył konfigurację organizacji",
+          "audit": "{actorName} ukończył konfigurację dla {orgName}"
+        }
+      },
+      "member": {
+        "invited": {
+          "self": "Zaprosiłeś {targetName} do organizacji",
+          "default": "{actorName} zaprosił {targetName} do organizacji",
+          "audit": "{actorName} zaprosił {targetName} do organizacji"
+        },
+        "removed": {
+          "self": "Usunąłeś {targetName} z organizacji",
+          "default": "{actorName} usunął {targetName} z organizacji",
+          "audit": "{actorName} usunął {targetName} z organizacji"
+        },
+        "roleAssigned": {
+          "self": "Przypisałeś rolę {roleName} użytkownikowi {targetName}",
+          "default": "{actorName} przypisał rolę {roleName} użytkownikowi {targetName}",
+          "audit": "{actorName} przypisał rolę {roleName} do {targetName}"
+        },
+        "roleRemoved": {
+          "self": "Usunąłeś rolę {roleName} od użytkownika {targetName}",
+          "default": "{actorName} usunął rolę {roleName} od użytkownika {targetName}",
+          "audit": "{actorName} usunął rolę {roleName} od {targetName}"
+        }
+      },
+      "invitation": {
+        "accepted": {
+          "self": "Dołączyłeś do organizacji",
+          "default": "{actorName} dołączył do organizacji",
+          "audit": "{actorName} zaakceptował zaproszenie i dołączył"
+        },
+        "cancelled": {
+          "self": "Anulowałeś zaproszenie dla {targetName}",
+          "default": "{actorName} anulował zaproszenie dla {targetName}",
+          "audit": "{actorName} anulował zaproszenie dla {targetName}"
+        },
+        "resent": {
+          "self": "Ponownie wysłałeś zaproszenie do {targetName}",
+          "default": "{actorName} ponownie wysłał zaproszenie do {targetName}",
+          "audit": "{actorName} ponownie wysłał zaproszenie do {targetName}"
+        },
+        "declined": {
+          "self": "Odrzuciłeś zaproszenie",
+          "default": "{actorName} odrzucił zaproszenie",
+          "audit": "{actorName} odrzucił zaproszenie"
+        }
+      },
+      "role": {
+        "created": {
+          "self": "Utworzyłeś rolę {roleName}",
+          "default": "{actorName} utworzył rolę {roleName}",
+          "audit": "{actorName} utworzył rolę {roleName}"
+        },
+        "updated": {
+          "self": "Zaktualizowałeś rolę {roleName}",
+          "default": "{actorName} zaktualizował rolę {roleName}",
+          "audit": "{actorName} zaktualizował rolę {roleName}"
+        },
+        "deleted": {
+          "self": "Usunąłeś rolę {roleName}",
+          "default": "{actorName} usunął rolę {roleName}",
+          "audit": "{actorName} usunął rolę {roleName}"
+        }
+      },
+      "branch": {
+        "created": {
+          "self": "Utworzyłeś oddział {branchName}",
+          "default": "{actorName} utworzył oddział {branchName}",
+          "audit": "{actorName} utworzył oddział {branchName}"
+        },
+        "updated": {
+          "self": "Zaktualizowałeś oddział {branchName}",
+          "default": "{actorName} zaktualizował oddział {branchName}",
+          "audit": "{actorName} zaktualizował oddział {branchName}"
+        },
+        "deleted": {
+          "self": "Usunąłeś oddział {branchName}",
+          "default": "{actorName} usunął oddział {branchName}",
+          "audit": "{actorName} usunął oddział {branchName}"
+        }
+      }
+    }
+  },
+  "activityDrawer": {
+    "title": "Ostatnia aktywność",
+    "description": "Twoje ostatnie 10 działań",
+    "empty": "Brak ostatniej aktywności",
+    "viewAll": "Zobacz całą aktywność",
+    "loading": "Ładowanie aktywności…"
   }
 }

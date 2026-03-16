@@ -20,6 +20,7 @@ import "server-only";
 
 import { getRegistryEntry } from "@/server/audit/event-registry";
 import { canViewerSeeEvent } from "@/server/audit/visibility";
+import { buildEventSummary } from "@/server/audit/summary-builder";
 import type {
   PlatformEventRow,
   ProjectedEvent,
@@ -59,9 +60,14 @@ export interface ProjectionResult {
  *  1. Registry lookup — skip with a console.warn if action key is unknown
  *  2. Visibility check — delegate to canViewerSeeEvent() from visibility.ts
  *  3. Personal-scope guard — additional actor check for personal scope
- *  4. Summary generation — interpolate registry summaryTemplate
- *  5. Field projection — strip sensitive fields and ip/ua for non-audit scopes
- *  6. Pagination — apply limit/offset to the filtered result
+ *  4. Summary generation — interpolate registry summaryTemplate (legacy)
+ *  5. Rich summary — build summaryKey/summaryPerspective/summaryParams/summaryEntities
+ *  6. Field projection — strip sensitive fields and ip/ua for non-audit scopes
+ *  7. Pagination — apply limit/offset to the filtered result
+ *
+ * Note: summaryParams.actorName is initially set to the raw UUID for user actors.
+ * Callers that call enrichActorDisplays() after projection should also call
+ * applyActorEnrichmentToSummaries() to update actorName and summaryEntities.actor.label.
  */
 export function projectEvents(input: ProjectionInput): ProjectionResult {
   const { events, context } = input;
@@ -74,6 +80,9 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
     permissions: context.permissions,
     branchId: context.viewerBranchId ?? null,
   };
+
+  // Empty enriched map — actorName will be updated by enrichActorDisplays post-pass
+  const emptyEnrichedMap = new Map<string, string>();
 
   // Pass 1: filter and project
   const projected: ProjectedEvent[] = [];
@@ -127,11 +136,19 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
       continue;
     }
 
-    // Summary generation
+    // Summary generation (legacy — kept for backward compat with event.summary consumers)
     const summary = generateSummary(row, entry.summaryTemplate);
 
     // Actor display: prefer user ID representation; projection callers may enrich later
     const actorDisplay = resolveActorDisplay(row);
+    // Rich summary model
+    const richSummary = buildEventSummary({
+      event: row,
+      entry,
+      viewerUserId: context.viewerUserId,
+      viewerScope: context.viewerScope,
+      enrichedActorDisplays: emptyEnrichedMap,
+    });
 
     // Field projection — metadata stripping
     const isAuditScope = context.viewerScope === "audit";
@@ -145,6 +162,13 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
       entity_type: row.entity_type,
       entity_id: row.entity_id,
       target_type: row.target_type,
+      // Rich summary fields
+      summaryKey: richSummary.summaryKey,
+      summaryPerspective: richSummary.summaryPerspective,
+      summaryParams: richSummary.summaryParams,
+      summaryEntities: richSummary.summaryEntities,
+      primaryHref: richSummary.primaryHref,
+      iconKey: richSummary.iconKey,
       target_id: row.target_id,
       summary,
       metadata,
@@ -162,6 +186,73 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
   }
 
   const total = projected.length;
+  // ---------------------------------------------------------------------------
+  // Post-enrichment summary update
+  // ---------------------------------------------------------------------------
+
+  /**
+   * After actor enrichment resolves UUID → display name, update the summaryParams
+   * and summaryEntities on each projected event with the enriched actor name.
+   *
+   * This is Option B (enrich after projection, then post-process):
+   *  1. projectEvents() builds summary with raw UUID as actorName
+   *  2. enrichActorDisplays() resolves UUIDs → human names
+   *  3. applyActorEnrichmentToSummaries() patches the summary fields
+   *
+   * Called by the feed actions after enrichActorDisplays() completes.
+   */
+  export function applyActorEnrichmentToSummaries(
+    events: ProjectedEvent[],
+    displayMap: Map<string, string>
+  ): ProjectedEvent[] {
+    if (displayMap.size === 0) return events;
+
+    return events.map((event) => {
+      // Check if summaryParams.actorName looks like a UUID (pre-enrichment placeholder)
+      const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      // Try to find the actor's UUID from the entities slot
+      const actorEntityId = event.summaryEntities?.actor?.id;
+      if (!actorEntityId || !UUID_PATTERN.test(actorEntityId)) return event;
+
+      const resolvedName = displayMap.get(actorEntityId);
+      if (!resolvedName) {
+        // Apply fallback if still UUID
+        const currentActorName = event.summaryParams?.actorName;
+        if (typeof currentActorName === "string" && UUID_PATTERN.test(currentActorName)) {
+          return {
+            ...event,
+            summaryParams: {
+              ...event.summaryParams,
+              actorName: `User ${actorEntityId.slice(0, 8)}`,
+            },
+            summaryEntities: {
+              ...event.summaryEntities,
+              actor: event.summaryEntities?.actor
+                ? { ...event.summaryEntities.actor, label: `User ${actorEntityId.slice(0, 8)}` }
+                : undefined,
+            },
+          };
+        }
+        return event;
+      }
+
+      return {
+        ...event,
+        summaryParams: {
+          ...event.summaryParams,
+          actorName: resolvedName,
+        },
+        summaryEntities: {
+          ...event.summaryEntities,
+          actor: event.summaryEntities?.actor
+            ? { ...event.summaryEntities.actor, label: resolvedName }
+            : undefined,
+        },
+      };
+    });
+  }
+
   const paginated = projected.slice(offset, offset + limit);
 
   return { events: paginated, total, limit, offset };
