@@ -3,6 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DashboardHeaderV2 } from "../dashboard-header";
 
 // Mock the child components
+vi.mock("@/components/activity/ActivityDrawer", () => ({
+  ActivityDrawer: () => <div data-testid="activity-drawer">Activity</div>,
+}));
+
 vi.mock("../header-search", () => ({
   HeaderSearch: () => <div data-testid="header-search">Search</div>,
 }));

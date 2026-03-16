@@ -186,76 +186,69 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
   }
 
   const total = projected.length;
-  // ---------------------------------------------------------------------------
-  // Post-enrichment summary update
-  // ---------------------------------------------------------------------------
-
-  /**
-   * After actor enrichment resolves UUID → display name, update the summaryParams
-   * and summaryEntities on each projected event with the enriched actor name.
-   *
-   * This is Option B (enrich after projection, then post-process):
-   *  1. projectEvents() builds summary with raw UUID as actorName
-   *  2. enrichActorDisplays() resolves UUIDs → human names
-   *  3. applyActorEnrichmentToSummaries() patches the summary fields
-   *
-   * Called by the feed actions after enrichActorDisplays() completes.
-   */
-  export function applyActorEnrichmentToSummaries(
-    events: ProjectedEvent[],
-    displayMap: Map<string, string>
-  ): ProjectedEvent[] {
-    if (displayMap.size === 0) return events;
-
-    return events.map((event) => {
-      // Check if summaryParams.actorName looks like a UUID (pre-enrichment placeholder)
-      const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-      // Try to find the actor's UUID from the entities slot
-      const actorEntityId = event.summaryEntities?.actor?.id;
-      if (!actorEntityId || !UUID_PATTERN.test(actorEntityId)) return event;
-
-      const resolvedName = displayMap.get(actorEntityId);
-      if (!resolvedName) {
-        // Apply fallback if still UUID
-        const currentActorName = event.summaryParams?.actorName;
-        if (typeof currentActorName === "string" && UUID_PATTERN.test(currentActorName)) {
-          return {
-            ...event,
-            summaryParams: {
-              ...event.summaryParams,
-              actorName: `User ${actorEntityId.slice(0, 8)}`,
-            },
-            summaryEntities: {
-              ...event.summaryEntities,
-              actor: event.summaryEntities?.actor
-                ? { ...event.summaryEntities.actor, label: `User ${actorEntityId.slice(0, 8)}` }
-                : undefined,
-            },
-          };
-        }
-        return event;
-      }
-
-      return {
-        ...event,
-        summaryParams: {
-          ...event.summaryParams,
-          actorName: resolvedName,
-        },
-        summaryEntities: {
-          ...event.summaryEntities,
-          actor: event.summaryEntities?.actor
-            ? { ...event.summaryEntities.actor, label: resolvedName }
-            : undefined,
-        },
-      };
-    });
-  }
 
   const paginated = projected.slice(offset, offset + limit);
 
   return { events: paginated, total, limit, offset };
+}
+
+// ---------------------------------------------------------------------------
+// Post-enrichment summary update
+// ---------------------------------------------------------------------------
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * After actor enrichment resolves UUID → display name, update summaryParams
+ * and summaryEntities on each projected event with the enriched actor name.
+ *
+ * Called by feed actions after enrichActorDisplays() completes.
+ */
+export function applyActorEnrichmentToSummaries(
+  events: ProjectedEvent[],
+  displayMap: Map<string, string>
+): ProjectedEvent[] {
+  if (displayMap.size === 0) return events;
+
+  return events.map((event) => {
+    const actorEntityId = event.summaryEntities?.actor?.id;
+    if (!actorEntityId || !UUID_PATTERN.test(actorEntityId)) return event;
+
+    const resolvedName = displayMap.get(actorEntityId);
+    if (!resolvedName) {
+      const currentActorName = event.summaryParams?.actorName;
+      if (typeof currentActorName === "string" && UUID_PATTERN.test(currentActorName)) {
+        return {
+          ...event,
+          summaryParams: {
+            ...event.summaryParams,
+            actorName: `User ${actorEntityId.slice(0, 8)}`,
+          },
+          summaryEntities: {
+            ...event.summaryEntities,
+            actor: event.summaryEntities?.actor
+              ? { ...event.summaryEntities.actor, label: `User ${actorEntityId.slice(0, 8)}` }
+              : undefined,
+          },
+        };
+      }
+      return event;
+    }
+
+    return {
+      ...event,
+      summaryParams: {
+        ...event.summaryParams,
+        actorName: resolvedName,
+      },
+      summaryEntities: {
+        ...event.summaryEntities,
+        actor: event.summaryEntities?.actor
+          ? { ...event.summaryEntities.actor, label: resolvedName }
+          : undefined,
+      },
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
