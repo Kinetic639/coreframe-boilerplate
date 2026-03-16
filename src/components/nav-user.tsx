@@ -42,7 +42,7 @@ export function NavUser({
   isAdmin?: boolean;
 }) {
   const { isMobile } = useSidebar();
-  const t = useTranslations("dashboard.userMenu");
+  const t = useTranslations("dashboard.header.userMenu");
 
   const initials =
     user.name
