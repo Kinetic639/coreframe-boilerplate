@@ -175,6 +175,8 @@ import {
   createInvitationAction,
   cancelInvitationAction,
   acceptInvitationAction,
+  resendInvitationAction,
+  declineInvitationAction,
 } from "@/app/actions/organization/invitations";
 import { removeMemberAction } from "@/app/actions/organization/members";
 import {
@@ -242,6 +244,8 @@ describe("T-EVENT-WIRING: invitation events", () => {
         organizationId: ORG_ID,
         entityType: "invitation",
         entityId: INV_ID,
+        targetType: "invitation_email",
+        targetId: "invitee@example.com",
         metadata: expect.objectContaining({ invitee_email: "invitee@example.com" }),
       })
     );
@@ -273,6 +277,8 @@ describe("T-EVENT-WIRING: invitation events", () => {
         actorUserId: USER_ID,
         organizationId: ORG_ID,
         entityId: INV_ID,
+        targetType: "invitation_email",
+        targetId: "invited@example.com",
         metadata: expect.objectContaining({ invitation_id: INV_ID }),
       })
     );
@@ -297,6 +303,95 @@ describe("T-EVENT-WIRING: invitation events", () => {
         entityId: USER_ID,
       })
     );
+  });
+
+  it("resendInvitationAction emits org.invitation.resent after successful resend", async () => {
+    vi.mocked(OrgInvitationsService.resendInvitation).mockResolvedValue({
+      success: true,
+      data: {
+        token: "new-token-abc",
+        email: "invitee@example.com",
+        organization_id: ORG_ID,
+      } as any,
+    });
+    vi.mocked(OrgProfileService.getProfile).mockResolvedValue({
+      success: true,
+      data: { name: "Test Org" } as any,
+    });
+
+    await resendInvitationAction({ invitationId: INV_ID });
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.invitation.resent",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        entityType: "invitation",
+        entityId: INV_ID,
+        targetType: "invitation_email",
+        targetId: "invitee@example.com",
+        metadata: expect.objectContaining({
+          invitation_id: INV_ID,
+          invitee_email: "invitee@example.com",
+        }),
+      })
+    );
+  });
+
+  it("resendInvitationAction does NOT emit when resend fails", async () => {
+    vi.mocked(OrgInvitationsService.resendInvitation).mockResolvedValue({
+      success: false,
+      error: "Invitation not found",
+    });
+
+    await resendInvitationAction({ invitationId: INV_ID });
+
+    expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
+  });
+
+  it("declineInvitationAction emits org.invitation.declined after successful decline", async () => {
+    // mockFromChain drives the invitations pre-fetch (id, organization_id)
+    mockFromChain.mockReturnValue(singleTableQuery({ id: INV_ID, organization_id: ORG_ID }));
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    // RPC returns success
+    const mockClient = {
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    };
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValueOnce(mockClient as any);
+
+    await declineInvitationAction("decline-token-xyz");
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.invitation.declined",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        entityType: "invitation",
+        entityId: INV_ID,
+        metadata: expect.objectContaining({ invitation_id: INV_ID }),
+      })
+    );
+  });
+
+  it("declineInvitationAction does NOT emit when RPC fails", async () => {
+    mockFromChain.mockReturnValue(singleTableQuery({ id: INV_ID, organization_id: ORG_ID }));
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    const mockClient = {
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      rpc: vi
+        .fn()
+        .mockResolvedValue({ data: { success: false, error_code: "EXPIRED" }, error: null }),
+    };
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValueOnce(mockClient as any);
+
+    await declineInvitationAction("decline-token-expired");
+
+    expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
   });
 });
 
@@ -472,6 +567,7 @@ describe("T-EVENT-WIRING: branch events", () => {
         actionKey: "org.branch.created",
         actorUserId: USER_ID,
         organizationId: ORG_ID,
+        branchId: BRANCH_ID,
         entityId: BRANCH_ID,
         metadata: expect.objectContaining({ branch_id: BRANCH_ID, branch_name: "Warsaw" }),
       })
@@ -489,6 +585,7 @@ describe("T-EVENT-WIRING: branch events", () => {
     expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
       expect.objectContaining({
         actionKey: "org.branch.updated",
+        branchId: BRANCH_ID,
         entityId: BRANCH_ID,
         metadata: expect.objectContaining({
           branch_id: BRANCH_ID,
@@ -498,7 +595,8 @@ describe("T-EVENT-WIRING: branch events", () => {
     );
   });
 
-  it("deleteBranchAction emits org.branch.deleted with branch_id", async () => {
+  it("deleteBranchAction emits org.branch.deleted with branch_id and branch_name fetched before delete", async () => {
+    mockFromChain.mockReturnValue(singleTableQuery({ name: "OldBranch" }));
     vi.mocked(OrgBranchesService.deleteBranch).mockResolvedValue({
       success: true,
       data: undefined,
@@ -509,8 +607,9 @@ describe("T-EVENT-WIRING: branch events", () => {
     expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
       expect.objectContaining({
         actionKey: "org.branch.deleted",
+        branchId: BRANCH_ID,
         entityId: BRANCH_ID,
-        metadata: expect.objectContaining({ branch_id: BRANCH_ID }),
+        metadata: expect.objectContaining({ branch_id: BRANCH_ID, branch_name: "OldBranch" }),
       })
     );
   });
@@ -713,6 +812,38 @@ describe("T-EVENT-WIRING: onboarding events", () => {
     expect(result.success).toBe(false);
     expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
   });
+
+  it("emits no events and warns if auth user session is unavailable (actor model guard)", async () => {
+    // Simulates a race where auth session is not available during onboarding
+    // (e.g. token expired between page load and form submit).
+    // Invariant: actorType="user" must never be emitted with actorUserId=null.
+    const mockRpc = vi.fn().mockResolvedValue({
+      data: { success: true, organization_id: ORG_ID },
+      error: null,
+    });
+    const mockGetUserNull = vi.fn().mockResolvedValue({ data: { user: null } });
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValue({
+      from: mockFromChain,
+      auth: { getUser: mockGetUserNull },
+      rpc: mockRpc,
+    } as any);
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { createOrganizationAction } = await import("@/app/actions/onboarding/index");
+    const result = await createOrganizationAction("Test Org", "Main Branch", null);
+
+    // Domain action succeeds — event emission failure must not block org creation
+    expect(result.success).toBe(true);
+    // Actor model guard: no events emitted when user id is absent
+    expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
+    // Warning logged so the gap is observable in server logs
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[createOrganizationAction]"),
+      expect.objectContaining({ organizationId: ORG_ID })
+    );
+    consoleWarnSpy.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -788,6 +919,23 @@ describe("T-EVENT-WIRING: metadata schema validation passes for all wired events
     });
     expect(result.success).toBe(true);
   });
+
+  it("emitted metadata for org.invitation.resent satisfies the registry schema", async () => {
+    const { validateMetadata } = await import("@/server/services/event.service");
+    const result = validateMetadata("org.invitation.resent", {
+      invitation_id: INV_ID,
+      invitee_email: "invitee@example.com",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("emitted metadata for org.invitation.declined satisfies the registry schema", async () => {
+    const { validateMetadata } = await import("@/server/services/event.service");
+    const result = validateMetadata("org.invitation.declined", {
+      invitation_id: INV_ID,
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -801,11 +949,15 @@ describe("T-EVENT-WIRING: metadata schema validation passes for all wired events
 describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Make emit throw on every call in this suite
-    vi.mocked(eventService.emit).mockRejectedValue(new Error("DB connection lost"));
+    // eventService.emit() never throws — it returns typed { success: false } on failure.
+    // All Mode-A tests simulate the typed-failure path, not thrown exceptions.
+    vi.mocked(eventService.emit).mockResolvedValue({
+      success: false,
+      error: "Event insert failed: DB down",
+    });
   });
 
-  it("removeMemberAction returns success even when emit throws", async () => {
+  it("removeMemberAction returns success even when emit returns typed failure", async () => {
     vi.mocked(OrgMembersService.removeMember).mockResolvedValue({
       success: true,
       data: undefined,
@@ -817,12 +969,15 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[removeMemberAction]"),
-      expect.objectContaining({ actionKey: "org.member.removed", error: expect.any(Error) })
+      expect.objectContaining({
+        actionKey: "org.member.removed",
+        error: "Event insert failed: DB down",
+      })
     );
     consoleErrorSpy.mockRestore();
   });
 
-  it("createRoleAction returns success even when emit throws", async () => {
+  it("createRoleAction returns success even when emit returns typed failure", async () => {
     vi.mocked(OrgRolesService.createRole).mockResolvedValue({
       success: true,
       data: {
@@ -843,12 +998,15 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[createRoleAction]"),
-      expect.objectContaining({ actionKey: "org.role.created", error: expect.any(Error) })
+      expect.objectContaining({
+        actionKey: "org.role.created",
+        error: "Event insert failed: DB down",
+      })
     );
     consoleErrorSpy.mockRestore();
   });
 
-  it("createBranchAction returns success even when emit throws", async () => {
+  it("createBranchAction returns success even when emit returns typed failure", async () => {
     vi.mocked(OrgBranchesService.createBranch).mockResolvedValue({
       success: true,
       data: {
@@ -867,18 +1025,15 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[createBranchAction]"),
-      expect.objectContaining({ actionKey: "org.branch.created", error: expect.any(Error) })
+      expect.objectContaining({
+        actionKey: "org.branch.created",
+        error: "Event insert failed: DB down",
+      })
     );
     consoleErrorSpy.mockRestore();
   });
 
-  it("updateOrgProfileAction returns success even when emit returns { success: false }", async () => {
-    // updateOrgProfileAction uses typed result pattern — eventService.emit never throws,
-    // so we test the { success: false } typed-failure path (not a thrown exception)
-    vi.mocked(eventService.emit).mockResolvedValue({
-      success: false,
-      error: "Event insert failed: DB down",
-    });
+  it("updateOrgProfileAction returns success even when emit returns typed failure", async () => {
     vi.mocked(OrgProfileService.updateProfile).mockResolvedValue({
       success: true,
       data: { name: "NewName" } as any,
@@ -898,7 +1053,7 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     consoleErrorSpy.mockRestore();
   });
 
-  it("cancelInvitationAction returns success even when emit throws", async () => {
+  it("cancelInvitationAction returns success even when emit returns typed failure", async () => {
     mockFromChain.mockReturnValue(singleTableQuery({ email: "invited@example.com" }));
     vi.mocked(OrgInvitationsService.cancelInvitation).mockResolvedValue({
       success: true,
@@ -911,12 +1066,68 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[cancelInvitationAction]"),
-      expect.objectContaining({ actionKey: "org.invitation.cancelled", error: expect.any(Error) })
+      expect.objectContaining({
+        actionKey: "org.invitation.cancelled",
+        error: "Event insert failed: DB down",
+      })
     );
     consoleErrorSpy.mockRestore();
   });
 
-  it("createOrganizationAction returns success even when both emit calls throw", async () => {
+  it("resendInvitationAction returns success even when emit returns typed failure", async () => {
+    vi.mocked(OrgInvitationsService.resendInvitation).mockResolvedValue({
+      success: true,
+      data: {
+        token: "tok",
+        email: "invitee@example.com",
+        organization_id: ORG_ID,
+      } as any,
+    });
+    vi.mocked(OrgProfileService.getProfile).mockResolvedValue({
+      success: true,
+      data: { name: "Org" } as any,
+    });
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await resendInvitationAction({ invitationId: INV_ID });
+
+    expect(result.success).toBe(true);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[resendInvitationAction]"),
+      expect.objectContaining({
+        actionKey: "org.invitation.resent",
+        error: "Event insert failed: DB down",
+      })
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("declineInvitationAction returns success even when emit returns typed failure", async () => {
+    mockFromChain.mockReturnValue(singleTableQuery({ id: INV_ID, organization_id: ORG_ID }));
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    const mockClient = {
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    };
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValueOnce(mockClient as any);
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await declineInvitationAction("decline-tok");
+
+    expect(result.success).toBe(true);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[declineInvitationAction]"),
+      expect.objectContaining({
+        actionKey: "org.invitation.declined",
+        error: "Event insert failed: DB down",
+      })
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("createOrganizationAction returns success even when both emit calls return typed failure", async () => {
     const mockRpc = vi.fn().mockResolvedValue({
       data: { success: true, organization_id: ORG_ID },
       error: null,
@@ -935,7 +1146,7 @@ describe("T-EVENT-WIRING-MODE-A: emit failure does not fail successful domain ac
     expect(result.success).toBe(true);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[createOrganizationAction]"),
-      expect.objectContaining({ error: expect.any(Error) })
+      expect.objectContaining({ error: "Event insert failed: DB down" })
     );
     consoleErrorSpy.mockRestore();
   });
@@ -1187,5 +1398,370 @@ describe("T-REGISTRY-VISIBILITY: personal scope now surfaces actor-owned org eve
     });
     expect(result.events[0].ip_address).toBe("1.2.3.4");
     expect(result.events[0].user_agent).toBe("Mozilla/5.0");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-REGISTRY-AUTH-VISIBILITY: auth event visibility rules
+// ---------------------------------------------------------------------------
+
+describe("T-REGISTRY-AUTH-VISIBILITY: auth event visibility and IP/UA rules", () => {
+  it("auth.password.reset_requested has visibleTo: [auditor] only", () => {
+    const entry = getRegistryEntry("auth.password.reset_requested");
+    expect(entry).toBeDefined();
+    expect(entry!.visibleTo).toEqual(["auditor"]);
+    expect(entry!.visibleTo).not.toContain("self");
+  });
+
+  it("auth.password.reset_requested does NOT appear in personal scope (no actor_user_id)", () => {
+    const row: PlatformEventRow = {
+      id: "evt-reset-req",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: null,
+      branch_id: null,
+      actor_user_id: null, // system actor — no user ID
+      actor_type: "system",
+      module_slug: "auth",
+      action_key: "auth.password.reset_requested",
+      entity_type: "auth",
+      entity_id: "user@example.com",
+      target_type: null,
+      target_id: null,
+      metadata: { email: "user@example.com" },
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: "10.0.0.1",
+      user_agent: "curl/7.88",
+    };
+    // Personal scope requires actor_user_id === viewerUserId — with null actor, always fails
+    const result = projectEvents({
+      events: [row],
+      context: {
+        viewerUserId: VIEWER_ID,
+        viewerScope: "personal",
+        organizationId: null,
+        permissions: [],
+      },
+    });
+    expect(result.total).toBe(0);
+  });
+
+  it("auth.password.reset_requested DOES appear in audit scope", () => {
+    const row: PlatformEventRow = {
+      id: "evt-reset-req-2",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: null,
+      branch_id: null,
+      actor_user_id: null,
+      actor_type: "system",
+      module_slug: "auth",
+      action_key: "auth.password.reset_requested",
+      entity_type: "auth",
+      entity_id: "user@example.com",
+      target_type: null,
+      target_id: null,
+      metadata: { email: "user@example.com" },
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: "10.0.0.1",
+      user_agent: "curl/7.88",
+    };
+    const result = projectEvents({
+      events: [row],
+      context: {
+        viewerUserId: VIEWER_ID,
+        viewerScope: "audit",
+        organizationId: null,
+        permissions: [],
+      },
+    });
+    expect(result.total).toBe(1);
+    // Audit scope must include IP/UA for security-relevant auth events
+    expect(result.events[0].ip_address).toBe("10.0.0.1");
+    expect(result.events[0].user_agent).toBe("curl/7.88");
+  });
+
+  it("auth.login appears in personal scope when actor matches viewer", () => {
+    const row: PlatformEventRow = {
+      id: "evt-login",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: null,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "auth",
+      action_key: "auth.login",
+      entity_type: "user",
+      entity_id: VIEWER_ID,
+      target_type: null,
+      target_id: null,
+      metadata: {},
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: "1.2.3.4",
+      user_agent: "Mozilla/5.0",
+    };
+    const result = projectEvents({
+      events: [row],
+      context: {
+        viewerUserId: VIEWER_ID,
+        viewerScope: "personal",
+        organizationId: null,
+        permissions: [],
+      },
+    });
+    expect(result.total).toBe(1);
+    // Personal scope must NOT expose IP/UA
+    expect(result.events[0].ip_address).toBeUndefined();
+    expect(result.events[0].user_agent).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-SUMMARY-RENDERING: invitation event summaries with {{target}} variable
+// ---------------------------------------------------------------------------
+
+describe("T-SUMMARY-RENDERING: invitation event summary template rendering", () => {
+  it("org.member.invited renders {{actor}} and {{target}} when target is set", () => {
+    const row: PlatformEventRow = {
+      id: "evt-invited",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.member.invited",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-123",
+      target_type: "invitation_email",
+      target_id: "newmember@example.com",
+      metadata: { invitee_email: "newmember@example.com" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({
+      events: [row],
+      context: makeAuditContext(VIEWER_ID),
+    });
+    expect(result.total).toBe(1);
+    const summary = result.events[0].summary;
+    // Actor renders as user ID (pre-enrichment); target renders as type:id
+    expect(summary).toContain(VIEWER_ID);
+    expect(summary).toContain("invitation_email:newmember@example.com");
+  });
+
+  it("org.member.invited renders empty {{target}} when target fields are null", () => {
+    const row: PlatformEventRow = {
+      id: "evt-invited-notarget",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.member.invited",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-456",
+      target_type: null,
+      target_id: null,
+      metadata: { invitee_email: "x@y.com" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makeAuditContext(VIEWER_ID) });
+    // Template: "{{actor}} invited {{target}} to the organization" — {{target}} → ""
+    expect(result.events[0].summary).toBe(`${VIEWER_ID} invited  to the organization`);
+  });
+
+  it("org.invitation.cancelled renders {{target}} as invitation_email when set", () => {
+    const row: PlatformEventRow = {
+      id: "evt-cancelled",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.cancelled",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-789",
+      target_type: "invitation_email",
+      target_id: "cancelled@example.com",
+      metadata: { invitation_id: "inv-uuid-789" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makeAuditContext(VIEWER_ID) });
+    expect(result.events[0].summary).toContain("invitation_email:cancelled@example.com");
+  });
+
+  it("org.invitation.accepted summary uses {{actor}} with no {{target}} variable", () => {
+    const row: PlatformEventRow = {
+      id: "evt-accepted",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.accepted",
+      entity_type: "user",
+      entity_id: VIEWER_ID,
+      target_type: null,
+      target_id: null,
+      metadata: {},
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makeAuditContext(VIEWER_ID) });
+    // Template: "{{actor}} accepted invitation and joined the organization"
+    expect(result.events[0].summary).toBe(
+      `${VIEWER_ID} accepted invitation and joined the organization`
+    );
+  });
+
+  it("org.invitation.resent renders {{actor}} and {{target}} when target is set", () => {
+    const row: PlatformEventRow = {
+      id: "evt-resent",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.resent",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-resent",
+      target_type: "invitation_email",
+      target_id: "resent@example.com",
+      metadata: { invitation_id: "inv-uuid-resent", invitee_email: "resent@example.com" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makeAuditContext(VIEWER_ID) });
+    expect(result.total).toBe(1);
+    const summary = result.events[0].summary;
+    // Template: "{{actor}} resent invitation to {{target}}"
+    expect(summary).toContain(VIEWER_ID);
+    expect(summary).toContain("invitation_email:resent@example.com");
+  });
+
+  it("org.invitation.declined renders {{actor}} with no {{target}} variable", () => {
+    const row: PlatformEventRow = {
+      id: "evt-declined",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.declined",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-declined",
+      target_type: null,
+      target_id: null,
+      metadata: { invitation_id: "inv-uuid-declined" },
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makeAuditContext(VIEWER_ID) });
+    // Template: "{{actor}} declined the invitation"
+    expect(result.events[0].summary).toBe(`${VIEWER_ID} declined the invitation`);
+  });
+
+  it("org.invitation.declined is visible to org_admin scope", () => {
+    const row: PlatformEventRow = {
+      id: "evt-declined-admin",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      // actor is OTHER_ID (the decliner, not the viewer) — org_admin sees all org events
+      actor_user_id: OTHER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.declined",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-admin",
+      target_type: null,
+      target_id: null,
+      metadata: { invitation_id: "inv-uuid-admin" },
+      event_tier: "baseline",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    // org_admin scope includes org_admin qualifier
+    const result = projectEvents({
+      events: [row],
+      context: {
+        viewerUserId: VIEWER_ID,
+        viewerScope: "org",
+        organizationId: TEST_ORG_ID,
+        permissions: ["org_admin"],
+      },
+    });
+    expect(result.total).toBe(1);
+  });
+
+  it("org.invitation.resent is visible to personal scope when actor matches viewer", () => {
+    const row: PlatformEventRow = {
+      id: "evt-resent-personal",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.resent",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-rp",
+      target_type: "invitation_email",
+      target_id: "x@example.com",
+      metadata: { invitation_id: "inv-uuid-rp", invitee_email: "x@example.com" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makePersonalContext(VIEWER_ID) });
+    expect(result.total).toBe(1);
+  });
+
+  it("org.invitation.resent strips sensitive invitee_email from personal scope", () => {
+    const row: PlatformEventRow = {
+      id: "evt-resent-strip",
+      created_at: "2026-03-15T10:00:00.000Z",
+      organization_id: TEST_ORG_ID,
+      branch_id: null,
+      actor_user_id: VIEWER_ID,
+      actor_type: "user",
+      module_slug: "organization-management",
+      action_key: "org.invitation.resent",
+      entity_type: "invitation",
+      entity_id: "inv-uuid-rs",
+      target_type: "invitation_email",
+      target_id: "secret@example.com",
+      metadata: { invitation_id: "inv-uuid-rs", invitee_email: "secret@example.com" },
+      event_tier: "enhanced",
+      request_id: null,
+      ip_address: null,
+      user_agent: null,
+    };
+    const result = projectEvents({ events: [row], context: makePersonalContext(VIEWER_ID) });
+    expect(result.total).toBe(1);
+    expect(result.events[0].metadata).not.toHaveProperty("invitee_email");
   });
 });

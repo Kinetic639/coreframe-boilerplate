@@ -126,25 +126,24 @@ export async function createRoleAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.role.created",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "role",
-          entityId: result.data.id,
-          metadata: { role_id: result.data.id, role_name: result.data.name },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const createRoleEmitResult = await eventService.emit({
+        actionKey: "org.role.created",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "role",
+        entityId: result.data.id,
+        metadata: { role_id: result.data.id, role_name: result.data.name },
+        eventTier: "enhanced",
+      });
+      if (!createRoleEmitResult.success) {
         console.error("[createRoleAction] Failed to emit org.role.created:", {
           actionKey: "org.role.created",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "role",
           entityId: result.data.id,
-          error: emitError,
+          error: (createRoleEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -207,25 +206,24 @@ export async function updateRoleAction(rawInput: unknown) {
       const updatedFields = Object.keys(updateInput).filter(
         (k) => (updateInput as Record<string, unknown>)[k] !== undefined
       );
-      try {
-        await eventService.emit({
-          actionKey: "org.role.updated",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "role",
-          entityId: roleId,
-          metadata: { role_id: roleId, role_name: roleName, updated_fields: updatedFields },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const updateRoleEmitResult = await eventService.emit({
+        actionKey: "org.role.updated",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "role",
+        entityId: roleId,
+        metadata: { role_id: roleId, role_name: roleName, updated_fields: updatedFields },
+        eventTier: "enhanced",
+      });
+      if (!updateRoleEmitResult.success) {
         console.error("[updateRoleAction] Failed to emit org.role.updated:", {
           actionKey: "org.role.updated",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "role",
           entityId: roleId,
-          error: emitError,
+          error: (updateRoleEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -264,25 +262,24 @@ export async function deleteRoleAction(rawInput: unknown) {
     const result = await OrgRolesService.deleteRole(supabase, parsed.data.roleId);
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.role.deleted",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "role",
-          entityId: parsed.data.roleId,
-          metadata: { role_id: parsed.data.roleId, role_name: deletedRoleName },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const deleteRoleEmitResult = await eventService.emit({
+        actionKey: "org.role.deleted",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "role",
+        entityId: parsed.data.roleId,
+        metadata: { role_id: parsed.data.roleId, role_name: deletedRoleName },
+        eventTier: "enhanced",
+      });
+      if (!deleteRoleEmitResult.success) {
         console.error("[deleteRoleAction] Failed to emit org.role.deleted:", {
           actionKey: "org.role.deleted",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "role",
           entityId: parsed.data.roleId,
-          error: emitError,
+          error: (deleteRoleEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -339,32 +336,32 @@ export async function assignRoleToUserAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.member.role_assigned",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "role",
-          entityId: roleId,
-          targetType: "user",
-          targetId: userId,
-          metadata: {
-            target_user_id: userId,
-            role_name: assignRoleName,
-            scope,
-            branch_id: scope === "branch" ? scopeId : undefined,
-          },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const assignEmitResult = await eventService.emit({
+        actionKey: "org.member.role_assigned",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        branchId: scope === "branch" ? scopeId : undefined,
+        entityType: "role",
+        entityId: roleId,
+        targetType: "user",
+        targetId: userId,
+        metadata: {
+          target_user_id: userId,
+          role_name: assignRoleName,
+          scope,
+          branch_id: scope === "branch" ? scopeId : undefined,
+        },
+        eventTier: "enhanced",
+      });
+      if (!assignEmitResult.success) {
         console.error("[assignRoleToUserAction] Failed to emit org.member.role_assigned:", {
           actionKey: "org.member.role_assigned",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "role",
           entityId: roleId,
-          error: emitError,
+          error: (assignEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -419,32 +416,32 @@ export async function removeRoleFromUserAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.member.role_removed",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "role",
-          entityId: roleId,
-          targetType: "user",
-          targetId: userId,
-          metadata: {
-            target_user_id: userId,
-            role_name: removeRoleName,
-            scope,
-            branch_id: scope === "branch" ? scopeId : undefined,
-          },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const removeRoleEmitResult = await eventService.emit({
+        actionKey: "org.member.role_removed",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        branchId: scope === "branch" ? scopeId : undefined,
+        entityType: "role",
+        entityId: roleId,
+        targetType: "user",
+        targetId: userId,
+        metadata: {
+          target_user_id: userId,
+          role_name: removeRoleName,
+          scope,
+          branch_id: scope === "branch" ? scopeId : undefined,
+        },
+        eventTier: "enhanced",
+      });
+      if (!removeRoleEmitResult.success) {
         console.error("[removeRoleFromUserAction] Failed to emit org.member.role_removed:", {
           actionKey: "org.member.role_removed",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "role",
           entityId: roleId,
-          error: emitError,
+          error: (removeRoleEmitResult as { success: false; error: string }).error,
         });
       }
     }

@@ -2,7 +2,17 @@
 -- HARDENING PHASE 3: Entitlements Recompute on UPDATE
 -- Goal: Ensure organization_entitlements is never stale after plan upgrade,
 --       addon status change, or limit override modification.
--- Existing INSERT triggers already handled; this adds UPDATE coverage.
+--
+-- NOTE (post P9 audit): The three triggers created in this migration
+-- (recompute_on_subscription_update, recompute_on_addon_update,
+-- recompute_on_override_update) were later found to be redundant.
+-- The existing *_change triggers (recompute_on_subscription_change,
+-- recompute_on_addon_change, recompute_on_override_change) already fired on
+-- AFTER INSERT OR DELETE OR UPDATE — including all UPDATE events — so no
+-- coverage gap existed. The narrow triggers were removed in migration
+-- 20260323000018_target_corrective_p9_trigger_dedup. This migration is
+-- preserved as-is for historical record; the DROP TRIGGER IF EXISTS guards
+-- ensure it is idempotent on replay.
 -- =============================================================================
 
 -- ─── A. Subscription UPDATE trigger ─────────────────────────────────────────

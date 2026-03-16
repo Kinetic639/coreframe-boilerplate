@@ -98,14 +98,24 @@ export async function createOrganizationAction(
 
   const organizationId = result.organization_id!;
 
-  // Generate one requestId so both events are correlated to this onboarding workflow
-  const requestId = crypto.randomUUID();
+  // Actor model invariant: actorType "user" requires a non-null actorUserId.
+  // Skip both onboarding events if the user session is unavailable rather than
+  // emitting actorType="user" with actorUserId=null.
+  if (!onboardingUser?.id) {
+    console.warn(
+      "[createOrganizationAction] Skipping onboarding event emission: missing actor user id",
+      {
+        organizationId,
+      }
+    );
+  } else {
+    // Generate one requestId so both events are correlated to this onboarding workflow
+    const requestId = crypto.randomUUID();
 
-  try {
-    await eventService.emit({
+    const orgCreatedResult = await eventService.emit({
       actionKey: "org.created",
       actorType: "user",
-      actorUserId: onboardingUser?.id ?? null,
+      actorUserId: onboardingUser.id,
       organizationId,
       entityType: "organization",
       entityId: organizationId,
@@ -116,11 +126,22 @@ export async function createOrganizationAction(
       eventTier: "baseline",
       requestId,
     });
+    if (!orgCreatedResult.success) {
+      console.error("[createOrganizationAction] Failed to emit org.created:", {
+        actionKey: "org.created",
+        organizationId,
+        actorUserId: onboardingUser.id,
+        entityType: "organization",
+        entityId: organizationId,
+        requestId,
+        error: (orgCreatedResult as { success: false; error: string }).error,
+      });
+    }
 
-    await eventService.emit({
+    const onboardingCompletedResult = await eventService.emit({
       actionKey: "org.onboarding.completed",
       actorType: "user",
-      actorUserId: onboardingUser?.id ?? null,
+      actorUserId: onboardingUser.id,
       organizationId,
       entityType: "organization",
       entityId: organizationId,
@@ -128,16 +149,17 @@ export async function createOrganizationAction(
       eventTier: "baseline",
       requestId,
     });
-  } catch (emitError) {
-    console.error("[createOrganizationAction] Failed to emit org creation events:", {
-      actionKey: "org.created / org.onboarding.completed",
-      organizationId,
-      actorUserId: onboardingUser?.id ?? null,
-      entityType: "organization",
-      entityId: organizationId,
-      requestId,
-      error: emitError,
-    });
+    if (!onboardingCompletedResult.success) {
+      console.error("[createOrganizationAction] Failed to emit org.onboarding.completed:", {
+        actionKey: "org.onboarding.completed",
+        organizationId,
+        actorUserId: onboardingUser.id,
+        entityType: "organization",
+        entityId: organizationId,
+        requestId,
+        error: (onboardingCompletedResult as { success: false; error: string }).error,
+      });
+    }
   }
 
   return {

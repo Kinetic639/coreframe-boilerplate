@@ -2,6 +2,17 @@
 -- HARDENING PHASE 2: Compile Triggers on DELETE / Soft-Delete
 -- Goal: Ensure user_effective_permissions is never stale after role removal,
 --       permission revocation, or override deletion.
+--
+-- NOTE (post P9 audit): The three triggers created in this migration
+-- (trg_ura_compile_remove, trg_rp_compile_remove, trg_override_compile_remove)
+-- were later found to be redundant — the existing AFTER INSERT OR DELETE OR
+-- UPDATE triggers (trigger_role_assignment_compile, trigger_role_permission_compile,
+-- trigger_override_compile) already fired for DELETE and all UPDATE events,
+-- providing identical coverage. The narrow triggers were removed in migration
+-- 20260323000018_target_corrective_p9_trigger_dedup. The functions defined here
+-- were also dropped in that migration. This migration is preserved as-is for
+-- historical record; it has no effect on the live system beyond what the
+-- broader triggers already provided.
 -- =============================================================================
 
 -- ─── A. URA removal trigger ──────────────────────────────────────────────────

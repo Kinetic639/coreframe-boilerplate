@@ -98,7 +98,7 @@ export async function updateOrgProfileAction(rawInput: unknown) {
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityId: context.app.activeOrgId,
-          error: emitResult.error,
+          error: (emitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -152,7 +152,7 @@ export async function uploadOrgLogoAction(formData: FormData) {
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityId: context.app.activeOrgId,
-          error: emitResult.error,
+          error: (emitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -206,7 +206,7 @@ export async function removeOrgLogoAction() {
           organizationId: orgId,
           actorUserId: context.user.user?.id ?? null,
           entityId: orgId,
-          error: emitResult.error,
+          error: (emitResult as { success: false; error: string }).error,
         });
       }
     }

@@ -93,27 +93,26 @@ export async function removeMemberAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.member.removed",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "user",
-          entityId: parsed.data.userId,
-          targetType: "user",
-          targetId: parsed.data.userId,
-          metadata: { removed_user_id: parsed.data.userId },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const removeEmitResult = await eventService.emit({
+        actionKey: "org.member.removed",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        entityType: "user",
+        entityId: parsed.data.userId,
+        targetType: "user",
+        targetId: parsed.data.userId,
+        metadata: { removed_user_id: parsed.data.userId },
+        eventTier: "enhanced",
+      });
+      if (!removeEmitResult.success) {
         console.error("[removeMemberAction] Failed to emit org.member.removed:", {
           actionKey: "org.member.removed",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "user",
           entityId: parsed.data.userId,
-          error: emitError,
+          error: (removeEmitResult as { success: false; error: string }).error,
         });
       }
     }

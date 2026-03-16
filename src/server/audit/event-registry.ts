@@ -64,8 +64,12 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     metadataSchema: z.object({
       email: z.string().email().optional(),
     }),
-    summaryTemplate: "{{actor}} requested a password reset",
-    visibleTo: ["self", "auditor"],
+    // Auditor-only: this event is emitted with actorType="system" and actorUserId=null
+    // because the requesting user is not yet authenticated. With no actor_user_id, the
+    // personal-scope guard (actor_user_id === viewerUserId) can never match, making
+    // "self" semantically meaningless. Only auditors can retrieve these events.
+    summaryTemplate: "Password reset requested",
+    visibleTo: ["auditor"],
     sensitiveFields: ["email"],
   },
 
@@ -161,7 +165,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
     }),
-    summaryTemplate: "{{target}} accepted invitation and joined the organization",
+    summaryTemplate: "{{actor}} accepted invitation and joined the organization",
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
@@ -178,6 +182,37 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     summaryTemplate: "{{actor}} cancelled invitation for {{target}}",
     visibleTo: ["self", "org_admin", "auditor"],
     sensitiveFields: ["invitee_email"],
+  },
+
+  "org.invitation.resent": {
+    actionKey: "org.invitation.resent",
+    moduleSlug: "organization-management",
+    eventTier: "enhanced",
+    description: "An invitation was resent with a new token and expiry",
+    metadataSchema: z.object({
+      invitation_id: z.string().uuid().optional(),
+      invitee_email: z.string().email().optional(),
+    }),
+    // targetType/targetId set to invitation_email so {{target}} renders the email address.
+    summaryTemplate: "{{actor}} resent invitation to {{target}}",
+    visibleTo: ["self", "org_admin", "auditor"],
+    sensitiveFields: ["invitee_email"],
+  },
+
+  "org.invitation.declined": {
+    actionKey: "org.invitation.declined",
+    moduleSlug: "organization-management",
+    eventTier: "baseline",
+    description: "An invitation was declined by the recipient",
+    metadataSchema: z.object({
+      invitation_id: z.string().uuid().optional(),
+    }),
+    // No {{target}}: the actor IS the recipient — using target would be redundant.
+    // actorUserId may be null if the recipient was not authenticated at decline time;
+    // in that case the event is still stored and visible to org_admin and auditor.
+    summaryTemplate: "{{actor}} declined the invitation",
+    visibleTo: ["self", "org_admin", "auditor"],
+    sensitiveFields: [],
   },
 
   "org.role.created": {

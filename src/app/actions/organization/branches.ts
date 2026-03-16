@@ -81,25 +81,25 @@ export async function createBranchAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.branch.created",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "branch",
-          entityId: result.data.id,
-          metadata: { branch_id: result.data.id, branch_name: result.data.name },
-          eventTier: "baseline",
-        });
-      } catch (emitError) {
+      const createBranchEmitResult = await eventService.emit({
+        actionKey: "org.branch.created",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        branchId: result.data.id,
+        entityType: "branch",
+        entityId: result.data.id,
+        metadata: { branch_id: result.data.id, branch_name: result.data.name },
+        eventTier: "baseline",
+      });
+      if (!createBranchEmitResult.success) {
         console.error("[createBranchAction] Failed to emit org.branch.created:", {
           actionKey: "org.branch.created",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "branch",
           entityId: result.data.id,
-          error: emitError,
+          error: (createBranchEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -140,29 +140,29 @@ export async function updateBranchAction(rawInput: unknown) {
       const updatedFields = Object.keys(updateInput).filter(
         (k) => (updateInput as Record<string, unknown>)[k] !== undefined
       );
-      try {
-        await eventService.emit({
-          actionKey: "org.branch.updated",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "branch",
-          entityId: branchId,
-          metadata: {
-            branch_id: branchId,
-            branch_name: updateInput.name,
-            updated_fields: updatedFields,
-          },
-          eventTier: "baseline",
-        });
-      } catch (emitError) {
+      const updateBranchEmitResult = await eventService.emit({
+        actionKey: "org.branch.updated",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        branchId: branchId,
+        entityType: "branch",
+        entityId: branchId,
+        metadata: {
+          branch_id: branchId,
+          branch_name: updateInput.name,
+          updated_fields: updatedFields,
+        },
+        eventTier: "baseline",
+      });
+      if (!updateBranchEmitResult.success) {
         console.error("[updateBranchAction] Failed to emit org.branch.updated:", {
           actionKey: "org.branch.updated",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "branch",
           entityId: branchId,
-          error: emitError,
+          error: (updateBranchEmitResult as { success: false; error: string }).error,
         });
       }
     }
@@ -190,6 +190,14 @@ export async function deleteBranchAction(rawInput: unknown) {
     const parsed = branchIdSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
+    // Fetch branch name before deleting (service returns void, name unavailable after)
+    const { data: branchToDelete } = await supabase
+      .from("branches")
+      .select("name")
+      .eq("id", parsed.data.branchId)
+      .maybeSingle();
+    const deletedBranchName = branchToDelete?.name ?? parsed.data.branchId;
+
     const result = await OrgBranchesService.deleteBranch(
       supabase,
       parsed.data.branchId,
@@ -197,25 +205,25 @@ export async function deleteBranchAction(rawInput: unknown) {
     );
 
     if (result.success) {
-      try {
-        await eventService.emit({
-          actionKey: "org.branch.deleted",
-          actorType: "user",
-          actorUserId: context.user.user?.id ?? null,
-          organizationId: context.app.activeOrgId,
-          entityType: "branch",
-          entityId: parsed.data.branchId,
-          metadata: { branch_id: parsed.data.branchId },
-          eventTier: "enhanced",
-        });
-      } catch (emitError) {
+      const deleteBranchEmitResult = await eventService.emit({
+        actionKey: "org.branch.deleted",
+        actorType: "user",
+        actorUserId: context.user.user?.id ?? null,
+        organizationId: context.app.activeOrgId,
+        branchId: parsed.data.branchId,
+        entityType: "branch",
+        entityId: parsed.data.branchId,
+        metadata: { branch_id: parsed.data.branchId, branch_name: deletedBranchName },
+        eventTier: "enhanced",
+      });
+      if (!deleteBranchEmitResult.success) {
         console.error("[deleteBranchAction] Failed to emit org.branch.deleted:", {
           actionKey: "org.branch.deleted",
           organizationId: context.app.activeOrgId,
           actorUserId: context.user.user?.id ?? null,
           entityType: "branch",
           entityId: parsed.data.branchId,
-          error: emitError,
+          error: (deleteBranchEmitResult as { success: false; error: string }).error,
         });
       }
     }
