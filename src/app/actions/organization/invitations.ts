@@ -388,13 +388,14 @@ export async function declineInvitationAction(token: string) {
       };
 
     // Emit org.invitation.declined — best effort, only when we could identify the org.
-    // actorUserId is null when the recipient was not authenticated (token-based link click);
-    // the event is still stored — org_admin and auditor visibility are unaffected by null actor.
+    // actorType is "user" only when the decliner is authenticated; otherwise "system"
+    // is used so that actorType="user" is never emitted with actorUserId=null.
     if (inviteRow?.organization_id) {
+      const isAuthenticated = !!decliningUser?.id;
       const declineEmitResult = await eventService.emit({
         actionKey: "org.invitation.declined",
-        actorType: "user",
-        actorUserId: decliningUser?.id ?? null,
+        actorType: isAuthenticated ? "user" : "system",
+        actorUserId: isAuthenticated ? decliningUser!.id : null,
         organizationId: inviteRow.organization_id,
         entityType: "invitation",
         entityId: inviteRow.id,

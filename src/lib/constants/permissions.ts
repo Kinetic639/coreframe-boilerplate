@@ -11,7 +11,7 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 33 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools + 1 audit)
+ * Expected Count: 35 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools + 1 audit + 2 event-feed)
  */
 
 // Account Permissions (global scope, system permissions)
@@ -73,6 +73,13 @@ export const MODULE_ORGANIZATION_MANAGEMENT_ACCESS =
 // Granted to org_owner by default; assignable to custom roles via roles editor.
 export const AUDIT_EVENTS_READ = "audit.events.read" as const;
 
+// Event Feed Permissions (org-scoped)
+// events.org_activity.read — view organization activity feed (branch created, member joined, etc.)
+// events.org_sensitive.read — view sensitive org events (invitations, role changes, member removal)
+// Granted to org_owner + org_admin; org_member gets org_activity.read only.
+export const EVENTS_ORG_ACTIVITY_READ = "events.org_activity.read" as const;
+export const EVENTS_ORG_SENSITIVE_READ = "events.org_sensitive.read" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -117,6 +124,8 @@ export type PermissionSlug =
   | typeof MODULE_ACCESS_WILDCARD
   | typeof MODULE_ORGANIZATION_MANAGEMENT_ACCESS
   | typeof AUDIT_EVENTS_READ
+  | typeof EVENTS_ORG_ACTIVITY_READ
+  | typeof EVENTS_ORG_SENSITIVE_READ
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof SUPERADMIN_WILDCARD
@@ -156,6 +165,8 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   MODULE_ACCESS_WILDCARD,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   AUDIT_EVENTS_READ,
+  EVENTS_ORG_ACTIVITY_READ,
+  EVENTS_ORG_SENSITIVE_READ,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   SUPERADMIN_WILDCARD,

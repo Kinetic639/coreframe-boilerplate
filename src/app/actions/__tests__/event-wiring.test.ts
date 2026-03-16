@@ -393,6 +393,89 @@ describe("T-EVENT-WIRING: invitation events", () => {
 
     expect(vi.mocked(eventService.emit)).not.toHaveBeenCalled();
   });
+
+  it("declineInvitationAction (authenticated path) emits actorType=user with actorUserId set", async () => {
+    // Authenticated decline: auth.getUser returns a real user
+    mockFromChain.mockReturnValue(singleTableQuery({ id: INV_ID, organization_id: ORG_ID }));
+    mockAuthGetUser.mockResolvedValue({ data: { user: { id: USER_ID } } });
+    const mockClient = {
+      from: mockFromChain,
+      auth: { getUser: mockAuthGetUser },
+      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    };
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValueOnce(mockClient as any);
+
+    await declineInvitationAction("decline-token-authenticated");
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.invitation.declined",
+        actorType: "user",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        entityId: INV_ID,
+      })
+    );
+  });
+
+  it("declineInvitationAction (unauthenticated path) emits actorType=system with actorUserId=null", async () => {
+    // Unauthenticated decline: auth.getUser returns no user (token-based link click)
+    mockFromChain.mockReturnValue(singleTableQuery({ id: INV_ID, organization_id: ORG_ID }));
+    const mockGetUserNull = vi.fn().mockResolvedValue({ data: { user: null } });
+    const mockClient = {
+      from: mockFromChain,
+      auth: { getUser: mockGetUserNull },
+      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
+    };
+    const { createClient } = await import("@/utils/supabase/server");
+    vi.mocked(createClient).mockResolvedValueOnce(mockClient as any);
+
+    await declineInvitationAction("decline-token-unauthenticated");
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.invitation.declined",
+        actorType: "system",
+        actorUserId: null,
+        organizationId: ORG_ID,
+        entityId: INV_ID,
+      })
+    );
+  });
+
+  it("resendInvitationAction emits correct event key and actor attribution", async () => {
+    // Verify event key, actor, and basic metadata shape for resend
+    vi.mocked(OrgInvitationsService.resendInvitation).mockResolvedValue({
+      success: true,
+      data: {
+        token: "resend-token-xyz",
+        email: "user@example.com",
+        organization_id: ORG_ID,
+      } as any,
+    });
+    vi.mocked(OrgProfileService.getProfile).mockResolvedValue({
+      success: true,
+      data: { name: "Acme Org" } as any,
+    });
+
+    await resendInvitationAction({ invitationId: INV_ID });
+
+    expect(vi.mocked(eventService.emit)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "org.invitation.resent",
+        actorType: "user",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        entityType: "invitation",
+        entityId: INV_ID,
+        metadata: expect.objectContaining({
+          invitation_id: INV_ID,
+          invitee_email: "user@example.com",
+        }),
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1231,7 +1314,9 @@ function makeOrgContext(viewerUserId: string): ProjectionContext {
     viewerUserId,
     viewerScope: "org",
     organizationId: TEST_ORG_ID,
-    permissions: [],
+    // org scope: include both org_activity and org_sensitive permissions so all org events are
+    // visible when the test exercises org-wide visibility (not permission-gating specifically)
+    permissions: ["events.org_activity.read", "events.org_sensitive.read"],
   };
 }
 
@@ -1240,7 +1325,8 @@ function makeAuditContext(viewerUserId: string): ProjectionContext {
     viewerUserId,
     viewerScope: "audit",
     organizationId: TEST_ORG_ID,
-    permissions: [],
+    // audit scope: requires audit.events.read to pass visibility evaluation
+    permissions: ["audit.events.read"],
   };
 }
 
@@ -1472,7 +1558,8 @@ describe("T-REGISTRY-AUTH-VISIBILITY: auth event visibility and IP/UA rules", ()
         viewerUserId: VIEWER_ID,
         viewerScope: "audit",
         organizationId: null,
-        permissions: [],
+        // audit.events.read is required to see audit-class events
+        permissions: ["audit.events.read"],
       },
     });
     expect(result.total).toBe(1);
@@ -1703,14 +1790,14 @@ describe("T-SUMMARY-RENDERING: invitation event summary template rendering", () 
       ip_address: null,
       user_agent: null,
     };
-    // org_admin scope includes org_admin qualifier
+    // org.invitation.declined has visibilityClass=org_sensitive → requires events.org_sensitive.read
     const result = projectEvents({
       events: [row],
       context: {
         viewerUserId: VIEWER_ID,
         viewerScope: "org",
         organizationId: TEST_ORG_ID,
-        permissions: ["org_admin"],
+        permissions: ["events.org_sensitive.read"],
       },
     });
     expect(result.total).toBe(1);

@@ -401,18 +401,14 @@ describe("T-REQUEST-CORRELATION: multi-event workflow request correlation", () =
     const insertMock = vi
       .fn()
       .mockReturnValueOnce({
-        select: vi
-          .fn()
-          .mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { id: EVENT_ID_1 }, error: null }),
-          }),
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: EVENT_ID_1 }, error: null }),
+        }),
       })
       .mockReturnValueOnce({
-        select: vi
-          .fn()
-          .mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { id: EVENT_ID_2 }, error: null }),
-          }),
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: EVENT_ID_2 }, error: null }),
+        }),
       });
 
     vi.mocked(createServiceClient).mockReturnValue({
@@ -496,7 +492,7 @@ describe("T-REQUEST-CORRELATION: multi-event workflow request correlation", () =
         actor_user_id: USER_ID,
         actor_type: "user",
         module_slug: "auth",
-        action_key: "auth.password.reset_requested",
+        action_key: "auth.password.reset_completed",
         entity_type: "user",
         entity_id: USER_ID,
         target_type: null,
@@ -1025,6 +1021,75 @@ describe("T-LOGOUT-PIPELINE: logout event emission and personal feed visibility"
 
     const insertArg = (client._insert as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
     expect(insertArg.actor_user_id).toBeNull();
+  });
+
+  it("selfVisible: target user sees org.member.role_assigned in their personal feed", () => {
+    // Scenario: admin (USER_ID) assigns a role to OTHER_USER_ID.
+    // org.member.role_assigned has selfVisible=true.
+    // OTHER_USER_ID is the target → can see this event in their personal feed.
+    const row = makeStoredRow(
+      {
+        actionKey: "org.member.role_assigned",
+        actorType: "user",
+        actorUserId: USER_ID, // actor = admin
+        organizationId: ORG_ID,
+        entityType: "user",
+        entityId: OTHER_USER_ID,
+        targetType: "user",
+        targetId: OTHER_USER_ID, // target = the user receiving the role
+        metadata: { role_name: "branch_viewer" },
+        eventTier: "enhanced",
+      },
+      {
+        event_tier: "enhanced",
+        actor_user_id: USER_ID,
+        target_type: "user",
+        target_id: OTHER_USER_ID,
+      }
+    );
+
+    // OTHER_USER_ID views their personal feed — they should see their own role assignment
+    const result = projectEvents({
+      events: [row],
+      context: makeContext({ viewerUserId: OTHER_USER_ID, viewerScope: "personal" }),
+    });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].action_key).toBe("org.member.role_assigned");
+  });
+
+  it("selfVisible: user who performed role assignment does NOT see it in target's personal feed", () => {
+    // The admin (USER_ID) views their own personal feed.
+    // They ARE the actor (actorVisible=true), so they DO see it.
+    const row = makeStoredRow(
+      {
+        actionKey: "org.member.role_assigned",
+        actorType: "user",
+        actorUserId: USER_ID,
+        organizationId: ORG_ID,
+        entityType: "user",
+        entityId: OTHER_USER_ID,
+        targetType: "user",
+        targetId: OTHER_USER_ID,
+        metadata: { role_name: "branch_viewer" },
+        eventTier: "enhanced",
+      },
+      {
+        event_tier: "enhanced",
+        actor_user_id: USER_ID,
+        target_type: "user",
+        target_id: OTHER_USER_ID,
+      }
+    );
+
+    // USER_ID views their personal feed — they are the actor, so actorVisible=true applies
+    const result = projectEvents({
+      events: [row],
+      context: makeContext({ viewerUserId: USER_ID, viewerScope: "personal" }),
+    });
+
+    expect(result.events).toHaveLength(1); // actor sees their own action
+    expect(result.events[0].action_key).toBe("org.member.role_assigned");
   });
 
   it("null-actor auth.session.revoked event is invisible in personal feed (actor guard)", () => {

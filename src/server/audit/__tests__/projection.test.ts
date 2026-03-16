@@ -85,25 +85,40 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(0);
   });
 
-  it("org scope: events with visibleTo=['org_member', 'org_admin', 'auditor'] are visible", () => {
-    // org.created has visibleTo: ['org_member', 'org_admin', 'auditor']
+  it("org scope: org_activity events visible with events.org_activity.read permission", () => {
+    // org.created has visibilityClass: 'org_activity' → requires events.org_activity.read
     const result = projectEvents({
       events: [makeRow({ action_key: "org.created" })],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_activity.read"] }),
     });
     expect(result.events).toHaveLength(1);
   });
 
-  it("org scope: events with visibleTo=['org_admin', 'auditor'] are visible (org_admin in org qualifiers)", () => {
-    // org.member.invited has visibleTo: ['org_admin', 'auditor']
-    // org scope qualifiers: ['self', 'org_member', 'org_admin'] — org_admin matches
+  it("org scope: org_sensitive events visible with events.org_sensitive.read permission", () => {
+    // org.member.invited has visibilityClass: 'org_sensitive' → requires events.org_sensitive.read
     const result = projectEvents({
       events: [
         makeRow({ action_key: "org.member.invited", metadata: { invitee_email: "x@example.com" } }),
       ],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_sensitive.read"] }),
     });
     expect(result.events).toHaveLength(1);
+  });
+
+  it("org scope: org_sensitive event NOT visible to non-actor without org_sensitive permission", () => {
+    // org.member.invited requires org_sensitive.read for non-actors.
+    // Use OTHER_USER_ID as actor so VIEWER_USER_ID has no intrinsic path.
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.invited",
+          actor_user_id: OTHER_USER_ID, // different actor — no actorVisible path for viewer
+          metadata: { invitee_email: "x@example.com" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_activity.read"] }),
+    });
+    expect(result.events).toHaveLength(0);
   });
 
   it("audit scope: all registered events are visible", () => {
@@ -137,7 +152,7 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
 // T-PROJECTION-PERSONAL: personal scope actor guard
 // ---------------------------------------------------------------------------
 
-describe("T-PROJECTION-PERSONAL: personal scope shows only viewer's own events", () => {
+describe("T-PROJECTION-PERSONAL: personal scope shows viewer's own events", () => {
   it("includes event where actor_user_id === viewerUserId", () => {
     const result = projectEvents({
       events: [makeRow({ actor_user_id: VIEWER_USER_ID })],
@@ -146,32 +161,113 @@ describe("T-PROJECTION-PERSONAL: personal scope shows only viewer's own events",
     expect(result.events).toHaveLength(1);
   });
 
-  it("excludes event where actor_user_id !== viewerUserId", () => {
+  it("excludes event where actor_user_id !== viewerUserId AND viewer is not the subject", () => {
+    // OTHER_USER_ID acted on a non-viewer entity. entity_id is OTHER_USER_ID here
+    // so the viewer has no intrinsic path (not actor, not entity, not target).
+    // auth.login has actorVisible=true, selfVisible=true — but viewer is neither.
     const result = projectEvents({
-      events: [makeRow({ actor_user_id: OTHER_USER_ID })],
+      events: [
+        makeRow({
+          actor_user_id: OTHER_USER_ID,
+          entity_type: "user",
+          entity_id: OTHER_USER_ID, // entity is OTHER_USER — not the viewer
+          target_type: null,
+          target_id: null,
+        }),
+      ],
       context: makeContext({ viewerScope: "personal" }),
     });
+    expect(result.events).toHaveLength(0);
+  });
+
+  it("includes event where viewer is the target (selfVisible path)", () => {
+    // org.member.role_assigned: actor=OTHER_USER, target=VIEWER_USER_ID
+    // selfVisible=true → viewer CAN see their own role assignment
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.role_assigned",
+          actor_user_id: OTHER_USER_ID,
+          entity_type: "user",
+          entity_id: OTHER_USER_ID,
+          target_type: "user",
+          target_id: VIEWER_USER_ID, // viewer is the target
+          metadata: { role_name: "Admin" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].action_key).toBe("org.member.role_assigned");
+  });
+
+  it("includes event where viewer is the entity subject (selfVisible path)", () => {
+    // org.member.removed: actor=OTHER_USER, entity_type=user, entity_id=VIEWER_USER_ID
+    // selfVisible=true → viewer CAN see their own removal
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.removed",
+          actor_user_id: OTHER_USER_ID,
+          entity_type: "user",
+          entity_id: VIEWER_USER_ID, // viewer is the entity subject
+          target_type: "user",
+          target_id: VIEWER_USER_ID,
+          metadata: { removed_user_id: VIEWER_USER_ID },
+        }),
+      ],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].action_key).toBe("org.member.removed");
+  });
+
+  it("excludes selfVisible event where selfVisible=false in registry", () => {
+    // org.member.invited has selfVisible=false — the invitee is NOT the actor
+    // and the event does not grant selfVisible access to targets.
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.invited",
+          actor_user_id: OTHER_USER_ID,
+          entity_type: "invitation",
+          entity_id: "inv-001",
+          target_type: "user",
+          target_id: VIEWER_USER_ID, // viewer is the invited user — but selfVisible=false
+          metadata: { invitee_email: "viewer@example.com" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    // No intrinsic path: selfVisible=false; viewer is not actor; no permission
     expect(result.events).toHaveLength(0);
   });
 
   it("excludes system actor events in personal scope", () => {
     const result = projectEvents({
-      events: [makeRow({ actor_type: "system", actor_user_id: null })],
+      events: [
+        makeRow({
+          actor_type: "system",
+          actor_user_id: null,
+          entity_type: "system", // not 'user' type — no selfVisible path
+          entity_id: "sys-001",
+        }),
+      ],
       context: makeContext({ viewerScope: "personal" }),
     });
-    // actor_user_id is null — null !== viewerUserId — filtered out
+    // System actor, non-user entity — no personal path
     expect(result.events).toHaveLength(0);
   });
 
   it("org scope does NOT apply personal actor guard", () => {
     // Both viewer and other user events should be visible at org scope
-    // org.created is visible to org_member
+    // org.created requires events.org_activity.read
     const result = projectEvents({
       events: [
         makeRow({ id: "aaa", action_key: "org.created", actor_user_id: VIEWER_USER_ID }),
         makeRow({ id: "bbb", action_key: "org.created", actor_user_id: OTHER_USER_ID }),
       ],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_activity.read"] }),
     });
     expect(result.events).toHaveLength(2);
   });
@@ -200,7 +296,8 @@ describe("T-PROJECTION-SENSITIVITY: sensitive metadata fields are stripped per s
     expect(result.events[0].metadata).not.toHaveProperty("email");
   });
 
-  it("org scope: strips sensitive fields from metadata", () => {
+  it("org scope: strips sensitive fields from metadata (viewer has org_sensitive permission)", () => {
+    // org.member.invited requires events.org_sensitive.read to be visible in org scope
     const result = projectEvents({
       events: [
         makeRow({
@@ -211,7 +308,7 @@ describe("T-PROJECTION-SENSITIVITY: sensitive metadata fields are stripped per s
           },
         }),
       ],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_sensitive.read"] }),
     });
     expect(result.events).toHaveLength(1);
     expect(result.events[0].metadata).not.toHaveProperty("invitee_email");
@@ -235,6 +332,7 @@ describe("T-PROJECTION-SENSITIVITY: sensitive metadata fields are stripped per s
 
   it("non-sensitive fields are always retained", () => {
     // org.updated has no sensitive fields; updated_fields is non-sensitive
+    // visibilityClass = org_activity → requires events.org_activity.read
     const result = projectEvents({
       events: [
         makeRow({
@@ -242,7 +340,7 @@ describe("T-PROJECTION-SENSITIVITY: sensitive metadata fields are stripped per s
           metadata: { updated_fields: ["name", "description"] },
         }),
       ],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_activity.read"] }),
     });
     expect(result.events).toHaveLength(1);
     expect(result.events[0].metadata.updated_fields).toEqual(["name", "description"]);
@@ -291,6 +389,7 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
 
   it("template without variables returns literal string", () => {
     // auth.login.failed summaryTemplate: "Failed login attempt"
+    // visibilityClass='audit' → requires audit.events.read permission to be visible
     const result = projectEvents({
       events: [
         makeRow({
@@ -299,7 +398,7 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
           metadata: {},
         }),
       ],
-      context: makeContext({ viewerScope: "audit" }),
+      context: makeContext({ viewerScope: "audit", permissions: ["audit.events.read"] }),
     });
     expect(result.events[0].summary).toBe("Failed login attempt");
   });
@@ -371,9 +470,10 @@ describe("T-PROJECTION-IPUA: ip_address and user_agent handling", () => {
   });
 
   it("org scope: does NOT include ip_address or user_agent", () => {
+    // org.created requires events.org_activity.read to be visible
     const result = projectEvents({
       events: [makeRow({ action_key: "org.created", ip_address: "1.2.3.4", user_agent: "UA" })],
-      context: makeContext({ viewerScope: "org" }),
+      context: makeContext({ viewerScope: "org", permissions: ["events.org_activity.read"] }),
     });
     expect(result.events[0]).not.toHaveProperty("ip_address");
     expect(result.events[0]).not.toHaveProperty("user_agent");
@@ -466,15 +566,19 @@ describe("T-PROJECTION-PAGINATION: limit and offset", () => {
   });
 
   it("total reflects filtered count before pagination", () => {
-    // Mix of VIEWER and OTHER user events; personal scope filters to viewer's only
+    // Mix of VIEWER and OTHER user events; personal scope filters to viewer's only.
+    // Other user events use OTHER_USER_ID as entity so viewer has no selfVisible path.
     const rows = [
-      ...makeRows(5), // viewer events
-      ...Array.from(
-        { length: 3 },
-        (
-          _,
-          i // other user events
-        ) => makeRow({ id: `other-${i}`, actor_user_id: OTHER_USER_ID })
+      ...makeRows(5), // viewer events (actor = VIEWER_USER_ID)
+      ...Array.from({ length: 3 }, (_, i) =>
+        makeRow({
+          id: `other-${i}`,
+          actor_user_id: OTHER_USER_ID,
+          entity_type: "user",
+          entity_id: OTHER_USER_ID, // entity is OTHER_USER — not the viewer
+          target_type: null,
+          target_id: null,
+        })
       ),
     ];
     const result = projectEvents({

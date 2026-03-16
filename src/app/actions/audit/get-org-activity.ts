@@ -5,10 +5,12 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { ORG_READ } from "@/lib/constants/permissions";
 import { projectEvents, type ProjectionResult } from "@/server/audit/projection";
+import { enrichActorDisplays } from "@/server/audit/actor-enrichment";
 import {
   fetchPlatformEvents,
   computeFetchLimit,
   validatePagination,
+  validateBranchId,
   DEFAULT_PAGE_LIMIT,
 } from "./_query";
 
@@ -27,12 +29,20 @@ export type GetOrgActivityResult =
  * Pagination is validated server-side before use.
  * Query strategy: bounded fetch of (offset + limit) * 2, capped at 500.
  * Buffer accounts for auditor-only events being filtered out by projection.
+ *
+ * @param rawLimit   Page size (clamped 1–50 server-side).
+ * @param rawOffset  Zero-based offset (clamped ≥ 0 server-side).
+ * @param rawBranchId Optional branch UUID. When provided, results are scoped to
+ *                   events with branch_id = branchId. Invalid UUIDs are silently
+ *                   ignored and the unfiltered feed is returned instead.
  */
 export async function getOrgActivityAction(
   rawLimit = DEFAULT_PAGE_LIMIT,
-  rawOffset = 0
+  rawOffset = 0,
+  rawBranchId?: string
 ): Promise<GetOrgActivityResult> {
   const { limit, offset } = validatePagination(rawLimit, rawOffset);
+  const branchId = validateBranchId(rawBranchId);
 
   const context = await loadDashboardContextV2();
   if (!context?.app.activeOrgId || !context.user.user?.id) {
@@ -50,7 +60,9 @@ export async function getOrgActivityAction(
   const { rows, dbError } = await fetchPlatformEvents(
     supabase,
     orgId,
-    computeFetchLimit(offset, limit)
+    computeFetchLimit(offset, limit),
+    undefined,
+    branchId
   );
 
   if (dbError) {
@@ -74,5 +86,8 @@ export async function getOrgActivityAction(
     offset,
   });
 
-  return { success: true, data: result };
+  // Enrich actor_display UUIDs to human-readable names — best effort, non-fatal.
+  const enrichedEvents = await enrichActorDisplays(result.events);
+
+  return { success: true, data: { ...result, events: enrichedEvents } };
 }

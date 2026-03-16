@@ -3,8 +3,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { projectEvents, type ProjectionResult } from "@/server/audit/projection";
+import { enrichActorDisplays } from "@/server/audit/actor-enrichment";
 import {
-  fetchPlatformEvents,
+  fetchPersonalOrgEvents,
   fetchPersonalOrgNullEvents,
   mergeAndSortEvents,
   computeFetchLimit,
@@ -20,18 +21,20 @@ export type GetPersonalActivityResult =
  * Returns the current user's own activity events across two sources:
  *
  *  1. Org-scoped events — fetched via authenticated client (RLS enforces org
- *     membership). Filtered to organization_id = activeOrgId AND actor_user_id
- *     = currentUserId.
+ *     membership). Fetches rows where the viewer is the actor OR the event
+ *     subject (entity/target). This covers:
+ *      - Events the viewer performed (actor path)
+ *      - Self-visible events where the viewer is the subject, e.g.
+ *        org.member.role_assigned emitted by an admin where target_id = viewerUserId.
  *
  *  2. Org-null auth/global events — fetched via service-role client (bypasses
- *     RLS, which would otherwise block organization_id IS NULL rows). Tightly
- *     restricted to actor_user_id = currentUserId. Examples: auth.login,
- *     auth.login.failed, auth.session.revoked.
+ *     RLS, which would otherwise block organization_id IS NULL rows). Same OR
+ *     filter for actor/entity/target. Examples: auth.login, auth.session.revoked.
  *
  * Both result sets are merged, sorted by created_at desc, and passed through
- * projectEvents() with scope=personal. The projection layer applies:
- *  - visibility filter (only "self" visibleTo events)
- *  - actor guard (actor_user_id === viewerUserId)
+ * projectEvents() with scope=personal. The projection layer applies the
+ * canonical canViewerSeeEvent() evaluator which checks actorVisible,
+ * selfVisible, and permission-based visibility — it is the single gatekeeper.
  *
  * Pagination is validated server-side before use.
  * Query strategy: bounded fetch of (offset + limit) * 2, capped at 500.
@@ -52,12 +55,13 @@ export async function getPersonalActivityAction(
   const fetchLimit = computeFetchLimit(offset, limit);
 
   // Query 1: org-scoped personal events (RLS client)
+  // Fetches actor events AND self-visible events (entity/target = userId).
   const supabase = await createClient();
-  const { rows: orgRows, dbError: orgError } = await fetchPlatformEvents(
+  const { rows: orgRows, dbError: orgError } = await fetchPersonalOrgEvents(
     supabase,
     orgId,
-    fetchLimit,
-    userId
+    userId,
+    fetchLimit
   );
 
   if (orgError) {
@@ -98,5 +102,8 @@ export async function getPersonalActivityAction(
     offset,
   });
 
-  return { success: true, data: result };
+  // Enrich actor_display UUIDs to human-readable names — best effort, non-fatal.
+  const enrichedEvents = await enrichActorDisplays(result.events);
+
+  return { success: true, data: { ...result, events: enrichedEvents } };
 }

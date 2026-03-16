@@ -1,7 +1,7 @@
 # Event System Implementation Extraction — Verified Current State
 
 **Extraction date**: 2026-03-16
-**Source**: Repository source code + live TARGET Supabase project `zlcnlalwfmmtusigeuyk`
+**Source**: Repository source code + live TARGET Supabase project `rjeraydumwechpjjzrus`
 **Branch**: `event-system`
 **Methodology**: All facts below are derived directly from file reads and live DB queries. Items not confirmable are labeled `UNVERIFIED` or `INFERENCE`.
 
@@ -40,7 +40,7 @@
 | `src/app/[locale]/dashboard/activity/_components/event-feed-client.tsx`         | Shared feed UI component                                                                                                           |
 | `src/app/[locale]/dashboard/organization/audit/page.tsx`                        | Audit feed page (SSR, permission-gated)                                                                                            |
 
-### Live DB queries executed against TARGET (`zlcnlalwfmmtusigeuyk`)
+### Live DB queries executed against TARGET (`rjeraydumwechpjjzrus`)
 
 All schema facts in Section 2 come from live `information_schema` and `pg_catalog` queries run against the TARGET project. Migration version timestamps do NOT match local repo filenames (see Section 2.6 — this is a known divergence).
 
@@ -749,3 +749,33 @@ The following features described in code comments were confirmed NOT implemented
 - Actor display name enrichment — not implemented
 - Branch-scoped event feeds — not implemented
 - Warehouse module events — not registered, not emitted
+
+---
+
+## Current Module Coverage
+
+The current event system emission coverage includes:
+
+- **Authentication** (auth module): signup, login, password reset, etc.
+- **Organization Management** (org-management module): member joins, role changes, invitations, profile updates, branch changes
+
+The following modules are **not yet wired** and represent future-phase work:
+
+- Warehouse
+- Teams
+- Tools
+- Home
+- Support
+
+This is intentional phase scoping, not a correctness defect in the current implementation.
+
+---
+
+## Append-Only Guarantee Clarification
+
+The event system is append-only at the **application level**:
+
+- Authenticated and anonymous users cannot update or delete `platform_events` rows through any application path
+- RLS policies grant SELECT only to authenticated users; INSERT/UPDATE/DELETE are not permitted via the `authenticated` role
+- `service_role` and direct administrative database access retain database-level write capabilities — this is normal Supabase behavior and does not invalidate the application-level audit integrity model
+- Mode B (forensic DB-level immutability via triggers or constraints) is **not part of the current implementation**
