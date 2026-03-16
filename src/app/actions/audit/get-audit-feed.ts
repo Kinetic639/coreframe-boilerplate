@@ -5,7 +5,11 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { AUDIT_EVENTS_READ } from "@/lib/constants/permissions";
 import { projectEvents, type ProjectionResult } from "@/server/audit/projection";
-import { enrichActorDisplays } from "@/server/audit/actor-enrichment";
+import {
+  collectReferences,
+  batchLoadReferences,
+  applyReferenceEnrichment,
+} from "@/server/audit/reference-enrichment";
 import {
   fetchPlatformEvents,
   computeFetchLimit,
@@ -85,8 +89,10 @@ export async function getAuditFeedAction(
     offset,
   });
 
-  // Enrich actor_display UUIDs to human-readable names — best effort, non-fatal.
-  const enrichedEvents = await enrichActorDisplays(result.events);
+  // Batch-enrich all entity references (actor, target user, role, branch) — best effort, non-fatal.
+  const refs = collectReferences(result.events);
+  const ctx = await batchLoadReferences(refs);
+  const enrichedEvents = applyReferenceEnrichment(result.events, ctx);
 
   return { success: true, data: { ...result, events: enrichedEvents } };
 }

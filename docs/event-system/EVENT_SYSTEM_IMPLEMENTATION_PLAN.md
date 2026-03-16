@@ -1591,4 +1591,50 @@ return result;
 
 ---
 
+## Hardening Note — Server-Side Reference Enrichment (2026-03-16)
+
+### Problem
+
+Projected event summaries were showing raw UUIDs and short-ID fallbacks for all entity types except the actor. For example, role assignment events rendered as:
+
+> "Przypisałeś rolę asdasdasdasd użytkownikowi User 434e3138"
+
+Only `actor_user_id` was being resolved (by `actor-enrichment.ts`). Target users, roles, and branches had no lookup path.
+
+### Solution
+
+`src/server/audit/reference-enrichment.ts` — a new server-only enrichment layer applied after projection and visibility filtering, before data reaches the client.
+
+**Three public functions:**
+
+1. `collectReferences(events)` — scans projected events and collects all entity IDs needing lookup into three typed sets: `userIds`, `roleIds`, `branchIds`.
+2. `batchLoadReferences(refs)` — fires at most three batch queries (one per resource type), skipping empty sets entirely. Uses service-role client. Never throws; any DB failure returns an empty map for that type.
+3. `applyReferenceEnrichment(events, ctx)` — applies the resolved maps to `summaryParams` and `summaryEntities` on each event. Returns new event objects; never mutates input.
+
+**Enrichment coverage:**
+
+| Target                                    | Resolution strategy                                            |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `actor_user_id`                           | DB lookup → `"First Last"` / email / `"User <8chars>"`         |
+| `target_type="user"`                      | DB lookup → same priority                                      |
+| `target_type="invitation_email"`          | `target_id` used directly (IS the email, no lookup)            |
+| `entity_type="role"`                      | `metadata.role_name` first → DB lookup → `"Role <8chars>"`     |
+| `entity_type="branch"`                    | `metadata.branch_name` first → DB lookup → `"Branch <8chars>"` |
+| `summaryEntities.role` (role assignments) | same as role above                                             |
+| `summaryEntities.branch`                  | same as branch above                                           |
+
+**Key design invariants:**
+
+- Enrichment happens **after** visibility filtering — only already-filtered, viewer-safe events are passed in.
+- Maximum 3 DB queries per feed request, regardless of page size.
+- `metadata.role_name` / `metadata.branch_name` are preferred over DB lookup — respects the denormalized value recorded at emit time (immutable at that point).
+- If any batch query fails, that resource type returns an empty map; the feed is returned with short-ID fallbacks rather than failing.
+- Not stored back to DB — in-memory only, per-request.
+
+**Call sites updated:** `get-personal-activity.ts`, `get-org-activity.ts`, `get-audit-feed.ts` — all replaced `enrichActorDisplays` with the three-step reference enrichment pipeline. The old `actor-enrichment.ts` file is retained (its `applyActorEnrichmentToSummaries` is still used by the actor-enrichment path in `projection.ts`) but no longer called directly from feed actions.
+
+**Tests:** `src/server/audit/__tests__/reference-enrichment.test.ts` — 31 tests across 5 suites (T-REF-COLLECT, T-REF-BATCH, T-REF-APPLY, T-REF-SECURITY, T-REF-EMPTY).
+
+---
+
 _This plan is a living document. Update the Progress Tracker as phases complete. Update individual sections if implementation decisions change — but record why the change was made. The README remains the architectural source of truth; this document tracks execution against it._
