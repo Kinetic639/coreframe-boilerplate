@@ -123,7 +123,7 @@ export class OrgProfileService {
     }
 
     const ext = file.name.split(".").pop() ?? "jpg";
-    const path = `${orgId}/logo.${ext}`;
+    const path = `${orgId}/logo_${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from("org-logos")
