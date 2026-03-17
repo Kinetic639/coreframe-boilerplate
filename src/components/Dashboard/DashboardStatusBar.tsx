@@ -1,11 +1,23 @@
 "use client";
 
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ColorThemeSwitcher } from "@/components/color-theme-switcher";
 import { CompactBreadcrumbs } from "@/components/v2/layout/compact-breadcrumbs";
-import { StatusBarHistory } from "@/components/v2/layout/status-bar-history";
+import { DashboardStatusBarActivity } from "@/components/activity/DashboardStatusBarActivity";
+import type { ProjectedEvent } from "@/server/audit/types";
 
-export function DashboardStatusBar() {
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface DashboardStatusBarProps {
+  /** SSR-loaded initial recent events — passed through to the activity controller */
+  initialRecentEvents: ProjectedEvent[];
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+export function DashboardStatusBar({ initialRecentEvents }: DashboardStatusBarProps) {
   // TODO: Make breadcrumbs dynamic based on current route/page context
   const breadcrumbs = [{ label: "Dashboard", href: "/dashboard/start" }];
 
@@ -14,13 +26,7 @@ export function DashboardStatusBar() {
       <div className="flex items-center space-x-2">
         <CompactBreadcrumbs breadcrumbs={breadcrumbs} />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1">
-          <ColorThemeSwitcher variant="icon" />
-          <ThemeSwitcher />
-        </div>
-        <StatusBarHistory />
-      </div>
+      <DashboardStatusBarActivity initialEvents={initialRecentEvents} />
     </div>
   );
 }

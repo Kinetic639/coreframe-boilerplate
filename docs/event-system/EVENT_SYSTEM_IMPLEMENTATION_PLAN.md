@@ -1753,4 +1753,85 @@ When registering a new event, apply these steps in order:
 
 ---
 
+---
+
+## Final Hardening — Taxonomy Cleanup & Visual Event Model (Mar 2026)
+
+### What was completed
+
+**Taxonomy cleanup (projection tests):**
+All stale `visibleTo`-model references in `projection.test.ts` were removed. Tests that described behavior in terms of the old field now use the correct `visibilityClass` / audit-superpower model. The "audit scope: all registered events are visible" test was reframed to correctly describe the `actorVisible` intrinsic path — events visible because the viewer is the actor, not because audit scope bypasses permission checks. The audit superpower (`viewer.permissions.includes('audit.events.read')`) is required for `visibilityClass='audit'` events to appear; this is explicitly tested.
+
+**Projection alignment:**
+`category` and `intent` are now required on `EventRegistryEntry` and `ProjectedEvent`. They are set from the registry at projection time and never read from DB rows. Missing taxonomy fails type-check at build time.
+
+**Visual event model (`src/lib/audit/event-visual-model.ts`):**
+A centralized, server-safe string mapping was implemented:
+
+- `CATEGORY_ICON_MAP` — maps each `EventCategory` to a Lucide icon key string (e.g. `"log-in"`, `"shield-alert"`)
+- `INTENT_ICON_MAP` — maps each `EventIntent` to a Lucide icon key string (e.g. `"plus-circle"`, `"trash-2"`)
+- `INTENT_COLOR_MAP` — maps each `EventIntent` to a Tailwind `text-*` class (e.g. `"text-red-600"`)
+- `CATEGORY_LABEL_MAP` / `INTENT_LABEL_MAP` — human-readable labels for both axes
+
+The module has no React imports and is safe to import from server components, server actions, and tests.
+
+**Client icon components (`src/components/audit/event-icons.tsx`):**
+`EventCategoryIcon` and `EventIntentIcon` are client-only components that resolve icon key strings to Lucide components. They do NOT inspect `action_key` — all visual decisions flow from `category` and `intent` on the projected event.
+
+**UI integration:**
+
+- Main activity feed (`event-feed-client.tsx`): Option A — category icon in muted circle on the left; intent icon + label inline in the header row.
+- Drawer item (`ActivityDrawerItem.tsx`): Option B — category icon as primary with intent icon as a bottom-right overlay badge.
+
+**Tests:**
+`event-visual-model.test.ts` covers all four maps with coverage, value-format, spot-check, and Tailwind-color-format suites (36 tests). All 539 audit tests pass.
+
+---
+
+---
+
+## Status Bar Activity Integration — Hardening & Completion (Mar 2026)
+
+### What was removed
+
+- **`src/components/v2/layout/status-bar-history.tsx`** — deleted entirely. This component contained hardcoded fake activity entries (`EXAMPLE_ACTIVITIES`), placeholder "History" text, a fake Sheet drawer with no real data, and mock filtering logic. None of it was connected to real events. It is gone.
+- **`ActivityDrawer` trigger button in the header** — removed from `DashboardHeaderV2`. The header was the only real activity entry point; it has been demoted to search + contacts + messages + notifications only.
+
+### New architecture
+
+**Single entry point:** The status bar (`DashboardStatusBar`) is now the only activity trigger in the dashboard.
+
+**SSR initial data:** `DashboardV2Layout` (the server layout) calls `getRecentActivityAction()` before rendering. Because `loadDashboardContextV2` uses React `cache()`, this adds no extra DB round-trip — the context query is deduplicated. The result is passed as `initialRecentEvents` prop through `DashboardShell` → `DashboardStatusBar` → `DashboardStatusBarActivity`.
+
+**Controller component (`DashboardStatusBarActivity`):** A single local client component owns all mutable activity state:
+
+- `open` — drawer open/close
+- `events` — recent projected events (single source of truth)
+- `isRefreshing` — in-flight refresh indicator
+
+Derived value: `latestEvent = events[0]` — shown in the status bar. Never duplicated in separate state.
+
+**Controlled drawer (`ActivityDrawer`):** Refactored to accept `open`, `onOpenChange`, `events`, `isRefreshing` as props. No own trigger button. No internal state. Purely presentational.
+
+### Refresh strategy
+
+All triggers call the same `refreshRecentActivity()` function:
+
+1. **Drawer open** — always refreshes when the user opens the drawer
+2. **Window focus** — catches events created in another tab or after returning to the app
+3. **Visibility change** — fires when the tab becomes visible again
+4. **30-second polling interval** — lightweight fallback for ambient freshness
+
+Race safety: a `useRef` sequence counter is incremented on each call. Responses that arrive after a newer request has started are silently discarded before touching state.
+
+### Why no Zustand
+
+This is layout-local UI state + server-derived feed data. A local controller component is the correct owner — it lives in the layout, mounts once, and is the single consumer of this state. Global store would be inappropriate: nothing else in the app needs to read or write `drawerOpen` or `recentEvents` outside this controller.
+
+### Security unchanged
+
+All data continues to flow through `getRecentActivityAction` → `getPersonalActivityAction` → `projectEvents` → reference enrichment. No raw DB access, no permission bypass, visibility model unchanged.
+
+---
+
 _This plan is a living document. Update the Progress Tracker as phases complete. Update individual sections if implementation decisions change — but record why the change was made. The README remains the architectural source of truth; this document tracks execution against it._

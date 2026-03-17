@@ -6,7 +6,6 @@ import { HeaderSearch } from "./header-search";
 import { HeaderNotifications } from "./header-notifications";
 import { HeaderMessages } from "./header-messages";
 import { HeaderContacts } from "./header-contacts";
-import { ActivityDrawer } from "@/components/activity/ActivityDrawer";
 
 /**
  * Dashboard Header V2
@@ -20,15 +19,14 @@ import { ActivityDrawer } from "@/components/activity/ActivityDrawer";
  * - Messages drawer
  * - Notifications drawer
  * - Contacts drawer
- * - Recent Activity drawer (refreshes on open)
  *
  * Layout:
  * - Left: Sidebar trigger + separator
  * - Center: Search bar
- * - Right: Activity + Contacts + Messages + Notifications
+ * - Right: Contacts + Messages + Notifications
  *
- * SSR-first: Reads from Zustand stores hydrated on server
- * Note: User menu is available in the sidebar footer
+ * Note: Recent activity is accessible via the status bar at the bottom.
+ * Note: User menu is available in the sidebar footer.
  */
 export function DashboardHeaderV2() {
   return (
@@ -43,14 +41,13 @@ export function DashboardHeaderV2() {
         <HeaderSearch />
       </div>
 
-      {/* Right: Activity + Contacts + Messages + Notifications */}
+      {/* Right: Contacts + Messages + Notifications */}
       <div className="flex items-center gap-2 ml-auto px-6">
         {/* Mobile: Search icon */}
         <div className="md:hidden">
           <HeaderSearch />
         </div>
 
-        <ActivityDrawer initialEvents={[]} />
         <HeaderContacts />
         <HeaderMessages />
         <HeaderNotifications />
