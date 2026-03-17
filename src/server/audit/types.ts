@@ -270,6 +270,8 @@ export interface ProjectedEvent {
   entity_id: string;
   target_type: string | null;
   target_id: string | null;
+  /** Branch this event belongs to, if any. Carried from the raw event row. */
+  branch_id: string | null;
   /** Generated from summaryTemplate at read time — never stored. */
   summary: string;
   /** Sensitive fields already stripped per registry + viewer scope. */
