@@ -158,6 +158,8 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
       id: row.id,
       created_at: row.created_at,
       action_key: row.action_key,
+      category: entry.category,
+      intent: entry.intent,
       actor_display: actorDisplay,
       entity_type: row.entity_type,
       entity_id: row.entity_id,

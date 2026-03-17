@@ -41,6 +41,8 @@ function makeEvent(overrides: Partial<ProjectedEvent> = {}): ProjectedEvent {
     id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
     created_at: "2026-03-16T12:00:00.000Z",
     action_key: "auth.login",
+    category: "AUTH",
+    intent: "SUCCESS",
     actor_display: USER_ID_1,
     entity_type: "user",
     entity_id: USER_ID_1,

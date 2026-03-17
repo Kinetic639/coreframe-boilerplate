@@ -62,6 +62,8 @@ function makeEntry(overrides: Partial<EventRegistryEntry> = {}): EventRegistryEn
     actionKey: "auth.login",
     moduleSlug: "auth",
     eventTier: "baseline",
+    category: "AUTH",
+    intent: "SUCCESS",
     description: "Test event",
     metadataSchema: z.object({}),
     summaryTemplate: "{{actor}} acted",

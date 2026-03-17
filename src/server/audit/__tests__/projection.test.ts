@@ -668,3 +668,69 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(result.offset).toBe(10);
   });
 });
+
+// ---------------------------------------------------------------------------
+// T-PROJECTION-TAXONOMY: category and intent pass-through from registry
+// ---------------------------------------------------------------------------
+
+describe("T-PROJECTION-TAXONOMY: category and intent are derived from registry", () => {
+  it("auth.login projected event has category=AUTH and intent=SUCCESS", () => {
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events[0].category).toBe("AUTH");
+    expect(result.events[0].intent).toBe("SUCCESS");
+  });
+
+  it("auth.login.failed projected event has category=SECURITY and intent=FAIL", () => {
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "audit", permissions: ["audit.events.read"] }),
+    });
+    expect(result.events[0].category).toBe("SECURITY");
+    expect(result.events[0].intent).toBe("FAIL");
+  });
+
+  it("org.member.invited projected event has category=INVITATION and intent=CREATE", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.invited",
+          metadata: { invitee_email: "x@example.com" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("INVITATION");
+    expect(result.events[0].intent).toBe("CREATE");
+  });
+
+  it("org.member.role_assigned projected event has category=MEMBERSHIP and intent=ASSIGN", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.role_assigned",
+          metadata: { role_name: "Admin" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("MEMBERSHIP");
+    expect(result.events[0].intent).toBe("ASSIGN");
+  });
+
+  it("org.branch.deleted projected event has category=ORGANIZATION and intent=DELETE", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.branch.deleted",
+          metadata: { branch_name: "HQ" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("ORGANIZATION");
+    expect(result.events[0].intent).toBe("DELETE");
+  });
+});
