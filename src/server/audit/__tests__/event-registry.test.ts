@@ -118,7 +118,9 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
         expect(entry.summaryTemplate.trim().length).toBeGreaterThan(0);
       });
 
-      it("visibleTo is a non-empty array of valid scope values", () => {
+      it("visibleTo (legacy field, kept for compat) is a non-empty array of valid scope values", () => {
+        // visibleTo is @deprecated — the permission-based model (actorVisible/selfVisible/visibilityClass)
+        // is now authoritative. This field is retained only for backward-compat with legacy contract tests.
         expect(Array.isArray(entry.visibleTo)).toBe(true);
         expect(entry.visibleTo.length).toBeGreaterThan(0);
         for (const scope of entry.visibleTo) {

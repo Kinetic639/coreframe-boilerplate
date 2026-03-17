@@ -66,8 +66,8 @@ function makeContext(overrides: Partial<ProjectionContext> = {}): ProjectionCont
 // ---------------------------------------------------------------------------
 
 describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
-  it("personal scope: events with visibleTo=['self'] are visible", () => {
-    // auth.login has visibleTo: ['self', 'auditor']
+  it("personal scope: actorVisible=true event is visible when viewer is the actor", () => {
+    // auth.login has actorVisible: true — viewer is the actor → visible
     const result = projectEvents({
       events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
       context: makeContext({ viewerScope: "personal" }),
@@ -75,9 +75,9 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(1);
   });
 
-  it("personal scope: events with visibleTo=['auditor'] only are not visible", () => {
-    // auth.login.failed has visibleTo: ['auditor']
-    // personal scope qualifiers: ['self'] — no overlap
+  it("personal scope: audit-only event (actorVisible=false, no permission) is not visible", () => {
+    // auth.login.failed: actorVisible=false, selfVisible=false, visibilityClass='audit'
+    // viewer has no audit.events.read permission → not visible
     const result = projectEvents({
       events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
       context: makeContext({ viewerScope: "personal" }),
@@ -646,6 +646,8 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(typeof event.id).toBe("string");
     expect(typeof event.created_at).toBe("string");
     expect(typeof event.action_key).toBe("string");
+    expect(typeof event.category).toBe("string");
+    expect(typeof event.intent).toBe("string");
     expect(typeof event.actor_display).toBe("string");
     expect(typeof event.entity_type).toBe("string");
     expect(typeof event.entity_id).toBe("string");
@@ -654,6 +656,16 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(typeof event.event_tier).toBe("string");
     // request_id may be string or null
     expect(event.request_id === null || typeof event.request_id === "string").toBe(true);
+  });
+
+  it("projected event category and intent are immutable — match registry exactly", () => {
+    // Verify that projection never alters category/intent; values must be verbatim from registry
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events[0].category).toBe("AUTH");
+    expect(result.events[0].intent).toBe("SUCCESS");
   });
 
   it("result has total, limit, offset fields", () => {
