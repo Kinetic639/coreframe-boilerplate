@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
+import { EventCategoryIcon, EventIntentIcon } from "@/components/audit/event-icons";
+import { INTENT_LABEL_MAP } from "@/lib/audit/event-visual-model";
 import type { ProjectedEvent } from "@/server/audit/types";
 import type { ProjectionScope } from "@/server/audit/types";
 
@@ -119,10 +121,21 @@ function EventRow({ event, scope }: { event: ProjectedEvent; scope: ProjectionSc
   });
 
   return (
-    <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex flex-col gap-1 min-w-0">
+    <div className="flex gap-3 px-4 py-3">
+      {/* Category icon — primary domain indicator */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted mt-0.5">
+        <EventCategoryIcon category={event.category} className="text-muted-foreground" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={TIER_VARIANT[event.event_tier]}>{event.event_tier}</Badge>
+          {/* Intent badge — action type with canonical color */}
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <EventIntentIcon intent={event.intent} />
+            {INTENT_LABEL_MAP[event.intent]}
+          </span>
           <span className="text-xs font-mono text-muted-foreground">{event.action_key}</span>
         </div>
         <p className="text-sm text-foreground">{event.summary}</p>
@@ -137,6 +150,8 @@ function EventRow({ event, scope }: { event: ProjectedEvent; scope: ProjectionSc
           </p>
         )}
       </div>
+
+      {/* Timestamp */}
       <div className="flex flex-col items-end shrink-0 text-xs text-muted-foreground">
         <span>{dateStr}</span>
         <span>{timeStr}</span>

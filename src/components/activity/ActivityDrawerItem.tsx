@@ -1,10 +1,10 @@
 "use client";
 
 import { useFormatter } from "next-intl";
-import { Settings } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { ProjectedEvent } from "@/server/audit/types";
+import { EventCategoryIcon, EventIntentIcon } from "@/components/audit/event-icons";
 import { useActivitySummary } from "./useActivitySummary";
 
 // ---------------------------------------------------------------------------
@@ -43,9 +43,13 @@ export function ActivityDrawerItem({ event }: ActivityDrawerItemProps) {
         event.primaryHref && "cursor-pointer"
       )}
     >
-      {/* Icon */}
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
-        <Settings className="h-4 w-4 text-muted-foreground" />
+      {/* Category icon — primary domain indicator */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted relative">
+        <EventCategoryIcon category={event.category} className="text-muted-foreground" />
+        {/* Intent icon overlay — bottom-right corner */}
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-background ring-1 ring-border">
+          <EventIntentIcon intent={event.intent} className="h-2.5 w-2.5" />
+        </span>
       </div>
 
       {/* Text content */}
