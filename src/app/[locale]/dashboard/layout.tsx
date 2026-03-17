@@ -7,7 +7,7 @@ import { EntitlementsService } from "@/server/services/entitlements-service";
 import { buildSidebarModel } from "@/server/sidebar/build-sidebar-model";
 import { createClient } from "@/utils/supabase/server";
 import { UserToolsService } from "@/server/services/tools.service";
-import { getRecentActivityAction } from "@/app/actions/audit/get-recent-activity";
+import { getLatestActivityAction } from "@/app/actions/audit/get-latest-activity";
 import type { SidebarItem } from "@/lib/types/v2/sidebar";
 import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
@@ -141,11 +141,11 @@ export default async function DashboardV2Layout({ children }: { children: React.
   const adminContext = await loadAdminContextV2();
   const isAdmin = adminContext?.adminEntitlements?.enabled ?? false;
 
-  // Fetch initial recent events for the status bar activity controller.
-  // loadDashboardContextV2 uses React cache() so this call does not
-  // duplicate the context query made above — it reuses the memoized result.
-  const recentActivityResult = await getRecentActivityAction();
-  const initialRecentEvents = recentActivityResult.success ? recentActivityResult.data.events : [];
+  // Fetch the single most recent event for the status bar preview.
+  // loadDashboardContextV2 uses React cache() so this does not duplicate
+  // the context query made above — it reuses the memoized result.
+  const latestActivityResult = await getLatestActivityAction();
+  const initialLatestEvent = latestActivityResult.success ? latestActivityResult.data.event : null;
 
   return (
     <>
@@ -169,7 +169,7 @@ export default async function DashboardV2Layout({ children }: { children: React.
           isAdmin={isAdmin}
           accessibleBranches={context.app.accessibleBranches}
           activeBranchId={context.app.activeBranchId}
-          initialRecentEvents={initialRecentEvents}
+          initialLatestEvent={initialLatestEvent}
         >
           {children}
         </DashboardShell>

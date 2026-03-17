@@ -388,8 +388,8 @@ interface DashboardShellProps {
   accessibleBranches: BranchDataV2[];
   /** Server-resolved active branch ID */
   activeBranchId: string | null;
-  /** SSR-fetched initial recent events for the status bar activity controller */
-  initialRecentEvents: import("@/server/audit/types").ProjectedEvent[];
+  /** SSR-fetched single latest event for the status bar preview */
+  initialLatestEvent: import("@/server/audit/types").ProjectedEvent | null;
 }
 
 export function DashboardShell({
@@ -398,7 +398,7 @@ export function DashboardShell({
   isAdmin,
   accessibleBranches,
   activeBranchId,
-  initialRecentEvents,
+  initialLatestEvent,
 }: DashboardShellProps) {
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
@@ -418,7 +418,7 @@ export function DashboardShell({
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
         <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>
-        <DashboardStatusBar initialRecentEvents={initialRecentEvents} />
+        <DashboardStatusBar initialLatestEvent={initialLatestEvent} />
       </SidebarInset>
     </SidebarProvider>
   );

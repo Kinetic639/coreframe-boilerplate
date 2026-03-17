@@ -9,15 +9,15 @@ import type { ProjectedEvent } from "@/server/audit/types";
 // ---------------------------------------------------------------------------
 
 interface DashboardStatusBarProps {
-  /** SSR-loaded initial recent events — passed through to the activity controller */
-  initialRecentEvents: ProjectedEvent[];
+  /** SSR-loaded single latest event for the compact activity preview */
+  initialLatestEvent: ProjectedEvent | null;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function DashboardStatusBar({ initialRecentEvents }: DashboardStatusBarProps) {
+export function DashboardStatusBar({ initialLatestEvent }: DashboardStatusBarProps) {
   // TODO: Make breadcrumbs dynamic based on current route/page context
   const breadcrumbs = [{ label: "Dashboard", href: "/dashboard/start" }];
 
@@ -26,7 +26,7 @@ export function DashboardStatusBar({ initialRecentEvents }: DashboardStatusBarPr
       <div className="flex items-center space-x-2">
         <CompactBreadcrumbs breadcrumbs={breadcrumbs} />
       </div>
-      <DashboardStatusBarActivity initialEvents={initialRecentEvents} />
+      <DashboardStatusBarActivity initialLatestEvent={initialLatestEvent} />
     </div>
   );
 }

@@ -3,73 +3,87 @@
  *
  * DashboardStatusBarActivity — Unit Tests
  *
- * Verifies the layout-local controller component that owns recent activity
- * state and drives both the status bar trigger and the real activity drawer.
+ * Verifies the compact status-bar activity preview component.
+ * No drawer — click navigates to the activity page.
  *
  * Suites:
- *   T-ACTIVITY-SSR:       SSR initial data is used for first render
- *   T-ACTIVITY-DERIVE:    latest event derived from events[0], not separate state
- *   T-ACTIVITY-REFRESH:   all refresh triggers invoke refreshRecentActivity
+ *   T-ACTIVITY-SSR:       SSR initial data renders immediately without fetch
+ *   T-ACTIVITY-ICONS:     category icon + intent icon are shown for latest event
+ *   T-ACTIVITY-NAV:       clicking the preview navigates to /dashboard/activity
+ *   T-ACTIVITY-FALLBACK:  empty-state renders correctly when there is no event
+ *   T-ACTIVITY-REFRESH:   all refresh triggers invoke getLatestActivityAction
+ *   T-ACTIVITY-INVALIDATE: same-tab coreframe:activity-produced signal refreshes preview
  *   T-ACTIVITY-RACE:      stale responses are discarded
- *   T-ACTIVITY-DRAWER:    drawer opens/closes, receives real events
- *   T-ACTIVITY-REMOVAL:   no fake placeholder text remains
+ *   T-ACTIVITY-REMOVAL:   no drawer, no fake placeholder data
+ *   T-ACTIVITY-ANIMATION: animated wrapper updates key on event change
  */
 
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DashboardStatusBarActivity } from "../DashboardStatusBarActivity";
+import { ACTIVITY_PRODUCED_EVENT } from "@/lib/audit/activity-invalidation";
 import type { ProjectedEvent } from "@/server/audit/types";
 
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
 
-// Server action — controllable in tests
-const mockGetRecentActivityAction = vi.fn();
-vi.mock("@/app/actions/audit/get-recent-activity", () => ({
-  getRecentActivityAction: () => mockGetRecentActivityAction(),
+const mockGetLatestActivityAction = vi.fn();
+vi.mock("@/app/actions/audit/get-latest-activity", () => ({
+  getLatestActivityAction: () => mockGetLatestActivityAction(),
 }));
 
-// ActivityDrawer — record calls, verify props
-vi.mock("../ActivityDrawer", () => ({
-  ActivityDrawer: ({
-    open,
-    onOpenChange,
-    events,
-    isRefreshing,
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    events: ProjectedEvent[];
-    isRefreshing: boolean;
-  }) => (
-    <div
-      data-testid="activity-drawer"
-      data-open={String(open)}
-      data-refreshing={String(isRefreshing)}
-    >
-      <span data-testid="drawer-event-count">{events.length}</span>
-      <button onClick={() => onOpenChange(false)}>close</button>
-    </div>
-  ),
-}));
-
-// EventCategoryIcon — render category as text for assertions
 vi.mock("@/components/audit/event-icons", () => ({
   EventCategoryIcon: ({ category }: { category: string }) => (
-    <span data-testid="category-icon">{category}</span>
+    <span data-testid="category-icon" data-category={category} />
+  ),
+  EventIntentIcon: ({ intent }: { intent: string }) => (
+    <span data-testid="intent-icon" data-intent={intent} />
   ),
 }));
 
-// useActivitySummary — return deterministic string
 vi.mock("../useActivitySummary", () => ({
   useActivitySummary: (event: ProjectedEvent) => `summary:${event.action_key}`,
+}));
+
+// Framer-motion — render children directly, no animation in tests
+vi.mock("framer-motion", () => ({
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  motion: {
+    span: ({
+      children,
+      className,
+      ...rest
+    }: React.HTMLAttributes<HTMLSpanElement> & { "data-key"?: string }) => (
+      <span className={className} {...rest}>
+        {children}
+      </span>
+    ),
+  },
 }));
 
 // next-intl
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
-  useFormatter: () => ({ relativeTime: () => "just now" }),
+  useFormatter: () => ({
+    relativeTime: () => "2m ago",
+  }),
+}));
+
+// i18n Link — render as <a> so we can inspect href
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({
+    href,
+    children,
+    ...rest
+  }: {
+    href: string;
+    children: React.ReactNode;
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={typeof href === "string" ? href : JSON.stringify(href)} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 // ---------------------------------------------------------------------------
@@ -101,167 +115,213 @@ function makeEvent(overrides: Partial<ProjectedEvent> = {}): ProjectedEvent {
   };
 }
 
-const EVENT_A = makeEvent({ id: "evt-a", action_key: "auth.login" });
-const EVENT_B = makeEvent({ id: "evt-b", action_key: "org.created", category: "ORGANIZATION" });
+const EVENT_A = makeEvent({ id: "evt-a", action_key: "auth.login", category: "AUTH" });
+const EVENT_B = makeEvent({
+  id: "evt-b",
+  action_key: "org.created",
+  category: "ORGANIZATION",
+  intent: "CREATE",
+});
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function successResult(events: ProjectedEvent[]) {
-  return { success: true as const, data: { events } };
+function successResult(event: ProjectedEvent | null) {
+  return { success: true as const, data: { event } };
 }
 
 // ---------------------------------------------------------------------------
-// T-ACTIVITY-SSR: SSR initial data is used for first render
+// T-ACTIVITY-SSR: SSR initial data renders immediately without fetch
 // ---------------------------------------------------------------------------
 
 describe("T-ACTIVITY-SSR: SSR initial data is used for first render", () => {
-  beforeEach(() => {
-    mockGetRecentActivityAction.mockResolvedValue(successResult([]));
-  });
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(null)));
   afterEach(() => vi.clearAllMocks());
 
-  it("renders the latest event summary from initialEvents without waiting for a fetch", () => {
-    render(<DashboardStatusBarActivity initialEvents={[EVENT_A]} />);
-    // summary derived from events[0] is shown immediately
+  it("renders the event summary from initialLatestEvent without a fetch", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
     expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
   });
 
-  it("renders the category icon for the initial latest event", () => {
-    render(<DashboardStatusBarActivity initialEvents={[EVENT_A]} />);
-    expect(screen.getByTestId("category-icon")).toHaveTextContent("AUTH");
+  it("does not block on first-render fetch — summary is visible immediately", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    // Summary from SSR data is present synchronously — no fetch needed before first paint
+    expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
   });
 
-  it("passes all initialEvents to the drawer on mount", () => {
-    render(<DashboardStatusBarActivity initialEvents={[EVENT_A, EVENT_B]} />);
-    expect(screen.getByTestId("drawer-event-count")).toHaveTextContent("2");
+  it("renders relative timestamp from SSR initial event", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    expect(screen.getByText("2m ago")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-ACTIVITY-ICONS: category + intent icons present for latest event
+// ---------------------------------------------------------------------------
+
+describe("T-ACTIVITY-ICONS: category and intent icons are shown", () => {
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(null)));
+  afterEach(() => vi.clearAllMocks());
+
+  it("renders the category icon for the latest event", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    const icon = screen.getByTestId("category-icon");
+    expect(icon).toHaveAttribute("data-category", "AUTH");
   });
 
-  it("shows fallback when initialEvents is empty", () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    // no summary, no category icon
+  it("renders the intent icon for the latest event", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    const icon = screen.getByTestId("intent-icon");
+    expect(icon).toHaveAttribute("data-intent", "SUCCESS");
+  });
+
+  it("no category or intent icons rendered when there is no latest event", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
     expect(screen.queryByTestId("category-icon")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("intent-icon")).not.toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// T-ACTIVITY-DERIVE: latest summary is derived from events[0], not a separate state
+// T-ACTIVITY-NAV: clicking navigates to the activity page
 // ---------------------------------------------------------------------------
 
-describe("T-ACTIVITY-DERIVE: latest event derived from events[0]", () => {
-  beforeEach(() => {
-    mockGetRecentActivityAction.mockResolvedValue(successResult([EVENT_B, EVENT_A]));
-  });
+describe("T-ACTIVITY-NAV: click navigates to /dashboard/activity", () => {
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(null)));
   afterEach(() => vi.clearAllMocks());
 
-  it("after refresh, summary reflects the new events[0]", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[EVENT_A]} />);
-    expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
-
-    // Trigger a drawer-open refresh
-    const button = screen.getByRole("button", { name: /recent activity/i });
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    await waitFor(() => {
-      // EVENT_B is now events[0] — summary must reflect it
-      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
-    });
+  it("renders a link pointing to /dashboard/activity", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "/dashboard/activity");
   });
 
-  it("drawer receives the same events list that drives the summary", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[EVENT_A]} />);
+  it("link is present even when there is no latest event", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const link = screen.getByRole("link");
+    expect(link).toHaveAttribute("href", "/dashboard/activity");
+  });
 
-    const button = screen.getByRole("button", { name: /recent activity/i });
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    await waitFor(() => {
-      // Both events returned by the mock are passed to the drawer
-      expect(screen.getByTestId("drawer-event-count")).toHaveTextContent("2");
-    });
+  it("does not render a button that opens a drawer", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    // Only link elements, no drawer-open buttons
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// T-ACTIVITY-REFRESH: all refresh triggers invoke the fetch
+// T-ACTIVITY-FALLBACK: empty state renders correctly
 // ---------------------------------------------------------------------------
 
-describe("T-ACTIVITY-REFRESH: all refresh triggers invoke getRecentActivityAction", () => {
+describe("T-ACTIVITY-FALLBACK: fallback when no latest event", () => {
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(null)));
+  afterEach(() => vi.clearAllMocks());
+
+  it("shows 'No recent activity' text when initialLatestEvent is null", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    expect(screen.getByText("No recent activity")).toBeInTheDocument();
+  });
+
+  it("does not show a fake hardcoded event summary in the fallback", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    expect(screen.queryByText(/Products List/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/SKU-12345/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Purchase Order/)).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-ACTIVITY-REFRESH: all refresh triggers call getLatestActivityAction
+// ---------------------------------------------------------------------------
+
+describe("T-ACTIVITY-REFRESH: all refresh triggers invoke the action", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockGetRecentActivityAction.mockResolvedValue(successResult([EVENT_A]));
+    mockGetLatestActivityAction.mockResolvedValue(successResult(EVENT_A));
   });
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
   });
 
-  it("opening the drawer triggers a refresh", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const initialCallCount = mockGetRecentActivityAction.mock.calls.length;
-
-    const button = screen.getByRole("button", { name: /recent activity/i });
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    expect(mockGetRecentActivityAction.mock.calls.length).toBeGreaterThan(initialCallCount);
-  });
-
   it("window focus triggers a refresh", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const callsBefore = mockGetRecentActivityAction.mock.calls.length;
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const callsBefore = mockGetLatestActivityAction.mock.calls.length;
 
     await act(async () => {
       fireEvent(window, new Event("focus"));
     });
 
-    expect(mockGetRecentActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
+    expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
   });
 
   it("document visibilitychange to visible triggers a refresh", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const callsBefore = mockGetRecentActivityAction.mock.calls.length;
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const callsBefore = mockGetLatestActivityAction.mock.calls.length;
 
-    Object.defineProperty(document, "visibilityState", {
-      value: "visible",
-      writable: true,
-    });
+    Object.defineProperty(document, "visibilityState", { value: "visible", writable: true });
 
     await act(async () => {
       fireEvent(document, new Event("visibilitychange"));
     });
 
-    expect(mockGetRecentActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
+    expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
   });
 
   it("polling interval triggers a refresh after 30 seconds", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const callsBefore = mockGetRecentActivityAction.mock.calls.length;
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const callsBefore = mockGetLatestActivityAction.mock.calls.length;
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
     });
 
-    expect(mockGetRecentActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
+    expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
   });
 
-  it("event listeners are removed on unmount (no memory leak)", () => {
-    const addSpy = vi.spyOn(window, "addEventListener");
-    const removeSpy = vi.spyOn(window, "removeEventListener");
-    const addDocSpy = vi.spyOn(document, "addEventListener");
-    const removeDocSpy = vi.spyOn(document, "removeEventListener");
+  it("event listeners and interval are cleaned up on unmount", () => {
+    const winAdd = vi.spyOn(window, "addEventListener");
+    const winRemove = vi.spyOn(window, "removeEventListener");
+    const docAdd = vi.spyOn(document, "addEventListener");
+    const docRemove = vi.spyOn(document, "removeEventListener");
 
-    const { unmount } = render(<DashboardStatusBarActivity initialEvents={[]} />);
+    const { unmount } = render(<DashboardStatusBarActivity initialLatestEvent={null} />);
     unmount();
 
-    // Every added listener must have a corresponding removal
-    expect(removeSpy.mock.calls.length).toBeGreaterThanOrEqual(addSpy.mock.calls.length - 1);
-    expect(removeDocSpy.mock.calls.length).toBeGreaterThanOrEqual(addDocSpy.mock.calls.length - 1);
+    expect(winRemove.mock.calls.length).toBeGreaterThanOrEqual(winAdd.mock.calls.length - 1);
+    expect(docRemove.mock.calls.length).toBeGreaterThanOrEqual(docAdd.mock.calls.length - 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-ACTIVITY-INVALIDATE: same-tab invalidation signal updates preview
+// ---------------------------------------------------------------------------
+
+describe("T-ACTIVITY-INVALIDATE: coreframe:activity-produced custom event refreshes preview", () => {
+  beforeEach(() => {
+    mockGetLatestActivityAction.mockResolvedValue(successResult(EVENT_B));
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  it("dispatching the invalidation event triggers a refresh", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    const callsBefore = mockGetLatestActivityAction.mock.calls.length;
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(ACTIVITY_PRODUCED_EVENT));
+    });
+
+    expect(mockGetLatestActivityAction.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it("after invalidation signal, preview reflects the refreshed event", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(ACTIVITY_PRODUCED_EVENT));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
+    });
   });
 });
 
@@ -273,120 +333,99 @@ describe("T-ACTIVITY-RACE: stale older responses do not overwrite newer state", 
   afterEach(() => vi.clearAllMocks());
 
   it("discards a slow response that resolves after a newer one", async () => {
-    let resolveSlowRequest!: (v: ReturnType<typeof successResult>) => void;
-    const slowPromise = new Promise<ReturnType<typeof successResult>>(
-      (res) => (resolveSlowRequest = res)
+    let resolveStale!: (v: ReturnType<typeof successResult>) => void;
+    const stalePromise = new Promise<ReturnType<typeof successResult>>(
+      (res) => (resolveStale = res)
     );
 
-    // First call is slow (stale), second is fast (fresh)
-    mockGetRecentActivityAction
-      .mockReturnValueOnce(slowPromise)
-      .mockResolvedValueOnce(successResult([EVENT_B]));
+    // First call is slow (stale), second is fast (fresh with EVENT_B)
+    mockGetLatestActivityAction
+      .mockReturnValueOnce(stalePromise)
+      .mockResolvedValueOnce(successResult(EVENT_B));
 
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const button = screen.getByRole("button", { name: /recent activity/i });
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
 
-    // First click — slow request starts
+    // Trigger first (slow) refresh via focus
     await act(async () => {
-      fireEvent.click(button);
+      fireEvent(window, new Event("focus"));
     });
 
-    // Close and re-open — fast request starts (seq is now higher)
+    // Trigger second (fast) refresh via visibility
+    Object.defineProperty(document, "visibilityState", { value: "visible", writable: true });
     await act(async () => {
-      fireEvent.click(screen.getByText("close"));
-    });
-    await act(async () => {
-      fireEvent.click(button);
+      fireEvent(document, new Event("visibilitychange"));
     });
 
-    // Fast request resolves — EVENT_B should be shown
+    // Fast response resolves — EVENT_B should be shown
     await waitFor(() => {
-      expect(screen.getByTestId("drawer-event-count")).toHaveTextContent("1");
+      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
     });
 
-    // Slow request finally resolves — its result must NOT overwrite the fresh state
+    // Now let the stale first response resolve — must NOT overwrite
     await act(async () => {
-      resolveSlowRequest(successResult([EVENT_A, EVENT_B]));
+      resolveStale(successResult(EVENT_A));
     });
 
-    // State must still reflect the fast (newer) response, not the stale one
-    expect(screen.getByTestId("drawer-event-count")).toHaveTextContent("1");
+    // Still EVENT_B (the newer response)
+    expect(screen.queryByText("summary:auth.login")).not.toBeInTheDocument();
+    expect(screen.getByText("summary:org.created")).toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// T-ACTIVITY-DRAWER: drawer integration
+// T-ACTIVITY-REMOVAL: no drawer, no mock data
 // ---------------------------------------------------------------------------
 
-describe("T-ACTIVITY-DRAWER: drawer opens on button click and receives real events", () => {
-  beforeEach(() => {
-    mockGetRecentActivityAction.mockResolvedValue(successResult([EVENT_A]));
-  });
+describe("T-ACTIVITY-REMOVAL: drawer and fake data are gone", () => {
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(null)));
   afterEach(() => vi.clearAllMocks());
 
-  it("drawer starts closed", () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    expect(screen.getByTestId("activity-drawer")).toHaveAttribute("data-open", "false");
+  it("does not render an activity-drawer element", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    expect(screen.queryByTestId("activity-drawer")).not.toBeInTheDocument();
   });
 
-  it("clicking the status bar button opens the drawer", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const button = screen.getByRole("button", { name: /recent activity/i });
-
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    expect(screen.getByTestId("activity-drawer")).toHaveAttribute("data-open", "true");
-  });
-
-  it("drawer receives updated events after refresh on open", async () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    const button = screen.getByRole("button", { name: /recent activity/i });
-
-    await act(async () => {
-      fireEvent.click(button);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("drawer-event-count")).toHaveTextContent("1");
-    });
+  it("does not render a Sheet or drawer trigger button", () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
 // ---------------------------------------------------------------------------
-// T-ACTIVITY-REMOVAL: no fake placeholder history text remains
+// T-ACTIVITY-ANIMATION: animated wrapper updates on event change
 // ---------------------------------------------------------------------------
 
-describe("T-ACTIVITY-REMOVAL: no fake placeholder history text", () => {
-  beforeEach(() => {
-    mockGetRecentActivityAction.mockResolvedValue(successResult([]));
-  });
+describe("T-ACTIVITY-ANIMATION: content transitions when latest event changes", () => {
+  beforeEach(() => mockGetLatestActivityAction.mockResolvedValue(successResult(EVENT_B)));
   afterEach(() => vi.clearAllMocks());
 
-  it("does not render the word 'History' as a label", () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    // "History" text is only in the fallback hidden span — but NOT as main visible content
-    const historyText = screen.queryByText("History");
-    // If it appears, it must be the sm:inline hidden fallback, not fake sample data
-    if (historyText) {
-      // The element should be the fallback span with class hidden sm:inline
-      expect(historyText.tagName).toBe("SPAN");
-    }
+  it("shows updated summary after refresh without layout regression", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={EVENT_A} />);
+    expect(screen.getByText("summary:auth.login")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
+    });
+
+    // No extra elements injected — link is still the single root element
+    expect(screen.getAllByRole("link")).toHaveLength(1);
   });
 
-  it("renders 'No recent activity' fallback — not fake sample entries", () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    // Fallback label is shown (may be visually hidden on mobile)
-    const fallback = screen.queryByText("No recent activity");
-    expect(fallback).toBeInTheDocument();
-  });
+  it("switching from null to event does not break rendering", async () => {
+    render(<DashboardStatusBarActivity initialLatestEvent={null} />);
+    expect(screen.getByText("No recent activity")).toBeInTheDocument();
 
-  it("does not render hardcoded fake entity names", () => {
-    render(<DashboardStatusBarActivity initialEvents={[]} />);
-    // These strings come from the deleted StatusBarHistory fake data
-    expect(screen.queryByText(/Products List/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/SKU-12345/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Purchase Order/)).not.toBeInTheDocument();
+    await act(async () => {
+      fireEvent(window, new Event("focus"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("summary:org.created")).toBeInTheDocument();
+      expect(screen.queryByText("No recent activity")).not.toBeInTheDocument();
+    });
   });
 });
