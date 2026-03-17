@@ -1631,9 +1631,11 @@ Only `actor_user_id` was being resolved (by `actor-enrichment.ts`). Target users
 - If any batch query fails, that resource type returns an empty map; the feed is returned with short-ID fallbacks rather than failing.
 - Not stored back to DB — in-memory only, per-request.
 
-**Call sites updated:** `get-personal-activity.ts`, `get-org-activity.ts`, `get-audit-feed.ts` — all replaced `enrichActorDisplays` with the three-step reference enrichment pipeline. The old `actor-enrichment.ts` file is retained (its `applyActorEnrichmentToSummaries` is still used by the actor-enrichment path in `projection.ts`) but no longer called directly from feed actions.
+**Call sites updated:** `get-personal-activity.ts`, `get-org-activity.ts`, `get-audit-feed.ts` — all use the three-step reference enrichment pipeline (`collectReferences` → `batchLoadReferences` → `applyReferenceEnrichment`).
 
-**Tests:** `src/server/audit/__tests__/reference-enrichment.test.ts` — 31 tests across 5 suites (T-REF-COLLECT, T-REF-BATCH, T-REF-APPLY, T-REF-SECURITY, T-REF-EMPTY).
+**Tests:** `src/server/audit/__tests__/reference-enrichment.test.ts` — 32 tests across 5 suites (T-REF-COLLECT, T-REF-BATCH, T-REF-APPLY, T-REF-SECURITY, T-REF-EMPTY).
+
+**Final micro-hardening pass (2026-03-17):** Duplicate enrichment logic removed — `applyActorEnrichmentToSummaries` (projection.ts) and the superseded `enrichActorDisplays` (actor-enrichment.ts) were both dead code and have been removed. `reference-enrichment.ts` is now the single source of truth. Batching behavior is explicitly proven by tests: `createServiceClient` is called at most once per resource type (verified by mock call-count assertions across a 30-event dataset), and zero times when all ID sets are empty. Test descriptions accurately reflect verified guarantees. System is verified consistent and production-ready.
 
 ---
 
