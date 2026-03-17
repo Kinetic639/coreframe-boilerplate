@@ -1834,4 +1834,49 @@ All data continues to flow through `getRecentActivityAction` → `getPersonalAct
 
 ---
 
+## Status Bar Preview Refactor — Drawer Removed (Mar 2026)
+
+### What was removed
+
+- **`ActivityDrawer.tsx`** — deleted. No activity drawer exists anywhere in the shell.
+- **`ActivityDrawerItem.tsx`** — deleted. Only used inside the drawer.
+- **Header activity trigger** — removed in the previous pass; confirmed absent.
+- **Drawer controller logic** (`open`, `handleOpenChange`, `events[]` list state) in `DashboardStatusBarActivity` — replaced with a single `latestEvent` field.
+- All drawer-oriented tests replaced with preview-behavior tests.
+
+### Why the drawer was removed
+
+The drawer duplicated a feed surface already served by the dedicated activity pages. The status bar is a compact affordance — it should give a glance at the latest event and route to the full page, not host a secondary mini-feed. One surface, one purpose.
+
+### New architecture
+
+**Data flow:** `DashboardV2Layout` (server) → `getLatestActivityAction()` (fetches 1 event) → `initialLatestEvent` prop → `DashboardShell` → `DashboardStatusBar` → `DashboardStatusBarActivity`.
+
+`getLatestActivityAction` calls `getPersonalActivityAction(1, 0)` — minimal query, single event only. `loadDashboardContextV2` is `React.cache()`-memoized so no extra DB round-trip.
+
+**Controller (`DashboardStatusBarActivity`):** owns only `latestEvent | null` and `isRefreshing`. Renders as an i18n-safe `Link` to `/dashboard/activity`. No drawer. No popover. Navigation only.
+
+**Same-tab invalidation:** `src/lib/audit/activity-invalidation.ts` exports `notifyActivityProduced()` — dispatches `CustomEvent("coreframe:activity-produced")` on `window`. The status bar listens for it and immediately refreshes. No Zustand, no global store — plain browser event.
+
+### Visual model
+
+Compact row: `[category icon h-3] [intent icon h-2.5 colored] [truncated summary] [relative time subtle]`
+
+### Animation
+
+framer-motion `AnimatePresence` keyed by `latestEvent.id`. New event → old content exits (opacity 0, y −3) + new content enters (opacity 1, y 0) over 150 ms. No layout shift.
+
+### Refresh strategy
+
+window focus → visibilitychange → 30 s interval → `coreframe:activity-produced` custom event. Race safety via monotonic sequence ref.
+
+### Invariants preserved
+
+- SSR-first: initial event fetched server-side
+- Security: all data via `getPersonalActivityAction` → projection → enrichment
+- No Zustand, no global store
+- Full activity remains on dedicated pages only
+
+---
+
 _This plan is a living document. Update the Progress Tracker as phases complete. Update individual sections if implementation decisions change — but record why the change was made. The README remains the architectural source of truth; this document tracks execution against it._
