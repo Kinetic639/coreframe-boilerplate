@@ -66,8 +66,8 @@ function makeContext(overrides: Partial<ProjectionContext> = {}): ProjectionCont
 // ---------------------------------------------------------------------------
 
 describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
-  it("personal scope: events with visibleTo=['self'] are visible", () => {
-    // auth.login has visibleTo: ['self', 'auditor']
+  it("personal scope: actorVisible=true event is visible when viewer is the actor", () => {
+    // auth.login has actorVisible: true — viewer is the actor → visible
     const result = projectEvents({
       events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
       context: makeContext({ viewerScope: "personal" }),
@@ -75,9 +75,9 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(1);
   });
 
-  it("personal scope: events with visibleTo=['auditor'] only are not visible", () => {
-    // auth.login.failed has visibleTo: ['auditor']
-    // personal scope qualifiers: ['self'] — no overlap
+  it("personal scope: audit-only event (actorVisible=false, no permission) is not visible", () => {
+    // auth.login.failed: actorVisible=false, selfVisible=false, visibilityClass='audit'
+    // viewer has no audit.events.read permission → not visible
     const result = projectEvents({
       events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
       context: makeContext({ viewerScope: "personal" }),
@@ -121,7 +121,10 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(0);
   });
 
-  it("audit scope: all registered events are visible", () => {
+  it("audit scope: no per-event permission gate — all events are visible", () => {
+    // Audit scope bypasses per-event visibility checks. Permission enforcement
+    // (audit.events.read) is done at the server action layer before a viewer
+    // receives audit scope. Once in audit scope, all events are projected.
     const rows = [
       makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID }),
       makeRow({ id: "bbb", action_key: "org.created" }),
@@ -388,8 +391,8 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
   });
 
   it("template without variables returns literal string", () => {
-    // auth.login.failed summaryTemplate: "Failed login attempt"
-    // visibilityClass='audit' → requires audit.events.read permission to be visible
+    // auth.login.failed summaryTemplate: "Failed login attempt" — no interpolation variables
+    // Using audit scope so the event is visible (audit scope bypasses per-event permission gates).
     const result = projectEvents({
       events: [
         makeRow({
@@ -398,7 +401,7 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
           metadata: {},
         }),
       ],
-      context: makeContext({ viewerScope: "audit", permissions: ["audit.events.read"] }),
+      context: makeContext({ viewerScope: "audit" }),
     });
     expect(result.events[0].summary).toBe("Failed login attempt");
   });
@@ -646,6 +649,8 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(typeof event.id).toBe("string");
     expect(typeof event.created_at).toBe("string");
     expect(typeof event.action_key).toBe("string");
+    expect(typeof event.category).toBe("string");
+    expect(typeof event.intent).toBe("string");
     expect(typeof event.actor_display).toBe("string");
     expect(typeof event.entity_type).toBe("string");
     expect(typeof event.entity_id).toBe("string");
@@ -654,6 +659,16 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(typeof event.event_tier).toBe("string");
     // request_id may be string or null
     expect(event.request_id === null || typeof event.request_id === "string").toBe(true);
+  });
+
+  it("projected event category and intent are immutable — match registry exactly", () => {
+    // Verify that projection never alters category/intent; values must be verbatim from registry
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events[0].category).toBe("AUTH");
+    expect(result.events[0].intent).toBe("SUCCESS");
   });
 
   it("result has total, limit, offset fields", () => {
@@ -666,5 +681,72 @@ describe("T-PROJECTION-SHAPE: projected event contains all required fields", () 
     expect(typeof result.total).toBe("number");
     expect(result.limit).toBe(25);
     expect(result.offset).toBe(10);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-PROJECTION-TAXONOMY: category and intent pass-through from registry
+// ---------------------------------------------------------------------------
+
+describe("T-PROJECTION-TAXONOMY: category and intent are derived from registry", () => {
+  it("auth.login projected event has category=AUTH and intent=SUCCESS", () => {
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "personal" }),
+    });
+    expect(result.events[0].category).toBe("AUTH");
+    expect(result.events[0].intent).toBe("SUCCESS");
+  });
+
+  it("auth.login.failed projected event has category=SECURITY and intent=FAIL", () => {
+    // audit scope — no per-event permission gate
+    const result = projectEvents({
+      events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("SECURITY");
+    expect(result.events[0].intent).toBe("FAIL");
+  });
+
+  it("org.member.invited projected event has category=INVITATION and intent=CREATE", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.invited",
+          metadata: { invitee_email: "x@example.com" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("INVITATION");
+    expect(result.events[0].intent).toBe("CREATE");
+  });
+
+  it("org.member.role_assigned projected event has category=MEMBERSHIP and intent=ASSIGN", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.member.role_assigned",
+          metadata: { role_name: "Admin" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("MEMBERSHIP");
+    expect(result.events[0].intent).toBe("ASSIGN");
+  });
+
+  it("org.branch.deleted projected event has category=ORGANIZATION and intent=DELETE", () => {
+    const result = projectEvents({
+      events: [
+        makeRow({
+          action_key: "org.branch.deleted",
+          metadata: { branch_name: "HQ" },
+        }),
+      ],
+      context: makeContext({ viewerScope: "audit" }),
+    });
+    expect(result.events[0].category).toBe("ORGANIZATION");
+    expect(result.events[0].intent).toBe("DELETE");
   });
 });

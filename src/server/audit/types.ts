@@ -20,6 +20,38 @@ export type ActorType = "user" | "system" | "api" | "worker" | "scheduler" | "au
 
 export type EventTier = "baseline" | "enhanced" | "forensic";
 
+/**
+ * Domain classification — WHAT domain the event belongs to.
+ * Finite, non-overlapping. Every event must have exactly one.
+ */
+export type EventCategory =
+  | "AUTH"
+  | "USER"
+  | "MEMBERSHIP"
+  | "ORGANIZATION"
+  | "INVITATION"
+  | "SYSTEM"
+  | "DATA"
+  | "STATE"
+  | "SECURITY"
+  | "AUTOMATION";
+
+/**
+ * Action classification — WHAT ACTION happened.
+ * Finite, orthogonal to category. Every event must have exactly one.
+ */
+export type EventIntent =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "ASSIGN"
+  | "REMOVE"
+  | "ACCEPT"
+  | "DECLINE"
+  | "SUCCESS"
+  | "FAIL"
+  | "REQUEST";
+
 export type ProjectionScope = "personal" | "org" | "audit";
 
 // ---------------------------------------------------------------------------
@@ -115,6 +147,10 @@ export interface EventRegistryEntry {
   actionKey: string;
   moduleSlug: string;
   eventTier: EventTier;
+  /** Domain classification for this event. */
+  category: EventCategory;
+  /** Action classification for this event. */
+  intent: EventIntent;
   /** Human-readable description for developer reference. */
   description: string;
   /**
@@ -264,6 +300,10 @@ export interface ProjectedEvent {
   id: string;
   created_at: string;
   action_key: string;
+  /** Domain classification — derived from registry at projection time, never stored. */
+  category: EventCategory;
+  /** Action classification — derived from registry at projection time, never stored. */
+  intent: EventIntent;
   /** Resolved from actor_type + actor_user_id display name lookup. */
   actor_display: string;
   entity_type: string;

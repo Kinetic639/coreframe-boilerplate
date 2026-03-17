@@ -33,6 +33,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "auth.login",
     moduleSlug: "auth",
     eventTier: "baseline",
+    category: "AUTH",
+    intent: "SUCCESS",
     description: "User successfully authenticated",
     metadataSchema: z.object({
       email: z.string().email().optional(),
@@ -54,6 +56,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "auth.login.failed",
     moduleSlug: "auth",
     eventTier: "baseline",
+    category: "SECURITY",
+    intent: "FAIL",
     description: "Authentication attempt failed",
     metadataSchema: z.object({
       email: z.string().email().optional(),
@@ -76,6 +80,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "auth.password.reset_requested",
     moduleSlug: "auth",
     eventTier: "baseline",
+    category: "AUTH",
+    intent: "REQUEST",
     description: "User requested a password reset",
     metadataSchema: z.object({
       email: z.string().email().optional(),
@@ -99,6 +105,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "auth.password.reset_completed",
     moduleSlug: "auth",
     eventTier: "baseline",
+    category: "AUTH",
+    intent: "SUCCESS",
     description: "User completed a password reset",
     metadataSchema: z.object({}),
     summaryTemplate: "{{actor}} completed a password reset",
@@ -118,6 +126,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "auth.session.revoked",
     moduleSlug: "auth",
     eventTier: "enhanced",
+    category: "AUTH",
+    intent: "DELETE",
     description: "User session was revoked",
     metadataSchema: z.object({
       reason: z.string().optional(),
@@ -143,6 +153,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.created",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "ORGANIZATION",
+    intent: "CREATE",
     description: "A new organization was created",
     metadataSchema: z.object({
       org_name: z.string().optional(),
@@ -165,6 +177,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.updated",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "ORGANIZATION",
+    intent: "UPDATE",
     description: "Organization profile was updated",
     metadataSchema: z.object({
       updated_fields: z.array(z.string()).optional(),
@@ -186,6 +200,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.member.invited",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "INVITATION",
+    intent: "CREATE",
     description: "A user was invited to join the organization",
     metadataSchema: z.object({
       invitee_email: z.string().email(),
@@ -209,6 +225,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.member.removed",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "MEMBERSHIP",
+    intent: "REMOVE",
     description: "A member was removed from the organization",
     metadataSchema: z.object({
       removed_user_id: z.string().uuid().optional(),
@@ -231,6 +249,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.invitation.accepted",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "INVITATION",
+    intent: "ACCEPT",
     description: "An invitation was accepted and the user joined the organization",
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
@@ -252,6 +272,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.invitation.cancelled",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "INVITATION",
+    intent: "DELETE",
     description: "An invitation was cancelled before it was accepted",
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
@@ -274,6 +296,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.invitation.resent",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "INVITATION",
+    intent: "UPDATE",
     description: "An invitation was resent with a new token and expiry",
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
@@ -297,6 +321,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.invitation.declined",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "INVITATION",
+    intent: "DECLINE",
     description: "An invitation was declined by the recipient",
     metadataSchema: z.object({
       invitation_id: z.string().uuid().optional(),
@@ -320,6 +346,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.role.created",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "ORGANIZATION",
+    intent: "CREATE",
     description: "A new role was created",
     metadataSchema: z.object({
       role_id: z.string().uuid().optional(),
@@ -342,6 +370,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.role.updated",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "ORGANIZATION",
+    intent: "UPDATE",
     description: "A role was updated",
     metadataSchema: z.object({
       role_id: z.string().uuid().optional(),
@@ -365,6 +395,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.role.deleted",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "ORGANIZATION",
+    intent: "DELETE",
     description: "A role was deleted",
     metadataSchema: z.object({
       role_id: z.string().uuid().optional(),
@@ -387,6 +419,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.member.role_assigned",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "MEMBERSHIP",
+    intent: "ASSIGN",
     description: "A role was assigned to an organization member",
     metadataSchema: z.object({
       target_user_id: z.string().uuid().optional(),
@@ -411,6 +445,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.member.role_removed",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "MEMBERSHIP",
+    intent: "REMOVE",
     description: "A role was removed from an organization member",
     metadataSchema: z.object({
       target_user_id: z.string().uuid().optional(),
@@ -435,6 +471,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.branch.created",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "ORGANIZATION",
+    intent: "CREATE",
     description: "A new branch was created",
     metadataSchema: z.object({
       branch_id: z.string().uuid().optional(),
@@ -457,6 +495,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.branch.updated",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "ORGANIZATION",
+    intent: "UPDATE",
     description: "A branch was updated",
     metadataSchema: z.object({
       branch_id: z.string().uuid().optional(),
@@ -480,6 +520,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.branch.deleted",
     moduleSlug: "organization-management",
     eventTier: "enhanced",
+    category: "ORGANIZATION",
+    intent: "DELETE",
     description: "A branch was deleted",
     metadataSchema: z.object({
       branch_id: z.string().uuid().optional(),
@@ -502,6 +544,8 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     actionKey: "org.onboarding.completed",
     moduleSlug: "organization-management",
     eventTier: "baseline",
+    category: "ORGANIZATION",
+    intent: "SUCCESS",
     description: "Organization onboarding flow was completed",
     metadataSchema: z.object({
       org_name: z.string().optional(),

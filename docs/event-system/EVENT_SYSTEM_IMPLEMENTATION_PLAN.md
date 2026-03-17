@@ -1631,9 +1631,125 @@ Only `actor_user_id` was being resolved (by `actor-enrichment.ts`). Target users
 - If any batch query fails, that resource type returns an empty map; the feed is returned with short-ID fallbacks rather than failing.
 - Not stored back to DB — in-memory only, per-request.
 
-**Call sites updated:** `get-personal-activity.ts`, `get-org-activity.ts`, `get-audit-feed.ts` — all replaced `enrichActorDisplays` with the three-step reference enrichment pipeline. The old `actor-enrichment.ts` file is retained (its `applyActorEnrichmentToSummaries` is still used by the actor-enrichment path in `projection.ts`) but no longer called directly from feed actions.
+**Call sites updated:** `get-personal-activity.ts`, `get-org-activity.ts`, `get-audit-feed.ts` — all use the three-step reference enrichment pipeline (`collectReferences` → `batchLoadReferences` → `applyReferenceEnrichment`).
 
-**Tests:** `src/server/audit/__tests__/reference-enrichment.test.ts` — 31 tests across 5 suites (T-REF-COLLECT, T-REF-BATCH, T-REF-APPLY, T-REF-SECURITY, T-REF-EMPTY).
+**Tests:** `src/server/audit/__tests__/reference-enrichment.test.ts` — 32 tests across 5 suites (T-REF-COLLECT, T-REF-BATCH, T-REF-APPLY, T-REF-SECURITY, T-REF-EMPTY).
+
+**Final micro-hardening pass (2026-03-17):** Duplicate enrichment logic removed — `applyActorEnrichmentToSummaries` (projection.ts) and the superseded `enrichActorDisplays` (actor-enrichment.ts) were both dead code and have been removed. `reference-enrichment.ts` is now the single source of truth. Batching behavior is explicitly proven by tests: `createServiceClient` is called at most once per resource type (verified by mock call-count assertions across a 30-event dataset), and zero times when all ID sets are empty. Test descriptions accurately reflect verified guarantees. System is verified consistent and production-ready.
+
+---
+
+---
+
+## Event Taxonomy Rules (2026-03-17)
+
+Every event in the registry carries two taxonomy fields: `category` (domain classification) and `intent` (action classification). Both are required, code-defined, and projected verbatim from the registry into every `ProjectedEvent`. They are never inferred from the DB row and never derived dynamically.
+
+These rules are the single authority for all future event additions.
+
+---
+
+### EventCategory — Domain Classification
+
+`category` answers: **which domain does this event belong to?**
+
+Categories are non-overlapping. Every event maps to exactly one.
+
+| Category       | Domain                                    | Use when                                                                                                                | Do NOT use when                                                                                                           |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH`         | Authentication lifecycle                  | An event is part of the normal auth or credential management flow: login, password reset, session management            | The event represents a security threat or anomaly (use `SECURITY`)                                                        |
+| `SECURITY`     | Security threats and anomalies            | An event represents a failed, suspicious, or adversarial action requiring security review (failed login, brute force)   | The event is a successful or expected auth operation (use `AUTH`)                                                         |
+| `MEMBERSHIP`   | User-organization relationship            | An event changes a user's membership status or role-bindings within an org                                              | The event concerns the invitation object lifecycle (use `INVITATION`) or org-level resource entities (use `ORGANIZATION`) |
+| `INVITATION`   | Invitation object lifecycle               | An event represents a state change of an invitation record: created, resent, accepted, declined, cancelled              | The membership consequence is recorded separately as a different event                                                    |
+| `ORGANIZATION` | Org structural and configuration entities | An event changes the org profile, a branch, a role definition (as an org-level resource), or an org lifecycle milestone | A role is being assigned/removed to/from a user (use `MEMBERSHIP`)                                                        |
+| `USER`         | User personal profile                     | An event changes a user's personal profile, preferences, or account settings (not auth, not membership)                 | Reserved for future use                                                                                                   |
+| `SYSTEM`       | Platform automation                       | An event is emitted by an automated process with no human actor                                                         | Reserved for future use                                                                                                   |
+| `DATA`         | Module data records                       | An event involves module-level data records (warehouse items, documents)                                                | Reserved for future use                                                                                                   |
+| `STATE`        | Workflow state transitions                | An event represents a state machine transition on an entity                                                             | Reserved for future use                                                                                                   |
+| `AUTOMATION`   | Automation rule execution                 | An event is emitted by an automation rule or scheduled workflow                                                         | Reserved for future use                                                                                                   |
+
+---
+
+### EventIntent — Action Classification
+
+`intent` answers: **what type of action happened?**
+
+Intents are orthogonal to category. The same intent can appear in multiple categories. Each event has exactly one.
+
+| Intent    | Meaning                                                                                         | Use when                                                                                                                           | Do NOT use when                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `CREATE`  | A new persistent entity was created                                                             | A brand-new record comes into existence for the first time                                                                         | The event is a process completion (use `SUCCESS`) or a relationship establishment (use `ASSIGN`)  |
+| `UPDATE`  | An existing entity's own attributes were modified                                               | Properties of an existing entity changed without affecting its existence or relationships                                          | A relationship binding changed (use `ASSIGN`/`REMOVE`) or the entity was destroyed (use `DELETE`) |
+| `DELETE`  | An entity was permanently destroyed, OR a credential/token was forcibly terminated by authority | A persistent record is irreversibly removed, OR a session/invitation/credential is forcibly terminated by the actor with authority | A relationship binding is severed while both entities continue to exist (use `REMOVE`)            |
+| `ASSIGN`  | A relationship binding was established between two pre-existing entities                        | An actor creates a link between two already-existing entities (e.g., assigning a role to a user)                                   | A new entity is created (use `CREATE`) or an attribute is updated (use `UPDATE`)                  |
+| `REMOVE`  | A relationship binding was severed between two pre-existing entities (both continue to exist)   | An existing link is broken (e.g., member removed from org, role removed from user)                                                 | One of the entities is being destroyed (use `DELETE`)                                             |
+| `ACCEPT`  | An actor explicitly affirmed a pending offer or request directed at them                        | The recipient of an invitation or request says "yes"                                                                               | The event is not from the recipient's perspective                                                 |
+| `DECLINE` | An actor explicitly rejected a pending offer or request directed at them                        | The recipient of an invitation or request says "no"                                                                                | The event is not from the recipient's perspective                                                 |
+| `SUCCESS` | A multi-step workflow reached its successful terminal state                                     | The event is the terminal positive outcome of a flow initiated by a `REQUEST` event, or a notable org lifecycle milestone          | A single atomic creation event happened (use `CREATE`)                                            |
+| `FAIL`    | A process or attempt resulted in a notable negative outcome                                     | An action failed in a way that is security-relevant or audit-relevant                                                              | The failure is routine/expected and not worth capturing                                           |
+| `REQUEST` | An actor initiated a multi-step process that has not yet completed                              | The event begins a workflow with subsequent steps; always pairs with a future `SUCCESS` or `FAIL`                                  | The action is self-contained and terminal                                                         |
+
+---
+
+### DELETE vs REMOVE — The Critical Distinction
+
+These two intents are frequently confused. The rule is:
+
+- **DELETE** — the entity/credential **itself** is destroyed or forcibly terminated. After DELETE, the subject no longer exists or is no longer valid. Examples: role deleted, branch deleted, session revoked, invitation cancelled.
+- **REMOVE** — a **relationship binding** is severed. After REMOVE, both the member and the org still exist; only the link between them is gone. Examples: member removed from org, role removed from user.
+
+The test: _"Does the subject entity still exist after this event?"_ If yes → REMOVE. If no → DELETE.
+
+---
+
+### SUCCESS vs CREATE — The Critical Distinction
+
+- **CREATE** — a single atomic operation brought a new record into existence.
+- **SUCCESS** — a multi-step process reached its terminal positive state. There was a preceding phase (setup, request, user action) before this outcome.
+
+The test: _"Was there a preceding phase or REQUEST event for this workflow?"_ If yes → SUCCESS. If no → CREATE.
+
+---
+
+### Mapping Principles for Future Events
+
+When registering a new event, apply these steps in order:
+
+1. **Identify the domain** → select `category`.
+2. **Identify what happened** → select `intent` using the definitions above.
+3. **Apply the DELETE/REMOVE test** if the action ends something.
+4. **Apply the SUCCESS/CREATE test** if the action produces a positive outcome.
+5. **Verify against existing events in the same group** (e.g., all `org.branch.*` events, all `auth.*` events) to ensure the new classification is consistent.
+6. **Verify no overlap** with an adjacent category (e.g., an `org.member.*` event is MEMBERSHIP, not ORGANIZATION; a failed auth is SECURITY, not AUTH).
+
+---
+
+### Full Registry Taxonomy Reference
+
+| Action Key                      | Category     | Intent  | Rule justification                                                  |
+| ------------------------------- | ------------ | ------- | ------------------------------------------------------------------- |
+| `auth.login`                    | AUTH         | SUCCESS | Normal auth domain; terminal positive outcome of login workflow     |
+| `auth.login.failed`             | SECURITY     | FAIL    | Anomaly/threat domain; negative outcome                             |
+| `auth.password.reset_requested` | AUTH         | REQUEST | Auth domain; initiates multi-step reset workflow                    |
+| `auth.password.reset_completed` | AUTH         | SUCCESS | Auth domain; terminal success of REQUEST-initiated workflow         |
+| `auth.session.revoked`          | AUTH         | DELETE  | Auth domain; session credential forcibly terminated by authority    |
+| `org.created`                   | ORGANIZATION | CREATE  | Org domain; new org entity created                                  |
+| `org.updated`                   | ORGANIZATION | UPDATE  | Org domain; org attributes modified                                 |
+| `org.member.invited`            | INVITATION   | CREATE  | Invitation domain; new invitation record created                    |
+| `org.member.removed`            | MEMBERSHIP   | REMOVE  | Membership domain; user-org relationship severed (both still exist) |
+| `org.invitation.accepted`       | INVITATION   | ACCEPT  | Invitation domain; recipient affirmed the invitation                |
+| `org.invitation.cancelled`      | INVITATION   | DELETE  | Invitation domain; invitation record forcibly terminated by inviter |
+| `org.invitation.resent`         | INVITATION   | UPDATE  | Invitation domain; invitation attributes (token, expiry) refreshed  |
+| `org.invitation.declined`       | INVITATION   | DECLINE | Invitation domain; recipient rejected the invitation                |
+| `org.role.created`              | ORGANIZATION | CREATE  | Org domain; new role entity created                                 |
+| `org.role.updated`              | ORGANIZATION | UPDATE  | Org domain; role attributes modified                                |
+| `org.role.deleted`              | ORGANIZATION | DELETE  | Org domain; role entity permanently destroyed                       |
+| `org.member.role_assigned`      | MEMBERSHIP   | ASSIGN  | Membership domain; user-role binding established                    |
+| `org.member.role_removed`       | MEMBERSHIP   | REMOVE  | Membership domain; user-role binding severed (both still exist)     |
+| `org.branch.created`            | ORGANIZATION | CREATE  | Org domain; new branch entity created                               |
+| `org.branch.updated`            | ORGANIZATION | UPDATE  | Org domain; branch attributes modified                              |
+| `org.branch.deleted`            | ORGANIZATION | DELETE  | Org domain; branch entity permanently destroyed                     |
+| `org.onboarding.completed`      | ORGANIZATION | SUCCESS | Org domain; terminal success of multi-step onboarding flow          |
 
 ---
 

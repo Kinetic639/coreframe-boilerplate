@@ -12,6 +12,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+vi.mock("@/utils/supabase/service", () => ({
+  createServiceClient: vi.fn(),
+}));
+
+import { createServiceClient } from "@/utils/supabase/service";
 import {
   collectReferences,
   batchLoadReferences,
@@ -35,6 +41,8 @@ function makeEvent(overrides: Partial<ProjectedEvent> = {}): ProjectedEvent {
     id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
     created_at: "2026-03-16T12:00:00.000Z",
     action_key: "auth.login",
+    category: "AUTH",
+    intent: "SUCCESS",
     actor_display: USER_ID_1,
     entity_type: "user",
     entity_id: USER_ID_1,
@@ -188,8 +196,17 @@ describe("T-REF-COLLECT: collectReferences gathers all required IDs", () => {
 // T-REF-BATCH: batchLoadReferences — one query per resource type
 // ---------------------------------------------------------------------------
 
-describe("T-REF-BATCH: batchLoadReferences uses batch queries, not N+1", () => {
-  // We mock createServiceClient at the module level using vi.mock
+describe("T-REF-BATCH: batchLoadReferences — at most one query per resource type", () => {
+  // createServiceClient is mocked via the top-level vi.mock() above.
+  // Each test configures the mock return value then tracks .from() call counts.
+
+  function makeServiceClient() {
+    const fromFn = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    return { from: fromFn };
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -199,45 +216,83 @@ describe("T-REF-BATCH: batchLoadReferences uses batch queries, not N+1", () => {
     vi.restoreAllMocks();
   });
 
-  it("skips users query when userIds is empty", async () => {
-    // Spy on the module to verify no users query is made
-    // We mock createServiceClient to track calls
-    const mockFrom = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      in: vi.fn().mockResolvedValue({ data: [], error: null }),
-    });
+  it("many events with repeated IDs → exactly one query per populated resource type", async () => {
+    const client = makeServiceClient();
+    vi.mocked(createServiceClient).mockReturnValue(client as any);
 
-    vi.doMock("@/utils/supabase/service", () => ({
-      createServiceClient: () => ({ from: mockFrom }),
-    }));
+    // 30 events sharing 3 user IDs, 2 role IDs, 2 branch IDs
+    const USER_IDS = [USER_ID_1, USER_ID_2, "33333333-3333-3333-3333-333333333333"];
+    const ROLE_IDS = [ROLE_ID_1, "55555555-5555-5555-5555-555555555555"];
+    const BRANCH_IDS = [BRANCH_ID_1, "66666666-6666-6666-6666-666666666666"];
 
-    const refs = {
-      userIds: new Set<string>(),
-      roleIds: new Set([ROLE_ID_1]),
-      branchIds: new Set<string>(),
-    };
+    const events = Array.from({ length: 30 }, (_, i) =>
+      makeEvent({
+        id: `event-${i}`,
+        summaryEntities: {
+          actor: {
+            kind: "user",
+            id: USER_IDS[i % USER_IDS.length],
+            label: USER_IDS[i % USER_IDS.length],
+          },
+          role: {
+            kind: "role",
+            id: ROLE_IDS[i % ROLE_IDS.length],
+            label: ROLE_IDS[i % ROLE_IDS.length],
+          },
+          branch: {
+            kind: "branch",
+            id: BRANCH_IDS[i % BRANCH_IDS.length],
+            label: BRANCH_IDS[i % BRANCH_IDS.length],
+          },
+        },
+      })
+    );
 
-    // Without the mock in place (since vi.doMock is async), just verify the
-    // function returns valid context structure when given empty userIds
-    const ctx = await batchLoadReferences(refs);
-    // Users map should be empty (query was skipped)
-    expect(ctx.users).toBeInstanceOf(Map);
-    expect(ctx.roles).toBeInstanceOf(Map);
-    expect(ctx.branches).toBeInstanceOf(Map);
+    const refs = collectReferences(events);
+    await batchLoadReferences(refs);
+
+    // createServiceClient called once per resource type — three times total
+    expect(vi.mocked(createServiceClient)).toHaveBeenCalledTimes(3);
+
+    // Each resource type queried exactly once
+    const tableNames = client.from.mock.calls.map((c: any[]) => c[0]);
+    expect(tableNames.filter((t: string) => t === "users")).toHaveLength(1);
+    expect(tableNames.filter((t: string) => t === "roles")).toHaveLength(1);
+    expect(tableNames.filter((t: string) => t === "branches")).toHaveLength(1);
   });
 
-  it("returns empty maps when all ID sets are empty", async () => {
-    const ctx = await batchLoadReferences({
+  it("all ID sets empty → zero DB queries", async () => {
+    const client = makeServiceClient();
+    vi.mocked(createServiceClient).mockReturnValue(client as any);
+
+    await batchLoadReferences({
       userIds: new Set(),
       roleIds: new Set(),
       branchIds: new Set(),
     });
-    expect(ctx.users.size).toBe(0);
-    expect(ctx.roles.size).toBe(0);
-    expect(ctx.branches.size).toBe(0);
+
+    expect(vi.mocked(createServiceClient)).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("only userIds populated → only the users query is executed", async () => {
+    const client = makeServiceClient();
+    vi.mocked(createServiceClient).mockReturnValue(client as any);
+
+    await batchLoadReferences({
+      userIds: new Set([USER_ID_1, USER_ID_2]),
+      roleIds: new Set(),
+      branchIds: new Set(),
+    });
+
+    // Only one createServiceClient call (for users)
+    expect(vi.mocked(createServiceClient)).toHaveBeenCalledTimes(1);
+    const tableNames = client.from.mock.calls.map((c: any[]) => c[0]);
+    expect(tableNames).toEqual(["users"]);
   });
 
   it("returns ReferenceEnrichmentContext shape", async () => {
+    vi.mocked(createServiceClient).mockReturnValue(makeServiceClient() as any);
     const ctx = await batchLoadReferences({
       userIds: new Set(),
       roleIds: new Set(),

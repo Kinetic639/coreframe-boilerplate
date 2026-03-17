@@ -21,7 +21,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { EVENT_REGISTRY, getAllActionKeys, getRegistryEntry } from "../event-registry";
-import type { EventVisibilityScope } from "../types";
+import type { EventCategory, EventIntent, EventVisibilityScope } from "../types";
 
 const VALID_VISIBILITY_SCOPES: EventVisibilityScope[] = [
   "self",
@@ -31,6 +31,32 @@ const VALID_VISIBILITY_SCOPES: EventVisibilityScope[] = [
 ];
 
 const VALID_EVENT_TIERS = ["baseline", "enhanced", "forensic"] as const;
+
+const VALID_CATEGORIES: EventCategory[] = [
+  "AUTH",
+  "USER",
+  "MEMBERSHIP",
+  "ORGANIZATION",
+  "INVITATION",
+  "SYSTEM",
+  "DATA",
+  "STATE",
+  "SECURITY",
+  "AUTOMATION",
+];
+
+const VALID_INTENTS: EventIntent[] = [
+  "CREATE",
+  "UPDATE",
+  "DELETE",
+  "ASSIGN",
+  "REMOVE",
+  "ACCEPT",
+  "DECLINE",
+  "SUCCESS",
+  "FAIL",
+  "REQUEST",
+];
 
 // ---------------------------------------------------------------------------
 // T-REGISTRY-CONTRACT: Per-entry structural contract
@@ -92,7 +118,9 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
         expect(entry.summaryTemplate.trim().length).toBeGreaterThan(0);
       });
 
-      it("visibleTo is a non-empty array of valid scope values", () => {
+      it("visibleTo (legacy field, kept for compat) is a non-empty array of valid scope values", () => {
+        // visibleTo is @deprecated — the permission-based model (actorVisible/selfVisible/visibilityClass)
+        // is now authoritative. This field is retained only for backward-compat with legacy contract tests.
         expect(Array.isArray(entry.visibleTo)).toBe(true);
         expect(entry.visibleTo.length).toBeGreaterThan(0);
         for (const scope of entry.visibleTo) {
@@ -105,6 +133,14 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
         for (const field of entry.sensitiveFields) {
           expect(typeof field).toBe("string");
         }
+      });
+
+      it("category is a valid EventCategory", () => {
+        expect(VALID_CATEGORIES).toContain(entry.category);
+      });
+
+      it("intent is a valid EventIntent", () => {
+        expect(VALID_INTENTS).toContain(entry.intent);
       });
     });
   }
