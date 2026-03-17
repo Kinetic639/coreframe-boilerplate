@@ -121,16 +121,18 @@ describe("T-PROJECTION-VISIBILITY: scope-based event visibility", () => {
     expect(result.events).toHaveLength(0);
   });
 
-  it("audit scope: no per-event permission gate — all events are visible", () => {
-    // Audit scope bypasses per-event visibility checks. Permission enforcement
-    // (audit.events.read) is done at the server action layer before a viewer
-    // receives audit scope. Once in audit scope, all events are projected.
+  it("audit scope: events visible via actorVisible intrinsic path require no permission", () => {
+    // Intrinsic actor/self visibility applies in all scopes without permission checks.
+    // auth.login (actorVisible=true, viewer is actor), org.created (actorVisible=true,
+    // viewer is actor), and org.member.invited (actorVisible=true, viewer is actor) are
+    // all visible here because viewerUserId === actor_user_id on every row.
     const rows = [
       makeRow({ action_key: "auth.login", actor_user_id: VIEWER_USER_ID }),
-      makeRow({ id: "bbb", action_key: "org.created" }),
+      makeRow({ id: "bbb", action_key: "org.created", actor_user_id: VIEWER_USER_ID }),
       makeRow({
         id: "ccc",
         action_key: "org.member.invited",
+        actor_user_id: VIEWER_USER_ID,
         metadata: { invitee_email: "x@example.com" },
       }),
     ];
@@ -391,8 +393,9 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
   });
 
   it("template without variables returns literal string", () => {
-    // auth.login.failed summaryTemplate: "Failed login attempt" — no interpolation variables
-    // Using audit scope so the event is visible (audit scope bypasses per-event permission gates).
+    // auth.login.failed summaryTemplate: "Failed login attempt" — no interpolation variables.
+    // visibilityClass='audit', actorVisible=false → requires audit.events.read permission.
+    // In audit scope + audit.events.read, the visibility superpower grants access.
     const result = projectEvents({
       events: [
         makeRow({
@@ -401,7 +404,7 @@ describe("T-PROJECTION-SUMMARY: summaryTemplate interpolation", () => {
           metadata: {},
         }),
       ],
-      context: makeContext({ viewerScope: "audit" }),
+      context: makeContext({ viewerScope: "audit", permissions: ["audit.events.read"] }),
     });
     expect(result.events[0].summary).toBe("Failed login attempt");
   });
@@ -699,10 +702,10 @@ describe("T-PROJECTION-TAXONOMY: category and intent are derived from registry",
   });
 
   it("auth.login.failed projected event has category=SECURITY and intent=FAIL", () => {
-    // audit scope — no per-event permission gate
+    // visibilityClass='audit', actorVisible=false → requires audit.events.read + audit scope
     const result = projectEvents({
       events: [makeRow({ action_key: "auth.login.failed", actor_user_id: VIEWER_USER_ID })],
-      context: makeContext({ viewerScope: "audit" }),
+      context: makeContext({ viewerScope: "audit", permissions: ["audit.events.read"] }),
     });
     expect(result.events[0].category).toBe("SECURITY");
     expect(result.events[0].intent).toBe("FAIL");

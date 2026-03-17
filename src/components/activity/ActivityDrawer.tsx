@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Activity, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,10 +10,8 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Link } from "@/i18n/navigation";
-import { getRecentActivityAction } from "@/app/actions/audit/get-recent-activity";
 import { ActivityDrawerItem } from "./ActivityDrawerItem";
 import { LoadingSkeleton } from "@/components/v2/feedback/loading-skeleton";
 import type { ProjectedEvent } from "@/server/audit/types";
@@ -24,8 +21,13 @@ import type { ProjectedEvent } from "@/server/audit/types";
 // ---------------------------------------------------------------------------
 
 interface ActivityDrawerProps {
-  /** SSR-loaded initial events — avoids a loading flash on open */
-  initialEvents: ProjectedEvent[];
+  /** Controlled open state — owner decides when to open/close */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Recent projected events — provided by the owning controller */
+  events: ProjectedEvent[];
+  /** True while a refresh is in-flight */
+  isRefreshing: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -33,37 +35,21 @@ interface ActivityDrawerProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Recent Activity Drawer
+ * Recent Activity Drawer — controlled, no own trigger.
  *
- * Slide-out drawer showing the last 10 personal activity events.
- * Loads initial data from SSR props and can optionally refresh on open.
+ * All state (open, events, refresh) lives in the owning controller
+ * (DashboardStatusBarActivity). The drawer is purely presentational
+ * and accepts props for everything it displays.
  *
- * Uses shadcn/ui Sheet for the drawer panel.
- * Each item renders the rich i18n summary with optional entity links.
+ * Loading strategy: shows existing events immediately during refresh
+ * (no skeleton flash if events are already loaded). Skeleton is shown
+ * only on first open when events is still empty.
  */
-export function ActivityDrawer({ initialEvents }: ActivityDrawerProps) {
+export function ActivityDrawer({ open, onOpenChange, events, isRefreshing }: ActivityDrawerProps) {
   const t = useTranslations("activityDrawer");
-  const [events, setEvents] = useState<ProjectedEvent[]>(initialEvents);
-  const [isRefreshing, startTransition] = useTransition();
-
-  function handleOpen(open: boolean) {
-    if (!open) return;
-    // Refresh data on each open to show latest activity
-    startTransition(async () => {
-      const result = await getRecentActivityAction();
-      if (result.success) {
-        setEvents(result.data.events);
-      }
-    });
-  }
 
   return (
-    <Sheet onOpenChange={handleOpen}>
-      <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative" aria-label={t("title")}>
-          <Activity className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
         <SheetHeader>
           <SheetTitle>{t("title")}</SheetTitle>
@@ -71,7 +57,7 @@ export function ActivityDrawer({ initialEvents }: ActivityDrawerProps) {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto mt-6">
-          {isRefreshing ? (
+          {isRefreshing && events.length === 0 ? (
             <LoadingSkeleton variant="list" count={5} />
           ) : events.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">

@@ -2,10 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DashboardHeaderV2 } from "../dashboard-header";
 
-// Mock the child components
-vi.mock("@/components/activity/ActivityDrawer", () => ({
-  ActivityDrawer: () => <div data-testid="activity-drawer">Activity</div>,
-}));
+// ActivityDrawer is no longer in the header — it was moved to the status bar.
+// This mock is intentionally absent to verify the removal.
 
 vi.mock("../header-search", () => ({
   HeaderSearch: () => <div data-testid="header-search">Search</div>,
@@ -109,6 +107,11 @@ describe("DashboardHeaderV2", () => {
 
       expect(container.querySelector("header")).toBeInTheDocument();
       expect(screen.getByTestId("header-notifications")).toBeInTheDocument();
+    });
+
+    it("activity drawer is NOT rendered in the header (moved to status bar)", () => {
+      render(<DashboardHeaderV2 />);
+      expect(screen.queryByTestId("activity-drawer")).not.toBeInTheDocument();
     });
   });
 
