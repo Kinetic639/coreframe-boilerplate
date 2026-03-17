@@ -40,6 +40,7 @@ function makeEvent(overrides: Partial<ProjectedEvent> = {}): ProjectedEvent {
     entity_id: USER_ID_1,
     target_type: null,
     target_id: null,
+    branch_id: null,
     summary: "test summary",
     metadata: {},
     event_tier: "baseline",

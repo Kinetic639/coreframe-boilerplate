@@ -162,6 +162,7 @@ export function projectEvents(input: ProjectionInput): ProjectionResult {
       entity_type: row.entity_type,
       entity_id: row.entity_id,
       target_type: row.target_type,
+      branch_id: row.branch_id,
       // Rich summary fields
       summaryKey: richSummary.summaryKey,
       summaryPerspective: richSummary.summaryPerspective,

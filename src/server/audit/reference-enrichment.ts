@@ -102,6 +102,12 @@ export function collectReferences(events: ProjectedEvent[]): {
     if (branchEntityId && branchEntityId !== "unknown") {
       branchIds.add(branchEntityId);
     }
+
+    // Direct branch_id on the event row — covers branch-scoped events where
+    // no entity_type="branch" or summaryEntities.branch slot is set.
+    if (event.branch_id) {
+      branchIds.add(event.branch_id);
+    }
   }
 
   return { userIds, roleIds, branchIds };
@@ -110,6 +116,20 @@ export function collectReferences(events: ProjectedEvent[]): {
 // ---------------------------------------------------------------------------
 // Batch loader
 // ---------------------------------------------------------------------------
+
+/**
+ * SECURITY INVARIANT:
+ * This function must only be called with references collected from events
+ * that have already passed visibility filtering. The enrichment uses
+ * service_role (bypasses RLS) for performance, but this is safe because:
+ * 1. Raw events are fetched with user-scoped Supabase client
+ * 2. Visibility/permission guards run on the raw rows
+ * 3. Only VISIBLE events are passed to collectReferences()
+ * 4. Only THOSE references are passed to batchLoadReferences()
+ * 5. The client never receives raw lookup maps or raw event rows
+ *
+ * Do NOT call this function with unfiltered event sets.
+ */
 
 /**
  * Execute at most three batch queries (one per resource type) to resolve all
@@ -169,6 +189,32 @@ export function applyReferenceEnrichment(
   ctx: ReferenceEnrichmentContext
 ): ProjectedEvent[] {
   return events.map((event) => enrichEvent(event, ctx));
+}
+
+// ---------------------------------------------------------------------------
+// Summary rebuild helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Replace raw UUID tokens in the legacy `summary` string with resolved display
+ * names, using the uuid→label pairs provided in `substitutions`.
+ *
+ * The `summary` field is generated at projection time from the registry
+ * summaryTemplate ({{actor}}, {{entity}}, {{target}} tokens). At that point
+ * only raw UUIDs are available as actor/target display values. After enrichment
+ * resolves those UUIDs to human-readable names, this function updates `summary`
+ * so the fallback render path (used when an i18n translation key is missing)
+ * also shows resolved names instead of raw UUIDs.
+ *
+ * Only UUIDs present in the substitutions map are replaced. Non-UUID tokens
+ * (e.g. actor_type "system") and unrecognised UUIDs are left unchanged.
+ */
+function rebuildSummary(original: string, substitutions: Map<string, string>): string {
+  if (substitutions.size === 0) return original;
+  return original.replace(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+    (uuid) => substitutions.get(uuid.toLowerCase()) ?? uuid
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -286,7 +332,70 @@ function enrichEvent(event: ProjectedEvent, ctx: ReferenceEnrichmentContext): Pr
     }
   }
 
-  return { ...event, summaryParams, summaryEntities };
+  // Rebuild the legacy `summary` string so that any raw UUIDs it contains
+  // are replaced with the resolved display names from summaryParams.
+  // The UI primary path uses summaryKey + summaryParams (i18n), but falls back
+  // to `summary` when a translation key is missing. Keeping `summary` in sync
+  // with the enriched params ensures the fallback path is also human-readable.
+  //
+  // We build a uuid→resolvedName substitution map. The UUIDs are the raw IDs
+  // that were embedded in `summary` at projection time (actor_display, target_id,
+  // entity_id). We pair each with its resolved summaryParam value only when the
+  // resolved value is actually a human-readable name (i.e. not itself a UUID).
+  const substitutions = new Map<string, string>();
+
+  // Actor: actor_display was the raw UUID used as {{actor}} in the template
+  const actorName = summaryParams.actorName;
+  const actorEntityId = event.summaryEntities?.actor?.id;
+  if (
+    actorEntityId &&
+    UUID_PATTERN.test(actorEntityId) &&
+    typeof actorName === "string" &&
+    !UUID_PATTERN.test(actorName)
+  ) {
+    substitutions.set(actorEntityId.toLowerCase(), actorName);
+  }
+
+  // Target: target_id was used as the target portion when target_type="user"
+  const targetName = summaryParams.targetName;
+  if (
+    event.target_id &&
+    UUID_PATTERN.test(event.target_id) &&
+    typeof targetName === "string" &&
+    !UUID_PATTERN.test(targetName)
+  ) {
+    substitutions.set(event.target_id.toLowerCase(), targetName);
+  }
+
+  // Role entity: entity_id (when entity_type="role") or summaryEntities.role.id
+  const roleEntityIdForSummary =
+    event.entity_type === "role" ? event.entity_id : (event.summaryEntities?.role?.id ?? null);
+  const roleName = summaryParams.roleName;
+  if (
+    roleEntityIdForSummary &&
+    UUID_PATTERN.test(roleEntityIdForSummary) &&
+    typeof roleName === "string" &&
+    !UUID_PATTERN.test(roleName)
+  ) {
+    substitutions.set(roleEntityIdForSummary.toLowerCase(), roleName);
+  }
+
+  // Branch entity: entity_id (when entity_type="branch") or summaryEntities.branch.id
+  const branchEntityId2 =
+    event.entity_type === "branch" ? event.entity_id : (event.summaryEntities?.branch?.id ?? null);
+  const branchName = summaryParams.branchName;
+  if (
+    branchEntityId2 &&
+    UUID_PATTERN.test(branchEntityId2) &&
+    typeof branchName === "string" &&
+    !UUID_PATTERN.test(branchName)
+  ) {
+    substitutions.set(branchEntityId2.toLowerCase(), branchName);
+  }
+
+  const summary = rebuildSummary(event.summary, substitutions);
+
+  return { ...event, summaryParams, summaryEntities, summary };
 }
 
 // ---------------------------------------------------------------------------
