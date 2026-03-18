@@ -243,7 +243,17 @@ export class PermissionServiceV2 {
     });
 
     if (error) {
-      console.error("[PermissionServiceV2] Failed to check permission:", error);
+      // PGRST202 = function not found in PostgREST — indicates the DB migration
+      // for user_has_effective_permission was not applied to this project.
+      if (error.code === "PGRST202") {
+        console.error(
+          "[PermissionServiceV2] user_has_effective_permission RPC not found. " +
+            "Apply migration 20260318100001_add_user_has_effective_permission_fn.sql.",
+          error
+        );
+      } else {
+        console.error("[PermissionServiceV2] Failed to check permission:", error);
+      }
       return false;
     }
 
