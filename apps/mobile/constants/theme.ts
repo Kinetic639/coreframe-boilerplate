@@ -5,25 +5,37 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Ambra System brand colors — amber/gold primary, matching the web app theme
+export const Brand = {
+  primary: '#F59E0B',       // hsl(40 96% 48%) — amber gold
+  primaryDark: '#D97706',   // darker amber for pressed states
+  primaryLight: '#FEF3C7',  // light amber tint for backgrounds
+};
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    textMuted: '#6B7280',
+    background: '#FFFFFF',
+    surface: '#F9FAFB',
+    surfaceElevated: '#FFFFFF',
+    border: '#E5E7EB',
+    tint: Brand.primary,
+    icon: '#6B7280',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: Brand.primary,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F3F4F6',
+    textMuted: '#9CA3AF',
+    background: '#0F0F0F',
+    surface: '#1A1A1A',
+    surfaceElevated: '#262626',
+    border: '#2D2D2D',
+    tint: Brand.primary,
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: Brand.primary,
   },
 };
 
