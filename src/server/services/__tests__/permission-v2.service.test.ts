@@ -808,3 +808,83 @@ describe("T-10K-DB: UEP partial indexes exist on live DB (DB-backed)", () => {
     }
   );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T-G2: hasPermission RPC — unit tests for G2 fix (user_has_effective_permission)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function makeRpcMock(result: { data: unknown; error: unknown }) {
+  return {
+    rpc: vi.fn().mockReturnValue(Promise.resolve(result)),
+  };
+}
+
+describe("T-G2: PermissionServiceV2.hasPermission — user_has_effective_permission RPC", () => {
+  it("returns true when RPC returns true", async () => {
+    const supabase = makeRpcMock({ data: true, error: null });
+
+    const result = await PermissionServiceV2.hasPermission(
+      supabase as unknown as ReturnType<typeof _supabaseCreateClient>,
+      "user-1",
+      "org-1",
+      "members.manage"
+    );
+
+    expect(result).toBe(true);
+    expect(supabase.rpc).toHaveBeenCalledWith("user_has_effective_permission", {
+      p_user_id: "user-1",
+      p_organization_id: "org-1",
+      p_permission_slug: "members.manage",
+    });
+  });
+
+  it("returns false when RPC returns false (permission not granted)", async () => {
+    const supabase = makeRpcMock({ data: false, error: null });
+
+    const result = await PermissionServiceV2.hasPermission(
+      supabase as unknown as ReturnType<typeof _supabaseCreateClient>,
+      "user-1",
+      "org-1",
+      "members.manage"
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("is fail-closed: returns false when RPC errors", async () => {
+    const supabase = makeRpcMock({
+      data: null,
+      error: { code: "XX000", message: "internal error" },
+    });
+
+    const result = await PermissionServiceV2.hasPermission(
+      supabase as unknown as ReturnType<typeof _supabaseCreateClient>,
+      "user-1",
+      "org-1",
+      "members.manage"
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("logs PGRST202 diagnostic when RPC is missing (G2 root cause)", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const supabase = makeRpcMock({
+      data: null,
+      error: { code: "PGRST202", message: "function not found" },
+    });
+
+    await PermissionServiceV2.hasPermission(
+      supabase as unknown as ReturnType<typeof _supabaseCreateClient>,
+      "user-1",
+      "org-1",
+      "members.manage"
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining("user_has_effective_permission RPC not found"),
+      expect.anything()
+    );
+    consoleSpy.mockRestore();
+  });
+});

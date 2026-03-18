@@ -24,9 +24,10 @@ export class AdminEntitlementsService {
       .maybeSingle();
 
     if (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[AdminEntitlementsService] Failed to load entitlements:", error);
-      }
+      // Always log — this is an infrastructure failure, not a user data leak.
+      // Silent failures here mean admins can't diagnose why the admin panel is
+      // inaccessible in production (G8/G10 audit finding).
+      console.error("[AdminEntitlementsService] Failed to load entitlements:", error);
       return null;
     }
 
