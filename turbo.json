@@ -5,6 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["RESEND_API_KEY", "SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "lint": {
