@@ -527,14 +527,14 @@ After the P0/P1 fix pass (G1–G4), a second reverification was conducted across
 
 #### Files Changed in Pass 2
 
-| File                                                               | Change                                                                               |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `src/middleware.ts`                                                | G5: Tightened matcher to exclude `/api/` and `/auth/` paths                          |
-| `src/server/services/admin-entitlements.service.ts`                | G8/G10: Removed `NODE_ENV === "development"` guard on error log                      |
-| `src/server/loaders/v2/load-user-context.v2.ts`                    | G7/G10: Documented stale JWT role window; removed dev-only guard on user query error |
-| `src/server/loaders/v2/load-dashboard-context.v2.ts`               | G10: Removed dev-only guard on branch assignment query error                         |
-| `src/server/services/__tests__/admin-entitlements.service.test.ts` | Updated test to assert error is ALWAYS logged (not suppressed in prod)               |
-| `src/__tests__/middleware.config.test.ts`                          | New: 9 tests verifying matcher includes/excludes correct route classes               |
+| File                                                                | Change                                                                                   |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/proxy.ts` (existing file, pre-existing logic verified correct) | G5: Matcher already excludes `api` and `auth` — `middleware.ts` (added in error) deleted |
+| `src/server/services/admin-entitlements.service.ts`                 | G8/G10: Removed `NODE_ENV === "development"` guard on error log                          |
+| `src/server/loaders/v2/load-user-context.v2.ts`                     | G7/G10: Documented stale JWT role window; removed dev-only guard on user query error     |
+| `src/server/loaders/v2/load-dashboard-context.v2.ts`                | G10: Removed dev-only guard on branch assignment query error                             |
+| `src/server/services/__tests__/admin-entitlements.service.test.ts`  | Updated test to assert error is ALWAYS logged (not suppressed in prod)                   |
+| `src/__tests__/middleware.config.test.ts`                           | New: 9 tests verifying matcher includes/excludes correct route classes                   |
 
 ---
 
