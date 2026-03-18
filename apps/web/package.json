@@ -9,7 +9,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky install",
+    "prepare": "if [ -z \"$CI\" ]; then husky install; fi",
     "lint-staged": "lint-staged",
     "test": "vitest",
     "test:ui": "vitest --ui",
