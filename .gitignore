@@ -1,52 +1,65 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
 .pnp.*
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-/.idx
-# testing
-/coverage
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env*.local
-.env*.production
+# Workspace env and local config
 .env
+.env.local
+.env.*.local
+.env.production
+.env.*.production
+.mcp.json
 
-# vercel
-.vercel
+# Testing
+coverage/
+test-results/
 
-# typescript
+# Turbo / package manager / tool outputs
+.turbo/
+.vercel/
+.git-rewrite/
+.idx/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+web-build/
+
+# Expo / React Native
+.expo/
+expo-env.d.ts
+apps/mobile/ios/
+apps/mobile/android/
+.kotlin/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+
+# TypeScript / generated framework files
 *.tsbuildinfo
 next-env.d.ts
 
-# Git filter-branch artifacts
-.git-rewrite/
+# Debug
+npm-debug.log*
+npm-debug.*
+yarn-debug.log*
+yarn-debug.*
+yarn-error.log*
+yarn-error.*
 
-# Test artifacts
-test-results/
-.idx/
-.env.production
-.mcp.json
-.env.production
+# Misc
+.DS_Store
+*.pem
+*.orig.*
