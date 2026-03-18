@@ -73,7 +73,9 @@ async function _loadUserContextV2(
     .eq("id", userId)
     .maybeSingle();
 
-  if (userError && process.env.NODE_ENV === "development") {
+  if (userError) {
+    // Always log — user identity load failure is an infrastructure event,
+    // not a user data leak. Falls back to auth metadata below.
     console.error("[loadUserContextV2] User query failed:", userError);
   }
 
@@ -105,7 +107,28 @@ async function _loadUserContextV2(
         avatar_signed_url: null,
       };
 
-  // 2. Extract roles from JWT (single source of truth)
+  // 2. Extract roles from JWT (single source of truth for UI role display)
+  //
+  // KNOWN STALE WINDOW (G7): JWT roles are valid until the token expires
+  // (Supabase default: 1 hour).  If an admin revokes a user's role, these
+  // decoded roles remain stale for up to 1 hour, affecting:
+  //   - HasAnyRole*/HasAnyRoleClient: UI-level role-gated components
+  //   - userContext.roles: the roles array shown in the debug panel
+  //
+  // This is NOT a database security issue:
+  //   - RLS policies check user_effective_permissions (always fresh, recompiled
+  //     by DB triggers within the same transaction as any role change).
+  //   - PermissionServiceV2.getPermissionSnapshotForUser() reads UEP directly
+  //     (always fresh on every SSR page load).
+  //   - Server action permission checks use has_permission() / has_branch_permission()
+  //     which read UEP (always fresh).
+  //
+  // The maximum exposure window is: next token expiry (~1 hour).
+  // Middleware calls getUser() which refreshes the token if NEAR expiry,
+  // but does NOT force re-issue when roles change mid-session.
+  //
+  // Accepted risk: UI-only display artefacts for ≤1h after role changes.
+  // Security invariant: DB operations are always gated by fresh RLS/UEP.
   const roles: JWTRole[] = AuthService.getUserRoles(session.access_token);
 
   // 3. Load permission snapshot for the RESOLVED org/branch context

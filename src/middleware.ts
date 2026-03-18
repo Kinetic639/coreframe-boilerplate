@@ -45,12 +45,22 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  // Run middleware on all routes EXCEPT:
-  //   - Next.js internal routes (_next/static, _next/image)
-  //   - favicon.ico
-  //   - Static assets (images, fonts, etc.)
-  //   - API routes handled outside Next.js middleware (none currently)
+  // Run middleware on page/layout routes ONLY.
+  //
+  // Excluded (must NOT run middleware):
+  //   - _next/static, _next/image   — Next.js internals
+  //   - favicon.ico                 — static asset
+  //   - api/*                       — Route Handlers own their auth; adding
+  //                                   getUser() here wastes a Supabase round-trip
+  //                                   per API call and next-intl locale detection
+  //                                   can interfere with binary responses (PDFs, etc.)
+  //   - auth/*                      — Supabase callback/confirm routes manage their
+  //                                   own session exchange; running middleware before
+  //                                   these would call getUser() before the OTP/code
+  //                                   is verified, wasting a round-trip and risking
+  //                                   next-intl redirecting the callback URL
+  //   - Static asset extensions     — images, fonts, icons
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|api/|auth/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2?)$).*)",
   ],
 };

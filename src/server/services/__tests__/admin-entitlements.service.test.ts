@@ -67,18 +67,21 @@ describe("AdminEntitlementsService.loadAdminEntitlements", () => {
     expect(result).toBeNull();
   });
 
-  it("should return null and suppress error in production on DB error", async () => {
+  it("should return null AND log error in production on DB error (G8/G10 fix)", async () => {
+    // G8/G10 audit fix: errors must be logged in ALL environments, not silenced
+    // in production. Admin panel failures are infrastructure events, not data leaks.
     vi.stubEnv("NODE_ENV", "production");
-    const mockSupabase = createMockSupabase({
-      data: null,
-      error: { message: "RLS denied", code: "PGRST301" },
-    });
+    const dbError = { message: "RLS denied", code: "PGRST301" };
+    const mockSupabase = createMockSupabase({ data: null, error: dbError });
 
     const result = await AdminEntitlementsService.loadAdminEntitlements(mockSupabase, "user-abc");
 
-    expect(result).toBeNull();
-    // In production, no console.error
-    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(result).toBeNull(); // still fail-closed
+    // MUST log even in production so operators can diagnose admin panel inaccessibility
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[AdminEntitlementsService] Failed to load entitlements:",
+      dbError
+    );
   });
 
   it("should return null and log error in development on DB error", async () => {

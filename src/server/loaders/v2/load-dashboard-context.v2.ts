@@ -49,7 +49,8 @@ async function _computeAccessibleBranches(
     .eq("scope", "branch")
     .is("deleted_at", null);
 
-  if (error && process.env.NODE_ENV === "development") {
+  if (error) {
+    // Always log — branch assignment query failure is an IAM infrastructure event.
     console.error("[computeAccessibleBranches] Assignment query failed:", error);
   }
 

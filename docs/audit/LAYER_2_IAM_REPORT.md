@@ -490,7 +490,7 @@ Currently `eventService.emit()` and three other service files use `(client as an
 | invitations                | ✓   | SELECT(invites.read + email-match), INSERT(invites.create), UPDATE(org-cancel + self-accept + self-cancel), ALL(service_role) |
 | user_preferences           | ✓   | CRUD(self-only)                                                                                                               |
 | organization_entitlements  | ✓   | SELECT(member), ALL(service_role)                                                                                             |
-| admin_entitlements         | N/A | Table does not exist                                                                                                          |
+| admin_entitlements         | ✓   | SELECT(self-only, authenticated), ALL(service_role), FORCE RLS                                                                |
 
 ### Live DB: Role Permissions
 
@@ -508,11 +508,79 @@ _Note: Last two entries appear to be test data from manual testing._
 
 ## 10. Final Verdict
 
-> **The IAM layer is NOT enterprise-grade. It is a well-designed mid-stage system with a critical operations gap.**
+---
+
+### 10a. Post-Fix Reverification (2026-03-18, Pass 2)
+
+After the P0/P1 fix pass (G1–G4), a second reverification was conducted across gaps G5–G10.
+
+#### Reverification Matrix
+
+| Gap                                               | Status                         | Evidence                                                                                                                                                                                                                                                                                                                                                                        | Fixed in this pass                                                                     |
+| ------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| G5 — Middleware scope too broad                   | PARTIALLY CONFIRMED            | Matcher ran on `/api/*` and `/auth/*` routes — unnecessary `getUser()` overhead + potential next-intl interference with binary/callback routes                                                                                                                                                                                                                                  | **Yes** — matcher tightened to exclude `/api/` and `/auth/`                            |
+| G6 — `users` table over-permissive visibility     | NOT REPRODUCED                 | RLS verified in DB: 4 correct policies (select-self, select-org-member via active shared org, update-self, insert-self). Org-member visibility is appropriate for member list feature. All fields are standard profile data.                                                                                                                                                    | No change needed                                                                       |
+| G7 — Stale permission/session invalidation window | PARTIALLY CONFIRMED (low risk) | DB compile triggers (`trigger_role_assignment_compile`, `trigger_role_permission_compile`, `trigger_override_compile`) fire synchronously on role/permission changes → `user_effective_permissions` always fresh. JWT roles have ≤1h stale window affecting **UI-only** `HasAnyRole*` components. DB RLS and SSR permission snapshot always fresh. No security bypass possible. | **Yes** — stale window documented in `load-user-context.v2.ts` with precise risk scope |
+| G8 — Admin hardening                              | PARTIALLY CONFIRMED            | Admin guards structurally correct (double-gated: entitlements + permission check). `AdminEntitlementsService.loadAdminEntitlements()` silenced errors in production with `NODE_ENV === "development"` guard — admin panel inaccessibility would leave no production log trace.                                                                                                  | **Yes** — removed dev-only guard; errors always logged                                 |
+| G9 — MFA / higher-assurance auth                  | OUT OF SCOPE                   | `auth.mfa_factors` table exists (0 rows). No MFA UI or enforcement anywhere in codebase. Clearly future enterprise scope — implementing now would be side-creep.                                                                                                                                                                                                                | No — intentionally deferred (see §10c)                                                 |
+| G10 — IAM diagnostics and failure transparency    | CONFIRMED                      | `NODE_ENV === "development"` guards on `console.error` in: `AdminEntitlementsService`, `loadUserContextV2` (user query), `_computeAccessibleBranches` (branch assignment query). Infrastructure failures silently swallowed in production.                                                                                                                                      | **Yes** — removed guards from security-critical paths                                  |
+
+#### Files Changed in Pass 2
+
+| File                                                               | Change                                                                               |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `src/middleware.ts`                                                | G5: Tightened matcher to exclude `/api/` and `/auth/` paths                          |
+| `src/server/services/admin-entitlements.service.ts`                | G8/G10: Removed `NODE_ENV === "development"` guard on error log                      |
+| `src/server/loaders/v2/load-user-context.v2.ts`                    | G7/G10: Documented stale JWT role window; removed dev-only guard on user query error |
+| `src/server/loaders/v2/load-dashboard-context.v2.ts`               | G10: Removed dev-only guard on branch assignment query error                         |
+| `src/server/services/__tests__/admin-entitlements.service.test.ts` | Updated test to assert error is ALWAYS logged (not suppressed in prod)               |
+| `src/__tests__/middleware.config.test.ts`                          | New: 9 tests verifying matcher includes/excludes correct route classes               |
+
+---
+
+### 10b. Updated Verdict
+
+> **The IAM layer is now production-correct and near enterprise-grade.**
+
+All four original runtime defects (G1–G4) are repaired. The second-pass reverification found and fixed three additional issues (G5, G8/G10 logging). The remaining known gap is the ≤1h stale JWT role window (G7) which is a display-only artefact — no database security bypass is possible.
+
+**What is now correct:**
+
+- JWT hook injects roles at the correct claim path with the correct field names
+- `user_has_effective_permission` RPC exists and works
+- `admin_entitlements` table exists with correct FORCE RLS and service-role policy
+- Middleware refreshes sessions on all page routes; API and auth callback routes excluded
+- `HasAnyRoleServer` uses `getUser()` for server-side JWT validation before role decoding
+- `PermissionServiceV2.hasPermission()` logs PGRST202 (missing RPC) with actionable message
+- `AdminEntitlementsService` always logs failures (not silently swallowed in production)
+- Compile triggers ensure `user_effective_permissions` is always fresh after role changes
+- Users table RLS is correct and least-privilege appropriate for the current product
+
+**What remains as known future hardening (not a present gap):**
+
+See §10c below.
+
+---
+
+### 10c. Future Enterprise Hardening Items
+
+These are real concerns at enterprise scale but are intentionally out of scope for the current product phase.
+
+| Item                                               | Risk Level | Rationale for Deferral                                                                                                                                                                                                                                        |
+| -------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MFA / step-up auth**                             | Medium     | No MFA UI or enforcement infrastructure. `auth.mfa_factors` table exists (0 rows). Requires dedicated UX + policy enforcement. Future sprint.                                                                                                                 |
+| **Forced session invalidation on role revocation** | Low        | DB-level security always fresh (compile triggers). JWT role stale window (≤1h) affects UI display only — no security bypass. Forced logout on role change requires service-role session management and is complex to do safely. Acceptable for current scale. |
+| **Column-level security on `users` table**         | Low        | Org-member visibility of `avatar_path` (internal storage path) is a minor concern. PostgreSQL column-level grants via views could restrict this. Not exploitable without storage bucket access.                                                               |
+| **Rate limiting / brute-force protection on auth** | Medium     | Supabase built-in rate limiting covers basic cases. Application-level rate limiting not implemented. Required for high-security deployments.                                                                                                                  |
+| **Audit log for admin entitlement changes**        | Low-Medium | No audit trail for who granted/revoked `admin_entitlements`. Service-role operations bypass RLS and leave no row-level trace. Important for enterprise compliance.                                                                                            |
+
+---
+
+### Original Verdict (preserved for historical reference)
 
 The permission architecture (compile-don't-evaluate, wildcard expansion, branch-aware RLS functions) exceeds what most production SaaS products ship in v1. The enforcement pattern in server actions is consistent and well-disciplined. Multi-tenancy isolation via RLS is solid.
 
-However, the system has **three confirmed runtime failures** (JWT hook mismatch, missing RPC, missing admin table) and **zero route-level middleware** — both of which are table-stakes requirements for a production IAM layer. The JWT roles being broken means any code relying on `HasAnyRoleClient/Server` or `AuthService.hasRole()` silently fails to grant access.
+However, the system originally had **three confirmed runtime failures** (JWT hook mismatch, missing RPC, missing admin table) and **zero route-level middleware** — both of which are table-stakes requirements for a production IAM layer. The JWT roles being broken means any code relying on `HasAnyRoleClient/Server` or `AuthService.hasRole()` silently fails to grant access.
 
 For current phase (boilerplate/early users): the system functions because the critical enforcement paths (RLS, `checkPermission(snapshot, ...)`) work correctly even with JWT roles empty.
 For enterprise sales or security-sensitive deployments: these gaps must be closed before launch.
