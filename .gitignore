@@ -63,3 +63,4 @@ yarn-error.*
 .DS_Store
 *.pem
 *.orig.*
+.vercel
