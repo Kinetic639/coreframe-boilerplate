@@ -1,16 +1,7 @@
-import { FlatCompat } from '@eslint/eslintrc';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+import { nextJsConfig } from '@repo/eslint-config/next-js';
 
 export default [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  ...nextJsConfig,
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {
@@ -31,10 +22,7 @@ export default [
   },
   {
     ignores: [
-      'node_modules/**',
-      '.next/**',
       'dist/**',
-      'build/**',
       'coverage/**',
       'public/**',
       'backup/**',

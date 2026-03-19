@@ -26,6 +26,7 @@ test-results/
 .vercel/
 .git-rewrite/
 .idx/
+.husky/_/
 
 # Build outputs
 .next/
