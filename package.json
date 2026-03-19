@@ -5,10 +5,14 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
+    "lint-staged": "lint-staged",
+    "prepare": "if [ -z \"$CI\" ]; then husky install; fi",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "husky": "^8.0.3",
+    "lint-staged": "^15.5.2",
     "prettier": "^3.7.4",
     "turbo": "^2.8.17",
     "typescript": "5.9.2"
