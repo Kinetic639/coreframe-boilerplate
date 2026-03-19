@@ -1,0 +1,10 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "name": "Ambra Dev",
+  "features": {
+    "ghcr.io/devcontainers/features/pnpm:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "npm install -g supabase && pnpm install",
+  "forwardPorts": [3000, 54321, 54322]
+}
