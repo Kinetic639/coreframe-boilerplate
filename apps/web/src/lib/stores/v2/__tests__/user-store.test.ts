@@ -37,19 +37,25 @@ describe("useUserStoreV2", () => {
       const mockRoles: JWTRole[] = [
         {
           role_id: "role-1",
-          role: "admin",
+          name: "admin",
+          role: "admin", // deprecated alias
           org_id: "org-1",
           branch_id: null,
           scope: "org" as const,
           scope_id: "org-1",
+          scope_type: "org" as const,
+          is_basic: false,
         },
         {
           role_id: "role-2",
-          role: "warehouse_manager",
+          name: "warehouse_manager",
+          role: "warehouse_manager", // deprecated alias
           org_id: null,
           branch_id: "branch-1",
           scope: "branch" as const,
           scope_id: "branch-1",
+          scope_type: "branch" as const,
+          is_basic: false,
         },
       ];
 
@@ -88,11 +94,14 @@ describe("useUserStoreV2", () => {
         roles: [
           {
             role_id: "role-1",
-            role: "admin",
+            name: "admin",
+            role: "admin", // deprecated alias
             org_id: "org-1",
             branch_id: null,
             scope: "org" as const,
             scope_id: "org-1",
+            scope_type: "org" as const,
+            is_basic: false,
           },
         ],
         permissionSnapshot: {
@@ -116,11 +125,14 @@ describe("useUserStoreV2", () => {
         roles: [
           {
             role_id: "role-2",
-            role: "viewer",
+            name: "viewer",
+            role: "viewer", // deprecated alias
             org_id: "org-2",
             branch_id: null,
             scope: "org" as const,
             scope_id: "org-2",
+            scope_type: "org" as const,
+            is_basic: false,
           },
         ],
         permissionSnapshot: {
@@ -154,11 +166,14 @@ describe("useUserStoreV2", () => {
         roles: [
           {
             role_id: "role-1",
-            role: "admin",
+            name: "admin",
+            role: "admin", // deprecated alias
             org_id: "org-1",
             branch_id: null,
             scope: "org" as const,
             scope_id: "org-1",
+            scope_type: "org" as const,
+            is_basic: false,
           },
         ],
         permissionSnapshot: {
@@ -220,11 +235,14 @@ describe("useUserStoreV2", () => {
         roles: [
           {
             role_id: "role-1",
-            role: "admin",
+            name: "admin",
+            role: "admin", // deprecated alias
             org_id: "org-1",
             branch_id: null,
             scope: "org" as const,
             scope_id: "org-1",
+            scope_type: "org" as const,
+            is_basic: false,
           },
         ],
         permissionSnapshot: {
@@ -335,11 +353,14 @@ describe("useUserStoreV2", () => {
         roles: [
           {
             role_id: "role-1",
-            role: "admin",
+            name: "admin",
+            role: "admin", // deprecated alias
             org_id: "org-1",
             branch_id: null,
             scope: "org" as const,
             scope_id: "org-1",
+            scope_type: "org" as const,
+            is_basic: false,
           },
         ],
         permissionSnapshot: {
