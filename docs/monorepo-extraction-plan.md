@@ -23,14 +23,21 @@ Phase 0 completion notes:
 
 ### Phase 1 - Canonical Contracts
 
-- [ ] Create `@repo/contracts`
-- [ ] Extract canonical permission constants
-- [ ] Extract canonical module constants
-- [ ] Extract entitlement keys and limit identifiers
-- [ ] Extract portable auth-related schemas and DTOs
+- [x] Create `@repo/contracts`
+- [x] Extract canonical permission constants
+- [x] Extract canonical module constants
+- [x] Extract entitlement keys and limit identifiers
+- [x] Extract portable auth-related schemas and DTOs
 - [ ] Extract shared business-safe Zod schemas
-- [ ] Compare extracted constants against live `supabase-target`
-- [ ] Resolve or document all code-vs-database contract mismatches
+- [x] Compare extracted constants against live `supabase-target`
+- [x] Resolve or document all code-vs-database contract mismatches
+
+Phase 1 completion notes:
+
+- `@repo/contracts` created at `packages/contracts/` with source-export pattern (no build step). Participates in root `lint` and `check-types` turbo task graph.
+- `apps/web` re-export barrels in place: 6 source files now delegate to `@repo/contracts` with zero import churn across 48+ consumers.
+- "Extract shared business-safe Zod schemas" intentionally deferred: audit found no portable Zod schemas in `apps/web`. All existing Zod usage is web-form-specific or Next.js-coupled. This item remains open for Phase 2/3 when `@repo/auth` or `@repo/domain` provides a natural boundary.
+- 18 code-vs-target mismatches documented in `packages/contracts/MISMATCHES.md` (M-1 to M-18), covering: missing wildcard constants (M-6 to M-11), missing module-access constants (M-12 to M-15), legacy-only permissions absent from target (M-16 to M-18), and module grouping drift (M-1 to M-5).
 
 ### Phase 2 - Shared Auth and Supabase Contracts
 
