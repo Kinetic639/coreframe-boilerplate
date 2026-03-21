@@ -11,7 +11,7 @@ import { getLatestActivityAction } from "@/app/actions/audit/get-latest-activity
 import type { SidebarItem } from "@/lib/types/v2/sidebar";
 import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
-import Script from "next/script";
+import { DashboardColorThemeLoader } from "./_components/dashboard-color-theme-loader";
 
 // Fixed "All Tools" item always shown last in the tools collapsible group.
 // Points to /dashboard/tools/all (catalog page) not /dashboard/tools (unified page
@@ -149,20 +149,7 @@ export default async function DashboardV2Layout({ children }: { children: React.
 
   return (
     <>
-      <Script
-        id="color-theme-loader"
-        strategy="beforeInteractive"
-        dangerouslySetInnerHTML={{
-          __html: `
-            try {
-              const theme = localStorage.getItem('color-theme') || 'default';
-              if (theme !== 'default') {
-                document.documentElement.setAttribute('data-theme', theme);
-              }
-            } catch (e) {}
-          `,
-        }}
-      />
+      <DashboardColorThemeLoader />
       <DashboardV2Providers context={context}>
         <DashboardShell
           sidebarModel={sidebarModel}

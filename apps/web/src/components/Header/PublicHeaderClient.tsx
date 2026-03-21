@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavigationMenuList, NavigationMenu } from "@/components/ui/navigation-menu";
 import FeaturesMenu from "./FeaturesMenu";
 import SolutionsMenu from "./SolutionsMenu";
@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 export function PublicHeaderClient() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -31,27 +36,52 @@ export function PublicHeaderClient() {
 
       {/* Desktop Navigation */}
       <div className="hidden items-center gap-6 md:flex">
-        <NavigationMenu>
-          <NavigationMenuList>
-            <FeaturesMenu activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} />
-            <SolutionsMenu activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} />
-            <EducationalMenu
-              activeDropdown={activeDropdown}
-              setActiveDropdown={setActiveDropdown}
-            />
-            <li>
+        {mounted ? (
+          <NavigationMenu>
+            <NavigationMenuList>
+              <FeaturesMenu activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} />
+              <SolutionsMenu
+                activeDropdown={activeDropdown}
+                setActiveDropdown={setActiveDropdown}
+              />
+              <EducationalMenu
+                activeDropdown={activeDropdown}
+                setActiveDropdown={setActiveDropdown}
+              />
+              <li>
+                <Link
+                  href="/pricing"
+                  className={cn(
+                    "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
+                    "text-foreground"
+                  )}
+                >
+                  Cennik
+                </Link>
+              </li>
+            </NavigationMenuList>
+          </NavigationMenu>
+        ) : (
+          <nav className="flex items-center gap-1">
+            {[
+              { href: "/features", label: "Funkcje" },
+              { href: "/solutions", label: "Rozwiązania" },
+              { href: "/blog", label: "Materiały edukacyjne" },
+              { href: "/pricing", label: "Cennik" },
+            ].map((item) => (
               <Link
-                href="/pricing"
+                key={item.href}
+                href={item.href}
                 className={cn(
                   "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
                   "text-foreground"
                 )}
               >
-                Cennik
+                {item.label}
               </Link>
-            </li>
-          </NavigationMenuList>
-        </NavigationMenu>
+            ))}
+          </nav>
+        )}
       </div>
 
       {/* Mobile menu button - rendered on the right side */}
