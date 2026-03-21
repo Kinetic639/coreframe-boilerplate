@@ -1,3 +1,4 @@
 #!/usr/bin/env sh
 
+export PATH="$HOME/.global_modules/bin:$HOME/.local/share/pnpm:$PATH"
 pnpm exec lint-staged
