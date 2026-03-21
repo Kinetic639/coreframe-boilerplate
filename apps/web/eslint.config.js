@@ -1,7 +1,9 @@
 import { nextJsConfig } from '@repo/eslint-config/next-js';
+import { testConfig } from '@repo/eslint-config/test';
 
 export default [
   ...nextJsConfig,
+  ...testConfig,
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {

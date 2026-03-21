@@ -4,14 +4,22 @@
 
 ### Phase 0 - Foundation
 
-- [ ] Audit and freeze current monorepo baseline before extraction
-- [ ] Consolidate Prettier into a shared workspace config
-- [ ] Consolidate ESLint presets for Next.js, Expo, shared packages, and tests
-- [ ] Consolidate TypeScript base configs for Next.js, Expo, Node, and package libraries
-- [ ] Consolidate lint-staged and Husky conventions at the root
-- [ ] Standardize root scripts for lint, typecheck, build, and test orchestration
-- [ ] Verify `apps/web` still works in local dev and production-style build
-- [ ] Verify `apps/mobile` still works in Expo after config extraction
+- [x] Audit and freeze current monorepo baseline before extraction
+- [x] Consolidate Prettier into a shared workspace config
+- [x] Consolidate ESLint presets for Next.js, Expo, shared packages, and tests
+- [x] Consolidate TypeScript base configs for Next.js, Expo, Node, and package libraries
+- [x] Consolidate lint-staged and Husky conventions at the root
+- [x] Standardize root scripts for lint, typecheck, build, and test orchestration
+- [x] Verify `apps/web` still works in local dev and production-style build
+- [x] Verify `apps/mobile` still works in Expo after config extraction
+
+Phase 0 completion notes:
+
+- Root Prettier now provides the monorepo default, while `apps/web/.prettierrc` intentionally remains app-local to preserve current web formatting behavior and plugin compatibility.
+- Shared ESLint coverage now includes Next.js, Expo, shared packages, and test files. `apps/mobile` now consumes the shared Expo preset directly.
+- Shared TypeScript coverage now includes Next.js, Expo, React-library, and Node variants. `apps/mobile` now consumes the shared Expo preset directly.
+- Root test orchestration currently targets `apps/web`, which is the only workspace with a real test suite in Phase 0.
+- `apps/web` production-style build was verified up to `next build`, but external Google Fonts fetching can fail in restricted-network environments. This is an environmental build dependency, not a Phase 0 tooling regression.
 
 ### Phase 1 - Canonical Contracts
 

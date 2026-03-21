@@ -2,6 +2,10 @@
   "name": "@repo/typescript-config",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+    "lint": "node -e \"const fs=require('fs');['base.json','nextjs.json','react-library.json','node.json','expo.json'].forEach((f)=>JSON.parse(fs.readFileSync(f,'utf8')));\"",
+    "check-types": "pnpm run lint"
+  },
   "license": "MIT",
   "publishConfig": {
     "access": "public"
