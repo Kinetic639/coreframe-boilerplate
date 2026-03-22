@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/auth-context";
  *
  * Bootstrap states handled here:
  *   "bootstrapping"   → show spinner (session restoration in progress)
- *   "unauthenticated" → redirect to /(auth)/sign-in
+ *   "unauthenticated" → redirect to /(auth)/welcome
  *   authenticated     → mount AppProvider, render child routes (tabs shell)
  *
  * AppProvider derives org/role context from the JWT access token.
@@ -28,7 +28,7 @@ export default function AppLayout() {
   }
 
   if (!session) {
-    return <Redirect href="/(auth)/sign-in" />;
+    return <Redirect href="/(auth)/welcome" />;
   }
 
   return (

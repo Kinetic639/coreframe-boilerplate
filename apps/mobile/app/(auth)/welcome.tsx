@@ -1,22 +1,19 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
 import { WelcomeOverlay } from "@/components/welcome-overlay";
 
-export const WELCOME_SEEN_KEY = "welcome_seen";
-
 /**
- * Welcome screen — shown once on first unauthenticated launch.
+ * Welcome screen — branded signed-out landing screen.
  *
- * Marks the welcome as seen in AsyncStorage, then navigates to sign-in.
- * Routing here is controlled by (auth)/_layout.tsx which only directs
- * users to this screen when welcome_seen is not set.
+ * Shown every time an unauthenticated user enters the app (launch or sign-out).
+ * Acts as the entry point to the sign-in flow via the CTA.
+ *
+ * router.replace is used so that back-from-sign-in does not return here.
  */
 export default function WelcomeScreen() {
   const router = useRouter();
 
-  const handleDismiss = async () => {
-    await AsyncStorage.setItem(WELCOME_SEEN_KEY, "true");
+  const handleDismiss = () => {
     router.replace("/(auth)/sign-in");
   };
 
