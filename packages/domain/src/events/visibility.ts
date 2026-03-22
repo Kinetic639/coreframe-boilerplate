@@ -31,8 +31,8 @@
  * the name "ProjectionScope" belongs to the web service layer, not domain.
  */
 
-import type { EventScope, EventVisibilityClass } from "./types.js";
-import { VISIBILITY_CLASS_PERMISSIONS } from "./types.js";
+import type { EventScope, EventVisibilityClass } from "./types";
+import { VISIBILITY_CLASS_PERMISSIONS } from "./types";
 
 // ---------------------------------------------------------------------------
 // Minimal structural interfaces

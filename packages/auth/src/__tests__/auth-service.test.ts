@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { AuthService } from "../auth-service.js";
+import { AuthService } from "../auth-service";
 import {
   makeTargetJwt,
   makeLegacyJwt,
@@ -40,27 +40,29 @@ describe("T-AUTH-TARGET: target-shape decode (app_metadata.roles)", () => {
       makeTargetRawRole("org_owner", "org", ORG_ID, { is_basic: true }),
     ]);
     const roles = AuthService.getUserRoles(token);
+    const role = roles[0]!;
 
     expect(roles).toHaveLength(1);
-    expect(roles[0].name).toBe("org_owner");
-    expect(roles[0].scope).toBe("org");
-    expect(roles[0].scope_id).toBe(ORG_ID);
-    expect(roles[0].org_id).toBe(ORG_ID);
-    expect(roles[0].branch_id).toBeNull();
-    expect(roles[0].is_basic).toBe(true);
+    expect(role.name).toBe("org_owner");
+    expect(role.scope).toBe("org");
+    expect(role.scope_id).toBe(ORG_ID);
+    expect(role.org_id).toBe(ORG_ID);
+    expect(role.branch_id).toBeNull();
+    expect(role.is_basic).toBe(true);
     // deprecated alias must equal name
-    expect(roles[0].role).toBe("org_owner");
+    expect(role.role).toBe("org_owner");
   });
 
   it("decodes a branch-scoped role from target shape", () => {
     const token = makeTargetJwt([makeTargetRawRole("branch_manager", "branch", BRANCH_ID)]);
     const roles = AuthService.getUserRoles(token);
+    const role = roles[0]!;
 
     expect(roles).toHaveLength(1);
-    expect(roles[0].name).toBe("branch_manager");
-    expect(roles[0].scope).toBe("branch");
-    expect(roles[0].branch_id).toBe(BRANCH_ID);
-    expect(roles[0].org_id).toBeNull();
+    expect(role.name).toBe("branch_manager");
+    expect(role.scope).toBe("branch");
+    expect(role.branch_id).toBe(BRANCH_ID);
+    expect(role.org_id).toBeNull();
   });
 
   it("decodes multiple roles from target shape", () => {
@@ -81,7 +83,7 @@ describe("T-AUTH-TARGET: target-shape decode (app_metadata.roles)", () => {
       makeTargetJwt([makeTargetRawRole("org_owner", "org", ORG_ID)])
     );
     expect(roles).toHaveLength(1);
-    expect(roles[0].name).toBe("org_owner");
+    expect(roles[0]!.name).toBe("org_owner");
   });
 });
 
@@ -93,16 +95,17 @@ describe("T-AUTH-LEGACY: legacy-shape decode (claims.roles)", () => {
   it("decodes a single org-scoped role from legacy shape", () => {
     const token = makeLegacyJwt([makeLegacyRawRole("org_owner", { org_id: ORG_ID })]);
     const roles = AuthService.getUserRoles(token);
+    const role = roles[0]!;
 
     expect(roles).toHaveLength(1);
-    expect(roles[0].name).toBe("org_owner");
-    expect(roles[0].scope).toBe("org");
-    expect(roles[0].org_id).toBe(ORG_ID);
-    expect(roles[0].branch_id).toBeNull();
+    expect(role.name).toBe("org_owner");
+    expect(role.scope).toBe("org");
+    expect(role.org_id).toBe(ORG_ID);
+    expect(role.branch_id).toBeNull();
     // is_basic defaults to false in legacy path
-    expect(roles[0].is_basic).toBe(false);
+    expect(role.is_basic).toBe(false);
     // deprecated alias equals name
-    expect(roles[0].role).toBe("org_owner");
+    expect(role.role).toBe("org_owner");
   });
 
   it("decodes a branch-scoped role from legacy shape", () => {
@@ -110,17 +113,18 @@ describe("T-AUTH-LEGACY: legacy-shape decode (claims.roles)", () => {
       makeLegacyRawRole("branch_manager", { branch_id: BRANCH_ID, scope: "branch" }),
     ]);
     const roles = AuthService.getUserRoles(token);
+    const role = roles[0]!;
 
     expect(roles).toHaveLength(1);
-    expect(roles[0].name).toBe("branch_manager");
-    expect(roles[0].scope).toBe("branch");
-    expect(roles[0].branch_id).toBe(BRANCH_ID);
+    expect(role.name).toBe("branch_manager");
+    expect(role.scope).toBe("branch");
+    expect(role.branch_id).toBe(BRANCH_ID);
   });
 
   it("normalizes name from legacy role field", () => {
     const token = makeLegacyJwt([makeLegacyRawRole("org_admin")]);
     const roles = AuthService.getUserRoles(token);
-    expect(roles[0].name).toBe("org_admin");
+    expect(roles[0]!.name).toBe("org_admin");
   });
 });
 

@@ -145,16 +145,16 @@ describe("T-ORG-GROUP: groupMembersByBranch()", () => {
     const members = [makeMemberWithNoRoles(), makeMemberWithNoRoles()];
     const groups = groupMembersByBranch(members, new Map());
     expect(groups).toHaveLength(1);
-    expect(groups[0].branchId).toBeNull();
-    expect(groups[0].members).toHaveLength(2);
+    expect(groups[0]!.branchId).toBeNull();
+    expect(groups[0]!.members).toHaveLength(2);
   });
 
   it("places org-only members in unassigned group", () => {
     const members = [makeOrgMember(ORG_ID)];
     const groups = groupMembersByBranch(members, new Map());
     expect(groups).toHaveLength(1);
-    expect(groups[0].branchId).toBeNull();
-    expect(groups[0].members).toHaveLength(1);
+    expect(groups[0]!.branchId).toBeNull();
+    expect(groups[0]!.members).toHaveLength(1);
   });
 
   it("places branch members in correct branch group", () => {
@@ -162,9 +162,9 @@ describe("T-ORG-GROUP: groupMembersByBranch()", () => {
     const nameMap = new Map([[BRANCH_A, "Alpha Branch"]]);
     const groups = groupMembersByBranch(members, nameMap);
     expect(groups).toHaveLength(1);
-    expect(groups[0].branchId).toBe(BRANCH_A);
-    expect(groups[0].branchName).toBe("Alpha Branch");
-    expect(groups[0].members).toHaveLength(1);
+    expect(groups[0]!.branchId).toBe(BRANCH_A);
+    expect(groups[0]!.branchName).toBe("Alpha Branch");
+    expect(groups[0]!.members).toHaveLength(1);
   });
 
   it("places member in multiple groups when they have roles in multiple branches", () => {
@@ -205,9 +205,9 @@ describe("T-ORG-GROUP: groupMembersByBranch()", () => {
     ]);
     const groups = groupMembersByBranch([memberA, memberB, unassigned], nameMap);
     expect(groups).toHaveLength(3);
-    expect(groups[0].branchName).toBe("Alpha");
-    expect(groups[1].branchName).toBe("Zeta");
-    expect(groups[2].branchId).toBeNull(); // unassigned last
+    expect(groups[0]!.branchName).toBe("Alpha");
+    expect(groups[1]!.branchName).toBe("Zeta");
+    expect(groups[2]!.branchId).toBeNull(); // unassigned last
   });
 
   it("does not include unassigned group when all members have branch roles", () => {
@@ -228,6 +228,6 @@ describe("T-ORG-GROUP: groupMembersByBranch()", () => {
   it("branchName falls back to null when branchId not in name map", () => {
     const member = makeBranchMember(BRANCH_A);
     const groups = groupMembersByBranch([member], new Map()); // no entry for BRANCH_A
-    expect(groups[0].branchName).toBeNull();
+    expect(groups[0]!.branchName).toBeNull();
   });
 });

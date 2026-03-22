@@ -102,8 +102,11 @@ Phase 3 completion notes:
 - [x] Define mobile app architecture: `(auth)` + `(app)` Expo Router groups; `AuthContext` (session) + `AppContext` (JWT-derived org/role state); four explicit bootstrap states
 - [x] Add Expo-compatible auth/session adapter: `expo-secure-store` adapter (`lib/supabase/storage-adapter.ts`); `mobileSupabase` singleton with `detectSessionInUrl: false` and encrypted session persistence (`lib/supabase/client.ts`). Uses `EXPO_PUBLIC_*` env vars, `@supabase/supabase-js` directly — no deprecated helpers.
 - [x] Auth bootstrap: `AuthProvider` in root layout restores session from secure storage on startup; `onAuthStateChange` keeps session in sync across token refresh, sign-in, and sign-out.
-- [x] Auth route gating: `(auth)/_layout.tsx` redirects already-signed-in users to `/(app)`; `(app)/_layout.tsx` redirects unauthenticated users to `/(auth)/sign-in`; loading spinner shown during session restoration.
+- [x] Auth route gating (loop-safe four-state flow): `(auth)/_layout.tsx` is the single routing decision point — bootstrapping/checking → spinner; session exists → `/(app)`; first launch (no `welcome_seen` flag) → `/(auth)/welcome`; returning unauthenticated → `<Slot />` (sign-in). `(app)/_layout.tsx` redirects unauthenticated users to `/(auth)/sign-in`.
 - [x] Sign-in screen: `(auth)/sign-in.tsx` — email + password form, `signInWithPassword`, error display, Polish UI matching brand theme.
+- [x] Welcome screen: `(auth)/welcome.tsx` — restores original `WelcomeOverlay` component into the auth flow. Shown once on first unauthenticated launch. Dismissal writes `welcome_seen: "true"` via AsyncStorage, then navigates to sign-in. `welcome_seen` is never reset on sign-out (returning users go directly to sign-in).
+- [x] Welcome persistence: `@react-native-async-storage/async-storage@2.2.0` (Expo SDK 54 bundled version) — non-sensitive flag only; `expo-secure-store` reserved for auth session tokens.
+- [x] Shared package source-export compatibility: `packages/typescript-config/base.json` changed from `module: NodeNext` + `moduleResolution: NodeNext` to `module: ESNext` + `moduleResolution: Bundler`. All internal `.js` relative imports/exports removed from 6 package source files (barrel files in auth/contracts/domain/supabase/testing; `visibility.ts` in domain). `metro.config.js` custom `resolveRequest` workaround removed — no longer needed. `watchFolders` + `nodeModulesPaths` retained for pnpm monorepo layout.
 - [x] Reuse shared packages in `apps/mobile`:
   - `@repo/auth` — `AuthService.getUserRoles()` decodes JWT roles (target + legacy shape) into `TokenRole[]`
   - `@repo/contracts` — `TokenRole`, `PermissionSnapshot`, `OrganizationEntitlements` types
@@ -112,10 +115,9 @@ Phase 3 completion notes:
 - [x] Org context derivation: org-scoped roles only (`scope === "org"`); branch-only users produce `"authenticated-unresolved"` state and `activeOrgId: null`; first org is provisional default; Phase 6 adds org switcher + backend fetch
 - [x] Phase 5 is auth-ready and role-aware. `permissions` and `entitlements` are null stubs typed in `AppState` — no permission/entitlement enforcement in this phase.
 - [x] Web-only patterns excluded: no Next.js, no `@supabase/ssr`, no server-only imports in mobile foundation
-- [x] Metro monorepo config (`metro.config.js`): `watchFolders`, `nodeModulesPaths`, and custom `resolveRequest` that remaps `.js` → `.ts` for workspace packages using the NodeNext source-export pattern. Required for all `@repo/*` shared packages to bundle correctly.
 - [x] Storage adapter platform guard: `Platform.OS === "web"` falls back to `globalThis.localStorage` for Expo web/SSR; native path uses `expo-secure-store` (iOS Keychain / Android Keystore).
-- [x] `check-types` and `lint` pass clean. Web static export (`expo export --platform web`) succeeds with 1187 modules bundled. Route structure confirmed: `(auth)/sign-in` and `(app)/(tabs)/index` present in export output.
-- Phase 5 runtime validation status: bundle-verified in CI-equivalent environment. Interactive auth flow (sign-in success, session persistence across reload, sign-out return to auth screen) requires device or simulator — not verifiable in this headless environment.
+- [x] All shared packages check-types clean (contracts/auth/domain/supabase/testing). `apps/mobile` check-types and lint clean. Web static export succeeds: `(auth)/welcome`, `(auth)/sign-in`, and `(app)/(tabs)/index` all confirmed in export output.
+- Phase 5 runtime validation status: build-verified (bundle compiles, route structure correct, all type checks pass). Interactive auth flow (sign-in success, session persistence across reload, sign-out return) requires device or simulator — not verifiable in this headless environment.
 - Deferred to Phase 6: `PermissionSnapshot` from backend, `OrganizationEntitlements`, org display name, org switcher, branch context, mobile test suite, product feature screens (inventory/workshop/VMI)
 
 ### Phase 6 - Hardening and Enterprise Readiness

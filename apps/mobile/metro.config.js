@@ -17,27 +17,9 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
-// 3. Fix .js → .ts resolution for workspace packages that use the NodeNext
-//    source-export pattern (TypeScript barrel files that import with .js
-//    extensions, e.g. `export * from "./auth-service.js"`).
-//
-//    Metro resolves imports literally, so it looks for `auth-service.js` and
-//    fails because the actual file is `auth-service.ts`. This resolver strips
-//    the .js extension and retries with .ts before falling through.
-const defaultResolveRequest = config.resolver.resolveRequest;
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName.endsWith(".js")) {
-    const tsName = moduleName.slice(0, -3) + ".ts";
-    try {
-      return context.resolveRequest(context, tsName, platform);
-    } catch {
-      // Not a .ts source file — fall through to normal resolution below.
-    }
-  }
-  if (defaultResolveRequest) {
-    return defaultResolveRequest(context, moduleName, platform);
-  }
-  return context.resolveRequest(context, moduleName, platform);
-};
+// Note: no custom resolveRequest needed. Shared packages previously used
+// NodeNext-style .js extensions in relative source imports; after changing
+// packages/typescript-config/base.json to Bundler resolution, all internal
+// imports are extensionless and Metro resolves them natively.
 
 module.exports = config;

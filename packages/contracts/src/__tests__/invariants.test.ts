@@ -39,7 +39,9 @@ describe("ALL_PERMISSION_SLUGS", () => {
 
   it("each slug either has a dot separator or is a wildcard segment", () => {
     // Every slug must either contain a dot (namespaced) or end with .*
-    const nonNamespaced = ALL_PERMISSION_SLUGS.filter((s) => !s.includes(".") && s !== "*");
+    const nonNamespaced = ALL_PERMISSION_SLUGS.filter(
+      (s) => !s.includes(".") && (s as string) !== "*"
+    );
     expect(nonNamespaced, `Slugs without namespace: ${nonNamespaced.join(", ")}`).toHaveLength(0);
   });
 
