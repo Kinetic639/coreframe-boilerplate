@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Redirect, Slot } from "expo-router";
+import { Redirect, Slot, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 
@@ -25,8 +25,10 @@ import { WELCOME_SEEN_KEY } from "./welcome";
  */
 export default function AuthLayout() {
   const { session, bootstrapping } = useAuth();
+  const segments = useSegments();
   const [welcomeSeen, setWelcomeSeen] = useState(false);
   const [checkingWelcome, setCheckingWelcome] = useState(true);
+  const authLeaf = segments[segments.length - 1];
 
   useEffect(() => {
     AsyncStorage.getItem(WELCOME_SEEN_KEY)
@@ -43,11 +45,15 @@ export default function AuthLayout() {
   }
 
   if (session) {
-    return <Redirect href="/(app)" />;
+    return <Redirect href="/(app)/(tabs)" />;
   }
 
-  if (!welcomeSeen) {
+  if (!welcomeSeen && authLeaf !== "welcome") {
     return <Redirect href="/(auth)/welcome" />;
+  }
+
+  if (welcomeSeen && authLeaf !== "sign-in") {
+    return <Redirect href="/(auth)/sign-in" />;
   }
 
   return <Slot />;
