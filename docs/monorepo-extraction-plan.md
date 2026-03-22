@@ -99,12 +99,21 @@ Phase 3 completion notes:
 
 ### Phase 5 - Mobile Enablement
 
-- [ ] Define mobile app architecture based on extracted shared packages
-- [ ] Add Expo-compatible auth/session adapter for Supabase
-- [ ] Reuse shared contracts, auth, and domain packages in `apps/mobile`
-- [ ] Extract only truly cross-platform presentation logic where justified
-- [ ] Keep web-only UI patterns out of mobile packages
-- [ ] Validate mobile auth, org selection, permissions, and entitlements against shared backend
+- [x] Define mobile app architecture: `(auth)` + `(app)` Expo Router groups; `AuthContext` (session) + `AppContext` (JWT-derived org/role state); four explicit bootstrap states
+- [x] Add Expo-compatible auth/session adapter: `expo-secure-store` adapter (`lib/supabase/storage-adapter.ts`); `mobileSupabase` singleton with `detectSessionInUrl: false` and encrypted session persistence (`lib/supabase/client.ts`). Uses `EXPO_PUBLIC_*` env vars, `@supabase/supabase-js` directly — no deprecated helpers.
+- [x] Auth bootstrap: `AuthProvider` in root layout restores session from secure storage on startup; `onAuthStateChange` keeps session in sync across token refresh, sign-in, and sign-out.
+- [x] Auth route gating: `(auth)/_layout.tsx` redirects already-signed-in users to `/(app)`; `(app)/_layout.tsx` redirects unauthenticated users to `/(auth)/sign-in`; loading spinner shown during session restoration.
+- [x] Sign-in screen: `(auth)/sign-in.tsx` — email + password form, `signInWithPassword`, error display, Polish UI matching brand theme.
+- [x] Reuse shared packages in `apps/mobile`:
+  - `@repo/auth` — `AuthService.getUserRoles()` decodes JWT roles (target + legacy shape) into `TokenRole[]`
+  - `@repo/contracts` — `TokenRole`, `PermissionSnapshot`, `OrganizationEntitlements` types
+  - `@repo/supabase` — `SupabaseClientConfig` interface for mobile client config
+  - `@repo/domain` — `checkPermission` available for Phase 6 (imported but not used as active guard in Phase 5)
+- [x] Org context derivation: org-scoped roles only (`scope === "org"`); branch-only users produce `"authenticated-unresolved"` state and `activeOrgId: null`; first org is provisional default; Phase 6 adds org switcher + backend fetch
+- [x] Phase 5 is auth-ready and role-aware. `permissions` and `entitlements` are null stubs typed in `AppState` — no permission/entitlement enforcement in this phase.
+- [x] Web-only patterns excluded: no Next.js, no `@supabase/ssr`, no server-only imports in mobile foundation
+- [x] `check-types` and `lint` pass clean
+- Deferred to Phase 6: `PermissionSnapshot` from backend, `OrganizationEntitlements`, org display name, org switcher, branch context, mobile test suite, product feature screens (inventory/workshop/VMI)
 
 ### Phase 6 - Hardening and Enterprise Readiness
 

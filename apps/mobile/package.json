@@ -13,6 +13,11 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/auth": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/domain": "workspace:*",
+    "@repo/supabase": "workspace:*",
+    "@supabase/supabase-js": "latest",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
@@ -24,6 +29,7 @@
     "expo-image": "~3.0.11",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
+    "expo-secure-store": "~15.0.8",
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",

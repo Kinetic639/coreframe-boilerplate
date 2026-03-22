@@ -1,37 +1,41 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
 import "react-native-reanimated";
 
-import { WelcomeOverlay } from "@/components/welcome-overlay";
+import { AuthProvider } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
+/**
+ * Root layout — mounts AuthProvider around the entire navigation tree.
+ *
+ * Route groups:
+ *   (auth)  — unauthenticated screens (sign-in)
+ *   (app)   — authenticated shell (tabs + future screens)
+ *
+ * Auth routing is handled by each group's own _layout.tsx using useAuth().
+ * This root layout is intentionally thin: theme + session provider only.
+ */
 export const unstable_settings = {
-  anchor: "(tabs)",
+  anchor: "(app)",
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [showWelcome, setShowWelcome] = useState(true);
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="modal"
-          options={{ presentation: "modal", title: "Modal" }}
-        />
-      </Stack>
-      <StatusBar style="auto" />
-      {showWelcome && (
-        <WelcomeOverlay onDismiss={() => setShowWelcome(false)} />
-      )}
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen
+            name="modal"
+            options={{ presentation: "modal", headerShown: true, title: "Modal" }}
+          />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
