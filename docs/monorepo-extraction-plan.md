@@ -53,14 +53,14 @@ Phase 1 completion notes:
 Phase 2 completion notes:
 
 - `@repo/supabase` at `packages/supabase/`: exports `Database` generated type (7,470 lines), `SupabaseClientConfig`, and `SupabaseServiceConfig` interfaces. Source-export pattern, no build step. Participates in turbo `lint`/`check-types` task graph.
-- `@repo/auth` at `packages/auth/`: exports `AuthService` (4 pure static methods: `getUserRoles`, `hasRole`, `getUserOrganizations`, `getUserBranches`), plus re-exports `JWTRole` and `RoleValidationOptions` from `@repo/contracts`. Zero platform coupling — depends only on `jwt-decode`.
+- `@repo/auth` at `packages/auth/`: exports `AuthService` (4 pure static methods: `getUserRoles`, `hasRole`, `getUserOrganizations`, `getUserBranches`), `TokenRole` (canonical shared auth role type), `RoleValidationOptions`, and `JWTRole` (deprecated alias for `TokenRole`, kept for transitional backward compatibility only). Zero platform coupling — depends only on `jwt-decode`.
 - All four platform-specific Supabase client factories remain app-local in `apps/web/src/utils/supabase/` (browser, server, service-role, proxy/middleware). None extracted.
 - Compatibility barrels in place: `apps/web/supabase/types/types.ts` re-exports from `@repo/supabase/database`; `apps/web/src/server/services/auth.service.ts` re-exports from `@repo/auth`. Zero import churn across consumers.
 - `supabase:gen:types:runtime` script updated to write to `packages/supabase/src/database.types.ts` (single source of truth going forward).
 - Boundary verification: zero `next/`, `react`, or cookie/session runtime imports in either shared package.
 - Pre-existing csstype version conflict errors in `apps/web` check-types are unchanged — no new errors introduced.
 - JWT tests: 7/7 pass after extraction.
-- JWT shape discrepancy documented but not fixed: target hook injects `claims.app_metadata.roles[].name`; current `AuthService` / `JWTRole` reads `claims.roles[].role`. Matches legacy hook shape. Deferred to Phase 3 or dedicated auth-hardening pass.
+- `@repo/auth` is now target-first canonical. The primary decode path reads `claims.app_metadata.roles[]` with field `name` (target hook shape). A transitional legacy fallback path reads `claims.roles[]` with field `role` (legacy hook shape) and remains in place for migration safety during token rotation. Both paths normalize to `TokenRole`. The `role` field on `TokenRole` is a deprecated compatibility alias for `name`, present only to avoid breaking existing web consumers that still read it. The fallback path, the deprecated `role` alias, and the `JWTRole` type alias are all intended for removal once legacy consumers are gone — this is compatibility scaffolding, not contract definition.
 - "Design Expo/mobile Supabase adapter boundary" deferred: `apps/mobile` has no Supabase usage yet. Boundary design is a Phase 5 concern once mobile auth is scoped.
 
 ### Phase 3 - Shared Domain Layer
