@@ -91,12 +91,13 @@ Phase 3 completion notes:
 
 ### Phase 4 - Shared Testing Platform
 
-- [ ] Create `@repo/testing`
-- [ ] Move pure-domain test helpers and factories into shared package
-- [ ] Move reusable permission/entitlement assertion helpers into shared package
-- [ ] Keep app integration tests in each app
-- [ ] Add contract tests around shared packages
-- [ ] Add package-level CI verification for shared contracts
+- [x] Create `@repo/testing` — 5 factory modules: permissions, entitlements, auth, events, organization
+- [x] Move pure-domain test helpers and factories into shared package
+- [x] Move reusable permission/entitlement assertion helpers into shared package
+- [x] Keep app integration tests in each app (78 web test files, 15 pre-existing failures, unchanged)
+- [x] Add contract tests around shared packages: `@repo/contracts` (7 slug invariant tests), `@repo/auth` (21 JWT decoder tests), `@repo/domain` (77 tests across permissions/entitlements/visibility/organization)
+- [x] Add package-level CI verification: `test:run` script + vitest.config.ts in contracts/auth/domain; `turbo.json` `test:run` task; root `package.json` `test` → `turbo run test:run`
+- Cycle-free: `@repo/testing` depends only on `@repo/contracts` (no domain dep); domain types inlined structurally in testing factories
 
 ### Phase 5 - Mobile Enablement
 

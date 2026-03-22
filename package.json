@@ -9,7 +9,7 @@
     "prepare": "if [ -z \"$CI\" ]; then husky install; fi",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "test": "pnpm --filter web run test:run"
+    "test": "turbo run test:run"
   },
   "devDependencies": {
     "husky": "^8.0.3",

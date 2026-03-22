@@ -1,0 +1,27 @@
+{
+  "name": "@repo/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./factories/permissions": "./src/factories/permissions.ts",
+    "./factories/entitlements": "./src/factories/entitlements.ts",
+    "./factories/auth": "./src/factories/auth.ts",
+    "./factories/events": "./src/factories/events.ts",
+    "./factories/organization": "./src/factories/organization.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}
