@@ -108,11 +108,14 @@ Phase 3 completion notes:
   - `@repo/auth` — `AuthService.getUserRoles()` decodes JWT roles (target + legacy shape) into `TokenRole[]`
   - `@repo/contracts` — `TokenRole`, `PermissionSnapshot`, `OrganizationEntitlements` types
   - `@repo/supabase` — `SupabaseClientConfig` interface for mobile client config
-  - `@repo/domain` — `checkPermission` available for Phase 6 (imported but not used as active guard in Phase 5)
+  - `@repo/domain` — listed as a workspace dependency; no live imports in Phase 5 (domain functions such as `checkPermission` require a `PermissionSnapshot` which remains a null stub until Phase 6 adds backend loading)
 - [x] Org context derivation: org-scoped roles only (`scope === "org"`); branch-only users produce `"authenticated-unresolved"` state and `activeOrgId: null`; first org is provisional default; Phase 6 adds org switcher + backend fetch
 - [x] Phase 5 is auth-ready and role-aware. `permissions` and `entitlements` are null stubs typed in `AppState` — no permission/entitlement enforcement in this phase.
 - [x] Web-only patterns excluded: no Next.js, no `@supabase/ssr`, no server-only imports in mobile foundation
-- [x] `check-types` and `lint` pass clean
+- [x] Metro monorepo config (`metro.config.js`): `watchFolders`, `nodeModulesPaths`, and custom `resolveRequest` that remaps `.js` → `.ts` for workspace packages using the NodeNext source-export pattern. Required for all `@repo/*` shared packages to bundle correctly.
+- [x] Storage adapter platform guard: `Platform.OS === "web"` falls back to `globalThis.localStorage` for Expo web/SSR; native path uses `expo-secure-store` (iOS Keychain / Android Keystore).
+- [x] `check-types` and `lint` pass clean. Web static export (`expo export --platform web`) succeeds with 1187 modules bundled. Route structure confirmed: `(auth)/sign-in` and `(app)/(tabs)/index` present in export output.
+- Phase 5 runtime validation status: bundle-verified in CI-equivalent environment. Interactive auth flow (sign-in success, session persistence across reload, sign-out return to auth screen) requires device or simulator — not verifiable in this headless environment.
 - Deferred to Phase 6: `PermissionSnapshot` from backend, `OrganizationEntitlements`, org display name, org switcher, branch context, mobile test suite, product feature screens (inventory/workshop/VMI)
 
 ### Phase 6 - Hardening and Enterprise Readiness
