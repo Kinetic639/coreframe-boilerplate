@@ -13,69 +13,30 @@
 import type { ZodTypeAny } from "zod";
 
 // ---------------------------------------------------------------------------
-// Primitive union types
+// Primitive union types and visibility model
+// These types moved to @repo/domain. Re-exported here for zero consumer churn.
 // ---------------------------------------------------------------------------
 
-export type ActorType = "user" | "system" | "api" | "worker" | "scheduler" | "automation";
+import type {
+  ActorType,
+  EventTier,
+  EventCategory,
+  EventIntent,
+  EventScope,
+  EventVisibilityClass,
+} from "@repo/domain/events";
 
-export type EventTier = "baseline" | "enhanced" | "forensic";
-
-/**
- * Domain classification — WHAT domain the event belongs to.
- * Finite, non-overlapping. Every event must have exactly one.
- */
-export type EventCategory =
-  | "AUTH"
-  | "USER"
-  | "MEMBERSHIP"
-  | "ORGANIZATION"
-  | "INVITATION"
-  | "SYSTEM"
-  | "DATA"
-  | "STATE"
-  | "SECURITY"
-  | "AUTOMATION";
-
-/**
- * Action classification — WHAT ACTION happened.
- * Finite, orthogonal to category. Every event must have exactly one.
- */
-export type EventIntent =
-  | "CREATE"
-  | "UPDATE"
-  | "DELETE"
-  | "ASSIGN"
-  | "REMOVE"
-  | "ACCEPT"
-  | "DECLINE"
-  | "SUCCESS"
-  | "FAIL"
-  | "REQUEST";
+export type {
+  ActorType,
+  EventTier,
+  EventCategory,
+  EventIntent,
+  EventScope,
+  EventVisibilityClass,
+} from "@repo/domain/events";
+export { VISIBILITY_CLASS_PERMISSIONS } from "@repo/domain/events";
 
 export type ProjectionScope = "personal" | "org" | "audit";
-
-// ---------------------------------------------------------------------------
-// New permission-based visibility model
-// ---------------------------------------------------------------------------
-
-/** Scope at which the event is contextually meaningful. */
-export type EventScope = "platform" | "organization" | "branch";
-
-/**
- * Which permission class gates access to this event type.
- * Maps directly to a permission slug via VISIBILITY_CLASS_PERMISSIONS.
- */
-export type EventVisibilityClass = "org_activity" | "org_sensitive" | "audit";
-
-/**
- * Central mapping from visibility class → required permission slug.
- * Single source of truth — never duplicate these strings elsewhere.
- */
-export const VISIBILITY_CLASS_PERMISSIONS: Record<EventVisibilityClass, string> = {
-  org_activity: "events.org_activity.read",
-  org_sensitive: "events.org_sensitive.read",
-  audit: "audit.events.read",
-};
 
 // ---------------------------------------------------------------------------
 // Legacy visibility scope values (kept for backward-compat with existing tests)

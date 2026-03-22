@@ -65,14 +65,27 @@ Phase 2 completion notes:
 
 ### Phase 3 - Shared Domain Layer
 
-- [ ] Create `@repo/domain`
-- [ ] Extract pure permission evaluation rules
-- [ ] Extract entitlement domain logic
+- [x] Create `@repo/domain`
+- [x] Extract pure permission evaluation rules
+- [x] Extract entitlement domain logic
 - [ ] Extract organization and branch domain models
 - [ ] Extract invitation domain contracts
-- [ ] Extract platform event/audit domain contracts
-- [ ] Keep infrastructure and DB access adapters app-local until stable
-- [ ] Verify extracted domain code is framework-agnostic
+- [x] Extract platform event/audit domain contracts (partial — enums, visibility evaluator)
+- [x] Keep infrastructure and DB access adapters app-local until stable
+- [x] Verify extracted domain code is framework-agnostic
+
+Phase 3 completion notes:
+
+- `@repo/domain` created at `packages/domain/`. Source-export pattern, no build step. Depends only on `@repo/contracts`. No Supabase, no React, no Next.js, no `"server-only"` sentinel.
+- **Permissions** (`src/permissions.ts`): `checkPermission`, `matchesAnyPattern`, `clearPermissionRegexCache` extracted verbatim from `apps/web/src/lib/utils/permissions.ts`. Deny-first evaluation, regex cache, wildcard matching — all preserved. 35 tests pass through the re-export barrel.
+- **Entitlements** (`src/entitlements.ts`): 4 pure decision functions extracted from `EntitlementsService` inner logic — `hasModuleAccess`, `hasFeatureAccess`, `getEffectiveLimit`, `checkLimitStatus`. `EntitlementsService` in `apps/web` now delegates to these via imported aliases.
+- **Event types** (`src/events/types.ts`): 7 items extracted — `ActorType`, `EventTier`, `EventCategory`, `EventIntent`, `EventScope`, `EventVisibilityClass`, `VISIBILITY_CLASS_PERMISSIONS`. All others kept app-local.
+- **Visibility evaluator** (`src/events/visibility.ts`): `canViewerSeeEvent` extracted as a pure function. Minimal structural interfaces `EventVisibilityRow`, `EventVisibilityDefinition`, `VisibilityInput` defined — callers pass their existing objects without casts (TypeScript structural subtyping). No `"server-only"` in domain; the web-side `visibility.ts` barrel retains the guard.
+- Compatibility barrels in place: `apps/web/src/lib/utils/permissions.ts`, `apps/web/src/server/audit/visibility.ts`, and `apps/web/src/server/audit/types.ts` are thin re-export stubs. Zero import churn across consumers.
+- **Deliberately not extracted**: `PlatformEventRow`, `EmitEventInput`, `EventRegistryEntry` (imports `ZodTypeAny`, DB-coupled), `ProjectedEvent` (contains web route strings in `href` fields), `ProjectionScope` (named after web projection service layer — kept app-local; domain uses inline literal union instead), `ProjectionContext`, `ActivityEntityRef/Refs`, `EventSummaryPerspective`. Organization/branch models, invitation contracts deferred — service-layer coupled, not yet cleanly extractable.
+- Boundary verified: zero `supabase`, `next`, `react`, or `"server-only"` imports in `packages/domain/src/`.
+- `apps/web` check-types: no new errors introduced (pre-existing csstype version conflict errors are unchanged baseline).
+- All 1911 `apps/web` audit/visibility tests pass. 35 permission tests pass via barrel.
 
 ### Phase 4 - Shared Testing Platform
 

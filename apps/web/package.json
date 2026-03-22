@@ -33,6 +33,7 @@
   "dependencies": {
     "@repo/auth": "workspace:*",
     "@repo/contracts": "workspace:*",
+    "@repo/domain": "workspace:*",
     "@repo/supabase": "workspace:*",
     "@anthropic-ai/claude-code": "^2.1.25",
     "@dnd-kit/core": "^6.3.1",

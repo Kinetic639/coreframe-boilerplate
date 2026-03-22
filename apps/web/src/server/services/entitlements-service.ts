@@ -9,6 +9,12 @@ import {
   type DerivedStrategy,
   type MeteredStrategy,
 } from "@/lib/types/entitlements";
+import {
+  hasModuleAccess as domainHasModuleAccess,
+  hasFeatureAccess as domainHasFeatureAccess,
+  getEffectiveLimit as domainGetEffectiveLimit,
+  checkLimitStatus as domainCheckLimitStatus,
+} from "@repo/domain/entitlements";
 
 /**
  * Request-scoped cache for loadEntitlements.
@@ -113,7 +119,7 @@ export class EntitlementsService {
       return false;
     }
 
-    return ents.enabled_modules.includes(moduleSlug);
+    return domainHasModuleAccess(ents, moduleSlug);
   }
 
   /**
@@ -165,7 +171,7 @@ export class EntitlementsService {
       return false;
     }
 
-    return ents.features[featureKey] === true;
+    return domainHasFeatureAccess(ents, featureKey);
   }
 
   /**
@@ -216,11 +222,7 @@ export class EntitlementsService {
       return 0;
     }
 
-    const limit = ents.limits[limitKey];
-    if (typeof limit !== "number") {
-      return 0;
-    }
-    return limit;
+    return domainGetEffectiveLimit(ents, limitKey);
   }
 
   /**
@@ -274,17 +276,12 @@ export class EntitlementsService {
 
       // -1 means unlimited
       if (limit === -1) {
-        return { limit: -1, current: 0, canProceed: true };
+        return domainCheckLimitStatus(-1, 0);
       }
 
       const current = await this.getCurrentUsage(orgId, limitKey);
 
-      return {
-        limit,
-        current,
-        canProceed: current < limit,
-        percentageUsed: limit > 0 ? Math.round((current / limit) * 100) : 0,
-      };
+      return domainCheckLimitStatus(limit, current);
     } catch (error) {
       // UI path: log error and return null (UI can show "unknown")
       console.error(`[Entitlements] Failed to check limit ${limitKey}:`, error);
