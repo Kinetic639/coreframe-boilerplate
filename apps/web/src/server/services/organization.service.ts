@@ -14,6 +14,7 @@
 import "server-only";
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { groupMembersByBranch } from "@repo/domain/organization";
 
 // ─── Shared Types ────────────────────────────────────────────────────────────
 
@@ -402,40 +403,7 @@ export class OrgMembersService {
       (branches ?? []).map((b) => [b.id, (b.name as string | null) ?? null])
     );
 
-    const branchGroups = new Map<string, OrgMember[]>();
-    const unassigned: OrgMember[] = [];
-
-    for (const member of members) {
-      const branchRoles = member.roles.filter((r) => r.scope === "branch");
-      if (branchRoles.length === 0) {
-        unassigned.push(member);
-        continue;
-      }
-      const seenBranches = new Set<string>();
-      for (const role of branchRoles) {
-        if (seenBranches.has(role.scope_id)) continue;
-        seenBranches.add(role.scope_id);
-        const existing = branchGroups.get(role.scope_id) ?? [];
-        existing.push(member);
-        branchGroups.set(role.scope_id, existing);
-      }
-    }
-
-    const result: BranchMemberGroup[] = [];
-    for (const [branchId, branchMembers] of branchGroups) {
-      result.push({
-        branchId,
-        branchName: branchNameMap.get(branchId) ?? null,
-        members: branchMembers,
-      });
-    }
-    result.sort((a, b) => (a.branchName ?? "").localeCompare(b.branchName ?? ""));
-
-    if (unassigned.length > 0) {
-      result.push({ branchId: null, branchName: null, members: unassigned });
-    }
-
-    return { success: true, data: result };
+    return { success: true, data: groupMembersByBranch(members, branchNameMap) };
   }
 }
 

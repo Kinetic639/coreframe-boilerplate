@@ -68,8 +68,8 @@ Phase 2 completion notes:
 - [x] Create `@repo/domain`
 - [x] Extract pure permission evaluation rules
 - [x] Extract entitlement domain logic
-- [ ] Extract organization and branch domain models
-- [ ] Extract invitation domain contracts
+- [x] Extract organization and branch domain models (partial — pure validation and grouping logic)
+- [x] Extract invitation domain contracts (audited — no extractable pure logic identified; see slice 2 notes)
 - [x] Extract platform event/audit domain contracts (partial — enums, visibility evaluator)
 - [x] Keep infrastructure and DB access adapters app-local until stable
 - [x] Verify extracted domain code is framework-agnostic
@@ -82,7 +82,9 @@ Phase 3 completion notes:
 - **Event types** (`src/events/types.ts`): 7 items extracted — `ActorType`, `EventTier`, `EventCategory`, `EventIntent`, `EventScope`, `EventVisibilityClass`, `VISIBILITY_CLASS_PERMISSIONS`. All others kept app-local.
 - **Visibility evaluator** (`src/events/visibility.ts`): `canViewerSeeEvent` extracted as a pure function. Minimal structural interfaces `EventVisibilityRow`, `EventVisibilityDefinition`, `VisibilityInput` defined — callers pass their existing objects without casts (TypeScript structural subtyping). No `"server-only"` in domain; the web-side `visibility.ts` barrel retains the guard.
 - Compatibility barrels in place: `apps/web/src/lib/utils/permissions.ts`, `apps/web/src/server/audit/visibility.ts`, and `apps/web/src/server/audit/types.ts` are thin re-export stubs. Zero import churn across consumers.
-- **Deliberately not extracted**: `PlatformEventRow`, `EmitEventInput`, `EventRegistryEntry` (imports `ZodTypeAny`, DB-coupled), `ProjectedEvent` (contains web route strings in `href` fields), `ProjectionScope` (named after web projection service layer — kept app-local; domain uses inline literal union instead), `ProjectionContext`, `ActivityEntityRef/Refs`, `EventSummaryPerspective`. Organization/branch models, invitation contracts deferred — service-layer coupled, not yet cleanly extractable.
+- **Deliberately not extracted** (slice 1): `PlatformEventRow`, `EmitEventInput`, `EventRegistryEntry` (imports `ZodTypeAny`, DB-coupled), `ProjectedEvent` (contains web route strings in `href` fields), `ProjectionScope` (named after web projection service layer — kept app-local; domain uses inline literal union instead), `ProjectionContext`, `ActivityEntityRef/Refs`, `EventSummaryPerspective`.
+- **Phase 3 slice 2** (`src/organization.ts`): `ORG_ONLY_PERMISSIONS` set, `isOrgOnlyPermission`, `validateBranchRolePermissions`, `groupMembersByBranch` (with `MemberWithBranchRoles` and `BranchMemberGroup<T>` structural interfaces). `apps/web` delegates: `roles.ts` action uses `validateBranchRolePermissions` instead of local inline checks; `organization.service.ts` delegates `getMembersGroupedByBranch` grouping step to the domain function.
+- **Invitation contracts (audited, nothing extracted)**: All invitation logic is DB-coupled (RPC calls for eligibility, token generation mixed with DB inserts, acceptance/cancellation workflows). No pure invitation logic exists beyond trivial one-liners. `normalizeDbError` kept app-local (Postgres-specific, context-specific message text). `ServiceResult<T>` kept app-local (extraction would require touching 20+ import sites — out of scope for this slice).
 - Boundary verified: zero `supabase`, `next`, `react`, or `"server-only"` imports in `packages/domain/src/`.
 - `apps/web` check-types: no new errors introduced (pre-existing csstype version conflict errors are unchanged baseline).
 - All 1911 `apps/web` audit/visibility tests pass. 35 permission tests pass via barrel.
