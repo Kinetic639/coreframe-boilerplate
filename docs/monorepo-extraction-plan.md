@@ -36,7 +36,7 @@ Phase 1 completion notes:
 
 - `@repo/contracts` created at `packages/contracts/` with source-export pattern (no build step). Participates in root `lint` and `check-types` turbo task graph.
 - `apps/web` re-export barrels in place: 6 source files now delegate to `@repo/contracts` with zero import churn across 48+ consumers.
-- "Extract shared business-safe Zod schemas" intentionally deferred: audit found no portable Zod schemas in `apps/web`. All existing Zod usage is web-form-specific or Next.js-coupled. This item remains open for Phase 2/3 when `@repo/auth` or `@repo/domain` provides a natural boundary.
+- "Extract shared business-safe Zod schemas" remains open and deferred indefinitely. Audit at Phase 1 found no portable Zod schemas in `apps/web`; all Zod usage was web-form-specific or Next.js-coupled. No portable business-safe Zod schema boundary emerged through Phases 2–6: `@repo/auth` and `@repo/domain` were completed intentionally Zod-free, and all `apps/web` Zod usage through Phase 6 remains coupled to UI form infrastructure (`zodResolver` + `react-hook-form`) or Next.js-specific contexts. This item will remain open until a concrete portable use case appears that is not web-form-specific.
 - 18 code-vs-target mismatches documented in `packages/contracts/MISMATCHES.md` (M-1 to M-18), covering: missing wildcard constants (M-6 to M-11), missing module-access constants (M-12 to M-15), legacy-only permissions absent from target (M-16 to M-18), and module grouping drift (M-1 to M-5).
 
 ### Phase 2 - Shared Auth and Supabase Contracts
@@ -47,7 +47,7 @@ Phase 1 completion notes:
 - [x] Move JWT claim and role-parsing logic into shared auth package
 - [x] Create platform-neutral client factory interfaces
 - [x] Keep web SSR Supabase adapter in `apps/web`
-- [ ] Design Expo/mobile Supabase adapter boundary without implementing app logic yet
+- [x] Design Expo/mobile Supabase adapter boundary without implementing app logic yet
 - [x] Verify no shared package imports platform-specific runtime APIs
 
 Phase 2 completion notes:
@@ -61,7 +61,7 @@ Phase 2 completion notes:
 - Pre-existing csstype version conflict errors in `apps/web` check-types are unchanged — no new errors introduced.
 - JWT tests: 7/7 pass after extraction.
 - `@repo/auth` is now target-first canonical. The primary decode path reads `claims.app_metadata.roles[]` with field `name` (target hook shape). A transitional legacy fallback path reads `claims.roles[]` with field `role` (legacy hook shape) and remains in place for migration safety during token rotation. Both paths normalize to `TokenRole`. The `role` field on `TokenRole` is a deprecated compatibility alias for `name`, present only to avoid breaking existing web consumers that still read it. The fallback path, the deprecated `role` alias, and the `JWTRole` type alias are all intended for removal once legacy consumers are gone — this is compatibility scaffolding, not contract definition.
-- "Design Expo/mobile Supabase adapter boundary" deferred: `apps/mobile` has no Supabase usage yet. Boundary design is a Phase 5 concern once mobile auth is scoped.
+- "Design Expo/mobile Supabase adapter boundary" completed later in Phase 5 as part of the Expo-compatible auth/session adapter implementation. This Phase 2 design-only checkpoint is now satisfied. Resulting boundary: `@repo/supabase` owns `SupabaseClientConfig` as the shared platform-neutral interface contract; `apps/mobile/lib/supabase/` owns client creation (`mobileSupabase` singleton via `createClient`) and the `expoSecureStoreAdapter` (Expo-specific, platform-guarded) as app-local runtime code that must never be moved into a shared package.
 
 ### Phase 3 - Shared Domain Layer
 
