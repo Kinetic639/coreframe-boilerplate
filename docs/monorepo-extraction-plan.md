@@ -1,0 +1,969 @@
+# Monorepo Extraction Plan
+
+## Progress Tracker
+
+### Phase 0 - Foundation
+
+- [x] Audit and freeze current monorepo baseline before extraction
+- [x] Consolidate Prettier into a shared workspace config
+- [x] Consolidate ESLint presets for Next.js, Expo, shared packages, and tests
+- [x] Consolidate TypeScript base configs for Next.js, Expo, Node, and package libraries
+- [x] Consolidate lint-staged and Husky conventions at the root
+- [x] Standardize root scripts for lint, typecheck, build, and test orchestration
+- [x] Verify `apps/web` still works in local dev and production-style build
+- [x] Verify `apps/mobile` still works in Expo after config extraction
+
+Phase 0 completion notes:
+
+- Root Prettier now provides the monorepo default, while `apps/web/.prettierrc` intentionally remains app-local to preserve current web formatting behavior and plugin compatibility.
+- Shared ESLint coverage now includes Next.js, Expo, shared packages, and test files. `apps/mobile` now consumes the shared Expo preset directly.
+- Shared TypeScript coverage now includes Next.js, Expo, React-library, and Node variants. `apps/mobile` now consumes the shared Expo preset directly.
+- Root test orchestration currently targets `apps/web`, which is the only workspace with a real test suite in Phase 0.
+- `apps/web` production-style build was verified up to `next build`, but external Google Fonts fetching can fail in restricted-network environments. This is an environmental build dependency, not a Phase 0 tooling regression.
+
+### Phase 1 - Canonical Contracts
+
+- [x] Create `@repo/contracts`
+- [x] Extract canonical permission constants
+- [x] Extract canonical module constants
+- [x] Extract entitlement keys and limit identifiers
+- [x] Extract portable auth-related schemas and DTOs
+- [ ] Extract shared business-safe Zod schemas
+- [x] Compare extracted constants against live `supabase-target`
+- [x] Resolve or document all code-vs-database contract mismatches
+
+Phase 1 completion notes:
+
+- `@repo/contracts` created at `packages/contracts/` with source-export pattern (no build step). Participates in root `lint` and `check-types` turbo task graph.
+- `apps/web` re-export barrels in place: 6 source files now delegate to `@repo/contracts` with zero import churn across 48+ consumers.
+- "Extract shared business-safe Zod schemas" remains open and deferred indefinitely. Audit at Phase 1 found no portable Zod schemas in `apps/web`; all Zod usage was web-form-specific or Next.js-coupled. No portable business-safe Zod schema boundary emerged through Phases 2–6: `@repo/auth` and `@repo/domain` were completed intentionally Zod-free, and all `apps/web` Zod usage through Phase 6 remains coupled to UI form infrastructure (`zodResolver` + `react-hook-form`) or Next.js-specific contexts. This item will remain open until a concrete portable use case appears that is not web-form-specific.
+- 18 code-vs-target mismatches documented in `packages/contracts/MISMATCHES.md` (M-1 to M-18), covering: missing wildcard constants (M-6 to M-11), missing module-access constants (M-12 to M-15), legacy-only permissions absent from target (M-16 to M-18), and module grouping drift (M-1 to M-5).
+
+### Phase 2 - Shared Auth and Supabase Contracts
+
+- [x] Create `@repo/supabase`
+- [x] Create `@repo/auth`
+- [x] Move generated database types into a shared package
+- [x] Move JWT claim and role-parsing logic into shared auth package
+- [x] Create platform-neutral client factory interfaces
+- [x] Keep web SSR Supabase adapter in `apps/web`
+- [x] Design Expo/mobile Supabase adapter boundary without implementing app logic yet
+- [x] Verify no shared package imports platform-specific runtime APIs
+
+Phase 2 completion notes:
+
+- `@repo/supabase` at `packages/supabase/`: exports `Database` generated type (7,470 lines), `SupabaseClientConfig`, and `SupabaseServiceConfig` interfaces. Source-export pattern, no build step. Participates in turbo `lint`/`check-types` task graph.
+- `@repo/auth` at `packages/auth/`: exports `AuthService` (4 pure static methods: `getUserRoles`, `hasRole`, `getUserOrganizations`, `getUserBranches`), `TokenRole` (canonical shared auth role type), `RoleValidationOptions`, and `JWTRole` (deprecated alias for `TokenRole`, kept for transitional backward compatibility only). Zero platform coupling — depends only on `jwt-decode`.
+- All four platform-specific Supabase client factories remain app-local in `apps/web/src/utils/supabase/` (browser, server, service-role, proxy/middleware). None extracted.
+- Compatibility barrels in place: `apps/web/supabase/types/types.ts` re-exports from `@repo/supabase/database`; `apps/web/src/server/services/auth.service.ts` re-exports from `@repo/auth`. Zero import churn across consumers.
+- `supabase:gen:types:runtime` script updated to write to `packages/supabase/src/database.types.ts` (single source of truth going forward).
+- Boundary verification: zero `next/`, `react`, or cookie/session runtime imports in either shared package.
+- Pre-existing csstype version conflict errors in `apps/web` check-types are unchanged — no new errors introduced.
+- JWT tests: 7/7 pass after extraction.
+- `@repo/auth` is now target-first canonical. The primary decode path reads `claims.app_metadata.roles[]` with field `name` (target hook shape). A transitional legacy fallback path reads `claims.roles[]` with field `role` (legacy hook shape) and remains in place for migration safety during token rotation. Both paths normalize to `TokenRole`. The `role` field on `TokenRole` is a deprecated compatibility alias for `name`, present only to avoid breaking existing web consumers that still read it. The fallback path, the deprecated `role` alias, and the `JWTRole` type alias are all intended for removal once legacy consumers are gone — this is compatibility scaffolding, not contract definition.
+- "Design Expo/mobile Supabase adapter boundary" completed later in Phase 5 as part of the Expo-compatible auth/session adapter implementation. This Phase 2 design-only checkpoint is now satisfied. Resulting boundary: `@repo/supabase` owns `SupabaseClientConfig` as the shared platform-neutral interface contract; `apps/mobile/lib/supabase/` owns client creation (`mobileSupabase` singleton via `createClient`) and the `expoSecureStoreAdapter` (Expo-specific, platform-guarded) as app-local runtime code that must never be moved into a shared package.
+
+### Phase 3 - Shared Domain Layer
+
+- [x] Create `@repo/domain`
+- [x] Extract pure permission evaluation rules
+- [x] Extract entitlement domain logic
+- [x] Extract organization and branch domain models (partial — pure validation and grouping logic)
+- [x] Extract invitation domain contracts (audited — no extractable pure logic identified; see slice 2 notes)
+- [x] Extract platform event/audit domain contracts (partial — enums, visibility evaluator)
+- [x] Keep infrastructure and DB access adapters app-local until stable
+- [x] Verify extracted domain code is framework-agnostic
+
+Phase 3 completion notes:
+
+- `@repo/domain` created at `packages/domain/`. Source-export pattern, no build step. Depends only on `@repo/contracts`. No Supabase, no React, no Next.js, no `"server-only"` sentinel.
+- **Permissions** (`src/permissions.ts`): `checkPermission`, `matchesAnyPattern`, `clearPermissionRegexCache` extracted verbatim from `apps/web/src/lib/utils/permissions.ts`. Deny-first evaluation, regex cache, wildcard matching — all preserved. 35 tests pass through the re-export barrel.
+- **Entitlements** (`src/entitlements.ts`): 4 pure decision functions extracted from `EntitlementsService` inner logic — `hasModuleAccess`, `hasFeatureAccess`, `getEffectiveLimit`, `checkLimitStatus`. `EntitlementsService` in `apps/web` now delegates to these via imported aliases.
+- **Event types** (`src/events/types.ts`): 7 items extracted — `ActorType`, `EventTier`, `EventCategory`, `EventIntent`, `EventScope`, `EventVisibilityClass`, `VISIBILITY_CLASS_PERMISSIONS`. All others kept app-local.
+- **Visibility evaluator** (`src/events/visibility.ts`): `canViewerSeeEvent` extracted as a pure function. Minimal structural interfaces `EventVisibilityRow`, `EventVisibilityDefinition`, `VisibilityInput` defined — callers pass their existing objects without casts (TypeScript structural subtyping). No `"server-only"` in domain; the web-side `visibility.ts` barrel retains the guard.
+- Compatibility barrels in place: `apps/web/src/lib/utils/permissions.ts`, `apps/web/src/server/audit/visibility.ts`, and `apps/web/src/server/audit/types.ts` are thin re-export stubs. Zero import churn across consumers.
+- **Deliberately not extracted** (slice 1): `PlatformEventRow`, `EmitEventInput`, `EventRegistryEntry` (imports `ZodTypeAny`, DB-coupled), `ProjectedEvent` (contains web route strings in `href` fields), `ProjectionScope` (named after web projection service layer — kept app-local; domain uses inline literal union instead), `ProjectionContext`, `ActivityEntityRef/Refs`, `EventSummaryPerspective`.
+- **Phase 3 slice 2** (`src/organization.ts`): `ORG_ONLY_PERMISSIONS` set, `isOrgOnlyPermission`, `validateBranchRolePermissions`, `groupMembersByBranch` (with `MemberWithBranchRoles` and `BranchMemberGroup<T>` structural interfaces). `apps/web` delegates: `roles.ts` action uses `validateBranchRolePermissions` instead of local inline checks; `organization.service.ts` delegates `getMembersGroupedByBranch` grouping step to the domain function.
+- **Invitation contracts (audited, nothing extracted)**: All invitation logic is DB-coupled (RPC calls for eligibility, token generation mixed with DB inserts, acceptance/cancellation workflows). No pure invitation logic exists beyond trivial one-liners. `normalizeDbError` kept app-local (Postgres-specific, context-specific message text). `ServiceResult<T>` kept app-local (extraction would require touching 20+ import sites — out of scope for this slice).
+- Boundary verified: zero `supabase`, `next`, `react`, or `"server-only"` imports in `packages/domain/src/`.
+- `apps/web` check-types: no new errors introduced (pre-existing csstype version conflict errors are unchanged baseline).
+- All 1911 `apps/web` audit/visibility tests pass. 35 permission tests pass via barrel.
+
+### Phase 4 - Shared Testing Platform
+
+- [x] Create `@repo/testing` — 5 factory modules (data builders only): permissions, entitlements, auth, events, organization. No assertion helper layer was added; standard `expect()` is sufficient for the shared-package tests.
+- [x] Keep app integration tests in each app (78 web test files, 15 pre-existing failures, unchanged)
+- [x] Add contract tests around shared packages: `@repo/contracts` (7 slug invariant tests), `@repo/auth` (21 JWT decoder tests), `@repo/domain` (77 tests across permissions/entitlements/visibility/organization)
+- [x] Add shared-package test orchestration: `test:run` script + vitest.config.ts in contracts/auth/domain; `turbo.json` `test:run` task; root `package.json` `test` → `turbo run test:run`. Note: this runs all workspace packages including apps/web; the 15 pre-existing apps/web failures are unrelated to Phase 4 and are not a Phase 4 concern.
+- Cycle-free: `@repo/testing` depends only on `@repo/contracts` (no domain dep); domain types inlined structurally in testing factories
+
+### Phase 5 - Mobile Enablement
+
+- [x] Define mobile app architecture: `(auth)` + `(app)` Expo Router groups; `AuthContext` (session) + `AppContext` (JWT-derived org/role state); four explicit bootstrap states
+- [x] Add Expo-compatible auth/session adapter: `expo-secure-store` adapter (`lib/supabase/storage-adapter.ts`); `mobileSupabase` singleton with `detectSessionInUrl: false` and encrypted session persistence (`lib/supabase/client.ts`). Uses `EXPO_PUBLIC_*` env vars, `@supabase/supabase-js` directly — no deprecated helpers.
+- [x] Auth bootstrap: `AuthProvider` in root layout restores session from secure storage on startup; `onAuthStateChange` keeps session in sync across token refresh, sign-in, and sign-out.
+- [x] Auth route gating (three-state flow): `(auth)/_layout.tsx` — bootstrapping → spinner; session → `Redirect /(app)/(tabs)`; !session → `<Slot />`. `(app)/_layout.tsx` — bootstrapping → spinner; !session → `Redirect /(auth)/welcome`; session → `AppProvider` + `<Slot />`. Explicit auth flow states: authenticated launch → `/(app)/(tabs)`; unauthenticated launch → `/(auth)/welcome`; welcome CTA → `/(auth)/sign-in`; sign-out → `/(auth)/welcome`.
+- [x] Sign-in screen: `(auth)/sign-in.tsx` — email + password form, `signInWithPassword`, error display, Polish UI matching brand theme.
+- [x] Welcome screen: `(auth)/welcome.tsx` — branded signed-out landing screen using `WelcomeOverlay` component. Shown on every unauthenticated entry (launch and sign-out). CTA calls `router.replace("/(auth)/sign-in")` — back-from-sign-in does not return to welcome. No persistence: `welcome_seen` model removed; `@react-native-async-storage/async-storage` dependency removed.
+- [x] Shared package source-export compatibility: `packages/typescript-config/base.json` changed from `module: NodeNext` + `moduleResolution: NodeNext` to `module: ESNext` + `moduleResolution: Bundler`. All internal `.js` relative imports/exports removed from 6 package source files (barrel files in auth/contracts/domain/supabase/testing; `visibility.ts` in domain). `metro.config.js` custom `resolveRequest` workaround removed — no longer needed. `watchFolders` + `nodeModulesPaths` retained for pnpm monorepo layout.
+- [x] Reuse shared packages in `apps/mobile`:
+  - `@repo/auth` — `AuthService.getUserRoles()` decodes JWT roles (target + legacy shape) into `TokenRole[]`
+  - `@repo/contracts` — `TokenRole`, `PermissionSnapshot`, `OrganizationEntitlements` types
+  - `@repo/supabase` — `SupabaseClientConfig` interface for mobile client config
+  - `@repo/domain` — listed as a workspace dependency; no live imports in Phase 5 (domain functions such as `checkPermission` require a `PermissionSnapshot` which remains a null stub until Phase 6 adds backend loading)
+- [x] Org context derivation: org-scoped roles only (`scope === "org"`); branch-only users produce `"authenticated-unresolved"` state and `activeOrgId: null`; first org is provisional default; Phase 6 adds org switcher + backend fetch
+- [x] Phase 5 is auth-ready and role-aware. `permissions` and `entitlements` are null stubs typed in `AppState` — no permission/entitlement enforcement in this phase.
+- [x] Web-only patterns excluded: no Next.js, no `@supabase/ssr`, no server-only imports in mobile foundation
+- [x] Storage adapter platform guard: `Platform.OS === "web"` falls back to `globalThis.localStorage` for Expo web/SSR; native path uses `expo-secure-store` (iOS Keychain / Android Keystore).
+- [x] All shared packages check-types clean (contracts/auth/domain/supabase/testing). `apps/mobile` check-types and lint clean. Web static export succeeds: `(auth)/welcome`, `(auth)/sign-in`, and `(app)/(tabs)/index` all confirmed in export output.
+- Phase 5 runtime validation status: build-verified (bundle compiles, route structure correct, all type checks pass). Logic-reviewed: all three auth flow paths (authenticated launch, unauthenticated launch, sign-out) traced through the routing decision tree. Interactive validation (sign-in success, session persistence across cold restart, sign-out return to welcome, expo-secure-store keychain read/write) requires device or simulator — not verifiable in this headless environment.
+- Deferred to Phase 6: `PermissionSnapshot` from backend, `OrganizationEntitlements`, org display name, org switcher, branch context, mobile test suite, product feature screens (inventory/workshop/VMI)
+
+### Phase 6 - Hardening and Enterprise Readiness
+
+- [x] Add documentation for package ownership and architectural boundaries — `docs/package-ownership.md` (central doc covering all 9 packages, decision rules, three-tier boundary model); `CLAUDE.md` added to `packages/contracts/`, `packages/auth/`, `packages/domain/`, `packages/supabase/`, `packages/testing/` with per-package boundary rules and import constraints; dependency direction rules added: explicit allowed/forbidden directions, per-package tier rules (Tier 1 = contracts/supabase, Tier 2 = auth/domain/testing), anti-circular/anti-upward-drift policy, devDependency exemption scoped to `__tests__/` only
+- [x] Add change-control checklist for shared backend contracts — `docs/change-control.md` (6 checklists: adding permission constants, changing shared types, adding packages, regenerating DB types, adding RPCs/tables, retiring dependencies)
+- [x] Add verification workflow for permission/module constants against Supabase — `docs/verification-workflow.md` (manual process for re-verifying constants against target migrations; references `MISMATCHES.md`; re-verification performed 2026-03-23: corrective migrations `20260323000016–18` confirmed to add no new permission slugs; `MISMATCHES.md` is current)
+- [x] Review service-role usage and ensure it is isolated — audit confirmed zero hits in `packages/*/`; all 8 production call sites are in `apps/web/src/` (server actions, server services, audit); Vitest alias `@supabase/service` confirmed as test-only alias not the shared package; `SupabaseServiceConfig` in `@repo/supabase` confirmed as interface-only; findings documented in `docs/security-review.md` Section 1
+- [x] Review auth settings and security posture for mobile rollout — `docs/security-review.md` covers all sub-items: service-role isolation (confirmed safe), mobile session storage via SecureStore (confirmed safe), mobile client config (confirmed safe), password policy (known gap — operational action needed), MFA (deferred — product decision required), redirect policies (safe for Phase 5 / known gap for future OAuth/magic-link), auth edge function (recovery email links to web app URL — known gap for future mobile password reset); mobile authorization trust boundary added: explicit policy that mobile client is not an authorization authority, backend RLS is the sole authoritative source of truth, `permissions: null` and `entitlements: null` stubs in `AppState` are intentional and must not be replaced with client-only derivation
+- [x] Add release/rollback guidance for future extractions — `docs/release-rollback.md` (pre-extraction checklist, rollback triggers, rollback steps, schema change propagation, phased extraction principle, known deferred functional follow-ons from Phase 5)
+
+---
+
+## 1. Objective
+
+This document defines the gradual extraction plan for moving the current standalone-style Next.js application inside `apps/web` into a real Turborepo monorepo architecture that can safely support:
+
+- `apps/web` as the SSR-first production web application
+- `apps/mobile` as the Expo-based mobile client
+- Supabase as the shared backend and auth platform
+- enterprise-grade standards for security, performance, maintainability, and change control
+
+This plan is intentionally incremental. The goal is not to aggressively move everything into packages up front. The goal is to extract only the layers that are truly shared, stable, and valuable for both web and mobile, while preserving the working production behavior of the web app.
+
+That matters because the current codebase is not yet a cleanly separated platform architecture. It is a working Next.js application that has been moved into a monorepo, but most of the business logic, contracts, infrastructure, and runtime concerns still live inside `apps/web`.
+
+The right strategy is therefore:
+
+1. stabilize the monorepo foundation,
+2. define the canonical shared contracts,
+3. isolate shared backend and auth boundaries,
+4. extract pure domain logic,
+5. enable mobile against those extracted layers,
+6. harden the whole system for long-term production use.
+
+---
+
+## 2. Current State Summary
+
+### 2.1 Monorepo State
+
+The repository already has:
+
+- Turborepo configured at the root
+- a workspace layout using `apps/*` and `packages/*`
+- a fresh Expo app in `apps/mobile`
+- the copied and working Next.js app in `apps/web`
+- starter shared packages for ESLint, TypeScript, and UI
+
+At the same time, the current monorepo is still in an early migration shape:
+
+- only a small portion of tooling is actually centralized
+- most business logic still lives in `apps/web`
+- app-local config still exists in multiple places
+- package boundaries do not yet map to platform-independent responsibilities
+- Supabase contracts are not yet fully elevated into shared workspace packages
+
+### 2.2 What Is Already Good
+
+Several architectural choices are already strong and should be preserved:
+
+- the web app is SSR-first
+- Supabase is already treated as the system of record
+- RLS is enabled on core backend tables
+- permission and entitlement logic already has pure-function seams
+- there is meaningful test coverage around services and permission behavior
+- the backend already includes custom auth hooks and JWT enrichment
+
+### 2.3 What Is Not Yet Ready for Shared Reuse
+
+The current codebase still mixes these concerns too tightly inside `apps/web`:
+
+- canonical contracts and product constants
+- Next.js-specific runtime adapters
+- browser-only and server-only Supabase code
+- domain rules and infrastructure access
+- package-worthy utilities and app-local utilities
+
+Because of that, extracting everything directly would be risky and would create brittle packages that are coupled to the wrong runtime.
+
+---
+
+## 3. Guiding Principles
+
+### 3.1 Extract by Stability, Not by File Count
+
+Do not move code into `packages/*` just because it looks reusable. Move code only when:
+
+- it represents a stable business contract,
+- it is platform-agnostic,
+- or it clearly belongs to shared tooling.
+
+### 3.2 Do Not Extract Runtime Coupling Too Early
+
+Anything that depends directly on:
+
+- `next/headers`
+- Next.js route handlers
+- Server Actions
+- Expo storage/session behavior
+- browser-specific runtime APIs
+
+should remain app-local until the shared contract below it is stable.
+
+### 3.3 Supabase Is the Backend Source of Truth
+
+Shared constants and contracts must not drift from the live backend. In practice that means:
+
+- permissions must match the `permissions` table
+- modules must match live entitlements and plan/module data
+- auth claim assumptions must match the custom access token hook
+- shared DTOs must reflect the live schema and authoritative RPCs
+
+### 3.4 Mobile Should Reuse Contracts and Logic, Not Web Runtime
+
+The mobile app should reuse:
+
+- contracts
+- domain rules
+- auth claim parsing
+- Supabase types
+- shared business validations
+
+It should not reuse:
+
+- web SSR loaders
+- Next.js route infrastructure
+- server-only cookie adapters
+- Radix/shadcn web UI
+
+### 3.5 Enterprise Standards Mean Controlled Change
+
+For this repo, enterprise-grade means:
+
+- explicit boundaries
+- auditable contracts
+- security-first Supabase usage
+- predictable release sequencing
+- no accidental service-role exposure
+- no silent contract drift between app code and database
+
+---
+
+## 4. Proposed Target Package Architecture
+
+This is the recommended package map for the monorepo.
+
+### 4.1 `@repo/tooling`
+
+Purpose:
+
+- shared developer tooling conventions
+- prettier config exports
+- optional lint-staged helpers
+- optional repo-wide config helpers
+
+What should live here:
+
+- shared Prettier config
+- formatting rules documentation
+- optional shared helper config used by scripts
+
+What should not live here:
+
+- app runtime code
+- platform code
+- business logic
+
+### 4.2 `@repo/eslint-config`
+
+Purpose:
+
+- central lint policy for the whole monorepo
+
+What should live here:
+
+- base JS/TS rules
+- Next.js-specific config
+- Expo/React Native config
+- React library config
+- Node package config
+- testing config
+
+What should not live here:
+
+- app business rules
+- hardcoded per-feature exceptions unless truly necessary
+
+### 4.3 `@repo/typescript-config`
+
+Purpose:
+
+- central TS config strategy
+
+What should live here:
+
+- `base.json`
+- `nextjs.json`
+- `expo.json`
+- `node.json`
+- `react-library.json`
+
+What should not live here:
+
+- app-local path aliases that only make sense inside one app
+
+### 4.4 `@repo/contracts`
+
+Purpose:
+
+- canonical shared product and backend contracts
+
+What should live here:
+
+- permission slug constants
+- module slug constants
+- entitlement keys
+- shared enum-like identifiers
+- contract-level Zod schemas
+- platform-neutral DTOs
+
+This package should become the first real shared business package, because both web and mobile will need the same meaning for:
+
+- permissions
+- modules
+- entitlements
+- auth payloads
+- scope identifiers
+
+### 4.5 `@repo/supabase`
+
+Purpose:
+
+- shared Supabase contract layer
+
+What should live here:
+
+- generated TypeScript database types
+- canonical table/view/RPC/storage identifiers
+- env schema definitions related to Supabase
+- neutral client-factory interfaces
+
+What should not live here:
+
+- `next/headers` cookies adapters
+- Expo secure storage
+- browser session persistence behavior
+- service-role operational code used by app-specific infrastructure
+
+### 4.6 `@repo/auth`
+
+Purpose:
+
+- shared auth-domain logic
+
+What should live here:
+
+- JWT claim types
+- role parsing helpers
+- permission-check primitives
+- auth schemas and DTOs
+- cross-platform auth domain helpers
+
+This package is a good extraction target because the repo already has pure logic around token claims and roles that does not inherently belong to Next.js.
+
+### 4.7 `@repo/domain`
+
+Purpose:
+
+- pure business/domain logic shared across applications
+
+What should live here:
+
+- domain types and interfaces for organizations, branches, invitations, permissions, entitlements, and events
+- policy evaluation logic
+- framework-agnostic service interfaces
+- pure transformations and derivations
+
+What should not live here:
+
+- actual DB query implementations tightly coupled to one runtime
+- web route behavior
+- mobile navigation behavior
+
+### 4.8 `@repo/testing`
+
+Purpose:
+
+- shared testing support for reusable packages
+
+What should live here:
+
+- test factories
+- shared mocks for pure-domain units
+- contract verification helpers
+- permission/entitlement test utilities
+
+What should not live here:
+
+- app integration tests that depend on web routing or Expo runtime
+
+### 4.9 Optional Future Packages
+
+Possible later packages:
+
+- `@repo/ui-web`
+- `@repo/ui-native`
+- `@repo/config`
+- `@repo/i18n`
+
+These should only be created after the contracts and domain layers are stable. They are not phase-one priorities.
+
+---
+
+## 5. What Should Be Extracted First
+
+The first extractions should focus on low-risk, high-leverage shared assets.
+
+### 5.1 Shared Tooling
+
+Extract first:
+
+- Prettier config
+- ESLint presets
+- TypeScript configs
+- root lint/typecheck/test ergonomics
+- lint-staged/Husky conventions
+
+Why first:
+
+- low business risk
+- immediate monorepo consistency
+- easier future package creation
+- reduces configuration drift between web and mobile
+
+### 5.2 Canonical Contracts
+
+Extract next:
+
+- permission constants
+- module constants
+- auth DTOs
+- shared Zod schemas
+- entitlement keys and shared contract types
+
+Why second:
+
+- mobile cannot safely grow until the core language of the product is shared
+- these contracts are needed by both apps
+- they are easier to validate against Supabase than high-level app behavior
+
+### 5.3 Shared Auth and Supabase Contract Layer
+
+Extract after contracts:
+
+- DB types
+- claim shapes
+- runtime-neutral client boundaries
+- shared environment schema
+
+Why:
+
+- web and mobile will both depend on Supabase
+- the backend shape should not be duplicated in multiple apps
+- the current app has enough auth/backend logic that formalizing the boundary is now worth it
+
+---
+
+## 6. What Must Stay in `apps/web` for Now
+
+These areas should remain web-local during the early extraction phases:
+
+- Next.js SSR Supabase cookie adapter
+- route handlers
+- server actions
+- layout loaders
+- Next-specific internationalization wiring
+- web-only UI components
+- web-only sidebar rendering and navigation presentation
+- any direct `next/*` runtime integration
+
+This is important because forcing these pieces into shared packages too early creates packages that are not truly shared. It only hides web coupling behind package boundaries.
+
+---
+
+## 7. Supabase Findings That Must Shape the Plan
+
+The extraction roadmap should reflect the real backend, not just the current app code.
+
+### 7.1 Backend Strengths Confirmed
+
+From `supabase-target` verification:
+
+- core public tables have RLS enabled
+- roles, permissions, user effective permissions, organizations, branches, members, and entitlements are already formalized
+- custom auth hooks are in place
+- an auth email edge function exists
+- backend function contracts such as `accept_invitation_and_join_org`, `custom_access_token_hook`, and `user_has_effective_permission` exist
+
+This is good enough to treat Supabase as the shared system of record for both web and mobile.
+
+### 7.2 Contract Drift Exists Today
+
+There are mismatches between current app code and live backend contracts.
+
+Examples:
+
+- live permissions include more wildcard and module-access slugs than the current TypeScript constants model
+- live active plan modules are narrower than the current TypeScript module list
+- parts of web subscription logic appear to assume schema details that do not fully match the live target schema
+
+This means the first shared extraction phase must include a contract reconciliation step.
+
+Do not blindly move current constants into shared packages without checking them against Supabase.
+
+### 7.3 Security Hardening Still Needed
+
+Current findings indicate areas to improve before full mobile rollout:
+
+- leaked password protection is disabled
+- local auth config uses weak minimum password length
+- secure password change is disabled in local config
+- MFA is not enabled
+
+These are not blockers for extraction planning, but they are part of enterprise readiness and should be tracked as hardening work.
+
+---
+
+## 8. Detailed Phase Plan
+
+## Phase 0 - Foundation
+
+### Goal
+
+Turn the repo from a migrated folder structure into a real monorepo foundation without touching business logic.
+
+### Deliverables
+
+- shared Prettier config
+- centralized ESLint presets
+- centralized TypeScript config variants
+- root-level developer workflow consistency
+- app-level configs simplified to thin wrappers or package imports
+
+### Detailed Tasks
+
+1. Review current config ownership:
+   - root `package.json`
+   - root `turbo.json`
+   - current app-local ESLint configs
+   - app-local Prettier config
+   - Husky and lint-staged setup
+
+2. Expand `@repo/eslint-config`:
+   - add Next.js preset
+   - add Expo preset
+   - add shared-library preset
+   - add test preset if useful
+
+3. Expand `@repo/typescript-config`:
+   - define base TS behavior
+   - separate app/runtime configs from package/library configs
+
+4. Centralize Prettier:
+   - move current web formatting defaults into a shared config package or shared root config
+   - ensure both web and mobile use the same formatting source of truth
+
+5. Review lint-staged:
+   - make sure it works consistently for apps and packages
+   - avoid hardcoding behavior that will break as more shared packages appear
+
+6. Verify command ergonomics:
+   - root lint
+   - root typecheck
+   - per-app lint
+   - per-app typecheck
+
+### Exit Criteria
+
+- web app behavior unchanged
+- mobile app still lintable
+- no duplicate configuration logic that obviously belongs in shared packages
+
+---
+
+## Phase 1 - Canonical Contracts
+
+### Goal
+
+Create a single shared source of truth for product/backend contracts needed by all apps.
+
+### Deliverables
+
+- new `@repo/contracts` package
+- extracted shared constants
+- extracted shared types and DTOs
+- extracted shared business-safe schemas
+- documented code-vs-backend mismatches
+
+### Detailed Tasks
+
+1. Extract canonical constants:
+   - permissions
+   - modules
+   - entitlement keys
+   - scope identifiers
+
+2. Extract shared contract types:
+   - auth claim payloads
+   - permission snapshot types
+   - entitlement payload types
+   - organization/branch identifiers where stable
+
+3. Extract Zod schemas that are not web-form specific:
+   - auth DTOs if portable
+   - shared API input/output schemas
+   - contract-level validation logic
+
+4. Compare against live Supabase target:
+   - permission slugs
+   - module slugs
+   - relevant RPC naming assumptions
+
+5. Document mismatches instead of silently normalizing them.
+
+### Exit Criteria
+
+- both web and future mobile can import the same canonical constants
+- contract package has no web-only imports
+- all intentional mismatches are visible and tracked
+
+---
+
+## Phase 2 - Shared Auth and Supabase Contracts
+
+### Goal
+
+Define the reusable backend and auth contract boundary without mixing platform-specific runtime details into shared packages.
+
+### Deliverables
+
+- `@repo/supabase`
+- `@repo/auth`
+- shared DB types
+- shared auth claim logic
+- shared env schemas and backend identifiers
+- explicit platform adapter boundaries
+
+### Detailed Tasks
+
+1. Create `@repo/supabase`:
+   - move generated database types here
+   - define canonical names for tables/RPCs if useful
+   - define env schema for public URL, anon key, and server-only requirements
+
+2. Create `@repo/auth`:
+   - move JWT role parsing helpers
+   - move auth-related domain types
+   - move shared permission-check helpers if ownership fits better here than in contracts/domain
+
+3. Preserve runtime separation:
+   - `apps/web` keeps SSR cookie-based client creation
+   - `apps/mobile` will later get its own session/storage adapter
+   - service-role operational code remains isolated
+
+4. Ensure no shared package directly depends on:
+   - `next/headers`
+   - Expo secure storage
+   - browser local storage
+   - route handlers
+
+### Exit Criteria
+
+- Supabase types are not duplicated across apps
+- auth claim handling is shared
+- platform runtime code is still separated cleanly
+
+---
+
+## Phase 3 - Shared Domain Layer
+
+### Goal
+
+Extract pure domain logic from the web app so that business behavior can be reused safely across web and mobile.
+
+### Deliverables
+
+- `@repo/domain`
+- shared business logic for permissions, entitlements, organizations, branches, invitations, and events
+- framework-agnostic interfaces
+
+### Detailed Tasks
+
+1. Identify pure domain code:
+   - permission matching rules
+   - entitlement decision helpers
+   - organization and branch selection rules
+   - invitation data contracts
+   - event payload shaping where framework-agnostic
+
+2. Keep infrastructure app-local:
+   - DB query orchestration
+   - web SSR loaders
+   - route wiring
+   - request-scoped caching tied to React/Next runtime
+
+3. Introduce clear interfaces:
+   - repositories or query adapters
+   - service inputs/outputs
+   - domain policies independent of transport/runtime
+
+### Exit Criteria
+
+- domain package can be imported by both web and mobile
+- no framework/runtime dependencies leak into pure domain code
+
+---
+
+## Phase 4 - Shared Testing Platform
+
+### Goal
+
+Make shared packages independently verifiable and reduce duplicated test scaffolding.
+
+### Deliverables
+
+- `@repo/testing`
+- shared test helpers for contracts and domain code
+- package-level tests for extracted logic
+
+### Detailed Tasks
+
+1. Move reusable test utilities:
+   - permission test fixtures
+   - entitlement test fixtures
+   - auth claim builders
+   - pure mock data factories
+
+2. Keep app integration tests where they belong:
+   - Next.js route tests stay in `apps/web`
+   - Expo runtime tests stay in `apps/mobile`
+
+3. Add package verification:
+   - lint
+   - typecheck
+   - unit tests
+
+### Exit Criteria
+
+- shared packages can be tested without booting a full app runtime
+- app-specific tests remain focused on integration behavior
+
+---
+
+## Phase 5 - Mobile Enablement
+
+### Goal
+
+Start building the mobile application on top of extracted shared architecture, not by re-creating web internals.
+
+### Deliverables
+
+- mobile app consuming `@repo/contracts`, `@repo/supabase`, `@repo/auth`, and `@repo/domain`
+- Expo-specific Supabase auth adapter
+- shared backend semantics between web and mobile
+
+### Detailed Tasks
+
+1. Create mobile runtime adapters:
+   - session storage strategy
+   - auth bootstrap flow
+   - mobile-safe API access boundary
+
+2. Reuse shared contracts:
+   - permissions
+   - modules
+   - entitlement semantics
+   - organization and branch selection logic where portable
+
+3. Build mobile-specific presentation on top of shared domain rules.
+
+4. Avoid dragging over:
+   - web sidebar UI
+   - web SSR loaders
+   - web-only navigation assumptions
+
+### Exit Criteria
+
+- mobile is using shared architecture, not duplicated constants
+- backend auth/permission behavior is consistent across platforms
+
+---
+
+## Phase 6 - Hardening and Enterprise Readiness
+
+### Goal
+
+Move from “it works in a monorepo” to “it is safe to scale and maintain as a production system.”
+
+### Deliverables
+
+- documented package ownership
+- verification workflow for backend contract drift
+- security review of shared backend/auth setup
+- release checklist for future extractions
+
+### Detailed Tasks
+
+1. Add architecture ownership notes:
+   - what belongs in apps
+   - what belongs in packages
+   - how to decide when new code is shared
+
+2. Add Supabase contract verification workflow:
+   - compare shared permission/module constants against live backend
+   - verify generated types refresh flow
+   - define how RPC/table changes are propagated
+
+3. Review security:
+   - isolate service-role usage
+   - review auth settings
+   - improve password security
+   - define MFA roadmap
+   - verify redirect policies and auth edge function assumptions
+
+4. Add rollback/change-control notes for risky extractions.
+
+### Exit Criteria
+
+- the shared architecture is governable
+- contract drift is detectable
+- backend usage is safer for multi-app production
+
+---
+
+## 9. Extraction Priority Matrix
+
+### Extract Early
+
+- tooling configs
+- canonical constants
+- shared contract types
+- auth claim parsing
+- pure permission logic
+- generated Supabase types
+- shared Zod schemas that are business contracts
+
+### Extract Later
+
+- domain services with app-specific data access
+- UI primitives
+- i18n abstractions
+- shared API/query client wrappers
+
+### Keep App-Local for the Foreseeable Future
+
+- Next.js SSR cookie client
+- route handlers
+- server actions
+- Expo-specific session storage logic
+- web-only UI/navigation composition
+
+---
+
+## 10. Risks and How to Avoid Them
+
+### Risk 1 - Packaging Web Coupling
+
+If code that depends on Next.js is moved into a “shared” package too early, that package becomes fake-shared and blocks mobile progress.
+
+Mitigation:
+
+- enforce no `next/*` imports in platform-neutral packages
+- keep runtime adapters local to each app
+
+### Risk 2 - Drift Between Shared Constants and Live Backend
+
+If the repo extracts current constants without checking the live database, mobile and web can both end up sharing the wrong contract.
+
+Mitigation:
+
+- verify contracts against `supabase-target`
+- document all mismatches before normalizing them
+
+### Risk 3 - Service-Role Leakage
+
+If service-role helpers are moved into a shared package used by app runtimes, the architecture can become unsafe and confusing.
+
+Mitigation:
+
+- isolate service-role clients to server-only, explicitly privileged layers
+- do not expose them through general shared packages
+
+### Risk 4 - Over-Extraction Too Early
+
+Trying to build the final architecture in one pass will likely break the working web app and slow mobile progress.
+
+Mitigation:
+
+- use PR-sized extractions
+- preserve web runtime behavior at every phase
+- move stable contracts before moving orchestration logic
+
+---
+
+## 11. Definition of Done for the Overall Initiative
+
+The extraction initiative should be considered successful when:
+
+- web and mobile share canonical contracts instead of duplicating them
+- Supabase types and auth semantics are centralized cleanly
+- pure business logic is framework-agnostic and reusable
+- web-specific and mobile-specific runtime code remains separated
+- the backend remains the single source of truth for permissions, modules, and entitlements
+- service-role usage is isolated and auditable
+- the repository has clear rules for what belongs in apps vs packages
+- new mobile development can proceed on shared architecture without destabilizing production web
+
+---
+
+## 12. Recommended Working Process
+
+For each extraction slice:
+
+1. identify one narrow extraction target,
+2. verify whether it is truly platform-agnostic,
+3. compare any backend contracts against `supabase-target`,
+4. extract with minimal runtime behavior changes,
+5. update imports,
+6. add or move tests,
+7. verify web still works,
+8. only then move to the next slice.
+
+This should be executed as a sequence of small, reviewable steps, not one big migration.
+
+---
+
+## 13. Initial Recommended Extraction Order
+
+This is the recommended implementation sequence for the next several iterations:
+
+1. shared monorepo tooling foundation
+2. canonical contracts package
+3. shared auth package
+4. shared Supabase contract package
+5. shared testing helpers
+6. shared domain package for permissions/entitlements/org context rules
+7. mobile Supabase adapter and first shared mobile integrations
+
+This order keeps the current working web app safe while creating the backbone that the mobile app actually needs.

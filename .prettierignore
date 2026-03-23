@@ -1,0 +1,16 @@
+# Build outputs
+.next
+dist
+build
+out
+
+# Tooling artifacts
+.turbo
+coverage
+
+# Expo native output
+.expo
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json

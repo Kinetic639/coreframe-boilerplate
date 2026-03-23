@@ -269,19 +269,25 @@ describe("loadUserContextServer", () => {
       const mockRoles = [
         {
           role_id: "role-1",
-          role: "org_owner",
+          name: "org_owner",
+          role: "org_owner", // deprecated alias
           org_id: "org-123",
           branch_id: null,
           scope: "org" as const,
           scope_id: "org-123",
+          scope_type: "org" as const,
+          is_basic: false,
         },
         {
           role_id: "role-2",
-          role: "warehouse_manager",
+          name: "warehouse_manager",
+          role: "warehouse_manager", // deprecated alias
           org_id: "org-123",
           branch_id: "branch-456",
           scope: "branch" as const,
           scope_id: "branch-456",
+          scope_type: "branch" as const,
+          is_basic: false,
         },
       ];
 
@@ -490,11 +496,14 @@ describe("loadUserContextServer", () => {
       const mockRoles = [
         {
           role_id: "role-1",
-          role: "org_owner",
+          name: "org_owner",
+          role: "org_owner", // deprecated alias
           org_id: "org-123",
           branch_id: null,
           scope: "org" as const,
           scope_id: "org-123",
+          scope_type: "org" as const,
+          is_basic: false,
         },
       ];
 

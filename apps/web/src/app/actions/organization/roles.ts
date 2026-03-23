@@ -12,33 +12,9 @@ import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   MEMBERS_READ,
   MEMBERS_MANAGE,
-  ORG_READ,
-  ORG_UPDATE,
-  BRANCHES_CREATE,
-  BRANCHES_UPDATE,
-  BRANCHES_DELETE,
   BRANCH_ROLES_MANAGE,
-  INVITES_READ,
-  INVITES_CREATE,
-  INVITES_CANCEL,
 } from "@/lib/constants/permissions";
-
-// Permissions that are meaningful only at org scope — not valid for branch-scoped roles.
-// members.* and invites.* are org-level concepts (member list, invitations, activation).
-// branch.roles.manage is the branch-scoped alternative for role assignment delegation.
-const ORG_ONLY_SLUGS = new Set<string>([
-  ORG_READ,
-  ORG_UPDATE,
-  BRANCHES_CREATE,
-  BRANCHES_UPDATE,
-  BRANCHES_DELETE,
-  MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
-  MEMBERS_READ,
-  MEMBERS_MANAGE,
-  INVITES_READ,
-  INVITES_CREATE,
-  INVITES_CANCEL,
-]);
+import { validateBranchRolePermissions } from "@repo/domain/organization";
 
 const createRoleSchema = z.object({
   name: z.string().min(1).max(100),
@@ -110,11 +86,11 @@ export async function createRoleAction(rawInput: unknown) {
 
     // P2: branch-scoped roles may not contain org-only permissions
     if (parsed.data.scope_type === "branch" && parsed.data.permission_slugs?.length) {
-      const invalid = parsed.data.permission_slugs.filter((s) => ORG_ONLY_SLUGS.has(s));
-      if (invalid.length > 0) {
+      const validation = validateBranchRolePermissions("branch", parsed.data.permission_slugs);
+      if ("invalidSlugs" in validation) {
         return {
           success: false,
-          error: `Permissions not allowed for branch-scoped roles: ${invalid.join(", ")}`,
+          error: `Permissions not allowed for branch-scoped roles: ${validation.invalidSlugs.join(", ")}`,
         };
       }
     }
@@ -182,11 +158,11 @@ export async function updateRoleAction(rawInput: unknown) {
         .maybeSingle();
       if (roleErr) return { success: false, error: roleErr.message };
       if (role?.scope_type === "branch") {
-        const invalid = updateInput.permission_slugs.filter((s) => ORG_ONLY_SLUGS.has(s));
-        if (invalid.length > 0) {
+        const validation = validateBranchRolePermissions("branch", updateInput.permission_slugs);
+        if ("invalidSlugs" in validation) {
           return {
             success: false,
-            error: `Permissions not allowed for branch-scoped roles: ${invalid.join(", ")}`,
+            error: `Permissions not allowed for branch-scoped roles: ${validation.invalidSlugs.join(", ")}`,
           };
         }
       }
