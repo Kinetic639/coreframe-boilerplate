@@ -112,20 +112,21 @@ export default function HomeScreen() {
   const colorScheme = (useColorScheme() ?? "light") as ColorScheme;
   const c = Colors[colorScheme];
 
-  // Real user/org context from JWT via @repo/auth AuthService
+  // Real user/org context — always "resolved" when this screen renders
+  // (AppProvider blocks children until bootstrapState === "resolved")
   const { signOut } = useAuth();
-  const { bootstrapState, appState } = useAppContext();
+  const { appState } = useAppContext();
 
   // Display user initials from email (first char, uppercased)
   const userInitial = appState.email.charAt(0).toUpperCase() || "?";
   // Display short email prefix as greeting name
   const displayName = appState.email.split("@")[0] ?? appState.email;
 
-  // Org context indicator — provisional (JWT-derived) or unresolved
-  const orgLabel =
-    bootstrapState === "authenticated-provisional"
-      ? `Org: ${appState.activeOrgId?.slice(0, 8)}…`
-      : "Brak kontekstu organizacji";
+  // Org context — null when user has no org memberships in their JWT
+  const hasOrgContext = appState.activeOrgId !== null;
+  const orgLabel = hasOrgContext
+    ? `Org: ${appState.activeOrgId!.slice(0, 8)}…`
+    : "Brak kontekstu organizacji";
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -168,8 +169,7 @@ export default function HomeScreen() {
             style={[
               styles.pill,
               {
-                backgroundColor:
-                  bootstrapState === "authenticated-provisional" ? Brand.primaryLight : "#FEF3C7",
+                backgroundColor: hasOrgContext ? Brand.primaryLight : "#FEF3C7",
               },
             ]}
           >
@@ -177,12 +177,11 @@ export default function HomeScreen() {
               style={[
                 styles.pillText,
                 {
-                  color:
-                    bootstrapState === "authenticated-provisional" ? Brand.primaryDark : "#92400E",
+                  color: hasOrgContext ? Brand.primaryDark : "#92400E",
                 },
               ]}
             >
-              {bootstrapState === "authenticated-provisional" ? "Aktywny" : "Oczekuje"}
+              {hasOrgContext ? "Aktywny" : "Oczekuje"}
             </Text>
           </View>
         </View>
