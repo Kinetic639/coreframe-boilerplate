@@ -121,12 +121,12 @@ Phase 3 completion notes:
 
 ### Phase 6 - Hardening and Enterprise Readiness
 
-- [ ] Add documentation for package ownership and architectural boundaries
-- [ ] Add change-control checklist for shared backend contracts
-- [ ] Add verification workflow for permission/module constants against Supabase
-- [ ] Review service-role usage and ensure it is isolated
-- [ ] Review auth settings and security posture for mobile rollout
-- [ ] Add release/rollback guidance for future extractions
+- [x] Add documentation for package ownership and architectural boundaries — `docs/package-ownership.md` (central doc covering all 9 packages, decision rules, three-tier boundary model); `CLAUDE.md` added to `packages/contracts/`, `packages/auth/`, `packages/domain/`, `packages/supabase/`, `packages/testing/` with per-package boundary rules and import constraints
+- [x] Add change-control checklist for shared backend contracts — `docs/change-control.md` (6 checklists: adding permission constants, changing shared types, adding packages, regenerating DB types, adding RPCs/tables, retiring dependencies)
+- [x] Add verification workflow for permission/module constants against Supabase — `docs/verification-workflow.md` (manual process for re-verifying constants against target migrations; references `MISMATCHES.md`; re-verification performed 2026-03-23: corrective migrations `20260323000016–18` confirmed to add no new permission slugs; `MISMATCHES.md` is current)
+- [x] Review service-role usage and ensure it is isolated — audit confirmed zero hits in `packages/*/`; all 8 production call sites are in `apps/web/src/` (server actions, server services, audit); Vitest alias `@supabase/service` confirmed as test-only alias not the shared package; `SupabaseServiceConfig` in `@repo/supabase` confirmed as interface-only; findings documented in `docs/security-review.md` Section 1
+- [x] Review auth settings and security posture for mobile rollout — `docs/security-review.md` covers all sub-items: service-role isolation (confirmed safe), mobile session storage via SecureStore (confirmed safe), mobile client config (confirmed safe), password policy (known gap — operational action needed), MFA (deferred — product decision required), redirect policies (safe for Phase 5 / known gap for future OAuth/magic-link), auth edge function (recovery email links to web app URL — known gap for future mobile password reset)
+- [x] Add release/rollback guidance for future extractions — `docs/release-rollback.md` (pre-extraction checklist, rollback triggers, rollback steps, schema change propagation, phased extraction principle, known deferred functional follow-ons from Phase 5)
 
 ---
 
