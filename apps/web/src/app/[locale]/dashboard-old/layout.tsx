@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import AppSidebar from "@/components/Dashboard/sidebar/AppSidebar";
 import Loader from "@/components/ui/Loader";
 import { redirect } from "@/i18n/navigation";
