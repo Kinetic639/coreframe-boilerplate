@@ -2,6 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { checkPermission } from "@repo/domain/permissions";
+import { PERMISSION_TOOLS_READ } from "@repo/contracts/permissions";
+
 import { Brand, Colors } from "@/constants/theme";
 import { useAppContext } from "@/contexts/app-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -122,11 +125,19 @@ export default function HomeScreen() {
   // Display short email prefix as greeting name
   const displayName = appState.email.split("@")[0] ?? appState.email;
 
-  // Org context — null when user has no org memberships in their JWT
+  // Org context — activeOrgId is always non-null when this screen renders
+  // (authenticated-unresolved blocks rendering before the screen is reached)
   const hasOrgContext = appState.activeOrgId !== null;
-  const orgLabel = hasOrgContext
-    ? `Org: ${appState.activeOrgId!.slice(0, 8)}…`
-    : "Brak kontekstu organizacji";
+  // Prefer the human-readable org name from organization_profiles; fall back
+  // to a UUID prefix only when the profile row does not exist yet.
+  const orgLabel =
+    appState.orgName ??
+    (hasOrgContext ? `Org: ${appState.activeOrgId!.slice(0, 8)}…` : "Brak kontekstu organizacji");
+
+  // UI-only permission gate — non-authoritative. The server enforces access via
+  // RLS regardless of this check. checkPermission() is used here only to decide
+  // whether to surface the Tools entry point in the quick-actions grid.
+  const canAccessTools = checkPermission(appState.permissions!, PERMISSION_TOOLS_READ);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -206,7 +217,9 @@ export default function HomeScreen() {
           <QuickAction icon="qrcode-scan" label="Skanuj QR" primary scheme={colorScheme} />
           <QuickAction icon="package-variant" label="Ekwipunek" scheme={colorScheme} />
           <QuickAction icon="map-marker-outline" label="Lokalizacje" scheme={colorScheme} />
-          <QuickAction icon="chart-bar" label="Raporty" scheme={colorScheme} />
+          {/* UI-only gate: shown only when user has tools.read permission.
+              Non-authoritative — server enforces access via RLS. */}
+          {canAccessTools && <QuickAction icon="chart-bar" label="Raporty" scheme={colorScheme} />}
         </View>
 
         {/* ── Recent Activity ── */}

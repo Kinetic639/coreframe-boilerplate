@@ -31,7 +31,8 @@ import { loadBootstrapData } from "@/lib/loaders/bootstrap-loader";
  */
 export type AppBootstrapState =
   | "resolving" // Backend load in progress; show loading indicator
-  | "resolved" // Permissions + entitlements loaded (entitlements may be null)
+  | "resolved" // Backend queries succeeded; permissions + entitlements loaded
+  | "authenticated-unresolved" // Authenticated but no org-scoped JWT role found; no backend call made
   | "forbidden" // 403 / RLS denied — authenticated but not org-authorized
   | "invalid-session" // 401 / token expired — auto sign-out in progress
   | "error"; // Unexpected server/network error — retry available
@@ -48,8 +49,8 @@ export interface AppState {
   /**
    * Active org UUID — first org-scoped JWT role.
    * Null if the user has no org memberships in their JWT.
-   * When null, bootstrapState resolves immediately to "resolved" with
-   * allow: [] and entitlements: null (no backend call attempted).
+   * When null, bootstrapState is "authenticated-unresolved" and no backend
+   * call is made. permissions and entitlements remain null.
    */
   activeOrgId: string | null;
   /** JWT roles scoped to activeOrgId (org scope only). Empty when activeOrgId is null. */
@@ -71,6 +72,12 @@ export interface AppState {
    * distinct from a load failure ("error", "forbidden", "invalid-session").
    */
   entitlements: OrganizationEntitlements | null;
+  /**
+   * Display name from organization_profiles.name.
+   * Non-null when bootstrapState === "resolved" and a profile row exists.
+   * null when the org has no profile row yet, or when not yet resolved.
+   */
+  orgName: string | null;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -96,6 +103,7 @@ const AppContext = createContext<AppContextValue | null>(null);
  *   backend via loadBootstrapData. Transitions bootstrapState accordingly.
  *
  * Render gates:
+ * - "authenticated-unresolved"      → no-org screen + sign-out button
  * - "resolving" / "invalid-session" → spinner (sign-out propagates asynchronously)
  * - "forbidden"                     → access-denied screen + sign-out button
  * - "error"                         → error screen + retry button
@@ -137,6 +145,7 @@ export function AppProvider({
   const [bootstrapState, setBootstrapState] = useState<AppBootstrapState>("resolving");
   const [permissions, setPermissions] = useState<PermissionSnapshot | null>(null);
   const [entitlements, setEntitlements] = useState<OrganizationEntitlements | null>(null);
+  const [orgName, setOrgName] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Incrementing retryKey re-triggers the load without requiring userId/orgId to change.
   const [retryKey, setRetryKey] = useState(0);
@@ -149,13 +158,12 @@ export function AppProvider({
   useEffect(() => {
     const { userId, activeOrgId } = jwtDerived;
 
-    // No org context — user has no org-scoped JWT roles.
-    // Resolve immediately with empty permissions and null entitlements.
-    // This is "resolved", not an error or forbidden state.
+    // No org context — user is authenticated but has no org-scoped JWT roles.
+    // This is "authenticated-unresolved": distinct from "resolved" (which requires
+    // a successful backend fetch), "forbidden" (RLS denial), and "error".
+    // No backend calls are made; permissions and entitlements stay null.
     if (!activeOrgId) {
-      setPermissions({ allow: [], deny: [] });
-      setEntitlements(null);
-      setBootstrapState("resolved");
+      setBootstrapState("authenticated-unresolved");
       return;
     }
 
@@ -172,6 +180,8 @@ export function AppProvider({
           // result.entitlements may be null — that is intentional and correct.
           // null here means no subscription row exists, not that loading failed.
           setEntitlements(result.entitlements);
+          // result.orgName may be null — org has no profile row yet.
+          setOrgName(result.orgName);
           setBootstrapState("resolved");
         } else if (result.kind === "invalid-session") {
           setBootstrapState("invalid-session");
@@ -217,8 +227,9 @@ export function AppProvider({
       orgRoles: jwtDerived.orgRoles,
       permissions,
       entitlements,
+      orgName,
     }),
-    [jwtDerived, permissions, entitlements]
+    [jwtDerived, permissions, entitlements, orgName]
   );
 
   const value = useMemo<AppContextValue>(
@@ -228,6 +239,24 @@ export function AppProvider({
 
   // ── Render gates ──────────────────────────────────────────────────────────
   // Only "resolved" renders children inside AppContext.Provider.
+
+  if (bootstrapState === "authenticated-unresolved") {
+    // User is authenticated but has no org-scoped JWT roles.
+    // No backend call was attempted. Permissions and entitlements remain null.
+    // Sign-out is the only available action (the user must be added to an org
+    // and re-authenticate to receive org-scoped roles in their JWT).
+    return (
+      <View style={styles.fill}>
+        <Text style={styles.heading}>No Organisation Context</Text>
+        <Text style={styles.body}>
+          Your account is not associated with any organisation. Please contact your administrator.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={() => signOut()}>
+          <Text style={styles.buttonText}>Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (bootstrapState === "resolving" || bootstrapState === "invalid-session") {
     return (

@@ -31,6 +31,8 @@ export type BootstrapLoadResult =
       permissions: PermissionSnapshot;
       /** null = no subscription row; distinct from a load error */
       entitlements: OrganizationEntitlements | null;
+      /** null = no organization_profiles row found for this org */
+      orgName: string | null;
     }
   | { kind: "forbidden" }
   | { kind: "invalid-session" }
@@ -133,7 +135,27 @@ export async function loadBootstrapData(
     return classifyError(entStatus, entError.code, entError.message);
   }
 
-  // ── 3. Build snapshot ─────────────────────────────────────────────────────
+  // ── 3. Org profile ────────────────────────────────────────────────────────
+  // maybeSingle() — null when no profile row exists (org not yet configured).
+  // Used for display only (orgName). A missing row is not a load error.
+  const {
+    data: profileRow,
+    error: profileError,
+    status: profileStatus,
+  } = await supabase
+    .from("organization_profiles")
+    .select("name")
+    .eq("organization_id", orgId)
+    .maybeSingle();
+
+  if (profileError) {
+    return classifyError(profileStatus, profileError.code, profileError.message);
+  }
+
+  const orgName: string | null =
+    typeof profileRow?.name === "string" && profileRow.name.length > 0 ? profileRow.name : null;
+
+  // ── 4. Build snapshot ─────────────────────────────────────────────────────
   const permissions: PermissionSnapshot = {
     allow: (permRows ?? [])
       .map((r) => r.permission_slug_exact as string)
@@ -147,5 +169,5 @@ export async function loadBootstrapData(
   const entitlements: OrganizationEntitlements | null =
     entRow !== null ? normalizeEntitlements(entRow as Record<string, unknown>) : null;
 
-  return { kind: "resolved", permissions, entitlements };
+  return { kind: "resolved", permissions, entitlements, orgName };
 }
