@@ -112,6 +112,66 @@ After updating `MISMATCHES.md`:
 
 ---
 
+## Mismatch Severity and Escalation Policy
+
+Finding a mismatch during verification requires a decision about how urgently to act.
+This section defines severity levels and release-gate rules so that every mismatch
+has a consistent, documented disposition.
+
+### Severity Levels
+
+| Severity                   | Definition                                                                                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S1 — Blocker**           | A TypeScript constant references a slug that exists in neither the target DB nor the legacy DB. Any code using it will silently fail or produce wrong behavior at runtime.                |
+| **S2 — High**              | A slug exists in the target DB but has no corresponding TypeScript constant. Code must use a raw string as a workaround, losing type-safety and refactorability.                          |
+| **S3 — Medium**            | A slug exists in the legacy DB but not in the target DB. The TypeScript constant is correct for legacy but will produce silent failures on the target project until it is migrated.       |
+| **S4 — Low / Intentional** | Grouping arrays (e.g., `FREE_PLAN_MODULES`) diverge from live plan data. Runtime entitlements are the authoritative source, so this is not a behavioral bug — just misleading TypeScript. |
+
+### Release Gate Rules
+
+**S1 — Must be resolved before any release.**
+Do not commit or ship code that uses a constant with no DB backing.
+Action: either remove the constant, or add a migration that seeds the slug.
+
+**S2 — Should be resolved in the next extraction cycle.**
+The gap is in the DB (which is correct) but absent from TypeScript. No runtime bug exists today
+for code that doesn't reference the missing constant. If in-flight feature code requires the
+missing constant, promote to S1 and resolve immediately.
+Action: open a task. Document in `MISMATCHES.md` until resolved.
+
+**S3 — Must be resolved before the target DB becomes the sole production environment.**
+The code references something that only exists in legacy. Until the target migration is applied,
+this is a latent bug in the target project.
+Action: document in `MISMATCHES.md` with a note tying it to the legacy→target migration timeline.
+Do not block the current release unless the target project is already live for affected users.
+
+**S4 — Does not gate any release.**
+Grouping arrays are used for display logic or documentation, not authorization. Runtime
+entitlements from the DB are the authoritative source of module access.
+Action: document in `MISMATCHES.md` and revisit when plan data stabilizes.
+
+### Classification of Current Open Mismatches
+
+| Mismatch(es)                                   | Category                                    | Severity |
+| ---------------------------------------------- | ------------------------------------------- | -------- |
+| M-6 to M-11 (missing wildcard constants)       | In target DB; absent from TypeScript        | **S2**   |
+| M-12 to M-15 (missing module-access constants) | In target DB; absent from TypeScript        | **S2**   |
+| M-16 to M-18 (legacy-only permissions)         | In legacy DB only; absent from target       | **S3**   |
+| M-1 to M-5 (module grouping drift)             | Grouping arrays diverge from live plan data | **S4**   |
+
+No S1 mismatches currently exist. If a new verification pass finds a slug in TypeScript with
+no DB backing, treat it as S1 and act before the next release.
+
+### Escalation Path
+
+1. During a verification pass, classify each new finding using the table above.
+2. S1: block the current branch immediately; do not merge until resolved.
+3. S2/S3: add to `MISMATCHES.md` under the correct category; open a follow-up task with the severity label.
+4. S4: add to `MISMATCHES.md`; no task required unless the divergence causes visible product confusion.
+5. After `MISMATCHES.md` is updated, re-check internal consistency (Step 5 in the verification process above).
+
+---
+
 ## Current Known State (as of 2026-03-23)
 
 Last full verification: 2026-03-21 (Phase 1 extraction) + re-verified 2026-03-23 (Phase 6 hardening).

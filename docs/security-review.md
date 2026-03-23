@@ -1,8 +1,9 @@
 # Security Review — Shared Backend and Auth Setup
 
 This document records the security posture of the shared backend and auth architecture
-as of 2026-03-23. It covers service-role isolation, mobile auth security, auth settings,
-password policy, MFA, redirect policies, and auth edge function assumptions.
+as of 2026-03-23. It covers service-role isolation, mobile authorization trust boundary,
+mobile auth security, auth settings, password policy, MFA, redirect policies, and auth
+edge function assumptions.
 
 Each finding is classified as one of:
 
@@ -53,7 +54,61 @@ create clients. Confirmed safe.
 
 ---
 
-## 2. Mobile Auth Security Posture
+## 2. Mobile Authorization Trust Boundary
+
+### Policy: Mobile is NOT an authorization authority
+
+This is an explicit architectural security policy, not a temporary Phase 5 limitation.
+
+**The mobile client (`apps/mobile`) must not be treated as a trusted authority for
+authorization decisions at any phase of the project.**
+
+Authorization decisions — determining whether a user may perform an action or access
+a resource — must always be enforced server-side. The Supabase Row Level Security (RLS)
+policies and server-side permission checks are the **only authoritative source of truth**
+for authorization. Mobile-side permission state is informational only.
+
+### What this means in practice
+
+**JWT-derived role state** — decoded from the access token by `@repo/auth AuthService`
+in `AppContext` — tells the app who the user is and which orgs/branches they belong to.
+This may be used for UI decisions (e.g., showing or hiding elements, optimistic routing).
+It must NOT be used as an enforcement gate for any privileged data operation.
+
+**`permissions: null` and `entitlements: null` in `AppState`** are intentional null stubs.
+They mark the absence of a verified server-side permission snapshot. They must not be
+replaced with client-only permission derivation as a future-phase shortcut.
+
+**When backend permission loading is implemented** in a future phase, the loaded
+`PermissionSnapshot` should be treated as a cached read of server state, not as a grant.
+The server must still enforce access independently via RLS, regardless of what the
+client-side snapshot contains.
+
+No permission-gated feature may be shipped on mobile until both of the following are in
+place: (1) server-side enforcement (RLS or API-level check) and (2) the mobile client
+correctly handles 401/403 responses from the server.
+
+### Current Phase 5 state (verified from source)
+
+Verified from `apps/mobile/contexts/app-context.tsx`:
+
+| Field          | Current value                      | Notes                                   |
+| -------------- | ---------------------------------- | --------------------------------------- |
+| `roles`        | `TokenRole[]` decoded from JWT     | Informational only — not enforced       |
+| `activeOrgId`  | Derived from first org-scoped role | Provisional, no backend fetch           |
+| `permissions`  | `null`                             | No server snapshot loaded — intentional |
+| `entitlements` | `null`                             | No server snapshot loaded — intentional |
+
+### What this policy does not prevent
+
+This policy does not prevent the mobile app from showing permission-aware UI
+(e.g., hiding admin-only controls when `orgRoles` contains no admin role).
+UI optimism is acceptable. The prohibition is against treating UI state as
+an authorization decision. The backend must be strict; the client may be helpful.
+
+---
+
+## 3. Mobile Auth Security Posture
 
 ### Session Storage: Confirmed safe
 
@@ -78,7 +133,7 @@ only. The service-role key (`SUPABASE_SERVICE_ROLE_KEY`) is never present in the
 
 ---
 
-## 3. Auth Settings for Mobile Rollout
+## 4. Auth Settings for Mobile Rollout
 
 ### Email Confirmation
 
@@ -102,7 +157,7 @@ Mobile uses `autoRefreshToken: true` which handles token refresh transparently.
 
 ---
 
-## 4. Password Security
+## 5. Password Security
 
 ### Current State: Known gap
 
@@ -123,7 +178,7 @@ operational setting in the Supabase dashboard and is not controlled by this repo
 
 ---
 
-## 5. MFA Roadmap
+## 6. MFA Roadmap
 
 ### Status: Deferred — product and operational decision required
 
@@ -142,7 +197,7 @@ is deferred until the product decision is made.
 
 ---
 
-## 6. Redirect Policies
+## 7. Redirect Policies
 
 ### Current State: Confirmed safe for Phase 5
 
@@ -168,7 +223,7 @@ Register the mobile app's deep link scheme in the Supabase allowed redirect URLs
 
 ---
 
-## 7. Auth Edge Function Assumptions
+## 8. Auth Edge Function Assumptions
 
 ### Current Configuration (TARGET project)
 
@@ -183,7 +238,10 @@ for email delivery (signup confirmation, password recovery). The function is con
 Confirmation emails link to `{NEXT_PUBLIC_SITE_URL}/auth/confirm?token_hash=...&type=signup`.
 Recovery emails link to `{NEXT_PUBLIC_SITE_URL}/auth/confirm?token_hash=...&type=recovery&next=/reset-password`.
 
-`NEXT_PUBLIC_SITE_URL` is set to `https://www.ambra-system.com` — the web app URL.
+`NEXT_PUBLIC_SITE_URL` is configured to point to the production web app URL.
+_(Not repo-verifiable — this value is set in the deployment environment or in `.env.local`,
+which is gitignored. Confirm the current value in the deployment configuration before acting
+on it.)_
 
 **Implication:** A mobile user who triggers a password reset receives an email that links
 to the web app's reset-password page, not the mobile app. This is correct behavior for
@@ -204,6 +262,7 @@ password reset.
 | Item                                 | Status         | Action Owner                     |
 | ------------------------------------ | -------------- | -------------------------------- |
 | Service-role isolation               | Confirmed safe | —                                |
+| Mobile authorization trust boundary  | Policy defined | Enforce in all future phases     |
 | Mobile session storage (SecureStore) | Confirmed safe | —                                |
 | Mobile client configuration          | Confirmed safe | —                                |
 | Mobile env vars (anon key only)      | Confirmed safe | —                                |

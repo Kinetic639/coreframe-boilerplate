@@ -29,6 +29,75 @@ apps/*/src         — app business logic, server actions, routes, UI
 
 ---
 
+## Dependency Direction Rules
+
+These rules govern the import graph between packages and apps. They must never be
+violated. The actual package.json dependencies in this repo comply with these rules;
+this section makes the governing policy explicit so it can be enforced by inspection.
+
+### Allowed Directions
+
+- `apps/*` may import from `packages/*`
+- `packages/*` may import from other `packages/*` **only according to the tier rules below**
+- Any `packages/*` may import external npm packages (e.g., `jwt-decode`, `vitest`)
+
+### Tier Rules for Business-Logic Packages
+
+Packages are organized into two tiers. Import direction flows Tier 2 → Tier 1 only.
+
+```
+Tier 1 — Foundational leaves (no cross-package deps allowed):
+  @repo/contracts   — types and constants only; depends on no other @repo package
+  @repo/supabase    — generated DB types + config interfaces; depends on no other @repo package
+
+Tier 2 — Depend on Tier 1 only:
+  @repo/auth        — may depend on @repo/contracts only
+  @repo/domain      — may depend on @repo/contracts only
+  @repo/testing     — may depend on @repo/contracts only
+```
+
+**Tier 1 packages are foundational leaves and may not depend on any other business package.**
+**Tier 2 packages may depend only on Tier 1 packages.**
+**Same-tier business-package imports are forbidden unless explicitly documented as an approved exception.**
+**Packages may never import from `apps/*`.**
+**Circular dependencies are forbidden.**
+
+### Per-Package Explicit Rules
+
+| Package           | May depend on     | Must NOT depend on                                          |
+| ----------------- | ----------------- | ----------------------------------------------------------- |
+| `@repo/contracts` | _(nothing)_       | Any other `@repo/*` package                                 |
+| `@repo/supabase`  | _(nothing)_       | Any other `@repo/*` package                                 |
+| `@repo/auth`      | `@repo/contracts` | `@repo/domain`, `@repo/supabase`, `@repo/testing`, `apps/*` |
+| `@repo/domain`    | `@repo/contracts` | `@repo/auth`, `@repo/supabase`, `@repo/testing`, `apps/*`   |
+| `@repo/testing`   | `@repo/contracts` | `@repo/auth`, `@repo/domain`, `@repo/supabase`, `apps/*`    |
+
+### DevDependency Exemption
+
+`devDependencies` in package.json are exempt from the direction rules above, because
+they are used only at build/test time (e.g., `@repo/testing` as a devDep in `@repo/auth`
+and `@repo/domain` for use in their `__tests__/` directories). However:
+
+- devDependency imports must appear **only in `__tests__/` files**, never in production source
+- A devDep that migrates into a production import is a violation of the tier rules above
+
+### Verification
+
+```bash
+# Confirm no package source file imports from apps/
+grep -rn "from.*apps/" packages/*/src/ 2>/dev/null | grep -v "\.md"
+# Expected: zero results
+
+# Confirm no next/* or expo-* in package source
+grep -rn "from ['\"]next/\|from ['\"]expo-" packages/*/src/ 2>/dev/null
+# Expected: zero results
+
+# Confirm tier-1 packages have no cross-package deps in package.json
+# (look for @repo/* entries under "dependencies", not "devDependencies")
+```
+
+---
+
 ## Package Inventory
 
 ### `@repo/contracts`
