@@ -138,6 +138,7 @@ export function AppProvider({
       orgRoles: activeOrgId
         ? orgRoles.filter((r) => r.org_id === activeOrgId || r.scope_id === activeOrgId)
         : [],
+      accessToken: session.access_token,
     };
   }, [session.access_token, session.user.id, session.user.email]);
 
@@ -202,10 +203,10 @@ export function AppProvider({
     return () => {
       cancelled = true;
     };
-    // retryKey is intentionally included: it triggers a fresh load without
-    // requiring userId/activeOrgId to change (manual retry path).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jwtDerived.userId, jwtDerived.activeOrgId, retryKey]);
+    // retryKey triggers a fresh load without requiring userId/activeOrgId/accessToken
+    // to change (manual retry path). accessToken ensures a silent token refresh
+    // (same user, same org, new JWT) triggers a fresh permission load.
+  }, [jwtDerived.userId, jwtDerived.activeOrgId, jwtDerived.accessToken, retryKey]);
 
   // Auto sign-out when the session token is expired or revoked.
   // signOut() → session becomes null → _layout.tsx redirects to welcome.

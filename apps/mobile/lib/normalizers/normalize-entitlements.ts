@@ -21,7 +21,8 @@ export function normalizeEntitlements(row: Record<string, unknown>): Organizatio
     plan_id: typeof row.plan_id === "string" ? row.plan_id : null,
     plan_name: typeof row.plan_name === "string" ? row.plan_name : "",
     enabled_modules: normalizeStringArray(row.enabled_modules),
-    enabled_contexts: normalizeStringArray(row.enabled_contexts),
+    // Live DB column is "contexts", not "enabled_contexts"
+    enabled_contexts: normalizeStringArray(row.contexts),
     features: normalizeFeatureMap(row.features),
     limits: normalizeLimitMap(row.limits),
     updated_at: typeof row.updated_at === "string" ? row.updated_at : "",

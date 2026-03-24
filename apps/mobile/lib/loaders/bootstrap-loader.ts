@@ -97,77 +97,80 @@ export async function loadBootstrapData(
   userId: string,
   orgId: string
 ): Promise<BootstrapLoadResult> {
-  // ── 1. Permissions ────────────────────────────────────────────────────────
-  // Org-scope rows only (branch_id IS NULL). An empty result set is valid
-  // and becomes allow: [] — a user with no assigned roles is a legitimate state.
-  const {
-    data: permRows,
-    error: permError,
-    status: permStatus,
-  } = await supabase
-    .from("user_effective_permissions")
-    .select("permission_slug_exact")
-    .eq("user_id", userId)
-    .eq("org_id", orgId)
-    .is("branch_id", null);
+  // ── 1–3. Parallel fetch ───────────────────────────────────────────────────
+  // All three queries are independent — fire concurrently and inspect results
+  // in priority order (permissions → entitlements → profile) after all settle.
+  //
+  // Supabase/PostgREST queries resolve (never reject) for application-level
+  // errors (RLS denials, missing rows, etc.). Network-level failures that do
+  // reject propagate through Promise.all to the outer .catch handler in the
+  // caller (AppProvider).
+  const [permResult, entResult, profileResult] = await Promise.all([
+    // Permissions: org-scope rows only (branch_id IS NULL).
+    // An empty result set is valid — a user with no assigned roles is legitimate.
+    supabase
+      .from("user_effective_permissions")
+      .select("permission_slug_exact")
+      .eq("user_id", userId)
+      .eq("organization_id", orgId)
+      .is("branch_id", null),
 
-  if (permError) {
-    return classifyError(permStatus, permError.code, permError.message);
+    // Entitlements: maybeSingle() → { data: null, error: null } when no row.
+    // null data is not an error — it means the org has no subscription row.
+    // Live DB columns: organization_id, plan_id, enabled_modules, contexts,
+    // limits, updated_at. Note: plan_name and features are in the contract
+    // type but not in the live schema — normalizeEntitlements defaults them.
+    // The column is "contexts", not "enabled_contexts".
+    supabase
+      .from("organization_entitlements")
+      .select("organization_id, plan_id, enabled_modules, contexts, limits, updated_at")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+
+    // Org profile: maybeSingle() — null when org not yet configured.
+    // Used for display only (orgName). A missing row is not a load error.
+    supabase
+      .from("organization_profiles")
+      .select("name")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+  ]);
+
+  // Inspect errors in priority order — first error encountered wins.
+  if (permResult.error) {
+    return classifyError(permResult.status, permResult.error.code, permResult.error.message);
   }
-
-  // ── 2. Entitlements ───────────────────────────────────────────────────────
-  // maybeSingle() returns { data: null, error: null } when no row is found.
-  // This is not an error — it means the org has no subscription row.
-  // normalizeEntitlements is only invoked when a row is present.
-  const {
-    data: entRow,
-    error: entError,
-    status: entStatus,
-  } = await supabase
-    .from("organization_entitlements")
-    .select(
-      "organization_id, plan_id, plan_name, enabled_modules, enabled_contexts, features, limits, updated_at"
-    )
-    .eq("organization_id", orgId)
-    .maybeSingle();
-
-  if (entError) {
-    return classifyError(entStatus, entError.code, entError.message);
+  if (entResult.error) {
+    return classifyError(entResult.status, entResult.error.code, entResult.error.message);
   }
-
-  // ── 3. Org profile ────────────────────────────────────────────────────────
-  // maybeSingle() — null when no profile row exists (org not yet configured).
-  // Used for display only (orgName). A missing row is not a load error.
-  const {
-    data: profileRow,
-    error: profileError,
-    status: profileStatus,
-  } = await supabase
-    .from("organization_profiles")
-    .select("name")
-    .eq("organization_id", orgId)
-    .maybeSingle();
-
-  if (profileError) {
-    return classifyError(profileStatus, profileError.code, profileError.message);
+  if (profileResult.error) {
+    return classifyError(
+      profileResult.status,
+      profileResult.error.code,
+      profileResult.error.message
+    );
   }
 
   const orgName: string | null =
-    typeof profileRow?.name === "string" && profileRow.name.length > 0 ? profileRow.name : null;
+    typeof profileResult.data?.name === "string" && profileResult.data.name.length > 0
+      ? profileResult.data.name
+      : null;
 
   // ── 4. Build snapshot ─────────────────────────────────────────────────────
   const permissions: PermissionSnapshot = {
-    allow: (permRows ?? [])
-      .map((r) => r.permission_slug_exact as string)
+    allow: (permResult.data ?? [])
+      .map((r) => r.permission_slug_exact)
       .filter((s): s is string => typeof s === "string" && s.length > 0)
       .sort(),
     deny: [],
   };
 
-  // entRow is null when no subscription row exists — that's passed through
-  // as null. The normalizer is only called when a concrete row was returned.
+  // entResult.data is null when no subscription row exists — that's passed
+  // through as null. The normalizer is only called when a concrete row was returned.
   const entitlements: OrganizationEntitlements | null =
-    entRow !== null ? normalizeEntitlements(entRow as Record<string, unknown>) : null;
+    entResult.data !== null
+      ? normalizeEntitlements(entResult.data as Record<string, unknown>)
+      : null;
 
   return { kind: "resolved", permissions, entitlements, orgName };
 }
