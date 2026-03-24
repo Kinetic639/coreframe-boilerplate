@@ -160,7 +160,6 @@ describe("EntitlementsService", () => {
           expect(entError.context).toEqual({
             orgId: "org-123",
             moduleSlug: "analytics",
-            planName: "pro",
           });
         }
       });
