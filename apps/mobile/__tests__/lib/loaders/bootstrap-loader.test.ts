@@ -132,10 +132,8 @@ describe("loadBootstrapData", () => {
     const entRow = {
       organization_id: "o1",
       plan_id: "plan-pro",
-      plan_name: "Pro",
       enabled_modules: ["warehouse"],
-      enabled_contexts: ["web"],
-      features: { advanced: true },
+      contexts: ["web"],
       limits: { api_calls: 1000 },
       updated_at: "2026-01-01T00:00:00Z",
     };

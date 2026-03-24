@@ -128,7 +128,6 @@ The concurrency test (bootstrap-loader case 16) uses deferred promises to prove 
 
 ## Deferred to Phase 8
 
-- Org switcher (multi-org JWT support)
-- Branch context loading
+- Branch context loading (active branch selection and branch-scoped permission loading in mobile)
 - Entitlement-gated feature flags in mobile UI
 - Refresh token expiry handling (currently: auto sign-out; Phase 8 may add a re-auth flow)

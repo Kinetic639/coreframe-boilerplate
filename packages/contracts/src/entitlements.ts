@@ -40,7 +40,6 @@ export interface LimitCheckResult {
  */
 export type EntitlementErrorCode =
   | "MODULE_ACCESS_DENIED"
-  | "FEATURE_UNAVAILABLE"
   | "LIMIT_EXCEEDED"
   | "LIMIT_CHECK_FAILED" // Count query failed - fail-closed
   | "NO_ACTIVE_SUBSCRIPTION"
@@ -52,11 +51,9 @@ export type EntitlementErrorCode =
 export interface EntitlementErrorContext {
   orgId: string;
   moduleSlug?: string;
-  featureKey?: string;
   limitKey?: string;
   current?: number;
   limit?: number;
-  planName?: string;
 }
 
 /**

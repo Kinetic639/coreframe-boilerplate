@@ -235,14 +235,11 @@ async function requireModuleOrRedirect(
 
       // Only redirect on MODULE_ACCESS_DENIED
       if (code === "MODULE_ACCESS_DENIED") {
-        // Get plan name from best available source
-        const planName = context.planName || "unknown";
-
         const baseUrl = opts?.redirectTo || "/upgrade";
         const params = new URLSearchParams({
           reason: "module",
           module: moduleSlug,
-          plan: planName,
+          plan: "unknown",
           org: ctx.orgId,
         });
 
@@ -316,14 +313,11 @@ async function requireWithinLimitOrRedirect(
 
       // Only redirect on LIMIT_EXCEEDED
       if (code === "LIMIT_EXCEEDED") {
-        // Get plan name from best available source
-        const planName = context.planName || "unknown";
-
         const baseUrl = opts?.redirectTo || "/upgrade";
         const params = new URLSearchParams({
           reason: "limit",
           key: limitKey,
-          plan: planName,
+          plan: "unknown",
           org: ctx.orgId,
         });
 
@@ -412,7 +406,6 @@ export function mapEntitlementError(error: unknown): {
   // Exhaustive mapping - no fallback needed (EntitlementErrorCode is a strict union)
   const messages: Record<EntitlementErrorCode, string> = {
     MODULE_ACCESS_DENIED: "This module is not available on your plan.",
-    FEATURE_UNAVAILABLE: "This feature is not available on your plan.",
     LIMIT_EXCEEDED: "You've reached your plan limit.",
     LIMIT_CHECK_FAILED: "Couldn't verify your plan limits. Please try again.",
     ENTITLEMENTS_MISSING: "Subscription configuration is missing. Contact support.",
