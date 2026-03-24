@@ -21,7 +21,7 @@ import type { OrganizationEntitlements } from "@/lib/types/entitlements";
  * @example
  * ```tsx
  * function ProductsPage() {
- *   const { hasModule, hasFeature, getLimit } = useEntitlements();
+ *   const { hasModule, getLimit } = useEntitlements();
  *
  *   if (!hasModule("warehouse")) {
  *     return <UpgradeRequired module="warehouse" />;
@@ -32,7 +32,7 @@ import type { OrganizationEntitlements } from "@/lib/types/entitlements";
  *   return (
  *     <div>
  *       <h1>Products ({productLimit === -1 ? "Unlimited" : `Limit: ${productLimit}`})</h1>
- *       {hasFeature("advanced_analytics") && <AnalyticsPanel />}
+ *       {hasModule("analytics") && <AnalyticsPanel />}
  *     </div>
  *   );
  * }
@@ -124,34 +124,6 @@ export function useEntitlements() {
   };
 
   /**
-   * Check if organization has a specific feature enabled
-   *
-   * **Boolean-only**: Uses strict `=== true` comparison. Features stored as
-   * numbers or strings in `entitlements.features` will return `false`.
-   * This is intentional — non-boolean feature values should be read via
-   * `getEntitlements().features[key]` directly.
-   *
-   * @param featureKey - Feature key (e.g., "basic_support", "advanced_analytics")
-   * @returns True only if `features[featureKey]` is exactly `true`
-   *
-   * @example
-   * ```tsx
-   * const { hasFeature } = useEntitlements();
-   *
-   * if (hasFeature("priority_support")) {
-   *   // Show priority support badge
-   * }
-   * ```
-   */
-  const hasFeature = (featureKey: string): boolean => {
-    if (!entitlements) {
-      return false;
-    }
-
-    return entitlements.features[featureKey] === true;
-  };
-
-  /**
    * Get effective limit for a resource
    *
    * @param limitKey - Limit key (e.g., "warehouse.max_products")
@@ -194,23 +166,6 @@ export function useEntitlements() {
   };
 
   /**
-   * Get current plan name
-   *
-   * @returns Plan name (e.g., "free", "professional", "enterprise")
-   *
-   * @example
-   * ```tsx
-   * const { getPlanName } = useEntitlements();
-   *
-   * const currentPlan = getPlanName();
-   * // "professional"
-   * ```
-   */
-  const getPlanName = (): string => {
-    return entitlements?.plan_name || "free";
-  };
-
-  /**
    * Get the full entitlements object
    *
    * Useful for debugging or passing to other utilities.
@@ -222,7 +177,7 @@ export function useEntitlements() {
    * const { getEntitlements } = useEntitlements();
    *
    * const entitlements = getEntitlements();
-   * console.log("Plan:", entitlements?.plan_name);
+   * console.log("Plan ID:", entitlements?.plan_id);
    * console.log("Modules:", entitlements?.enabled_modules);
    * ```
    */
@@ -237,15 +192,9 @@ export function useEntitlements() {
     hasAnyModule,
     hasAllModules,
 
-    // Feature checks
-    hasFeature,
-
     // Limit checks
     getLimit,
     isUnlimited,
-
-    // Plan info
-    getPlanName,
 
     // Raw access
     getEntitlements,

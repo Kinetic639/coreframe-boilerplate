@@ -10,10 +10,8 @@ import type { OrganizationEntitlements } from "@repo/contracts/entitlements";
 const DEFAULT_ENTITLEMENTS: OrganizationEntitlements = {
   organization_id: "00000000-0000-0000-0000-000000000001",
   plan_id: "plan-basic",
-  plan_name: "Basic",
   enabled_modules: [],
-  enabled_contexts: [],
-  features: {},
+  contexts: [],
   limits: {},
   updated_at: "2026-01-01T00:00:00.000Z",
 };
@@ -39,18 +37,6 @@ export function makeOrganizationEntitlements(
  */
 export function makeEntitlementsWithModules(...moduleSlug: string[]): OrganizationEntitlements {
   return { ...DEFAULT_ENTITLEMENTS, enabled_modules: moduleSlug };
-}
-
-/**
- * Build entitlements with the given feature flags set.
- *
- * @example
- * makeEntitlementsWithFeatures({ advanced_reporting: true, beta_ui: false })
- */
-export function makeEntitlementsWithFeatures(
-  features: Record<string, boolean | number | string>
-): OrganizationEntitlements {
-  return { ...DEFAULT_ENTITLEMENTS, features };
 }
 
 /**

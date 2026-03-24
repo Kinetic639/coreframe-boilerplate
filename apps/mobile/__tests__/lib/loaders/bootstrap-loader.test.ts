@@ -150,7 +150,6 @@ describe("loadBootstrapData", () => {
     if (result.kind === "resolved") {
       expect(result.entitlements).toMatchObject({
         organization_id: "o1",
-        plan_name: "Pro",
         enabled_modules: ["warehouse"],
       });
     }

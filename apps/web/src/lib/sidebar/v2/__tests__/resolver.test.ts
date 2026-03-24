@@ -29,8 +29,7 @@ describe("resolveSidebarModel", () => {
     permissionSnapshot: { allow: [], deny: [] },
     entitlements: {
       enabled_modules: [],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
       limits: {},
     },
     context: {
@@ -201,8 +200,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_WAREHOUSE],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -228,8 +226,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_WAREHOUSE, MODULE_ANALYTICS],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -278,8 +275,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_ANALYTICS],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -290,8 +286,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_DEVELOPMENT],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -302,8 +297,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_ANALYTICS, MODULE_DEVELOPMENT],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -314,8 +308,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_WAREHOUSE],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -368,8 +361,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -408,8 +400,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_WAREHOUSE, MODULE_TEAMS],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -505,8 +496,7 @@ describe("resolveSidebarModel", () => {
       permissionSnapshot: { allow: [ORG_UPDATE], deny: [] },
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -518,8 +508,7 @@ describe("resolveSidebarModel", () => {
       permissionSnapshot: { allow: [ORG_READ], deny: [] },
       entitlements: {
         enabled_modules: [MODULE_ANALYTICS],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -531,8 +520,7 @@ describe("resolveSidebarModel", () => {
       permissionSnapshot: { allow: [ORG_UPDATE], deny: [] },
       entitlements: {
         enabled_modules: [MODULE_ANALYTICS],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -570,8 +558,7 @@ describe("resolveSidebarModel", () => {
       permissionSnapshot: { allow: [ORG_READ], deny: [] },
       entitlements: {
         enabled_modules: [MODULE_HOME, MODULE_WAREHOUSE],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -693,8 +680,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -777,8 +763,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -809,8 +794,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };
@@ -858,8 +842,7 @@ describe("resolveSidebarModel", () => {
       ...baseInput,
       entitlements: {
         enabled_modules: [MODULE_HOME],
-        enabled_contexts: [],
-        features: {},
+        contexts: [],
         limits: {},
       },
     };

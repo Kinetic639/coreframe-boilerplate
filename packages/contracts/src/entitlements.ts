@@ -19,10 +19,8 @@
 export interface OrganizationEntitlements {
   organization_id: string;
   plan_id: string | null;
-  plan_name: string;
   enabled_modules: string[];
-  enabled_contexts: string[];
-  features: Record<string, boolean | number | string>;
+  contexts: string[];
   limits: Record<string, number>;
   updated_at: string;
 }

@@ -37,23 +37,6 @@ export function hasModuleAccess(
 }
 
 /**
- * Check if an organization has a specific feature enabled.
- *
- * Mechanical extract of the inner decision from EntitlementsService.hasFeatureAccess().
- *
- * @param entitlements - Pre-loaded org entitlements snapshot, or null if unavailable.
- * @param featureKey - Feature key to check (e.g. "basic_support").
- * @returns true if features[featureKey] === true; false if entitlements missing or feature absent.
- */
-export function hasFeatureAccess(
-  entitlements: OrganizationEntitlements | null,
-  featureKey: string
-): boolean {
-  if (!entitlements) return false;
-  return entitlements.features[featureKey] === true;
-}
-
-/**
  * Get the effective numeric limit for a given limit key.
  *
  * Mechanical extract of the inner decision from EntitlementsService.getEffectiveLimit().

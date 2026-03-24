@@ -5,22 +5,15 @@
  *
  * Suites:
  *   T-ENT-MODULE:   hasModuleAccess()
- *   T-ENT-FEATURE:  hasFeatureAccess()
  *   T-ENT-LIMIT:    getEffectiveLimit()
  *   T-ENT-CHECK:    checkLimitStatus()
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  hasModuleAccess,
-  hasFeatureAccess,
-  getEffectiveLimit,
-  checkLimitStatus,
-} from "../entitlements.js";
+import { hasModuleAccess, getEffectiveLimit, checkLimitStatus } from "../entitlements.js";
 import {
   makeOrganizationEntitlements,
   makeEntitlementsWithModules,
-  makeEntitlementsWithFeatures,
   makeEntitlementsWithLimits,
 } from "@repo/testing/factories/entitlements";
 import { LIMIT_KEYS } from "@repo/contracts/entitlements";
@@ -48,37 +41,6 @@ describe("T-ENT-MODULE: hasModuleAccess()", () => {
 
   it("returns false when entitlements is null", () => {
     expect(hasModuleAccess(null, "warehouse")).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// T-ENT-FEATURE: hasFeatureAccess()
-// ---------------------------------------------------------------------------
-
-describe("T-ENT-FEATURE: hasFeatureAccess()", () => {
-  it("returns true when feature is true", () => {
-    const ents = makeEntitlementsWithFeatures({ basic_support: true, advanced_reporting: true });
-    expect(hasFeatureAccess(ents, "basic_support")).toBe(true);
-    expect(hasFeatureAccess(ents, "advanced_reporting")).toBe(true);
-  });
-
-  it("returns false when feature is false", () => {
-    const ents = makeEntitlementsWithFeatures({ basic_support: false });
-    expect(hasFeatureAccess(ents, "basic_support")).toBe(false);
-  });
-
-  it("returns false when feature key is absent", () => {
-    const ents = makeOrganizationEntitlements({ features: {} });
-    expect(hasFeatureAccess(ents, "basic_support")).toBe(false);
-  });
-
-  it("returns false when entitlements is null", () => {
-    expect(hasFeatureAccess(null, "basic_support")).toBe(false);
-  });
-
-  it("returns false when feature value is a number (not boolean true)", () => {
-    const ents = makeEntitlementsWithFeatures({ seats: 5 as unknown as boolean });
-    expect(hasFeatureAccess(ents, "seats")).toBe(false);
   });
 });
 

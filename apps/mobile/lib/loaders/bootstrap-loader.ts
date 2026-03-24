@@ -118,9 +118,8 @@ export async function loadBootstrapData(
     // Entitlements: maybeSingle() → { data: null, error: null } when no row.
     // null data is not an error — it means the org has no subscription row.
     // Live DB columns: organization_id, plan_id, enabled_modules, contexts,
-    // limits, updated_at. Note: plan_name and features are in the contract
-    // type but not in the live schema — normalizeEntitlements defaults them.
-    // The column is "contexts", not "enabled_contexts".
+    // limits, updated_at. Contract shape matches live schema exactly.
+    // The column is "contexts" (not "enabled_contexts").
     supabase
       .from("organization_entitlements")
       .select("organization_id, plan_id, enabled_modules, contexts, limits, updated_at")

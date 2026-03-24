@@ -11,7 +11,6 @@ import {
 } from "@/lib/types/entitlements";
 import {
   hasModuleAccess as domainHasModuleAccess,
-  hasFeatureAccess as domainHasFeatureAccess,
   getEffectiveLimit as domainGetEffectiveLimit,
   checkLimitStatus as domainCheckLimitStatus,
 } from "@repo/domain/entitlements";
@@ -147,58 +146,6 @@ export class EntitlementsService {
       throw new EntitlementError("MODULE_ACCESS_DENIED", {
         orgId,
         moduleSlug,
-        planName: ents.plan_name,
-      });
-    }
-  }
-
-  /**
-   * Check if organization has a feature enabled
-   *
-   * @param orgId - Organization ID
-   * @param featureKey - Feature key (e.g., "basic_support", "advanced_analytics")
-   * @param entitlements - Optional pre-loaded entitlements (avoids DB query)
-   * @returns True if feature is enabled
-   */
-  static async hasFeatureAccess(
-    orgId: string,
-    featureKey: string,
-    entitlements?: OrganizationEntitlements | null
-  ): Promise<boolean> {
-    const ents = await this.resolveEntitlements(orgId, entitlements);
-
-    if (!ents) {
-      return false;
-    }
-
-    return domainHasFeatureAccess(ents, featureKey);
-  }
-
-  /**
-   * Require feature access (throws if denied)
-   *
-   * @param orgId - Organization ID
-   * @param featureKey - Feature key
-   * @param entitlements - Optional pre-loaded entitlements (avoids DB query)
-   * @throws EntitlementError if feature unavailable
-   */
-  static async requireFeatureAccess(
-    orgId: string,
-    featureKey: string,
-    entitlements?: OrganizationEntitlements | null
-  ): Promise<void> {
-    const ents = await this.resolveEntitlements(orgId, entitlements);
-
-    if (!ents) {
-      throw new EntitlementError("ENTITLEMENTS_MISSING", { orgId });
-    }
-
-    const hasFeature = ents.features[featureKey] === true;
-    if (!hasFeature) {
-      throw new EntitlementError("FEATURE_UNAVAILABLE", {
-        orgId,
-        featureKey,
-        planName: ents.plan_name,
       });
     }
   }
