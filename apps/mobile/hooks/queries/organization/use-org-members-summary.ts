@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { mobileSupabase } from "@/lib/supabase/client";
 import { fetchOrgMembersSummary } from "@/lib/queries/organization/org-members-summary";
 import type { OrgMembersSummary } from "@/lib/queries/organization/org-members-summary";
+import { QUERY_KEY_DISABLED } from "@/lib/queries/types";
 import type { HookResult } from "@/lib/queries/types";
 
 export const orgMembersSummaryQueryKey = (orgId: string) => ["org-members-summary", orgId] as const;
@@ -22,7 +23,7 @@ export const orgMembersSummaryQueryKey = (orgId: string) => ["org-members-summar
  */
 export function useOrgMembersSummary(orgId: string | null): HookResult<OrgMembersSummary> {
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: orgId ? orgMembersSummaryQueryKey(orgId) : (["org-members-summary", null] as const),
+    queryKey: orgMembersSummaryQueryKey(orgId ?? QUERY_KEY_DISABLED),
     queryFn: () => fetchOrgMembersSummary(mobileSupabase, orgId!),
     enabled: orgId !== null,
     staleTime: 2 * 60 * 1000, // 2 min: member counts change more often than profile
@@ -35,5 +36,11 @@ export function useOrgMembersSummary(orgId: string | null): HookResult<OrgMember
     return { kind: "error", message };
   }
 
-  return data ?? { kind: "loading" };
+  // At this point: orgId is set, query is not loading, and no network error.
+  // data must be a QueryResult — query functions always return a settled result.
+  // If data is still undefined here, the query-function contract has been violated.
+  if (data === undefined) {
+    return { kind: "error", message: "Unexpected empty query result" };
+  }
+  return data;
 }

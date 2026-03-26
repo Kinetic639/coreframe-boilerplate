@@ -96,4 +96,20 @@ describe("useOrgMembersSummary", () => {
     renderHook(() => useOrgMembersSummary("org-abc"), { wrapper: createWrapper() });
     await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(expect.anything(), "org-abc"));
   });
+
+  // ── Defensive: invariant-failure guard (contract violation coverage) ──────
+  // Documents that the hook always surfaces kind=error if a query fn returns
+  // undefined — a violation of the QueryResult contract. TanStack Query v5
+  // itself rejects undefined query results before our explicit guard is reached,
+  // so the hook is doubly protected. Either path produces kind=error; the exact
+  // message is TanStack-internal and not asserted here.
+  it("returns kind=error when the query fn returns undefined (contract violation)", async () => {
+    mockFetch.mockResolvedValue(undefined as never);
+
+    const { result } = renderHook(() => useOrgMembersSummary("org-1"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.kind).toBe("error"));
+  });
 });

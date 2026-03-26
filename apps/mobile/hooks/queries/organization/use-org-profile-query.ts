@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { mobileSupabase } from "@/lib/supabase/client";
 import { fetchOrgProfile } from "@/lib/queries/organization/org-profile";
 import type { OrgProfileData } from "@/lib/queries/organization/org-profile";
+import { QUERY_KEY_DISABLED } from "@/lib/queries/types";
 import type { HookResult } from "@/lib/queries/types";
 
 // ─── Query key ────────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ export const orgProfileQueryKey = (orgId: string) => ["org-profile", orgId] as c
  */
 export function useOrgProfileQuery(orgId: string | null): HookResult<OrgProfileData> {
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: orgId ? orgProfileQueryKey(orgId) : (["org-profile", null] as const),
+    queryKey: orgProfileQueryKey(orgId ?? QUERY_KEY_DISABLED),
     queryFn: () => fetchOrgProfile(mobileSupabase, orgId!),
     enabled: orgId !== null,
     staleTime: 5 * 60 * 1000,
@@ -49,7 +50,12 @@ export function useOrgProfileQuery(orgId: string | null): HookResult<OrgProfileD
     return { kind: "error", message };
   }
 
-  // fetchOrgProfile always returns a QueryResult — propagate it directly.
-  // If data is undefined (query disabled / not yet settled), treat as loading.
-  return data ?? { kind: "loading" };
+  // At this point: orgId is set, query is not loading, and no network error.
+  // data must be a QueryResult — query functions always return a settled result.
+  // If data is still undefined here, the query-function contract has been violated.
+  // Surface it as an explicit error rather than silently masking the bug.
+  if (data === undefined) {
+    return { kind: "error", message: "Unexpected empty query result" };
+  }
+  return data;
 }
