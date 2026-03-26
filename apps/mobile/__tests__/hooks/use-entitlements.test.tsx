@@ -21,6 +21,7 @@ function makeContextValue(entitlements: OrganizationEntitlements | null) {
     permissions: { allow: [], deny: [] },
     entitlements,
     orgName: null,
+    orgName2: null,
   };
   return {
     bootstrapState: "resolved" as AppBootstrapState,

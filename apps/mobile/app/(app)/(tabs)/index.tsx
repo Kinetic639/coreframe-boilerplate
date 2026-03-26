@@ -74,6 +74,11 @@ export default function LauncherScreen() {
           <Text style={[styles.orgName, { color: c.text }]} numberOfLines={1}>
             {appState.orgName ?? appState.activeOrgId?.slice(0, 8) ?? "—"}
           </Text>
+          {appState.orgName2 ? (
+            <Text style={[styles.orgName2, { color: c.textMuted }]} numberOfLines={1}>
+              {appState.orgName2}
+            </Text>
+          ) : null}
           <Text style={[styles.headerSub, { color: c.textMuted }]}>Wybierz moduł</Text>
         </View>
       </View>
@@ -114,8 +119,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   orgName: { fontSize: 20, fontWeight: "700" },
+  orgName2: { fontSize: 14, fontWeight: "500", marginTop: 1 },
   headerSub: { fontSize: 13, marginTop: 2 },
-  scrollContent: { padding: 16 },
+  scrollContent: { padding: 16, paddingBottom: 100 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",

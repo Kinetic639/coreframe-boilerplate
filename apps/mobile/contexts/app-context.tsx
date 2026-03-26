@@ -78,6 +78,8 @@ export interface AppState {
    * null when the org has no profile row yet, or when not yet resolved.
    */
   orgName: string | null;
+  /** Secondary display name from organization_profiles.name_2. null when not set. */
+  orgName2: string | null;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -147,6 +149,7 @@ export function AppProvider({
   const [permissions, setPermissions] = useState<PermissionSnapshot | null>(null);
   const [entitlements, setEntitlements] = useState<OrganizationEntitlements | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
+  const [orgName2, setOrgName2] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Incrementing retryKey re-triggers the load without requiring userId/orgId to change.
   const [retryKey, setRetryKey] = useState(0);
@@ -183,6 +186,7 @@ export function AppProvider({
           setEntitlements(result.entitlements);
           // result.orgName may be null — org has no profile row yet.
           setOrgName(result.orgName);
+          setOrgName2(result.orgName2);
           setBootstrapState("resolved");
         } else if (result.kind === "invalid-session") {
           setBootstrapState("invalid-session");
@@ -229,8 +233,9 @@ export function AppProvider({
       permissions,
       entitlements,
       orgName,
+      orgName2,
     }),
-    [jwtDerived, permissions, entitlements, orgName]
+    [jwtDerived, permissions, entitlements, orgName, orgName2]
   );
 
   const value = useMemo<AppContextValue>(

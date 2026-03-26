@@ -79,6 +79,7 @@ describe("loadBootstrapData", () => {
       permissions: { allow: [], deny: [] },
       entitlements: null,
       orgName: null,
+      orgName2: null,
     });
   });
 
@@ -153,17 +154,22 @@ describe("loadBootstrapData", () => {
     }
   });
 
-  // ── 5. Returns orgName when profile row has a non-empty name ─────────────
-  it("returns orgName when profile row has a name", async () => {
+  // ── 5. Returns orgName and orgName2 when profile row has both names ───────
+  it("returns orgName and orgName2 when profile row has both names", async () => {
     const mock = makeMock({
       ...ALL_OK,
-      organization_profiles: { data: { name: "Acme Corp" }, error: null, status: 200 },
+      organization_profiles: {
+        data: { name: "Acme Corp", name_2: "Sp. z o.o." },
+        error: null,
+        status: 200,
+      },
     });
 
     const result = await loadBootstrapData(mock, "u1", "o1");
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
       expect(result.orgName).toBe("Acme Corp");
+      expect(result.orgName2).toBe("Sp. z o.o.");
     }
   });
 
@@ -171,13 +177,14 @@ describe("loadBootstrapData", () => {
   it("returns orgName null when profile name is empty string", async () => {
     const mock = makeMock({
       ...ALL_OK,
-      organization_profiles: { data: { name: "" }, error: null, status: 200 },
+      organization_profiles: { data: { name: "", name_2: null }, error: null, status: 200 },
     });
 
     const result = await loadBootstrapData(mock, "u1", "o1");
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
       expect(result.orgName).toBeNull();
+      expect(result.orgName2).toBeNull();
     }
   });
 

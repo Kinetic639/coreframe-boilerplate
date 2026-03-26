@@ -33,6 +33,8 @@ export type BootstrapLoadResult =
       entitlements: OrganizationEntitlements | null;
       /** null = no organization_profiles row found for this org */
       orgName: string | null;
+      /** null when org has no name_2 set */
+      orgName2: string | null;
     }
   | { kind: "forbidden" }
   | { kind: "invalid-session" }
@@ -130,7 +132,7 @@ export async function loadBootstrapData(
     // Used for display only (orgName). A missing row is not a load error.
     supabase
       .from("organization_profiles")
-      .select("name")
+      .select("name, name_2")
       .eq("organization_id", orgId)
       .maybeSingle(),
   ]);
@@ -155,6 +157,11 @@ export async function loadBootstrapData(
       ? profileResult.data.name
       : null;
 
+  const orgName2: string | null =
+    typeof profileResult.data?.name_2 === "string" && profileResult.data.name_2.length > 0
+      ? profileResult.data.name_2
+      : null;
+
   // ── 4. Build snapshot ─────────────────────────────────────────────────────
   const permissions: PermissionSnapshot = {
     allow: (permResult.data ?? [])
@@ -171,5 +178,5 @@ export async function loadBootstrapData(
       ? normalizeEntitlements(entResult.data as Record<string, unknown>)
       : null;
 
-  return { kind: "resolved", permissions, entitlements, orgName };
+  return { kind: "resolved", permissions, entitlements, orgName, orgName2 };
 }

@@ -33,6 +33,7 @@ const BASE_APP_STATE: AppState = {
   activeOrgId: "org-1",
   orgRoles: [],
   orgName: "Acme Corp",
+  orgName2: null,
   permissions: {
     allow: ["module.organization-management.access", "members.read"],
     deny: [],

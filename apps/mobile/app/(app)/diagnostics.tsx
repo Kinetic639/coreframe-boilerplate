@@ -228,6 +228,11 @@ export default function DiagnosticsScreen() {
                 scheme={colorScheme}
               />
               <DataRow label="orgName" value={appState.orgName ?? "(null)"} scheme={colorScheme} />
+              <DataRow
+                label="orgName2"
+                value={appState.orgName2 ?? "(null)"}
+                scheme={colorScheme}
+              />
             </View>
           )}
         </View>
@@ -436,6 +441,11 @@ export default function DiagnosticsScreen() {
                 {(profile) => (
                   <>
                     <DataRow label="name" value={profile.name ?? "(null)"} scheme={colorScheme} />
+                    <DataRow
+                      label="name_2"
+                      value={profile.name_2 ?? "(null)"}
+                      scheme={colorScheme}
+                    />
                     <DataRow label="slug" value={profile.slug ?? "(null)"} scheme={colorScheme} />
                     <DataRow
                       label="website"

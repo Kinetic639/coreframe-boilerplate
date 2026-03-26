@@ -63,6 +63,7 @@ const RESOLVED_OK: BootstrapLoadResult = {
   permissions: { allow: ["org.read"], deny: [] },
   entitlements: null,
   orgName: "Test Org",
+  orgName2: null,
 };
 
 /** Probe rendered inside the resolved AppContext.Provider */

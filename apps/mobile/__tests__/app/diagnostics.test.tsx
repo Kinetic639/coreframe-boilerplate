@@ -60,6 +60,7 @@ const BASE_APP_STATE: AppState = {
     updated_at: "2026-01-01T00:00:00Z",
   },
   orgName: "Acme Corp",
+  orgName2: null,
 };
 
 function makeContext(
@@ -116,7 +117,7 @@ function setupNominalMocks() {
 // ─── Import the screen after mocks are declared ───────────────────────────────
 
 // eslint-disable-next-line import/first
-import DiagnosticsScreen from "@/app/(app)/(tabs)/diagnostics";
+import DiagnosticsScreen from "@/app/(app)/diagnostics";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

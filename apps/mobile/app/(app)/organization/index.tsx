@@ -115,6 +115,9 @@ export default function OrganizationScreen() {
               <Text style={[styles.cardTitle, { color: c.text }]}>
                 {profile.name ?? appState.orgName ?? "—"}
               </Text>
+              {profile.name_2 ? (
+                <Text style={[styles.cardSub, { color: c.textMuted }]}>{profile.name_2}</Text>
+              ) : null}
               {profile.slug ? (
                 <Text style={[styles.cardSub, { color: c.textMuted }]}>{profile.slug}</Text>
               ) : null}
