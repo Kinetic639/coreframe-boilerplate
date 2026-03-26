@@ -9,6 +9,10 @@ import { Brand, Colors } from "@/constants/theme";
 import { useAppContext } from "@/contexts/app-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useOrgMembersSummary } from "@/hooks/queries/organization/use-org-members-summary";
+import { useOrgMembersList } from "@/hooks/queries/organization/use-org-members-list";
+import type { OrgMemberItem } from "@/hooks/queries/organization/use-org-members-list";
+import { QueryStateRenderer } from "@/components/query/QueryStateRenderer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,11 +34,8 @@ interface QuickActionProps {
   primary?: boolean;
 }
 
-interface ActivityItemProps {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  subtitle: string;
-  time: string;
+interface MemberRowProps {
+  member: OrgMemberItem;
   scheme: ColorScheme;
 }
 
@@ -93,18 +94,22 @@ function QuickAction({ icon, label, onPress, scheme, primary }: QuickActionProps
   );
 }
 
-function ActivityItem({ icon, title, subtitle, time, scheme }: ActivityItemProps) {
+function MemberRow({ member, scheme }: MemberRowProps) {
   const c = Colors[scheme];
+  const initial = (member.firstName ?? member.email).charAt(0).toUpperCase();
+  const displayName =
+    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+    member.email.split("@")[0] ||
+    member.email;
   return (
-    <View style={[styles.activityItem, { borderBottomColor: c.border }]}>
-      <View style={[styles.activityIconWrap, { backgroundColor: Brand.primaryLight }]}>
-        <Ionicons name={icon} size={18} color={Brand.primary} />
+    <View style={[styles.memberRow, { borderBottomColor: c.border }]}>
+      <View style={[styles.memberAvatar, { backgroundColor: Brand.primary }]}>
+        <Text style={styles.memberAvatarText}>{initial}</Text>
       </View>
-      <View style={styles.activityContent}>
-        <Text style={[styles.activityTitle, { color: c.text }]}>{title}</Text>
-        <Text style={[styles.activitySubtitle, { color: c.textMuted }]}>{subtitle}</Text>
+      <View style={styles.memberContent}>
+        <Text style={[styles.memberName, { color: c.text }]}>{displayName}</Text>
+        <Text style={[styles.memberEmail, { color: c.textMuted }]}>{member.email}</Text>
       </View>
-      <Text style={[styles.activityTime, { color: c.textMuted }]}>{time}</Text>
     </View>
   );
 }
@@ -138,6 +143,21 @@ export default function HomeScreen() {
   // RLS regardless of this check. checkPermission() is used here only to decide
   // whether to surface the Tools entry point in the quick-actions grid.
   const canAccessTools = checkPermission(appState.permissions!, PERMISSION_TOOLS_READ);
+
+  // ── Real data hooks ────────────────────────────────────────────────────────
+  // activeOrgId is non-null when this screen renders; hooks are always enabled.
+  const memberSummary = useOrgMembersSummary(appState.activeOrgId);
+  const membersList = useOrgMembersList(appState.activeOrgId);
+
+  // Member count for the stat card. All non-data states collapse to a safe
+  // placeholder: "…" while loading, "—" on error or forbidden.
+  // kind="data" with totalMembers=0 is valid resolved data — shown as "0".
+  const memberCountValue =
+    memberSummary.kind === "data"
+      ? memberSummary.data.totalMembers.toString()
+      : memberSummary.kind === "loading"
+        ? "…"
+        : "—";
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -198,6 +218,9 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Stats Row ── */}
+        {/* Magazyny and Produkty are deferred placeholders — warehouse module
+            queries are not yet implemented for mobile. They will be replaced
+            with real data in a future Phase 8 / warehouse module pass. */}
         <Text style={[styles.sectionTitle, { color: c.text }]}>Przegląd</Text>
         <View style={styles.statsRow}>
           <StatCard value="5" label="Magazyny" icon="warehouse" scheme={colorScheme} />
@@ -208,7 +231,13 @@ export default function HomeScreen() {
             accent
             scheme={colorScheme}
           />
-          <StatCard value="2" label="Alerty" icon="alert-circle-outline" scheme={colorScheme} />
+          {/* Real data: member count from useOrgMembersSummary */}
+          <StatCard
+            value={memberCountValue}
+            label="Członkowie"
+            icon="account-group"
+            scheme={colorScheme}
+          />
         </View>
 
         {/* ── Quick Actions ── */}
@@ -222,38 +251,41 @@ export default function HomeScreen() {
           {canAccessTools && <QuickAction icon="chart-bar" label="Raporty" scheme={colorScheme} />}
         </View>
 
-        {/* ── Recent Activity ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: c.text, marginBottom: 0 }]}>
-            Ostatnia aktywność
-          </Text>
-          <TouchableOpacity>
-            <Text style={[styles.seeAll, { color: Brand.primary }]}>Wszystkie</Text>
-          </TouchableOpacity>
-        </View>
-
+        {/* ── Team Preview ── */}
+        {/* Real data: first 4 active org members from useOrgMembersList.
+            Activity feed (warehouse ops) is deferred — requires an audit log
+            table not yet implemented for mobile. */}
+        <Text style={[styles.sectionTitle, { color: c.text }]}>Zespół</Text>
         <View style={[styles.card, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}>
-          <ActivityItem
-            icon="cube-outline"
-            title="Dodano produkt"
-            subtitle="Kabel HDMI 2m — Magazyn A, Regał 3"
-            time="14:22"
-            scheme={colorScheme}
-          />
-          <ActivityItem
-            icon="swap-horizontal-outline"
-            title="Przesunięto paletę"
-            subtitle="Paleta #P-0047 — Strefa B → Strefa D"
-            time="12:05"
-            scheme={colorScheme}
-          />
-          <ActivityItem
-            icon="checkmark-circle-outline"
-            title="Inwentaryzacja zakończona"
-            subtitle="Magazyn B — 342 pozycje zweryfikowane"
-            time="09:30"
-            scheme={colorScheme}
-          />
+          <QueryStateRenderer
+            result={membersList}
+            loading={
+              <Text style={[styles.teamCardText, { color: c.textMuted }]}>Ładowanie członków…</Text>
+            }
+            forbidden={
+              <Text style={[styles.teamCardText, { color: c.textMuted }]}>
+                Brak dostępu do listy członków.
+              </Text>
+            }
+            empty={
+              <Text style={[styles.teamCardText, { color: c.textMuted }]}>
+                Brak aktywnych członków.
+              </Text>
+            }
+            error={(_message) => (
+              <Text style={[styles.teamCardText, { color: c.textMuted }]}>
+                Nie można załadować listy członków.
+              </Text>
+            )}
+          >
+            {(members) =>
+              members
+                .slice(0, 4)
+                .map((member) => (
+                  <MemberRow key={member.userId} member={member} scheme={colorScheme} />
+                ))
+            }
+          </QueryStateRenderer>
         </View>
 
         {/* ── Bottom spacer ── */}
@@ -312,14 +344,6 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   pillText: { fontSize: 12, fontWeight: "600" },
   sectionTitle: { fontSize: 16, fontWeight: "700", marginBottom: 12, letterSpacing: -0.2 },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  seeAll: { fontSize: 13, fontWeight: "600" },
   statsRow: { flexDirection: "row", gap: 10, marginBottom: 24 },
   statCard: { flex: 1, borderRadius: 12, borderWidth: 1, padding: 14, alignItems: "center" },
   statIcon: { marginBottom: 6 },
@@ -344,24 +368,25 @@ const styles = StyleSheet.create({
   },
   quickActionLabel: { fontSize: 14, fontWeight: "600", flex: 1 },
   card: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
-  activityItem: {
+  memberRow: {
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
     gap: 12,
     borderBottomWidth: 1,
   },
-  activityIconWrap: {
+  memberAvatar: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
   },
-  activityContent: { flex: 1 },
-  activityTitle: { fontSize: 13, fontWeight: "600" },
-  activitySubtitle: { fontSize: 12, marginTop: 1 },
-  activityTime: { fontSize: 11, flexShrink: 0 },
+  memberAvatarText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  memberContent: { flex: 1 },
+  memberName: { fontSize: 13, fontWeight: "600" },
+  memberEmail: { fontSize: 12, marginTop: 1 },
+  teamCardText: { padding: 14, fontSize: 13 },
   bottomSpacer: { height: 32 },
 });
