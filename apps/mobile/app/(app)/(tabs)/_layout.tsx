@@ -7,6 +7,7 @@ import { Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Brand, Colors } from "@/constants/theme";
+import { TAB_BAR_HEIGHT, TAB_BAR_MIN_BOTTOM, TAB_BAR_SAFE_GAP } from "@/constants/tab-bar";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 // ─── Tab icons config ─────────────────────────────────────────────────────────
@@ -29,8 +30,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const c = Colors[colorScheme];
   const insets = useSafeAreaInsets();
 
-  // Sit 16px above the home indicator (or 20px minimum from bottom of screen).
-  const barBottom = Math.max(insets.bottom + 8, 20);
+  const barBottom = Math.max(insets.bottom + TAB_BAR_SAFE_GAP, TAB_BAR_MIN_BOTTOM);
 
   return (
     <View style={[styles.barWrap, { bottom: barBottom }]}>
@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     flexDirection: "row",
-    height: 64,
-    borderRadius: 32,
+    height: TAB_BAR_HEIGHT,
+    borderRadius: TAB_BAR_HEIGHT / 2,
     overflow: "hidden",
     // Shadow (iOS)
     shadowColor: "#000",

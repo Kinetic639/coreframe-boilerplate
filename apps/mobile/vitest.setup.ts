@@ -38,10 +38,13 @@ vi.mock("@expo/vector-icons", () => ({
     }),
 }));
 
-// react-native-safe-area-context: SafeAreaView is just a passthrough in tests.
+// react-native-safe-area-context: SafeAreaView is a passthrough; useSafeAreaInsets
+// returns zero insets (no safe area), which makes useTabBarBottomInset() return
+// the worst-case value (TAB_BAR_MIN_BOTTOM + TAB_BAR_HEIGHT + extra = 100).
 vi.mock("react-native-safe-area-context", () => ({
   SafeAreaView: ({ children, style }: { children?: React.ReactNode; style?: unknown }) =>
     React.createElement("div", { style }, children),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 vi.mock("react-native", () => ({

@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useTabBarBottomInset } from "@/hooks/use-tab-bar-inset";
 import { useAuth } from "@/contexts/auth-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -72,6 +73,7 @@ export default function MoreScreen() {
   const colorScheme = (useColorScheme() ?? "light") as ColorScheme;
   const c = Colors[colorScheme];
   const { signOut } = useAuth();
+  const tabBarInset = useTabBarBottomInset();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -103,7 +105,7 @@ export default function MoreScreen() {
       </ScrollView>
 
       {/* ── Sign out — pinned to bottom ── */}
-      <View style={[styles.signOutWrap, { borderTopColor: c.border }]}>
+      <View style={[styles.signOutWrap, { borderTopColor: c.border, paddingBottom: tabBarInset }]}>
         <TouchableOpacity
           style={[styles.signOutRow, { backgroundColor: c.surfaceElevated }]}
           onPress={() => signOut()}
@@ -150,7 +152,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    paddingBottom: 100,
   },
   signOutRow: {
     flexDirection: "row",

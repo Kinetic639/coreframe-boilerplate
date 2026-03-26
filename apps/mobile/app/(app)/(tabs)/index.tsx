@@ -7,6 +7,7 @@ import { Colors } from "@/constants/theme";
 import { useAppContext } from "@/contexts/app-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getVisibleModules } from "@/lib/modules/launcher-registry";
+import { useTabBarBottomInset } from "@/hooks/use-tab-bar-inset";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ export default function LauncherScreen() {
   const c = Colors[colorScheme];
 
   const { appState } = useAppContext();
+  const tabBarInset = useTabBarBottomInset();
 
   const visibleModules = getVisibleModules({
     permissions: appState.permissions,
@@ -83,7 +85,10 @@ export default function LauncherScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarInset }]}
+      >
         {visibleModules.length === 0 ? (
           /* ── Empty state ── */
           <View style={styles.emptyWrap}>
@@ -121,7 +126,7 @@ const styles = StyleSheet.create({
   orgName: { fontSize: 20, fontWeight: "700" },
   orgName2: { fontSize: 14, fontWeight: "500", marginTop: 1 },
   headerSub: { fontSize: 13, marginTop: 2 },
-  scrollContent: { padding: 16, paddingBottom: 100 },
+  scrollContent: { padding: 16 },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
