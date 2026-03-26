@@ -33,11 +33,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="diagnostics"
         options={{
-          title: "Eksploruj",
+          title: "Diagnostics",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
+            <Ionicons name="bug-outline" size={size} color={color} />
           ),
         }}
       />
