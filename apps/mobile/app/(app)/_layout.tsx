@@ -1,4 +1,4 @@
-import { Redirect, Slot } from "expo-router";
+import { Redirect, Stack } from "expo-router";
 import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -44,7 +44,20 @@ export default function AppLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppProvider session={session}>
-        <Slot />
+        {/*
+         * Stack navigator for the authenticated app shell.
+         *
+         * Screens:
+         *   (tabs) — the launcher + diagnostics tab navigator (initial screen)
+         *   organization — Organization module; pushed from launcher tile tap
+         *
+         * Using Stack (not Slot) ensures that navigating from a tab screen to
+         * a module screen creates a proper stack entry: the module screen slides
+         * on top of the tab screen, the tab bar disappears, and pressing back
+         * returns to the launcher tab. Slot does not create a navigator and
+         * cannot guarantee this drill-down behavior.
+         */}
+        <Stack screenOptions={{ headerShown: false }} />
       </AppProvider>
     </QueryClientProvider>
   );
