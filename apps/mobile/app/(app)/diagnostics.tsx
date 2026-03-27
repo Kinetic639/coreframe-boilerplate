@@ -128,6 +128,8 @@ export default function DiagnosticsScreen() {
     | "session"
     | "roles"
     | "permissions"
+    | "branchContext"
+    | "branchPermissions"
     | "entitlementsRaw"
     | "entitlementsInterpreted"
     | "organization"
@@ -138,6 +140,8 @@ export default function DiagnosticsScreen() {
     session: true,
     roles: true,
     permissions: true,
+    branchContext: true,
+    branchPermissions: true,
     entitlementsRaw: true,
     entitlementsInterpreted: true,
     organization: true,
@@ -147,9 +151,17 @@ export default function DiagnosticsScreen() {
   const toggle = (key: SectionKey) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const { permissions, entitlements, roles } = appState;
+  const {
+    permissions,
+    branchPermissions: branchPerms,
+    entitlements,
+    roles,
+    activeBranchId,
+    branchRoles,
+  } = appState;
   const allowSlugs = permissions ? [...permissions.allow].sort() : [];
   const denySlugs = permissions ? [...permissions.deny].sort() : [];
+  const branchAllowSlugs = branchPerms ? [...branchPerms.allow].sort() : [];
 
   const CHECKED_MODULES = [
     MODULE_WAREHOUSE,
@@ -315,7 +327,78 @@ export default function DiagnosticsScreen() {
           )}
         </View>
 
-        {/* ── 5. Entitlements — Raw ── */}
+        {/* ── 5. Branch Context ── */}
+        <View
+          style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+        >
+          <SectionHeader
+            title={`Branch Context (${branchRoles.length} branch role${branchRoles.length === 1 ? "" : "s"})`}
+            expanded={expanded.branchContext}
+            onToggle={() => toggle("branchContext")}
+            scheme={colorScheme}
+          />
+          {expanded.branchContext && (
+            <View style={styles.sectionContent}>
+              <DataRow
+                label="activeBranchId"
+                value={activeBranchId ?? "(none)"}
+                scheme={colorScheme}
+              />
+              {branchRoles.length === 0 ? (
+                <Text style={[styles.emptyText, { color: c.textMuted }]}>No branch roles</Text>
+              ) : (
+                branchRoles.map((role, i) => (
+                  <View
+                    key={`${role.role_id}-${i}`}
+                    style={[styles.roleRow, { borderBottomColor: c.border }]}
+                  >
+                    <DataRow label="name" value={role.name} scheme={colorScheme} />
+                    <DataRow
+                      label="scope_type"
+                      value={role.scope_type ?? "(null)"}
+                      scheme={colorScheme}
+                    />
+                    <DataRow label="scope_id" value={role.scope_id} scheme={colorScheme} />
+                    <DataRow label="is_basic" value={String(role.is_basic)} scheme={colorScheme} />
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* ── 6. Branch Permissions ── */}
+        <View
+          style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
+        >
+          <SectionHeader
+            title={`Branch Permissions (${branchAllowSlugs.length} allow)`}
+            expanded={expanded.branchPermissions}
+            onToggle={() => toggle("branchPermissions")}
+            scheme={colorScheme}
+          />
+          {expanded.branchPermissions && (
+            <View style={styles.sectionContent}>
+              {activeBranchId === null ? (
+                <Text style={[styles.emptyText, { color: c.textMuted }]}>No active branch</Text>
+              ) : branchPerms === null ? (
+                <Text style={[styles.emptyText, { color: c.textMuted }]}>Loading…</Text>
+              ) : branchAllowSlugs.length === 0 ? (
+                <Text style={[styles.emptyText, { color: c.textMuted }]}>
+                  No branch permissions
+                </Text>
+              ) : (
+                branchAllowSlugs.map((slug) => (
+                  <Text key={`branch-allow-${slug}`} style={[styles.monoRow, { color: c.text }]}>
+                    {slug}
+                  </Text>
+                ))
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* ── 7. Entitlements — Raw ── */}
         <View
           style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
         >
@@ -365,7 +448,7 @@ export default function DiagnosticsScreen() {
           )}
         </View>
 
-        {/* ── 6. Entitlements — Interpreted ── */}
+        {/* ── 8. Entitlements — Interpreted ── */}
         <View
           style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
         >
@@ -407,7 +490,7 @@ export default function DiagnosticsScreen() {
           )}
         </View>
 
-        {/* ── 7. Organization ── */}
+        {/* ── 9. Organization ── */}
         <View
           style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
         >
@@ -459,7 +542,7 @@ export default function DiagnosticsScreen() {
           )}
         </View>
 
-        {/* ── 8. Live Query Health ── */}
+        {/* ── 10. Live Query Health ── */}
         <View
           style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
         >

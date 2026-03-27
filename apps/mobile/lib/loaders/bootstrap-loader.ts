@@ -29,6 +29,12 @@ export type BootstrapLoadResult =
   | {
       kind: "resolved";
       permissions: PermissionSnapshot;
+      /**
+       * Branch-scoped permission snapshot for activeBranchId.
+       * null when activeBranchId was null (no branch context active).
+       * Kept strictly separate from `permissions` (org-scope); never merged.
+       */
+      branchPermissions: PermissionSnapshot | null;
       /** null = no subscription row; distinct from a load error */
       entitlements: OrganizationEntitlements | null;
       /** null = no organization_profiles row found for this org */
@@ -90,25 +96,33 @@ function classifyError(
  * exclusively for UI gating (show/hide, enable/disable). All mutating
  * operations are enforced by server-side RLS regardless of this snapshot.
  *
- * @param supabase  - Authenticated Supabase client (mobileSupabase singleton)
- * @param userId    - Authenticated user's UUID
- * @param orgId     - Active organization UUID to scope the queries
+ * @param supabase        - Authenticated Supabase client (mobileSupabase singleton)
+ * @param userId          - Authenticated user's UUID
+ * @param orgId           - Active organization UUID to scope the queries
+ * @param activeBranchId  - Active branch UUID; when non-null, a 4th parallel
+ *                          query loads branch-scoped permissions for that branch.
+ *                          null = no branch context active; branchPermissions
+ *                          in the resolved result will be null.
  */
 export async function loadBootstrapData(
   supabase: SupabaseClient,
   userId: string,
-  orgId: string
+  orgId: string,
+  activeBranchId: string | null = null
 ): Promise<BootstrapLoadResult> {
-  // ── 1–3. Parallel fetch ───────────────────────────────────────────────────
-  // All three queries are independent — fire concurrently and inspect results
-  // in priority order (permissions → entitlements → profile) after all settle.
+  // ── 1–4. Parallel fetch ───────────────────────────────────────────────────
+  // All queries are independent — fire concurrently and inspect results in
+  // priority order after all settle.
+  //
+  // Query 4 (branch permissions) is only issued when activeBranchId is
+  // non-null. When null, branchPermissions in the resolved result is null.
   //
   // Supabase/PostgREST queries resolve (never reject) for application-level
   // errors (RLS denials, missing rows, etc.). Network-level failures that do
   // reject propagate through Promise.all to the outer .catch handler in the
   // caller (AppProvider).
-  const [permResult, entResult, profileResult] = await Promise.all([
-    // Permissions: org-scope rows only (branch_id IS NULL).
+  const [permResult, entResult, profileResult, branchPermResult] = await Promise.all([
+    // Query 1 — Org-scope permissions (branch_id IS NULL).
     // An empty result set is valid — a user with no assigned roles is legitimate.
     supabase
       .from("user_effective_permissions")
@@ -117,7 +131,7 @@ export async function loadBootstrapData(
       .eq("organization_id", orgId)
       .is("branch_id", null),
 
-    // Entitlements: maybeSingle() → { data: null, error: null } when no row.
+    // Query 2 — Entitlements: maybeSingle() → { data: null, error: null } when no row.
     // null data is not an error — it means the org has no subscription row.
     // Live DB columns: organization_id, plan_id, enabled_modules, contexts,
     // limits, updated_at. Contract shape matches live schema exactly.
@@ -128,13 +142,26 @@ export async function loadBootstrapData(
       .eq("organization_id", orgId)
       .maybeSingle(),
 
-    // Org profile: maybeSingle() — null when org not yet configured.
+    // Query 3 — Org profile: maybeSingle() — null when org not yet configured.
     // Used for display only (orgName). A missing row is not a load error.
     supabase
       .from("organization_profiles")
       .select("name, name_2")
       .eq("organization_id", orgId)
       .maybeSingle(),
+
+    // Query 4 — Branch-scope permissions (branch_id = activeBranchId).
+    // Only issued when activeBranchId is non-null. Kept strictly separate from
+    // org-scope permissions — results are stored in branchPermissions, never
+    // merged with permissions.
+    activeBranchId !== null
+      ? supabase
+          .from("user_effective_permissions")
+          .select("permission_slug_exact")
+          .eq("user_id", userId)
+          .eq("organization_id", orgId)
+          .eq("branch_id", activeBranchId)
+      : Promise.resolve({ data: null, error: null, status: 200 }),
   ]);
 
   // Inspect errors in priority order — first error encountered wins.
@@ -151,6 +178,13 @@ export async function loadBootstrapData(
       profileResult.error.message
     );
   }
+  if (branchPermResult.error) {
+    return classifyError(
+      branchPermResult.status,
+      branchPermResult.error.code,
+      branchPermResult.error.message
+    );
+  }
 
   const orgName: string | null =
     typeof profileResult.data?.name === "string" && profileResult.data.name.length > 0
@@ -162,7 +196,9 @@ export async function loadBootstrapData(
       ? profileResult.data.name_2
       : null;
 
-  // ── 4. Build snapshot ─────────────────────────────────────────────────────
+  // ── 4. Build snapshots ────────────────────────────────────────────────────
+
+  // Org-scope permissions (branch_id IS NULL rows).
   const permissions: PermissionSnapshot = {
     allow: (permResult.data ?? [])
       .map((r) => r.permission_slug_exact)
@@ -171,6 +207,20 @@ export async function loadBootstrapData(
     deny: [],
   };
 
+  // Branch-scope permissions (branch_id = activeBranchId rows).
+  // null when activeBranchId was null — signals "no branch context", not "empty access".
+  // Never merged with `permissions`; kept separate for explicit per-scope checks.
+  const branchPermissions: PermissionSnapshot | null =
+    activeBranchId !== null
+      ? {
+          allow: (branchPermResult.data ?? [])
+            .map((r) => r.permission_slug_exact)
+            .filter((s): s is string => typeof s === "string" && s.length > 0)
+            .sort(),
+          deny: [],
+        }
+      : null;
+
   // entResult.data is null when no subscription row exists — that's passed
   // through as null. The normalizer is only called when a concrete row was returned.
   const entitlements: OrganizationEntitlements | null =
@@ -178,5 +228,5 @@ export async function loadBootstrapData(
       ? normalizeEntitlements(entResult.data as Record<string, unknown>)
       : null;
 
-  return { kind: "resolved", permissions, entitlements, orgName, orgName2 };
+  return { kind: "resolved", permissions, branchPermissions, entitlements, orgName, orgName2 };
 }

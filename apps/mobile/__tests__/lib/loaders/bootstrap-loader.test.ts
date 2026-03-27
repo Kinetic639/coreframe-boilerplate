@@ -68,6 +68,59 @@ const ALL_OK = {
   organization_profiles: OK_PROF,
 };
 
+/**
+ * Builds a mock where `user_effective_permissions` can return different results
+ * for the org-scope query (.is("branch_id", null)) vs the branch-scope query
+ * (.eq("branch_id", <uuid>)). Distinguishes the two by inspecting whether
+ * `.eq("branch_id", ...)` was called on the builder.
+ */
+function makeBranchMock(options: {
+  orgPermResult?: QueryResult;
+  branchPermResult: QueryResult;
+  entResult?: QueryResult;
+  profResult?: QueryResult;
+}): SupabaseClient {
+  const orgPerm = options.orgPermResult ?? OK_PERM;
+  const ent = options.entResult ?? OK_ENT;
+  const prof = options.profResult ?? OK_PROF;
+
+  return {
+    from: vi.fn((table: string) => {
+      if (table !== "user_effective_permissions") {
+        const result = table === "organization_entitlements" ? ent : prof;
+        return makeBuilder(result);
+      }
+      // Build a filter-aware builder: tracks whether .eq("branch_id", val) was called.
+      let isBranchQuery = false;
+      const b: Record<string, unknown> & PromiseLike<QueryResult> = {
+        select: () => b,
+        eq: (col: string, _val: unknown) => {
+          if (col === "branch_id") isBranchQuery = true;
+          return b;
+        },
+        is: () => b,
+        maybeSingle: () => b,
+        then: <T, U>(
+          onfulfilled?: ((v: QueryResult) => T | PromiseLike<T>) | null,
+          onrejected?: ((r: unknown) => U | PromiseLike<U>) | null
+        ): Promise<T | U> => {
+          const result = isBranchQuery ? options.branchPermResult : orgPerm;
+          return Promise.resolve(result).then(onfulfilled, onrejected);
+        },
+        catch: (onrejected?: ((r: unknown) => unknown) | null) => {
+          const result = isBranchQuery ? options.branchPermResult : orgPerm;
+          return Promise.resolve(result).catch(onrejected);
+        },
+        finally: (onfinally?: (() => void) | null) => {
+          const result = isBranchQuery ? options.branchPermResult : orgPerm;
+          return Promise.resolve(result).finally(onfinally);
+        },
+      };
+      return b;
+    }),
+  } as unknown as SupabaseClient;
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("loadBootstrapData", () => {
@@ -77,6 +130,7 @@ describe("loadBootstrapData", () => {
     expect(result).toEqual({
       kind: "resolved",
       permissions: { allow: [], deny: [] },
+      branchPermissions: null,
       entitlements: null,
       orgName: null,
       orgName2: null,
@@ -353,5 +407,62 @@ describe("loadBootstrapData", () => {
 
     const result = await resultPromise;
     expect(result.kind).toBe("resolved");
+  });
+
+  // ── 17. Branch: null activeBranchId → branchPermissions is null ──────────
+  it("returns branchPermissions null when activeBranchId is null", async () => {
+    const result = await loadBootstrapData(makeMock(ALL_OK), "u1", "o1", null);
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.branchPermissions).toBeNull();
+    }
+  });
+
+  // ── 18. Branch: non-null activeBranchId → branch query fires and populates ─
+  it("returns branchPermissions.allow when activeBranchId is set", async () => {
+    const mock = makeBranchMock({
+      branchPermResult: {
+        data: [
+          { permission_slug_exact: "branch.roles.manage" },
+          { permission_slug_exact: "members.read" },
+        ],
+        error: null,
+        status: 200,
+      },
+    });
+    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.branchPermissions).toEqual({
+        allow: ["branch.roles.manage", "members.read"],
+        deny: [],
+      });
+    }
+  });
+
+  // ── 19. Branch: non-null activeBranchId, empty result → empty snapshot ────
+  it("returns branchPermissions with empty allow when branch has no permissions", async () => {
+    const mock = makeBranchMock({
+      branchPermResult: { data: [], error: null, status: 200 },
+    });
+    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      // Empty snapshot — not null. Signals "branch context active, no permissions".
+      expect(result.branchPermissions).toEqual({ allow: [], deny: [] });
+    }
+  });
+
+  // ── 20. Branch: branch permissions query error → classifyError applied ────
+  it("returns forbidden when branch permissions query returns SQLSTATE 42501", async () => {
+    const mock = makeBranchMock({
+      branchPermResult: {
+        data: null,
+        error: { code: "42501", message: "insufficient_privilege" },
+        status: 200,
+      },
+    });
+    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
+    expect(result.kind).toBe("forbidden");
   });
 });

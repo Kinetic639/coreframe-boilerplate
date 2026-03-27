@@ -60,6 +60,23 @@ export interface AppState {
   /** JWT roles scoped to activeOrgId (org scope only). Empty when activeOrgId is null. */
   orgRoles: TokenRole[];
   /**
+   * Active branch UUID — derived from the first branch-scoped JWT role.
+   *
+   * Derivation rule: `roles.filter(r => r.scope === "branch")[0]?.branch_id ?? null`
+   * This is a Phase 10 slice 1 placeholder — not a persisted user preference.
+   * When a user has multiple branch roles, the first JWT role is used; JWT role
+   * order reflects DB insertion order (non-deterministic from the user's perspective).
+   * Branch preference persistence and runtime switching are deferred.
+   *
+   * Null when the user has no branch-scoped JWT roles.
+   */
+  activeBranchId: string | null;
+  /**
+   * All branch-scoped JWT roles (not filtered to activeBranchId).
+   * Empty when the user has no branch-scoped roles.
+   */
+  branchRoles: TokenRole[];
+  /**
    * Org-scope permission snapshot loaded from user_effective_permissions.
    * Non-null when bootstrapState === "resolved" (allow may be empty).
    * Null in all other bootstrap states.
@@ -68,6 +85,17 @@ export interface AppState {
    * This snapshot is NOT authoritative — server-side RLS is the source of truth.
    */
   permissions: PermissionSnapshot | null;
+  /**
+   * Branch-scope permission snapshot for activeBranchId.
+   * Non-null when bootstrapState === "resolved" AND activeBranchId is non-null.
+   * Null when activeBranchId is null (no branch context active).
+   *
+   * NEVER merged with `permissions` (org-scope). Consumers must check the
+   * correct snapshot for their context:
+   *   org-level gates  → checkPermission(appState.permissions, SLUG)
+   *   branch-level gates → checkPermission(appState.branchPermissions, SLUG)
+   */
+  branchPermissions: PermissionSnapshot | null;
   /**
    * Org entitlement snapshot from organization_entitlements.
    * null when bootstrapState !== "resolved", OR when no subscription row exists.
@@ -134,9 +162,25 @@ export function AppProvider({
   // ── Phase 1: Sync JWT derivation ──────────────────────────────────────────
   const jwtDerived = useMemo(() => {
     const roles = AuthService.getUserRoles(session.access_token);
+
+    // Org context
     const orgRoles = roles.filter((r) => r.scope === "org");
     const firstOrgRole = orgRoles[0];
     const activeOrgId = firstOrgRole ? (firstOrgRole.org_id ?? firstOrgRole.scope_id) : null;
+
+    // Branch context — Phase 10 slice 1 placeholder.
+    // Do NOT use AuthService.getUserBranches(roles, activeOrgId): for target-format
+    // tokens, org_id is null on branch-scoped roles, making that filter always empty.
+    // Instead, mirror the same direct-filter pattern used for org context above.
+    //
+    // activeBranchId = first branch role's scope_id in JWT claim order (insertion order,
+    // non-deterministic when user has multiple branch roles). Branch preference
+    // persistence and runtime switching are deferred to a later Phase 10 slice.
+    const branchRoles = roles.filter((r) => r.scope === "branch");
+    const firstBranchRole = branchRoles[0];
+    const activeBranchId = firstBranchRole
+      ? (firstBranchRole.branch_id ?? firstBranchRole.scope_id)
+      : null;
 
     return {
       userId: session.user.id,
@@ -146,6 +190,8 @@ export function AppProvider({
       orgRoles: activeOrgId
         ? orgRoles.filter((r) => r.org_id === activeOrgId || r.scope_id === activeOrgId)
         : [],
+      activeBranchId,
+      branchRoles,
       accessToken: session.access_token,
     };
   }, [session.access_token, session.user.id, session.user.email]);
@@ -153,6 +199,7 @@ export function AppProvider({
   // ── Phase 2: Async bootstrap state ────────────────────────────────────────
   const [bootstrapState, setBootstrapState] = useState<AppBootstrapState>("resolving");
   const [permissions, setPermissions] = useState<PermissionSnapshot | null>(null);
+  const [branchPermissions, setBranchPermissions] = useState<PermissionSnapshot | null>(null);
   const [entitlements, setEntitlements] = useState<OrganizationEntitlements | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
   const [orgName2, setOrgName2] = useState<string | null>(null);
@@ -166,7 +213,7 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
-    const { userId, activeOrgId } = jwtDerived;
+    const { userId, activeOrgId, activeBranchId } = jwtDerived;
 
     // No org context — user is authenticated but has no org-scoped JWT roles.
     // This is "authenticated-unresolved": distinct from "resolved" (which requires
@@ -178,15 +225,28 @@ export function AppProvider({
     }
 
     let cancelled = false;
+
+    // Clear all bootstrap-derived state at the start of every new load cycle.
+    // This ensures stale permissions/branchPermissions from a previous resolved
+    // state never survive a failed, forbidden, or retrying bootstrap transition.
     setBootstrapState("resolving");
     setErrorMessage(null);
+    setPermissions(null);
+    setBranchPermissions(null);
+    setEntitlements(null);
+    setOrgName(null);
+    setOrgName2(null);
 
-    loadBootstrapData(mobileSupabase, userId, activeOrgId)
+    loadBootstrapData(mobileSupabase, userId, activeOrgId, activeBranchId)
       .then((result) => {
         if (cancelled) return;
 
         if (result.kind === "resolved") {
           setPermissions(result.permissions);
+          // result.branchPermissions is null when activeBranchId is null (no branch
+          // context active). This is distinct from "empty permissions" — it means
+          // no branch-scope query was made. Never merged with org-scope permissions.
+          setBranchPermissions(result.branchPermissions);
           // result.entitlements may be null — that is intentional and correct.
           // null here means no subscription row exists, not that loading failed.
           setEntitlements(result.entitlements);
@@ -216,7 +276,14 @@ export function AppProvider({
     // retryKey triggers a fresh load without requiring userId/activeOrgId/accessToken
     // to change (manual retry path). accessToken ensures a silent token refresh
     // (same user, same org, new JWT) triggers a fresh permission load.
-  }, [jwtDerived.userId, jwtDerived.activeOrgId, jwtDerived.accessToken, retryKey]);
+    // activeBranchId: change triggers reload so branchPermissions reflect the new branch.
+  }, [
+    jwtDerived.userId,
+    jwtDerived.activeOrgId,
+    jwtDerived.activeBranchId,
+    jwtDerived.accessToken,
+    retryKey,
+  ]);
 
   // Auto sign-out when the session token is expired or revoked.
   // signOut() → session becomes null → _layout.tsx redirects to welcome.
@@ -236,12 +303,15 @@ export function AppProvider({
       roles: jwtDerived.roles,
       activeOrgId: jwtDerived.activeOrgId,
       orgRoles: jwtDerived.orgRoles,
+      activeBranchId: jwtDerived.activeBranchId,
+      branchRoles: jwtDerived.branchRoles,
       permissions,
+      branchPermissions,
       entitlements,
       orgName,
       orgName2,
     }),
-    [jwtDerived, permissions, entitlements, orgName, orgName2]
+    [jwtDerived, permissions, branchPermissions, entitlements, orgName, orgName2]
   );
 
   const value = useMemo<AppContextValue>(

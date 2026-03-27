@@ -26,12 +26,54 @@ vi.mock("@/lib/supabase/client", () => ({
 vi.mock("@repo/auth", () => ({
   AuthService: {
     getUserRoles: (token: string) => {
-      // Encode org context in the token string for test control.
-      // "token-org:<orgId>" → org-scoped role for that org.
-      // Any other token → no roles.
+      // Encode context in the token string for test control.
+      // "token-org:<orgId>:<rest>"              → org-scoped role only
+      // "token-org-branch:<orgId>:<branchId>:<rest>" → org + branch role
+      // Any other token → no roles
+      if (token.startsWith("token-org-branch:")) {
+        const parts = token.replace("token-org-branch:", "").split(":");
+        const orgId = parts[0];
+        const branchId = parts[1];
+        return [
+          {
+            scope: "org",
+            scope_id: orgId,
+            org_id: orgId,
+            branch_id: null,
+            name: "org_member",
+            role_id: "r-org",
+            is_basic: true,
+            scope_type: "org",
+            role: "org_member",
+          },
+          {
+            scope: "branch",
+            scope_id: branchId,
+            org_id: null,
+            branch_id: branchId,
+            name: "branch_manager",
+            role_id: "r-branch",
+            is_basic: true,
+            scope_type: "branch",
+            role: "branch_manager",
+          },
+        ];
+      }
       if (token.startsWith("token-org:")) {
         const orgId = token.replace("token-org:", "").split(":")[0];
-        return [{ scope: "org", scope_id: orgId, org_id: orgId, name: "org_member" }];
+        return [
+          {
+            scope: "org",
+            scope_id: orgId,
+            org_id: orgId,
+            branch_id: null,
+            name: "org_member",
+            role_id: "r-org",
+            is_basic: true,
+            scope_type: "org",
+            role: "org_member",
+          },
+        ];
       }
       return [];
     },
@@ -58,9 +100,33 @@ function makeSession(userId: string, orgId: string | null, token: string): Sessi
   } as unknown as Session;
 }
 
+/** Session that carries both an org-scoped and a branch-scoped JWT role. */
+function makeSessionWithBranch(
+  userId: string,
+  orgId: string,
+  branchId: string,
+  token: string
+): Session {
+  return {
+    access_token: `token-org-branch:${orgId}:${branchId}:${token}`,
+    refresh_token: "refresh",
+    expires_in: 3600,
+    token_type: "bearer",
+    user: {
+      id: userId,
+      email: `${userId}@test.com`,
+      app_metadata: {},
+      user_metadata: {},
+      aud: "authenticated",
+      created_at: "2026-01-01T00:00:00Z",
+    },
+  } as unknown as Session;
+}
+
 const RESOLVED_OK: BootstrapLoadResult = {
   kind: "resolved",
   permissions: { allow: ["org.read"], deny: [] },
+  branchPermissions: null,
   entitlements: null,
   orgName: "Test Org",
   orgName2: null,
@@ -73,7 +139,22 @@ function ContextProbe() {
 
 // ─── Import after mocks are set up ───────────────────────────────────────────
 
-const { AppProvider } = await import("@/contexts/app-context");
+const { AppProvider, useAppContext } = await import("@/contexts/app-context");
+
+/**
+ * Probe that exposes branch context state via visible text.
+ * Uses getByText() pattern to avoid .textContent TS issues with es2022 lib.
+ */
+function BranchProbe() {
+  const { appState } = useAppContext();
+  const count = appState.branchPermissions?.allow.length ?? -1;
+  return (
+    <>
+      <span data-testid="resolved">resolved</span>
+      <span>branch-perm-count:{count}</span>
+    </>
+  );
+}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -198,7 +279,8 @@ describe("AppProvider", () => {
     expect(mockLoadBootstrapData).toHaveBeenCalledWith(
       expect.anything(), // mobileSupabase
       "user-abc",
-      "org-xyz"
+      "org-xyz",
+      null // no branch roles in this session
     );
   });
 
@@ -262,5 +344,80 @@ describe("AppProvider", () => {
       expect(screen.getByText(/nie udało się załadować/i)).toBeTruthy();
     });
     expect(screen.queryByTestId("resolved")).toBeNull();
+  });
+
+  // ── 11. Branch: no branch roles → null activeBranchId passed to loader ───
+  it("calls loadBootstrapData with null activeBranchId when JWT has no branch roles", async () => {
+    mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
+
+    render(
+      <AppProvider session={makeSession("user-abc", "org-xyz", "tok")}>
+        <ContextProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1));
+    expect(mockLoadBootstrapData).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-abc",
+      "org-xyz",
+      null
+    );
+  });
+
+  // ── 12. Branch: branch role in JWT → correct activeBranchId passed ───────
+  it("calls loadBootstrapData with branch UUID when JWT has a branch-scoped role", async () => {
+    mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <ContextProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1));
+    expect(mockLoadBootstrapData).toHaveBeenCalledWith(
+      expect.anything(),
+      "u1",
+      "org-1",
+      "branch-42"
+    );
+  });
+
+  // ── 13. Branch: branchPermissions from resolved result → in appState ──────
+  it("exposes branchPermissions from bootstrap result in appState", async () => {
+    const resolvedWithBranch: BootstrapLoadResult = {
+      ...RESOLVED_OK,
+      branchPermissions: { allow: ["branch.roles.manage"], deny: [] },
+    };
+    mockLoadBootstrapData.mockResolvedValue(resolvedWithBranch);
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <BranchProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved")).toBeTruthy();
+      expect(screen.getByText("branch-perm-count:1")).toBeTruthy();
+    });
+  });
+
+  // ── 14. Branch: null branchPermissions when no active branch ─────────────
+  it("exposes null branchPermissions in appState when bootstrap returns null branchPermissions", async () => {
+    mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK); // branchPermissions: null
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <BranchProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved")).toBeTruthy();
+      // -1 means appState.branchPermissions is null (no .allow array)
+      expect(screen.getByText("branch-perm-count:-1")).toBeTruthy();
+    });
   });
 });

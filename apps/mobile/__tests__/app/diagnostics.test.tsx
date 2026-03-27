@@ -50,6 +50,9 @@ const BASE_APP_STATE: AppState = {
   roles: [],
   activeOrgId: "org-123",
   orgRoles: [],
+  activeBranchId: null,
+  branchRoles: [],
+  branchPermissions: null,
   permissions: { allow: ["tools.read", "members.read"], deny: [] },
   entitlements: {
     organization_id: "org-123",
