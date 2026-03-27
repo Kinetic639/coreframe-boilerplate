@@ -107,7 +107,7 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/no organisation context/i)).toBeTruthy();
+      expect(screen.getByText(/brak kontekstu organizacji/i)).toBeTruthy();
     });
     expect(mockLoadBootstrapData).not.toHaveBeenCalled();
     expect(screen.queryByTestId("resolved")).toBeNull();
@@ -124,13 +124,13 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/access denied/i)).toBeTruthy();
+      expect(screen.getByText(/brak dostępu/i)).toBeTruthy();
     });
     expect(screen.queryByTestId("resolved")).toBeNull();
   });
 
   // ── 4. error state shows error screen with retry button ──────────────────
-  it("shows error screen with Try Again button when bootstrap returns error", async () => {
+  it("shows error screen with retry button when bootstrap returns error", async () => {
     mockLoadBootstrapData.mockResolvedValue({ kind: "error", message: "network down" });
 
     render(
@@ -140,8 +140,8 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeTruthy();
-      expect(screen.getByText(/try again/i)).toBeTruthy();
+      expect(screen.getByText(/nie udało się załadować/i)).toBeTruthy();
+      expect(screen.getByText(/spróbuj ponownie/i)).toBeTruthy();
     });
   });
 
@@ -170,12 +170,12 @@ describe("AppProvider", () => {
       </AppProvider>
     );
 
-    await waitFor(() => expect(screen.getByText(/try again/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/spróbuj ponownie/i)).toBeTruthy());
     expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1);
 
     mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
     await act(async () => {
-      fireEvent.click(screen.getByText(/try again/i));
+      fireEvent.click(screen.getByText(/spróbuj ponownie/i));
     });
 
     await waitFor(() => {
@@ -259,7 +259,7 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to load/i)).toBeTruthy();
+      expect(screen.getByText(/nie udało się załadować/i)).toBeTruthy();
     });
     expect(screen.queryByTestId("resolved")).toBeNull();
   });

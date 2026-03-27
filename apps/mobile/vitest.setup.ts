@@ -5,6 +5,12 @@ import React from "react";
 // when running in a non-native environment (jsdom / Node.js).
 (globalThis as Record<string, unknown>).__DEV__ = true;
 
+// useColorScheme relies on native APIs unavailable in jsdom.
+// Return "light" globally; individual tests may override with a local vi.mock.
+vi.mock("@/hooks/use-color-scheme", () => ({
+  useColorScheme: () => "light",
+}));
+
 // @expo/vector-icons relies on native font loading that is unavailable in jsdom.
 // Stub each icon family as a simple span so tests can assert on accessibility labels.
 vi.mock("@expo/vector-icons", () => ({
@@ -114,7 +120,7 @@ vi.mock("react-native", () => ({
   }) =>
     React.createElement("input", {
       value: value ?? "",
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChangeText?.(e.target.value),
+      onChange: (e: { target: { value: string } }) => onChangeText?.(e.target.value),
       style,
       placeholder,
       disabled: editable === false,

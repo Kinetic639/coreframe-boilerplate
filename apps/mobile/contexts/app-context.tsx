@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 
 import { AuthService } from "@repo/auth";
@@ -10,6 +10,7 @@ import type { OrganizationEntitlements } from "@repo/contracts/entitlements";
 import { mobileSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { loadBootstrapData } from "@/lib/loaders/bootstrap-loader";
+import { BootstrapFallback } from "@/components/app/BootstrapFallback";
 
 // ─── Bootstrap State ──────────────────────────────────────────────────────────
 
@@ -251,50 +252,29 @@ export function AppProvider({
     // No backend call was attempted. Permissions and entitlements remain null.
     // Sign-out is the only available action (the user must be added to an org
     // and re-authenticate to receive org-scoped roles in their JWT).
-    return (
-      <View style={styles.fill}>
-        <Text style={styles.heading}>No Organisation Context</Text>
-        <Text style={styles.body}>
-          Your account is not associated with any organisation. Please contact your administrator.
-        </Text>
-        <TouchableOpacity style={styles.button} onPress={() => signOut()}>
-          <Text style={styles.buttonText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <BootstrapFallback variant="no-org" onSignOut={signOut} />;
   }
 
   if (bootstrapState === "resolving" || bootstrapState === "invalid-session") {
     return (
-      <View style={styles.fill}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" />
       </View>
     );
   }
 
   if (bootstrapState === "forbidden") {
-    return (
-      <View style={styles.fill}>
-        <Text style={styles.heading}>Access Denied</Text>
-        <Text style={styles.body}>Your account is not authorized to access this organization.</Text>
-        <TouchableOpacity style={styles.button} onPress={() => signOut()}>
-          <Text style={styles.buttonText}>Sign Out</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <BootstrapFallback variant="forbidden" onSignOut={signOut} />;
   }
 
   if (bootstrapState === "error") {
     return (
-      <View style={styles.fill}>
-        <Text style={styles.heading}>Failed to Load</Text>
-        <Text style={styles.body}>
-          {errorMessage ?? "An unexpected error occurred. Please try again."}
-        </Text>
-        <TouchableOpacity style={styles.button} onPress={retryBootstrap}>
-          <Text style={styles.buttonText}>Try Again</Text>
-        </TouchableOpacity>
-      </View>
+      <BootstrapFallback
+        variant="error"
+        message={errorMessage ?? undefined}
+        onRetry={retryBootstrap}
+        onSignOut={signOut}
+      />
     );
   }
 
@@ -314,37 +294,3 @@ export function useAppContext(): AppContextValue {
   if (!ctx) throw new Error("useAppContext must be used within AppProvider");
   return ctx;
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  fill: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-  },
-  heading: {
-    fontSize: 17,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  body: {
-    fontSize: 14,
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 28,
-  },
-  button: {
-    backgroundColor: "#6366f1",
-    paddingHorizontal: 28,
-    paddingVertical: 13,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-});
