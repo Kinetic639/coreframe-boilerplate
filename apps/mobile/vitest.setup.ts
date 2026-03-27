@@ -65,16 +65,24 @@ vi.mock("react-native", () => ({
     style,
     accessibilityLabel,
     accessibilityRole,
+    disabled,
   }: {
     children?: React.ReactNode;
     onPress?: () => void;
     style?: unknown;
     accessibilityLabel?: string;
     accessibilityRole?: string;
+    disabled?: boolean;
   }) =>
     React.createElement(
       "button",
-      { onClick: onPress, style, "aria-label": accessibilityLabel, role: accessibilityRole },
+      {
+        onClick: disabled ? undefined : onPress,
+        style,
+        "aria-label": accessibilityLabel,
+        role: accessibilityRole,
+        disabled,
+      },
       children
     ),
   ScrollView: ({
@@ -87,6 +95,31 @@ vi.mock("react-native", () => ({
     contentContainerStyle?: unknown;
   }) =>
     React.createElement("div", { style, "data-content-style": contentContainerStyle }, children),
+  KeyboardAvoidingView: ({ children, style }: { children?: React.ReactNode; style?: unknown }) =>
+    React.createElement("div", { style }, children),
+  TextInput: ({
+    value,
+    onChangeText,
+    style,
+    placeholder,
+    editable,
+    multiline,
+  }: {
+    value?: string;
+    onChangeText?: (v: string) => void;
+    style?: unknown;
+    placeholder?: string;
+    editable?: boolean;
+    multiline?: boolean;
+  }) =>
+    React.createElement("input", {
+      value: value ?? "",
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChangeText?.(e.target.value),
+      style,
+      placeholder,
+      disabled: editable === false,
+      "data-multiline": multiline,
+    }),
   StatusBar: () => null,
   ActivityIndicator: () => null,
   StyleSheet: {

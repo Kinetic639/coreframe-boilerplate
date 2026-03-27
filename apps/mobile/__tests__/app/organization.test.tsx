@@ -11,9 +11,10 @@ import type { OrgMemberItem } from "@/hooks/queries/organization/use-org-members
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
 const mockRouterBack = vi.fn();
+const mockRouterPush = vi.fn();
 
 vi.mock("expo-router", () => ({
-  useRouter: () => ({ back: mockRouterBack }),
+  useRouter: () => ({ back: mockRouterBack, push: mockRouterPush }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({ mobileSupabase: {} }));
@@ -158,5 +159,43 @@ describe("OrganizationScreen", () => {
     const backBtn = screen.getByRole("button", { name: "Go back" });
     fireEvent.click(backBtn);
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
+  });
+
+  // ── 6. Edit button shown when user has org.update ─────────────────────────
+  it("renders edit button when user has org.update permission", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext({
+        ...BASE_APP_STATE,
+        permissions: { allow: ["org.update"], deny: [] },
+      })
+    );
+    render(<OrganizationScreen />, { wrapper: createWrapper() });
+    expect(screen.getByRole("button", { name: "Edit organization profile" })).toBeTruthy();
+  });
+
+  // ── 7. Edit button hidden without org.update ──────────────────────────────
+  it("does not render edit button when user lacks org.update permission", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext({
+        ...BASE_APP_STATE,
+        permissions: { allow: [], deny: [] },
+      })
+    );
+    render(<OrganizationScreen />, { wrapper: createWrapper() });
+    expect(screen.queryByRole("button", { name: "Edit organization profile" })).toBeNull();
+  });
+
+  // ── 8. Edit button navigates to edit screen ───────────────────────────────
+  it("navigates to edit screen when edit button is pressed", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext({
+        ...BASE_APP_STATE,
+        permissions: { allow: ["org.update"], deny: [] },
+      })
+    );
+    render(<OrganizationScreen />, { wrapper: createWrapper() });
+    const editBtn = screen.getByRole("button", { name: "Edit organization profile" });
+    fireEvent.click(editBtn);
+    expect(mockRouterPush).toHaveBeenCalledWith("/(app)/organization/edit");
   });
 });

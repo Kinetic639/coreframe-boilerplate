@@ -3,6 +3,9 @@ import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
+import { checkPermission } from "@repo/domain/permissions";
+import { ORG_UPDATE } from "@repo/contracts/permissions";
+
 import { Colors } from "@/constants/theme";
 import { useAppContext } from "@/contexts/app-context";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -56,6 +59,7 @@ export default function OrganizationScreen() {
   const c = Colors[colorScheme];
 
   const { appState } = useAppContext();
+  const canEdit = appState.permissions != null && checkPermission(appState.permissions, ORG_UPDATE);
   const orgProfile = useOrgProfileQuery(appState.activeOrgId);
   const membersList = useOrgMembersList(appState.activeOrgId);
 
@@ -76,7 +80,17 @@ export default function OrganizationScreen() {
           <Ionicons name="chevron-back" size={22} color={c.icon} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: c.text }]}>Organizacja</Text>
-        <View style={styles.headerSpacer} />
+        {canEdit ? (
+          <TouchableOpacity
+            onPress={() => router.push("/(app)/organization/edit")}
+            style={styles.editButton}
+            accessibilityLabel="Edit organization profile"
+          >
+            <Ionicons name="pencil-outline" size={20} color={c.tint} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -171,6 +185,7 @@ const styles = StyleSheet.create({
   backButton: { padding: 4, marginRight: 8 },
   headerTitle: { fontSize: 17, fontWeight: "600", flex: 1 },
   headerSpacer: { width: 38 },
+  editButton: { padding: 4, width: 38, alignItems: "flex-end" },
   scrollContent: { padding: 16 },
   card: {
     borderRadius: 12,
