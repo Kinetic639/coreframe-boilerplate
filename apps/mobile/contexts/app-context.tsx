@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
 
 import { AuthService } from "@repo/auth";
@@ -9,8 +10,10 @@ import type { OrganizationEntitlements } from "@repo/contracts/entitlements";
 
 import { mobileSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { loadBootstrapData } from "@/lib/loaders/bootstrap-loader";
 import { BootstrapFallback } from "@/components/app/BootstrapFallback";
+import { Colors } from "@/constants/theme";
 
 // ─── Bootstrap State ──────────────────────────────────────────────────────────
 
@@ -125,6 +128,8 @@ export function AppProvider({
   children: React.ReactNode;
 }) {
   const { signOut } = useAuth();
+  const scheme = (useColorScheme() ?? "light") as "light" | "dark";
+  const c = Colors[scheme];
 
   // ── Phase 1: Sync JWT derivation ──────────────────────────────────────────
   const jwtDerived = useMemo(() => {
@@ -257,9 +262,16 @@ export function AppProvider({
 
   if (bootstrapState === "resolving" || bootstrapState === "invalid-session") {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: c.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <ActivityIndicator size="large" color={c.tint} />
+      </SafeAreaView>
     );
   }
 

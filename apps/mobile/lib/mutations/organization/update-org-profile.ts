@@ -14,7 +14,8 @@ import type { OrgProfileData } from "@/lib/queries/organization/org-profile";
  * - theme_color / font_color require a color-picker component (deferred)
  */
 export interface UpdateOrgProfileInput {
-  name?: string | null;
+  /** Required — must be a non-empty, non-whitespace string. */
+  name: string;
   name_2?: string | null;
   bio?: string | null;
   website?: string | null;
@@ -30,7 +31,7 @@ const URL_PATTERN = /^https?:\/\/.+/i;
  * or null when input is valid.
  *
  * Rules mirrored from web:
- *   name     – max 200 chars when non-null/non-empty
+ *   name     – required; non-empty after trim; max 200 chars
  *   name_2   – max 200 chars when non-null/non-empty
  *   bio      – max 500 chars when non-null/non-empty
  *   website  – must be a valid http(s) URL when non-null/non-empty
@@ -41,8 +42,14 @@ const URL_PATTERN = /^https?:\/\/.+/i;
  *   logo_url – file-upload; deferred
  */
 function validateOrgProfileInput(input: UpdateOrgProfileInput): string | null {
-  if (input.name != null && input.name.length > 200) {
+  if (!input.name || input.name.trim().length === 0) {
+    return "Nazwa jest wymagana";
+  }
+  if (input.name.length > 200) {
     return "Nazwa nie może przekraczać 200 znaków";
+  }
+  if (input.name_2 != null && input.name_2.trim().length === 0) {
+    return "Nazwa dodatkowa nie może być pusta";
   }
   if (input.name_2 != null && input.name_2.length > 200) {
     return "Nazwa dodatkowa nie może przekraczać 200 znaków";

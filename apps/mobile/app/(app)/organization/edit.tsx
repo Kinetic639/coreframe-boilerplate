@@ -81,10 +81,10 @@ export default function EditOrgProfileScreen() {
   const c = Colors[colorScheme];
 
   const { appState } = useAppContext();
-  const orgId = appState.activeOrgId ?? "";
+  const orgId = appState.activeOrgId;
 
-  const profileResult = useOrgProfileQuery(orgId || null);
-  const mutation = useUpdateOrgProfileMutation(orgId);
+  const profileResult = useOrgProfileQuery(orgId);
+  const mutation = useUpdateOrgProfileMutation(orgId ?? "");
 
   // ── Form state ──────────────────────────────────────────────────────────────
 
@@ -129,7 +129,7 @@ export default function EditOrgProfileScreen() {
 
   const handleSave = () => {
     mutation.mutate({
-      name: name || null,
+      name,
       name_2: name2 || null,
       bio: bio || null,
       website: website || null,
@@ -137,6 +137,11 @@ export default function EditOrgProfileScreen() {
   };
 
   const isPending = mutation.isPending;
+
+  // ── Defensive guard ─────────────────────────────────────────────────────────
+  // activeOrgId is always non-null inside the resolved app shell. Guard here so
+  // TypeScript is satisfied and the screen safely bails if invariant is broken.
+  if (!orgId) return null;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 

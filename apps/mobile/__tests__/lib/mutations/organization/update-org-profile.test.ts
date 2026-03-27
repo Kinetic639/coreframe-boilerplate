@@ -76,36 +76,60 @@ describe("updateOrgProfile", () => {
     expect(result.website).toBe("https://acme.com");
   });
 
-  // ── 2. Validation: name too long ─────────────────────────────────────────────
+  // ── 2a. Validation: name empty string ───────────────────────────────────────
+  it("throws when name is an empty string", async () => {
+    const client = makeMockClient({ data: null, error: null });
+    await expect(updateOrgProfile(client, "org-1", { ...VALID_INPUT, name: "" })).rejects.toThrow(
+      /wymagana/
+    );
+  });
+
+  // ── 2b. Validation: name whitespace-only ────────────────────────────────────
+  it("throws when name is whitespace only", async () => {
+    const client = makeMockClient({ data: null, error: null });
+    await expect(
+      updateOrgProfile(client, "org-1", { ...VALID_INPUT, name: "   " })
+    ).rejects.toThrow(/wymagana/);
+  });
+
+  // ── 2c. Validation: name_2 empty string ─────────────────────────────────────
+  it("throws when name_2 is an empty string", async () => {
+    const client = makeMockClient({ data: null, error: null });
+    await expect(updateOrgProfile(client, "org-1", { ...VALID_INPUT, name_2: "" })).rejects.toThrow(
+      /pusta/
+    );
+  });
+
+  // ── 3. Validation: name too long ─────────────────────────────────────────────
   it("throws when name exceeds 200 characters", async () => {
     const client = makeMockClient({ data: null, error: null });
-    await expect(updateOrgProfile(client, "org-1", { name: "a".repeat(201) })).rejects.toThrow(
-      "200"
-    );
+    await expect(
+      updateOrgProfile(client, "org-1", { ...VALID_INPUT, name: "a".repeat(201) })
+    ).rejects.toThrow("200");
   });
 
   // ── 3. Validation: name_2 too long ───────────────────────────────────────────
   it("throws when name_2 exceeds 200 characters", async () => {
     const client = makeMockClient({ data: null, error: null });
-    await expect(updateOrgProfile(client, "org-1", { name_2: "b".repeat(201) })).rejects.toThrow(
-      "200"
-    );
+    await expect(
+      updateOrgProfile(client, "org-1", { ...VALID_INPUT, name_2: "b".repeat(201) })
+    ).rejects.toThrow("200");
   });
 
   // ── 4. Validation: bio too long ──────────────────────────────────────────────
   it("throws when bio exceeds 500 characters", async () => {
     const client = makeMockClient({ data: null, error: null });
-    await expect(updateOrgProfile(client, "org-1", { bio: "c".repeat(501) })).rejects.toThrow(
-      "500"
-    );
+    await expect(
+      updateOrgProfile(client, "org-1", { ...VALID_INPUT, bio: "c".repeat(501) })
+    ).rejects.toThrow("500");
   });
 
   // ── 5. Validation: invalid website URL ──────────────────────────────────────
   it("throws when website is not a valid http/https URL", async () => {
     const client = makeMockClient({ data: null, error: null });
-    await expect(updateOrgProfile(client, "org-1", { website: "not-a-url" })).rejects.toThrow(
-      "URL"
-    );
+    await expect(
+      updateOrgProfile(client, "org-1", { ...VALID_INPUT, website: "not-a-url" })
+    ).rejects.toThrow("URL");
   });
 
   // ── 5b. Validation: http:// URL is accepted ──────────────────────────────────
