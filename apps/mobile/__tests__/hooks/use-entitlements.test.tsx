@@ -20,6 +20,7 @@ function makeContextValue(entitlements: OrganizationEntitlements | null) {
     orgRoles: [],
     activeBranchId: null,
     branchRoles: [],
+    accessibleBranchIds: [],
     branchPermissions: null,
     permissions: { allow: [], deny: [] },
     entitlements,
@@ -30,6 +31,7 @@ function makeContextValue(entitlements: OrganizationEntitlements | null) {
     bootstrapState: "resolved" as AppBootstrapState,
     appState,
     retryBootstrap: () => {},
+    switchBranch: () => {},
   };
 }
 

@@ -7,6 +7,7 @@ import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTabBarBottomInset } from "@/hooks/use-tab-bar-inset";
 import { useAuth } from "@/contexts/auth-context";
+import { useAppContext } from "@/contexts/app-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,9 @@ export default function MoreScreen() {
   const colorScheme = (useColorScheme() ?? "light") as ColorScheme;
   const c = Colors[colorScheme];
   const { signOut } = useAuth();
+  const { appState } = useAppContext();
   const tabBarInset = useTabBarBottomInset();
+  const hasBranches = appState.accessibleBranchIds.length > 0;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -88,6 +91,36 @@ export default function MoreScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* ── Branch switcher — only shown when user has branch-scoped roles ── */}
+        {hasBranches && (
+          <View style={styles.sectionGroup}>
+            <Text style={[styles.sectionLabel, { color: c.textMuted }]}>Oddział</Text>
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: c.surfaceElevated, borderColor: c.border },
+              ]}
+            >
+              <TouchableOpacity
+                style={[styles.row, styles.rowLast, { borderBottomColor: c.border }]}
+                onPress={() => router.push("/(app)/branch-select")}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Switch branch"
+              >
+                <Ionicons
+                  name="git-branch-outline"
+                  size={20}
+                  color={c.icon}
+                  style={styles.rowIcon}
+                />
+                <Text style={[styles.rowLabel, { color: c.text }]}>Przełącz oddział</Text>
+                <Ionicons name="chevron-forward" size={16} color={c.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* ── Utility destinations ── */}
         <View
           style={[styles.section, { backgroundColor: c.surfaceElevated, borderColor: c.border }]}
@@ -131,7 +164,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 20, fontWeight: "700" },
-  scrollContent: { padding: 16, paddingBottom: 8 },
+  scrollContent: { padding: 16, paddingBottom: 8, gap: 16 },
+  sectionGroup: { gap: 4 },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    paddingHorizontal: 4,
+  },
   section: {
     borderRadius: 12,
     borderWidth: 1,

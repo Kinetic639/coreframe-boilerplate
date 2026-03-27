@@ -48,6 +48,7 @@ const BASE_APP_STATE: AppState = {
   orgRoles: [],
   activeBranchId: null,
   branchRoles: [],
+  accessibleBranchIds: [],
   branchPermissions: null,
   orgName: "Acme Corp",
   orgName2: null,
@@ -87,7 +88,12 @@ const MEMBERS: OrgMemberItem[] = [
 ];
 
 function makeContext(appState: AppState = BASE_APP_STATE) {
-  return { bootstrapState: "resolved" as const, appState, retryBootstrap: vi.fn() };
+  return {
+    bootstrapState: "resolved" as const,
+    appState,
+    retryBootstrap: vi.fn(),
+    switchBranch: vi.fn(),
+  };
 }
 
 function createWrapper() {

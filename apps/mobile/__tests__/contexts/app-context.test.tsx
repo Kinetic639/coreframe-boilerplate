@@ -4,6 +4,7 @@ import React from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import type { BootstrapLoadResult } from "@/lib/loaders/bootstrap-loader";
+import type { BranchPermissionsLoadResult } from "@/lib/loaders/branch-permissions-loader";
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
 
@@ -19,8 +20,21 @@ vi.mock("@/lib/loaders/bootstrap-loader", () => ({
   loadBootstrapData: (...args: unknown[]) => mockLoadBootstrapData(...args),
 }));
 
+const mockLoadBranchPermissionsData =
+  vi.fn<(...args: unknown[]) => Promise<BranchPermissionsLoadResult>>();
+
+vi.mock("@/lib/loaders/branch-permissions-loader", () => ({
+  loadBranchPermissionsData: (...args: unknown[]) => mockLoadBranchPermissionsData(...args),
+}));
+
+// Hoisted supabase mock — needs to support the .from().update().eq() chain
+// used by switchBranch for best-effort user_preferences persistence.
+const { mockMobileFrom } = vi.hoisted(() => ({
+  mockMobileFrom: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
-  mobileSupabase: {},
+  mobileSupabase: { from: mockMobileFrom },
 }));
 
 vi.mock("@repo/auth", () => ({
@@ -123,13 +137,20 @@ function makeSessionWithBranch(
   } as unknown as Session;
 }
 
+/** Default resolved bootstrap result — no branch preference. */
 const RESOLVED_OK: BootstrapLoadResult = {
   kind: "resolved",
   permissions: { allow: ["org.read"], deny: [] },
-  branchPermissions: null,
+  savedBranchId: null,
   entitlements: null,
   orgName: "Test Org",
   orgName2: null,
+};
+
+/** Branch-permissions resolved result — used by mockLoadBranchPermissionsData. */
+const BRANCH_PERMS_OK: BranchPermissionsLoadResult = {
+  kind: "resolved",
+  branchPermissions: { allow: ["branch.roles.manage"], deny: [] },
 };
 
 /** Probe rendered inside the resolved AppContext.Provider */
@@ -142,8 +163,7 @@ function ContextProbe() {
 const { AppProvider, useAppContext } = await import("@/contexts/app-context");
 
 /**
- * Probe that exposes branch context state via visible text.
- * Uses getByText() pattern to avoid .textContent TS issues with es2022 lib.
+ * Probe that exposes branchPermissions count via visible text.
  */
 function BranchProbe() {
   const { appState } = useAppContext();
@@ -156,12 +176,53 @@ function BranchProbe() {
   );
 }
 
+/**
+ * Probe that exposes activeBranchId via visible text.
+ */
+function ActiveBranchProbe() {
+  const { appState } = useAppContext();
+  return (
+    <>
+      <span data-testid="resolved">resolved</span>
+      <span>active-branch:{appState.activeBranchId ?? "null"}</span>
+    </>
+  );
+}
+
+/**
+ * Probe that exposes activeBranchId and provides a button to call switchBranch.
+ */
+function SwitchBranchProbe({ targetBranchId }: { targetBranchId: string }) {
+  const { appState, switchBranch } = useAppContext();
+  const permCount = appState.branchPermissions?.allow.length ?? -1;
+  return (
+    <>
+      <span data-testid="resolved">resolved</span>
+      <span>active-branch:{appState.activeBranchId ?? "null"}</span>
+      <span>branch-perm-count:{permCount}</span>
+      <button onClick={() => switchBranch(targetBranchId)}>switch</button>
+    </>
+  );
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("AppProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSignOut.mockResolvedValue(undefined);
+    // Default: branch-permissions loader returns no-op resolved result.
+    // Tests that need specific branch perms override this per-test.
+    mockLoadBranchPermissionsData.mockResolvedValue({
+      kind: "resolved",
+      branchPermissions: { allow: [], deny: [] },
+    });
+    // Default: supabase.from() returns a chainable no-op for preference writes.
+    mockMobileFrom.mockReturnValue({
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    });
   });
 
   // ── 1. Resolved state renders children ──────────────────────────────────
@@ -265,8 +326,8 @@ describe("AppProvider", () => {
     });
   });
 
-  // ── 7. loadBootstrapData is called with userId and activeOrgId ───────────
-  it("calls loadBootstrapData with the correct userId and orgId from the JWT", async () => {
+  // ── 7. loadBootstrapData is called with userId and activeOrgId (3 args) ──
+  it("calls loadBootstrapData with userId and orgId from JWT — no branch arg", async () => {
     mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
 
     render(
@@ -279,8 +340,8 @@ describe("AppProvider", () => {
     expect(mockLoadBootstrapData).toHaveBeenCalledWith(
       expect.anything(), // mobileSupabase
       "user-abc",
-      "org-xyz",
-      null // no branch roles in this session
+      "org-xyz"
+      // No 4th arg — activeBranchId is resolved AFTER bootstrap completes
     );
   });
 
@@ -296,7 +357,6 @@ describe("AppProvider", () => {
 
     await waitFor(() => expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1));
 
-    // Same user, same org, different token value — simulates a silent token refresh
     rerender(
       <AppProvider session={makeSession("u1", "org-1", "token-v2")}>
         <ContextProbe />
@@ -325,7 +385,6 @@ describe("AppProvider", () => {
       </AppProvider>
     );
 
-    // Allow any pending microtasks to settle
     await Promise.resolve();
     expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1);
   });
@@ -346,8 +405,8 @@ describe("AppProvider", () => {
     expect(screen.queryByTestId("resolved")).toBeNull();
   });
 
-  // ── 11. Branch: no branch roles → null activeBranchId passed to loader ───
-  it("calls loadBootstrapData with null activeBranchId when JWT has no branch roles", async () => {
+  // ── 11. No branch roles → loadBootstrapData called with 3 args ───────────
+  it("calls loadBootstrapData with 3 args when JWT has no branch roles", async () => {
     mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
 
     render(
@@ -357,16 +416,11 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1));
-    expect(mockLoadBootstrapData).toHaveBeenCalledWith(
-      expect.anything(),
-      "user-abc",
-      "org-xyz",
-      null
-    );
+    expect(mockLoadBootstrapData).toHaveBeenCalledWith(expect.anything(), "user-abc", "org-xyz");
   });
 
-  // ── 12. Branch: branch role in JWT → correct activeBranchId passed ───────
-  it("calls loadBootstrapData with branch UUID when JWT has a branch-scoped role", async () => {
+  // ── 12. Branch role in JWT → loadBootstrapData still called with 3 args ──
+  it("calls loadBootstrapData with 3 args even when JWT has a branch-scoped role", async () => {
     mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
 
     render(
@@ -376,48 +430,168 @@ describe("AppProvider", () => {
     );
 
     await waitFor(() => expect(mockLoadBootstrapData).toHaveBeenCalledTimes(1));
-    expect(mockLoadBootstrapData).toHaveBeenCalledWith(
-      expect.anything(),
-      "u1",
-      "org-1",
-      "branch-42"
-    );
+    // activeBranchId is resolved AFTER bootstrap — not passed as an arg
+    expect(mockLoadBootstrapData).toHaveBeenCalledWith(expect.anything(), "u1", "org-1");
   });
 
-  // ── 13. Branch: branchPermissions from resolved result → in appState ──────
-  it("exposes branchPermissions from bootstrap result in appState", async () => {
-    const resolvedWithBranch: BootstrapLoadResult = {
+  // ── 13. savedBranchId matches JWT branch role → activeBranchId set ────────
+  it("sets activeBranchId from savedBranchId when it matches a JWT branch role", async () => {
+    mockLoadBootstrapData.mockResolvedValue({
       ...RESOLVED_OK,
-      branchPermissions: { allow: ["branch.roles.manage"], deny: [] },
-    };
-    mockLoadBootstrapData.mockResolvedValue(resolvedWithBranch);
+      savedBranchId: "branch-42",
+    });
 
     render(
       <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
-        <BranchProbe />
+        <ActiveBranchProbe />
       </AppProvider>
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("resolved")).toBeTruthy();
-      expect(screen.getByText("branch-perm-count:1")).toBeTruthy();
+      expect(screen.getByText("active-branch:branch-42")).toBeTruthy();
     });
   });
 
-  // ── 14. Branch: null branchPermissions when no active branch ─────────────
-  it("exposes null branchPermissions in appState when bootstrap returns null branchPermissions", async () => {
-    mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK); // branchPermissions: null
+  // ── 14. savedBranchId null → activeBranchId = first JWT branch role ───────
+  it("sets activeBranchId to first JWT branch role when savedBranchId is null", async () => {
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
 
     render(
-      <AppProvider session={makeSession("u1", "org-1", "tok")}>
-        <BranchProbe />
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <ActiveBranchProbe />
       </AppProvider>
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("resolved")).toBeTruthy();
-      // -1 means appState.branchPermissions is null (no .allow array)
+      expect(screen.getByText("active-branch:branch-42")).toBeTruthy();
+    });
+  });
+
+  // ── 15. No branch roles and null savedBranchId → activeBranchId null ──────
+  it("activeBranchId is null when no JWT branch roles and savedBranchId is null", async () => {
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <ActiveBranchProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("active-branch:null")).toBeTruthy();
+    });
+  });
+
+  // ── 16. switchBranch with valid ID updates activeBranchId in appState ─────
+  it("switchBranch updates activeBranchId to the selected branch", async () => {
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-42" />
+      </AppProvider>
+    );
+
+    // Wait for initial resolution (activeBranchId = "branch-42" from first JWT role)
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    // Simulate switching to a different branch — for this test we switch to the
+    // same branch to verify the guard doesn't block it (it's already accessible)
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("active-branch:branch-42")).toBeTruthy();
+    });
+  });
+
+  // ── 17. switchBranch clears branchPermissions immediately ─────────────────
+  it("switchBranch clears branchPermissions to null before reload completes", async () => {
+    // First: let bootstrap set an initial branchPermissions via branch-reload effect
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
+    mockLoadBranchPermissionsData.mockResolvedValue(BRANCH_PERMS_OK);
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-42" />
+      </AppProvider>
+    );
+
+    // Wait for initial resolved state with branch permissions loaded
+    await waitFor(() => {
+      expect(screen.getByText("branch-perm-count:1")).toBeTruthy();
+    });
+
+    // Now stall the next branch-permissions load so we can observe the clearing
+    mockLoadBranchPermissionsData.mockReturnValue(new Promise(() => {})); // never resolves
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    // branchPermissions should be null immediately (-1) while reload is in flight
+    await waitFor(() => {
       expect(screen.getByText("branch-perm-count:-1")).toBeTruthy();
     });
+  });
+
+  // ── 18. switchBranch with ID not in accessibleBranchIds is no-op ──────────
+  it("switchBranch does not update state when branchId is not in accessibleBranchIds", async () => {
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-INVALID" />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    const callsBefore = mockLoadBranchPermissionsData.mock.calls.length;
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    // No additional branch-permissions load triggered (no state change)
+    await Promise.resolve();
+    expect(mockLoadBranchPermissionsData.mock.calls.length).toBe(callsBefore);
+    // activeBranchId unchanged
+    expect(screen.getByText("active-branch:branch-42")).toBeTruthy();
+  });
+
+  // ── 19. switchBranch fires user_preferences update for persistence ─────────
+  it("switchBranch calls mobileSupabase.from(user_preferences).update with selected branch", async () => {
+    mockLoadBootstrapData.mockResolvedValue({ ...RESOLVED_OK, savedBranchId: null });
+
+    const mockEq = vi.fn().mockResolvedValue({ error: null });
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
+    mockMobileFrom.mockReturnValue({ update: mockUpdate });
+
+    render(
+      <AppProvider session={makeSessionWithBranch("u1", "org-1", "branch-42", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-42" />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    // Reset call counts after bootstrap (which may also call from() for its own purposes)
+    mockMobileFrom.mockClear();
+    mockUpdate.mockClear();
+    mockEq.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    // Allow the async persistence write to fire
+    await Promise.resolve();
+
+    expect(mockMobileFrom).toHaveBeenCalledWith("user_preferences");
+    expect(mockUpdate).toHaveBeenCalledWith({ default_branch_id: "branch-42" });
+    expect(mockEq).toHaveBeenCalledWith("user_id", "u1");
   });
 });

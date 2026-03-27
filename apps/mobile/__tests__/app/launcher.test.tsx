@@ -34,6 +34,7 @@ const BASE_APP_STATE: AppState = {
   orgRoles: [],
   activeBranchId: null,
   branchRoles: [],
+  accessibleBranchIds: [],
   branchPermissions: null,
   orgName: "Acme Corp",
   orgName2: null,
@@ -56,6 +57,7 @@ function makeContext(overrides: Partial<AppState> = {}) {
     bootstrapState: "resolved" as const,
     appState: { ...BASE_APP_STATE, ...overrides },
     retryBootstrap: vi.fn(),
+    switchBranch: vi.fn(),
   };
 }
 

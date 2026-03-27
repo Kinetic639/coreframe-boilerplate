@@ -13,7 +13,7 @@ type QueryResult = {
 
 /**
  * Returns a deferred promise — the caller controls when it resolves.
- * Used in the concurrency test to prove all three queries are started
+ * Used in the concurrency test to prove all four queries are started
  * before any of them resolves.
  */
 function deferred<T>() {
@@ -61,76 +61,25 @@ function makeMock(results: Record<string, QueryResult>): SupabaseClient {
 const OK_PERM: QueryResult = { data: [], error: null, status: 200 };
 const OK_ENT: QueryResult = { data: null, error: null, status: 200 };
 const OK_PROF: QueryResult = { data: null, error: null, status: 200 };
+const OK_PREF: QueryResult = { data: null, error: null, status: 200 };
 
 const ALL_OK = {
   user_effective_permissions: OK_PERM,
   organization_entitlements: OK_ENT,
   organization_profiles: OK_PROF,
+  user_preferences: OK_PREF,
 };
-
-/**
- * Builds a mock where `user_effective_permissions` can return different results
- * for the org-scope query (.is("branch_id", null)) vs the branch-scope query
- * (.eq("branch_id", <uuid>)). Distinguishes the two by inspecting whether
- * `.eq("branch_id", ...)` was called on the builder.
- */
-function makeBranchMock(options: {
-  orgPermResult?: QueryResult;
-  branchPermResult: QueryResult;
-  entResult?: QueryResult;
-  profResult?: QueryResult;
-}): SupabaseClient {
-  const orgPerm = options.orgPermResult ?? OK_PERM;
-  const ent = options.entResult ?? OK_ENT;
-  const prof = options.profResult ?? OK_PROF;
-
-  return {
-    from: vi.fn((table: string) => {
-      if (table !== "user_effective_permissions") {
-        const result = table === "organization_entitlements" ? ent : prof;
-        return makeBuilder(result);
-      }
-      // Build a filter-aware builder: tracks whether .eq("branch_id", val) was called.
-      let isBranchQuery = false;
-      const b: Record<string, unknown> & PromiseLike<QueryResult> = {
-        select: () => b,
-        eq: (col: string, _val: unknown) => {
-          if (col === "branch_id") isBranchQuery = true;
-          return b;
-        },
-        is: () => b,
-        maybeSingle: () => b,
-        then: <T, U>(
-          onfulfilled?: ((v: QueryResult) => T | PromiseLike<T>) | null,
-          onrejected?: ((r: unknown) => U | PromiseLike<U>) | null
-        ): Promise<T | U> => {
-          const result = isBranchQuery ? options.branchPermResult : orgPerm;
-          return Promise.resolve(result).then(onfulfilled, onrejected);
-        },
-        catch: (onrejected?: ((r: unknown) => unknown) | null) => {
-          const result = isBranchQuery ? options.branchPermResult : orgPerm;
-          return Promise.resolve(result).catch(onrejected);
-        },
-        finally: (onfinally?: (() => void) | null) => {
-          const result = isBranchQuery ? options.branchPermResult : orgPerm;
-          return Promise.resolve(result).finally(onfinally);
-        },
-      };
-      return b;
-    }),
-  } as unknown as SupabaseClient;
-}
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("loadBootstrapData", () => {
-  // ── 1. Happy path — no subscription row, no profile row ─────────────────
-  it("returns resolved with empty allow and null entitlements when no rows exist", async () => {
+  // ── 1. Happy path — no subscription row, no profile row, no preference ────
+  it("returns resolved with empty allow, null entitlements, null savedBranchId when no rows exist", async () => {
     const result = await loadBootstrapData(makeMock(ALL_OK), "u1", "o1");
     expect(result).toEqual({
       kind: "resolved",
       permissions: { allow: [], deny: [] },
-      branchPermissions: null,
+      savedBranchId: null,
       entitlements: null,
       orgName: null,
       orgName2: null,
@@ -366,17 +315,19 @@ describe("loadBootstrapData", () => {
         status: 500,
       },
       organization_profiles: OK_PROF,
+      user_preferences: OK_PREF,
     });
     // permissions error (401 → invalid-session) takes priority over entitlements error (500 → error)
     const result = await loadBootstrapData(mock, "u1", "o1");
     expect(result.kind).toBe("invalid-session");
   });
 
-  // ── 16. Concurrency: all three queries invoked before any resolves ────────
-  it("invokes all three query chains concurrently before any result resolves", async () => {
+  // ── 16. Concurrency: all four queries invoked before any resolves ─────────
+  it("invokes all four query chains concurrently before any result resolves", async () => {
     const permD = deferred<QueryResult>();
     const entD = deferred<QueryResult>();
     const profD = deferred<QueryResult>();
+    const prefD = deferred<QueryResult>();
     const calledTables: string[] = [];
 
     const mock = {
@@ -384,6 +335,7 @@ describe("loadBootstrapData", () => {
         calledTables.push(table);
         if (table === "user_effective_permissions") return makeBuilder(permD.promise);
         if (table === "organization_entitlements") return makeBuilder(entD.promise);
+        if (table === "user_preferences") return makeBuilder(prefD.promise);
         return makeBuilder(profD.promise); // organization_profiles
       }),
     } as unknown as SupabaseClient;
@@ -395,74 +347,72 @@ describe("loadBootstrapData", () => {
     // only the first from() would have fired at this point.
     await Promise.resolve();
 
-    expect(calledTables).toHaveLength(3);
+    expect(calledTables).toHaveLength(4);
     expect(calledTables).toContain("user_effective_permissions");
     expect(calledTables).toContain("organization_entitlements");
     expect(calledTables).toContain("organization_profiles");
+    expect(calledTables).toContain("user_preferences");
 
-    // Now resolve all three so the function can complete
+    // Now resolve all four so the function can complete
     permD.resolve({ data: [], error: null, status: 200 });
     entD.resolve({ data: null, error: null, status: 200 });
     profD.resolve({ data: null, error: null, status: 200 });
+    prefD.resolve({ data: null, error: null, status: 200 });
 
     const result = await resultPromise;
     expect(result.kind).toBe("resolved");
   });
 
-  // ── 17. Branch: null activeBranchId → branchPermissions is null ──────────
-  it("returns branchPermissions null when activeBranchId is null", async () => {
-    const result = await loadBootstrapData(makeMock(ALL_OK), "u1", "o1", null);
-    expect(result.kind).toBe("resolved");
-    if (result.kind === "resolved") {
-      expect(result.branchPermissions).toBeNull();
-    }
-  });
-
-  // ── 18. Branch: non-null activeBranchId → branch query fires and populates ─
-  it("returns branchPermissions.allow when activeBranchId is set", async () => {
-    const mock = makeBranchMock({
-      branchPermResult: {
-        data: [
-          { permission_slug_exact: "branch.roles.manage" },
-          { permission_slug_exact: "members.read" },
-        ],
+  // ── 17. Preference: saved default_branch_id → savedBranchId in result ────
+  it("returns savedBranchId from user_preferences when default_branch_id is set", async () => {
+    const mock = makeMock({
+      ...ALL_OK,
+      user_preferences: {
+        data: { default_branch_id: "branch-uuid-42" },
         error: null,
         status: 200,
       },
     });
-    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
+
+    const result = await loadBootstrapData(mock, "u1", "o1");
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
-      expect(result.branchPermissions).toEqual({
-        allow: ["branch.roles.manage", "members.read"],
-        deny: [],
-      });
+      expect(result.savedBranchId).toBe("branch-uuid-42");
     }
   });
 
-  // ── 19. Branch: non-null activeBranchId, empty result → empty snapshot ────
-  it("returns branchPermissions with empty allow when branch has no permissions", async () => {
-    const mock = makeBranchMock({
-      branchPermResult: { data: [], error: null, status: 200 },
+  // ── 18. Preference: no user_preferences row → savedBranchId null ─────────
+  it("returns savedBranchId null when user_preferences returns no row", async () => {
+    // data: null = maybeSingle() found no row — valid state, not an error
+    const mock = makeMock({
+      ...ALL_OK,
+      user_preferences: { data: null, error: null, status: 200 },
     });
-    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
+
+    const result = await loadBootstrapData(mock, "u1", "o1");
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
-      // Empty snapshot — not null. Signals "branch context active, no permissions".
-      expect(result.branchPermissions).toEqual({ allow: [], deny: [] });
+      expect(result.savedBranchId).toBeNull();
     }
   });
 
-  // ── 20. Branch: branch permissions query error → classifyError applied ────
-  it("returns forbidden when branch permissions query returns SQLSTATE 42501", async () => {
-    const mock = makeBranchMock({
-      branchPermResult: {
+  // ── 19. Preference: query error → soft failure, bootstrap still resolves ──
+  it("resolves successfully with savedBranchId null when user_preferences query errors", async () => {
+    // Preferences query error is a soft failure — it does NOT abort bootstrap.
+    // The app can function without a branch preference.
+    const mock = makeMock({
+      ...ALL_OK,
+      user_preferences: {
         data: null,
-        error: { code: "42501", message: "insufficient_privilege" },
-        status: 200,
+        error: { message: "connection timeout" },
+        status: 500,
       },
     });
-    const result = await loadBootstrapData(mock, "u1", "o1", "branch-1");
-    expect(result.kind).toBe("forbidden");
+
+    const result = await loadBootstrapData(mock, "u1", "o1");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.savedBranchId).toBeNull();
+    }
   });
 });

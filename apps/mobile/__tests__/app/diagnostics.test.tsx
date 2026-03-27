@@ -52,6 +52,7 @@ const BASE_APP_STATE: AppState = {
   orgRoles: [],
   activeBranchId: null,
   branchRoles: [],
+  accessibleBranchIds: [],
   branchPermissions: null,
   permissions: { allow: ["tools.read", "members.read"], deny: [] },
   entitlements: {
@@ -70,7 +71,7 @@ function makeContext(
   bootstrapState: AppBootstrapState = "resolved",
   appState: AppState = BASE_APP_STATE
 ) {
-  return { bootstrapState, appState, retryBootstrap: vi.fn() };
+  return { bootstrapState, appState, retryBootstrap: vi.fn(), switchBranch: vi.fn() };
 }
 
 function makeEntitlements(entitlements = BASE_APP_STATE.entitlements) {
