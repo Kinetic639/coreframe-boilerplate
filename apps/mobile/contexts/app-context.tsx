@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Alert, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
 
 import { AuthService } from "@repo/auth";
 import type { TokenRole } from "@repo/contracts/auth";
+import { BRANCHES_VIEW_ANY, BRANCHES_VIEW_UPDATE_ANY } from "@repo/contracts/permissions";
 import type { PermissionSnapshot } from "@repo/contracts/permissions";
 import type { OrganizationEntitlements } from "@repo/contracts/entitlements";
 
@@ -80,9 +81,13 @@ export interface AppState {
    */
   branchRoles: TokenRole[];
   /**
-   * Branch IDs the user can switch to — derived from branchRoles.
-   * Deduplicated and source-of-truth for switchBranch validation.
-   * Empty when the user has no branch-scoped JWT roles.
+   * Branch IDs the user can switch to. Source-of-truth for switchBranch validation.
+   *
+   * Computed at bootstrap resolution time from the permission snapshot:
+   *   BRANCHES_VIEW_ANY in permissions → all org branch IDs (org_owner / wildcard path)
+   *   No wildcard access               → branch-scoped JWT role IDs (explicit-role path)
+   *
+   * Empty during bootstrap resolution and when the user has no accessible branches.
    */
   accessibleBranchIds: string[];
   /**
@@ -150,22 +155,21 @@ const AppContext = createContext<AppContextValue | null>(null);
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Resolves the initial activeBranchId from a saved preference and JWT branch roles.
+ * Resolves the initial activeBranchId from a saved preference and the final
+ * accessible branch ID set.
  *
  * Resolution order:
- *   1. savedBranchId if it matches a branch UUID in branchRoles
- *   2. else the first JWT branch role UUID (insertion order)
- *   3. else null (user has no branch roles)
+ *   1. savedBranchId if it is in accessibleIds
+ *   2. else the first accessible branch UUID
+ *   3. else null (user has no accessible branches)
  *
- * This replaces the Slice 1 "first JWT role" placeholder with a deterministic,
- * preference-aware selection that survives across sessions.
+ * accessibleIds is the already-computed set: either all org branch IDs
+ * (BRANCHES_VIEW_ANY path) or branch-scoped JWT role IDs (explicit-role path).
+ * This function does not need to know which path produced it.
  */
-function resolvePreference(savedBranchId: string | null, branchRoles: TokenRole[]): string | null {
-  const ids = branchRoles
-    .map((r) => r.branch_id ?? r.scope_id)
-    .filter((id): id is string => id !== null);
-  if (savedBranchId && ids.includes(savedBranchId)) return savedBranchId;
-  return ids[0] ?? null;
+function resolvePreference(savedBranchId: string | null, accessibleIds: string[]): string | null {
+  if (savedBranchId && accessibleIds.includes(savedBranchId)) return savedBranchId;
+  return accessibleIds[0] ?? null;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -238,6 +242,18 @@ export function AppProvider({
   const [bootstrapState, setBootstrapState] = useState<AppBootstrapState>("resolving");
   const [permissions, setPermissions] = useState<PermissionSnapshot | null>(null);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  /**
+   * Branch IDs the user can switch to. Set once per bootstrap cycle.
+   *
+   * Two paths:
+   *   BRANCHES_VIEW_ANY in permissions → all org branch IDs (from bootstrap Query 5)
+   *   No wildcard access              → branch-scoped JWT role IDs
+   *
+   * Stored as state (not a useMemo) because the correct value depends on the
+   * permission snapshot, which is only known after the async bootstrap resolves.
+   * [] during bootstrap resolution; populated in the resolved handler.
+   */
+  const [accessibleBranchIds, setAccessibleBranchIds] = useState<string[]>([]);
   const [branchPermissions, setBranchPermissions] = useState<PermissionSnapshot | null>(null);
   const [entitlements, setEntitlements] = useState<OrganizationEntitlements | null>(null);
   const [orgName, setOrgName] = useState<string | null>(null);
@@ -250,15 +266,6 @@ export function AppProvider({
     setBootstrapState("resolving");
     setRetryKey((k) => k + 1);
   }, []);
-
-  // ── Derived: accessible branch IDs (stable within a JWT lifetime) ─────────
-  const accessibleBranchIds = useMemo(
-    () =>
-      jwtDerived.branchRoles
-        .map((r) => r.branch_id ?? r.scope_id)
-        .filter((id): id is string => id !== null),
-    [jwtDerived]
-  );
 
   // ── Bootstrap effect: loads org-scope data and initializes activeBranchId ─
   useEffect(() => {
@@ -282,6 +289,7 @@ export function AppProvider({
     setErrorMessage(null);
     setPermissions(null);
     setActiveBranchId(null);
+    setAccessibleBranchIds([]);
     setBranchPermissions(null);
     setEntitlements(null);
     setOrgName(null);
@@ -293,10 +301,33 @@ export function AppProvider({
 
         if (result.kind === "resolved") {
           setPermissions(result.permissions);
-          // Resolve activeBranchId from saved preference + JWT branch roles.
-          // This replaces the JWT-first derivation with a preference-aware selection.
-          // resolvePreference: savedBranchId (if in branchRoles) → first branchRole → null
-          setActiveBranchId(resolvePreference(result.savedBranchId, jwtDerived.branchRoles));
+
+          // Compute accessible branch IDs from the permission snapshot + bootstrap data.
+          //
+          // BRANCHES_VIEW_ANY path (e.g. org_owner):
+          //   User has no branch-scoped JWT roles but holds the wildcard org-scope
+          //   permission "branches.view.any". All non-deleted org branches are
+          //   accessible. allOrgBranchIds is [] if the branches query soft-failed —
+          //   in that case the user sees no branch context for this session (same
+          //   degraded state as before this fix), recoverable on next app launch.
+          //
+          // Explicit-role path:
+          //   User has branch-scoped JWT roles. accessibleBranchIds is derived from
+          //   those roles exactly, as before Phase 10.
+          const hasBranchesViewAny =
+            result.permissions.allow.includes(BRANCHES_VIEW_ANY) ||
+            result.permissions.allow.includes(BRANCHES_VIEW_UPDATE_ANY);
+          const accessibleIds: string[] = hasBranchesViewAny
+            ? result.allOrgBranchIds
+            : jwtDerived.branchRoles
+                .map((r) => r.branch_id ?? r.scope_id)
+                .filter((id): id is string => id !== null);
+
+          setAccessibleBranchIds(accessibleIds);
+
+          // Resolve activeBranchId from saved preference against the final accessible set.
+          // resolvePreference: savedBranchId (if in accessibleIds) → first accessibleId → null
+          setActiveBranchId(resolvePreference(result.savedBranchId, accessibleIds));
           // result.entitlements may be null — intentional. null = free-tier / no plan row.
           setEntitlements(result.entitlements);
           setOrgName(result.orgName);
@@ -384,16 +415,23 @@ export function AppProvider({
       // Update activeBranchId — triggers the branch-reload effect on next render.
       setActiveBranchId(branchId);
 
-      // Best-effort persistence: write to user_preferences so the selection
-      // survives app restart. If this write fails, the branch switch is still
-      // active for the current session but will not be restored on next launch.
+      // Persist preference so the selection survives app restart.
+      // The switch is already live (optimistic). If the write fails, the switch
+      // remains active for this session but will not be restored on next launch.
       mobileSupabase
         .from("user_preferences")
         .update({ default_branch_id: branchId })
         .eq("user_id", jwtDerived.userId)
         .then(({ error }: { error: unknown }) => {
-          if (error && __DEV__) {
-            console.warn("[switchBranch] Preference write failed:", error);
+          if (error) {
+            if (__DEV__) {
+              console.warn("[switchBranch] Preference write failed:", error);
+            }
+            Alert.alert(
+              "Uwaga",
+              "Zmiana oddziału jest aktywna, ale nie udało się jej zapisać. Przy następnym uruchomieniu aplikacji powróci poprzedni oddział.",
+              [{ text: "OK" }]
+            );
           }
         });
     },

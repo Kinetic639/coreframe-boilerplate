@@ -126,6 +126,9 @@ vi.mock("react-native", () => ({
       disabled: editable === false,
       "data-multiline": multiline,
     }),
+  Alert: {
+    alert: vi.fn(),
+  },
   StatusBar: () => null,
   ActivityIndicator: () => null,
   StyleSheet: {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, act, fireEvent } from "@testing-library/react";
 import React from "react";
 import type { Session } from "@supabase/supabase-js";
+import { Alert } from "react-native";
 
 import type { BootstrapLoadResult } from "@/lib/loaders/bootstrap-loader";
 import type { BranchPermissionsLoadResult } from "@/lib/loaders/branch-permissions-loader";
@@ -137,11 +138,12 @@ function makeSessionWithBranch(
   } as unknown as Session;
 }
 
-/** Default resolved bootstrap result — no branch preference. */
+/** Default resolved bootstrap result — no branch preference, no org branches. */
 const RESOLVED_OK: BootstrapLoadResult = {
   kind: "resolved",
   permissions: { allow: ["org.read"], deny: [] },
   savedBranchId: null,
+  allOrgBranchIds: [],
   entitlements: null,
   orgName: "Test Org",
   orgName2: null,
@@ -190,6 +192,21 @@ function ActiveBranchProbe() {
 }
 
 /**
+ * Probe that exposes activeBranchId and accessibleBranchIds count.
+ * Used to verify the BRANCHES_VIEW_ANY / org_owner branch access path.
+ */
+function AccessibleBranchesProbe() {
+  const { appState } = useAppContext();
+  return (
+    <>
+      <span data-testid="resolved">resolved</span>
+      <span>active-branch:{appState.activeBranchId ?? "null"}</span>
+      <span>accessible-count:{appState.accessibleBranchIds.length}</span>
+    </>
+  );
+}
+
+/**
  * Probe that exposes activeBranchId and provides a button to call switchBranch.
  */
 function SwitchBranchProbe({ targetBranchId }: { targetBranchId: string }) {
@@ -211,6 +228,7 @@ describe("AppProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSignOut.mockResolvedValue(undefined);
+    vi.mocked(Alert.alert).mockClear();
     // Default: branch-permissions loader returns no-op resolved result.
     // Tests that need specific branch perms override this per-test.
     mockLoadBranchPermissionsData.mockResolvedValue({
@@ -593,5 +611,201 @@ describe("AppProvider", () => {
     expect(mockMobileFrom).toHaveBeenCalledWith("user_preferences");
     expect(mockUpdate).toHaveBeenCalledWith({ default_branch_id: "branch-42" });
     expect(mockEq).toHaveBeenCalledWith("user_id", "u1");
+  });
+
+  // ── 20. BRANCHES_VIEW_ANY — org_owner gets all org branches accessible ─────
+  it("sets accessibleBranchIds from allOrgBranchIds and activeBranchId to first when BRANCHES_VIEW_ANY and no saved preference", async () => {
+    // org_owner: org-only JWT (no branch roles), wildcard branch access via permission
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.any"], deny: [] },
+      allOrgBranchIds: ["branch-aaa", "branch-bbb", "branch-ccc"],
+      savedBranchId: null,
+    });
+
+    render(
+      // org-only JWT — no branch roles in token (simulates org_owner)
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <AccessibleBranchesProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved")).toBeTruthy();
+      // All 3 org branches are accessible
+      expect(screen.getByText("accessible-count:3")).toBeTruthy();
+      // activeBranchId = first accessible branch (no saved preference)
+      expect(screen.getByText("active-branch:branch-aaa")).toBeTruthy();
+    });
+  });
+
+  // ── 21. BRANCHES_VIEW_ANY — savedBranchId matching org branch is honored ───
+  it("uses savedBranchId as activeBranchId when it is in allOrgBranchIds and BRANCHES_VIEW_ANY", async () => {
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.any"], deny: [] },
+      allOrgBranchIds: ["branch-aaa", "branch-bbb"],
+      savedBranchId: "branch-bbb",
+    });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <ActiveBranchProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("active-branch:branch-bbb")).toBeTruthy();
+    });
+  });
+
+  // ── 22. BRANCHES_VIEW_ANY — branches query soft-failed → no branch context ─
+  it("has no accessible branches and null activeBranchId when BRANCHES_VIEW_ANY but branches query soft-failed", async () => {
+    // Simulates: org_owner, branches query returned error → allOrgBranchIds=[]
+    // Degraded state: branch context absent for this session, app still loads.
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.any"], deny: [] },
+      allOrgBranchIds: [],
+      savedBranchId: "branch-bbb",
+    });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <AccessibleBranchesProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved")).toBeTruthy();
+      expect(screen.getByText("accessible-count:0")).toBeTruthy();
+      // savedBranchId cannot be validated against empty accessible set → null
+      expect(screen.getByText("active-branch:null")).toBeTruthy();
+    });
+  });
+
+  // ── 23. BRANCHES_VIEW_UPDATE_ANY alone triggers wildcard path ─────────────
+  it("sets accessibleBranchIds from allOrgBranchIds when only BRANCHES_VIEW_UPDATE_ANY is present", async () => {
+    // User holds BRANCHES_VIEW_UPDATE_ANY but NOT BRANCHES_VIEW_ANY.
+    // Both should produce the same wildcard path on mobile.
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.update.any"], deny: [] },
+      allOrgBranchIds: ["branch-aaa", "branch-bbb"],
+      savedBranchId: null,
+    });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <AccessibleBranchesProbe />
+      </AppProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("resolved")).toBeTruthy();
+      expect(screen.getByText("accessible-count:2")).toBeTruthy();
+      expect(screen.getByText("active-branch:branch-aaa")).toBeTruthy();
+    });
+  });
+
+  // ── 24. switchBranch with inaccessible branch → no-op, no Alert ──────────
+  it("switchBranch with inaccessible branchId is a no-op and does not call Alert.alert", async () => {
+    // No wildcard permission, org-only JWT → accessibleBranchIds = []
+    mockLoadBootstrapData.mockResolvedValue(RESOLVED_OK);
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-zzz" />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    // Reset after bootstrap so only the switch attempt is measured.
+    mockMobileFrom.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    expect(screen.getByText("active-branch:null")).toBeTruthy();
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
+    expect(mockMobileFrom).not.toHaveBeenCalled();
+  });
+
+  // ── 26. switchBranch write fails → optimistic switch active, Alert shown ──
+  it("switchBranch updates activeBranchId optimistically and shows Alert when preference write fails", async () => {
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.any"], deny: [] },
+      allOrgBranchIds: ["branch-aaa", "branch-bbb"],
+      savedBranchId: null,
+    });
+
+    const mockEq = vi
+      .fn()
+      .mockResolvedValue({ error: { message: "network error", code: "PGRST000" } });
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
+    mockMobileFrom.mockReturnValue({ update: mockUpdate });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-bbb" />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    // activeBranchId updated immediately (optimistic)
+    expect(screen.getByText("active-branch:branch-bbb")).toBeTruthy();
+
+    // Wait for the async write + .then() callback to settle
+    await waitFor(() => {
+      expect(vi.mocked(Alert.alert)).toHaveBeenCalledOnce();
+    });
+
+    expect(vi.mocked(Alert.alert)).toHaveBeenCalledWith(
+      "Uwaga",
+      expect.any(String),
+      expect.any(Array)
+    );
+  });
+
+  // ── 27. switchBranch write succeeds → switch active, no Alert ─────────────
+  it("switchBranch updates activeBranchId and does not call Alert.alert when preference write succeeds", async () => {
+    mockLoadBootstrapData.mockResolvedValue({
+      ...RESOLVED_OK,
+      permissions: { allow: ["org.read", "branches.view.any"], deny: [] },
+      allOrgBranchIds: ["branch-aaa", "branch-bbb"],
+      savedBranchId: null,
+    });
+
+    const mockEq = vi.fn().mockResolvedValue({ error: null });
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
+    mockMobileFrom.mockReturnValue({ update: mockUpdate });
+
+    render(
+      <AppProvider session={makeSession("u1", "org-1", "tok")}>
+        <SwitchBranchProbe targetBranchId="branch-bbb" />
+      </AppProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("resolved")).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("switch"));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("active-branch:branch-bbb")).toBeTruthy();
+    });
+
+    // Allow the preference write .then() to settle before asserting no Alert
+    await Promise.resolve();
+    expect(vi.mocked(Alert.alert)).not.toHaveBeenCalled();
   });
 });

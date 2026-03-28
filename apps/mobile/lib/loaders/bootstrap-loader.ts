@@ -40,9 +40,20 @@ export type BootstrapLoadResult =
       /**
        * Saved branch preference from user_preferences.default_branch_id.
        * null when: no row exists, column is null, or the query errored (soft failure).
-       * AppProvider validates this against the user's JWT branch roles before using it.
+       * AppProvider validates this against the final accessibleBranchIds before using it.
        */
       savedBranchId: string | null;
+      /**
+       * IDs of all non-deleted branches in the org.
+       * Used by AppProvider to compute accessibleBranchIds for users whose org-scope
+       * permissions include BRANCHES_VIEW_ANY (e.g. org_owner).
+       *
+       * Soft failure: if this query errors, allOrgBranchIds is [] and bootstrap
+       * continues. For BRANCHES_VIEW_ANY users this means branch context is absent
+       * for the session (same degraded state as before the fix), recoverable on
+       * next app launch. Non-wildcard users are unaffected.
+       */
+      allOrgBranchIds: string[];
       /** null = no subscription row; distinct from a load error */
       entitlements: OrganizationEntitlements | null;
       /** null = no organization_profiles row found for this org */
@@ -106,12 +117,18 @@ function classifyError(
  * - organization_entitlements  — compiled plan + addon + override snapshot
  * - organization_profiles      — display name fields
  * - user_preferences           — saved default_branch_id (soft failure)
+ * - branches                   — all non-deleted org branch IDs (soft failure)
+ *
+ * The branches query (Query 5) provides the full org branch list so AppProvider
+ * can serve users with BRANCHES_VIEW_ANY (e.g. org_owner) who have no
+ * branch-scoped JWT roles. Only IDs are fetched here; display names are served
+ * lazily by useBranchesQuery from the React Query cache.
  *
  * Branch permissions are NOT loaded here. They are loaded by a dedicated
  * branch-reload effect in AppProvider after activeBranchId is resolved from
- * savedBranchId + JWT branchRoles. This separation avoids a chicken-and-egg
- * dependency: activeBranchId depends on savedBranchId (from this function),
- * so branch permissions cannot be queried in the same Promise.all.
+ * savedBranchId + the final accessible branch set. This separation avoids a
+ * chicken-and-egg dependency: activeBranchId depends on savedBranchId (from
+ * this function), so branch permissions cannot be queried in the same Promise.all.
  *
  * The mobile client is NOT an authorization authority. This data is used
  * exclusively for UI gating (show/hide, enable/disable). All mutating
@@ -137,7 +154,7 @@ export async function loadBootstrapData(
   // errors (RLS denials, missing rows, etc.). Network-level failures that do
   // reject propagate through Promise.all to the outer .catch handler in the
   // caller (AppProvider).
-  const [permResult, entResult, profileResult, prefResult] = await Promise.all([
+  const [permResult, entResult, profileResult, prefResult, branchesResult] = await Promise.all([
     // Query 1 — Org-scope permissions (branch_id IS NULL).
     // An empty result set is valid — a user with no assigned roles is legitimate.
     supabase
@@ -171,6 +188,15 @@ export async function loadBootstrapData(
       .select("default_branch_id")
       .eq("user_id", userId)
       .maybeSingle(),
+
+    // Query 5 — All non-deleted org branches (soft failure).
+    // Only IDs fetched — display names are served lazily by useBranchesQuery.
+    // AppProvider uses this list to compute accessibleBranchIds for users whose
+    // org-scope permissions include BRANCHES_VIEW_ANY (e.g. org_owner). Users
+    // without BRANCHES_VIEW_ANY use their JWT branch roles instead and are
+    // unaffected by this query's result.
+    // Error → allOrgBranchIds = []; bootstrap continues.
+    supabase.from("branches").select("id").eq("organization_id", orgId).is("deleted_at", null),
   ]);
 
   // ── Inspect required query errors in priority order ───────────────────────
@@ -217,6 +243,16 @@ export async function loadBootstrapData(
       ? prefResult.data.default_branch_id
       : null;
 
+  // ── Resolve allOrgBranchIds (soft failure) ─────────────────────────────────
+  // branchesResult.error or unexpected data shape → []. Bootstrap continues.
+  // Used by AppProvider to compute accessibleBranchIds for BRANCHES_VIEW_ANY users.
+  const allOrgBranchIds: string[] =
+    !branchesResult.error && Array.isArray(branchesResult.data)
+      ? (branchesResult.data as { id: unknown }[])
+          .map((r) => r.id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+
   // entResult.data is null when no subscription row exists — passed through
   // as null. The normalizer is only called when a concrete row was returned.
   const entitlements: OrganizationEntitlements | null =
@@ -224,5 +260,13 @@ export async function loadBootstrapData(
       ? normalizeEntitlements(entResult.data as Record<string, unknown>)
       : null;
 
-  return { kind: "resolved", permissions, savedBranchId, entitlements, orgName, orgName2 };
+  return {
+    kind: "resolved",
+    permissions,
+    savedBranchId,
+    allOrgBranchIds,
+    entitlements,
+    orgName,
+    orgName2,
+  };
 }

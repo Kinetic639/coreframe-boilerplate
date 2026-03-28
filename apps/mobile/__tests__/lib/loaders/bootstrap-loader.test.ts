@@ -62,12 +62,14 @@ const OK_PERM: QueryResult = { data: [], error: null, status: 200 };
 const OK_ENT: QueryResult = { data: null, error: null, status: 200 };
 const OK_PROF: QueryResult = { data: null, error: null, status: 200 };
 const OK_PREF: QueryResult = { data: null, error: null, status: 200 };
+const OK_BRANCH: QueryResult = { data: [], error: null, status: 200 };
 
 const ALL_OK = {
   user_effective_permissions: OK_PERM,
   organization_entitlements: OK_ENT,
   organization_profiles: OK_PROF,
   user_preferences: OK_PREF,
+  branches: OK_BRANCH,
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -80,6 +82,7 @@ describe("loadBootstrapData", () => {
       kind: "resolved",
       permissions: { allow: [], deny: [] },
       savedBranchId: null,
+      allOrgBranchIds: [],
       entitlements: null,
       orgName: null,
       orgName2: null,
@@ -322,12 +325,13 @@ describe("loadBootstrapData", () => {
     expect(result.kind).toBe("invalid-session");
   });
 
-  // ── 16. Concurrency: all four queries invoked before any resolves ─────────
-  it("invokes all four query chains concurrently before any result resolves", async () => {
+  // ── 16. Concurrency: all five queries invoked before any resolves ─────────
+  it("invokes all five query chains concurrently before any result resolves", async () => {
     const permD = deferred<QueryResult>();
     const entD = deferred<QueryResult>();
     const profD = deferred<QueryResult>();
     const prefD = deferred<QueryResult>();
+    const branchesD = deferred<QueryResult>();
     const calledTables: string[] = [];
 
     const mock = {
@@ -336,6 +340,7 @@ describe("loadBootstrapData", () => {
         if (table === "user_effective_permissions") return makeBuilder(permD.promise);
         if (table === "organization_entitlements") return makeBuilder(entD.promise);
         if (table === "user_preferences") return makeBuilder(prefD.promise);
+        if (table === "branches") return makeBuilder(branchesD.promise);
         return makeBuilder(profD.promise); // organization_profiles
       }),
     } as unknown as SupabaseClient;
@@ -347,17 +352,19 @@ describe("loadBootstrapData", () => {
     // only the first from() would have fired at this point.
     await Promise.resolve();
 
-    expect(calledTables).toHaveLength(4);
+    expect(calledTables).toHaveLength(5);
     expect(calledTables).toContain("user_effective_permissions");
     expect(calledTables).toContain("organization_entitlements");
     expect(calledTables).toContain("organization_profiles");
     expect(calledTables).toContain("user_preferences");
+    expect(calledTables).toContain("branches");
 
-    // Now resolve all four so the function can complete
+    // Now resolve all five so the function can complete
     permD.resolve({ data: [], error: null, status: 200 });
     entD.resolve({ data: null, error: null, status: 200 });
     profD.resolve({ data: null, error: null, status: 200 });
     prefD.resolve({ data: null, error: null, status: 200 });
+    branchesD.resolve({ data: [], error: null, status: 200 });
 
     const result = await resultPromise;
     expect(result.kind).toBe("resolved");
@@ -413,6 +420,44 @@ describe("loadBootstrapData", () => {
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
       expect(result.savedBranchId).toBeNull();
+    }
+  });
+
+  // ── 20. Branches: org has branches → allOrgBranchIds populated ───────────
+  it("returns allOrgBranchIds with org branch IDs when branches query succeeds", async () => {
+    const mock = makeMock({
+      ...ALL_OK,
+      branches: {
+        data: [{ id: "branch-aaa" }, { id: "branch-bbb" }, { id: "branch-ccc" }],
+        error: null,
+        status: 200,
+      },
+    });
+
+    const result = await loadBootstrapData(mock, "u1", "o1");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.allOrgBranchIds).toEqual(["branch-aaa", "branch-bbb", "branch-ccc"]);
+    }
+  });
+
+  // ── 21. Branches: query error → soft failure, allOrgBranchIds empty ───────
+  it("resolves with allOrgBranchIds empty when branches query errors (soft failure)", async () => {
+    // A branch query error does NOT abort bootstrap — the app loads normally
+    // without branch context (same degraded state as before the parity fix).
+    const mock = makeMock({
+      ...ALL_OK,
+      branches: {
+        data: null,
+        error: { message: "connection timeout" },
+        status: 500,
+      },
+    });
+
+    const result = await loadBootstrapData(mock, "u1", "o1");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.allOrgBranchIds).toEqual([]);
     }
   });
 });
