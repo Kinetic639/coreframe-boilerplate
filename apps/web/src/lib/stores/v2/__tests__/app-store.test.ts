@@ -9,11 +9,13 @@ import {
   ActiveOrgV2,
   LoadedUserModuleV2,
 } from "../app-store";
+import { getSessionBranchId } from "@/lib/session-branch";
 
 describe("useAppStoreV2", () => {
   beforeEach(() => {
-    // Clear store state before each test
+    // Clear store state and sessionStorage before each test
     useAppStoreV2.getState().clear();
+    sessionStorage.clear();
   });
 
   describe("Initial State", () => {
@@ -581,6 +583,77 @@ describe("useAppStoreV2", () => {
       expect(callCount).toBeGreaterThan(0);
 
       unsubscribe();
+    });
+  });
+
+  describe("sessionStorage side-effects", () => {
+    const orgId = "org-123";
+    const branches: BranchDataV2[] = [
+      {
+        id: "branch-1",
+        name: "Main Branch",
+        organization_id: orgId,
+        slug: "main",
+        created_at: "2024-01-01T00:00:00Z",
+      },
+      {
+        id: "branch-2",
+        name: "Secondary Branch",
+        organization_id: orgId,
+        slug: "secondary",
+        created_at: "2024-01-02T00:00:00Z",
+      },
+    ];
+
+    const baseContext: AppContextV2 = {
+      activeOrgId: orgId,
+      activeBranchId: "branch-1",
+      activeOrg: {
+        id: orgId,
+        name: "Test Org",
+        name_2: null,
+        slug: "test-org",
+        logo_url: null,
+      },
+      activeBranch: branches[0],
+      availableBranches: branches,
+      accessibleBranches: branches,
+      userModules: [],
+    };
+
+    beforeEach(() => {
+      useAppStoreV2.getState().hydrateFromServer(baseContext);
+      sessionStorage.clear();
+    });
+
+    // ── T-SS1: setActiveBranch writes sessionStorage ────────────────────────
+    it("setActiveBranch writes the branch ID to sessionStorage under the org key", () => {
+      useAppStoreV2.getState().setActiveBranch("branch-2");
+
+      expect(getSessionBranchId(orgId)).toBe("branch-2");
+    });
+
+    // ── T-SS2: setActiveBranch when activeOrgId is null ─────────────────────
+    it("setActiveBranch does not crash and writes nothing when activeOrgId is null", () => {
+      // Hydrate with null orgId
+      useAppStoreV2.getState().hydrateFromServer({
+        ...baseContext,
+        activeOrgId: null,
+        activeOrg: null,
+      });
+
+      expect(() => useAppStoreV2.getState().setActiveBranch("branch-2")).not.toThrow();
+      // sessionStorage should remain untouched (no key written for null orgId)
+      expect(sessionStorage.length).toBe(0);
+    });
+
+    // ── T-SS3: second setActiveBranch call overwrites previous value ────────
+    it("subsequent setActiveBranch calls overwrite the sessionStorage entry", () => {
+      useAppStoreV2.getState().setActiveBranch("branch-2");
+      expect(getSessionBranchId(orgId)).toBe("branch-2");
+
+      useAppStoreV2.getState().setActiveBranch("branch-1");
+      expect(getSessionBranchId(orgId)).toBe("branch-1");
     });
   });
 
