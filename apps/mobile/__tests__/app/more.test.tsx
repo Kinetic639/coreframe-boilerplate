@@ -37,6 +37,11 @@ vi.mock("@/hooks/use-active-branch", () => ({
   useActiveBranch: () => mockUseActiveBranch(),
 }));
 
+vi.mock("@/components/branch-context-preview", () => ({
+  BranchContextPreview: () =>
+    React.createElement("div", { "data-testid": "branch-context-preview" }),
+}));
+
 // ─── Import screen after mocks ────────────────────────────────────────────────
 
 // eslint-disable-next-line import/first
@@ -160,5 +165,11 @@ describe("MoreScreen", () => {
     expect(screen.queryByText("Warszawa")).toBeNull();
     // Row label still present
     expect(screen.getByText("Przełącz oddział")).toBeTruthy();
+  });
+
+  // ── 11. BranchContextPreview mounted ─────────────────────────────────────
+  it("renders BranchContextPreview in the scroll content", () => {
+    render(<MoreScreen />);
+    expect(screen.getByTestId("branch-context-preview")).toBeTruthy();
   });
 });

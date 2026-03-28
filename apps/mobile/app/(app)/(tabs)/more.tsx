@@ -9,6 +9,7 @@ import { useTabBarBottomInset } from "@/hooks/use-tab-bar-inset";
 import { useAuth } from "@/contexts/auth-context";
 import { useAppContext } from "@/contexts/app-context";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { BranchContextPreview } from "@/components/branch-context-preview";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,9 @@ export default function MoreScreen() {
             />
           ))}
         </View>
+
+        {/* ── Branch context proof component ── */}
+        <BranchContextPreview scheme={colorScheme} />
       </ScrollView>
 
       {/* ── Sign out — pinned to bottom ── */}
