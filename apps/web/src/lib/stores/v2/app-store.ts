@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { setSessionBranchId } from "@/lib/session-branch";
 
 // Types - Minimal snapshots only
 export interface BranchDataV2 {
@@ -106,6 +107,12 @@ export const useAppStoreV2 = create<AppStoreV2State & AppStoreV2Actions>((set, g
     // CRITICAL: Store ONLY updates IDs. NO fetching, NO auto-loading!
     // React Query hooks detect activeBranchId change via query keys and refetch automatically
     // PermissionsSync component syncs new permissions snapshot into user store
+
+    // Persist the session-local active branch so refreshing this tab does not
+    // lose the user's current working branch to another client's DB write.
+    if (state.activeOrgId) {
+      setSessionBranchId(state.activeOrgId, branchId);
+    }
   },
 
   clear: () => {
