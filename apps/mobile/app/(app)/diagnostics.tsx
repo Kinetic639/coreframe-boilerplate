@@ -20,6 +20,7 @@ import {
   MODULE_DEVELOPMENT,
 } from "@repo/contracts/modules";
 import { LIMIT_KEYS } from "@repo/contracts/entitlements";
+import { BRANCHES_VIEW_ANY, BRANCHES_VIEW_UPDATE_ANY } from "@repo/contracts/permissions";
 
 import { Brand, Colors } from "@/constants/theme";
 import { useAppContext } from "@/contexts/app-context";
@@ -161,10 +162,21 @@ export default function DiagnosticsScreen() {
     roles,
     activeBranchId,
     branchRoles,
+    accessibleBranchIds,
   } = appState;
   const allowSlugs = permissions ? [...permissions.allow].sort() : [];
   const denySlugs = permissions ? [...permissions.deny].sort() : [];
   const branchAllowSlugs = branchPerms ? [...branchPerms.allow].sort() : [];
+  const hasBranchWildcard =
+    allowSlugs.includes(BRANCHES_VIEW_ANY) || allowSlugs.includes(BRANCHES_VIEW_UPDATE_ANY);
+  const branchAccessSource =
+    activeBranchId === null
+      ? "No active branch"
+      : hasBranchWildcard
+        ? "Org-scope wildcard permission"
+        : branchRoles.length > 0
+          ? "Explicit branch-scoped JWT roles"
+          : "No derived branch access source";
 
   const CHECKED_MODULES = [
     MODULE_WAREHOUSE,
@@ -358,6 +370,16 @@ export default function DiagnosticsScreen() {
                 }
                 scheme={colorScheme}
               />
+              <DataRow
+                label="accessibleBranchIds"
+                value={
+                  accessibleBranchIds.length === 0
+                    ? "(empty)"
+                    : `${accessibleBranchIds.length} branch${accessibleBranchIds.length === 1 ? "" : "es"}`
+                }
+                scheme={colorScheme}
+              />
+              <DataRow label="accessSource" value={branchAccessSource} scheme={colorScheme} />
               {branchRoles.length === 0 ? (
                 <Text style={[styles.emptyText, { color: c.textMuted }]}>No branch roles</Text>
               ) : (
@@ -402,6 +424,16 @@ export default function DiagnosticsScreen() {
                 <Text style={[styles.emptyText, { color: c.textMuted }]}>No active branch</Text>
               ) : branchPerms === null ? (
                 <Text style={[styles.emptyText, { color: c.textMuted }]}>Loading…</Text>
+              ) : hasBranchWildcard && branchAllowSlugs.length === 0 ? (
+                <>
+                  <Text style={[styles.emptyText, { color: c.textMuted }]}>
+                    No explicit branch-scoped rows for this branch.
+                  </Text>
+                  <Text style={[styles.emptyText, { color: c.textMuted }]}>
+                    Branch access is currently derived from the org-scope wildcard permission in the
+                    main Permissions snapshot, not from branch-specific entries.
+                  </Text>
+                </>
               ) : branchAllowSlugs.length === 0 ? (
                 <Text style={[styles.emptyText, { color: c.textMuted }]}>
                   No branch permissions
