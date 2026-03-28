@@ -128,24 +128,6 @@ async function requireModuleAccess(moduleSlug: string): Promise<void> {
 }
 
 /**
- * Require feature access (throws if denied)
- *
- * Auto-extracts orgId internally.
- *
- * @param featureKey - Feature key (e.g., "advanced_analytics")
- * @throws EntitlementError if feature unavailable
- *
- * @example
- * ```typescript
- * await entitlements.requireFeatureAccess("advanced_exports");
- * ```
- */
-async function requireFeatureAccess(featureKey: string): Promise<void> {
-  const ctx = await requireOrgContext();
-  await EntitlementsService.requireFeatureAccess(ctx.orgId, featureKey, ctx.entitlements);
-}
-
-/**
  * Require within limit (throws if exceeded)
  *
  * Auto-extracts orgId internally.
@@ -253,14 +235,11 @@ async function requireModuleOrRedirect(
 
       // Only redirect on MODULE_ACCESS_DENIED
       if (code === "MODULE_ACCESS_DENIED") {
-        // Get plan name from best available source
-        const planName = context.planName || ctx.entitlements?.plan_name || "unknown";
-
         const baseUrl = opts?.redirectTo || "/upgrade";
         const params = new URLSearchParams({
           reason: "module",
           module: moduleSlug,
-          plan: planName,
+          plan: "unknown",
           org: ctx.orgId,
         });
 
@@ -334,14 +313,11 @@ async function requireWithinLimitOrRedirect(
 
       // Only redirect on LIMIT_EXCEEDED
       if (code === "LIMIT_EXCEEDED") {
-        // Get plan name from best available source
-        const planName = context.planName || ctx.entitlements?.plan_name || "unknown";
-
         const baseUrl = opts?.redirectTo || "/upgrade";
         const params = new URLSearchParams({
           reason: "limit",
           key: limitKey,
-          plan: planName,
+          plan: "unknown",
           org: ctx.orgId,
         });
 
@@ -383,7 +359,6 @@ async function requireWithinLimitOrRedirect(
 export const entitlements = {
   requireOrgContext,
   requireModuleAccess,
-  requireFeatureAccess,
   requireWithinLimit,
   checkLimit,
   requireModuleOrRedirect,
@@ -431,7 +406,6 @@ export function mapEntitlementError(error: unknown): {
   // Exhaustive mapping - no fallback needed (EntitlementErrorCode is a strict union)
   const messages: Record<EntitlementErrorCode, string> = {
     MODULE_ACCESS_DENIED: "This module is not available on your plan.",
-    FEATURE_UNAVAILABLE: "This feature is not available on your plan.",
     LIMIT_EXCEEDED: "You've reached your plan limit.",
     LIMIT_CHECK_FAILED: "Couldn't verify your plan limits. Please try again.",
     ENTITLEMENTS_MISSING: "Subscription configuration is missing. Contact support.",

@@ -25,15 +25,8 @@ describe("EntitlementsService", () => {
   const mockEntitlements: OrganizationEntitlements = {
     organization_id: "org-123",
     plan_id: "plan-pro-123",
-    plan_name: "pro",
     enabled_modules: ["warehouse", "teams"],
-    enabled_contexts: ["b2b", "ecommerce"],
-    features: {
-      advanced_analytics: true,
-      priority_support: true,
-      basic_feature: false,
-      number_feature: 123 as any, // Test non-boolean values
-    },
+    contexts: ["b2b", "ecommerce"],
     limits: {
       [LIMIT_KEYS.WAREHOUSE_MAX_LOCATIONS]: 50,
       [LIMIT_KEYS.WAREHOUSE_MAX_PRODUCTS]: -1, // unlimited
@@ -167,7 +160,6 @@ describe("EntitlementsService", () => {
           expect(entError.context).toEqual({
             orgId: "org-123",
             moduleSlug: "analytics",
-            planName: "pro",
           });
         }
       });
@@ -253,74 +245,6 @@ describe("EntitlementsService", () => {
           EntitlementsService.requireModuleAccess("org-123", "warehouse", undefined)
         ).rejects.toThrow("ENTITLEMENTS_MISSING");
       });
-    });
-  });
-
-  describe("hasFeatureAccess / requireFeatureAccess", () => {
-    it("should return true only for boolean true", async () => {
-      const trueResult = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "advanced_analytics",
-        mockEntitlements
-      );
-      expect(trueResult).toBe(true);
-
-      const falseResult = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "basic_feature",
-        mockEntitlements
-      );
-      expect(falseResult).toBe(false);
-
-      // Number should be treated as false
-      const numberResult = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "number_feature",
-        mockEntitlements
-      );
-      expect(numberResult).toBe(false);
-
-      // Missing key should be false
-      const missingResult = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "nonexistent_feature",
-        mockEntitlements
-      );
-      expect(missingResult).toBe(false);
-    });
-
-    it("should require feature access to succeed when enabled", async () => {
-      await expect(
-        EntitlementsService.requireFeatureAccess("org-123", "advanced_analytics", mockEntitlements)
-      ).resolves.toBeUndefined();
-    });
-
-    it("should throw FEATURE_UNAVAILABLE when feature not enabled", async () => {
-      await expect(
-        EntitlementsService.requireFeatureAccess("org-123", "basic_feature", mockEntitlements)
-      ).rejects.toThrow(EntitlementError);
-
-      try {
-        await EntitlementsService.requireFeatureAccess(
-          "org-123",
-          "basic_feature",
-          mockEntitlements
-        );
-      } catch (error) {
-        const entError = error as EntitlementError;
-        expect(entError.code).toBe("FEATURE_UNAVAILABLE");
-        expect(entError.context).toEqual({
-          orgId: "org-123",
-          featureKey: "basic_feature",
-          planName: "pro",
-        });
-      }
-    });
-
-    it("should throw ENTITLEMENTS_MISSING when entitlements null", async () => {
-      await expect(
-        EntitlementsService.requireFeatureAccess("org-123", "advanced_analytics", null)
-      ).rejects.toThrow("ENTITLEMENTS_MISSING");
     });
   });
 
@@ -480,39 +404,6 @@ describe("EntitlementsService", () => {
   });
 
   describe("Extended Snapshot Semantics", () => {
-    it("hasFeatureAccess should trigger DB load when snapshot undefined", async () => {
-      const mockQuery = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: mockEntitlements,
-          error: null,
-        }),
-      };
-
-      mockSupabase.from.mockReturnValue(mockQuery);
-
-      const result = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "advanced_analytics",
-        undefined
-      );
-
-      expect(result).toBe(true);
-      expect(mockSupabase.from).toHaveBeenCalledWith("organization_entitlements");
-    });
-
-    it("hasFeatureAccess should not trigger DB load when snapshot null", async () => {
-      const result = await EntitlementsService.hasFeatureAccess(
-        "org-123",
-        "advanced_analytics",
-        null
-      );
-
-      expect(result).toBe(false);
-      expect(mockSupabase.from).not.toHaveBeenCalled();
-    });
-
     it("checkLimit should trigger DB load when snapshot undefined", async () => {
       const mockEntQuery = {
         select: vi.fn().mockReturnThis(),

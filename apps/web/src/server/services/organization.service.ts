@@ -968,7 +968,6 @@ export interface BillingOverview {
   plan_name: string;
   enabled_modules: string[];
   limits: Record<string, unknown>;
-  features: Record<string, unknown>;
   updated_at: string;
 }
 
@@ -979,21 +978,25 @@ export class OrgBillingService {
   ): Promise<ServiceResult<BillingOverview>> {
     const { data, error } = await supabase
       .from("organization_entitlements")
-      .select("organization_id, plan_name, enabled_modules, limits, features, updated_at")
+      .select(
+        "organization_id, plan_id, enabled_modules, limits, updated_at, subscription_plans(name)"
+      )
       .eq("organization_id", orgId)
       .maybeSingle();
 
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: "Entitlements not found for organization" };
 
+    const planRow = data.subscription_plans as { name: string } | { name: string }[] | null;
+    const planName = Array.isArray(planRow) ? (planRow[0]?.name ?? "") : (planRow?.name ?? "");
+
     return {
       success: true,
       data: {
         organization_id: data.organization_id,
-        plan_name: data.plan_name,
+        plan_name: planName,
         enabled_modules: (data.enabled_modules as string[]) ?? [],
         limits: (data.limits as Record<string, unknown>) ?? {},
-        features: (data.features as Record<string, unknown>) ?? {},
         updated_at: data.updated_at,
       },
     };

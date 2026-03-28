@@ -64,6 +64,10 @@ export function EntitlementsAdminUI({
   const [newLimitKey, setNewLimitKey] = useState("");
   const [newLimitValue, setNewLimitValue] = useState("");
 
+  const currentPlanName = entitlements
+    ? (plans.find((p) => p.id === entitlements.plan_id)?.name ?? entitlements.plan_id ?? "unknown")
+    : "unknown";
+
   /**
    * Switch plan via server action
    */
@@ -229,7 +233,7 @@ export function EntitlementsAdminUI({
           {/* Plan */}
           <div>
             <Label className="text-sm text-muted-foreground">Plan</Label>
-            <p className="text-2xl font-bold capitalize">{entitlements.plan_name}</p>
+            <p className="text-2xl font-bold capitalize">{currentPlanName}</p>
           </div>
 
           {/* Enabled Modules */}
@@ -265,21 +269,6 @@ export function EntitlementsAdminUI({
               ))}
             </div>
           </div>
-
-          {/* Features */}
-          {Object.keys(entitlements.features).length > 0 && (
-            <div>
-              <Label className="text-sm text-muted-foreground">Features</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {Object.entries(entitlements.features).map(([key, value]) => (
-                  <Badge key={key} variant={value ? "default" : "outline"}>
-                    {value ? <Check className="h-3 w-3 mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                    {key}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -295,15 +284,11 @@ export function EntitlementsAdminUI({
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
-              const isCurrent = plan.name === entitlements.plan_name;
+              const isCurrent = plan.id === entitlements.plan_id;
               return (
                 <Card key={plan.id} className={isCurrent ? "border-primary" : ""}>
                   <CardHeader>
-                    <CardTitle className="text-lg">
-                      {typeof plan.display_name === "object" && plan.display_name !== null
-                        ? (plan.display_name as any).en || plan.name
-                        : plan.name}
-                    </CardTitle>
+                    <CardTitle className="text-lg">{plan.name}</CardTitle>
                     {typeof plan.description === "object" && plan.description !== null && (
                       <CardDescription>{(plan.description as any).en || ""}</CardDescription>
                     )}
@@ -427,7 +412,7 @@ export function EntitlementsAdminUI({
                     className="flex items-center justify-between p-2 bg-muted rounded"
                   >
                     <span className="font-mono text-sm">{override.limit_key}</span>
-                    <span className="font-bold">{override.override_value}</span>
+                    <span className="font-bold">{override.limit_value}</span>
                   </div>
                 ))}
               </div>

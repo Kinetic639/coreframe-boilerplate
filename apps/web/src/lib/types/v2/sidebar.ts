@@ -166,8 +166,7 @@ export interface SidebarResolverInput {
   /** Organization entitlements (nullable for fail-closed) */
   entitlements: {
     enabled_modules: string[];
-    enabled_contexts: string[];
-    features: Record<string, boolean | number | string>;
+    contexts: string[];
     limits: Record<string, number>;
   } | null;
 

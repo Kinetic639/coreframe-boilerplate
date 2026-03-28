@@ -19,10 +19,8 @@
 export interface OrganizationEntitlements {
   organization_id: string;
   plan_id: string | null;
-  plan_name: string;
   enabled_modules: string[];
-  enabled_contexts: string[];
-  features: Record<string, boolean | number | string>;
+  contexts: string[];
   limits: Record<string, number>;
   updated_at: string;
 }
@@ -42,7 +40,6 @@ export interface LimitCheckResult {
  */
 export type EntitlementErrorCode =
   | "MODULE_ACCESS_DENIED"
-  | "FEATURE_UNAVAILABLE"
   | "LIMIT_EXCEEDED"
   | "LIMIT_CHECK_FAILED" // Count query failed - fail-closed
   | "NO_ACTIVE_SUBSCRIPTION"
@@ -54,11 +51,9 @@ export type EntitlementErrorCode =
 export interface EntitlementErrorContext {
   orgId: string;
   moduleSlug?: string;
-  featureKey?: string;
   limitKey?: string;
   current?: number;
   limit?: number;
-  planName?: string;
 }
 
 /**

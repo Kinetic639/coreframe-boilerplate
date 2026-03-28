@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClientConfig } from "@repo/supabase/config";
+import type { Database } from "@repo/supabase/database";
 
 import { expoSecureStoreAdapter } from "./storage-adapter";
 
@@ -27,7 +28,7 @@ const config: SupabaseClientConfig = {
  * - persistSession: true (survives app backgrounding / restart)
  * - detectSessionInUrl: false (no browser URL bar on native)
  */
-export const mobileSupabase = createClient(config.url, config.anonKey, {
+export const mobileSupabase = createClient<Database>(config.url, config.anonKey, {
   auth: {
     storage: expoSecureStoreAdapter,
     autoRefreshToken: true,

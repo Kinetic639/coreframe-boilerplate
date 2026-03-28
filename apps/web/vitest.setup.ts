@@ -1,4 +1,9 @@
-import "@testing-library/jest-dom/vitest";
+import * as matchers from "@testing-library/jest-dom/matchers";
+import { expect } from "vitest";
+// Extend using the local vitest expect — avoids pnpm multiple-instance mismatch
+// where @testing-library/jest-dom/vitest resolves to the root vitest instance
+// instead of the apps/web instance used by the test runner.
+expect.extend(matchers);
 import { beforeAll, afterEach, afterAll, vi } from "vitest";
 import { server } from "./src/mocks/server";
 import { clearPermissionRegexCache } from "./src/lib/utils/permissions";

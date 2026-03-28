@@ -11,14 +11,22 @@ import { normalizeEntitlements } from "../normalizers/normalize-entitlements";
  *
  * Semantic rules:
  *
- * "resolved"       — both queries returned without error.
+ * "resolved"       — all required queries returned without error.
  *                    entitlements === null means no subscription row exists in
  *                    organization_entitlements. This is a valid state for
  *                    free-tier orgs and must NOT be treated as a failure.
  *                    It is semantically distinct from "error".
  *
+ *                    savedBranchId is the value of user_preferences.default_branch_id,
+ *                    or null when no preference is saved. A user_preferences query
+ *                    error also yields null — it is a soft failure that does not abort
+ *                    bootstrap. AppProvider resolves activeBranchId from savedBranchId
+ *                    via resolvePreference() after bootstrap completes.
+ *
  * "forbidden"      — the authenticated user is not authorized to read the org's
  *                    data (RLS denied, 403, or insufficient_privilege from DB).
+ *                    Applies only to the three required queries (permissions,
+ *                    entitlements, org profile). user_preferences errors are soft.
  *
  * "invalid-session"— the session token is expired or revoked (401). Caller
  *                    must trigger re-authentication.
@@ -29,8 +37,29 @@ export type BootstrapLoadResult =
   | {
       kind: "resolved";
       permissions: PermissionSnapshot;
+      /**
+       * Saved branch preference from user_preferences.default_branch_id.
+       * null when: no row exists, column is null, or the query errored (soft failure).
+       * AppProvider validates this against the final accessibleBranchIds before using it.
+       */
+      savedBranchId: string | null;
+      /**
+       * IDs of all non-deleted branches in the org.
+       * Used by AppProvider to compute accessibleBranchIds for users whose org-scope
+       * permissions include BRANCHES_VIEW_ANY (e.g. org_owner).
+       *
+       * Soft failure: if this query errors, allOrgBranchIds is [] and bootstrap
+       * continues. For BRANCHES_VIEW_ANY users this means branch context is absent
+       * for the session (same degraded state as before the fix), recoverable on
+       * next app launch. Non-wildcard users are unaffected.
+       */
+      allOrgBranchIds: string[];
       /** null = no subscription row; distinct from a load error */
       entitlements: OrganizationEntitlements | null;
+      /** null = no organization_profiles row found for this org */
+      orgName: string | null;
+      /** null when org has no name_2 set */
+      orgName2: string | null;
     }
   | { kind: "forbidden" }
   | { kind: "invalid-session" }
@@ -54,6 +83,10 @@ export type BootstrapLoadResult =
  *
  * 3. Unknown combinations → "error" (fail-closed). We never silently convert
  *    an unclassified failure into a "resolved" state.
+ *
+ * Note: only called for the three required queries (permissions, entitlements,
+ * org profile). The user_preferences query uses soft failure — errors there
+ * yield savedBranchId=null rather than aborting bootstrap.
  */
 function classifyError(
   status: number,
@@ -76,76 +109,164 @@ function classifyError(
 // ─── Loader ───────────────────────────────────────────────────────────────────
 
 /**
- * Loads org-scoped permissions and entitlements for the authenticated user.
+ * Loads org-scoped permissions, entitlements, org profile, and branch preference
+ * for the authenticated user.
  *
- * Reads from two pre-compiled tables updated by DB triggers:
+ * Reads from pre-compiled / preference tables:
  * - user_effective_permissions — wildcard-expanded, concrete slugs only
  * - organization_entitlements  — compiled plan + addon + override snapshot
+ * - organization_profiles      — display name fields
+ * - user_preferences           — saved default_branch_id (soft failure)
+ * - branches                   — all non-deleted org branch IDs (soft failure)
+ *
+ * The branches query (Query 5) provides the full org branch list so AppProvider
+ * can serve users with BRANCHES_VIEW_ANY (e.g. org_owner) who have no
+ * branch-scoped JWT roles. Only IDs are fetched here; display names are served
+ * lazily by useBranchesQuery from the React Query cache.
+ *
+ * Branch permissions are NOT loaded here. They are loaded by a dedicated
+ * branch-reload effect in AppProvider after activeBranchId is resolved from
+ * savedBranchId + the final accessible branch set. This separation avoids a
+ * chicken-and-egg dependency: activeBranchId depends on savedBranchId (from
+ * this function), so branch permissions cannot be queried in the same Promise.all.
  *
  * The mobile client is NOT an authorization authority. This data is used
  * exclusively for UI gating (show/hide, enable/disable). All mutating
  * operations are enforced by server-side RLS regardless of this snapshot.
  *
- * @param supabase  - Authenticated Supabase client (mobileSupabase singleton)
- * @param userId    - Authenticated user's UUID
- * @param orgId     - Active organization UUID to scope the queries
+ * @param supabase  Authenticated Supabase client (mobileSupabase singleton)
+ * @param userId    Authenticated user's UUID
+ * @param orgId     Active organization UUID to scope the queries
  */
 export async function loadBootstrapData(
   supabase: SupabaseClient,
   userId: string,
   orgId: string
 ): Promise<BootstrapLoadResult> {
-  // ── 1. Permissions ────────────────────────────────────────────────────────
-  // Org-scope rows only (branch_id IS NULL). An empty result set is valid
-  // and becomes allow: [] — a user with no assigned roles is a legitimate state.
-  const {
-    data: permRows,
-    error: permError,
-    status: permStatus,
-  } = await supabase
-    .from("user_effective_permissions")
-    .select("permission_slug_exact")
-    .eq("user_id", userId)
-    .eq("org_id", orgId)
-    .is("branch_id", null);
+  // ── 1–4. Parallel fetch ───────────────────────────────────────────────────
+  // All queries are independent — fire concurrently and inspect results in
+  // priority order after all settle.
+  //
+  // Queries 1–3 are required: any error aborts bootstrap via classifyError.
+  // Query 4 (user_preferences) is soft: errors yield savedBranchId=null.
+  //
+  // Supabase/PostgREST queries resolve (never reject) for application-level
+  // errors (RLS denials, missing rows, etc.). Network-level failures that do
+  // reject propagate through Promise.all to the outer .catch handler in the
+  // caller (AppProvider).
+  const [permResult, entResult, profileResult, prefResult, branchesResult] = await Promise.all([
+    // Query 1 — Org-scope permissions (branch_id IS NULL).
+    // An empty result set is valid — a user with no assigned roles is legitimate.
+    supabase
+      .from("user_effective_permissions")
+      .select("permission_slug_exact")
+      .eq("user_id", userId)
+      .eq("organization_id", orgId)
+      .is("branch_id", null),
 
-  if (permError) {
-    return classifyError(permStatus, permError.code, permError.message);
+    // Query 2 — Entitlements: maybeSingle() → { data: null, error: null } when no row.
+    // null data is not an error — it means the org has no subscription row.
+    supabase
+      .from("organization_entitlements")
+      .select("organization_id, plan_id, enabled_modules, contexts, limits, updated_at")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+
+    // Query 3 — Org profile: maybeSingle() — null when org not yet configured.
+    // Used for display only (orgName). A missing row is not a load error.
+    supabase
+      .from("organization_profiles")
+      .select("name, name_2")
+      .eq("organization_id", orgId)
+      .maybeSingle(),
+
+    // Query 4 — Branch preference (soft failure).
+    // A missing row or null column yields savedBranchId=null. An error on this
+    // query does NOT abort bootstrap — it is treated the same as no preference.
+    supabase
+      .from("user_preferences")
+      .select("default_branch_id")
+      .eq("user_id", userId)
+      .maybeSingle(),
+
+    // Query 5 — All non-deleted org branches (soft failure).
+    // Only IDs fetched — display names are served lazily by useBranchesQuery.
+    // AppProvider uses this list to compute accessibleBranchIds for users whose
+    // org-scope permissions include BRANCHES_VIEW_ANY (e.g. org_owner). Users
+    // without BRANCHES_VIEW_ANY use their JWT branch roles instead and are
+    // unaffected by this query's result.
+    // Error → allOrgBranchIds = []; bootstrap continues.
+    supabase.from("branches").select("id").eq("organization_id", orgId).is("deleted_at", null),
+  ]);
+
+  // ── Inspect required query errors in priority order ───────────────────────
+  // First error encountered wins. user_preferences (prefResult) is NOT checked
+  // here — its error is handled softly below.
+  if (permResult.error) {
+    return classifyError(permResult.status, permResult.error.code, permResult.error.message);
+  }
+  if (entResult.error) {
+    return classifyError(entResult.status, entResult.error.code, entResult.error.message);
+  }
+  if (profileResult.error) {
+    return classifyError(
+      profileResult.status,
+      profileResult.error.code,
+      profileResult.error.message
+    );
   }
 
-  // ── 2. Entitlements ───────────────────────────────────────────────────────
-  // maybeSingle() returns { data: null, error: null } when no row is found.
-  // This is not an error — it means the org has no subscription row.
-  // normalizeEntitlements is only invoked when a row is present.
-  const {
-    data: entRow,
-    error: entError,
-    status: entStatus,
-  } = await supabase
-    .from("organization_entitlements")
-    .select(
-      "organization_id, plan_id, plan_name, enabled_modules, enabled_contexts, features, limits, updated_at"
-    )
-    .eq("organization_id", orgId)
-    .maybeSingle();
+  const orgName: string | null =
+    typeof profileResult.data?.name === "string" && profileResult.data.name.length > 0
+      ? profileResult.data.name
+      : null;
 
-  if (entError) {
-    return classifyError(entStatus, entError.code, entError.message);
-  }
+  const orgName2: string | null =
+    typeof profileResult.data?.name_2 === "string" && profileResult.data.name_2.length > 0
+      ? profileResult.data.name_2
+      : null;
 
-  // ── 3. Build snapshot ─────────────────────────────────────────────────────
+  // ── Build org-scope permission snapshot ───────────────────────────────────
   const permissions: PermissionSnapshot = {
-    allow: (permRows ?? [])
-      .map((r) => r.permission_slug_exact as string)
+    allow: (permResult.data ?? [])
+      .map((r) => r.permission_slug_exact)
       .filter((s): s is string => typeof s === "string" && s.length > 0)
       .sort(),
     deny: [],
   };
 
-  // entRow is null when no subscription row exists — that's passed through
+  // ── Resolve savedBranchId (soft failure) ──────────────────────────────────
+  // prefResult.error → treat as no preference (null). This keeps bootstrap
+  // alive even when user_preferences is inaccessible or misconfigured.
+  const savedBranchId: string | null =
+    !prefResult.error && typeof prefResult.data?.default_branch_id === "string"
+      ? prefResult.data.default_branch_id
+      : null;
+
+  // ── Resolve allOrgBranchIds (soft failure) ─────────────────────────────────
+  // branchesResult.error or unexpected data shape → []. Bootstrap continues.
+  // Used by AppProvider to compute accessibleBranchIds for BRANCHES_VIEW_ANY users.
+  const allOrgBranchIds: string[] =
+    !branchesResult.error && Array.isArray(branchesResult.data)
+      ? (branchesResult.data as { id: unknown }[])
+          .map((r) => r.id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
+
+  // entResult.data is null when no subscription row exists — passed through
   // as null. The normalizer is only called when a concrete row was returned.
   const entitlements: OrganizationEntitlements | null =
-    entRow !== null ? normalizeEntitlements(entRow as Record<string, unknown>) : null;
+    entResult.data !== null
+      ? normalizeEntitlements(entResult.data as Record<string, unknown>)
+      : null;
 
-  return { kind: "resolved", permissions, entitlements };
+  return {
+    kind: "resolved",
+    permissions,
+    savedBranchId,
+    allOrgBranchIds,
+    entitlements,
+    orgName,
+    orgName2,
+  };
 }

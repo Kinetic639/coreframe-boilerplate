@@ -60,10 +60,8 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
   const baseEntitlements: OrganizationEntitlements = {
     organization_id: "org-123",
     plan_id: "plan-free",
-    plan_name: "Free",
     enabled_modules: [MODULE_WAREHOUSE, MODULE_ORGANIZATION_MANAGEMENT, MODULE_SUPPORT],
-    enabled_contexts: [],
-    features: {},
+    contexts: [],
     limits: {},
     updated_at: "2024-01-01T00:00:00Z",
   };

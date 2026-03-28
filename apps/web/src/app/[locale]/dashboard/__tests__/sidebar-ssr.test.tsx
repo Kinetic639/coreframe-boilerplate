@@ -64,10 +64,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
@@ -84,10 +84,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
@@ -168,10 +168,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
@@ -200,10 +200,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: [],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
@@ -235,10 +235,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: [],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-13T10:00:00.000Z",
     };
@@ -275,10 +275,10 @@ describe("Sidebar SSR Integration", () => {
     const noOrgMgmtEntitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: [], // organization-management NOT present
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
@@ -315,10 +315,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
@@ -350,10 +350,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
@@ -385,10 +385,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
@@ -420,10 +420,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
@@ -455,10 +455,10 @@ describe("Sidebar SSR Integration", () => {
     const entitlements = {
       organization_id: "org-123",
       plan_id: "plan-free",
-      plan_name: "free",
+
       enabled_modules: ["organization-management"],
-      enabled_contexts: [],
-      features: {},
+      contexts: [],
+
       limits: {},
       updated_at: "2026-02-26T00:00:00.000Z",
     };
