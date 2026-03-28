@@ -32,6 +32,11 @@ vi.mock("@/contexts/app-context", () => ({
   useAppContext: () => mockUseAppContext(),
 }));
 
+const mockUseActiveBranch = vi.fn();
+vi.mock("@/hooks/use-active-branch", () => ({
+  useActiveBranch: () => mockUseActiveBranch(),
+}));
+
 // ─── Import screen after mocks ────────────────────────────────────────────────
 
 // eslint-disable-next-line import/first
@@ -71,6 +76,8 @@ describe("MoreScreen", () => {
     vi.clearAllMocks();
     mockSignOut.mockResolvedValue(undefined);
     mockUseAppContext.mockReturnValue(makeContext());
+    // Default: no active branch name (same visual output as before useActiveBranch was added)
+    mockUseActiveBranch.mockReturnValue({ id: null, name: null, isLoading: false });
   });
 
   // ── 1. Header title ───────────────────────────────────────────────────────
@@ -133,5 +140,25 @@ describe("MoreScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: /Switch branch/i }));
 
     expect(mockRouterPush).toHaveBeenCalledWith("/(app)/branch-select");
+  });
+
+  // ── 9. Active branch name shown inline when resolved ─────────────────────
+  it("shows active branch name inline on the Przełącz oddział row when resolved", () => {
+    mockUseAppContext.mockReturnValue(makeContext({ accessibleBranchIds: ["branch-1"] }));
+    mockUseActiveBranch.mockReturnValue({ id: "branch-1", name: "Warszawa", isLoading: false });
+    render(<MoreScreen />);
+
+    expect(screen.getByText("Warszawa")).toBeTruthy();
+  });
+
+  // ── 10. Branch name hidden while loading ─────────────────────────────────
+  it("does not show branch name while the branch query is loading", () => {
+    mockUseAppContext.mockReturnValue(makeContext({ accessibleBranchIds: ["branch-1"] }));
+    mockUseActiveBranch.mockReturnValue({ id: "branch-1", name: null, isLoading: true });
+    render(<MoreScreen />);
+
+    expect(screen.queryByText("Warszawa")).toBeNull();
+    // Row label still present
+    expect(screen.getByText("Przełącz oddział")).toBeTruthy();
   });
 });

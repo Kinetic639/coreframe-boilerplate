@@ -63,29 +63,34 @@ export interface AppState {
   orgRoles: TokenRole[];
   /**
    * Active branch UUID — initialized per bootstrap cycle from:
-   *   1. user_preferences.default_branch_id (if it matches a JWT branch role)
-   *   2. else the first JWT branch-scoped role's UUID
-   *   3. else null (user has no branch roles)
+   *   1. user_preferences.default_branch_id (if it is in accessibleBranchIds)
+   *   2. else the first ID in accessibleBranchIds
+   *   3. else null (user has no accessible branches)
    *
    * Updated at runtime by switchBranch(). Cleared and re-initialized on every
    * bootstrap cycle (JWT refresh, retryBootstrap).
    *
-   * This is real React state — not derived from JWT. The JWT provides the set
-   * of accessible branch IDs (branchRoles / accessibleBranchIds); this field
-   * is the currently active selection within that set.
+   * This is real React state — not derived from JWT. accessibleBranchIds is
+   * the authoritative set of branches the user may switch to; this field is
+   * the currently active selection within that set.
+   * accessibleBranchIds may come from a wildcard permission (BRANCHES_VIEW_ANY
+   * or BRANCHES_VIEW_UPDATE_ANY) or from JWT branch-scoped roles.
    */
   activeBranchId: string | null;
   /**
-   * All branch-scoped JWT roles (not filtered to activeBranchId).
-   * Empty when the user has no branch-scoped roles.
+   * Raw branch-scoped JWT roles (not filtered to activeBranchId).
+   * This is raw JWT data only — it is NOT the source of truth for which
+   * branches the user can access. accessibleBranchIds is authoritative.
+   * Used only for the explicit-role path when no wildcard permission is held.
+   * Empty when the user has no branch-scoped JWT roles.
    */
   branchRoles: TokenRole[];
   /**
    * Branch IDs the user can switch to. Source-of-truth for switchBranch validation.
    *
    * Computed at bootstrap resolution time from the permission snapshot:
-   *   BRANCHES_VIEW_ANY in permissions → all org branch IDs (org_owner / wildcard path)
-   *   No wildcard access               → branch-scoped JWT role IDs (explicit-role path)
+   *   BRANCHES_VIEW_ANY or BRANCHES_VIEW_UPDATE_ANY → all org branch IDs (wildcard path)
+   *   Neither wildcard permission                    → branch-scoped JWT role IDs (explicit-role path)
    *
    * Empty during bootstrap resolution and when the user has no accessible branches.
    */
@@ -141,9 +146,12 @@ interface AppContextValue {
    *
    * Immediately updates activeBranchId in local state and clears
    * branchPermissions (which reloads asynchronously via the branch-reload
-   * effect). Persists the selection to user_preferences.default_branch_id
-   * as a best-effort write — if the write fails, the switch is still active
-   * for the duration of the current session but will not survive app restart.
+   * effect). The state update is optimistic — it is never rolled back.
+   *
+   * Persists the selection to user_preferences.default_branch_id as a
+   * best-effort write. If the write fails, the switch remains active for
+   * the current session (state is NOT reverted), Alert.alert is shown
+   * to inform the user, and the preference will not survive app restart.
    *
    * Guard: if branchId is not in accessibleBranchIds, this is a no-op.
    */
@@ -159,13 +167,12 @@ const AppContext = createContext<AppContextValue | null>(null);
  * accessible branch ID set.
  *
  * Resolution order:
- *   1. savedBranchId if it is in accessibleIds
- *   2. else the first accessible branch UUID
- *   3. else null (user has no accessible branches)
+ *   1. savedBranchId if it is present in accessibleIds
+ *   2. else the first ID in accessibleIds
+ *   3. else null (no accessible branches)
  *
- * accessibleIds is the already-computed set: either all org branch IDs
- * (BRANCHES_VIEW_ANY path) or branch-scoped JWT role IDs (explicit-role path).
- * This function does not need to know which path produced it.
+ * Operates purely on the final accessibleIds set. Does not inspect how
+ * accessibleIds was derived (wildcard permission path or explicit-role path).
  */
 function resolvePreference(savedBranchId: string | null, accessibleIds: string[]): string | null {
   if (savedBranchId && accessibleIds.includes(savedBranchId)) return savedBranchId;
@@ -182,7 +189,8 @@ function resolvePreference(savedBranchId: string | null, accessibleIds: string[]
  *
  * Phase 2 (async): loads org-scoped permissions, entitlements, org profile, and
  *   branch preference from the backend via loadBootstrapData. On resolution,
- *   initializes activeBranchId from the saved preference + JWT branch roles.
+ *   computes accessibleBranchIds from the permission snapshot and initializes
+ *   activeBranchId from the saved preference validated against accessibleBranchIds.
  *
  * Phase 3 (reactive): a branch-reload effect independently loads branchPermissions
  *   whenever activeBranchId changes (from bootstrap init or switchBranch).
@@ -219,7 +227,8 @@ export function AppProvider({
     const firstOrgRole = orgRoles[0];
     const activeOrgId = firstOrgRole ? (firstOrgRole.org_id ?? firstOrgRole.scope_id) : null;
 
-    // Branch context — derive all branch-scoped roles for accessibleBranchIds.
+    // Branch context — raw branch-scoped roles from JWT.
+    // Used only for the explicit-role path in the bootstrap resolved handler.
     // Do NOT use AuthService.getUserBranches(roles, activeOrgId): for target-format
     // tokens, org_id is null on branch-scoped roles, making that filter always empty.
     // Instead, mirror the same direct-filter pattern used for org context above.
@@ -246,8 +255,8 @@ export function AppProvider({
    * Branch IDs the user can switch to. Set once per bootstrap cycle.
    *
    * Two paths:
-   *   BRANCHES_VIEW_ANY in permissions → all org branch IDs (from bootstrap Query 5)
-   *   No wildcard access              → branch-scoped JWT role IDs
+   *   BRANCHES_VIEW_ANY or BRANCHES_VIEW_UPDATE_ANY → all org branch IDs (from bootstrap Query 5)
+   *   Neither wildcard permission                   → branch-scoped JWT role IDs
    *
    * Stored as state (not a useMemo) because the correct value depends on the
    * permission snapshot, which is only known after the async bootstrap resolves.
@@ -304,16 +313,16 @@ export function AppProvider({
 
           // Compute accessible branch IDs from the permission snapshot + bootstrap data.
           //
-          // BRANCHES_VIEW_ANY path (e.g. org_owner):
-          //   User has no branch-scoped JWT roles but holds the wildcard org-scope
-          //   permission "branches.view.any". All non-deleted org branches are
-          //   accessible. allOrgBranchIds is [] if the branches query soft-failed —
-          //   in that case the user sees no branch context for this session (same
-          //   degraded state as before this fix), recoverable on next app launch.
+          // Wildcard path (BRANCHES_VIEW_ANY or BRANCHES_VIEW_UPDATE_ANY):
+          //   User holds a wildcard org-scope permission granting access to all
+          //   non-deleted org branches. allOrgBranchIds (from bootstrap Query 5)
+          //   is used directly. If the branches query soft-failed, allOrgBranchIds
+          //   is [] — the user sees no branch context for this session, recoverable
+          //   on next app launch.
           //
           // Explicit-role path:
-          //   User has branch-scoped JWT roles. accessibleBranchIds is derived from
-          //   those roles exactly, as before Phase 10.
+          //   Neither wildcard permission is held. accessibleBranchIds is derived
+          //   from branch-scoped JWT roles only.
           const hasBranchesViewAny =
             result.permissions.allow.includes(BRANCHES_VIEW_ANY) ||
             result.permissions.allow.includes(BRANCHES_VIEW_UPDATE_ANY);

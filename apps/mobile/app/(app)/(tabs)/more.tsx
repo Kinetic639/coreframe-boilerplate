@@ -8,6 +8,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useTabBarBottomInset } from "@/hooks/use-tab-bar-inset";
 import { useAuth } from "@/contexts/auth-context";
 import { useAppContext } from "@/contexts/app-context";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ export default function MoreScreen() {
   const { appState } = useAppContext();
   const tabBarInset = useTabBarBottomInset();
   const hasBranches = appState.accessibleBranchIds.length > 0;
+  const { name: activeBranchName, isLoading: branchNameLoading } = useActiveBranch();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: c.background }]}>
@@ -115,6 +117,11 @@ export default function MoreScreen() {
                   style={styles.rowIcon}
                 />
                 <Text style={[styles.rowLabel, { color: c.text }]}>Przełącz oddział</Text>
+                {!branchNameLoading && activeBranchName !== null && (
+                  <Text style={[styles.rowBranchName, { color: c.textMuted }]} numberOfLines={1}>
+                    {activeBranchName}
+                  </Text>
+                )}
                 <Ionicons name="chevron-forward" size={16} color={c.textMuted} />
               </TouchableOpacity>
             </View>
@@ -188,6 +195,7 @@ const styles = StyleSheet.create({
   rowLast: { borderBottomWidth: 0 },
   rowIcon: { width: 24, textAlign: "center" },
   rowLabel: { fontSize: 15, flex: 1 },
+  rowBranchName: { fontSize: 13, maxWidth: 120 },
   signOutWrap: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,

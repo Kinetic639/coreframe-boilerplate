@@ -27,6 +27,7 @@ import { useEntitlements } from "@/hooks/use-entitlements";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useOrgProfileQuery } from "@/hooks/queries/organization/use-org-profile-query";
 import { useOrgMembersSummary } from "@/hooks/queries/organization/use-org-members-summary";
+import { useBranchesQuery } from "@/hooks/queries/branches/use-branches-query";
 import { QueryStateRenderer } from "@/components/query/QueryStateRenderer";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -121,6 +122,8 @@ export default function DiagnosticsScreen() {
 
   const orgProfile = useOrgProfileQuery(appState.activeOrgId);
   const membersSummary = useOrgMembersSummary(appState.activeOrgId);
+  const branchesResult = useBranchesQuery(appState.accessibleBranchIds);
+  const branches = branchesResult.kind === "data" ? branchesResult.data : [];
 
   // ── Collapse state — all sections expanded by default ────────────────────
   type SectionKey =
@@ -344,6 +347,17 @@ export default function DiagnosticsScreen() {
                 value={activeBranchId ?? "(none)"}
                 scheme={colorScheme}
               />
+              <DataRow
+                label="activeBranchName"
+                value={
+                  activeBranchId === null
+                    ? "(none)"
+                    : branchesResult.kind === "loading"
+                      ? "(loading…)"
+                      : (branches.find((b) => b.id === activeBranchId)?.name ?? "(unresolved)")
+                }
+                scheme={colorScheme}
+              />
               {branchRoles.length === 0 ? (
                 <Text style={[styles.emptyText, { color: c.textMuted }]}>No branch roles</Text>
               ) : (
@@ -359,6 +373,11 @@ export default function DiagnosticsScreen() {
                       scheme={colorScheme}
                     />
                     <DataRow label="scope_id" value={role.scope_id} scheme={colorScheme} />
+                    <DataRow
+                      label="branchName"
+                      value={branches.find((b) => b.id === role.scope_id)?.name ?? "(unknown)"}
+                      scheme={colorScheme}
+                    />
                     <DataRow label="is_basic" value={String(role.is_basic)} scheme={colorScheme} />
                   </View>
                 ))

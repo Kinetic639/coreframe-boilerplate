@@ -38,6 +38,11 @@ vi.mock("@/hooks/queries/organization/use-org-members-summary", () => ({
   useOrgMembersSummary: () => mockUseOrgMembersSummary(),
 }));
 
+const mockUseBranchesQuery = vi.fn();
+vi.mock("@/hooks/queries/branches/use-branches-query", () => ({
+  useBranchesQuery: () => mockUseBranchesQuery(),
+}));
+
 vi.mock("@/hooks/use-color-scheme", () => ({
   useColorScheme: () => "light",
 }));
@@ -116,6 +121,8 @@ function setupNominalMocks() {
     kind: "data",
     data: { totalMembers: 3 },
   } satisfies HookResult<OrgMembersSummary>);
+  // Default: no accessible branches → loading path (disabled query)
+  mockUseBranchesQuery.mockReturnValue({ kind: "loading" });
 }
 
 // ─── Import the screen after mocks are declared ───────────────────────────────
@@ -275,5 +282,84 @@ describe("DiagnosticsScreen", () => {
     const backBtn = screen.getByRole("button", { name: "Go back" });
     fireEvent.click(backBtn);
     expect(mockRouterBack).toHaveBeenCalledTimes(1);
+  });
+
+  // ── 14. activeBranchName resolved ─────────────────────────────────────────
+  it("renders resolved activeBranchName when branch data is available", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext("resolved", {
+        ...BASE_APP_STATE,
+        activeBranchId: "branch-1",
+        accessibleBranchIds: ["branch-1"],
+      })
+    );
+    mockUseBranchesQuery.mockReturnValue({
+      kind: "data",
+      data: [
+        {
+          id: "branch-1",
+          name: "Warszawa",
+          organization_id: "org-123",
+          slug: null,
+          created_at: "",
+        },
+      ],
+    });
+
+    render(<DiagnosticsScreen />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("Warszawa")).toBeTruthy();
+  });
+
+  // ── 15. activeBranchName loading state ────────────────────────────────────
+  it("renders (loading…) for activeBranchName while branch query is in flight", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext("resolved", {
+        ...BASE_APP_STATE,
+        activeBranchId: "branch-1",
+        accessibleBranchIds: ["branch-1"],
+      })
+    );
+    mockUseBranchesQuery.mockReturnValue({ kind: "loading" });
+
+    render(<DiagnosticsScreen />, { wrapper: createWrapper() });
+
+    expect(screen.getByText("(loading…)")).toBeTruthy();
+  });
+
+  // ── 16. branchName per role entry ─────────────────────────────────────────
+  it("renders resolved branchName for each branch role when data is available", () => {
+    mockUseAppContext.mockReturnValue(
+      makeContext("resolved", {
+        ...BASE_APP_STATE,
+        activeBranchId: "branch-1",
+        accessibleBranchIds: ["branch-1"],
+        branchRoles: [
+          {
+            role_id: "r-b1",
+            name: "branch_manager",
+            scope: "branch",
+            scope_id: "branch-1",
+            scope_type: "branch",
+            is_basic: true,
+            org_id: null,
+            branch_id: "branch-1",
+            role: "branch_manager",
+          },
+        ],
+      })
+    );
+    mockUseBranchesQuery.mockReturnValue({
+      kind: "data",
+      data: [
+        { id: "branch-1", name: "Kraków", organization_id: "org-123", slug: null, created_at: "" },
+      ],
+    });
+
+    render(<DiagnosticsScreen />, { wrapper: createWrapper() });
+
+    // Branch name appears in both activeBranchName row and role branchName row
+    const krakow = screen.getAllByText("Kraków");
+    expect(krakow.length).toBeGreaterThanOrEqual(2);
   });
 });
