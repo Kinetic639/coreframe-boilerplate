@@ -4,7 +4,7 @@ export * from "./v2";
 // Shared actions (used by both V1 and V2)
 export * from "./shared";
 
-// Legacy V1 actions (will be removed during dashboard-old cleanup)
+// Transitional actions that still support current organization/user flows
 export * from "./users";
 export * from "./roles";
 
