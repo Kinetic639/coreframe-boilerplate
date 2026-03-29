@@ -2,7 +2,7 @@ import { ModuleConfig } from "@/lib/types/module";
 
 export const ORG_MODULE_THEME_COLOR = "#6366f1"; // Indigo – always used as default
 
-export const orgManagmentModule: ModuleConfig = {
+export const organizationModule: ModuleConfig = {
   id: "organization-management",
   slug: "organization-management",
   title: "modules.organizationManagement.title",

@@ -2,6 +2,7 @@
 import { MenuItem, ModuleConfig, LinkMenuItem } from "@/lib/types/module";
 import { RoleCheck, Scope, UserRoleFromToken } from "@/lib/types/user";
 import { getUserRolesFromJWT } from "@/utils/auth/getUserRolesFromJWT";
+import { hasMatchingRole } from "@/utils/auth/hasMatchingRole";
 import { ModuleSection } from "./ModuleSection";
 import { translateModuleLabel } from "@/utils/i18n/translateModuleLabel";
 
@@ -27,28 +28,6 @@ function mapAllowedUsersToChecks(
     scope: u.scope as Scope,
     id: u.scope === "org" ? (activeOrgId ?? undefined) : (activeBranchId ?? undefined),
   }));
-}
-
-function hasMatchingRole(userRoles: UserRoleFromToken[], checks: RoleCheck[]): boolean {
-  return checks.some((check) => {
-    return userRoles.some((userRole) => {
-      const sameRole = userRole.role === check.role;
-
-      if (check.scope === "org" && check.id) {
-        return sameRole && userRole.org_id === check.id;
-      }
-
-      if (check.scope === "branch" && check.id) {
-        return sameRole && userRole.branch_id === check.id;
-      }
-
-      if (!check.scope && check.id) {
-        return sameRole && (userRole.org_id === check.id || userRole.branch_id === check.id);
-      }
-
-      return sameRole;
-    });
-  });
 }
 
 function hasRequiredPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {

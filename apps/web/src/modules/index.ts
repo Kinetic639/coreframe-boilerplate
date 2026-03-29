@@ -1,6 +1,6 @@
 import { teamsModule } from "./teams/config";
 import { toolsModule } from "./tools/config";
-import { orgManagmentModule } from "./organization-managment/config";
+import { organizationModule } from "./organization/config";
 import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
 import { userAccountModule } from "./user-account/config";
@@ -37,7 +37,7 @@ export async function getAllModules(
     { module: warehouseModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: contactsModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: teamsModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: orgManagmentModule, alwaysAvailable: true, requiredPlan: "free" },
+    { module: organizationModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: supportModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: userAccountModule, alwaysAvailable: true, requiredPlan: "free" },
   ];
