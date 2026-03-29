@@ -1,19 +1,15 @@
 import { getTranslations } from "next-intl/server";
-import { Package } from "lucide-react";
+import { FileText } from "lucide-react";
 import { WarehousePlaceholderPage } from "../_components/warehouse-placeholder-page";
 
-/**
- * /dashboard/warehouse/items — Placeholder page (Warehouse V2 skeleton).
- * Item catalog will be implemented in a later feature slice.
- */
-export default async function WarehouseItemsPage() {
+export default async function WarehousePurchaseOrdersPage() {
   const t = await getTranslations("modules.warehouse");
 
   return (
     <WarehousePlaceholderPage
-      title={t("items.products.title")}
+      title={t("items.purchases.orders")}
       description={t("placeholder.moduleShell")}
-      Icon={Package}
+      Icon={FileText}
     />
   );
 }

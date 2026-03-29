@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import { Warehouse } from "lucide-react";
+import { Inbox } from "lucide-react";
+import { WarehousePlaceholderPage } from "../_components/warehouse-placeholder-page";
 
 /**
  * /dashboard/warehouse/deliveries — Placeholder page (Warehouse V2 skeleton).
@@ -9,15 +10,10 @@ export default async function WarehouseDeliveriesPage() {
   const t = await getTranslations("modules.warehouse");
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t("items.deliveries.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("placeholder.comingSoon")}</p>
-      </div>
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-        <Warehouse className="mb-4 h-10 w-10 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">{t("placeholder.comingSoon")}</p>
-      </div>
-    </div>
+    <WarehousePlaceholderPage
+      title={t("items.deliveries.title")}
+      description={t("placeholder.moduleShell")}
+      Icon={Inbox}
+    />
   );
 }

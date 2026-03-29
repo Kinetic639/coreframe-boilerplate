@@ -1256,7 +1256,8 @@
         "goHome": "Idź do strony głównej"
       },
       "placeholder": {
-        "comingSoon": "Ta sekcja będzie wkrótce dostępna."
+        "comingSoon": "Ta sekcja będzie wkrótce dostępna.",
+        "moduleShell": "Ten placeholder jest celową częścią szkieletu Warehouse V2."
       }
     },
     "teams": {

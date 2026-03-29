@@ -87,6 +87,18 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse",
       pl: "/dashboard/magazyn",
     },
+    "/dashboard/warehouse/inventory": {
+      en: "/dashboard/warehouse/inventory",
+      pl: "/dashboard/magazyn/inwentarz",
+    },
+    "/dashboard/warehouse/inventory/movements": {
+      en: "/dashboard/warehouse/inventory/movements",
+      pl: "/dashboard/magazyn/inwentarz/ruchy",
+    },
+    "/dashboard/warehouse/inventory/adjustments": {
+      en: "/dashboard/warehouse/inventory/adjustments",
+      pl: "/dashboard/magazyn/inwentarz/korekty",
+    },
     "/dashboard/warehouse/items": {
       en: "/dashboard/warehouse/items",
       pl: "/dashboard/magazyn/produkty",
@@ -95,9 +107,45 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/locations",
       pl: "/dashboard/magazyn/lokalizacje",
     },
+    "/dashboard/warehouse/alerts": {
+      en: "/dashboard/warehouse/alerts",
+      pl: "/dashboard/magazyn/alerty",
+    },
+    "/dashboard/warehouse/audits": {
+      en: "/dashboard/warehouse/audits",
+      pl: "/dashboard/magazyn/audyty",
+    },
+    "/dashboard/warehouse/sales": {
+      en: "/dashboard/warehouse/sales",
+      pl: "/dashboard/magazyn/sprzedaz",
+    },
+    "/dashboard/warehouse/sales-orders": {
+      en: "/dashboard/warehouse/sales-orders",
+      pl: "/dashboard/magazyn/zamowienia-sprzedazy",
+    },
+    "/dashboard/warehouse/clients": {
+      en: "/dashboard/warehouse/clients",
+      pl: "/dashboard/magazyn/klienci",
+    },
+    "/dashboard/warehouse/purchases": {
+      en: "/dashboard/warehouse/purchases",
+      pl: "/dashboard/magazyn/zakupy",
+    },
+    "/dashboard/warehouse/purchase-orders": {
+      en: "/dashboard/warehouse/purchase-orders",
+      pl: "/dashboard/magazyn/zamowienia-zakupu",
+    },
     "/dashboard/warehouse/deliveries": {
       en: "/dashboard/warehouse/deliveries",
       pl: "/dashboard/magazyn/dostawy",
+    },
+    "/dashboard/warehouse/suppliers": {
+      en: "/dashboard/warehouse/suppliers",
+      pl: "/dashboard/magazyn/dostawcy",
+    },
+    "/dashboard/warehouse/scanning/delivery": {
+      en: "/dashboard/warehouse/scanning/delivery",
+      pl: "/dashboard/magazyn/skanowanie/dostawy",
     },
     "/dashboard/warehouse/labels": {
       en: "/dashboard/warehouse/labels",
