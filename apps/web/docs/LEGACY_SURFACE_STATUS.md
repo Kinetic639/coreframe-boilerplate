@@ -28,31 +28,35 @@ These areas still contain business knowledge or implementation details worth pre
 - `src/modules/support`
   - Kept as reference/config surface.
 
+### `detached_from_active_runtime`
+
+These files or surfaces are no longer wired into the active app. They can be deleted in a later pass if we no longer want to keep any local reference copy inside `apps/web`.
+
+- `src/modules/home/config.ts`
+  - Removed from the active module catalog.
+
+- `src/modules/contacts/config.ts`
+  - Removed from the active module catalog.
+
+- `src/modules/teams/config.ts`
+  - Removed from the active module catalog.
+
+- `src/modules/support/config.ts`
+  - Removed from the active module catalog.
+
+- `components/chat/MessagesDrawer.tsx`
+  - Removed from the current dashboard header because it only routed into archived chat pages.
+
 ### `still_live_but_points_to_legacy_routes`
 
 These are the most important remaining web cleanup risks.
 They are still referenced by current code, but their destinations are old `dashboard-old` paths that are globally redirected away.
 
-- `src/modules/home/config.ts`
-  - Current module catalog still points to `/dashboard-old/start`.
-
-- `src/modules/contacts/config.ts`
-  - Current module catalog still points to `/dashboard-old/contacts`.
-
-- `src/modules/teams/config.ts`
-  - Current module catalog still points to `/dashboard-old/teams/*` and `/dashboard-old/announcements`.
-
-- `src/modules/support/config.ts`
-  - Current module catalog still points to `/dashboard-old/support/*`.
-
 - `components/news/RecentNewsWidget.tsx`
-  - View-all links still target `/dashboard-old/news`.
+  - External links were retargeted to `/dashboard/start`, but the underlying content area is still legacy-era and has no dedicated V2 detail/index surface yet.
 
 - `components/announcements/RecentAnnouncementsWidget.tsx`
-  - View-all links still target `/dashboard-old/news`.
-
-- `components/chat/MessagesDrawer.tsx`
-  - Chat navigation still targets `/dashboard-old/teams/communication/chat`.
+  - External links were retargeted to `/dashboard/start`, but the underlying content area is still legacy-era and has no dedicated V2 detail/index surface yet.
 
 - `components/contacts/SendMessageButton.tsx`
   - Direct message navigation still targets `/dashboard-old/teams/communication/chat/[chatId]`.
@@ -68,6 +72,8 @@ They are still referenced by current code, but their destinations are old `dashb
 - `dashboard-old/profile`
 - `dashboard-old/reset-password`
 - dead legacy module folders for `analytics`, `development`, `documentation`
+- detached legacy module config files for `home`, `contacts`, `teams`, `support`
+- detached `MessagesDrawer` legacy chat entrypoint
 - unused legacy implementation files under `src/modules/organization-managment`
 - unused legacy auth helpers under `src/utils/auth`
 

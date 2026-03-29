@@ -1,10 +1,6 @@
-import { teamsModule } from "./teams/config";
 import { toolsModule } from "./tools/config";
 import { organizationModule } from "./organization/config";
-import { homeModule } from "./home/config";
-import { supportModule } from "./support/config";
 import { userAccountModule } from "./user-account/config";
-import { contactsModule } from "./contacts/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { warehouseModule } from "./warehouse/config";
 import { Widget } from "@/lib/types/widgets";
@@ -33,12 +29,8 @@ export async function getAllModules(
   const allModulesConfig = [
     // Free tier modules (always available)
     { module: toolsModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: homeModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: warehouseModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: contactsModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: teamsModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: organizationModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: supportModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: userAccountModule, alwaysAvailable: true, requiredPlan: "free" },
   ];
 

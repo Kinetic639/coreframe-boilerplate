@@ -36,7 +36,6 @@ import { getUserInitials, getUserDisplayName } from "@/utils/user-helpers";
 import { useUserStore } from "@/lib/stores/user-store";
 import { useSidebarStore } from "@/lib/stores/sidebarStore";
 import { SidebarToggleButton } from "./SidebarToggleButton";
-import MessagesDrawer from "@/components/chat/MessagesDrawer";
 import { useTranslations } from "next-intl";
 import { SearchBar } from "./SearchBar";
 
@@ -198,7 +197,6 @@ const DashboardHeader = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <MessagesDrawer />
           <Button size="sm" className="h-9 w-9 p-0">
             <Bell className="h-4 w-4" />
           </Button>
