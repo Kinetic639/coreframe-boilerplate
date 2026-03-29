@@ -47,6 +47,24 @@ These files or surfaces are no longer wired into the active app. They can be del
 - `components/chat/MessagesDrawer.tsx`
   - Removed from the current dashboard header because it only routed into archived chat pages.
 
+- `dashboard-old/contacts/*`
+  - Removed from the active web app because the full route area was unreachable and preserved in the archive snapshot.
+
+- `dashboard-old/teams/contacts/*`
+  - Removed from the active web app because the full route area was unreachable and preserved in the archive snapshot.
+
+- `dashboard-old/teams/communication/chat/*`
+  - Removed from the active web app because the full route area was unreachable and preserved in the archive snapshot.
+
+- `src/modules/contacts/components/contacts-list-view.tsx`
+  - Removed because it was only used by deleted `dashboard-old/contacts` pages.
+
+- `src/modules/contacts/components/contact-detail-view.tsx`
+  - Removed because it was only used by deleted `dashboard-old/contacts` pages.
+
+- `components/contacts/SendMessageButton.tsx`
+  - Removed because it was only used by deleted `dashboard-old/teams/contacts` pages.
+
 ### `still_live_but_points_to_legacy_routes`
 
 These are the most important remaining web cleanup risks.
@@ -74,6 +92,7 @@ They are still referenced by current code, but their destinations are old `dashb
 - dead legacy module folders for `analytics`, `development`, `documentation`
 - detached legacy module config files for `home`, `contacts`, `teams`, `support`
 - detached `MessagesDrawer` legacy chat entrypoint
+- detached legacy contacts/chat route pages and UI-only helper components
 - unused legacy implementation files under `src/modules/organization-managment`
 - unused legacy auth helpers under `src/utils/auth`
 

@@ -268,16 +268,6 @@ export const routing = defineRouting({
       pl: "/dashboard-old/oddzial",
     },
 
-    // === Contacts module ===
-    "/dashboard-old/contacts": {
-      en: "/dashboard-old/contacts",
-      pl: "/dashboard-old/kontakty",
-    },
-    "/dashboard-old/contacts/[id]": {
-      en: "/dashboard-old/contacts/[id]",
-      pl: "/dashboard-old/kontakty/[id]",
-    },
-
     // === Warehouse module (uzupełnienia) ===
     "/dashboard-old/warehouse": {
       en: "/dashboard-old/warehouse",
@@ -497,14 +487,6 @@ export const routing = defineRouting({
     "/dashboard-old/teams/communication": {
       en: "/dashboard-old/teams/communication",
       pl: "/dashboard-old/zespoly/komunikacja",
-    },
-    "/dashboard-old/teams/communication/chat": {
-      en: "/dashboard-old/teams/communication/chat",
-      pl: "/dashboard-old/zespoly/komunikacja/chat",
-    },
-    "/dashboard-old/teams/communication/chat/[chatId]": {
-      en: "/dashboard-old/teams/communication/chat/[chatId]",
-      pl: "/dashboard-old/zespoly/komunikacja/chat/[chatId]",
     },
     "/dashboard-old/teams/communication/announcements": {
       en: "/dashboard-old/teams/communication/announcements",
