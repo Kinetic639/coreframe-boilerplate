@@ -8,7 +8,7 @@ import { userAccountModule } from "./user-account/config";
 import { contactsModule } from "./contacts/config";
 import { documentationModuleConfig } from "./documentation/config";
 import { ModuleConfig } from "@/lib/types/module";
-import { getWarehouseModule } from "./warehouse/config";
+import { warehouseModule } from "./warehouse/config";
 import { getAnalyticsModule } from "./analytics/config";
 import { Widget } from "@/lib/types/widgets";
 import { subscriptionService } from "@/lib/services/subscription-service";
@@ -32,7 +32,6 @@ export async function getAllModules(
   activeOrgId?: string,
   subscription?: any
 ): Promise<ModuleWithAccess[]> {
-  const warehouseModule = await getWarehouseModule();
   const analyticsModule = await getAnalyticsModule();
 
   // Define all modules with their access requirements based on updated subscription tiers

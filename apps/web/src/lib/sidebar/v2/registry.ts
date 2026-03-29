@@ -8,7 +8,7 @@ import {
   PERMISSION_TOOLS_READ,
   AUDIT_EVENTS_READ,
 } from "@/lib/constants/permissions";
-import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
+import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
 /**
  * Sidebar V2 Registry
@@ -113,6 +113,61 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         visibility: {
           requiresPermissions: [AUDIT_EVENTS_READ],
         },
+      },
+    ],
+  },
+
+  // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules)
+  // NOTE (skeleton): No user-level permission gate yet.
+  // Warehouse permission family (warehouse.read etc.) will be added in a later slice.
+  {
+    id: "warehouse",
+    title: "Warehouse",
+    titleKey: "modules.warehouse.titleSidebar",
+    iconKey: "warehouse",
+    visibility: {
+      requiresModules: [MODULE_WAREHOUSE],
+    },
+    children: [
+      {
+        id: "warehouse.items",
+        title: "Items",
+        titleKey: "modules.warehouse.items.products.title",
+        iconKey: "products",
+        href: "/dashboard/warehouse/items",
+        match: { startsWith: "/dashboard/warehouse/items" },
+      },
+      {
+        id: "warehouse.locations",
+        title: "Locations",
+        titleKey: "modules.warehouse.items.locations",
+        iconKey: "locations",
+        href: "/dashboard/warehouse/locations",
+        match: { startsWith: "/dashboard/warehouse/locations" },
+      },
+      {
+        id: "warehouse.deliveries",
+        title: "Deliveries",
+        titleKey: "modules.warehouse.items.deliveries.title",
+        iconKey: "warehouse",
+        href: "/dashboard/warehouse/deliveries",
+        match: { startsWith: "/dashboard/warehouse/deliveries" },
+      },
+      {
+        id: "warehouse.labels",
+        title: "Labels & QR",
+        titleKey: "modules.warehouse.items.labels.title",
+        iconKey: "products",
+        href: "/dashboard/warehouse/labels",
+        match: { startsWith: "/dashboard/warehouse/labels" },
+      },
+      {
+        id: "warehouse.settings",
+        title: "Settings",
+        titleKey: "modules.warehouse.items.settings.title",
+        iconKey: "settings",
+        href: "/dashboard/warehouse/settings",
+        match: { startsWith: "/dashboard/warehouse/settings" },
       },
     ],
   },
