@@ -3,13 +3,10 @@ import { toolsModule } from "./tools/config";
 import { orgManagmentModule } from "./organization-managment/config";
 import { homeModule } from "./home/config";
 import { supportModule } from "./support/config";
-import { developmentModule } from "./development/config";
 import { userAccountModule } from "./user-account/config";
 import { contactsModule } from "./contacts/config";
-import { documentationModuleConfig } from "./documentation/config";
 import { ModuleConfig } from "@/lib/types/module";
 import { warehouseModule } from "./warehouse/config";
-import { getAnalyticsModule } from "./analytics/config";
 import { Widget } from "@/lib/types/widgets";
 import { subscriptionService } from "@/lib/services/subscription-service";
 
@@ -32,8 +29,6 @@ export async function getAllModules(
   activeOrgId?: string,
   subscription?: any
 ): Promise<ModuleWithAccess[]> {
-  const analyticsModule = await getAnalyticsModule();
-
   // Define all modules with their access requirements based on updated subscription tiers
   const allModulesConfig = [
     // Free tier modules (always available)
@@ -45,13 +40,6 @@ export async function getAllModules(
     { module: orgManagmentModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: supportModule, alwaysAvailable: true, requiredPlan: "free" },
     { module: userAccountModule, alwaysAvailable: true, requiredPlan: "free" },
-    { module: documentationModuleConfig, alwaysAvailable: true, requiredPlan: "free" },
-
-    // Professional tier modules
-    { module: analyticsModule, alwaysAvailable: false, requiredPlan: "professional" },
-
-    // Development module (always available in dev mode)
-    { module: developmentModule, alwaysAvailable: true, requiredPlan: "free" },
   ];
 
   // Check access for each module

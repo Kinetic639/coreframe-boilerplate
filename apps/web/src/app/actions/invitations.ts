@@ -113,8 +113,8 @@ export async function createInvitationAction(
     });
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard-old/organization/users");
-    revalidatePath("/dashboard-old/organization/users/list");
+    revalidatePath("/dashboard/organization/users");
+    revalidatePath("/dashboard/organization/users/invitations");
 
     return { success: true, data: invitation };
   } catch (error) {
@@ -171,8 +171,8 @@ export async function cancelInvitationAction(
     await cancelInvitation(invitationId);
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard-old/organization/users");
-    revalidatePath("/dashboard-old/organization/users/list");
+    revalidatePath("/dashboard/organization/users");
+    revalidatePath("/dashboard/organization/users/invitations");
 
     return { success: true };
   } catch (error) {
@@ -235,8 +235,8 @@ export async function resendInvitationAction(
     });
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard-old/organization/users");
-    revalidatePath("/dashboard-old/organization/users/list");
+    revalidatePath("/dashboard/organization/users");
+    revalidatePath("/dashboard/organization/users/invitations");
 
     return { success: true, data: updatedInvitation };
   } catch (error) {
@@ -291,8 +291,8 @@ export async function cleanupExpiredInvitationsAction(): Promise<InvitationActio
     const expiredCount = await markExpiredInvitations();
 
     // Revalidate relevant paths
-    revalidatePath("/dashboard-old/organization/users");
-    revalidatePath("/dashboard-old/organization/users/list");
+    revalidatePath("/dashboard/organization/users");
+    revalidatePath("/dashboard/organization/users/invitations");
 
     return { success: true, data: { expiredCount } };
   } catch (error) {

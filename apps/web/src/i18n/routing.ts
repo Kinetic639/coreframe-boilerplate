@@ -467,48 +467,6 @@ export const routing = defineRouting({
       pl: "/dashboard-old/magazyn/transfery/[id]",
     },
 
-    // === Org Management module ===
-    "/dashboard-old/organization": {
-      en: "/dashboard-old/organization",
-      pl: "/dashboard-old/organizacja",
-    },
-    "/dashboard-old/organization/profile": {
-      en: "/dashboard-old/organization/profile",
-      pl: "/dashboard-old/organizacja/profil",
-    },
-    "/dashboard-old/organization/branches": {
-      en: "/dashboard-old/organization/branches",
-      pl: "/dashboard-old/organizacja/oddzialy",
-    },
-    "/dashboard-old/organization/users": {
-      en: "/dashboard-old/organization/users",
-      pl: "/dashboard-old/organizacja/uzytkownicy",
-    },
-    "/dashboard-old/organization/users/list": {
-      en: "/dashboard-old/organization/users/list",
-      pl: "/dashboard-old/organizacja/uzytkownicy/lista",
-    },
-    "/dashboard-old/organization/users/roles": {
-      en: "/dashboard-old/organization/users/roles",
-      pl: "/dashboard-old/organizacja/uzytkownicy/role",
-    },
-    "/dashboard-old/organization/users/invitations": {
-      en: "/dashboard-old/organization/users/invitations",
-      pl: "/dashboard-old/organizacja/uzytkownicy/zaproszenia",
-    },
-    "/dashboard-old/organization/users/[id]": {
-      en: "/dashboard-old/organization/users/[id]",
-      pl: "/dashboard-old/organizacja/uzytkownicy/[id]",
-    },
-    "/dashboard-old/organization/roles/[id]": {
-      en: "/dashboard-old/organization/roles/[id]",
-      pl: "/dashboard-old/organizacja/role/[id]",
-    },
-    "/dashboard-old/organization/billing": {
-      en: "/dashboard-old/organization/billing",
-      pl: "/dashboard-old/organizacja/rozliczenia",
-    },
-
     // === Invitation system ===
     "/invite/[token]": {
       en: "/invite/[token]",
@@ -591,52 +549,6 @@ export const routing = defineRouting({
       pl: "/dashboard-old/wsparcie/ogloszenia/roadmapa",
     },
 
-    // === Development module ===
-    "/dashboard-old/development": {
-      en: "/dashboard-old/development",
-      pl: "/dashboard-old/deweloperskie",
-    },
-    "/dashboard-old/development/permissions": {
-      en: "/dashboard-old/development/permissions",
-      pl: "/dashboard-old/deweloperskie/uprawnienia",
-    },
-    "/dashboard-old/development/context": {
-      en: "/dashboard-old/development/context",
-      pl: "/dashboard-old/deweloperskie/kontekst",
-    },
-    "/dashboard-old/development/logo": {
-      en: "/dashboard-old/development/logo",
-      pl: "/dashboard-old/deweloperskie/logo",
-    },
-    "/dashboard-old/development/service": {
-      en: "/dashboard-old/development/service",
-      pl: "/dashboard-old/deweloperskie/serwis",
-    },
-    "/dashboard-old/development/labels": {
-      en: "/dashboard-old/development/labels",
-      pl: "/dashboard-old/deweloperskie/etykiety",
-    },
-    "/dashboard-old/development/locations-debug": {
-      en: "/dashboard-old/development/locations-debug",
-      pl: "/dashboard-old/deweloperskie/lokalizacje-debug",
-    },
-    "/dashboard-old/development/rich-text-editor": {
-      en: "/dashboard-old/development/rich-text-editor",
-      pl: "/dashboard-old/deweloperskie/rich-text-editor",
-    },
-    "/dashboard-old/development/sku-generator": {
-      en: "/dashboard-old/development/sku-generator",
-      pl: "/dashboard-old/deweloperskie/generator-sku",
-    },
-    "/dashboard-old/development/reservations-test": {
-      en: "/dashboard-old/development/reservations-test",
-      pl: "/dashboard-old/deweloperskie/test-rezerwacji",
-    },
-    "/dashboard-old/dev/subscription-test": {
-      en: "/dashboard-old/dev/subscription-test",
-      pl: "/dashboard-old/dev/test-subskrypcji",
-    },
-
     // === User Account module (V2) ===
     "/dashboard/account": {
       en: "/dashboard/account",
@@ -653,16 +565,6 @@ export const routing = defineRouting({
     "/dashboard/account/notifications": {
       en: "/dashboard/account/notifications",
       pl: "/dashboard/konto/powiadomienia",
-    },
-
-    // === User Account module (Legacy) ===
-    "/dashboard-old/account/profile": {
-      en: "/dashboard-old/account/profile",
-      pl: "/dashboard-old/konto/profil",
-    },
-    "/dashboard-old/account/preferences": {
-      en: "/dashboard-old/account/preferences",
-      pl: "/dashboard-old/konto/ustawienia",
     },
 
     // === Auth ===
@@ -685,10 +587,6 @@ export const routing = defineRouting({
     "/auth-code-error": {
       en: "/auth-code-error",
       pl: "/blad-uwierzytelniania",
-    },
-    "/dashboard-old/reset-password": {
-      en: "/dashboard-old/reset-password",
-      pl: "/dashboard-old/resetowanie-hasla",
     },
   },
 });

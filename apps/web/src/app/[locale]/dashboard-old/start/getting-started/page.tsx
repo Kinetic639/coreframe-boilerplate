@@ -62,7 +62,7 @@ async function GettingStartedContent() {
       title: t("steps.configureOrganization.title"),
       description: t("steps.configureOrganization.description"),
       icon: Settings,
-      href: "/dashboard-old/organization",
+      href: "/dashboard/organization/profile",
       color: "text-blue-500",
       completed: false,
     },
