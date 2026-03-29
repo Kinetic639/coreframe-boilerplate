@@ -8,11 +8,6 @@ import { createClient } from "@/utils/supabase/server";
 
 // Mock dependencies
 vi.mock("@/utils/supabase/server");
-vi.mock("@/lib/services/subscription-service", () => ({
-  subscriptionService: {
-    getActiveSubscription: vi.fn(),
-  },
-}));
 
 describe("loadAppContextServer", () => {
   let mockSupabase: any;

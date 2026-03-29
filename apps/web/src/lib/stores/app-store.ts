@@ -2,7 +2,6 @@ import { create } from "zustand";
 import type { Tables } from "../../../supabase/types/types";
 import { UserLocation } from "../types";
 import { createClient } from "@/utils/supabase/client";
-import type { OrganizationSubscriptionWithPlan } from "@/lib/services/subscription-service";
 import type { OrganizationEntitlements } from "@/lib/types/entitlements";
 
 // 🔸 Typ jednego modułu użytkownika
@@ -63,7 +62,7 @@ export type AppContext = {
   suppliers: Tables<"business_accounts">[];
   organizationUsers: OrganizationUser[];
   privateContacts: PrivateContact[];
-  subscription: OrganizationSubscriptionWithPlan | null;
+  subscription: null;
   entitlements: OrganizationEntitlements | null; // Compiled entitlements (SSR-loaded)
 };
 
