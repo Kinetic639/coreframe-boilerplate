@@ -44,12 +44,12 @@ import {
   Shield,
   ShieldCheck,
   ShieldX,
-  Loader2,
   AlertCircle,
   CheckCircle,
   Building2,
   Globe,
 } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import {
   UserDetailWithAssignments,
   UserPermissionOverrideWithDetails,
@@ -319,7 +319,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
                         onClick={handleAddOverride}
                         disabled={!newOverrideData.permissionId || isLoading}
                       >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
                         Add Override
                       </Button>
                     </div>

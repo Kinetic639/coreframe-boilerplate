@@ -14,7 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Copy, Loader2 } from "lucide-react";
+import { AlertCircle, Copy } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { cloneRole, type RoleWithPermissions } from "@/app/actions/roles/role-management";
 
 interface RoleCloneDialogProps {
@@ -105,7 +106,7 @@ export function RoleCloneDialog({
               {t("cancel")}
             </Button>
             <Button type="submit" disabled={loading || !newRoleName.trim()}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
               {t("cloneRole")}
             </Button>
           </DialogFooter>

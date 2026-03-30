@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -28,7 +29,6 @@ import {
   CloudUpload,
   CloudDownload,
   RotateCcw,
-  Loader2,
 } from "lucide-react";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { cn } from "@/lib/utils";
@@ -325,7 +325,7 @@ export function AppearanceSection() {
               disabled={isSaving || isLoading}
             >
               {isSaving ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
               ) : (
                 <CloudUpload className="h-4 w-4 mr-2" />
               )}
@@ -339,7 +339,7 @@ export function AppearanceSection() {
               disabled={isSaving || isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
               ) : (
                 <CloudDownload className="h-4 w-4 mr-2" />
               )}

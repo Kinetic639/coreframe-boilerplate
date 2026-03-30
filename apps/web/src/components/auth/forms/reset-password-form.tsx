@@ -10,7 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { useState } from "react";
 
 const resetPasswordSchema = z
@@ -121,7 +122,7 @@ export function ResetPasswordForm({ message, mode = "reset" }: ResetPasswordForm
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
               {isSet ? t("setPending") : t("pending")}
             </>
           ) : isSet ? (

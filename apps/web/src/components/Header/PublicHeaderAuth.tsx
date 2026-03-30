@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
-import { LayoutDashboard, Loader2 } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { createClient } from "@/utils/supabase/client";
 import { useUserStore } from "@/lib/stores/user-store";
 import type { UserContext } from "@/lib/api/load-user-context-server";
@@ -49,7 +50,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
         <Button onClick={handleLogout} variant="ghost" disabled={isLoggingOut}>
           {isLoggingOut ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
               {t("loggingOut")}
             </>
           ) : (

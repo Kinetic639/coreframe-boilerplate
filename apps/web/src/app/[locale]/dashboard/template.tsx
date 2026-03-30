@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import Loader from "@/components/ui/Loader";
 
 /**
  * Dashboard V2 Template
@@ -13,14 +13,7 @@ import { Loader2 } from "lucide-react";
  */
 
 function DashboardLoadingFallback() {
-  return (
-    <div className="flex h-screen w-full items-center justify-center bg-muted/20">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading dashboard...</p>
-      </div>
-    </div>
-  );
+  return <Loader fullScreen message="Loading dashboard..." className="bg-muted/20" />;
 }
 
 export default function DashboardV2Template({ children }: { children: React.ReactNode }) {

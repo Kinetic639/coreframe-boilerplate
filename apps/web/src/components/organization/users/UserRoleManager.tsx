@@ -42,10 +42,10 @@ import {
   MoreHorizontal,
   Crown,
   Building2,
-  Loader2,
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
 import { assignUserRole, removeUserRole, fetchAvailableRoles } from "@/lib/api/user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
@@ -268,7 +268,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
                         onClick={handleAddRole}
                         disabled={!newRoleData.roleId || !newRoleData.scopeId || isLoading}
                       >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
                         Assign Role
                       </Button>
                     </div>

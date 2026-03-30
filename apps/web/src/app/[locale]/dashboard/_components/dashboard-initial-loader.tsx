@@ -1,7 +1,7 @@
 "use client";
 
+import Loader from "@/components/ui/Loader";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
-import { Loader2 } from "lucide-react";
 
 interface DashboardInitialLoaderProps {
   children: React.ReactNode;
@@ -23,14 +23,7 @@ export function DashboardInitialLoader({ children }: DashboardInitialLoaderProps
 
   // Show loading screen until Zustand hydrates from localStorage
   if (!hasHydrated) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    return <Loader fullScreen message="Loading dashboard..." className="bg-background" />;
   }
 
   // Hydrated, show dashboard content

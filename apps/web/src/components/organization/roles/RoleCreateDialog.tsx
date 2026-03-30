@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Plus, Loader2 } from "lucide-react";
+import { AlertCircle, Plus } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { createRole, type PermissionsByCategory } from "@/app/actions/roles/role-management";
 
 interface RoleCreateDialogProps {
@@ -227,7 +228,7 @@ export function RoleCreateDialog({
               {t("cancel")}
             </Button>
             <Button type="submit" disabled={loading || !formData.name.trim()}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {loading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
               {t("saveRole")}
             </Button>
           </DialogFooter>
