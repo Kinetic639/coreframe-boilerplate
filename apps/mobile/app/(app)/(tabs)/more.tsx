@@ -33,6 +33,12 @@ interface UtilityRow {
  */
 const UTILITY_ROWS: UtilityRow[] = [
   {
+    label: "Konto",
+    icon: "person-circle-outline",
+    route: "/(app)/account",
+    accessibilityLabel: "Open account settings",
+  },
+  {
     label: "Diagnostyka",
     icon: "bug-outline",
     route: "/(app)/diagnostics",
