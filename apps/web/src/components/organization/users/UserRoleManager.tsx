@@ -42,13 +42,13 @@ import {
   MoreHorizontal,
   Crown,
   Building2,
-  Loader2,
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { assignUserRole, removeUserRole, fetchAvailableRoles } from "@/lib/api/user-detail";
-import { useAppStore } from "@/lib/stores/app-store";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useState, useEffect } from "react";
 
 interface UserRoleManagerProps {
@@ -62,21 +62,21 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { activeOrg, availableBranches } = useAppStore();
+  const { activeOrg, availableBranches } = useAppStoreV2();
 
   const [newRoleData, setNewRoleData] = useState({
     roleId: "",
     scope: "org" as "org" | "branch",
-    scopeId: activeOrg?.organization_id || "",
+    scopeId: activeOrg?.id || "",
   });
 
   // Load available roles
   useEffect(() => {
     const loadRoles = async () => {
-      if (!activeOrg?.organization_id) return;
+      if (!activeOrg?.id) return;
 
       try {
-        const roles = await fetchAvailableRoles(activeOrg.organization_id);
+        const roles = await fetchAvailableRoles(activeOrg.id);
         setAvailableRoles(roles);
       } catch (err) {
         console.error("Failed to load roles:", err);
@@ -84,7 +84,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
     };
 
     loadRoles();
-  }, [activeOrg?.organization_id]);
+  }, [activeOrg?.id]);
 
   const handleAddRole = async () => {
     if (!newRoleData.roleId || !newRoleData.scopeId) return;
@@ -100,7 +100,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
       setNewRoleData({
         roleId: "",
         scope: "org",
-        scopeId: activeOrg?.organization_id || "",
+        scopeId: activeOrg?.id || "",
       });
       onUpdate();
 
@@ -219,7 +219,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
                           setNewRoleData((prev) => ({
                             ...prev,
                             scope: value,
-                            scopeId: value === "org" ? activeOrg?.organization_id || "" : "",
+                            scopeId: value === "org" ? activeOrg?.id || "" : "",
                           }));
                         }}
                       >
@@ -247,7 +247,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
                           </SelectTrigger>
                           <SelectContent>
                             {availableBranches.map((branch) => (
-                              <SelectItem key={branch.branch_id} value={branch.branch_id}>
+                              <SelectItem key={branch.id} value={branch.id}>
                                 {branch.name}
                               </SelectItem>
                             ))}
@@ -268,7 +268,7 @@ export function UserRoleManager({ user, onUpdate }: UserRoleManagerProps) {
                         onClick={handleAddRole}
                         disabled={!newRoleData.roleId || !newRoleData.scopeId || isLoading}
                       >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
                         Assign Role
                       </Button>
                     </div>

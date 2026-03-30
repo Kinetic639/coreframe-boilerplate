@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,18 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Check,
-  X,
-  Plus,
-  Trash2,
-  RefreshCw,
-  Lock,
-  Unlock,
-  TrendingUp,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { Plus, Trash2, RefreshCw, Lock, Unlock, TrendingUp, AlertTriangle } from "lucide-react";
 import { LIMIT_KEYS } from "@/lib/types/entitlements";
 import type { OrganizationEntitlements } from "@/lib/types/entitlements";
 import type { Tables } from "../../../../../supabase/types/types";
@@ -302,7 +292,7 @@ export function EntitlementsAdminUI({
                     >
                       {loadingAction === `switch-plan-${plan.name}` ? (
                         <>
-                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
                           Switching...
                         </>
                       ) : isCurrent ? (
@@ -347,7 +337,7 @@ export function EntitlementsAdminUI({
                       disabled={loadingAction !== null}
                     >
                       {loadingAction === `remove-addon-${addon.module_slug}` ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <FancySpinner className="h-4 w-4 shrink-0" />
                       ) : (
                         <Trash2 className="h-4 w-4" />
                       )}
@@ -380,7 +370,7 @@ export function EntitlementsAdminUI({
               </Select>
               <Button onClick={addModuleAddon} disabled={loadingAction !== null}>
                 {loadingAction === "add-module-addon" ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
                 ) : (
                   <Plus className="h-4 w-4 mr-1" />
                 )}
@@ -449,7 +439,7 @@ export function EntitlementsAdminUI({
               />
               <Button onClick={setLimitOverride} disabled={loadingAction !== null}>
                 {loadingAction === "set-limit-override" ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
                 ) : (
                   <Plus className="h-4 w-4 mr-1" />
                 )}
@@ -473,7 +463,7 @@ export function EntitlementsAdminUI({
         <CardContent>
           <Button variant="destructive" onClick={resetToFree} disabled={loadingAction !== null}>
             {loadingAction === "reset-to-free" ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-1" />
             )}

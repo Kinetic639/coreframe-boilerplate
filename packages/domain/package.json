@@ -9,7 +9,8 @@
     "./entitlements": "./src/entitlements.ts",
     "./events": "./src/events/types.ts",
     "./events/visibility": "./src/events/visibility.ts",
-    "./organization": "./src/organization.ts"
+    "./organization": "./src/organization.ts",
+    "./branch": "./src/branch.ts"
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",

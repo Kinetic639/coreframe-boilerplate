@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { loadAppContextWithClient } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import { EntitlementsAdminService } from "@/server/services/entitlements-admin.service";
 
 export async function enforceAdminAccess() {
@@ -16,7 +16,7 @@ export async function enforceAdminAccess() {
     throw new Error("Not authenticated");
   }
 
-  const appContext = await loadAppContextWithClient(supabase);
+  const appContext = await loadAppContextV2();
   if (!appContext?.activeOrgId) {
     throw new Error("No active organization");
   }

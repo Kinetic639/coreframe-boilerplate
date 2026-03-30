@@ -21,14 +21,14 @@ import {
   UserX,
   Clock,
   Save,
-  Loader2,
   AlertCircle,
   CheckCircle,
   Calendar,
   Shield,
   Trash2,
 } from "lucide-react";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import FancySpinner from "@/components/ui/FancySpinner";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { updateUserStatus } from "@/lib/api/user-detail";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
@@ -197,7 +197,7 @@ export function UserStatusManager({ user, onUpdate }: UserStatusManagerProps) {
               className="w-full"
             >
               {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}

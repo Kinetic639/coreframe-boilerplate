@@ -13,10 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Save, Edit2, X, CheckCircle, AlertCircle } from "lucide-react";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import { Save, Edit2, X, CheckCircle, AlertCircle } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { updateUserProfile } from "@/lib/api/user-detail";
-import { useAppStore } from "@/lib/stores/app-store";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useState } from "react";
 
 interface UserProfileFormProps {
@@ -29,7 +30,7 @@ export function UserProfileForm({ user, onUpdate }: UserProfileFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const { availableBranches } = useAppStore();
+  const { availableBranches } = useAppStoreV2();
 
   const [formData, setFormData] = useState({
     first_name: user.first_name || "",
@@ -104,7 +105,7 @@ export function UserProfileForm({ user, onUpdate }: UserProfileFormProps) {
                 </Button>
                 <Button size="sm" onClick={handleSave} disabled={!hasChanges || isSaving}>
                   {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
@@ -179,7 +180,7 @@ export function UserProfileForm({ user, onUpdate }: UserProfileFormProps) {
                 <SelectContent>
                   <SelectItem value="">No default branch</SelectItem>
                   {availableBranches.map((branch) => (
-                    <SelectItem key={branch.branch_id} value={branch.branch_id}>
+                    <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
                     </SelectItem>
                   ))}

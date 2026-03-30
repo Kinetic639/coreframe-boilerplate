@@ -38,8 +38,8 @@ vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock("@/lib/api/load-app-context-server", () => ({
-  loadAppContextWithClient: vi.fn(),
+vi.mock("@/server/loaders/v2/load-app-context.v2", () => ({
+  loadAppContextV2: vi.fn(),
 }));
 
 // Import AFTER mocks
@@ -50,7 +50,7 @@ import {
   AdminActionError,
 } from "@/server/services/entitlements-admin.service";
 import { createClient } from "@/utils/supabase/server";
-import { loadAppContextWithClient } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 
 describe("Actions Wiring Tests (Real Schemas)", () => {
   const mockSupabase = {
@@ -74,7 +74,7 @@ describe("Actions Wiring Tests (Real Schemas)", () => {
       data: { user: { id: "user-123" } },
       error: null,
     });
-    vi.mocked(loadAppContextWithClient).mockResolvedValue(mockAppContext as any);
+    vi.mocked(loadAppContextV2).mockResolvedValue(mockAppContext as any);
 
     // No need to mock Supabase queries - we mock the service methods directly
   });

@@ -8,7 +8,7 @@ import {
   PERMISSION_TOOLS_READ,
   AUDIT_EVENTS_READ,
 } from "@/lib/constants/permissions";
-import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
+import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
 /**
  * Sidebar V2 Registry
@@ -24,11 +24,12 @@ import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
  * Active modules (V2 scope):
  * - Tools        — always visible for users with tools.read
  * - Organization Management — visible for org members with module access + org.read
+ * - Warehouse    — currently module-entitled placeholder shell, mirroring legacy tree
  *
  * User Account is intentionally NOT in the sidebar. It is accessible via the
  * user menu (NavUser dropdown) in the sidebar footer.
  *
- * All other modules (Warehouse, Analytics, Development, Support, Home)
+ * All other modules (Analytics, Development, Support, Home)
  * have been removed from the sidebar. Their routes return 404 via the
  * dashboard catch-all ([...slug]/page.tsx → notFound()).
  */
@@ -113,6 +114,173 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         visibility: {
           requiresPermissions: [AUDIT_EVENTS_READ],
         },
+      },
+    ],
+  },
+
+  // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules)
+  // NOTE (skeleton): No user-level permission gate yet.
+  // Warehouse permission family (warehouse.read etc.) will be added in a later slice.
+  {
+    id: "warehouse",
+    title: "Warehouse",
+    titleKey: "modules.warehouse.titleSidebar",
+    iconKey: "warehouse",
+    visibility: {
+      requiresModules: [MODULE_WAREHOUSE],
+    },
+    children: [
+      {
+        id: "warehouse.inventory",
+        title: "Inventory",
+        titleKey: "modules.warehouse.items.inventory.title",
+        iconKey: "warehouse",
+        href: "/dashboard/warehouse/inventory",
+        match: { startsWith: "/dashboard/warehouse/inventory" },
+        children: [
+          {
+            id: "warehouse.inventory.movements",
+            title: "Stock Movements",
+            titleKey: "modules.warehouse.items.inventory.movements",
+            iconKey: "warehouse",
+            href: "/dashboard/warehouse/inventory/movements",
+            match: { startsWith: "/dashboard/warehouse/inventory/movements" },
+          },
+          {
+            id: "warehouse.items",
+            title: "Items",
+            titleKey: "modules.warehouse.items.products.title",
+            iconKey: "products",
+            href: "/dashboard/warehouse/items",
+            match: { startsWith: "/dashboard/warehouse/items" },
+          },
+          {
+            id: "warehouse.locations",
+            title: "Locations",
+            titleKey: "modules.warehouse.items.locations",
+            iconKey: "locations",
+            href: "/dashboard/warehouse/locations",
+            match: { startsWith: "/dashboard/warehouse/locations" },
+          },
+          {
+            id: "warehouse.labels",
+            title: "Labels & QR",
+            titleKey: "modules.warehouse.items.labels.title",
+            iconKey: "products",
+            href: "/dashboard/warehouse/labels",
+            match: { startsWith: "/dashboard/warehouse/labels" },
+          },
+          {
+            id: "warehouse.alerts",
+            title: "Stock Alerts",
+            titleKey: "modules.warehouse.items.alerts.title",
+            iconKey: "warehouse",
+            href: "/dashboard/warehouse/alerts",
+            match: { startsWith: "/dashboard/warehouse/alerts" },
+          },
+          {
+            id: "warehouse.inventory.adjustments",
+            title: "Stock Adjustments",
+            titleKey: "modules.warehouse.items.inventory.adjustments.title",
+            iconKey: "settings",
+            href: "/dashboard/warehouse/inventory/adjustments",
+            match: { startsWith: "/dashboard/warehouse/inventory/adjustments" },
+            children: [
+              {
+                id: "warehouse.audits",
+                title: "Audits",
+                titleKey: "modules.warehouse.items.audits.title",
+                iconKey: "settings",
+                href: "/dashboard/warehouse/audits",
+                match: { startsWith: "/dashboard/warehouse/audits" },
+              },
+              {
+                id: "warehouse.adjustments",
+                title: "Single Adjustment",
+                titleKey: "modules.warehouse.items.inventory.adjustments.single",
+                iconKey: "settings",
+                href: "/dashboard/warehouse/inventory/adjustments",
+                match: { exact: "/dashboard/warehouse/inventory/adjustments" },
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "warehouse.sales",
+        title: "Sales",
+        titleKey: "modules.warehouse.items.sales.title",
+        iconKey: "users",
+        href: "/dashboard/warehouse/sales",
+        match: { startsWith: "/dashboard/warehouse/sales" },
+        children: [
+          {
+            id: "warehouse.sales-orders",
+            title: "Sales Orders",
+            titleKey: "modules.warehouse.items.sales.orders",
+            iconKey: "products",
+            href: "/dashboard/warehouse/sales-orders",
+            match: { startsWith: "/dashboard/warehouse/sales-orders" },
+          },
+          {
+            id: "warehouse.clients",
+            title: "Clients",
+            titleKey: "modules.warehouse.items.sales.clients",
+            iconKey: "users",
+            href: "/dashboard/warehouse/clients",
+            match: { startsWith: "/dashboard/warehouse/clients" },
+          },
+        ],
+      },
+      {
+        id: "warehouse.purchases",
+        title: "Purchases",
+        titleKey: "modules.warehouse.items.purchases.title",
+        iconKey: "warehouse",
+        href: "/dashboard/warehouse/purchases",
+        match: { startsWith: "/dashboard/warehouse/purchases" },
+        children: [
+          {
+            id: "warehouse.purchase-orders",
+            title: "Purchase Orders",
+            titleKey: "modules.warehouse.items.purchases.orders",
+            iconKey: "products",
+            href: "/dashboard/warehouse/purchase-orders",
+            match: { startsWith: "/dashboard/warehouse/purchase-orders" },
+          },
+          {
+            id: "warehouse.deliveries",
+            title: "Deliveries",
+            titleKey: "modules.warehouse.items.deliveries.title",
+            iconKey: "warehouse",
+            href: "/dashboard/warehouse/deliveries",
+            match: { startsWith: "/dashboard/warehouse/deliveries" },
+          },
+          {
+            id: "warehouse.suppliers",
+            title: "Suppliers",
+            titleKey: "modules.warehouse.items.suppliers.title",
+            iconKey: "users",
+            href: "/dashboard/warehouse/suppliers",
+            match: { startsWith: "/dashboard/warehouse/suppliers" },
+          },
+          {
+            id: "warehouse.scanning.delivery",
+            title: "Delivery Scanning",
+            titleKey: "modules.warehouse.items.scanning.delivery",
+            iconKey: "warehouse",
+            href: "/dashboard/warehouse/scanning/delivery",
+            match: { startsWith: "/dashboard/warehouse/scanning/delivery" },
+          },
+        ],
+      },
+      {
+        id: "warehouse.settings",
+        title: "Settings",
+        titleKey: "modules.warehouse.items.settings.title",
+        iconKey: "settings",
+        href: "/dashboard/warehouse/settings",
+        match: { startsWith: "/dashboard/warehouse/settings" },
       },
     ],
   },

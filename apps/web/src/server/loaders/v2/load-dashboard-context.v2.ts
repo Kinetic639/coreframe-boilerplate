@@ -7,6 +7,7 @@ import { BRANCHES_VIEW_ANY } from "@/lib/constants/permissions";
 import type { AppContextV2, BranchDataV2 } from "@/lib/stores/v2/app-store";
 import type { UserContextV2 } from "@/lib/stores/v2/user-store";
 import type { PermissionSnapshot } from "@/lib/types/permissions";
+import { resolveActiveBranch } from "@repo/domain/branch";
 
 /**
  * Combined Dashboard Context V2
@@ -110,23 +111,21 @@ async function _loadDashboardContextV2(): Promise<DashboardContextV2 | null> {
 
   // 4. Re-validate activeBranch: if current preference is not in accessibleBranches,
   //    fall back to first accessible branch (or null if user has none).
-  let activeBranchId = appContext.activeBranchId;
-  let activeBranch = appContext.activeBranch;
+  const resolvedId = resolveActiveBranch(
+    appContext.activeBranchId,
+    accessibleBranches.map((b) => b.id)
+  );
+  const activeBranchId = resolvedId;
+  const activeBranch = resolvedId
+    ? (accessibleBranches.find((b) => b.id === resolvedId) ?? null)
+    : null;
 
-  const isActiveAccessible =
-    activeBranchId !== null && accessibleBranches.some((b) => b.id === activeBranchId);
-
-  if (!isActiveAccessible) {
-    activeBranchId = accessibleBranches[0]?.id ?? null;
-    activeBranch = accessibleBranches[0] ?? null;
-
-    // activeBranchId changed — reload userContext so permissionSnapshot reflects
-    // branch-scoped roles for the correct branch, not the original stale branch.
-    if (activeBranchId !== appContext.activeBranchId) {
-      const reloadedContext = await loadUserContextV2(appContext.activeOrgId, activeBranchId);
-      if (reloadedContext) {
-        userContext = reloadedContext;
-      }
+  // activeBranchId changed — reload userContext so permissionSnapshot reflects
+  // branch-scoped roles for the correct branch, not the original stale branch.
+  if (resolvedId !== appContext.activeBranchId) {
+    const reloadedContext = await loadUserContextV2(appContext.activeOrgId, activeBranchId);
+    if (reloadedContext) {
+      userContext = reloadedContext;
     }
   }
 

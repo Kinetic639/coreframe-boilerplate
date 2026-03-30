@@ -4,12 +4,12 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
+import FancySpinner from "@/components/ui/FancySpinner";
 import {
   Building2,
   GitBranch,
   Sparkles,
   Check,
-  Loader2,
   ChevronRight,
   RefreshCw,
   X,
@@ -178,7 +178,7 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
 
   const slugStatusIcon = () => {
     if (slugStatus === "checking")
-      return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
+      return <FancySpinner className="h-4 w-4 text-muted-foreground" />;
     if (slugStatus === "available") return <CircleCheck className="h-4 w-4 text-green-500" />;
     if (slugStatus === "taken") return <X className="h-4 w-4 text-destructive" />;
     return null;
@@ -433,7 +433,7 @@ export function OnboardingWizardClient({ userEmail, firstName, plans }: Props) {
             >
               <Card>
                 <CardContent className="flex flex-col items-center gap-4 py-12">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <FancySpinner className="h-12 w-12" />
                   <p className="text-lg font-medium">{t("creatingTitle")}</p>
                   <p className="text-sm text-muted-foreground">{t("creatingDescription")}</p>
                 </CardContent>

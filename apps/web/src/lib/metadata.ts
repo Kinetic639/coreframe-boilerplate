@@ -22,10 +22,12 @@ export async function generatePageMetadata(
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace });
   const common = await getTranslations({ locale, namespace: "metadata.common" });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const metadata: Metadata = {
     title: `${t("title")}${common("separator")}${common("appName")}`,
     description: t("description"),
+    metadataBase: new URL(appUrl),
   };
 
   // Add keywords if specified

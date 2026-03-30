@@ -7,14 +7,6 @@ export default async function Layout({ children }: { children: React.ReactNode }
   return (
     <div className="flex min-h-screen w-full flex-col">
       <PublicThemeEnforcer />
-      {/* <nav className="flex h-16 w-full justify-center border-b border-b-foreground/10">
-        <div className="flex w-full max-w-7xl items-center justify-between p-3 px-5 text-sm">
-          <div className="flex items-center gap-5 font-semibold">
-            <Link href={"/"}>Ambra</Link>
-          </div>
-          <HeaderAuth />
-        </div>
-      </nav> */}
       <AnnouncementBanner
         message="🎉 Promocja świąteczna! Skorzystaj z 30% zniżki na wszystkie plany z kodem SWIETA2025"
         link="/pricing"

@@ -1276,6 +1276,17 @@
       "partnerTypes": {
         "vendor": "Supplier",
         "customer": "Client"
+      },
+      "titleSidebar": "Warehouse",
+      "errors": {
+        "title": "Something went wrong",
+        "description": "An unexpected error occurred in the Warehouse module.",
+        "refresh": "Try again",
+        "goHome": "Go home"
+      },
+      "placeholder": {
+        "comingSoon": "This section is coming soon.",
+        "moduleShell": "This placeholder is intentionally part of the Warehouse V2 module shell."
       }
     },
     "teams": {
@@ -2745,8 +2756,8 @@
     "auditTitle": "Audit Log",
     "auditDescription": "Full audit event log including IP addresses and browser details.",
     "empty": "No events found.",
-    "loading": "Loading\u2026",
-    "pagination": "Showing {from}\u2013{to} of {total}",
+    "loading": "Loading…",
+    "pagination": "Showing {from}–{to} of {total}",
     "prev": "Previous",
     "next": "Next",
     "pageOf": "Page {page} of {total}",

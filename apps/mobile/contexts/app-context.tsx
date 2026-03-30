@@ -8,6 +8,7 @@ import type { TokenRole } from "@repo/contracts/auth";
 import { BRANCHES_VIEW_ANY, BRANCHES_VIEW_UPDATE_ANY } from "@repo/contracts/permissions";
 import type { PermissionSnapshot } from "@repo/contracts/permissions";
 import type { OrganizationEntitlements } from "@repo/contracts/entitlements";
+import { resolveActiveBranch } from "@repo/domain/branch";
 
 import { mobileSupabase } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -161,23 +162,6 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Resolves the initial activeBranchId from a saved preference and the final
- * accessible branch ID set.
- *
- * Resolution order:
- *   1. savedBranchId if it is present in accessibleIds
- *   2. else the first ID in accessibleIds
- *   3. else null (no accessible branches)
- *
- * Operates purely on the final accessibleIds set. Does not inspect how
- * accessibleIds was derived (wildcard permission path or explicit-role path).
- */
-function resolvePreference(savedBranchId: string | null, accessibleIds: string[]): string | null {
-  if (savedBranchId && accessibleIds.includes(savedBranchId)) return savedBranchId;
-  return accessibleIds[0] ?? null;
-}
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -336,7 +320,7 @@ export function AppProvider({
 
           // Resolve activeBranchId from saved preference against the final accessible set.
           // resolvePreference: savedBranchId (if in accessibleIds) → first accessibleId → null
-          setActiveBranchId(resolvePreference(result.savedBranchId, accessibleIds));
+          setActiveBranchId(resolveActiveBranch(result.savedBranchId, accessibleIds));
           // result.entitlements may be null — intentional. null = free-tier / no plan row.
           setEntitlements(result.entitlements);
           setOrgName(result.orgName);

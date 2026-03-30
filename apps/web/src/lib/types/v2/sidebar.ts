@@ -140,6 +140,8 @@ export interface SidebarModel {
   footer: SidebarItem[];
 }
 
+import type { PermissionSnapshot } from "@/lib/types/permissions";
+
 /**
  * Resolver input (everything needed to compute VISIBILITY)
  *
@@ -158,10 +160,7 @@ export interface SidebarResolverInput {
   locale: string;
 
   /** User permission snapshot (allow/deny) — non-nullable, defaults to { allow: [], deny: [] } */
-  permissionSnapshot: {
-    allow: string[];
-    deny: string[];
-  };
+  permissionSnapshot: PermissionSnapshot;
 
   /** Organization entitlements (nullable for fail-closed) */
   entitlements: {

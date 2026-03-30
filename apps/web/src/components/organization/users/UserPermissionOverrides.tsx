@@ -44,22 +44,20 @@ import {
   Shield,
   ShieldCheck,
   ShieldX,
-  Loader2,
   AlertCircle,
   CheckCircle,
   Building2,
   Globe,
 } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import {
-  UserDetailWithAssignments,
-  UserPermissionOverrideWithDetails,
-} from "@/app/actions/users/fetch-user-detail";
-import {
+  type UserDetailWithAssignments,
+  type UserPermissionOverrideWithDetails,
   upsertPermissionOverride,
   removePermissionOverride,
   fetchAvailablePermissions,
 } from "@/lib/api/user-detail";
-import { useAppStore } from "@/lib/stores/app-store";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { useState, useEffect } from "react";
 
 interface UserPermissionOverridesProps {
@@ -73,7 +71,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const { activeOrg, availableBranches } = useAppStore();
+  const { activeOrg, availableBranches } = useAppStoreV2();
 
   const [newOverrideData, setNewOverrideData] = useState({
     permissionId: "",
@@ -96,7 +94,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
   }, []);
 
   const handleAddOverride = async () => {
-    if (!newOverrideData.permissionId || !(activeOrg as any)?.organization_id) return;
+    if (!newOverrideData.permissionId || !activeOrg?.id) return;
 
     try {
       setIsLoading(true);
@@ -104,7 +102,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
 
       await upsertPermissionOverride(
         user.id,
-        activeOrg.organization_id,
+        activeOrg.id,
         newOverrideData.permissionId,
         newOverrideData.isGranted,
         newOverrideData.branchId
@@ -148,7 +146,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
   };
 
   const handleToggleOverride = async (override: UserPermissionOverrideWithDetails) => {
-    if (!activeOrg?.organization_id) return;
+    if (!activeOrg?.id) return;
 
     try {
       setIsLoading(true);
@@ -156,7 +154,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
 
       await upsertPermissionOverride(
         user.id,
-        activeOrg.organization_id,
+        activeOrg.id,
         override.permission_id,
         !override.allowed,
         override.scope === "branch" ? override.scope_id : null
@@ -278,7 +276,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
                             </div>
                           </SelectItem>
                           {availableBranches.map((branch) => (
-                            <SelectItem key={branch.branch_id} value={branch.branch_id}>
+                            <SelectItem key={branch.id} value={branch.id}>
                               <div className="flex items-center gap-2">
                                 <Building2 className="h-4 w-4" />
                                 {branch.name}
@@ -319,7 +317,7 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
                         onClick={handleAddOverride}
                         disabled={!newOverrideData.permissionId || isLoading}
                       >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLoading && <FancySpinner className="mr-2 h-4 w-4 shrink-0" />}
                         Add Override
                       </Button>
                     </div>
@@ -385,8 +383,8 @@ export function UserPermissionOverrides({ user, onUpdate }: UserPermissionOverri
                             <>
                               <Building2 className="h-4 w-4" />
                               <span className="text-sm">
-                                {availableBranches.find((b) => b.branch_id === override.scope_id)
-                                  ?.name || "Branch"}
+                                {availableBranches.find((b) => b.id === override.scope_id)?.name ||
+                                  "Branch"}
                               </span>
                             </>
                           ) : (

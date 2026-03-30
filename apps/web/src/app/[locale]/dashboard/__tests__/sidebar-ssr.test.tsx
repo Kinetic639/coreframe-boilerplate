@@ -434,6 +434,150 @@ describe("Sidebar SSR Integration", () => {
     expect(branchesItem).toBeDefined(); // Shown: has branches.read
   });
 
+  // ── Warehouse Module ───────────────────────────────────────────────────────
+
+  // wh-1: warehouse group visible when MODULE_WAREHOUSE is in enabled_modules
+  it("should show warehouse group when MODULE_WAREHOUSE is entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: { allow: [], deny: [] },
+    };
+
+    const entitledEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["warehouse"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-03-29T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      entitledEntitlements,
+      "en"
+    );
+
+    const warehouseGroup = findItemById(model, "warehouse");
+    expect(warehouseGroup).toBeDefined(); // Shown: module entitled
+    // All children visible (no permission gate on skeleton)
+    expect(findItemById(model, "warehouse.inventory")).toBeDefined();
+    expect(findItemById(model, "warehouse.inventory.movements")).toBeDefined();
+    expect(findItemById(model, "warehouse.items")).toBeDefined();
+    expect(findItemById(model, "warehouse.locations")).toBeDefined();
+    expect(findItemById(model, "warehouse.labels")).toBeDefined();
+    expect(findItemById(model, "warehouse.alerts")).toBeDefined();
+    expect(findItemById(model, "warehouse.inventory.adjustments")).toBeDefined();
+    expect(findItemById(model, "warehouse.audits")).toBeDefined();
+    expect(findItemById(model, "warehouse.adjustments")).toBeDefined();
+    expect(findItemById(model, "warehouse.sales")).toBeDefined();
+    expect(findItemById(model, "warehouse.sales-orders")).toBeDefined();
+    expect(findItemById(model, "warehouse.clients")).toBeDefined();
+    expect(findItemById(model, "warehouse.purchases")).toBeDefined();
+    expect(findItemById(model, "warehouse.purchase-orders")).toBeDefined();
+    expect(findItemById(model, "warehouse.deliveries")).toBeDefined();
+    expect(findItemById(model, "warehouse.suppliers")).toBeDefined();
+    expect(findItemById(model, "warehouse.scanning.delivery")).toBeDefined();
+    expect(findItemById(model, "warehouse.settings")).toBeDefined();
+  });
+
+  // wh-2: warehouse group absent when MODULE_WAREHOUSE is NOT in enabled_modules
+  it("should hide warehouse group when MODULE_WAREHOUSE is NOT entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: { allow: [], deny: [] },
+    };
+
+    const noWarehouseEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"], // warehouse NOT present
+      contexts: [],
+      limits: {},
+      updated_at: "2026-03-29T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      noWarehouseEntitlements,
+      "en"
+    );
+
+    const warehouseGroup = findItemById(model, "warehouse");
+    expect(warehouseGroup).toBeUndefined(); // Hidden: module not entitled
+  });
+
+  // wh-3: warehouse group absent when entitlements are null (fail-closed)
+  it("should hide warehouse group when entitlements are null", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: { allow: ["warehouse.*"], deny: [] },
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, null, "en");
+
+    const warehouseGroup = findItemById(model, "warehouse");
+    expect(warehouseGroup).toBeUndefined(); // Hidden: fail-closed with null entitlements
+  });
+
+  // wh-4: existing modules unaffected by warehouse addition (regression guard)
+  it("should still show tools when warehouse is entitled (regression guard)", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: { allow: ["tools.read"], deny: [] },
+    };
+
+    const bothEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["warehouse"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-03-29T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, bothEntitlements, "en");
+
+    // Warehouse visible
+    expect(findItemById(model, "warehouse")).toBeDefined();
+    // Tools still visible (no regression)
+    expect(findItemById(model, "tools")).toBeDefined();
+  });
+
   // org-6: organization.branch-access no longer exists in the sidebar registry
   it("should never show organization.branch-access (page removed)", () => {
     const userContext = {

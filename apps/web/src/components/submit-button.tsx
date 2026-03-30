@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import FancySpinner from "@/components/ui/FancySpinner";
 import { useFormStatus } from "react-dom";
 
 interface SubmitButtonProps {
@@ -21,7 +21,7 @@ export const SubmitButton = ({
     <Button type="submit" disabled={pending || disabled}>
       {pending ? (
         <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
           {pendingText}
         </>
       ) : (

@@ -5,11 +5,11 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import FancySpinner from "@/components/ui/FancySpinner";
 import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Loader2,
   Building2,
   Mail,
   Calendar,
@@ -329,7 +329,7 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
                       disabled={actionLoading || declineLoading}
                     >
                       {actionLoading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
                       ) : (
                         <CheckCircle className="mr-2 h-4 w-4" />
                       )}
@@ -342,7 +342,7 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
                       disabled={actionLoading || declineLoading}
                     >
                       {declineLoading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
                       ) : (
                         <XCircle className="mr-2 h-4 w-4" />
                       )}

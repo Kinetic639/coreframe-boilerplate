@@ -165,25 +165,15 @@ export default async function QRPage({ params }: QRPageProps) {
                   </p>
                   <div className="space-y-2">
                     <Button asChild variant="outline" size="sm" className="w-full">
-                      <Link
-                        href={{
-                          pathname: "/dashboard-old/warehouse/labels/assign",
-                          query: { qr: token, type: "product" },
-                        }}
-                      >
+                      <Link href="/dashboard/warehouse/labels">
                         <Package className="mr-2 h-4 w-4" />
-                        Przypisz do produktu
+                        Otworz etykiety magazynu
                       </Link>
                     </Button>
                     <Button asChild variant="outline" size="sm" className="w-full">
-                      <Link
-                        href={{
-                          pathname: "/dashboard-old/warehouse/labels/assign",
-                          query: { qr: token, type: "location" },
-                        }}
-                      >
+                      <Link href="/dashboard/warehouse/labels">
                         <MapPin className="mr-2 h-4 w-4" />
-                        Przypisz do lokalizacji
+                        Otworz etykiety magazynu
                       </Link>
                     </Button>
                   </div>
@@ -192,9 +182,9 @@ export default async function QRPage({ params }: QRPageProps) {
 
               <div className="flex flex-col gap-2">
                 <Button asChild variant="outline">
-                  <Link href="/dashboard-old">
+                  <Link href="/dashboard/warehouse">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Powrót do panelu
+                    Powrot do magazynu
                   </Link>
                 </Button>
               </div>
@@ -235,29 +225,9 @@ export default async function QRPage({ params }: QRPageProps) {
 
   // Construct localized URLs based on the routing configuration
   if (entityType === "product") {
-    const productPath = routing.pathnames["/dashboard-old/warehouse/products/[id]"];
-    const localizedProductPath =
-      typeof productPath === "string"
-        ? productPath
-        : productPath[locale as keyof typeof productPath];
-    // Don't add locale prefix for default locale when localePrefix is "as-needed"
-    const finalPath =
-      locale === routing.defaultLocale
-        ? localizedProductPath.replace("[id]", entity.id)
-        : `/${locale}${localizedProductPath.replace("[id]", entity.id)}`;
-    redirect(finalPath);
+    redirect("/dashboard/warehouse/items");
   } else if (entityType === "location") {
-    const locationPath = routing.pathnames["/dashboard-old/warehouse/locations/[id]"];
-    const localizedLocationPath =
-      typeof locationPath === "string"
-        ? locationPath
-        : locationPath[locale as keyof typeof locationPath];
-    // Don't add locale prefix for default locale when localePrefix is "as-needed"
-    const finalPath =
-      locale === routing.defaultLocale
-        ? localizedLocationPath.replace("[id]", entity.id)
-        : `/${locale}${localizedLocationPath.replace("[id]", entity.id)}`;
-    redirect(finalPath);
+    redirect(`/dashboard/warehouse/locations/${entity.id}`);
   }
 
   // Fallback - show success page with manual navigation
@@ -289,22 +259,20 @@ export default async function QRPage({ params }: QRPageProps) {
 
             <Button asChild className="w-full">
               <Link
-                href={{
-                  pathname:
-                    entityType === "product"
-                      ? "/dashboard-old/warehouse/products/[id]"
-                      : "/dashboard-old/warehouse/locations/[id]",
-                  params: { id: entity.id },
-                }}
+                href={
+                  entityType === "product"
+                    ? "/dashboard/warehouse/items"
+                    : `/dashboard/warehouse/locations/${entity.id}`
+                }
               >
-                Przejdź do szczegółów
+                Przejdz do magazynu
               </Link>
             </Button>
 
             <Button asChild variant="outline" className="w-full">
-              <Link href="/dashboard-old">
+              <Link href="/dashboard/warehouse">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Powrót do panelu
+                Powrot do magazynu
               </Link>
             </Button>
 

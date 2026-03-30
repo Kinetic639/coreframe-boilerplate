@@ -11,49 +11,101 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import Image from "next/image";
-import { getTranslations } from "next-intl/server";
-import { Metadata } from "next";
+import { generatePublicMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ locale: string }>;
 };
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "metadata.public.home" });
-  const common = await getTranslations({ locale, namespace: "metadata.common" });
+function DashboardPreviewMock() {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full bg-primary/80" />
+          <div className="h-3 w-3 rounded-full bg-primary/50" />
+          <div className="h-3 w-3 rounded-full bg-primary/30" />
+        </div>
+        <div className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+          Ambra Dashboard
+        </div>
+      </div>
 
-  return {
-    title: `${t("title")}${common("separator")}${common("appName")}`,
-    description: t("description"),
-    keywords: [
-      "SaaS platform",
-      "warehouse management",
-      "inventory tracking",
-      "business management",
-      "enterprise software",
-      "Next.js",
-      "Supabase",
-      "zarządzanie magazynem",
-      "platforma SaaS",
-    ],
-    openGraph: {
-      title: `${t("title")}${common("separator")}${common("appName")}`,
-      description: t("description"),
-      type: "website",
-      siteName: common("appName"),
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${t("title")}${common("separator")}${common("appName")}`,
-      description: t("description"),
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
-  };
+      <div className="grid gap-4 bg-background p-4 md:grid-cols-[220px_1fr]">
+        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="h-6 w-28 rounded-md bg-primary/20" />
+          <div className="space-y-2">
+            <div className="h-10 rounded-md bg-background" />
+            <div className="h-10 rounded-md bg-background" />
+            <div className="h-10 rounded-md bg-background" />
+            <div className="h-10 rounded-md bg-background" />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-border bg-primary/10 p-4">
+              <div className="mb-2 h-3 w-20 rounded bg-primary/30" />
+              <div className="h-8 w-16 rounded bg-primary/50" />
+            </div>
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="mb-2 h-3 w-24 rounded bg-muted" />
+              <div className="h-8 w-20 rounded bg-muted/80" />
+            </div>
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="mb-2 h-3 w-16 rounded bg-muted" />
+              <div className="h-8 w-14 rounded bg-muted/80" />
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="mb-4 h-4 w-32 rounded bg-muted" />
+              <div className="flex h-48 items-end gap-3">
+                <div className="w-full rounded-t-md bg-primary/25" style={{ height: "45%" }} />
+                <div className="w-full rounded-t-md bg-primary/40" style={{ height: "72%" }} />
+                <div className="w-full rounded-t-md bg-primary/60" style={{ height: "58%" }} />
+                <div className="w-full rounded-t-md bg-primary/80" style={{ height: "88%" }} />
+                <div className="w-full rounded-t-md bg-primary" style={{ height: "66%" }} />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="mb-4 h-4 w-24 rounded bg-muted" />
+              <div className="space-y-3">
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <div className="mb-2 h-3 w-24 rounded bg-primary/40" />
+                  <div className="h-3 w-32 rounded bg-muted" />
+                </div>
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <div className="mb-2 h-3 w-20 rounded bg-primary/30" />
+                  <div className="h-3 w-28 rounded bg-muted" />
+                </div>
+                <div className="rounded-md border border-border bg-muted/30 p-3">
+                  <div className="mb-2 h-3 w-16 rounded bg-primary/20" />
+                  <div className="h-3 w-24 rounded bg-muted" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export async function generateMetadata({ params }: Props) {
+  return generatePublicMetadata(params, "metadata.public.home", [
+    "SaaS platform",
+    "warehouse management",
+    "inventory tracking",
+    "business management",
+    "enterprise software",
+    "Next.js",
+    "Supabase",
+    "zarządzanie magazynem",
+    "platforma SaaS",
+  ]);
 }
 
 export default async function Home() {
@@ -105,15 +157,7 @@ export default async function Home() {
             <div className="relative">
               <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-primary/50 to-primary/30 opacity-75 blur-lg"></div>
               <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-xl">
-                <Image
-                  src="/screenshot-boilerplate.png"
-                  alt="Ambra Dashboard"
-                  width={800}
-                  height={500}
-                  placeholder="blur"
-                  blurDataURL="/placeholder.png"
-                  className="h-auto w-full"
-                />
+                <DashboardPreviewMock />
               </div>
               <div className="absolute -bottom-6 -right-6 h-24 w-24 rounded-full bg-primary/20 blur-xl"></div>
             </div>
@@ -247,15 +291,7 @@ export default async function Home() {
             <div className="relative">
               <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/30 to-primary/10 opacity-50 blur-xl"></div>
               <div className="relative overflow-hidden rounded-lg border border-border bg-background p-4 shadow-xl">
-                <Image
-                  src="/screenshot-boilerplate.png"
-                  alt="Ambra Dashboard"
-                  width={800}
-                  height={500}
-                  placeholder="blur"
-                  blurDataURL="/placeholder.png"
-                  className="h-auto w-full"
-                />
+                <DashboardPreviewMock />
               </div>
             </div>
           </div>

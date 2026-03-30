@@ -24,8 +24,8 @@ vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
-vi.mock("@/lib/api/load-app-context-server", () => ({
-  loadAppContextWithClient: vi.fn(),
+vi.mock("@/server/loaders/v2/load-app-context.v2", () => ({
+  loadAppContextV2: vi.fn(),
 }));
 
 vi.mock("@/server/services/entitlements-admin.service", async () => {
@@ -44,7 +44,7 @@ vi.mock("@/server/services/entitlements-admin.service", async () => {
 });
 
 import { createClient } from "@/utils/supabase/server";
-import { loadAppContextWithClient } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 
 describe("Entitlements Admin Server Helpers", () => {
   describe("Schemas", () => {
@@ -383,7 +383,7 @@ describe("Entitlements Admin Server Helpers", () => {
       };
 
       vi.mocked(createClient).mockResolvedValue(mockSupabase);
-      vi.mocked(loadAppContextWithClient).mockResolvedValue(mockAppContext);
+      vi.mocked(loadAppContextV2).mockResolvedValue(mockAppContext);
       vi.mocked(EntitlementsAdminService.assertDevModeEnabled).mockResolvedValue(undefined);
       vi.mocked(EntitlementsAdminService.assertOrgOwner).mockResolvedValue(undefined);
     });
@@ -404,8 +404,7 @@ describe("Entitlements Admin Server Helpers", () => {
       // Verify call order and arguments
       expect(createClient).toHaveBeenCalledOnce();
       expect(mockSupabase.auth.getUser).toHaveBeenCalledOnce();
-      expect(loadAppContextWithClient).toHaveBeenCalledOnce();
-      expect(loadAppContextWithClient).toHaveBeenCalledWith(mockSupabase);
+      expect(loadAppContextV2).toHaveBeenCalledOnce();
       expect(EntitlementsAdminService.assertDevModeEnabled).toHaveBeenCalledOnce();
       expect(EntitlementsAdminService.assertDevModeEnabled).toHaveBeenCalledWith(mockSupabase);
       expect(EntitlementsAdminService.assertOrgOwner).toHaveBeenCalledOnce();
@@ -421,7 +420,7 @@ describe("Entitlements Admin Server Helpers", () => {
       await expect(enforceAdminAccess()).rejects.toThrow("Not authenticated");
 
       // Verify subsequent calls were NOT made
-      expect(loadAppContextWithClient).not.toHaveBeenCalled();
+      expect(loadAppContextV2).not.toHaveBeenCalled();
       expect(EntitlementsAdminService.assertDevModeEnabled).not.toHaveBeenCalled();
       expect(EntitlementsAdminService.assertOrgOwner).not.toHaveBeenCalled();
     });
@@ -434,7 +433,7 @@ describe("Entitlements Admin Server Helpers", () => {
 
       await expect(enforceAdminAccess()).rejects.toThrow("Not authenticated");
 
-      expect(loadAppContextWithClient).not.toHaveBeenCalled();
+      expect(loadAppContextV2).not.toHaveBeenCalled();
       expect(EntitlementsAdminService.assertDevModeEnabled).not.toHaveBeenCalled();
       expect(EntitlementsAdminService.assertOrgOwner).not.toHaveBeenCalled();
     });
@@ -445,7 +444,7 @@ describe("Entitlements Admin Server Helpers", () => {
         error: null,
       });
 
-      vi.mocked(loadAppContextWithClient).mockResolvedValue({ activeOrgId: null } as any);
+      vi.mocked(loadAppContextV2).mockResolvedValue({ activeOrgId: null } as any);
 
       await expect(enforceAdminAccess()).rejects.toThrow("No active organization");
 
@@ -460,7 +459,7 @@ describe("Entitlements Admin Server Helpers", () => {
         error: null,
       });
 
-      vi.mocked(loadAppContextWithClient).mockResolvedValue(null);
+      vi.mocked(loadAppContextV2).mockResolvedValue(null);
 
       await expect(enforceAdminAccess()).rejects.toThrow("No active organization");
 
@@ -524,7 +523,7 @@ describe("Entitlements Admin Server Helpers", () => {
       });
 
       const specificOrgId = "org-specific-456";
-      vi.mocked(loadAppContextWithClient).mockResolvedValue({
+      vi.mocked(loadAppContextV2).mockResolvedValue({
         activeOrgId: specificOrgId,
       } as any);
 
@@ -545,11 +544,11 @@ describe("Entitlements Admin Server Helpers", () => {
 
       await enforceAdminAccess();
 
-      // Verify createClient called exactly once
+      // Verify createClient called exactly once in enforceAdminAccess itself
       expect(createClient).toHaveBeenCalledTimes(1);
 
-      // Verify the same client instance passed to all functions
-      expect(loadAppContextWithClient).toHaveBeenCalledWith(mockSupabase);
+      // App context comes from the V2 loader
+      expect(loadAppContextV2).toHaveBeenCalledOnce();
       expect(EntitlementsAdminService.assertDevModeEnabled).toHaveBeenCalledWith(mockSupabase);
       expect(EntitlementsAdminService.assertOrgOwner).toHaveBeenCalledWith(
         mockSupabase,

@@ -29,15 +29,15 @@ export default function QRNotFoundPage() {
 
           <div className="flex flex-col gap-2 pt-4 sm:flex-row">
             <Button asChild variant="default" className="flex-1">
-              <Link href="/dashboard-old">
+              <Link href="/dashboard/warehouse">
                 <Home className="mr-2 h-4 w-4" />
-                Go to Dashboard
+                Go to Warehouse
               </Link>
             </Button>
             <Button asChild variant="outline" className="flex-1">
-              <Link href="/dashboard-old/warehouse/scanning">
+              <Link href="/dashboard/warehouse/labels">
                 <Search className="mr-2 h-4 w-4" />
-                Try Scanning Again
+                Open Labels
               </Link>
             </Button>
           </div>

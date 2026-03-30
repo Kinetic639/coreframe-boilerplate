@@ -6,6 +6,7 @@ import type {
   BranchDataV2,
   LoadedUserModuleV2,
 } from "@/lib/stores/v2/app-store";
+import { resolveActiveBranch } from "@repo/domain/branch";
 
 /**
  * V2 App Context Loader
@@ -191,22 +192,14 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   }
 
   // 5. Resolve activeBranchId with deterministic fallback
-  let activeBranchId: string | null = null;
-  let activeBranch: BranchDataV2 | null = null;
-
-  if (availableBranches.length > 0) {
-    // Try preferences.default_branch_id first (if it exists in available branches)
-    const preferredBranch = availableBranches.find((b) => b.id === preferences?.default_branch_id);
-
-    if (preferredBranch) {
-      activeBranchId = preferredBranch.id;
-      activeBranch = preferredBranch;
-    } else {
-      // Fallback: first available branch (deterministic sort by created_at)
-      activeBranchId = availableBranches[0].id;
-      activeBranch = availableBranches[0];
-    }
-  }
+  const resolvedBranchId = resolveActiveBranch(
+    preferences?.default_branch_id ?? null,
+    availableBranches.map((b) => b.id)
+  );
+  const activeBranchId = resolvedBranchId;
+  const activeBranch = resolvedBranchId
+    ? (availableBranches.find((b) => b.id === resolvedBranchId) ?? null)
+    : null;
 
   // 6. User modules — the modules/user_modules tables were removed; the module
   //    system is now entirely driven by the static registry in src/modules/index.ts.
