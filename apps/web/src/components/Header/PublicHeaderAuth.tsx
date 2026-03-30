@@ -6,7 +6,6 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { LayoutDashboard } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
 import { createClient } from "@/utils/supabase/client";
-import { useUserStore } from "@/lib/stores/user-store";
 import type { UserContext } from "@/lib/api/load-user-context-server";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
@@ -17,7 +16,6 @@ type PublicHeaderAuthProps = {
 
 export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
   const router = useRouter();
-  const { clear } = useUserStore();
   const supabase = createClient();
   const t = useTranslations("auth.logout");
   const tSuccess = useTranslations("auth.success");
@@ -27,7 +25,6 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
     setIsLoggingOut(true);
     try {
       await supabase.auth.signOut();
-      clear();
       toast.success(tSuccess("logoutSuccess"));
       router.refresh();
     } catch (error) {

@@ -194,15 +194,3 @@ describe("Legacy invitation mutations — removed from lib/api/invitations", () 
     expect(typeof api.cancelInvitation).toBe("function");
   });
 });
-
-describe("Legacy invitation mutations — removed from app/actions/invitations", () => {
-  it("acceptInvitationAction is no longer exported from actions/invitations", async () => {
-    const actions = await import("@/app/actions/invitations");
-    expect((actions as Record<string, unknown>)["acceptInvitationAction"]).toBeUndefined();
-  });
-
-  it("rejectInvitationAction is no longer exported from actions/invitations", async () => {
-    const actions = await import("@/app/actions/invitations");
-    expect((actions as Record<string, unknown>)["rejectInvitationAction"]).toBeUndefined();
-  });
-});
