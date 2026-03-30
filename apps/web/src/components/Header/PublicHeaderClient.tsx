@@ -63,23 +63,25 @@ export function PublicHeaderClient() {
           </NavigationMenu>
         ) : (
           <nav className="flex items-center gap-1">
-            {[
-              { href: "/features", label: "Funkcje" },
-              { href: "/solutions", label: "Rozwiązania" },
-              { href: "/blog", label: "Materiały edukacyjne" },
-              { href: "/pricing", label: "Cennik" },
-            ].map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
+            {["Funkcje", "Rozwiązania", "Materiały edukacyjne"].map((label) => (
+              <span
+                key={label}
                 className={cn(
-                  "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
-                  "text-foreground"
+                  "flex items-center gap-1 px-4 py-2 text-sm font-medium text-foreground"
                 )}
               >
-                {item.label}
-              </Link>
+                {label}
+              </span>
             ))}
+            <Link
+              href="/pricing"
+              className={cn(
+                "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
+                "text-foreground"
+              )}
+            >
+              Cennik
+            </Link>
           </nav>
         )}
       </div>

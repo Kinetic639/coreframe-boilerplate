@@ -189,8 +189,8 @@ describe("Legacy invitation mutations — removed from lib/api/invitations", () 
     expect(typeof api.fetchInvitationByToken).toBe("function");
   });
 
-  it("cancelInvitation is still exported (used by InvitationManagementView)", async () => {
+  it("cancelInvitation is no longer exported from lib/api/invitations", async () => {
     const api = await import("@/lib/api/invitations");
-    expect(typeof api.cancelInvitation).toBe("function");
+    expect((api as Record<string, unknown>)["cancelInvitation"]).toBeUndefined();
   });
 });
