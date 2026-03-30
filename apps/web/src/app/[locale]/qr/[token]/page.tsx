@@ -227,7 +227,7 @@ export default async function QRPage({ params }: QRPageProps) {
   if (entityType === "product") {
     redirect("/dashboard/warehouse/items");
   } else if (entityType === "location") {
-    redirect(`/dashboard/warehouse/locations/${entity.id}`);
+    redirect("/dashboard/warehouse/locations");
   }
 
   // Fallback - show success page with manual navigation
@@ -262,7 +262,7 @@ export default async function QRPage({ params }: QRPageProps) {
                 href={
                   entityType === "product"
                     ? "/dashboard/warehouse/items"
-                    : `/dashboard/warehouse/locations/${entity.id}`
+                    : "/dashboard/warehouse/locations"
                 }
               >
                 Przejdz do magazynu

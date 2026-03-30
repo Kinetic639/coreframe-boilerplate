@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { vi, type Mock } from "vitest";
 
 /**
  * Server Action Mocking Utilities
@@ -108,8 +108,13 @@ export function mockServerActionException(
  * expect(getProductsSpy).toHaveBeenCalledWith({ organizationId: 'org-123' })
  * ```
  */
-export function spyOnServerAction(modulePath: string, actionName: string) {
-  const mockFn = vi.fn().mockResolvedValue({ success: true, data: null });
+export function spyOnServerAction(
+  modulePath: string,
+  actionName: string
+): Mock<(args?: unknown) => Promise<ServerActionResponse<null>>> {
+  const mockFn: Mock<(args?: unknown) => Promise<ServerActionResponse<null>>> = vi
+    .fn()
+    .mockResolvedValue({ success: true, data: null });
 
   vi.mock(modulePath, () => ({
     [actionName]: mockFn,

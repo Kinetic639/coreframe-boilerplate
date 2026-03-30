@@ -9,15 +9,20 @@
     "prepare": "if [ -z \"$CI\" ]; then husky install; fi",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
-    "test": "turbo run test:run"
+    "test": "turbo run test:run",
+    "syncpack:lint": "syncpack lint",
+    "syncpack:fix": "syncpack fix",
+    "syncpack:list": "syncpack list",
+    "syncpack:format": "syncpack format"
   },
   "devDependencies": {
     "husky": "^8.0.3",
     "lint-staged": "^15.5.2",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.1",
+    "syncpack": "^14.2.1",
     "supabase": "^2.81.3",
     "turbo": "^2.8.17",
-    "typescript": "5.9.2"
+    "typescript": "^5.9.2"
   },
   "packageManager": "pnpm@10.23.0",
   "engines": {
@@ -28,8 +33,8 @@
   },
   "pnpm": {
     "overrides": {
-      "react": "19.1.0",
-      "react-dom": "19.1.0"
+      "react": "^19.2.0",
+      "react-dom": "^19.2.0"
     }
   }
 }

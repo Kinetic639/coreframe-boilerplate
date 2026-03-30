@@ -22,6 +22,8 @@ export interface UserDetailWithAssignments extends User {
   roles: UserWithRoleAssignment[];
   branch: Branch | null;
   permissionOverrides: UserPermissionOverrideWithDetails[];
+  default_branch_id?: string | null;
+  status_id?: string | null;
 }
 
 /**

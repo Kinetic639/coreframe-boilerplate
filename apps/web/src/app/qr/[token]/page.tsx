@@ -1,6 +1,27 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { Database } from "@/../supabase/types/types";
+
+interface QrLabelRecord {
+  id: string;
+  qr_token: string;
+  is_active: boolean;
+  entity_type: "location" | "product" | string | null;
+  entity_id: string | null;
+  organization_id: string | null;
+  branch_id: string | null;
+}
+
+interface QrScanLogInsert {
+  qr_token: string;
+  scan_type: string;
+  scanner_type: string;
+  scan_result: string;
+  error_message?: string | null;
+  redirect_path?: string | null;
+  organization_id?: string | null;
+  branch_id?: string | null;
+  scan_context?: Record<string, unknown>;
+}
 
 interface QRRedirectPageProps {
   params: Promise<{
@@ -12,10 +33,10 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
   const { token } = await params;
 
   // Create a public Supabase client (no auth required for QR lookups)
-  const supabase = createClient<Database>(
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  ) as ReturnType<typeof createClient<any>>;
 
   try {
     // Look up the QR code token
@@ -32,7 +53,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
       )
       .eq("qr_token", token)
       .eq("is_active", true)
-      .single();
+      .single<QrLabelRecord>();
 
     if (error || !qrLabel) {
       // Log the scan attempt (even if failed)
@@ -43,7 +64,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
         scan_result: "not_found",
         error_message: "QR token not found",
         redirect_path: null,
-      });
+      } satisfies QrScanLogInsert);
 
       // Redirect to a "QR not found" page
       redirect("/qr/not-found");
@@ -52,7 +73,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
     // Determine the redirect path based on entity type
     let redirectPath: string;
     if (qrLabel.entity_type === "location" && qrLabel.entity_id) {
-      redirectPath = `/dashboard/warehouse/locations/${qrLabel.entity_id}`;
+      redirectPath = "/dashboard/warehouse/locations";
     } else if (qrLabel.entity_type === "product" && qrLabel.entity_id) {
       redirectPath = "/dashboard/warehouse/items";
     } else {
@@ -73,7 +94,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
         entity_id: qrLabel.entity_id,
         label_id: qrLabel.id,
       },
-    });
+    } satisfies QrScanLogInsert);
 
     // Redirect to the appropriate page
     // The auth middleware will handle checking if user is logged in
@@ -90,7 +111,7 @@ export default async function QRRedirectPage({ params }: QRRedirectPageProps) {
       scan_result: "error",
       error_message: error instanceof Error ? error.message : "Unknown error",
       redirect_path: null,
-    });
+    } satisfies QrScanLogInsert);
 
     // Redirect to error page
     redirect("/qr/error");
