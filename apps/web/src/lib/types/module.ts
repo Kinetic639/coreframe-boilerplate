@@ -1,5 +1,6 @@
-import { Scope } from "./user";
 import { Widget } from "./widgets";
+
+export type Scope = "org" | "branch";
 
 export type MenuItem = LinkMenuItem | ActionMenuItem;
 export interface AllowedUser {
