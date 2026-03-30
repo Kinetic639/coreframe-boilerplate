@@ -4,7 +4,12 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ["avatars.githubusercontent.com", "zlcnlalwfmmtusigeuyk.supabase.co", "rjeraydumwechpjjzrus.supabase.co", "picsum.photos"],
+    remotePatterns: [
+      { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      { protocol: "https", hostname: "zlcnlalwfmmtusigeuyk.supabase.co" },
+      { protocol: "https", hostname: "rjeraydumwechpjjzrus.supabase.co" },
+      { protocol: "https", hostname: "picsum.photos" },
+    ],
   },
   async redirects() {
     return [
@@ -47,4 +52,3 @@ const nextConfig = {
 
 const withNextIntl = createNextIntlPlugin();
 export default withNextIntl(nextConfig);
-

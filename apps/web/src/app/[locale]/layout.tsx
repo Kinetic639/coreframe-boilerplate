@@ -8,6 +8,7 @@ import { getTranslations, setRequestLocale, getMessages } from "next-intl/server
 import { notFound } from "next/navigation";
 import { ToastContainerThemed } from "@/components/toast-container-themed";
 import { ToastListener } from "@/components/toast-listener";
+import type { Metadata } from "next";
 
 type Props = {
   children: ReactNode;
@@ -18,13 +19,15 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-export async function generateMetadata(props: Omit<Props, "children">) {
+export async function generateMetadata(props: Omit<Props, "children">): Promise<Metadata> {
   const { locale } = await props.params;
 
   const t = await getTranslations({ locale, namespace: "LocaleLayout" });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   return {
     title: t("title"),
+    metadataBase: new URL(appUrl),
   };
 }
 
