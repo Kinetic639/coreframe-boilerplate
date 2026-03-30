@@ -52,7 +52,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
       setFirstName(user.first_name ?? "");
       setLastName(user.last_name ?? "");
     }
-  }, [user?.first_name, user?.last_name]);
+  }, [user]);
 
   // Initialize display name and phone from preferences once loaded
   useEffect(() => {
@@ -60,7 +60,7 @@ export function ProfileClient({ avatarSignedUrl, translations }: ProfileClientPr
       setDisplayName(preferences.displayName ?? "");
       setPhone(preferences.phone ?? "");
     }
-  }, [preferences?.displayName, preferences?.phone]);
+  }, [preferences]);
 
   if (isLoading) {
     return <LoadingSkeleton variant="form" count={2} />;

@@ -29,7 +29,6 @@ vi.mock("../_components/dashboard-initial-loader", () => ({
 
 // ─── Import component after mocks ────────────────────────────────────────────
 
-// eslint-disable-next-line import/first
 import { DashboardV2Providers } from "../_providers";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

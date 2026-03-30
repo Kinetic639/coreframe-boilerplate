@@ -61,7 +61,7 @@ export default function PrimitivesPage() {
           <FormWrapper
             schema={testSchema}
             onSubmit={async (data) => {
-              console.log("Form data:", data);
+              console.warn("Form data:", data);
               await new Promise((resolve) => setTimeout(resolve, 1000));
             }}
             defaultValues={{
@@ -128,7 +128,7 @@ export default function PrimitivesPage() {
             title="Create New Item"
             schema={z.object({ title: z.string().min(1) })}
             onSubmit={async (data) => {
-              console.log("Created:", data);
+              console.warn("Created:", data);
               toastPatterns.created("Item");
             }}
           >
@@ -137,8 +137,8 @@ export default function PrimitivesPage() {
 
           <FilterForm
             schema={z.object({ search: z.string() })}
-            onApply={(filters) => console.log("Filters:", filters)}
-            onClear={() => console.log("Cleared")}
+            onApply={(filters) => console.warn("Filters:", filters)}
+            onClear={() => console.warn("Cleared")}
             activeFiltersCount={2}
           >
             <TextInput name="search" label="Search" />
@@ -148,7 +148,7 @@ export default function PrimitivesPage() {
         <div className="max-w-md">
           <SearchForm
             placeholder="Search items..."
-            onSearch={(query) => console.log("Search:", query)}
+            onSearch={(query) => console.warn("Search:", query)}
           />
         </div>
       </section>
@@ -338,7 +338,7 @@ export default function PrimitivesPage() {
               <Badge variant="success">Success</Badge>
               <Badge variant="warning">Warning</Badge>
               <Badge variant="info">Info</Badge>
-              <Badge removable onRemove={() => console.log("Removed")}>
+              <Badge removable onRemove={() => console.warn("Removed")}>
                 Removable
               </Badge>
             </div>

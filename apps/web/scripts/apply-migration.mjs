@@ -1,3 +1,4 @@
+/* global process */
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
@@ -47,7 +48,7 @@ async function applyMigration() {
       if (statement.trim().startsWith('--')) continue;
 
       try {
-        const { data, error } = await supabase.rpc('exec_sql', {
+        const { error } = await supabase.rpc('exec_sql', {
           sql: statement
         });
 

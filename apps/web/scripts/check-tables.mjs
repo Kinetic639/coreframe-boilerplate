@@ -1,3 +1,4 @@
+/* global process */
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,7 +23,7 @@ async function checkTables() {
 
   for (const table of tablesToCheck) {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(table)
         .select('*')
         .limit(1);
