@@ -231,7 +231,7 @@ async function requireModuleOrRedirect(
     return ctx;
   } catch (error) {
     if (error instanceof EntitlementError) {
-      const { code, context } = error;
+      const { code } = error;
 
       // Only redirect on MODULE_ACCESS_DENIED
       if (code === "MODULE_ACCESS_DENIED") {

@@ -101,9 +101,9 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       const analyticsItem = model.main.find((item) => item.id === "analytics");
       expect(analyticsItem).toBeUndefined();
 
-      // Warehouse is no longer in the V2 sidebar registry → always absent
+      // Warehouse is enabled in the V2 sidebar registry when the module is entitled
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeUndefined();
+      expect(warehouseItem).toBeDefined();
     });
 
     it("should hide organization when module entitled but module access permission absent", () => {
@@ -189,9 +189,9 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
 
       const model = buildSidebarModel(baseAppContext, userWithPermissions, baseEntitlements, "en");
 
-      // Warehouse is no longer in the V2 sidebar registry → always absent
+      // Warehouse is enabled in the V2 sidebar registry when the module is entitled
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeUndefined();
+      expect(warehouseItem).toBeDefined();
 
       // Organization: module enabled → visible parent
       const orgItem = model.main.find((item) => item.id === "organization");
@@ -289,9 +289,13 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
 
       const model = buildSidebarModel(baseAppContext, userWithPermissions, baseEntitlements, "en");
 
-      // Warehouse is no longer in the V2 sidebar registry → always absent
+      // Warehouse is present in the current V2 registry and should preserve its structure
       const warehouseItem = model.main.find((item) => item.id === "warehouse");
-      expect(warehouseItem).toBeUndefined();
+      expect(warehouseItem).toBeDefined();
+      expect(warehouseItem?.id).toBe("warehouse");
+      expect(warehouseItem?.iconKey).toBe("warehouse");
+      expect(warehouseItem?.title).toBe("Warehouse");
+      expect(Array.isArray(warehouseItem?.children)).toBe(true);
 
       // Check tools item structure (always available, requires PERMISSION_TOOLS_READ)
       const toolsItem = model.main.find((item) => item.id === "tools");
