@@ -51,10 +51,8 @@ import {
 } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
 import {
-  UserDetailWithAssignments,
-  UserPermissionOverrideWithDetails,
-} from "@/app/actions/users/fetch-user-detail";
-import {
+  type UserDetailWithAssignments,
+  type UserPermissionOverrideWithDetails,
   upsertPermissionOverride,
   removePermissionOverride,
   fetchAvailablePermissions,

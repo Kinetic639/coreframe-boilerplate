@@ -46,8 +46,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
 import { assignUserRole, removeUserRole, fetchAvailableRoles } from "@/lib/api/user-detail";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useState, useEffect } from "react";
 

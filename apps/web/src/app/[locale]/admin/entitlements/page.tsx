@@ -1,4 +1,4 @@
-import { loadAppContextServer } from "@/lib/api/load-app-context-server";
+import { loadAppContextV2 } from "@/server/loaders/v2/load-app-context.v2";
 import { notFound } from "next/navigation";
 import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
@@ -27,13 +27,25 @@ import { createClient } from "@/utils/supabase/server";
  */
 export default async function EntitlementsAdminPage() {
   const locale = await getLocale();
-  const appContext = await loadAppContextServer();
+  const appContext = await loadAppContextV2();
 
   if (!appContext?.activeOrgId) {
     redirect({ href: "/sign-in", locale });
   }
 
   const supabase = await createClient();
+  const { data: entitlements, error: entitlementsError } = await supabase
+    .from("organization_entitlements")
+    .select("*")
+    .eq("organization_id", appContext.activeOrgId)
+    .maybeSingle();
+
+  if (entitlementsError) {
+    console.error(
+      "[EntitlementsAdminPage] Failed to load organization_entitlements:",
+      entitlementsError
+    );
+  }
 
   // Security: Enforce org_owner role (returns 404 to hide page from non-owners)
   const { data: isOwner } = await supabase.rpc("is_org_owner", {
@@ -67,7 +79,7 @@ export default async function EntitlementsAdminPage() {
           </div>
           <EntitlementsAdminUI
             orgId={appContext.activeOrgId}
-            entitlements={appContext.entitlements}
+            entitlements={entitlements}
             plans={[]}
             addons={[]}
             overrides={[]}
@@ -139,7 +151,7 @@ export default async function EntitlementsAdminPage() {
 
         <EntitlementsAdminUI
           orgId={appContext.activeOrgId}
-          entitlements={appContext.entitlements}
+          entitlements={entitlements}
           plans={plans || []}
           addons={addons || []}
           overrides={overrides || []}

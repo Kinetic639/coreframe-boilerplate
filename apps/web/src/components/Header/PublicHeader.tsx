@@ -1,10 +1,9 @@
 import { PublicHeaderClient } from "./PublicHeaderClient";
-import { loadUserContextServer } from "@/lib/api/load-user-context-server";
+import { loadUserContextV2 } from "@/server/loaders/v2/load-user-context.v2";
 import { PublicHeaderAuth } from "./PublicHeaderAuth";
 
 const PublicHeader = async () => {
-  // Load user context server-side to avoid hydration issues
-  const userContext = await loadUserContextServer();
+  const userContext = await loadUserContextV2();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

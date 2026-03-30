@@ -6,12 +6,12 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { LayoutDashboard } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
 import { createClient } from "@/utils/supabase/client";
-import type { UserContext } from "@/lib/api/load-user-context-server";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
+import type { UserContextV2 } from "@/lib/stores/v2/user-store";
 
 type PublicHeaderAuthProps = {
-  userContext: UserContext | null;
+  userContext: UserContextV2 | null;
 };
 
 export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {

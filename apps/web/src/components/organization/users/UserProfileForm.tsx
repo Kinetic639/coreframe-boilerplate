@@ -15,8 +15,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, Edit2, X, CheckCircle, AlertCircle } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
 import { updateUserProfile } from "@/lib/api/user-detail";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { useAppStore } from "@/lib/stores/app-store";
 import { useState } from "react";
 

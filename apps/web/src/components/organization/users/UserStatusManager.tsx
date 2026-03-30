@@ -28,7 +28,7 @@ import {
   Trash2,
 } from "lucide-react";
 import FancySpinner from "@/components/ui/FancySpinner";
-import { UserDetailWithAssignments } from "@/app/actions/users/fetch-user-detail";
+import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { updateUserStatus } from "@/lib/api/user-detail";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";

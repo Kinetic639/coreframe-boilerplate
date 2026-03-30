@@ -2,11 +2,11 @@ import { signOutAction } from "@/app/[locale]/actions";
 import { Link } from "@/i18n/navigation";
 import { Button } from "./ui/button";
 import { getTranslations } from "next-intl/server";
-import { loadUserContextServer } from "@/lib/api/load-user-context-server";
+import { loadUserContextV2 } from "@/server/loaders/v2/load-user-context.v2";
 
 export default async function HeaderAuth() {
   const t = await getTranslations("authForms.AuthButton");
-  const context = await loadUserContextServer();
+  const context = await loadUserContextV2();
 
   if (!context) {
     return (
