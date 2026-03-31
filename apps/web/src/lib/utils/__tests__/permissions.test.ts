@@ -1,8 +1,17 @@
 /**
  * @vitest-environment node
  */
-import { describe, it, expect } from "vitest";
-import { checkPermission, matchesAnyPattern, type PermissionSnapshot } from "../permissions";
+import { describe, it, expect, afterEach } from "vitest";
+import {
+  checkPermission,
+  matchesAnyPattern,
+  clearPermissionRegexCache,
+  type PermissionSnapshot,
+} from "../permissions";
+
+afterEach(() => {
+  clearPermissionRegexCache();
+});
 
 describe("Permission Matching Utilities", () => {
   describe("matchesAnyPattern()", () => {
@@ -363,5 +372,21 @@ describe("Permission Matching Utilities", () => {
         expect(checkPermission(snapshot, "warehouse.inventory.view")).toBe(false);
       });
     });
+  });
+});
+
+// ─── clearPermissionRegexCache ────────────────────────────────────────────────
+
+describe("clearPermissionRegexCache", () => {
+  it("does not throw when called on an empty cache", () => {
+    clearPermissionRegexCache(); // already cleared by afterEach
+    expect(() => clearPermissionRegexCache()).not.toThrow();
+  });
+
+  it("allows patterns to be re-used after clearing (no stale regex)", () => {
+    matchesAnyPattern(["warehouse.*"], "warehouse.products.read");
+    clearPermissionRegexCache();
+    // should re-compile and still work correctly
+    expect(matchesAnyPattern(["warehouse.*"], "warehouse.products.read")).toBe(true);
   });
 });

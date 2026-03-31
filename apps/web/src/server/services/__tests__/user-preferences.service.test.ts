@@ -667,5 +667,212 @@ describe("UserPreferencesService", () => {
         UserPreferencesService.setDefaultBranch(mockSupabase, "user-123", "branch-999")
       ).rejects.toThrow("Branch not found");
     });
+
+    it("should throw when update fails after branch validation passes", async () => {
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "branches") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "branch-456", organization_id: "org-123" },
+                  error: null,
+                }),
+              }),
+            };
+          }
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: "update failed" },
+              }),
+            }),
+          };
+        }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.setDefaultBranch(mockSupabase, "user-123", "branch-456")
+      ).rejects.toThrow("Failed to set default branch");
+    });
+  });
+
+  describe("syncUiSettings — gap coverage", () => {
+    it("throws when preferences not found (PGRST116)", async () => {
+      const mockSupabase = createMockSupabase({
+        selectError: { code: "PGRST116", message: "No rows found" },
+      });
+
+      await expect(
+        UserPreferencesService.syncUiSettings(mockSupabase, "user-123", {
+          theme: "dark",
+          clientUpdatedAt: "2026-01-01T00:00:00.000Z",
+        })
+      ).rejects.toThrow("User preferences not found");
+    });
+
+    it("throws when update fails", async () => {
+      let callCount = 0;
+      const mockSupabase = {
+        from: vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ data: samplePreferencesRow, error: null }),
+              }),
+            };
+          }
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: "sync failed" },
+              }),
+            }),
+          };
+        }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.syncUiSettings(mockSupabase, "user-123", {
+          clientUpdatedAt: "2026-01-01T00:00:00.000Z",
+        })
+      ).rejects.toThrow("Failed to sync UI settings");
+    });
+  });
+
+  describe("getDashboardSettings — gap coverage", () => {
+    it("throws on non-PGRST116 DB error", async () => {
+      const chainMock = {
+        eq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "500", message: "connection error" },
+        }),
+      };
+      const mockSupabase = {
+        from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue(chainMock) }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.getDashboardSettings(mockSupabase, "user-123")
+      ).rejects.toThrow("Failed to get dashboard settings");
+    });
+  });
+
+  describe("setDefaultOrganization — gap coverage", () => {
+    it("throws when preferences update fails after membership validated", async () => {
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "organization_members") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({ data: { id: "m1" }, error: null }),
+              }),
+            };
+          }
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: "update failed" },
+              }),
+            }),
+          };
+        }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.setDefaultOrganization(mockSupabase, "user-123", "org-456")
+      ).rejects.toThrow("Failed to set default organization");
+    });
+  });
+
+  describe("updateProfile — gap coverage", () => {
+    it("updates users table when firstName is provided", async () => {
+      const updatedRow = { ...samplePreferencesRow, display_name: "Jane" };
+      let usersUpdateCalled = false;
+
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "users") {
+            usersUpdateCalled = true;
+            return {
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            };
+          }
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({ data: updatedRow, error: null }),
+            }),
+          };
+        }),
+      } as any;
+
+      await UserPreferencesService.updateProfile(mockSupabase, "user-123", {
+        firstName: "Jane",
+        displayName: "Jane",
+      });
+
+      expect(usersUpdateCalled).toBe(true);
+    });
+  });
+
+  describe("getOrCreatePreferences — gap coverage", () => {
+    it("throws when insert fails after PGRST116", async () => {
+      let callCount = 0;
+      const mockSupabase = {
+        from: vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { code: "PGRST116" },
+                }),
+              }),
+            };
+          }
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: "insert failed" },
+              }),
+            }),
+          };
+        }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.getOrCreatePreferences(mockSupabase, "user-new")
+      ).rejects.toThrow("Failed to create user preferences");
+    });
   });
 });
