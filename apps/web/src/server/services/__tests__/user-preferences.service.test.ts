@@ -240,6 +240,18 @@ describe("UserPreferencesService", () => {
       expect(result.dateFormat).toBe("MM-DD-YYYY");
       expect(result.timeFormat).toBe("12h");
     });
+
+    it("should throw error on update failure", async () => {
+      const mockSupabase = createMockSupabase({
+        updateError: { code: "500", message: "Update failed" },
+      });
+
+      await expect(
+        UserPreferencesService.updateRegionalSettings(mockSupabase, "user-123", {
+          timezone: "UTC",
+        })
+      ).rejects.toThrow("Failed to update regional settings");
+    });
   });
 
   describe("updateNotificationSettings", () => {
@@ -360,6 +372,52 @@ describe("UserPreferencesService", () => {
         sidebarCollapsed: true, // New value merged
       });
     });
+
+    it("should throw when preferences not found", async () => {
+      const mockSupabase = createMockSupabase({
+        selectError: { code: "PGRST116", message: "No rows found" },
+      });
+
+      await expect(
+        UserPreferencesService.updateDashboardSettings(mockSupabase, "user-123", {})
+      ).rejects.toThrow("User preferences not found");
+    });
+
+    it("should throw on update failure", async () => {
+      let callCount = 0;
+      const mockSupabase = {
+        from: vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnThis(),
+                is: vi.fn().mockReturnThis(),
+                single: vi.fn().mockResolvedValue({
+                  data: samplePreferencesRow,
+                  error: null,
+                }),
+              }),
+            };
+          }
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              is: vi.fn().mockReturnThis(),
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { code: "500", message: "update error" },
+              }),
+            }),
+          };
+        }),
+      } as any;
+
+      await expect(
+        UserPreferencesService.updateDashboardSettings(mockSupabase, "user-123", {})
+      ).rejects.toThrow("Failed to update dashboard settings");
+    });
   });
 
   describe("updateModuleSettings", () => {
@@ -412,6 +470,18 @@ describe("UserPreferencesService", () => {
         pageSize: 50,
         sortField: "name",
       });
+    });
+
+    it("should throw when preferences not found", async () => {
+      const mockSupabase = createMockSupabase({
+        selectError: { code: "PGRST116", message: "No rows found" },
+      });
+
+      await expect(
+        UserPreferencesService.updateModuleSettings(mockSupabase, "user-123", "warehouse", {
+          pageSize: 25,
+        })
+      ).rejects.toThrow("User preferences not found");
     });
   });
 

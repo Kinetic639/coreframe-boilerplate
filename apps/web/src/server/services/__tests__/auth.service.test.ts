@@ -471,3 +471,59 @@ describe("AuthService.getUserBranches", () => {
     expect(AuthService.getUserBranches([])).toEqual([]);
   });
 });
+
+// ============================================================
+// AuthService.getUserRoles — app_metadata.roles non-array edge case
+// ============================================================
+
+describe("AuthService.getUserRoles — app_metadata non-array edge cases", () => {
+  it("returns empty array when app_metadata.roles is not an array", () => {
+    const payload = {
+      sub: "user-abc",
+      email: "user@example.com",
+      app_metadata: { roles: "not-an-array" },
+      aud: "authenticated",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iat: Math.floor(Date.now() / 1000),
+    };
+    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = btoa(JSON.stringify(payload));
+    const token = `${header}.${body}.fake-signature`;
+
+    // Falls through to legacy path — no root-level roles either → empty
+    expect(AuthService.getUserRoles(token)).toEqual([]);
+  });
+
+  it("returns empty array when app_metadata is present but roles key is missing", () => {
+    const payload = {
+      sub: "user-abc",
+      app_metadata: { provider: "email" },
+      aud: "authenticated",
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      iat: Math.floor(Date.now() / 1000),
+    };
+    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+    const body = btoa(JSON.stringify(payload));
+    const token = `${header}.${body}.fake-signature`;
+
+    expect(AuthService.getUserRoles(token)).toEqual([]);
+  });
+});
+
+// ============================================================
+// AuthService.getUserBranches — orgId filter with null org_id on branch role
+// ============================================================
+
+describe("AuthService.getUserBranches — null org_id filtering", () => {
+  it("excludes branch roles with null org_id when filtering by orgId", () => {
+    const roles = [
+      makeBranchRole("warehouse_manager", "branch-1", null), // null org_id
+      makeBranchRole("warehouse_manager", "branch-2", "org-1"),
+    ];
+
+    const result = AuthService.getUserBranches(roles, "org-1");
+    expect(result).toHaveLength(1);
+    expect(result).toContain("branch-2");
+    expect(result).not.toContain("branch-1");
+  });
+});

@@ -1082,6 +1082,16 @@ describe("EntitlementsService", () => {
     });
   });
 
+  describe("getCurrentUsage — unknown limit key", () => {
+    it("throws when the limit key has no registered strategy", async () => {
+      (createClient as ReturnType<typeof vi.fn>).mockResolvedValue(mockSupabase);
+
+      await expect(
+        EntitlementsService.getCurrentUsage("org-123", "nonexistent.key" as any)
+      ).rejects.toThrow("Unknown limit key: nonexistent.key");
+    });
+  });
+
   describe("percentageUsed Contract (explicit)", () => {
     it("should calculate raw percentage that can exceed 100", async () => {
       // Contract: percentageUsed is raw calculation, can be >100
