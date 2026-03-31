@@ -268,7 +268,7 @@ export function InvitationsClient({
       )}
 
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t("dialogTitle")}</DialogTitle>
           </DialogHeader>

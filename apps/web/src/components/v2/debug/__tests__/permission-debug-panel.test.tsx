@@ -462,7 +462,7 @@ describe("PermissionDebugPanel", () => {
 
       // Should be able to navigate with arrow keys
       const permissionsTab = screen.getByRole("tab", { name: /permissions/i });
-      permissionsTab.focus();
+      await user.click(permissionsTab);
       await user.keyboard("{ArrowRight}");
 
       // Context tab should be focused

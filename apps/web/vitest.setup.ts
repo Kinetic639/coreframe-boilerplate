@@ -14,6 +14,13 @@ beforeAll(() => {
   server.listen({ onUnhandledRequest: isCI ? "error" : "warn" });
 });
 
+// Silence console.error in tests — production code logs expected error paths
+// (failed DB calls, failed event emission, etc.) which pollute test output.
+// Actual test failures surface as assertion errors, not console.error calls.
+beforeEach(() => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
 // Reset any request handlers that we may add during the tests,
 // so they don't affect other tests
 afterEach(() => {

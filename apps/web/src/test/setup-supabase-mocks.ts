@@ -1,6 +1,14 @@
 import { vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+vi.mock("@/utils/supabase/client", () => ({
+  createClient: vi.fn(() => createMockSupabaseClient()),
+}));
+
+vi.mock("@/utils/supabase/server", () => ({
+  createClient: vi.fn(() => createMockSupabaseClient()),
+}));
+
 /**
  * Error helper functions for simulating Supabase errors
  */
@@ -110,11 +118,5 @@ export function createMockSupabaseClient(): SupabaseClient {
 }
 
 export function mockSupabaseClient() {
-  vi.mock("@/utils/supabase/client", () => ({
-    createClient: vi.fn(() => createMockSupabaseClient()),
-  }));
-
-  vi.mock("@/utils/supabase/server", () => ({
-    createClient: vi.fn(() => createMockSupabaseClient()),
-  }));
+  // vi.mock calls for supabase/client and supabase/server are hoisted to the top of this module
 }
