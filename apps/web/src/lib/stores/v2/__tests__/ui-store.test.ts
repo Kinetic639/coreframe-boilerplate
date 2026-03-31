@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { useUiStoreV2 } from "../ui-store";
+import { useUiStoreV2, selectUiSyncState } from "../ui-store";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -37,6 +37,10 @@ describe("useUiStoreV2", () => {
       sidebarOpen: true,
       sidebarCollapsed: false,
       theme: "system",
+      colorTheme: "default",
+      _syncVersion: 0,
+      _lastLocalChangeAt: null,
+      _hasHydrated: false,
     });
   });
 
@@ -282,6 +286,135 @@ describe("useUiStoreV2", () => {
         useUiStoreV2.getState().setTheme(theme);
         expect(useUiStoreV2.getState().theme).toBe(theme);
       });
+    });
+  });
+
+  describe("setColorTheme", () => {
+    it("sets colorTheme", () => {
+      useUiStoreV2.getState().setColorTheme("ocean");
+      expect(useUiStoreV2.getState().colorTheme).toBe("ocean");
+    });
+
+    it("increments _syncVersion", () => {
+      const before = useUiStoreV2.getState()._syncVersion;
+      useUiStoreV2.getState().setColorTheme("forest");
+      expect(useUiStoreV2.getState()._syncVersion).toBe(before + 1);
+    });
+
+    it("updates _lastLocalChangeAt", () => {
+      useUiStoreV2.getState().setColorTheme("forest");
+      expect(useUiStoreV2.getState()._lastLocalChangeAt).not.toBeNull();
+    });
+  });
+
+  describe("_syncVersion tracking", () => {
+    it("increments on each setter call", () => {
+      const s = useUiStoreV2.getState();
+      s.setSidebarOpen(false);
+      s.setSidebarCollapsed(true);
+      s.setTheme("dark");
+      s.setColorTheme("ocean");
+      expect(useUiStoreV2.getState()._syncVersion).toBe(4);
+    });
+  });
+
+  describe("resetToDefaults", () => {
+    it("resets theme, colorTheme, sidebarCollapsed, sidebarOpen", () => {
+      const s = useUiStoreV2.getState();
+      s.setTheme("dark");
+      s.setColorTheme("ocean");
+      s.setSidebarCollapsed(true);
+      s.setSidebarOpen(false);
+      s.resetToDefaults();
+      const after = useUiStoreV2.getState();
+      expect(after.theme).toBe("system");
+      expect(after.colorTheme).toBe("default");
+      expect(after.sidebarCollapsed).toBe(false);
+      expect(after.sidebarOpen).toBe(true);
+    });
+
+    it("increments _syncVersion", () => {
+      const before = useUiStoreV2.getState()._syncVersion;
+      useUiStoreV2.getState().resetToDefaults();
+      expect(useUiStoreV2.getState()._syncVersion).toBe(before + 1);
+    });
+
+    it("updates _lastLocalChangeAt", () => {
+      useUiStoreV2.getState().resetToDefaults();
+      expect(useUiStoreV2.getState()._lastLocalChangeAt).not.toBeNull();
+    });
+  });
+
+  describe("hydrateFromServer", () => {
+    it("applies theme from server", () => {
+      useUiStoreV2.getState().hydrateFromServer({ theme: "dark" });
+      expect(useUiStoreV2.getState().theme).toBe("dark");
+    });
+
+    it("applies colorTheme from server", () => {
+      useUiStoreV2.getState().hydrateFromServer({ colorTheme: "forest" });
+      expect(useUiStoreV2.getState().colorTheme).toBe("forest");
+    });
+
+    it("applies sidebarCollapsed from server", () => {
+      useUiStoreV2.getState().hydrateFromServer({ sidebarCollapsed: true });
+      expect(useUiStoreV2.getState().sidebarCollapsed).toBe(true);
+    });
+
+    it("does NOT update _lastLocalChangeAt", () => {
+      useUiStoreV2.getState().hydrateFromServer({ theme: "dark" });
+      expect(useUiStoreV2.getState()._lastLocalChangeAt).toBeNull();
+    });
+
+    it("ignores undefined fields (does not clobber existing)", () => {
+      useUiStoreV2.getState().setTheme("dark");
+      useUiStoreV2.getState().hydrateFromServer({});
+      expect(useUiStoreV2.getState().theme).toBe("dark");
+    });
+
+    it("handles null/falsy input gracefully", () => {
+      expect(() => useUiStoreV2.getState().hydrateFromServer(null as never)).not.toThrow();
+    });
+  });
+
+  describe("getSettingsForSync", () => {
+    it("returns theme, colorTheme, sidebarCollapsed, clientUpdatedAt", () => {
+      useUiStoreV2.getState().setTheme("light");
+      useUiStoreV2.getState().setColorTheme("ocean");
+      useUiStoreV2.getState().setSidebarCollapsed(true);
+      const sync = useUiStoreV2.getState().getSettingsForSync();
+      expect(sync.theme).toBe("light");
+      expect(sync.colorTheme).toBe("ocean");
+      expect(sync.sidebarCollapsed).toBe(true);
+      expect(typeof sync.clientUpdatedAt).toBe("string");
+    });
+  });
+
+  describe("_setHasHydrated", () => {
+    it("sets _hasHydrated to true", () => {
+      useUiStoreV2.getState()._setHasHydrated(true);
+      expect(useUiStoreV2.getState()._hasHydrated).toBe(true);
+    });
+  });
+
+  describe("selectUiSyncState", () => {
+    it("returns sync-relevant slice of state", () => {
+      const state = useUiStoreV2.getState();
+      const sync = selectUiSyncState(state);
+      expect(sync).toHaveProperty("theme");
+      expect(sync).toHaveProperty("colorTheme");
+      expect(sync).toHaveProperty("sidebarCollapsed");
+      expect(sync).toHaveProperty("_lastLocalChangeAt");
+      expect(sync).toHaveProperty("_syncVersion");
+    });
+
+    it("reflects current values", () => {
+      useUiStoreV2.getState().setTheme("dark");
+      useUiStoreV2.getState().setColorTheme("ocean");
+      const state = useUiStoreV2.getState();
+      const sync = selectUiSyncState(state);
+      expect(sync.theme).toBe("dark");
+      expect(sync.colorTheme).toBe("ocean");
     });
   });
 
