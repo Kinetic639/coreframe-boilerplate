@@ -1,6 +1,15 @@
 import { http, HttpResponse } from "msw";
 
 export const handlers = [
+  // UI Settings API
+  http.get("/api/ui-settings", () => {
+    return HttpResponse.json({ success: true, data: null });
+  }),
+
+  http.post("/api/ui-settings", () => {
+    return HttpResponse.json({ success: true });
+  }),
+
   // Supabase Auth endpoints
   http.post("*/auth/v1/token*", ({ request }) => {
     // Check for valid credentials (for testing auth flows)

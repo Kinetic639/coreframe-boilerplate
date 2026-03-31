@@ -189,7 +189,7 @@ export function BranchesClient({ initialBranches }: BranchesClientProps) {
       )}
 
       <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{dialogMode === "create" ? "Create Branch" : "Edit Branch"}</DialogTitle>
           </DialogHeader>

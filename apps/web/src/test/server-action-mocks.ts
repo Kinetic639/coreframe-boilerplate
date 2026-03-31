@@ -42,7 +42,7 @@ export type ServerActionResponse<T = unknown> =
  * @param data - Data to return in the response
  */
 export function mockServerAction<T>(modulePath: string, actionName: string, data: T): void {
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: vi.fn().mockResolvedValue({
       success: true,
       data,
@@ -64,7 +64,7 @@ export function mockServerActionError(
   error: string,
   code?: string
 ): void {
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: vi.fn().mockResolvedValue({
       success: false,
       error,
@@ -85,7 +85,7 @@ export function mockServerActionException(
   actionName: string,
   error: Error
 ): void {
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: vi.fn().mockRejectedValue(error),
   }));
 }
@@ -116,7 +116,7 @@ export function spyOnServerAction(
     .fn()
     .mockResolvedValue({ success: true, data: null });
 
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: mockFn,
   }));
 
@@ -159,7 +159,7 @@ export function mockServerActions(
     {} as Record<string, ReturnType<typeof vi.fn>>
   );
 
-  vi.mock(modulePath, () => mocks);
+  vi.doMock(modulePath, () => mocks);
 }
 
 /**
@@ -190,7 +190,7 @@ export function mockServerActionWithDelay<T>(
   data: T,
   delayMs: number
 ): void {
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: vi.fn().mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -228,7 +228,7 @@ export function mockServerActionWithImplementation<T = unknown>(
   actionName: string,
   implementation: (...args: unknown[]) => Promise<ServerActionResponse<T>>
 ): void {
-  vi.mock(modulePath, () => ({
+  vi.doMock(modulePath, () => ({
     [actionName]: vi.fn().mockImplementation(implementation),
   }));
 }

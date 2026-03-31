@@ -533,7 +533,7 @@ export function MembersClient({
         open={assignRoleMember !== null}
         onOpenChange={(open) => !open && setAssignRoleMember(null)}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Manage Roles</DialogTitle>
           </DialogHeader>
@@ -675,7 +675,7 @@ export function MembersClient({
         open={assignPositionMember !== null}
         onOpenChange={(open) => !open && setAssignPositionMember(null)}
       >
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {positionByUser.get(assignPositionMember?.user_id ?? "")

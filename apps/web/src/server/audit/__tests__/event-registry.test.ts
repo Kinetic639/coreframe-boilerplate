@@ -106,7 +106,6 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
           try {
             entry.metadataSchema.parse({});
           } catch (_) {
-            console.error(_);
             // Some schemas have required fields — that's OK; just verify parse is callable.
             // The real test is: schema rejects wrong types, accepts correct types.
           }

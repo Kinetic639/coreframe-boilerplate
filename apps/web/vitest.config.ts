@@ -48,7 +48,12 @@ export default defineConfig({
         '**/*.test.{ts,tsx}',
         '**/*.spec.{ts,tsx}',
         '**/mocks/**',
-        '**/.next/**'
+        '**/.next/**',
+        // rolldown (coverage-v8 parser) cannot parse these TSX files with TypeScript interfaces
+        '**/components/v2/feedback/loading-skeleton.tsx',
+        '**/components/v2/forms/form-wrapper.tsx',
+        '**/components/v2/forms/text-input.tsx',
+        '**/components/v2/forms/search-form.tsx',
       ]
     }
   }
