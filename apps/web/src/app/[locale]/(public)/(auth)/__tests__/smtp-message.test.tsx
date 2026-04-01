@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SmtpMessage } from "../smtp-message";
 
 describe("SmtpMessage", () => {
-  it("renders the SMTP rate-limit note and external docs link", () => {
+  it("renders the note and external docs link", () => {
     render(<SmtpMessage />);
 
     expect(screen.getByText(/emails are rate limited/i)).toBeInTheDocument();
