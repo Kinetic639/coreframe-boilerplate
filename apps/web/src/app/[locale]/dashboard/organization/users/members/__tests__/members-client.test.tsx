@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
@@ -80,14 +80,25 @@ vi.mock("react-toastify", () => ({
 
 import { MembersClient } from "../_components/members-client";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { listMembersAction } from "@/app/actions/organization/members";
 import {
+  listMembersAction,
+  removeMemberAction,
+  updateMemberStatusAction,
+} from "@/app/actions/organization/members";
+import {
+  assignPositionAction,
   listPositionsAction,
   listPositionAssignmentsAction,
+  removePositionAssignmentAction,
 } from "@/app/actions/organization/positions";
-import { listRolesAction } from "@/app/actions/organization/roles";
+import {
+  assignRoleToUserAction,
+  listRolesAction,
+  removeRoleFromUserAction,
+} from "@/app/actions/organization/roles";
 import { listBranchesAction } from "@/app/actions/organization/branches";
 import type { OrgMember, OrgRole, OrgBranch } from "@/server/services/organization.service";
+import { toast } from "react-toastify";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -183,6 +194,13 @@ const sampleBranch: OrgBranch = {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("MembersClient", () => {
+  beforeAll(() => {
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -362,5 +380,134 @@ describe("MembersClient", () => {
 
     fireEvent.click(screen.getByRole("checkbox"));
     expect(await screen.findByText(/no branches available/i)).toBeInTheDocument();
+  });
+
+  it("toggles member status and refreshes after success", async () => {
+    setupPermissions(true);
+    vi.mocked(updateMemberStatusAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+
+    render(<MembersClient {...emptyProps} initialMembers={[sampleMember]} />, {
+      wrapper: createWrapper(),
+    });
+
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(await screen.findByText(/deactivate/i));
+
+    await waitFor(() => {
+      expect(updateMemberStatusAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        status: "inactive",
+      });
+    });
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Member deactivated");
+  });
+
+  it("removes a member from the dropdown action", async () => {
+    setupPermissions(true);
+    vi.mocked(removeMemberAction).mockResolvedValue({ success: true, data: undefined } as never);
+
+    render(<MembersClient {...emptyProps} initialMembers={[sampleMember]} />, {
+      wrapper: createWrapper(),
+    });
+
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(await screen.findByText(/remove member/i));
+
+    await waitFor(() => {
+      expect(removeMemberAction).toHaveBeenCalledWith({ userId: "u-1" });
+    });
+  });
+
+  it("changes an existing position by removing the old assignment and saving the new one", async () => {
+    setupPermissions(true);
+    vi.mocked(removePositionAssignmentAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+    vi.mocked(assignPositionAction).mockResolvedValue({ success: true, data: undefined } as never);
+
+    const assignment = {
+      id: "assign-1",
+      user_id: "u-1",
+      position_id: "pos-1",
+      position_name: "Picker",
+      deleted_at: null,
+    };
+    const positionA = { id: "pos-1", name: "Picker" };
+    const positionB = { id: "pos-2", name: "Supervisor" };
+
+    render(
+      <MembersClient
+        {...emptyProps}
+        initialMembers={[sampleMember]}
+        initialAssignments={[assignment] as never[]}
+        initialPositions={[positionA, positionB] as never[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(await screen.findByText(/change position/i));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(await screen.findByText("Supervisor"));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(removePositionAssignmentAction).toHaveBeenCalledWith({ assignmentId: "assign-1" });
+      expect(assignPositionAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        positionId: "pos-2",
+      });
+    });
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Position assigned");
+  });
+
+  it("saves branch-scoped role updates and reports success", async () => {
+    setupPermissions(true);
+    vi.mocked(assignRoleToUserAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+    vi.mocked(removeRoleFromUserAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+
+    render(
+      <MembersClient
+        {...emptyProps}
+        initialMembers={[sampleMember]}
+        initialRoles={[bothRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(await screen.findByText(/manage roles/i));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(await screen.findByRole("button", { name: /^Branch$/i }));
+    fireEvent.click(screen.getByLabelText("Warsaw Branch"));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(assignRoleToUserAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        roleId: "r-both",
+        scope: "branch",
+        scopeId: "b-1",
+      });
+    });
   });
 });

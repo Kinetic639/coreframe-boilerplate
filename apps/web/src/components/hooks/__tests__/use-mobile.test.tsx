@@ -1,25 +1,37 @@
-import { renderHook } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { useIsMobile } from "../use-mobile";
 
+function Probe() {
+  return <div>{useIsMobile() ? "mobile" : "desktop"}</div>;
+}
+
 describe("useIsMobile", () => {
-  it("returns true when viewport is below the breakpoint", () => {
+  it("returns mobile when the viewport is below breakpoint", async () => {
     const addEventListener = vi.fn();
     const removeEventListener = vi.fn();
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 500 });
-    Object.defineProperty(window, "matchMedia", {
-      configurable: true,
-      value: vi.fn(() => ({
-        addEventListener,
-        removeEventListener,
-      })),
-    });
+    window.matchMedia = vi.fn().mockReturnValue({
+      addEventListener,
+      removeEventListener,
+    }) as never;
 
-    const { result, unmount } = renderHook(() => useIsMobile());
+    render(<Probe />);
 
-    expect(result.current).toBe(true);
-    unmount();
-    expect(removeEventListener).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByText("mobile")).toBeInTheDocument());
+    expect(addEventListener).toHaveBeenCalledWith("change", expect.any(Function));
+  });
+
+  it("returns desktop when the viewport is above breakpoint", async () => {
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    window.matchMedia = vi.fn().mockReturnValue({
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as never;
+
+    render(<Probe />);
+
+    await waitFor(() => expect(screen.getByText("desktop")).toBeInTheDocument());
   });
 });
