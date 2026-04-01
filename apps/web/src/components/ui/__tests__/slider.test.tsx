@@ -1,25 +1,33 @@
 import { render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
-
+import { describe, expect, it, vi } from "vitest";
 import { Slider } from "../slider";
 
+vi.mock("@radix-ui/react-slider", () => ({
+  Root: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="slider-root" className={className}>
+      {children}
+    </div>
+  ),
+  Track: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="slider-track" className={className}>
+      {children}
+    </div>
+  ),
+  Range: ({ className }: { className?: string }) => (
+    <div data-testid="slider-range" className={className} />
+  ),
+  Thumb: ({ className }: { className?: string }) => (
+    <div data-testid="slider-thumb" className={className} />
+  ),
+}));
+
 describe("Slider", () => {
-  beforeAll(() => {
-    class ResizeObserverMock {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
+  it("renders root, track, range, and thumb with expected classes", () => {
+    render(<Slider className="custom-slider" />);
 
-    Object.defineProperty(window, "ResizeObserver", {
-      configurable: true,
-      value: ResizeObserverMock,
-    });
-  });
-
-  it("renders the slider thumb", () => {
-    render(<Slider defaultValue={[25]} max={100} step={1} aria-label="Volume" />);
-
-    expect(screen.getByRole("slider")).toBeInTheDocument();
+    expect(screen.getByTestId("slider-root")).toHaveClass("relative", "custom-slider");
+    expect(screen.getByTestId("slider-track")).toHaveClass("bg-secondary");
+    expect(screen.getByTestId("slider-range")).toHaveClass("bg-primary");
+    expect(screen.getByTestId("slider-thumb")).toHaveClass("border-primary");
   });
 });

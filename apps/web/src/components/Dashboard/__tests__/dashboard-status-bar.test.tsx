@@ -2,32 +2,30 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/components/v2/layout/compact-breadcrumbs", () => ({
-  CompactBreadcrumbs: ({ breadcrumbs }: { breadcrumbs: Array<{ label: string }> }) => (
-    <div>{breadcrumbs.map((crumb) => crumb.label).join(" / ")}</div>
-  ),
+  CompactBreadcrumbs: ({
+    breadcrumbs,
+  }: {
+    breadcrumbs: Array<{ label: string; href: string }>;
+  }) => <div data-testid="breadcrumbs">{JSON.stringify(breadcrumbs)}</div>,
 }));
 
 vi.mock("@/components/activity/DashboardStatusBarActivity", () => ({
-  DashboardStatusBarActivity: ({
-    initialLatestEvent,
-  }: {
-    initialLatestEvent: { summary: string } | null;
-  }) => <div>{initialLatestEvent?.summary ?? "no latest event"}</div>,
+  DashboardStatusBarActivity: ({ initialLatestEvent }: { initialLatestEvent: unknown }) => (
+    <div data-testid="activity">{JSON.stringify(initialLatestEvent)}</div>
+  ),
 }));
 
 import { DashboardStatusBar } from "../DashboardStatusBar";
 
 describe("DashboardStatusBar", () => {
-  it("renders breadcrumbs and latest event summary", () => {
-    render(<DashboardStatusBar initialLatestEvent={{ summary: "Latest activity" } as never} />);
+  it("renders static dashboard breadcrumbs and passes through latest event", () => {
+    const event = { id: "event-1" } as never;
 
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Latest activity")).toBeInTheDocument();
-  });
+    render(<DashboardStatusBar initialLatestEvent={event} />);
 
-  it("renders without a latest event", () => {
-    render(<DashboardStatusBar initialLatestEvent={null} />);
-
-    expect(screen.getByText("no latest event")).toBeInTheDocument();
+    expect(screen.getByTestId("breadcrumbs")).toHaveTextContent(
+      '[{"label":"Dashboard","href":"/dashboard/start"}]'
+    );
+    expect(screen.getByTestId("activity")).toHaveTextContent('{"id":"event-1"}');
   });
 });

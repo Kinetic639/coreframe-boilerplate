@@ -1,15 +1,19 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockHas = vi.fn();
-const mockTranslate = vi.fn();
+const { mockHas, mockTranslate } = vi.hoisted(() => ({
+  mockHas: vi.fn(),
+  mockTranslate: vi.fn(),
+}));
 
 vi.mock("next-intl", () => ({
   useTranslations: () => {
-    const t = ((key: string, params?: unknown) => mockTranslate(key, params)) as ((
+    const t = ((key: string, params?: Record<string, unknown>) => mockTranslate(key, params)) as ((
       key: string,
-      params?: unknown
-    ) => string) & { has: typeof mockHas };
+      params?: Record<string, unknown>
+    ) => string) & {
+      has: typeof mockHas;
+    };
     t.has = mockHas;
     return t;
   },
@@ -17,64 +21,44 @@ vi.mock("next-intl", () => ({
 
 import { useActivitySummary } from "../useActivitySummary";
 
-function HookProbe({ event }: { event: Record<string, unknown> }) {
-  return <div>{useActivitySummary(event as never)}</div>;
-}
+const event = {
+  summaryKey: "events.auth.login",
+  summaryPerspective: "self",
+  summaryParams: { actorName: "Michał" },
+  summary: "Legacy summary",
+} as never;
 
 describe("useActivitySummary", () => {
-  it("uses the translated summary when the key exists", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses translated summary when the key exists", () => {
     mockHas.mockReturnValue(true);
     mockTranslate.mockReturnValue("Translated summary");
 
-    render(
-      <HookProbe
-        event={{
-          summaryKey: "events.auth.login",
-          summaryPerspective: "self",
-          summaryParams: { actorName: "Alice" },
-          summary: "Fallback summary",
-        }}
-      />
-    );
+    const { result } = renderHook(() => useActivitySummary(event));
 
-    expect(mockTranslate).toHaveBeenCalledWith("events.auth.login.self", { actorName: "Alice" });
-    expect(screen.getByText("Translated summary")).toBeInTheDocument();
+    expect(result.current).toBe("Translated summary");
+    expect(mockTranslate).toHaveBeenCalledWith("events.auth.login.self", { actorName: "Michał" });
   });
 
-  it("falls back to the legacy summary when the key is missing", () => {
+  it("falls back to legacy summary when translation key does not exist", () => {
     mockHas.mockReturnValue(false);
 
-    render(
-      <HookProbe
-        event={{
-          summaryKey: "events.auth.login",
-          summaryPerspective: "self",
-          summaryParams: {},
-          summary: "Legacy summary",
-        }}
-      />
-    );
+    const { result } = renderHook(() => useActivitySummary(event));
 
-    expect(screen.getByText("Legacy summary")).toBeInTheDocument();
+    expect(result.current).toBe("Legacy summary");
   });
 
-  it("falls back to the legacy summary when translation throws", () => {
+  it("falls back to legacy summary when translation throws", () => {
     mockHas.mockReturnValue(true);
     mockTranslate.mockImplementation(() => {
-      throw new Error("boom");
+      throw new Error("bad message");
     });
 
-    render(
-      <HookProbe
-        event={{
-          summaryKey: "events.auth.login",
-          summaryPerspective: "self",
-          summaryParams: {},
-          summary: "Safe fallback",
-        }}
-      />
-    );
+    const { result } = renderHook(() => useActivitySummary(event));
 
-    expect(screen.getByText("Safe fallback")).toBeInTheDocument();
+    expect(result.current).toBe("Legacy summary");
   });
 });
