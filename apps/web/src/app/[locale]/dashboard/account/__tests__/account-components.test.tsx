@@ -74,6 +74,7 @@ import { AccountLayoutClient } from "../_components/account-layout-client";
 import { ProfileClient } from "../profile/_components/profile-client";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { usePreferencesQuery, useUpdateProfileMutation } from "@/hooks/queries/user-preferences";
+import { removeAvatarAction, uploadAvatarAction } from "@/app/actions/user-preferences";
 
 // ─── Test Data ───────────────────────────────────────────────────────────────
 
@@ -349,5 +350,44 @@ describe("ProfileClient", () => {
     const copyButton = screen.getByTestId("copy-to-clipboard");
     expect(copyButton).toBeInTheDocument();
     expect(copyButton).toHaveAttribute("data-text", "user-123");
+  });
+
+  it("uploads an avatar and refreshes on success", async () => {
+    setupMocks();
+
+    render(
+      <ProfileClient avatarSignedUrl={null} translations={{ description: "Manage your profile" }} />
+    );
+
+    const file = new File(["avatar"], "avatar.png", { type: "image/png" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await vi.waitFor(() => {
+      expect(uploadAvatarAction).toHaveBeenCalledOnce();
+    });
+
+    const formData = vi.mocked(uploadAvatarAction).mock.calls[0][0] as FormData;
+    expect(formData.get("file")).toBe(file);
+    expect(mockRouterRefresh).toHaveBeenCalled();
+  });
+
+  it("removes the avatar and refreshes on success when a signed url exists", async () => {
+    setupMocks();
+
+    render(
+      <ProfileClient
+        avatarSignedUrl="https://cdn.example.com/avatar.png"
+        translations={{ description: "Manage your profile" }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+
+    await vi.waitFor(() => {
+      expect(removeAvatarAction).toHaveBeenCalledOnce();
+    });
+
+    expect(mockRouterRefresh).toHaveBeenCalled();
   });
 });

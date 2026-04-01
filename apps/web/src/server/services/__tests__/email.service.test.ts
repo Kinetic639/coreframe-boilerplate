@@ -14,6 +14,23 @@ vi.mock("resend", () => ({
   },
 }));
 
+// Mock @react-email/render and email template components
+const { mockRender } = vi.hoisted(() => ({
+  mockRender: vi.fn().mockResolvedValue("<html>mocked email html</html>"),
+}));
+vi.mock("@react-email/render", () => ({
+  render: mockRender,
+}));
+vi.mock("@/components/emails/password-reset", () => ({
+  PasswordResetEmail: vi.fn().mockReturnValue(null),
+}));
+vi.mock("@/components/emails/welcome", () => ({
+  WelcomeEmail: vi.fn().mockReturnValue(null),
+}));
+vi.mock("@/components/emails/invitation", () => ({
+  InvitationEmail: vi.fn().mockReturnValue(null),
+}));
+
 // Import after mock
 import { EmailService } from "../email.service";
 
@@ -215,6 +232,157 @@ describe("EmailService", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe("Send failed");
+    });
+  });
+
+  describe("sendPasswordResetEmail", () => {
+    it("returns success and calls render with reset link and email", async () => {
+      mockSend.mockResolvedValue({ data: { id: "reset-id" }, error: null });
+
+      const result = await emailService.sendPasswordResetEmail(
+        "user@example.com",
+        "https://app.com/reset?token=abc"
+      );
+
+      expect(result.success).toBe(true);
+      expect(mockRender).toHaveBeenCalled();
+      const callArgs = mockSend.mock.calls[0][0];
+      expect(callArgs.to).toBe("user@example.com");
+      expect(callArgs.subject).toBe("Reset your Ambra password");
+      expect(callArgs.html).toBe("<html>mocked email html</html>");
+      expect(callArgs.text).toContain("https://app.com/reset?token=abc");
+    });
+
+    it("returns failure when Resend returns an error", async () => {
+      mockSend.mockResolvedValue({ data: null, error: { message: "Rate limited" } });
+
+      const result = await emailService.sendPasswordResetEmail(
+        "user@example.com",
+        "https://app.com/reset"
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Rate limited");
+    });
+
+    it("includes user email address in the plain-text body", async () => {
+      mockSend.mockResolvedValue({ data: { id: "id" }, error: null });
+
+      await emailService.sendPasswordResetEmail("target@corp.com", "https://reset.link");
+
+      const text = mockSend.mock.calls[0][0].text as string;
+      expect(text).toContain("target@corp.com");
+    });
+  });
+
+  describe("sendWelcomeEmailWithTemplate", () => {
+    it("returns success and sends email via render template", async () => {
+      mockSend.mockResolvedValue({ data: { id: "welcome-tmpl-id" }, error: null });
+
+      const result = await emailService.sendWelcomeEmailWithTemplate("jane@example.com", "Jane");
+
+      expect(result.success).toBe(true);
+      expect(mockRender).toHaveBeenCalled();
+      const callArgs = mockSend.mock.calls[0][0];
+      expect(callArgs.to).toBe("jane@example.com");
+      expect(callArgs.subject).toBe("Welcome to Ambra!");
+      expect(callArgs.html).toBe("<html>mocked email html</html>");
+    });
+
+    it("includes firstName in plain-text body", async () => {
+      mockSend.mockResolvedValue({ data: { id: "id" }, error: null });
+
+      await emailService.sendWelcomeEmailWithTemplate("jane@example.com", "Jane");
+
+      const text = mockSend.mock.calls[0][0].text as string;
+      expect(text).toContain("Jane");
+    });
+
+    it("uses NEXT_PUBLIC_SITE_URL env variable in login link when set", async () => {
+      process.env.NEXT_PUBLIC_SITE_URL = "https://myapp.example.com";
+      mockSend.mockResolvedValue({ data: { id: "id" }, error: null });
+
+      await emailService.sendWelcomeEmailWithTemplate("u@e.com", "User");
+
+      const text = mockSend.mock.calls[0][0].text as string;
+      expect(text).toContain("https://myapp.example.com");
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    });
+
+    it("returns failure when send fails", async () => {
+      mockSend.mockResolvedValue({ data: null, error: { message: "SMTP error" } });
+
+      const result = await emailService.sendWelcomeEmailWithTemplate("u@e.com", "User");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("SMTP error");
+    });
+  });
+
+  describe("sendInvitationEmailWithTemplate", () => {
+    it("sends invitation with Polish locale (default)", async () => {
+      mockSend.mockResolvedValue({ data: { id: "inv-tmpl-id" }, error: null });
+
+      const result = await emailService.sendInvitationEmailWithTemplate(
+        "invitee@example.com",
+        "Acme Corp",
+        "Jan Kowalski",
+        "https://app.com/invite?token=xyz"
+      );
+
+      expect(result.success).toBe(true);
+      const callArgs = mockSend.mock.calls[0][0];
+      expect(callArgs.to).toBe("invitee@example.com");
+      // Polish subject
+      expect(callArgs.subject).toContain("Acme Corp");
+      expect(callArgs.subject).toContain("Ambra System");
+    });
+
+    it("sends invitation with English locale when specified", async () => {
+      mockSend.mockResolvedValue({ data: { id: "inv-en-id" }, error: null });
+
+      await emailService.sendInvitationEmailWithTemplate(
+        "invitee@example.com",
+        "Acme Corp",
+        "John Doe",
+        "https://app.com/invite",
+        "en"
+      );
+
+      const callArgs = mockSend.mock.calls[0][0];
+      expect(callArgs.subject).toContain("You've been invited to join Acme Corp");
+      expect(callArgs.text).toContain("John Doe");
+      expect(callArgs.text).toContain("Acme Corp");
+    });
+
+    it("includes invitation link in plain-text body", async () => {
+      mockSend.mockResolvedValue({ data: { id: "id" }, error: null });
+
+      await emailService.sendInvitationEmailWithTemplate(
+        "u@e.com",
+        "Corp",
+        "Sender",
+        "https://invite.link/token-123",
+        "en"
+      );
+
+      const text = mockSend.mock.calls[0][0].text as string;
+      expect(text).toContain("https://invite.link/token-123");
+    });
+
+    it("returns failure when Resend returns an error", async () => {
+      mockSend.mockResolvedValue({ data: null, error: { message: "Bounce" } });
+
+      const result = await emailService.sendInvitationEmailWithTemplate(
+        "u@e.com",
+        "Corp",
+        "Sender",
+        "https://link.com",
+        "en"
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Bounce");
     });
   });
 });

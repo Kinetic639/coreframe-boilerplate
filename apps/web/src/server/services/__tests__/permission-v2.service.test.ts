@@ -888,3 +888,143 @@ describe("T-G2: PermissionServiceV2.hasPermission — user_has_effective_permiss
     consoleSpy.mockRestore();
   });
 });
+
+// ─── Helper for RPC-based methods ─────────────────────────────────────────────
+
+function makeRpcOnlyMock(result: { data: unknown; error: unknown }) {
+  return { rpc: vi.fn().mockResolvedValue(result) };
+}
+
+// ─── getOrgEffectivePermissions ───────────────────────────────────────────────
+
+describe("PermissionServiceV2.getOrgEffectivePermissions", () => {
+  it("returns Set of slugs on success", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [{ permission_slug_exact: "members.read" }, { permission_slug_exact: "org.update" }],
+        error: null,
+      },
+    ]);
+    const result = await PermissionServiceV2.getOrgEffectivePermissions(
+      supabase as never,
+      "user-1",
+      "org-1"
+    );
+    expect(result).toBeInstanceOf(Set);
+    expect(result.has("members.read")).toBe(true);
+    expect(result.has("org.update")).toBe(true);
+  });
+
+  it("returns empty Set on DB error", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const supabase = makeSupabaseMock([{ data: null, error: { message: "DB error" } }]);
+    const result = await PermissionServiceV2.getOrgEffectivePermissions(
+      supabase as never,
+      "user-1",
+      "org-1"
+    );
+    expect(result.size).toBe(0);
+    consoleSpy.mockRestore();
+  });
+
+  it("returns empty Set when data is null", async () => {
+    const supabase = makeSupabaseMock([{ data: null, error: null }]);
+    const result = await PermissionServiceV2.getOrgEffectivePermissions(
+      supabase as never,
+      "user-1",
+      "org-1"
+    );
+    expect(result.size).toBe(0);
+  });
+});
+
+// ─── getOrgEffectivePermissionsArray ─────────────────────────────────────────
+
+describe("PermissionServiceV2.getOrgEffectivePermissionsArray", () => {
+  it("returns sorted array of slugs", async () => {
+    const supabase = makeSupabaseMock([
+      {
+        data: [{ permission_slug_exact: "org.update" }, { permission_slug_exact: "members.read" }],
+        error: null,
+      },
+    ]);
+    const result = await PermissionServiceV2.getOrgEffectivePermissionsArray(
+      supabase as never,
+      "user-1",
+      "org-1"
+    );
+    expect(result).toEqual(["members.read", "org.update"]);
+  });
+
+  it("returns empty array on DB error", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const supabase = makeSupabaseMock([{ data: null, error: { message: "fail" } }]);
+    const result = await PermissionServiceV2.getOrgEffectivePermissionsArray(
+      supabase as never,
+      "user-1",
+      "org-1"
+    );
+    expect(result).toEqual([]);
+    consoleSpy.mockRestore();
+  });
+});
+
+// ─── currentUserHasPermission ─────────────────────────────────────────────────
+
+describe("PermissionServiceV2.currentUserHasPermission", () => {
+  it("returns true when RPC returns true", async () => {
+    const supabase = makeRpcOnlyMock({ data: true, error: null });
+    const result = await PermissionServiceV2.currentUserHasPermission(
+      supabase as never,
+      "org-1",
+      "members.manage"
+    );
+    expect(result).toBe(true);
+  });
+
+  it("returns false when RPC returns false", async () => {
+    const supabase = makeRpcOnlyMock({ data: false, error: null });
+    const result = await PermissionServiceV2.currentUserHasPermission(
+      supabase as never,
+      "org-1",
+      "members.manage"
+    );
+    expect(result).toBe(false);
+  });
+
+  it("returns false on RPC error", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const supabase = makeRpcOnlyMock({ data: null, error: { message: "RPC error" } });
+    const result = await PermissionServiceV2.currentUserHasPermission(
+      supabase as never,
+      "org-1",
+      "members.manage"
+    );
+    expect(result).toBe(false);
+    consoleSpy.mockRestore();
+  });
+});
+
+// ─── currentUserIsOrgMember ───────────────────────────────────────────────────
+
+describe("PermissionServiceV2.currentUserIsOrgMember", () => {
+  it("returns true when RPC returns true", async () => {
+    const supabase = makeRpcOnlyMock({ data: true, error: null });
+    const result = await PermissionServiceV2.currentUserIsOrgMember(supabase as never, "org-1");
+    expect(result).toBe(true);
+  });
+
+  it("returns false when RPC returns false", async () => {
+    const supabase = makeRpcOnlyMock({ data: false, error: null });
+    const result = await PermissionServiceV2.currentUserIsOrgMember(supabase as never, "org-1");
+    expect(result).toBe(false);
+  });
+
+  it("returns false on error", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const supabase = makeRpcOnlyMock({ data: null, error: { message: "fail" } });
+    const result = await PermissionServiceV2.currentUserIsOrgMember(supabase as never, "org-1");
+    expect(result).toBe(false);
+    consoleSpy.mockRestore();
+  });
+});
