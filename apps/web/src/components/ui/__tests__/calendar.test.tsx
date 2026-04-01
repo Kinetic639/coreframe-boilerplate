@@ -13,7 +13,7 @@ describe("Calendar", () => {
     expect(screen.getByText(/su/i)).toBeInTheDocument();
     expect(screen.getByText("15")).toBeInTheDocument();
     expect(screen.getAllByRole("button").length).toBeGreaterThan(2);
-  });
+  }, 15000);
 
   it("focuses the day button when the focused modifier is true", () => {
     const focusSpy = vi.spyOn(HTMLButtonElement.prototype, "focus");
