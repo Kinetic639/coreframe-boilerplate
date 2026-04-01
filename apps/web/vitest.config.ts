@@ -83,6 +83,12 @@ export default defineConfig({
         '**/modules/**/config.ts',
         '**/lib/sidebar/v2/icon-map.ts',
         '**/lib/tools/registry.tsx',
+        // Pure re-exports / deprecated placeholders — no meaningful runtime logic
+        '**/lib/utils/permissions.ts',
+        '**/utils/index.ts',
+        '**/server/audit/visibility.ts',
+        '**/server/audit/actor-enrichment.ts',
+        '**/server/services/auth.service.ts',
         // Supabase SDK wrappers — framework glue
         '**/utils/supabase/client.ts',
         '**/utils/supabase/server.ts',
