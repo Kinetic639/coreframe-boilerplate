@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -151,6 +152,20 @@ const sampleBranch: OrgBranch = {
   slug: "warsaw",
   created_at: null,
   deleted_at: null,
+};
+
+const branchOnlyRole: OrgRole = {
+  ...sampleRole,
+  id: "r-branch",
+  name: "Branch Manager",
+  scope_type: "branch",
+};
+
+const bothScopeRole: OrgRole = {
+  ...sampleRole,
+  id: "r-both",
+  name: "Flexible",
+  scope_type: "both",
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -386,5 +401,84 @@ describe("MemberDetailClient", () => {
     expect(screen.queryByText("invitations.read")).not.toBeInTheDocument();
     expect(screen.queryByText("invitations.create")).not.toBeInTheDocument();
     expect(screen.queryByText("invitations.cancel")).not.toBeInTheDocument();
+  });
+
+  it("renders unauthorized state when read permission is missing", () => {
+    setupPermissions(false, false);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    expect(screen.getByText("Unauthorized.")).toBeInTheDocument();
+  });
+
+  it("shows member info fields in the info tab", async () => {
+    setupPermissions(true);
+    const user = userEvent.setup();
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    await user.click(screen.getByRole("tab", { name: /info/i }));
+    await waitFor(() => expect(screen.getByText("Email")).toBeInTheDocument());
+
+    const infoPanel = screen.getByRole("tabpanel", { name: /info/i });
+    expect(within(infoPanel).getByText("alice@example.com")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("Status")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("active")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("Joined")).toBeInTheDocument();
+    expect(within(infoPanel).getByText(/\d{1,2}\/\d{1,2}\/2024/)).toBeInTheDocument();
+  });
+
+  it("shows org/branch scope toggle for roles that support both scopes", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[bothScopeRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Flexible"));
+
+    expect(await screen.findByRole("button", { name: /organization/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /branch/i })).toBeInTheDocument();
+  });
+
+  it("shows no branches available when adding a branch-scoped role without branches", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[branchOnlyRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Branch Manager"));
+
+    expect(await screen.findByText(/no branches available/i)).toBeInTheDocument();
   });
 });

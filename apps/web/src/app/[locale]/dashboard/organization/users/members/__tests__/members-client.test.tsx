@@ -131,6 +131,24 @@ const sampleMember = {
   roles: [],
 } as unknown as OrgMember;
 
+const fallbackMember = {
+  ...sampleMember,
+  id: "m-2",
+  user_id: "u-2",
+  user_first_name: null,
+  user_last_name: null,
+  user_email: "fallback@example.com",
+  status: "inactive",
+  roles: [
+    {
+      id: "r-branch",
+      name: "Branch Viewer",
+      scope: "branch",
+      scope_id: "b-1",
+    },
+  ],
+} as unknown as OrgMember;
+
 const branchRole: OrgRole = {
   id: "r-branch",
   name: "Branch Viewer",
@@ -296,5 +314,53 @@ describe("MembersClient", () => {
     await waitFor(() => {
       expect(screen.getByText("Warsaw Branch")).toBeInTheDocument();
     });
+  });
+
+  it("hides management actions when user lacks manage permission", () => {
+    setupPermissions(false);
+    render(<MembersClient {...emptyProps} initialMembers={[sampleMember]} />, {
+      wrapper: createWrapper(),
+    });
+
+    expect(screen.getByTitle(/view member details/i)).toBeInTheDocument();
+    expect(screen.queryByText(/manage roles/i)).not.toBeInTheDocument();
+  });
+
+  it("renders email fallback, inactive badge, and branch role badge details", () => {
+    setupPermissions(true);
+    render(
+      <MembersClient
+        {...emptyProps}
+        initialMembers={[fallbackMember]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    expect(screen.getByText("fallback@example.com")).toBeInTheDocument();
+    expect(screen.getByText("inactive")).toBeInTheDocument();
+    expect(screen.getByText(/Branch Viewer/)).toBeInTheDocument();
+    expect(screen.getByText(/Warsaw Branch/)).toBeInTheDocument();
+  });
+
+  it("shows no branches available when a branch-scoped role is selected without branches", async () => {
+    setupPermissions(true);
+    render(
+      <MembersClient
+        {...emptyProps}
+        initialMembers={[sampleMember]}
+        initialRoles={[branchRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    const buttons = screen.getAllByRole("button");
+    fireEvent.click(buttons[buttons.length - 1]);
+    fireEvent.click(await screen.findByText(/manage roles/i));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(await screen.findByText(/no branches available/i)).toBeInTheDocument();
   });
 });
