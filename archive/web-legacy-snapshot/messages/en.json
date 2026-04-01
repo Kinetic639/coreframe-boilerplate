@@ -1,0 +1,2924 @@
+{
+  "HomePage": {
+    "title": "Hello there"
+  },
+  "PreferencesPage": {
+    "title": "Preferences",
+    "description": "Manage your account preferences and settings",
+    "appearance": "Appearance",
+    "appearanceDescription": "Customize the look and feel of the application",
+    "theme": "Theme",
+    "themeDescription": "Choose your preferred theme appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "colorTheme": "Color Theme",
+    "colorThemeDescription": "Choose your preferred color palette",
+    "language": "Language",
+    "languageDescription": "Select your preferred language",
+    "regional": "Regional Settings",
+    "regionalDescription": "Configure timezone, date and time formats",
+    "timezone": "Timezone",
+    "dateFormat": "Date Format",
+    "timeFormat": "Time Format",
+    "timeFormat24h": "24-hour",
+    "timeFormat12h": "12-hour",
+    "preview": "Preview",
+    "notifications": "Notifications",
+    "notificationsDescription": "Configure how you receive notifications",
+    "emailNotifications": "Email Notifications",
+    "emailNotificationsDescription": "Receive notifications via email",
+    "pushNotifications": "Push Notifications",
+    "pushNotificationsDescription": "Receive push notifications in browser",
+    "inAppNotifications": "In-App Notifications",
+    "inAppNotificationsDescription": "Show notifications within the application",
+    "quietHours": "Quiet Hours",
+    "quietHoursDescription": "Set times when notifications are silenced",
+    "startTime": "Start Time",
+    "endTime": "End Time",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "comingSoon": "Coming soon",
+    "saved": "Settings saved",
+    "cloudSync": "Cloud Sync",
+    "cloudSyncDescription": "Save your appearance settings to the cloud for cross-device sync",
+    "lastLocalChange": "Last local change",
+    "lastCloudSync": "Last cloud sync",
+    "never": "Never",
+    "saveToCloud": "Save to Cloud",
+    "loadFromCloud": "Load from Cloud",
+    "resetDefaults": "Reset to Defaults",
+    "cloudSaveSuccess": "Settings saved to cloud",
+    "cloudSaveError": "Failed to save settings to cloud",
+    "cloudLoadSuccess": "Settings loaded from cloud",
+    "cloudLoadError": "Failed to load settings from cloud",
+    "cloudNoSettings": "No settings found in cloud",
+    "resetSuccess": "Settings reset to defaults",
+    "loadFromCloudTitle": "Load settings from cloud?",
+    "loadFromCloudDescription": "This will overwrite your current local settings with the settings stored in the cloud. This action cannot be undone.",
+    "resetDefaultsTitle": "Reset to defaults?",
+    "resetDefaultsDescription": "This will reset all appearance settings to their default values. This action cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "ProfilePage": {
+    "title": "Profile",
+    "description": "Manage your personal information",
+    "firstName": "First Name",
+    "firstNamePlaceholder": "Enter your first name",
+    "lastName": "Last Name",
+    "lastNamePlaceholder": "Enter your last name",
+    "displayName": "Display Name",
+    "displayNamePlaceholder": "Enter your display name",
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter your phone number",
+    "email": "Email",
+    "avatar": "Profile Photo",
+    "accountInfo": "Account Information",
+    "accountId": "Account ID",
+    "emailVerified": "Email Verified",
+    "lastSignIn": "Last Sign In",
+    "roles": "Roles",
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "profileUpdated": "Profile updated successfully"
+  },
+  "AccountPage": {
+    "title": "Account",
+    "profile": "Profile",
+    "preferences": "Preferences",
+    "notifications": "Notifications"
+  },
+  "NotificationsPage": {
+    "description": "Manage how you receive notifications and alerts."
+  },
+  "authForms": {
+    "AuthButton": {
+      "greeting": "Hi, {email}!",
+      "signOut": "Sign out",
+      "signIn": "Sign in",
+      "signUp": "Sign up"
+    },
+    "SignInForm": {
+      "title": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "pending": "Signing in..."
+    },
+    "SignUpForm": {
+      "title": "Sign up",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "firstNameLabel": "First name",
+      "firstNamePlaceholder": "Your first name",
+      "lastNameLabel": "Last name",
+      "lastNamePlaceholder": "Your last name",
+      "organizationNameLabel": "Organization Name",
+      "organizationNamePlaceholder": "Your organization name",
+      "submit": "Sign up",
+      "pending": "Signing up...",
+      "invitationTitle": "Join organization",
+      "invitationDescription": "Create an account to accept the invitation",
+      "invitationLoadingDetails": "Loading invitation details...",
+      "invitationTo": "Invitation to:",
+      "invitationRole": "Role:",
+      "invitationBranch": "Branch:"
+    },
+    "ForgotPasswordForm": {
+      "title": "Reset your password",
+      "emailLabel": "Email",
+      "submit": "Send reset link",
+      "sending": "Sending...",
+      "emailPlaceholder": "you@example.com",
+      "remembered": "Remembered your password?",
+      "signIn": "Sign in"
+    },
+    "ResetPasswordForm": {
+      "title": "Reset your password",
+      "description": "Please enter your new password below.",
+      "setTitle": "Set your password",
+      "setDescription": "Choose a strong password to secure your new account.",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "Enter new password",
+      "confirmPasswordLabel": "Confirm password",
+      "confirmPasswordPlaceholder": "Re-enter password",
+      "submit": "Reset password",
+      "setSubmit": "Set password",
+      "pending": "Resetting password...",
+      "setPending": "Setting password...",
+      "success": "Password reset successfully! Please sign in with your new password.",
+      "error": "Failed to reset password. Please try again."
+    }
+  },
+  "auth": {
+    "errors": {
+      "emailPasswordRequired": "Email and password are required",
+      "registrationFailed": "Registration failed",
+      "invalidCredentials": "Invalid login credentials",
+      "emailRequired": "Email is required",
+      "invalidEmailFormat": "Invalid email format",
+      "emailAlreadyRegistered": "An account with this email already exists. Please sign in."
+    },
+    "success": {
+      "signUpSuccess": "Thanks for signing up! Please check your email for a verification link.",
+      "signUpSuccessInvited": "Account created! Please confirm your email, then return to your invitation link to complete joining.",
+      "passwordResetSent": "If an account exists with this email, you will receive a password reset link.",
+      "logoutSuccess": "Logged out successfully"
+    },
+    "logout": {
+      "button": "Sign out",
+      "loggingOut": "Signing out..."
+    },
+    "authCodeError": {
+      "title": "Invalid or expired link",
+      "description": "This link is no longer valid. It may have already been used or has expired.",
+      "requestNewLink": "Request a new link",
+      "backToSignIn": "Back to sign in"
+    }
+  },
+  "teams": {
+    "communication": {
+      "messages": "Messages",
+      "chat": "Chat",
+      "searchChats": "Search chats...",
+      "searchUsers": "Search users...",
+      "noChatsFound": "No chats found",
+      "noChats": "No chats yet",
+      "tryDifferentSearch": "Try a different search term",
+      "startFirstChat": "Start your first conversation",
+      "newChat": "New Chat",
+      "viewAllChats": "View All Chats",
+      "sendMessage": "Send Message",
+      "startingConversation": "Starting conversation...",
+      "typeMessage": "Type a message...",
+      "errors": {
+        "loadChatsFailed": "Failed to load chats",
+        "createChatFailed": "Failed to create chat",
+        "loadMessagesFailed": "Failed to load messages",
+        "sendMessageFailed": "Failed to send message",
+        "markMessageReadFailed": "Failed to mark message as read",
+        "chatNotFound": "Chat not found after creation",
+        "selectOrgBranch": "Please select an organization and branch first",
+        "conversationFailed": "Failed to start conversation. Please try again.",
+        "conversationFailedContact": "Failed to start conversation",
+        "systemNotAvailable": "Chat system is not available yet. Please contact your administrator.",
+        "genericError": "Something went wrong. Please try again."
+      },
+      "success": {
+        "conversationStarted": "Started conversation with {userName}",
+        "messageSent": "Message sent",
+        "messageRead": "Message marked as read"
+      },
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "code": "Code",
+      "replyingTo": "Replying to",
+      "editingMessage": "Editing message",
+      "startNewChat": "Start New Chat",
+      "availableUsers": "Available Users",
+      "noUsersFound": "No users found",
+      "typeToSearch": "Type to search for users",
+      "unknownChat": "Unknown Chat",
+      "welcomeToChat": "Welcome to Chat",
+      "selectChatToStart": "Select a chat from the sidebar to start messaging",
+      "instantMessaging": "Instant messaging with your team",
+      "directMessages": "Direct messages and group chats",
+      "chatNotFound": "Chat not found",
+      "chatNotFoundDescription": "The chat you're looking for doesn't exist or you don't have access to it.",
+      "loadingMessages": "Loading messages...",
+      "noMessages": "No messages yet",
+      "startConversation": "Start the conversation by sending a message below",
+      "pressEnterToSend": "Press Enter to send, Shift + Enter for new line",
+      "messageUser": "Message {name}...",
+      "messageChannel": "Message #{name}...",
+      "send": "Send",
+      "update": "Update",
+      "reply": "Reply",
+      "edit": "Edit",
+      "delete": "Delete",
+      "copy": "Copy",
+      "messageDeleted": "This message was deleted",
+      "edited": "edited",
+      "sent": "Sent",
+      "delivered": "Delivered",
+      "read": "Read",
+      "sending": "Sending...",
+      "yesterday": "Yesterday"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "searching": "Searching...",
+    "you": "You",
+    "image": "Image",
+    "message": "Message"
+  },
+  "Error": {
+    "description": "<p>We've unfortunately encountered an error.</p><p>You can try to <retry>reload the page</retry> you were visiting.</p>",
+    "title": "Something went wrong!"
+  },
+  "IndexPage": {
+    "description": "This is a basic example that demonstrates the usage of <code>next-intl</code> with the Next.js App Router. Try changing the locale in the top right corner and see how the content changes.",
+    "title": "next-intl example",
+    "features": {
+      "title": "Platform Features",
+      "description": "Our platform provides everything mental health professionals need to deliver exceptional care remotely.",
+      "items": {
+        "appointments": {
+          "title": "Appointment Management",
+          "description": "Schedule and manage patient appointments with ease"
+        },
+        "hipaa": {
+          "title": "HIPAA Compliance",
+          "description": "Secure, encrypted platform for sensitive patient data"
+        },
+        "messaging": {
+          "title": "Secure Messaging",
+          "description": "Confidential communication between therapists and patients"
+        },
+        "notes": {
+          "title": "Session Notes",
+          "description": "Organized documentation for patient progress"
+        }
+      }
+    },
+    "roles": {
+      "title": "Role-Based Access",
+      "description": "Our platform provides tailored experiences for both therapists and patients.",
+      "therapists": {
+        "title": "For Therapists",
+        "features": [
+          "Comprehensive patient management dashboard",
+          "Secure session notes and treatment planning",
+          "Appointment scheduling and calendar integration",
+          "HIPAA-compliant messaging with patients"
+        ]
+      },
+      "patients": {
+        "title": "For Patients",
+        "features": [
+          "Easy appointment booking and management",
+          "Secure communication with your therapist",
+          "Access to assigned resources and homework",
+          "Progress tracking and appointment history"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "HIPAA Compliant"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Mental Health Professionals"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Secure Access"
+      }
+    },
+    "cta": {
+      "title": "Ready to Transform Your Practice?",
+      "description": "Join mental health professionals who trust our platform to connect with their patients securely.",
+      "button": "Create Your Account"
+    }
+  },
+  "LocaleLayout": {
+    "title": "Ambra - Enterprise SaaS Platform",
+    "brand": "Ambra",
+    "description": "A comprehensive enterprise SaaS platform with advanced warehouse management, user administration, and analytics capabilities."
+  },
+  "metadata": {
+    "common": {
+      "appName": "Ambra",
+      "separator": " | ",
+      "defaultDescription": "Enterprise-grade SaaS platform for modern businesses"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Sign In",
+        "description": "Access your Ambra account with secure enterprise authentication"
+      },
+      "signUp": {
+        "title": "Sign Up",
+        "description": "Create your Ambra organization account and start managing your business"
+      },
+      "forgotPassword": {
+        "title": "Reset Password",
+        "description": "Reset your Ambra account password securely"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Enterprise SaaS Platform",
+        "description": "Ambra provides comprehensive business management solutions with advanced warehouse management, user administration, and analytics"
+      },
+      "features": {
+        "title": "Features",
+        "description": "Discover powerful features including warehouse management, user roles, inventory tracking, and enterprise analytics"
+      },
+      "pricing": {
+        "title": "Pricing",
+        "description": "Choose the perfect plan for your organization with flexible pricing options and enterprise-grade features"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Dashboard",
+        "description": "Overview of your organization's key metrics, activities, and quick access to important features",
+        "gettingStarted": {
+          "title": "Getting Started",
+          "description": "Quick setup guide and onboarding steps"
+        },
+        "recentUpdates": {
+          "title": "Recent Updates",
+          "description": "Latest features, improvements, and system updates"
+        }
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Comprehensive business analytics and reporting for data-driven decision making"
+      },
+      "reports": {
+        "title": "Reports",
+        "description": "Generate detailed reports and analyze your business performance metrics"
+      },
+      "activities": {
+        "title": "Activity Timeline",
+        "description": "Track all organizational activities and system events in real-time"
+      },
+      "testActivity": {
+        "title": "Test Activity",
+        "description": "Test and monitor system activities for quality assurance"
+      },
+      "teams": {
+        "contacts": {
+          "title": "Contacts",
+          "description": "Manage team contacts and organization members",
+          "custom": {
+            "title": "My Contacts",
+            "description": "Manage your personal contact list"
+          },
+          "profile": {
+            "title": "User Profile",
+            "description": "View detailed user information"
+          }
+        }
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Products",
+        "description": "Comprehensive product catalog management with inventory tracking and stock control"
+      },
+      "productDetail": {
+        "title": "Product Details",
+        "description": "Detailed product information, inventory levels, and management options"
+      },
+      "locations": {
+        "title": "Locations",
+        "description": "Warehouse location management with hierarchical organization and QR codes"
+      },
+      "locationDetail": {
+        "title": "Location Details",
+        "description": "Detailed location information, stock levels, and management options"
+      },
+      "suppliers": {
+        "title": "Suppliers",
+        "description": "Supplier relationship management and vendor catalog administration"
+      },
+      "supplierDetail": {
+        "title": "Supplier Details",
+        "description": "Comprehensive supplier information and relationship management"
+      },
+      "suppliersList": {
+        "title": "Suppliers List",
+        "description": "Complete list of suppliers with contact information and management tools"
+      },
+      "deliveries": {
+        "title": "Deliveries",
+        "description": "Track and manage incoming deliveries and shipment processing"
+      },
+      "audits": {
+        "title": "Inventory Audits",
+        "description": "Schedule and manage inventory audits for accurate stock control"
+      },
+      "auditHistory": {
+        "title": "Audit History",
+        "description": "Historical record of all inventory audits and discrepancy reports"
+      },
+      "auditSchedule": {
+        "title": "Audit Schedule",
+        "description": "Schedule and manage upcoming inventory audits and recurring tasks"
+      }
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "Change language",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Unknown}}"
+  },
+  "Manifest": {
+    "name": "next-intl example"
+  },
+  "Navigation": {
+    "home": "Home",
+    "pathnames": "Pathnames",
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "brand": "TherapyConnect",
+    "menu": {
+      "features": "Features",
+      "forTherapists": "For Therapists",
+      "forPatients": "For Patients",
+      "pricing": "Pricing"
+    },
+    "buttons": {
+      "dashboard": "Dashboard",
+      "signIn": "Sign In",
+      "signUp": "Sign Up"
+    }
+  },
+  "NotFoundPage": {
+    "description": "Please double-check the browser address bar or use the navigation to go to a known page.",
+    "title": "Page not found",
+    "Dashboard": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found in the dashboard.",
+      "dashboardHome": "Dashboard home",
+      "goBack": "Go back"
+    },
+    "Public": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "content": "Error 404 - This page could not be found.",
+      "backToHomepage": "Back to homepage"
+    }
+  },
+  "PageLayout": {
+    "links": {
+      "docs": {
+        "description": "Learn more about next-intl in the official docs.",
+        "href": "https://next-intl.dev",
+        "title": "Docs"
+      },
+      "source": {
+        "description": "Browse the source code of this example on GitHub.",
+        "href": "https://github.com/amannn/next-intl/tree/main/examples/example-app-router",
+        "title": "Source code"
+      }
+    }
+  },
+  "PathnamesPage": {
+    "description": "<p>The pathnames are internationalized too.</p><p>If you're using the default language English, you'll see <code>/en/pathnames</code> in the browser address bar on this page.</p><p>If you change the locale to German, the URL is localized accordingly (<code>/de/pfadnamen</code>).</p>",
+    "title": "Pathnames"
+  },
+  "loginPage": {
+    "description": "<p>Login Page</p>",
+    "title": "Login"
+  },
+  "ProtectedPage": {
+    "protectedMessage": "This is a protected page that you can only see as an authenticated user",
+    "userDetails": "Your user details",
+    "nextSteps": "Next steps"
+  },
+  "Dashboard": {
+    "overview": "Overview",
+    "totalUsers": "Total Users",
+    "activeUsers": "Active Users",
+    "revenue": "Revenue",
+    "growth": "Growth",
+    "recentActivity": "Recent Activity",
+    "activityItem": "Activity {id}",
+    "minutesAgo": "{minutes} minutes ago",
+    "table": {
+      "showEmails": "Show Email Addresses",
+      "hideEmails": "Hide Email Addresses",
+      "emailsHidden": "Email addresses are hidden by default for privacy"
+    }
+  },
+  "Hero": {
+    "title": {
+      "start": "Transform Your",
+      "highlight": "Mental Health Practice",
+      "end": "with Our Platform"
+    },
+    "description": "A secure, HIPAA-compliant platform designed to streamline your therapy practice and enhance patient care.",
+    "buttons": {
+      "createAccount": "Create Your Account",
+      "signIn": "Sign In"
+    },
+    "features": {
+      "hipaa": "HIPAA Compliant",
+      "messaging": "Secure Messaging",
+      "care": "Patient-Centered Care"
+    }
+  },
+  "Features": {
+    "title": "Features",
+    "description": "Our platform provides tailored experiences for both therapists and patients.",
+    "roles": {
+      "title": "Role-Based Access",
+      "description": "Our platform provides tailored experiences for both therapists and patients.",
+      "therapists": {
+        "title": "For Therapists",
+        "features": [
+          "Comprehensive patient management dashboard",
+          "Secure session notes and treatment planning",
+          "Appointment scheduling and calendar integration",
+          "HIPAA-compliant messaging with patients"
+        ]
+      },
+      "patients": {
+        "title": "For Patients",
+        "features": [
+          "Easy appointment booking and management",
+          "Secure communication with your therapist",
+          "Access to assigned resources and homework",
+          "Progress tracking and appointment history"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "HIPAA Compliant"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Mental Health Professionals"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Secure Access"
+      }
+    },
+    "cta": {
+      "title": "Ready to Transform Your Practice?",
+      "description": "Join mental health professionals who trust our platform to connect with their patients securely.",
+      "button": "Create Your Account"
+    }
+  },
+  "Footer": {
+    "platform": {
+      "title": "Platform",
+      "features": "Features",
+      "pricing": "Pricing",
+      "dashboard": "Dashboard",
+      "security": "Security"
+    },
+    "forTherapists": {
+      "title": "For Therapists",
+      "patientManagement": "Patient Management",
+      "sessionNotes": "Session Notes",
+      "appointmentScheduling": "Appointment Scheduling",
+      "resourcesLibrary": "Resources Library"
+    },
+    "forPatients": {
+      "title": "For Patients",
+      "findTherapist": "Find a Therapist",
+      "bookAppointments": "Book Appointments",
+      "secureMessaging": "Secure Messaging",
+      "mentalHealthResources": "Mental Health Resources"
+    },
+    "legal": {
+      "title": "Legal",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "hipaaCompliance": "HIPAA Compliance",
+      "accessibility": "Accessibility"
+    },
+    "copyright": "© {year} TherapyConnect. All rights reserved.",
+    "socialMedia": {
+      "twitter": "Twitter",
+      "linkedin": "LinkedIn",
+      "instagram": "Instagram",
+      "facebook": "Facebook"
+    }
+  },
+  "AdminDashboard": {
+    "welcome": "Admin Dashboard",
+    "exportReport": "Export Report",
+    "manage": "Manage",
+    "features": {
+      "users": "Users",
+      "usersDesc": "Manage user accounts and permissions",
+      "activity": "Activity",
+      "activityDesc": "Monitor platform usage and events",
+      "security": "Security",
+      "securityDesc": "Review security settings and logs",
+      "settings": "Settings",
+      "settingsDesc": "Configure platform settings"
+    },
+    "table": {
+      "users": "Users",
+      "search": "Search users...",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions",
+      "edit": "Edit User",
+      "delete": "Delete User",
+      "showEmails": "Show Email Addresses",
+      "hideEmails": "Hide Email Addresses",
+      "emailsHidden": "Email addresses are hidden by default for privacy"
+    },
+    "recentActivity": "Recent Activity",
+    "activityItem": {
+      "title": "New user registration",
+      "time": "5 minutes ago"
+    },
+    "systemStatus": "System Status",
+    "status": {
+      "server": "Server Status",
+      "database": "Database Status",
+      "operational": "Operational"
+    },
+    "toast": {
+      "exportStarted": {
+        "title": "Export Started",
+        "description": "Your report is being generated and will be downloaded shortly"
+      },
+      "emailsToggle": {
+        "hidden": {
+          "title": "Emails Hidden",
+          "description": "Email addresses are now hidden"
+        },
+        "visible": {
+          "title": "Emails Visible",
+          "description": "Email addresses are now visible"
+        }
+      }
+    }
+  },
+  "UserDashboard": {
+    "welcome": "Welcome to Your Dashboard",
+    "viewDetails": "View Details",
+    "features": {
+      "appointments": {
+        "title": "Appointments",
+        "description": "Schedule and manage your therapy sessions"
+      },
+      "messages": {
+        "title": "Messages",
+        "description": "Secure communication with your therapist"
+      },
+      "notes": {
+        "title": "Notes & Progress",
+        "description": "Track your therapy journey and progress"
+      },
+      "settings": {
+        "title": "Settings",
+        "description": "Manage your account and preferences"
+      }
+    },
+    "appointments": {
+      "upcoming": "Upcoming Appointments",
+      "description": "View and manage your scheduled sessions",
+      "schedule": "Schedule New",
+      "noUpcoming": "You have no upcoming appointments scheduled"
+    },
+    "activity": {
+      "logTest": "Log Test Activity",
+      "testMessage": "This is a test activity",
+      "success": "Test activity logged successfully",
+      "error": "Failed to log activity"
+    }
+  },
+  "Auth": {
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "Enter your password",
+    "fullNamePlaceholder": "John Doe",
+    "orContinueWith": "Or continue with",
+    "loginWith": "Login with {provider}",
+    "privacyTerms": {
+      "prefix": "By continuing, you agree to our",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "separator": "and"
+    },
+    "signIn": {
+      "title": "Welcome back",
+      "description": "Sign in to your account",
+      "action": "Sign in",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up"
+    },
+    "signUp": {
+      "title": "Create an account",
+      "description": "Enter your details to get started",
+      "action": "Sign up",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign in"
+    },
+    "forgotPassword": {
+      "title": "Forgot password?",
+      "pageTitle": "Reset your password",
+      "description": "Enter your email address and we'll send you a link to reset your password",
+      "action": "Send reset link",
+      "rememberPassword": "Remember your password?",
+      "signInLink": "Sign in",
+      "checkEmail": "Check your email",
+      "emailSent": "If an account exists with that email, we've sent a password reset link"
+    },
+    "errors": {
+      "invalidCredentials": "Invalid email or password. Please try again.",
+      "emailNotConfirmed": "Please confirm your email address before signing in.",
+      "generic": "An error occurred while signing in.",
+      "unexpected": "An unexpected error occurred."
+    },
+    "passwordStrength": {
+      "label": "Password strength",
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong",
+      "requirements": {
+        "length": "At least 8 characters",
+        "uppercase": "One uppercase letter",
+        "lowercase": "One lowercase letter",
+        "number": "One number"
+      }
+    }
+  },
+  "ConfirmationPage": {
+    "title": "Check your email",
+    "description": "We've sent you a verification link to confirm your account",
+    "instructions": {
+      "primary": "Please check your email inbox and click the verification link to complete your registration.",
+      "secondary": "If you don't see the email, please check your spam folder."
+    },
+    "backToSignIn": "Return to sign in"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "addAnnouncement": "Add Announcement",
+    "announcementsHistory": "Announcements History",
+    "recentAnnouncements": "Recent Announcements",
+    "noAnnouncements": "No announcements available",
+    "noAnnouncementsDescription": "There are currently no announcements to display.",
+    "form": {
+      "title": "Title",
+      "titlePlaceholder": "Enter announcement title...",
+      "content": "Content",
+      "contentPlaceholder": "Enter announcement content...",
+      "excerpt": "Short Description",
+      "excerptPlaceholder": "Brief summary (optional)...",
+      "priority": "Priority",
+      "priorityPreview": "Announcement will appear as",
+      "badges": "Badges",
+      "badgePlaceholder": "Add badge (press Enter)",
+      "badgeColor": "Badge Color",
+      "publishDate": "Publish Date",
+      "save": "Save Announcement",
+      "cancel": "Cancel",
+      "edit": "Edit Announcement",
+      "delete": "Delete Announcement",
+      "confirmDelete": "Are you sure you want to delete this announcement?",
+      "saving": "Saving...",
+      "updating": "Updating...",
+      "deleting": "Deleting...",
+      "viewDetails": "View Details",
+      "showMore": "Show More",
+      "showLess": "Show Less"
+    },
+    "priority": {
+      "normal": "Normal",
+      "important": "Important",
+      "urgent": "Urgent",
+      "critical": "Critical"
+    },
+    "badges": {
+      "announcement": "Announcement",
+      "update": "Update",
+      "maintenance": "Maintenance",
+      "feature": "New Feature",
+      "bugfix": "Bug Fix",
+      "security": "Security",
+      "important": "Important",
+      "urgent": "Urgent",
+      "info": "Info"
+    },
+    "widget": {
+      "title": "Recent Announcements",
+      "viewAll": "View All Announcements",
+      "publishedBy": "Published by {author}",
+      "timeAgo": "{time} ago"
+    },
+    "editor": {
+      "placeholder": "Enter your announcement content here...",
+      "toolbar": {
+        "bold": "Bold",
+        "italic": "Italic",
+        "underline": "Underline",
+        "strikethrough": "Strikethrough",
+        "link": "Add Link",
+        "heading": "Heading",
+        "bulletList": "Bullet List",
+        "numberedList": "Numbered List",
+        "quote": "Quote",
+        "code": "Code Block"
+      }
+    },
+    "filters": {
+      "all": "All",
+      "priority": "Filter by Priority",
+      "author": "Filter by Author",
+      "dateRange": "Date Range"
+    },
+    "success": {
+      "created": "Announcement created successfully",
+      "updated": "Announcement updated successfully",
+      "deleted": "Announcement deleted successfully"
+    },
+    "errors": {
+      "loadFailed": "Failed to load announcements",
+      "createFailed": "Failed to create announcement",
+      "updateFailed": "Failed to update announcement",
+      "deleteFailed": "Failed to delete announcement",
+      "titleRequired": "Title is required",
+      "contentRequired": "Content is required"
+    }
+  },
+  "modules": {
+    "contacts": {
+      "title": "Contacts"
+    },
+    "documentation": {
+      "title": "Documentation",
+      "description": "Knowledge center with guides and references",
+      "items": {
+        "home": "Documentation",
+        "user": "User Guide",
+        "dev": "Developer Docs",
+        "spec": "Specifications"
+      }
+    },
+    "home": {
+      "title": "Home",
+      "items": {
+        "dashboard": "Dashboard",
+        "newsHistory": "News History"
+      }
+    },
+    "warehouse": {
+      "title": "Warehouse",
+      "description": "Warehouse and inventory management",
+      "items": {
+        "settings": {
+          "title": "Settings",
+          "general": {
+            "title": "General Settings",
+            "description": "Overall warehouse module settings"
+          },
+          "products": {
+            "title": "Product Settings",
+            "description": "Units, measures, variants, and categories",
+            "units": "Units of Measure",
+            "variants": "Variant Option Groups",
+            "categories": "Product Categories"
+          },
+          "locations": {
+            "title": "Location Settings",
+            "description": "Location management settings"
+          },
+          "inventory": {
+            "title": "Inventory Settings",
+            "description": "Adjustment reasons and inventory options",
+            "adjustmentReasons": "Adjustment Reasons"
+          },
+          "variantOptions": {
+            "title": "Variant Option Groups",
+            "description": "Manage option groups for product variants",
+            "loading": "Loading...",
+            "empty": "No variant option groups yet",
+            "confirmDelete": "Are you sure you want to delete \"{name}\"?",
+            "table": {
+              "name": "Name",
+              "description": "Description",
+              "values": "Values",
+              "actions": "Actions"
+            },
+            "actions": {
+              "edit": "Edit (coming soon)",
+              "delete": "Delete"
+            },
+            "values": {
+              "title": "Values",
+              "empty": "No values yet",
+              "addValue": "Add value",
+              "valuePlaceholder": "Enter value"
+            },
+            "form": {
+              "groupName": "Group Name",
+              "groupNamePlaceholder": "e.g., Size, Color, Dimensions",
+              "description": "Description",
+              "descriptionPlaceholder": "Optional description",
+              "add": "Add",
+              "quickPick": "Quick Pick"
+            },
+            "quickPick": {
+              "title": "Quick Pick Option Groups",
+              "description": "Select from common option groups",
+              "language": "Language",
+              "valuesCount": "values",
+              "done": "Done"
+            },
+            "errors": {
+              "loadFailed": "Failed to load variant option groups",
+              "createFailed": "Failed to create variant option group",
+              "deleteFailed": "Failed to delete variant option group",
+              "addValueFailed": "Failed to add value",
+              "deleteValueFailed": "Failed to delete value"
+            },
+            "success": {
+              "groupCreated": "Variant option group created successfully",
+              "groupDeleted": "Variant option group deleted successfully",
+              "valueAdded": "Value added successfully",
+              "valueDeleted": "Value deleted successfully"
+            }
+          },
+          "categories": {
+            "title": "Product Categories",
+            "description": "Organize products into categories and subcategories",
+            "dragToReorder": "Drag to reorder",
+            "loading": "Loading...",
+            "saving": "Saving",
+            "empty": "No categories yet",
+            "emptyDescription": "Create your first category to organize products",
+            "addCategory": "Add Category",
+            "addSubcategory": "Add Subcategory",
+            "rootCategory": "Root Category",
+            "default": "Default",
+            "productsCount": "{count} products",
+            "table": {
+              "name": "Name",
+              "description": "Description",
+              "actions": "Actions"
+            },
+            "actions": {
+              "edit": "Edit",
+              "addSubcategory": "Add Subcategory",
+              "move": "Move to",
+              "delete": "Delete"
+            },
+            "moveCategory": "Move Category",
+            "moveCategoryDescription": "Select a new parent category for \"{name}\"",
+            "topLevel": "Top Level (No Parent)",
+            "form": {
+              "name": "Category Name",
+              "namePlaceholder": "e.g., Electronics, Furniture",
+              "description": "Description",
+              "descriptionPlaceholder": "Optional description",
+              "parentCategory": "Parent Category",
+              "parentCategoryPlaceholder": "Select parent category",
+              "targetParent": "Move to",
+              "selectTarget": "Select target parent",
+              "color": "Color (optional)",
+              "colorPlaceholder": "Choose a color",
+              "cancel": "Cancel",
+              "add": "Add",
+              "save": "Save",
+              "saving": "Saving...",
+              "move": "Move",
+              "moving": "Moving...",
+              "addDescription": "Create a new category to organize your products",
+              "editCategory": "Edit Category",
+              "editDescription": "Update category information"
+            },
+            "confirmDelete": {
+              "title": "Delete \"{name}\"?",
+              "usedBy": "This category is used by {count} products."
+            },
+            "deleteWarning": {
+              "subcategory": "{count} products will be moved from \"{name}\" to \"{target}\"",
+              "mainCategory": "This category contains {productCount} products and {childCount} subcategories. All will be moved to \"{target}\""
+            },
+            "errors": {
+              "loadFailed": "Failed to load categories",
+              "createFailed": "Failed to create category",
+              "updateFailed": "Failed to update category",
+              "deleteFailed": "Failed to delete category",
+              "moveFailed": "Failed to move category",
+              "reorderFailed": "Failed to reorder categories",
+              "cannotDeleteDefault": "Cannot delete the default category",
+              "cannotMoveToDescendant": "Cannot move category to its own descendant",
+              "togglePreferredFailed": "Failed to toggle preferred status"
+            },
+            "success": {
+              "created": "Category created successfully",
+              "updated": "Category updated successfully",
+              "deleted": "Category deleted successfully",
+              "moved": "Category moved successfully",
+              "reordered": "Categories reordered successfully",
+              "markedPreferred": "Category marked as preferred",
+              "unmarkedPreferred": "Category unmarked as preferred"
+            }
+          }
+        },
+        "products": {
+          "title": "Products",
+          "overview": "Product Overview",
+          "templates": "Product Templates"
+        },
+        "inventory": {
+          "title": "Inventory",
+          "movements": "Stock Movements",
+          "adjustments": {
+            "title": "Stock Adjustments",
+            "single": "Single Adjustment"
+          }
+        },
+        "locations": "Locations",
+        "audits": {
+          "title": "Audits",
+          "overview": "Warehouse Audits",
+          "schedule": "Audit Schedule",
+          "history": "Audit History"
+        },
+        "labels": {
+          "title": "Labels & QR Codes",
+          "overview": "Labels Overview",
+          "creator": "Label Creator",
+          "templates": "Label Templates",
+          "batches": "Label Batches",
+          "history": "Assignment History"
+        },
+        "alerts": {
+          "title": "Stock Alerts",
+          "description": "Low stock monitoring and replenishment alerts"
+        },
+        "scanning": {
+          "title": "Code Scanning",
+          "delivery": "Delivery Scanning",
+          "inventory": "Inventory Scanning",
+          "assignment": "Location Assignment",
+          "verification": "Product Verification",
+          "operations": "Scanning Operations"
+        },
+        "deliveries": {
+          "title": "Deliveries",
+          "list": "Deliveries List",
+          "new": "New Delivery",
+          "statuses": {
+            "draft": "Draft",
+            "cancelled": "Cancelled",
+            "pending": "Pending",
+            "approved": "Approved",
+            "completed": "Completed"
+          },
+          "wizard": {
+            "step1": "Delivery Information",
+            "step2": "Verification",
+            "step3": "Completed"
+          },
+          "fields": {
+            "deliveryNumber": "Delivery Number",
+            "reference": "Reference",
+            "contact": "Contact",
+            "scheduledDate": "Scheduled Date",
+            "invoiceDate": "Invoice Date",
+            "invoiceNumber": "Invoice Number",
+            "sourceDocument": "Source Document",
+            "status": "Status",
+            "deliveryAddress": "Delivery Address",
+            "operationType": "Operation Type",
+            "shippingPolicy": "Shipping Policy",
+            "responsible": "Responsible",
+            "destinationLocation": "Destination Location",
+            "notes": {
+              "label": "Notes"
+            },
+            "supplier": "Supplier",
+            "address": "Address",
+            "enableVerification": "Enable Verification Step",
+            "verificationEnabledHelp": "You'll enter expected quantities now, then verify actual quantities received in a separate step. This tracks discrepancies and damaged goods.",
+            "verificationDisabledHelp": "Quick mode: Enter actual quantities received and complete immediately. No separate verification step."
+          },
+          "actions": {
+            "markAsTodo": "Mark as Todo",
+            "validate": "Validate",
+            "verify": "Verify",
+            "cancel": "Cancel",
+            "edit": "Edit",
+            "delete": "Delete",
+            "viewDetails": "View Details",
+            "saving": "Saving...",
+            "save": "Save",
+            "saveAsDraft": "Save as Draft",
+            "next": "Next",
+            "back": "Back",
+            "previous": "Previous",
+            "completeDelivery": "Complete Delivery",
+            "receiveDelivery": "Receive Delivery",
+            "processingDelivery": "Processing delivery..."
+          },
+          "products": {
+            "title": "Products",
+            "addProduct": "Add a Product",
+            "product": "Product",
+            "demand": "Demand",
+            "unitCost": "Unit Cost",
+            "total": "Total",
+            "noProducts": "No products added yet",
+            "selectProduct": "Select a product",
+            "selectVariant": "Select a variant (optional)",
+            "quantity": "Demand Quantity",
+            "enterQuantity": "Enter quantity",
+            "enterUnitCost": "Enter unit cost"
+          },
+          "form": {
+            "optional": "(Optional)",
+            "noLocationsAvailable": "No locations available",
+            "selectLocationPlaceholder": "Select location to assign products immediately (optional)",
+            "receiveWithoutLocation": "None (receive without location)",
+            "noLocationsFound": "No locations found. Go to Locations menu to create one.",
+            "moveToLocationInfo": "Products will be moved to this location when delivery is received",
+            "receiveWithoutLocationInfo": "Products will be received but not assigned to a location yet",
+            "deliveryAddressPlaceholder": "e.g. Lumber Inc",
+            "sourceDocumentPlaceholder": "e.g. PO0032",
+            "invoiceNumberPlaceholder": "e.g. FV/2024/001",
+            "notesPlaceholder": "Add notes...",
+            "operationTypeValue": "Delivery Orders",
+            "sendMessage": "Send message",
+            "logNote": "Log note",
+            "activity": "Activity",
+            "today": "Today",
+            "activityDescription": "Creating a new record...",
+            "selectSupplierPlaceholder": "Select a supplier...",
+            "noSuppliersFound": "No suppliers found",
+            "addNewSupplier": "Add new supplier",
+            "noLocationSet": "No location set",
+            "noNotes": "No notes"
+          },
+          "tabs": {
+            "operations": "Operations",
+            "additionalInfo": "Additional Info",
+            "note": "Note"
+          },
+          "additionalInfo": {
+            "title": "Other Information",
+            "shippingPolicy": "Shipping Policy",
+            "responsible": "Responsible",
+            "responsibleHelp": "Automatically assigned as responsible for this delivery"
+          },
+          "filters": {
+            "all": "All Deliveries",
+            "draft": "Draft",
+            "waiting": "Waiting",
+            "ready": "Ready",
+            "done": "Done",
+            "cancelled": "Cancelled",
+            "search": "Search deliveries..."
+          },
+          "messages": {
+            "created": "Delivery created successfully",
+            "updated": "Delivery updated successfully",
+            "validated": "Delivery validated successfully",
+            "cancelled": "Delivery cancelled successfully",
+            "deleted": "Delivery deleted successfully",
+            "draftSaved": "Draft saved successfully",
+            "error": "An error occurred",
+            "noDeliveries": "No deliveries found",
+            "loadingDeliveries": "Loading deliveries...",
+            "validationConfirm": "Are you sure you want to validate this delivery? This will update stock levels.",
+            "cancelConfirm": "Are you sure you want to cancel this delivery?",
+            "deleteConfirm": "Are you sure you want to delete this delivery?"
+          },
+          "shipping": {
+            "asSoonAsPossible": "As soon as possible",
+            "whenAllReady": "When all products are ready"
+          },
+          "receiving": {
+            "title": "Receive Delivery",
+            "movementLabel": "Movement",
+            "infoTitle": "Delivery Information",
+            "reference": "Reference",
+            "created": "Created"
+          }
+        },
+        "suppliers": {
+          "title": "Suppliers",
+          "list": "Supplier List",
+          "deliveries": "Deliveries"
+        },
+        "sales": {
+          "title": "Sales",
+          "orders": "Sales Orders",
+          "clients": "Clients"
+        },
+        "purchases": {
+          "title": "Purchases",
+          "orders": "Purchase Orders"
+        }
+      },
+      "partnerTypes": {
+        "vendor": "Supplier",
+        "customer": "Client"
+      }
+    },
+    "teams": {
+      "title": "Teams",
+      "description": "Team management and communication",
+      "items": {
+        "members": "Team Members",
+        "communication": {
+          "title": "Communication",
+          "chat": "Team Chat",
+          "announcements": "Announcements"
+        },
+        "kanban": "Kanban Board",
+        "calendar": "Team Calendar",
+        "contacts": {
+          "title": "Contacts",
+          "organization": "Organization Members",
+          "custom": "My Contacts",
+          "pages": {
+            "organization": {
+              "title": "Organization Members",
+              "description": "Browse and connect with colleagues in your organization",
+              "searchPlaceholder": "Search by name, email, or department...",
+              "noResults": "No members found",
+              "loading": "Loading members...",
+              "viewProfile": "View Profile",
+              "sendMessage": "Send Message"
+            },
+            "custom": {
+              "title": "My Contacts",
+              "description": "Manage your personal contact list",
+              "addContact": "Add Contact",
+              "editContact": "Edit Contact",
+              "deleteContact": "Delete Contact",
+              "searchPlaceholder": "Search contacts...",
+              "noContacts": "No contacts yet",
+              "confirmDelete": "Are you sure you want to delete this contact?"
+            },
+            "profile": {
+              "title": "User Profile",
+              "contact": "Contact Information",
+              "position": "Position",
+              "department": "Department",
+              "branch": "Branch",
+              "joinedDate": "Joined",
+              "email": "Email",
+              "phone": "Phone",
+              "sendMessage": "Send Message",
+              "addToContacts": "Add to My Contacts"
+            },
+            "form": {
+              "firstName": "First Name",
+              "lastName": "Last Name",
+              "email": "Email",
+              "phone": "Phone",
+              "position": "Position",
+              "department": "Department",
+              "notes": "Notes",
+              "save": "Save Contact",
+              "cancel": "Cancel",
+              "required": "Required",
+              "invalidEmail": "Invalid email format"
+            }
+          }
+        }
+      }
+    },
+    "organizationManagement": {
+      "title": "Organization Management",
+      "titleSidebar": "Organization",
+      "description": "Administrative panel for managing organization, users and permissions",
+      "items": {
+        "profile": "Organization Profile",
+        "branches": "Branches",
+        "users": {
+          "title": "Users",
+          "list": "User List",
+          "invitations": "Invitations",
+          "roles": "Roles & Permissions",
+          "positions": "Positions",
+          "branches": "Branches"
+        },
+        "billing": "Billing & Subscriptions",
+        "branchAccess": "Branch Access"
+      },
+      "roles": {
+        "createButton": "Create Role",
+        "noRoles": "No roles found.",
+        "systemBadge": "system",
+        "scopeBadges": {
+          "branch": "branch",
+          "both": "both"
+        },
+        "dialog": {
+          "titleCreate": "Create Role",
+          "titleEdit": "Edit Role",
+          "name": "Name",
+          "namePlaceholder": "Role name",
+          "description": "Description",
+          "descriptionPlaceholder": "Optional description",
+          "scope": "Scope",
+          "scopeOrg": "Organization — applies to all branches",
+          "scopeBranch": "Branch — assigned per branch",
+          "scopeNote": "Scope cannot be changed after creation.",
+          "scopeReadOnly": "(read-only)",
+          "permissions": "Permissions",
+          "permissionsSelected": "{count, plural, one {# permission selected} other {# permissions selected}}",
+          "cancel": "Cancel",
+          "save": "Save",
+          "create": "Create",
+          "saving": "Saving…"
+        }
+      }
+    },
+    "support": {
+      "title": "Support",
+      "description": "Help panel, news and support team contact",
+      "items": {
+        "help": "Help",
+        "contact": "Contact Support",
+        "announcements": {
+          "title": "News & Announcements",
+          "changelog": "Changelog",
+          "systemStatus": "System Status",
+          "roadmap": "Roadmap"
+        }
+      }
+    },
+    "userAccount": {
+      "title": "Account",
+      "description": "User account settings and profile management",
+      "items": {
+        "profile": "Profile",
+        "preferences": "Preferences"
+      }
+    },
+    "analytics": {
+      "title": "Analytics & Reports",
+      "description": "Activity analytics, reports, and audit trails",
+      "items": {
+        "overview": "Activity Dashboard",
+        "activities": "Activity Log",
+        "timeline": "Timeline View",
+        "reports": {
+          "title": "Reports",
+          "userActivity": "User Activity Reports",
+          "modules": "Module Reports",
+          "security": "Security Reports"
+        },
+        "exports": {
+          "title": "Data Export",
+          "activities": "Export Activities",
+          "reports": "Export Reports"
+        },
+        "settings": {
+          "title": "Analytics Settings",
+          "retention": "Data Retention",
+          "notifications": "Activity Notifications",
+          "presets": "Filter Presets"
+        }
+      }
+    },
+    "development": {
+      "title": "Development",
+      "description": "Development tools and debugging utilities",
+      "items": {
+        "dashboard": "Debug Dashboard",
+        "permissions": "Permissions Debug",
+        "context": "Context Debug",
+        "logo": "Logo Debug",
+        "service": "Service Debug",
+        "labels": "Label Testing",
+        "locations": "Locations Debug",
+        "richTextEditor": "Rich Text Editor",
+        "subscriptionTest": "Subscription Test",
+        "skuGenerator": "SKU Generator Test",
+        "deliveryDebugger": "Delivery Debugger",
+        "reservationsTest": "Reservations Test"
+      }
+    },
+    "tools": {
+      "title": "Tools",
+      "titleSidebar": "Tools",
+      "description": "Productivity tools and integrations for your team",
+      "items": {
+        "myTools": "My Tools",
+        "allTools": "All Tools",
+        "detail": "Tool Details"
+      },
+      "pages": {
+        "myTools": {
+          "title": "My Tools",
+          "subtitle": "Tools you have enabled for quick access",
+          "empty": "You have not enabled any tools yet.",
+          "emptyAction": "Browse the catalog to find tools"
+        },
+        "catalog": {
+          "title": "All Tools",
+          "subtitle": "Browse and enable tools for your workflow",
+          "searchPlaceholder": "Search tools…",
+          "filterAll": "All",
+          "empty": "No tools match your search.",
+          "categories": {
+            "productivity": "Productivity",
+            "data": "Data",
+            "analytics": "Analytics",
+            "integrations": "Integrations",
+            "compliance": "Compliance"
+          }
+        },
+        "detail": {
+          "enabledBadge": "Enabled",
+          "disabledBadge": "Disabled",
+          "pinnedBadge": "Pinned",
+          "notFound": "Tool not found",
+          "notFoundDescription": "This tool does not exist or is no longer available.",
+          "backToAll": "Back to all tools",
+          "backToMyTools": "My Tools",
+          "category": "Category",
+          "status": "Status",
+          "enableToUse": "Enable this tool to start using it",
+          "uiNotRegistered": "UI not implemented yet",
+          "uiNotRegisteredDesc": "Add a component to the tool registry to implement this tool's interface.",
+          "uiNotRegisteredHint": "src/lib/tools/registry.tsx"
+        }
+      },
+      "actions": {
+        "enable": "Enable",
+        "disable": "Disable",
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "enabling": "Enabling…",
+        "disabling": "Disabling…"
+      },
+      "toasts": {
+        "toolEnabled": "Tool enabled",
+        "toolDisabled": "Tool disabled",
+        "toolPinned": "Tool pinned",
+        "toolUnpinned": "Tool unpinned",
+        "settingsSaved": "Settings saved",
+        "errorGeneric": "Something went wrong. Please try again."
+      },
+      "loading": {
+        "catalog": "Loading tools…",
+        "detail": "Loading tool…",
+        "myTools": "Loading your tools…"
+      },
+      "errors": {
+        "title": "Something went wrong",
+        "description": "An unexpected error occurred in the Tools module.",
+        "refresh": "Try again",
+        "goHome": "Go home"
+      },
+      "aria": {
+        "enableTool": "Enable {name}",
+        "disableTool": "Disable {name}",
+        "pinTool": "Pin {name}",
+        "unpinTool": "Unpin {name}",
+        "searchTools": "Search tools",
+        "toolCard": "{name} tool card",
+        "viewDetail": "View {name} details"
+      }
+    }
+  },
+  "organization": {
+    "billing": {
+      "title": "Billing & Subscriptions",
+      "description": "Manage your organization's subscription plan and billing information",
+      "noSubscription": {
+        "title": "No Active Subscription",
+        "description": "This organization does not have an active subscription plan."
+      },
+      "currentPlan": {
+        "title": "Current Plan",
+        "subtitle": "Your active subscription plan details"
+      },
+      "status": {
+        "active": "Active",
+        "trialing": "Trial",
+        "past_due": "Past Due",
+        "canceled": "Canceled",
+        "unpaid": "Unpaid",
+        "incomplete": "Incomplete"
+      },
+      "developmentPlan": "Development",
+      "perMonth": "month",
+      "billingPeriod": "Billing period",
+      "planIncludes": "Plan includes",
+      "modules": "modules",
+      "contexts": "contexts",
+      "users": "users",
+      "branches": "branches",
+      "products": "products",
+      "locations": "locations",
+      "unlimited": "Unlimited",
+      "availableModules": {
+        "title": "Available Modules",
+        "description": "Modules included in your current subscription plan"
+      },
+      "availableContexts": {
+        "title": "Available Contexts",
+        "description": "Business contexts you can access with your current plan"
+      },
+      "features": {
+        "title": "Plan Features",
+        "description": "Features and capabilities included in your subscription"
+      },
+      "moduleNames": {
+        "home": "Home",
+        "warehouse": "Warehouse",
+        "teams": "Teams",
+        "organization-management": "Organization",
+        "support": "Support",
+        "user-account": "Account",
+        "analytics": "Analytics",
+        "development": "Development"
+      },
+      "contextNames": {
+        "warehouse": "Warehouse",
+        "ecommerce": "E-commerce",
+        "b2b": "B2B",
+        "pos": "Point of Sale",
+        "manufacturing": "Manufacturing"
+      },
+      "contextDescriptions": {
+        "warehouse": "Internal inventory management",
+        "ecommerce": "Online store product management",
+        "b2b": "Business client catalog",
+        "pos": "Point of sale integration",
+        "manufacturing": "Production and assembly"
+      },
+      "featureNames": {
+        "basic_support": "Basic Support",
+        "api_access": "API Access",
+        "advanced_reports": "Advanced Reports",
+        "priority_support": "Priority Support",
+        "custom_branding": "Custom Branding",
+        "white_label": "White Label",
+        "custom_integrations": "Custom Integrations"
+      }
+    }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Quick Add",
+        "tooltip": "Quick Add",
+        "inventory": {
+          "title": "INVENTORY",
+          "product": "Product",
+          "location": "Location",
+          "order": "Order"
+        },
+        "sales": {
+          "title": "SALES",
+          "customer": "Customer",
+          "invoice": "Invoice"
+        },
+        "purchases": {
+          "title": "PURCHASES",
+          "supplier": "Supplier",
+          "bill": "Bill"
+        },
+        "other": {
+          "title": "OTHER",
+          "document": "Document"
+        }
+      },
+      "userMenu": {
+        "profile": "Profile",
+        "preferences": "Preferences",
+        "signOut": "Sign Out",
+        "home": "Home",
+        "account": "Account",
+        "dashboard": "Dashboard",
+        "adminPanel": "Admin Panel",
+        "diagnostics": "Diagnostics",
+        "logOut": "Log out"
+      }
+    }
+  },
+  "pages": {
+    "start": {
+      "title": "Home",
+      "description": "Your personalized dashboard with updates and quick actions",
+      "tabs": {
+        "overview": "Dashboard",
+        "gettingStarted": "Getting Started",
+        "recentUpdates": "Recent Updates"
+      },
+      "gettingStarted": {
+        "welcomeTitle": "Welcome to Ambra!",
+        "welcomeDescription": "Follow these steps to get started with your workspace and make the most of our platform.",
+        "progressTitle": "Setup Progress",
+        "progressDescription": "Complete these steps to fully configure your workspace",
+        "startButton": "Get Started",
+        "steps": {
+          "configureOrganization": {
+            "title": "Configure Your Organization",
+            "description": "Set up your organization profile, logo, and basic information"
+          },
+          "inviteTeam": {
+            "title": "Invite Team Members",
+            "description": "Add team members and assign roles to start collaborating"
+          },
+          "setupWarehouse": {
+            "title": "Set Up Warehouse Locations",
+            "description": "Create warehouse locations and organize your inventory structure"
+          },
+          "addProducts": {
+            "title": "Add Your First Products",
+            "description": "Start building your product catalog with items and variants"
+          },
+          "configureSettings": {
+            "title": "Configure Module Settings",
+            "description": "Customize warehouse settings, units, categories, and preferences"
+          },
+          "getHelp": {
+            "title": "Get Help & Support",
+            "description": "Access documentation, tutorials, and contact our support team"
+          }
+        },
+        "needHelp": {
+          "title": "Need Help?",
+          "description": "We're here to help you get started. Contact our support team or browse our documentation.",
+          "contactSupport": "Contact Support",
+          "viewDocs": "View Documentation"
+        }
+      },
+      "recentUpdates": {
+        "title": "What's New",
+        "description": "Stay up to date with the latest features, improvements, and bug fixes",
+        "types": {
+          "feature": "New Feature",
+          "improvement": "Improvement",
+          "bugfix": "Bug Fix"
+        },
+        "updates": {
+          "warehouseAudits": {
+            "title": "Warehouse Audit System",
+            "description": "New comprehensive audit system with scheduling, history tracking, and inventory verification. Conduct audits with step-by-step guidance and automatic stock corrections."
+          },
+          "labelGenerator": {
+            "title": "Label Generator & Templates",
+            "description": "Generate professional labels for products and locations. Create custom templates and print QR codes for easy scanning."
+          },
+          "inventoryCorrections": {
+            "title": "Improved Inventory Corrections",
+            "description": "Enhanced stock correction workflow with better validation, audit trails, and support for location-based adjustments."
+          },
+          "performanceOptimization": {
+            "title": "Performance Improvements",
+            "description": "Faster page loads, optimized database queries, and improved overall system responsiveness across all modules."
+          },
+          "bugFixes": {
+            "title": "Bug Fixes & Stability",
+            "description": "Fixed multiple issues including product filtering, location tree rendering, and permission validation."
+          }
+        },
+        "footer": {
+          "moreUpdates": "Want to see more updates?",
+          "viewChangelog": "View full changelog"
+        }
+      }
+    },
+    "accessDenied": {
+      "title": "Access Denied",
+      "description": "You do not have permission to access this section.",
+      "moduleHint": "The \"{module}\" module is not enabled for your account.",
+      "contactAdmin": "Contact your organization administrator to request access.",
+      "goToDashboard": "Go to Dashboard"
+    }
+  },
+  "productsModule": {
+    "title": "Products",
+    "description": "Manage your product catalog",
+    "createProduct": "Create Product",
+    "createProductGroup": "Create Product Group",
+    "editProduct": "Edit Product",
+    "deleteProduct": "Delete Product",
+    "productType": {
+      "label": "Product Type",
+      "goods": "Goods",
+      "service": "Service",
+      "itemGroup": "Item Group",
+      "goodsDescription": "Physical inventory items",
+      "serviceDescription": "Services or non-physical items"
+    },
+    "basicInfo": {
+      "title": "Basic Information",
+      "name": "Name",
+      "namePlaceholder": "Enter product name",
+      "sku": "SKU",
+      "skuPlaceholder": "Enter SKU",
+      "skuDescription": "Leave empty to auto-generate",
+      "description": "Description",
+      "descriptionPlaceholder": "Enter product description",
+      "category": "Category",
+      "selectCategory": "Select a category",
+      "categoryPlaceholder": "Select category",
+      "brand": "Brand",
+      "brandPlaceholder": "Enter brand",
+      "manufacturer": "Manufacturer",
+      "manufacturerPlaceholder": "Enter manufacturer",
+      "unit": "Unit",
+      "unitPlaceholder": "Select unit",
+      "selectUnit": "Select unit of measure",
+      "noUnits": "No units available. Add units in warehouse settings.",
+      "returnableItem": "Returnable Item",
+      "returnableItemDescription": "Enable if this item can be returned by customers",
+      "productType": "Product Type",
+      "productTypeDescription": "Choose whether this is a physical good or a service"
+    },
+    "measurements": {
+      "title": "Measurements",
+      "dimensions": "Dimensions (L × W × H)",
+      "length": "Length",
+      "width": "Width",
+      "height": "Height",
+      "weight": "Weight",
+      "dimensionsUnit": "cm",
+      "weightUnit": "kg"
+    },
+    "identifiers": {
+      "title": "Identifiers",
+      "upc": "UPC",
+      "ean": "EAN",
+      "isbn": "ISBN",
+      "mpn": "MPN"
+    },
+    "salesInfo": {
+      "title": "Sales Information",
+      "sellingPrice": "Selling Price",
+      "salesAccount": "Sales Account",
+      "salesDescription": "Sales Description"
+    },
+    "purchaseInfo": {
+      "title": "Purchase Information",
+      "costPrice": "Cost Price",
+      "purchaseAccount": "Purchase Account",
+      "purchaseDescription": "Purchase Description",
+      "preferredVendor": "Preferred Vendor"
+    },
+    "inventorySettings": {
+      "title": "Inventory Settings",
+      "trackInventory": "Track Inventory",
+      "inventoryAccount": "Inventory Account",
+      "reorderPoint": "Reorder Point",
+      "reorderPointHelp": "Set to 0 to disable low stock notifications",
+      "openingStock": "Opening Stock",
+      "openingStockRate": "Opening Stock Rate"
+    },
+    "barcodes": {
+      "title": "Barcodes",
+      "manageBarcodes": "Manage Barcodes",
+      "addBarcode": "Add Barcode",
+      "defaultBarcode": "Default barcode",
+      "barcodePlaceholder": "Enter barcode",
+      "setPrimary": "Set as primary",
+      "remove": "Remove",
+      "isPrimary": "Primary",
+      "primary": "Primary",
+      "noBarcodes": "No barcodes added yet. Click the button above to add one.",
+      "helpText": "The default barcode is synced with e-commerce integrations and used for label printing."
+    },
+    "customFields": {
+      "title": "Custom Fields",
+      "manageCustomFields": "Manage Custom Fields",
+      "addField": "Add Field",
+      "fieldName": "Field Name",
+      "fieldType": "Field Type",
+      "fieldValue": "Value",
+      "dialogTitle": "Customize inFlow to your specific needs with custom fields.",
+      "dialogDescription": "Add custom fields to track additional product information",
+      "fieldLabel": "Field {number}",
+      "fieldNamePlaceholder": "e.g. Brand, Country, Material",
+      "typeLabel": "Type",
+      "manageDropdownOptions": "Manage drop-down options",
+      "addOption": "Add Option",
+      "optionPlaceholder": "Option {number}",
+      "showInactive": "Show inactive",
+      "enterData": "Enter data",
+      "selectPlaceholder": "Select...",
+      "pickDate": "Pick a date",
+      "yes": "Yes",
+      "no": "No",
+      "saving": "Saving...",
+      "saveChanges": "Save Changes",
+      "save": "Save",
+      "cancel": "Cancel",
+      "loading": "Loading custom fields...",
+      "noFieldsDefined": "No custom fields defined yet. Go to Settings → Custom Fields to create them.",
+      "noCustomFieldsSelected": "No custom fields selected for this product. Click 'Add Field' to add one.",
+      "successCreate": "Custom field created successfully",
+      "successUpdate": "Custom fields updated successfully",
+      "successSave": "Custom fields saved successfully",
+      "errorLoad": "Failed to load custom fields",
+      "errorSave": "Failed to save custom fields",
+      "confirmDelete": "Are you sure you want to delete \"{name}\"?",
+      "types": {
+        "text": "Text field",
+        "number": "Number",
+        "date": "Date field",
+        "dropdown": "Drop-down",
+        "checkbox": "Checkbox"
+      }
+    },
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "archive": "Archive"
+    },
+    "messages": {
+      "nameRequired": "Product name is required",
+      "unitRequired": "Unit is required",
+      "organizationRequired": "Organization is required",
+      "productCreated": "Product created successfully",
+      "productCreationFailed": "Failed to create product",
+      "createSuccess": "Product created successfully",
+      "updateSuccess": "Product updated successfully",
+      "deleteSuccess": "Product deleted successfully",
+      "createError": "Failed to create product",
+      "updateError": "Failed to update product",
+      "deleteError": "Failed to delete product",
+      "cannotRemoveCustomField": "Cannot remove custom field in this mode.",
+      "customFieldRemoved": "Custom field removed successfully.",
+      "customFieldRemoveFailed": "Failed to remove custom field."
+    },
+    "tabs": {
+      "basic": "Basic",
+      "sales": "Sales",
+      "purchase": "Purchase",
+      "inventory": "Inventory",
+      "additional": "Additional",
+      "overview": "Overview",
+      "vendors": "Product Vendors",
+      "orderHistory": "Order History",
+      "movementHistory": "Movement History"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Inactive",
+      "archived": "Archived"
+    },
+    "filters": {
+      "all": "All Products",
+      "goods": "Goods",
+      "services": "Services",
+      "itemGroups": "Item Groups",
+      "search": "Search products...",
+      "filterBy": "Filter by",
+      "sortBy": "Sort by"
+    },
+    "pricing": {
+      "title": "Pricing"
+    },
+    "yes": "Yes",
+    "no": "No",
+    "noProductsFound": "No products found",
+    "noCategoryAssigned": "No category assigned"
+  },
+  "productGroups": {
+    "title": "Product Groups",
+    "description": "Manage product groups with variants",
+    "createProductGroup": "Create Product Group",
+    "editProductGroup": "Edit Product Group",
+    "deleteProductGroup": "Delete Product Group",
+    "skuGenerator": {
+      "title": "Configure SKU Pattern for {baseName}",
+      "description": "Set up the SKU pattern for all variants in this product group",
+      "table": {
+        "selectAttribute": "Select Attribute",
+        "show": "Show",
+        "letterCase": "Letter Case",
+        "separator": "Separator"
+      },
+      "format": {
+        "first": "First 3 chars",
+        "last": "Last 3 chars",
+        "full": "Full text"
+      },
+      "case": {
+        "upper": "UPPERCASE",
+        "lower": "lowercase",
+        "title": "Title Case"
+      },
+      "preview": {
+        "title": "SKU Preview",
+        "empty": "No SKU generated",
+        "description": "This preview shows how the SKU will look based on your configuration"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "generate": "Generate SKUs"
+      }
+    },
+    "variantGeneration": {
+      "title": "Variant Generation",
+      "description": "Configure attributes to generate product variants",
+      "selectAttributes": "Select Attributes",
+      "selectAttributesDescription": "Choose which attributes to use for variants",
+      "attributesSelected": "{count} attributes selected",
+      "variantsWillBeGenerated": "{count} variants will be generated",
+      "generateVariants": "Generate Variants",
+      "configureSKU": "Configure SKU Pattern"
+    },
+    "variantsTable": {
+      "title": "Generated Variants",
+      "description": "All variant combinations with their attributes",
+      "variantName": "Variant Name",
+      "sku": "SKU",
+      "attributes": "Attributes",
+      "sellingPrice": "Selling Price",
+      "costPrice": "Cost Price",
+      "reorderPoint": "Reorder Point",
+      "active": "Active",
+      "actions": "Actions",
+      "noVariants": "No variants generated yet",
+      "editVariant": "Edit Variant",
+      "deleteVariant": "Delete Variant",
+      "bulkEdit": "Bulk Edit",
+      "copyToAll": "Copy to All"
+    },
+    "attributes": {
+      "title": "Attributes",
+      "description": "Product group attributes and their values",
+      "selectAttribute": "Select Attribute",
+      "selectValues": "Select Values",
+      "addAttribute": "Add Attribute",
+      "removeAttribute": "Remove Attribute",
+      "noAttributes": "No attributes selected",
+      "noAttributesDescription": "Add attributes to generate product variants"
+    },
+    "detail": {
+      "title": "Product Group Details",
+      "overview": "Overview",
+      "variants": "Variants",
+      "settings": "Settings",
+      "totalVariants": "Total Variants",
+      "activeVariants": "Active Variants",
+      "totalStock": "Total Stock",
+      "viewVariants": "View Variants",
+      "manageVariants": "Manage Variants"
+    },
+    "messages": {
+      "nameRequired": "Product group name is required",
+      "attributesRequired": "At least one attribute is required",
+      "variantsRequired": "At least one variant must be generated",
+      "productGroupCreated": "Product group created successfully",
+      "productGroupUpdated": "Product group updated successfully",
+      "productGroupDeleted": "Product group deleted successfully",
+      "variantUpdated": "Variant updated successfully",
+      "variantDeleted": "Variant deleted successfully",
+      "variantsBulkUpdated": "Variants updated successfully",
+      "createError": "Failed to create product group",
+      "updateError": "Failed to update product group",
+      "deleteError": "Failed to delete product group",
+      "loadError": "Failed to load product group"
+    }
+  },
+  "stockMovements": {
+    "title": "Stock Movements",
+    "description": "Track and manage all warehouse stock movements",
+    "createMovement": "Create Movement",
+    "movementDetails": "Movement Details",
+    "movementNumber": "Movement Number",
+    "movementType": "Movement Type",
+    "category": "Category",
+    "status": "Status",
+    "product": "Product",
+    "variant": "Variant",
+    "quantity": "Quantity",
+    "unitOfMeasure": "Unit of Measure",
+    "sourceLocation": "Source Location",
+    "destinationLocation": "Destination Location",
+    "unitCost": "Unit Cost",
+    "totalCost": "Total Cost",
+    "currency": "Currency",
+    "notes": "Notes",
+    "batchNumber": "Batch Number",
+    "serialNumber": "Serial Number",
+    "lotNumber": "Lot Number",
+    "expiryDate": "Expiry Date",
+    "referenceType": "Reference Type",
+    "referenceNumber": "Reference Number",
+    "createdBy": "Created By",
+    "approvedBy": "Approved By",
+    "occurredAt": "Occurred At",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "completedAt": "Completed At",
+    "cancelledAt": "Cancelled At",
+    "statuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "approved": "Approved",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "reversed": "Reversed"
+    },
+    "categories": {
+      "receipt": "Receipt",
+      "issue": "Issue",
+      "transfer": "Transfer",
+      "adjustment": "Adjustment",
+      "reservation": "Reservation",
+      "ecommerce": "E-commerce"
+    },
+    "actions": {
+      "approve": "Approve Movement",
+      "cancel": "Cancel Movement",
+      "refresh": "Refresh",
+      "viewDetails": "View Details",
+      "create": "Create Movement"
+    },
+    "messages": {
+      "movementCreated": "Movement created successfully",
+      "movementApproved": "Movement approved successfully",
+      "movementCancelled": "Movement cancelled successfully",
+      "loadError": "Failed to load movements",
+      "createError": "Failed to create movement",
+      "approveError": "Failed to approve movement",
+      "cancelError": "Failed to cancel movement",
+      "noMovements": "No movements found",
+      "authRequired": "Authentication required",
+      "cancellationReasonRequired": "Cancellation reason is required"
+    },
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear Filters",
+      "show": "Show Filters",
+      "hide": "Hide Filters",
+      "allCategories": "All Categories",
+      "allStatuses": "All Statuses",
+      "allMovements": "All Movements",
+      "requiresApproval": "Requires Approval",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "selectDate": "Select date"
+    },
+    "inventory": {
+      "title": "Inventory Dashboard",
+      "description": "Real-time stock levels and inventory overview",
+      "totalProducts": "Total Products",
+      "totalValue": "Total Value",
+      "lowStock": "Low Stock Items",
+      "outOfStock": "Out of Stock",
+      "available": "Available",
+      "reserved": "Reserved",
+      "atp": "Available to Promise",
+      "value": "Value",
+      "avgCost": "Avg Cost",
+      "stockLevel": "Stock Level",
+      "inStock": "In Stock",
+      "lowStockStatus": "Low Stock",
+      "outOfStockStatus": "Out of Stock",
+      "search": "Search by product ID or location..."
+    },
+    "approvalQueue": {
+      "title": "Pending Approvals",
+      "description": "Movements awaiting approval",
+      "noApprovals": "No movements pending approval",
+      "reject": "Reject",
+      "approve": "Approve"
+    }
+  },
+  "transfers": {
+    "title": "Warehouse Transfers",
+    "description": "Manage transfers between warehouses and locations",
+    "createTransfer": "Create Transfer",
+    "transferDetails": "Transfer Details",
+    "transferNumber": "Transfer Number",
+    "fromBranch": "From Warehouse",
+    "toBranch": "To Warehouse",
+    "fromLocation": "From Location",
+    "toLocation": "To Location",
+    "priority": "Priority",
+    "expectedDate": "Expected Date",
+    "shippingMethod": "Shipping Method",
+    "carrier": "Carrier",
+    "trackingNumber": "Tracking Number",
+    "requestedBy": "Requested By",
+    "approvedBy": "Approved By",
+    "shippedBy": "Shipped By",
+    "receivedBy": "Received By",
+    "createdAt": "Created At",
+    "approvedAt": "Approved At",
+    "shippedAt": "Shipped At",
+    "receivedAt": "Received At",
+    "items": "Items",
+    "itemCount": "{count} items",
+    "totalQuantity": "Total Quantity",
+    "receivedQuantity": "Received Quantity",
+    "statuses": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "approved": "Approved",
+      "in_transit": "In Transit",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "rejected": "Rejected"
+    },
+    "priorities": {
+      "normal": "Normal",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "actions": {
+      "submit": "Submit for Approval",
+      "approve": "Approve Transfer",
+      "reject": "Reject Transfer",
+      "ship": "Mark as Shipped",
+      "receive": "Receive Transfer",
+      "cancel": "Cancel Transfer",
+      "edit": "Edit",
+      "viewDetails": "View Details",
+      "refresh": "Refresh"
+    },
+    "messages": {
+      "transferCreated": "Transfer created successfully",
+      "transferSubmitted": "Transfer submitted for approval",
+      "transferApproved": "Transfer approved successfully",
+      "transferRejected": "Transfer rejected",
+      "transferShipped": "Transfer marked as shipped",
+      "transferReceived": "Transfer received successfully",
+      "transferCancelled": "Transfer cancelled",
+      "transferUpdated": "Transfer updated successfully",
+      "loadError": "Failed to load transfers",
+      "createError": "Failed to create transfer",
+      "updateError": "Failed to update transfer",
+      "noTransfers": "No transfers found",
+      "noItems": "No items in transfer",
+      "sameWarehouseError": "Source and destination warehouses must be different"
+    },
+    "filters": {
+      "allStatuses": "All Statuses",
+      "allPriorities": "All Priorities",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "search": "Search by number or notes..."
+    },
+    "workflow": {
+      "title": "Workflow",
+      "created": "Created",
+      "submitted": "Submitted for approval",
+      "approved": "Approved",
+      "shipped": "Shipped",
+      "received": "Received",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "All Transfers",
+      "pending": "Pending",
+      "inTransit": "In Transit",
+      "completed": "Completed",
+      "overdue": "Overdue"
+    },
+    "form": {
+      "selectBranch": "Select warehouse",
+      "selectLocation": "Select location",
+      "selectProduct": "Select product",
+      "addItem": "Add Item",
+      "removeItem": "Remove Item",
+      "notes": "Notes",
+      "enterNotes": "Enter notes...",
+      "reasonRequired": "Reason required",
+      "enterReason": "Enter reason..."
+    }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Clients",
+      "description": "Manage customer contacts and relationships",
+      "pageTitle": "Clients",
+      "pageDescription": "Customer relationship management",
+      "list": "Client List",
+      "totalCount": "{count} total clients"
+    },
+    "vendors": {
+      "title": "Vendors",
+      "description": "Manage supplier contacts and relationships",
+      "pageTitle": "Vendors",
+      "pageDescription": "Supplier relationship management",
+      "list": "Vendor List",
+      "totalCount": "{count} total vendors"
+    },
+    "title": "Contacts",
+    "description": "Manage your personal and organizational contacts",
+    "types": {
+      "contact": "Contact",
+      "lead": "Lead",
+      "other": "Other"
+    },
+    "visibilityScopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization",
+      "privateDesc": "Only visible to you",
+      "branchDesc": "Visible to branch members",
+      "organizationDesc": "Visible to all organization members"
+    },
+    "entityTypes": {
+      "business": "Business",
+      "individual": "Individual"
+    },
+    "form": {
+      "newTitle": "New {type}",
+      "editTitle": "Edit {type}",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "tabs": {
+        "basicInfo": "Basic Info",
+        "info": "Info",
+        "otherDetails": "Other Details",
+        "address": "Address",
+        "linkedAccounts": "Linked Business Accounts",
+        "contactPersons": "Contact Persons",
+        "customFields": "Custom Fields",
+        "remarks": "Remarks",
+        "notes": "Notes"
+      },
+      "entityTypes": {
+        "business": "Business",
+        "individual": "Individual"
+      },
+      "salutations": {
+        "label": "Salutation",
+        "mr": "Mr.",
+        "mrs": "Mrs.",
+        "ms": "Ms.",
+        "dr": "Dr.",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
+      "fields": {
+        "visibilityScope": "Visibility Scope",
+        "visibilityScopeHelp": "Control who can see this contact",
+        "contactVisibility": "Contact Type",
+        "privateVisibilityDesc": "Only you can view and edit this contact",
+        "organizationVisibilityDesc": "All organization members can view and edit this contact",
+        "privateVisibilityInfo": "Private contacts cannot be linked to business accounts. Change to public to link this contact to clients or suppliers.",
+        "organizationVisibilityInfo": "Organization contacts can be linked to business accounts (clients/suppliers). Once set to public, it cannot be changed back to private.",
+        "organizationVisibilityLocked": "This contact is public and cannot be changed to private because it may already be linked to business accounts.",
+        "customerType": "Customer Type",
+        "salutation": "Salutation",
+        "firstName": "First Name",
+        "lastName": "Last Name",
+        "companyName": "Company Name",
+        "displayName": "Display Name",
+        "displayNameHelp": "This name will be displayed across all transactions",
+        "primaryEmail": "Primary Email",
+        "workPhone": "Work Phone",
+        "mobilePhone": "Mobile Phone",
+        "website": "Website",
+        "language": "Language",
+        "currency": "Currency",
+        "paymentTerms": "Payment Terms",
+        "taxRegistrationNumber": "Tax Registration Number",
+        "companyIdNumber": "Company ID Number",
+        "taxRate": "Tax Rate (%)",
+        "taxExempt": "Tax Exempt",
+        "creditLimit": "Credit Limit",
+        "openingBalance": "Opening Balance",
+        "portalEnabled": "Allow Portal Access",
+        "portalLanguage": "Portal Language",
+        "fax": "Fax",
+        "billingAddress": "Billing Address",
+        "shippingAddress": "Shipping Address",
+        "attentionTo": "Attention To",
+        "country": "Country",
+        "addressLine1": "Address Line 1",
+        "addressLine2": "Address Line 2",
+        "city": "City",
+        "stateProvince": "State/Province",
+        "postalCode": "Postal Code",
+        "phone": "Phone",
+        "defaultAddress": "Default",
+        "contactPersons": "Contact Persons",
+        "name": "Name",
+        "email": "Email",
+        "designation": "Designation",
+        "department": "Department",
+        "primary": "Primary",
+        "active": "Active",
+        "actions": "Actions",
+        "primaryContact": "Primary Contact",
+        "notes": "Notes",
+        "internalNotes": "Internal Notes",
+        "internalNotesHelp": "These notes are for internal use only and will not be visible to the contact",
+        "type": "Type",
+        "location": "Location",
+        "tags": "Tags",
+        "tagsHelp": "Use tags to categorize and organize contacts"
+      },
+      "placeholders": {
+        "salutation": "Select salutation",
+        "firstName": "Enter first name",
+        "lastName": "Enter last name",
+        "companyName": "Enter company name",
+        "displayName": "Enter display name",
+        "email": "example@company.com",
+        "phone": "+1 234 567 890",
+        "website": "https://example.com",
+        "paymentTerms": "Select payment terms",
+        "taxNumber": "Enter tax number",
+        "companyId": "Enter company ID",
+        "taxRate": "e.g. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Enter fax number",
+        "attentionTo": "Contact person name",
+        "country": "Enter country",
+        "addressLine1": "Street address",
+        "addressLine2": "Apartment, suite, etc.",
+        "city": "Enter city",
+        "stateProvince": "Enter state/province",
+        "postalCode": "Enter postal code",
+        "designation": "Job title",
+        "department": "Department name",
+        "notes": "Add any additional notes here...",
+        "tags": "Add tags (press Enter to add)"
+      },
+      "actions": {
+        "addBillingAddress": "Add Billing Address",
+        "addShippingAddress": "Add Shipping Address",
+        "addContactPerson": "Add Contact Person",
+        "add": "Add",
+        "update": "Update",
+        "cancel": "Cancel"
+      },
+      "dialogs": {
+        "addContactPerson": "Add Contact Person",
+        "editContactPerson": "Edit Contact Person",
+        "title": "Title",
+        "workPhone": "Work Phone",
+        "designation": "Job Title",
+        "department": "Department",
+        "notes": "Notes",
+        "primaryContact": "Primary Contact",
+        "active": "Active",
+        "cancel": "Cancel",
+        "add": "Add",
+        "update": "Update"
+      },
+      "messages": {
+        "createSuccess": "Contact created successfully",
+        "updateSuccess": "Contact updated successfully",
+        "error": "Failed to save contact",
+        "noAddresses": "No addresses added yet",
+        "noContactPersons": "No contact persons added yet",
+        "customFieldsPlaceholder": "No custom fields defined",
+        "customFieldsInfo": "Custom fields can be configured in organization settings"
+      }
+    },
+    "actions": {
+      "newContact": "New Contact",
+      "newClient": "New Client",
+      "newVendor": "New Vendor",
+      "addBillingAddress": "Add Billing Address",
+      "addShippingAddress": "Add Shipping Address",
+      "addContactPerson": "Add Contact Person",
+      "add": "Add",
+      "save": "Save",
+      "update": "Update",
+      "cancel": "Cancel",
+      "saving": "Saving...",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirmDelete": "Confirm Delete"
+    },
+    "dialogs": {
+      "addContactPerson": "Add Contact Person",
+      "editContactPerson": "Edit Contact Person",
+      "title": "Title",
+      "workPhone": "Work Phone",
+      "designation": "Job Title",
+      "department": "Department",
+      "notes": "Notes",
+      "primaryContact": "Primary Contact",
+      "active": "Active",
+      "cancel": "Cancel",
+      "add": "Add",
+      "update": "Update"
+    },
+    "messages": {
+      "loading": "Loading contacts...",
+      "noContacts": "No contacts found",
+      "noAddresses": "No addresses added yet",
+      "noContactPersons": "No contact persons added yet",
+      "createSuccess": "Contact created successfully",
+      "updateSuccess": "Contact updated successfully",
+      "deleteSuccess": "Contact deleted successfully",
+      "deleteError": "Failed to delete contact",
+      "confirmDeleteText": "Are you sure you want to delete {name}? This action cannot be undone.",
+      "error": "An error occurred"
+    },
+    "filters": {
+      "title": "Filters",
+      "searchPlaceholder": "Search by name, email, or phone...",
+      "allTypes": "All Types",
+      "allScopes": "All Scopes",
+      "clearAll": "Clear All"
+    },
+    "scopes": {
+      "private": "Private",
+      "branch": "Branch",
+      "organization": "Organization"
+    },
+    "pagination": {
+      "showing": "Showing {start} to {end} of {total}",
+      "previous": "Previous",
+      "next": "Next"
+    }
+  },
+  "documentation": {
+    "title": "Documentation",
+    "description": "Knowledge center with guides, specs, and references",
+    "sections": {
+      "user": "User Guide",
+      "dev": "Developer Docs",
+      "spec": "Specifications",
+      "internal": "Internal Docs",
+      "api": "API Reference",
+      "meta": "System Docs"
+    },
+    "sectionDescriptions": {
+      "user": "Learn how to use AmbraWMS effectively",
+      "dev": "Technical documentation for developers",
+      "spec": "Detailed technical specifications",
+      "internal": "Internal team documentation",
+      "api": "API endpoints and integration guides",
+      "meta": "System architecture and design docs"
+    },
+    "navigation": {
+      "home": "Documentation Home",
+      "back": "Back",
+      "tableOfContents": "Table of Contents",
+      "onThisPage": "On This Page",
+      "quickLinks": "Quick Links"
+    },
+    "search": {
+      "placeholder": "Search documentation...",
+      "noResults": "No results found",
+      "searching": "Searching...",
+      "results": "{count} results found"
+    },
+    "actions": {
+      "edit": "Edit",
+      "print": "Print",
+      "download": "Download PDF",
+      "share": "Share",
+      "feedback": "Give Feedback",
+      "createTranslation": "Create Translation"
+    },
+    "language": {
+      "switchLanguage": "Switch Language",
+      "notTranslated": "This document is not yet translated to {language}.",
+      "viewOriginal": "View in {language}",
+      "helpTranslate": "Help translate this document",
+      "notAvailable": "This document is not available in your language.",
+      "showingFallback": "Showing English version instead."
+    },
+    "metadata": {
+      "lastUpdated": "Last updated",
+      "version": "Version",
+      "author": "Author",
+      "difficulty": "Difficulty",
+      "estimatedTime": "Estimated reading time",
+      "minutes": "{count} min",
+      "prerequisites": "Prerequisites",
+      "relatedDocs": "Related Documentation"
+    },
+    "difficulty": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "status": {
+      "draft": "Draft",
+      "review": "In Review",
+      "published": "Published",
+      "archived": "Archived"
+    },
+    "messages": {
+      "loading": "Loading documentation...",
+      "notFound": "Documentation not found",
+      "error": "Failed to load documentation",
+      "saved": "Changes saved successfully",
+      "published": "Document published successfully"
+    },
+    "widgets": {
+      "search": {
+        "title": "Search Documentation",
+        "description": "Quick search across all docs"
+      },
+      "recent": {
+        "title": "Recently Viewed",
+        "description": "Your recently viewed docs",
+        "empty": "No recently viewed documents"
+      }
+    }
+  },
+  "toasts": {
+    "passwordUpdated": "Password updated successfully. Please log in.",
+    "passwordError": "Could not update password. Please try again.",
+    "passwordSameAsOld": "New password cannot be the same as your previous password.",
+    "passwordTooWeak": "Password is too weak. Please use a stronger password.",
+    "passwordSessionExpired": "Session expired. Please request a new password reset link."
+  },
+  "invitationPage": {
+    "loading": "Loading invitation...",
+    "errorTitle": "Invitation Error",
+    "notFoundTitle": "Invitation Not Found",
+    "notFoundDescription": "We couldn't find an invitation with the provided token.",
+    "loginRequired": "Login Required",
+    "loginRequiredDescription": "You need to be logged in to accept this invitation",
+    "loginRequiredDescriptionFrom": "{inviterName} has invited you to join {orgName}. Sign in or create an account to view your invitation.",
+    "invitationFor": "Invitation for:",
+    "hasAccount": "I have an account — Sign in",
+    "noAccount": "No account — Sign up",
+    "pageTitle": "Organization Invitation",
+    "pageDescription": "You have been invited to join an organization",
+    "orgLabel": "Organization:",
+    "roleLabel": "Role:",
+    "branchLabel": "Branch:",
+    "emailLabel": "Email:",
+    "statusLabel": "Status:",
+    "expiresLabel": "Expires:",
+    "noRole": "No role",
+    "noBranch": "No branch",
+    "statusPending": "Pending",
+    "statusAccepted": "Accepted",
+    "statusRejected": "Rejected",
+    "statusExpired": "Expired",
+    "statusCancelled": "Cancelled",
+    "expiredWarning": "This invitation has expired. Contact your organization administrator to request a new invitation.",
+    "alreadyProcessed": "This invitation has already been {status}.",
+    "processedAccepted": "accepted",
+    "processedRejected": "rejected",
+    "processedCancelled": "cancelled",
+    "processedDefault": "processed",
+    "emailMismatch": "This invitation was sent to {invitationEmail}, but you are logged in as {userEmail}. Please sign in with the correct account to accept the invitation.",
+    "acceptButton": "Accept Invitation",
+    "goToDashboard": "Go to Dashboard",
+    "successMessage": "Invitation accepted! You will be redirected to the dashboard.",
+    "errorMessage": "Failed to accept the invitation",
+    "unexpectedError": "An unexpected error occurred",
+    "expiredTitle": "Invitation Expired",
+    "cancelledTitle": "Invitation Cancelled",
+    "cancelledDescription": "This invitation has been cancelled by the organization.",
+    "acceptedTitle": "Already Accepted",
+    "acceptedDescription": "This invitation has already been accepted.",
+    "declinedTitle": "Invitation Declined",
+    "declinedDescription": "You have already declined this invitation.",
+    "declineButton": "Decline invitation",
+    "declineError": "Failed to decline the invitation",
+    "inviterLabel": "Invited by:",
+    "declineSuccessMessage": "Invitation declined. You can continue to onboarding.",
+    "continueButton": "Continue to Onboarding",
+    "goToDashboardButton": "Go to Dashboard"
+  },
+  "inviteResolvePage": {
+    "title": "Invitation Pending",
+    "singleInviteDescription": "You have a pending invitation to join an organization.",
+    "multipleInviteDescription": "You have pending invitations to join organizations.",
+    "joinButton": "View & Accept Invitation",
+    "detailsButton": "Invitation Details",
+    "skipButton": "Continue without accepting",
+    "skipHint": "Your invitations will remain pending and can be accepted later.",
+    "expiresLabel": "Expires"
+  },
+  "invitationFormDialog": {
+    "title": "Invite New User",
+    "description": "Send an invitation to join the organization. The user will receive a link to accept the invitation.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "e.g. jan.kowalski@example.com",
+    "roleLabel": "Role",
+    "roleOptionalHint": "(optional)",
+    "rolePlaceholder": "Select a role",
+    "roleLoading": "Loading roles...",
+    "roleNoneLabel": "No extra role (org_member by default)",
+    "roleBaseHint": "The invited user always receives the org_member base role on acceptance.",
+    "expiresLabel": "Expiry date",
+    "expiresHint": "The invitation expires at midnight on the selected day.",
+    "cancelButton": "Cancel",
+    "submitButton": "Send invitation",
+    "pendingButton": "Sending...",
+    "successToast": "Invitation sent successfully.",
+    "errorFallback": "Failed to send invitation."
+  },
+  "onboardingEntry": {
+    "title": "Welcome!",
+    "titleWithName": "Welcome, {name}!",
+    "description": "Your account is ready. You are not connected to any organization yet.",
+    "signedInAs": "Signed in as",
+    "pendingInviteHint": "You have a pending invitation. Accept it to join an organization.",
+    "reviewInviteButton": "Review Invitation",
+    "browseDashboardButton": "Go to Dashboard",
+    "createOrgHint": "Set up your organization to get started.",
+    "signOutButton": "Sign out"
+  },
+  "onboardingWizard": {
+    "title": "Welcome!",
+    "titleWithName": "Welcome, {name}!",
+    "signedInAs": "Signed in as",
+    "orgStepDescription": "Let's start by naming your organization.",
+    "orgNameLabel": "Organization name",
+    "orgNamePlaceholder": "e.g. Acme",
+    "orgName2Label": "Secondary name (optional)",
+    "orgName2Placeholder": "e.g. Corp, Ltd, Sp. z o.o.",
+    "orgName2Hint": "Legal form, subsidiary name, or any second part of the full name.",
+    "orgNameTooShort": "Organization name must be at least 2 characters.",
+    "orgSlugLabel": "URL slug",
+    "orgSlugPlaceholder": "my-organization",
+    "orgSlugHint": "Lowercase letters, numbers, and hyphens only. Must be unique.",
+    "orgSlugGenerate": "Generate from name",
+    "orgSlugChecking": "Checking availability...",
+    "orgSlugAvailable": "Slug is available",
+    "orgSlugTaken": "This slug is already taken",
+    "orgSlugRequired": "Slug is required",
+    "orgSlugInvalid": "Only lowercase letters, numbers, and hyphens allowed",
+    "orgSlugTooShort": "Slug must be at least 2 characters",
+    "branchStepTitle": "Your first branch",
+    "branchStepDescription": "A branch is a location or team within your organization. You can add more later.",
+    "branchNameLabel": "Branch name",
+    "branchNamePlaceholder": "e.g. Main Branch, Warsaw, HQ",
+    "branchNameHint": "This is typically your main office, warehouse, or team.",
+    "planStepTitle": "Choose your plan",
+    "planStepDescription": "You can upgrade or change your plan at any time.",
+    "nextButton": "Continue",
+    "backButton": "Back",
+    "createButton": "Create organization",
+    "creatingTitle": "Setting up your organization...",
+    "creatingDescription": "This will only take a moment.",
+    "createError": "Something went wrong. Please try again.",
+    "priceFree": "Free",
+    "pricePaid": "${amount}/mo",
+    "limitUnlimited": "Unlimited {unit}",
+    "limitCount": "{count} {unit}",
+    "unitBranches": "branches",
+    "unitMembers": "members"
+  },
+  "onboardingInvitePending": {
+    "title": "You have an invitation!",
+    "titleWithName": "Hi, {name}! You have an invitation.",
+    "description": "You have been invited to join an organization. Review the invitation to get started.",
+    "signedInAs": "Signed in as",
+    "inviteHint": "Pending invitation",
+    "unknownOrg": "An organization",
+    "reviewButton": "Review",
+    "moreInvites": "+{count} more invitation(s)",
+    "orSeparator": "or",
+    "signOutButton": "Sign out"
+  },
+  "activityFeed": {
+    "personalTitle": "My Activity",
+    "personalDescription": "Your recent actions within this organization.",
+    "orgTitle": "Organization Activity",
+    "orgDescription": "Recent activity across your organization.",
+    "auditTitle": "Audit Log",
+    "auditDescription": "Full audit event log including IP addresses and browser details.",
+    "empty": "No events found.",
+    "loading": "Loading\u2026",
+    "pagination": "Showing {from}\u2013{to} of {total}",
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "ip": "IP",
+    "ua": "User Agent"
+  },
+  "adminInvitations": {
+    "inviteMemberButton": "Invite Member",
+    "noInvitations": "No invitations found.",
+    "dialogTitle": "Invite Member",
+    "emailAddressLabel": "Email Address",
+    "rolesLabel": "Additional Roles",
+    "rolesHint": "The invited member always receives the base org_member role. Add extra roles here.",
+    "addRoleButton": "Add role",
+    "roleSelectPlaceholder": "Select a role",
+    "branchSelectPlaceholder": "Select a branch",
+    "cancelButton": "Cancel",
+    "sendButton": "Send Invite",
+    "sendingButton": "Sending…",
+    "expiresLabel": "Expires:",
+    "resendTitle": "Resend",
+    "cancelTitle": "Cancel invitation",
+    "statusDeclined": "declined",
+    "inviteErrors": {
+      "DUPLICATE_PENDING": "An invitation is already pending for this email address.",
+      "ALREADY_MEMBER": "This person is already a member of your organization.",
+      "ALREADY_IN_ORG": "This person already belongs to another organization.",
+      "SELF_INVITE": "You cannot invite yourself.",
+      "UNAUTHORIZED": "You don't have permission to send invitations.",
+      "INVALID_EMAIL": "Please enter a valid email address.",
+      "UNKNOWN": "Something went wrong. Please try again."
+    },
+    "inviteSentSuccess": "Invitation sent successfully",
+    "resendSuccess": "Invitation resent",
+    "emailDeliveryWarning": "Invitation created, but the email could not be delivered. Share the invite link manually.",
+    "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually."
+  },
+  "events": {
+    "auth": {
+      "login": {
+        "self": "You logged in",
+        "default": "{actorName} logged in",
+        "audit": "{actorName} logged in"
+      },
+      "loginFailed": {
+        "self": "A failed login attempt occurred",
+        "default": "A failed login attempt occurred",
+        "audit": "Failed login attempt"
+      },
+      "password": {
+        "resetRequested": {
+          "self": "A password reset was requested",
+          "default": "A password reset was requested",
+          "audit": "Password reset requested"
+        },
+        "resetCompleted": {
+          "self": "You reset your password",
+          "default": "{actorName} reset their password",
+          "audit": "{actorName} reset their password"
+        }
+      },
+      "session": {
+        "revoked": {
+          "self": "Your session was signed out",
+          "default": "{actorName} was signed out",
+          "audit": "{actorName} session revoked"
+        }
+      }
+    },
+    "org": {
+      "created": {
+        "self": "You created the organization",
+        "default": "{actorName} created the organization",
+        "audit": "{actorName} created organization {orgName}"
+      },
+      "updated": {
+        "self": "You updated the organization profile",
+        "default": "{actorName} updated the organization profile",
+        "audit": "{actorName} updated the organization profile"
+      },
+      "onboarding": {
+        "completed": {
+          "self": "You completed the organization onboarding",
+          "default": "{actorName} completed the organization onboarding",
+          "audit": "{actorName} completed onboarding for {orgName}"
+        }
+      },
+      "member": {
+        "invited": {
+          "self": "You invited {targetName} to the organization",
+          "default": "{actorName} invited {targetName} to the organization",
+          "audit": "{actorName} invited {targetName} to the organization"
+        },
+        "removed": {
+          "self": "You removed {targetName} from the organization",
+          "default": "{actorName} removed {targetName} from the organization",
+          "audit": "{actorName} removed {targetName} from the organization"
+        },
+        "roleAssigned": {
+          "self": "You assigned the role {roleName} to {targetName}",
+          "default": "{actorName} assigned the role {roleName} to {targetName}",
+          "audit": "{actorName} assigned role {roleName} to {targetName}"
+        },
+        "roleRemoved": {
+          "self": "You removed the role {roleName} from {targetName}",
+          "default": "{actorName} removed the role {roleName} from {targetName}",
+          "audit": "{actorName} removed role {roleName} from {targetName}"
+        }
+      },
+      "invitation": {
+        "accepted": {
+          "self": "You joined the organization",
+          "default": "{actorName} joined the organization",
+          "audit": "{actorName} accepted invitation and joined"
+        },
+        "cancelled": {
+          "self": "You cancelled the invitation for {targetName}",
+          "default": "{actorName} cancelled the invitation for {targetName}",
+          "audit": "{actorName} cancelled invitation for {targetName}"
+        },
+        "resent": {
+          "self": "You resent the invitation to {targetName}",
+          "default": "{actorName} resent the invitation to {targetName}",
+          "audit": "{actorName} resent invitation to {targetName}"
+        },
+        "declined": {
+          "self": "You declined the invitation",
+          "default": "{actorName} declined the invitation",
+          "audit": "{actorName} declined the invitation"
+        }
+      },
+      "role": {
+        "created": {
+          "self": "You created the role {roleName}",
+          "default": "{actorName} created the role {roleName}",
+          "audit": "{actorName} created role {roleName}"
+        },
+        "updated": {
+          "self": "You updated the role {roleName}",
+          "default": "{actorName} updated the role {roleName}",
+          "audit": "{actorName} updated role {roleName}"
+        },
+        "deleted": {
+          "self": "You deleted the role {roleName}",
+          "default": "{actorName} deleted the role {roleName}",
+          "audit": "{actorName} deleted role {roleName}"
+        }
+      },
+      "branch": {
+        "created": {
+          "self": "You created the branch {branchName}",
+          "default": "{actorName} created the branch {branchName}",
+          "audit": "{actorName} created branch {branchName}"
+        },
+        "updated": {
+          "self": "You updated the branch {branchName}",
+          "default": "{actorName} updated the branch {branchName}",
+          "audit": "{actorName} updated branch {branchName}"
+        },
+        "deleted": {
+          "self": "You deleted the branch {branchName}",
+          "default": "{actorName} deleted the branch {branchName}",
+          "audit": "{actorName} deleted branch {branchName}"
+        }
+      }
+    }
+  },
+  "activityDrawer": {
+    "title": "Recent Activity",
+    "description": "Your last 10 actions",
+    "empty": "No recent activity",
+    "viewAll": "View all activity",
+    "loading": "Loading activity…"
+  }
+}

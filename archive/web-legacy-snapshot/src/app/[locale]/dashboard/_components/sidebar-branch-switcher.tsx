@@ -1,0 +1,117 @@
+"use client";
+
+import * as React from "react";
+import { useTransition } from "react";
+import { ChevronsUpDown, Building2, Check } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { changeBranch } from "@/app/actions/shared/changeBranch";
+import { toast } from "react-toastify";
+import type { BranchDataV2 } from "@/lib/stores/v2/app-store";
+
+interface SidebarBranchSwitcherProps {
+  /** Server-computed accessible branches for the current user */
+  branches: BranchDataV2[];
+  /** Server-resolved active branch ID */
+  activeBranchId: string | null;
+}
+
+export function SidebarBranchSwitcher({ branches, activeBranchId }: SidebarBranchSwitcherProps) {
+  const { isMobile } = useSidebar();
+  const [isPending, startTransition] = useTransition();
+
+  // Branch list comes from server-computed props — NOT from the store.
+  // activeBranchId from the store is used for display (updated optimistically on switch).
+  // The prop is the server-authoritative initial value and SSR fallback.
+  const { activeOrg, setActiveBranch, activeBranchId: storeActiveBranchId } = useAppStoreV2();
+
+  // Prefer store value (reflects optimistic switch), fall back to server prop for SSR
+  const currentActiveBranchId = storeActiveBranchId ?? activeBranchId;
+  const activeBranch = branches.find((b) => b.id === currentActiveBranchId) ?? null;
+
+  const handleBranchSelect = (branchId: string) => {
+    if (branchId === currentActiveBranchId) return;
+
+    startTransition(async () => {
+      try {
+        const result = await changeBranch(branchId);
+        if (!result.success) {
+          toast.error("error" in result ? result.error : "Failed to switch branch");
+          return;
+        }
+        setActiveBranch(branchId);
+        toast.success("Branch switched successfully");
+      } catch (error) {
+        console.error("Failed to change branch:", error);
+        toast.error("Failed to switch branch");
+      }
+    });
+  };
+
+  if (!activeOrg || !activeBranch) {
+    return null;
+  }
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton
+              size="default"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!p-1"
+              disabled={isPending}
+              tooltip={activeBranch.name}
+            >
+              <div className="flex aspect-square size-6 items-center justify-center rounded bg-sidebar-primary text-sidebar-primary-foreground shrink-0">
+                <Building2 className="size-3.5" />
+              </div>
+              <span className="truncate font-medium flex-1 text-left text-sm group-data-[collapsible=icon]:hidden">
+                {activeBranch.name}
+              </span>
+              <ChevronsUpDown className="ml-auto group-data-[collapsible=icon]:hidden" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            align="start"
+            side={isMobile ? "bottom" : "right"}
+            sideOffset={4}
+          >
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Branches
+            </DropdownMenuLabel>
+            {branches.map((branch) => (
+              <DropdownMenuItem
+                key={branch.id}
+                onClick={() => handleBranchSelect(branch.id)}
+                className="gap-2 p-2"
+                disabled={isPending}
+              >
+                <div className="flex size-6 items-center justify-center rounded-sm border">
+                  <Building2 className="size-4 shrink-0" />
+                </div>
+                <span className="flex-1">{branch.name}</span>
+                {currentActiveBranchId === branch.id && (
+                  <Check className="size-4 text-muted-foreground" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}

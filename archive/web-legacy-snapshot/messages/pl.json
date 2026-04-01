@@ -1,0 +1,2898 @@
+{
+  "HomePage": {
+    "title": "Siema siema"
+  },
+  "PreferencesPage": {
+    "title": "Preferencje",
+    "description": "Zarządzaj preferencjami konta i ustawieniami",
+    "appearance": "Wygląd",
+    "appearanceDescription": "Dostosuj wygląd aplikacji",
+    "theme": "Motyw",
+    "themeDescription": "Wybierz preferowany wygląd motywu",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "Systemowy",
+    "colorTheme": "Schemat kolorów",
+    "colorThemeDescription": "Wybierz preferowaną paletę kolorów",
+    "language": "Język",
+    "languageDescription": "Wybierz preferowany język",
+    "regional": "Ustawienia regionalne",
+    "regionalDescription": "Skonfiguruj strefę czasową, format daty i czasu",
+    "timezone": "Strefa czasowa",
+    "dateFormat": "Format daty",
+    "timeFormat": "Format czasu",
+    "timeFormat24h": "24-godzinny",
+    "timeFormat12h": "12-godzinny",
+    "preview": "Podgląd",
+    "notifications": "Powiadomienia",
+    "notificationsDescription": "Skonfiguruj sposób otrzymywania powiadomień",
+    "emailNotifications": "Powiadomienia e-mail",
+    "emailNotificationsDescription": "Otrzymuj powiadomienia przez e-mail",
+    "pushNotifications": "Powiadomienia push",
+    "pushNotificationsDescription": "Otrzymuj powiadomienia push w przeglądarce",
+    "inAppNotifications": "Powiadomienia w aplikacji",
+    "inAppNotificationsDescription": "Wyświetlaj powiadomienia w aplikacji",
+    "quietHours": "Cisza nocna",
+    "quietHoursDescription": "Ustaw godziny wyciszenia powiadomień",
+    "startTime": "Godzina rozpoczęcia",
+    "endTime": "Godzina zakończenia",
+    "enabled": "Włączone",
+    "disabled": "Wyłączone",
+    "comingSoon": "Wkrótce",
+    "saved": "Ustawienia zapisane",
+    "cloudSync": "Synchronizacja z chmurą",
+    "cloudSyncDescription": "Zapisz ustawienia wyglądu w chmurze, aby synchronizować między urządzeniami",
+    "lastLocalChange": "Ostatnia lokalna zmiana",
+    "lastCloudSync": "Ostatnia synchronizacja",
+    "never": "Nigdy",
+    "saveToCloud": "Zapisz w chmurze",
+    "loadFromCloud": "Pobierz z chmury",
+    "resetDefaults": "Przywróć domyślne",
+    "cloudSaveSuccess": "Ustawienia zapisane w chmurze",
+    "cloudSaveError": "Nie udało się zapisać ustawień w chmurze",
+    "cloudLoadSuccess": "Ustawienia pobrane z chmury",
+    "cloudLoadError": "Nie udało się pobrać ustawień z chmury",
+    "cloudNoSettings": "Nie znaleziono ustawień w chmurze",
+    "resetSuccess": "Ustawienia przywrócone do domyślnych",
+    "loadFromCloudTitle": "Pobrać ustawienia z chmury?",
+    "loadFromCloudDescription": "Spowoduje to nadpisanie bieżących lokalnych ustawień ustawieniami zapisanymi w chmurze. Tej czynności nie można cofnąć.",
+    "resetDefaultsTitle": "Przywrócić ustawienia domyślne?",
+    "resetDefaultsDescription": "Spowoduje to zresetowanie wszystkich ustawień wyglądu do wartości domyślnych. Tej czynności nie można cofnąć.",
+    "cancel": "Anuluj",
+    "confirm": "Potwierdź"
+  },
+  "ProfilePage": {
+    "title": "Profil",
+    "description": "Zarządzaj swoimi danymi osobowymi",
+    "firstName": "Imię",
+    "firstNamePlaceholder": "Wpisz swoje imię",
+    "lastName": "Nazwisko",
+    "lastNamePlaceholder": "Wpisz swoje nazwisko",
+    "displayName": "Nazwa wyświetlana",
+    "displayNamePlaceholder": "Wpisz swoją nazwę wyświetlaną",
+    "phone": "Numer telefonu",
+    "phonePlaceholder": "Wpisz swój numer telefonu",
+    "email": "E-mail",
+    "avatar": "Zdjęcie profilowe",
+    "accountInfo": "Informacje o koncie",
+    "accountId": "ID konta",
+    "emailVerified": "E-mail zweryfikowany",
+    "lastSignIn": "Ostatnie logowanie",
+    "roles": "Role",
+    "yes": "Tak",
+    "no": "Nie",
+    "save": "Zapisz zmiany",
+    "saving": "Zapisywanie...",
+    "profileUpdated": "Profil został zaktualizowany"
+  },
+  "AccountPage": {
+    "title": "Konto",
+    "profile": "Profil",
+    "preferences": "Preferencje",
+    "notifications": "Powiadomienia"
+  },
+  "NotificationsPage": {
+    "description": "Zarządzaj sposobem otrzymywania powiadomień i alertów."
+  },
+  "authForms": {
+    "AuthButton": {
+      "greeting": "Cześć, {email}!",
+      "signOut": "Wyloguj",
+      "signIn": "Logowanie",
+      "signUp": "Rejestracja"
+    },
+    "SignInForm": {
+      "title": "Logowanie",
+      "noAccount": "Nie masz konta?",
+      "signUp": "Zarejestruj się",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "forgotPassword": "Zapomniałeś hasła?",
+      "submit": "Zaloguj się",
+      "pending": "Logowanie..."
+    },
+    "SignUpForm": {
+      "title": "Rejestracja",
+      "haveAccount": "Masz już konto?",
+      "signIn": "Zaloguj się",
+      "emailLabel": "Email",
+      "emailPlaceholder": "twoj@email.com",
+      "passwordLabel": "Hasło",
+      "passwordPlaceholder": "Twoje hasło",
+      "firstNameLabel": "Imię",
+      "firstNamePlaceholder": "Twoje imię",
+      "lastNameLabel": "Nazwisko",
+      "lastNamePlaceholder": "Twoje nazwisko",
+      "organizationNameLabel": "Nazwa organizacji",
+      "organizationNamePlaceholder": "Nazwa Twojej organizacji",
+      "submit": "Zarejestruj się",
+      "pending": "Rejestrowanie...",
+      "invitationTitle": "Dołącz do organizacji",
+      "invitationDescription": "Utwórz konto aby zaakceptować zaproszenie",
+      "invitationLoadingDetails": "Ładowanie szczegółów zaproszenia...",
+      "invitationTo": "Zaproszenie do:",
+      "invitationRole": "Rola:",
+      "invitationBranch": "Oddział:"
+    },
+    "ForgotPasswordForm": {
+      "title": "Zresetuj hasło",
+      "emailLabel": "Email",
+      "submit": "Wyślij link resetujący",
+      "sending": "Wysyłanie...",
+      "emailPlaceholder": "email@przyklad.com",
+      "remembered": "Pamiętasz hasło?",
+      "signIn": "Zaloguj się"
+    },
+    "ResetPasswordForm": {
+      "title": "Resetuj hasło",
+      "description": "Wprowadź nowe hasło poniżej.",
+      "setTitle": "Ustaw hasło",
+      "setDescription": "Wybierz silne hasło, aby zabezpieczyć swoje nowe konto.",
+      "passwordLabel": "Nowe hasło",
+      "passwordPlaceholder": "Wprowadź nowe hasło",
+      "confirmPasswordLabel": "Potwierdź hasło",
+      "confirmPasswordPlaceholder": "Wprowadź ponownie hasło",
+      "submit": "Zresetuj hasło",
+      "setSubmit": "Ustaw hasło",
+      "pending": "Resetuję hasło...",
+      "setPending": "Ustawiam hasło...",
+      "success": "Hasło zostało zresetowane! Zaloguj się używając nowego hasła.",
+      "error": "Nie udało się zresetować hasła. Spróbuj ponownie."
+    }
+  },
+  "auth": {
+    "errors": {
+      "emailPasswordRequired": "Email i hasło są wymagane",
+      "registrationFailed": "Rejestracja nie powiodła się",
+      "invalidCredentials": "Nieprawidłowe dane logowania",
+      "emailRequired": "Email jest wymagany",
+      "invalidEmailFormat": "Nieprawidłowy format email",
+      "emailAlreadyRegistered": "Konto z tym adresem email już istnieje. Zaloguj się."
+    },
+    "success": {
+      "signUpSuccess": "Dziękujemy za rejestrację! Sprawdź swoją skrzynkę email w celu weryfikacji.",
+      "signUpSuccessInvited": "Konto utworzone! Potwierdź adres email, a następnie wróć do linku z zaproszeniem, aby dołączyć do organizacji.",
+      "passwordResetSent": "Jeśli konto z tym adresem email istnieje, otrzymasz link do resetowania hasła.",
+      "logoutSuccess": "Wylogowano pomyślnie"
+    },
+    "logout": {
+      "button": "Wyloguj się",
+      "loggingOut": "Wylogowywanie..."
+    },
+    "authCodeError": {
+      "title": "Nieprawidłowy lub wygasły link",
+      "description": "Ten link jest już nieważny. Mógł już zostać użyty lub wygasł.",
+      "requestNewLink": "Wyślij nowy link",
+      "backToSignIn": "Wróć do logowania"
+    }
+  },
+  "teams": {
+    "communication": {
+      "messages": "Wiadomości",
+      "chat": "Czat",
+      "searchChats": "Szukaj czatów...",
+      "searchUsers": "Szukaj użytkowników...",
+      "noChatsFound": "Nie znaleziono czatów",
+      "noChats": "Brak czatów",
+      "tryDifferentSearch": "Spróbuj innego wyszukiwania",
+      "startFirstChat": "Rozpocznij pierwszą rozmowę",
+      "newChat": "Nowy czat",
+      "viewAllChats": "Zobacz wszystkie czaty",
+      "startNewChat": "Rozpocznij nowy czat",
+      "availableUsers": "Dostępni użytkownicy",
+      "noUsersFound": "Nie znaleziono użytkowników",
+      "typeToSearch": "Wpisz aby wyszukać użytkowników",
+      "unknownChat": "Nieznany czat",
+      "welcomeToChat": "Witaj w czacie",
+      "selectChatToStart": "Wybierz czat z paska bocznego aby rozpocząć rozmowę",
+      "instantMessaging": "Natychmiastowe wiadomości z zespołem",
+      "directMessages": "Wiadomości bezpośrednie i czaty grupowe",
+      "chatNotFound": "Czat nie został znaleziony",
+      "chatNotFoundDescription": "Szukany czat nie istnieje lub nie masz do niego dostępu.",
+      "loadingMessages": "Ładowanie wiadomości...",
+      "noMessages": "Brak wiadomości",
+      "startConversation": "Rozpocznij rozmowę wysyłając wiadomość poniżej",
+      "typeMessage": "Napisz wiadomość...",
+      "sendMessage": "Wyślij wiadomość",
+      "startingConversation": "Rozpoczynanie rozmowy...",
+      "errors": {
+        "loadChatsFailed": "Nie udało się załadować czatów",
+        "createChatFailed": "Nie udało się utworzyć czatu",
+        "loadMessagesFailed": "Nie udało się załadować wiadomości",
+        "sendMessageFailed": "Nie udało się wysłać wiadomości",
+        "markMessageReadFailed": "Nie udało się oznaczyć wiadomości jako przeczytana",
+        "chatNotFound": "Nie znaleziono czatu po utworzeniu",
+        "selectOrgBranch": "Najpierw wybierz organizację i oddział",
+        "conversationFailed": "Nie udało się rozpocząć rozmowy. Spróbuj ponownie.",
+        "conversationFailedContact": "Nie udało się rozpocząć rozmowy",
+        "systemNotAvailable": "System czatu nie jest jeszcze dostępny. Skontaktuj się z administratorem.",
+        "genericError": "Coś poszło nie tak. Spróbuj ponownie."
+      },
+      "success": {
+        "conversationStarted": "Rozpoczęto rozmowę z {userName}",
+        "messageSent": "Wiadomość wysłana",
+        "messageRead": "Wiadomość oznaczona jako przeczytana"
+      },
+      "bold": "Pogrubienie",
+      "italic": "Kursywa",
+      "underline": "Podkreślenie",
+      "code": "Kod",
+      "replyingTo": "Odpowiadanie na",
+      "editingMessage": "Edytowanie wiadomości",
+      "pressEnterToSend": "Naciśnij Enter aby wysłać, Shift + Enter dla nowej linii",
+      "messageUser": "Napisz do {name}...",
+      "messageChannel": "Napisz na #{name}...",
+      "send": "Wyślij",
+      "update": "Aktualizuj",
+      "reply": "Odpowiedz",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "copy": "Kopiuj",
+      "messageDeleted": "Ta wiadomość została usunięta",
+      "edited": "edytowane",
+      "sent": "Wysłane",
+      "delivered": "Dostarczone",
+      "read": "Przeczytane",
+      "sending": "Wysyłanie...",
+      "yesterday": "Wczoraj"
+    }
+  },
+  "common": {
+    "loading": "Ładowanie...",
+    "retry": "Ponów",
+    "cancel": "Anuluj",
+    "searching": "Wyszukiwanie...",
+    "you": "Ty",
+    "image": "Obraz",
+    "message": "Wiadomość"
+  },
+  "Error": {
+    "description": "<p>Niestety wystąpił błąd.</p><p>Możesz spróbować <retry>odświeżyć stronę</retry>, którą próbowałeś odwiedzić.</p>",
+    "title": "Coś poszło nie tak!"
+  },
+  "UserDashboard": {
+    "welcome": "Witaj w Twoim Panelu",
+    "viewDetails": "Zobacz Szczegóły",
+    "features": {
+      "appointments": {
+        "title": "Wizyty",
+        "description": "Planuj i zarządzaj sesjami terapeutycznymi"
+      },
+      "messages": {
+        "title": "Wiadomości",
+        "description": "Bezpieczna komunikacja z Twoim terapeutą"
+      },
+      "notes": {
+        "title": "Notatki i Postępy",
+        "description": "Śledź swoją drogę terapeutyczną i postępy"
+      },
+      "settings": {
+        "title": "Ustawienia",
+        "description": "Zarządzaj swoim kontem i preferencjami"
+      }
+    },
+    "appointments": {
+      "upcoming": "Nadchodzące Wizyty",
+      "description": "Przeglądaj i zarządzaj zaplanowanymi sesjami",
+      "schedule": "Zaplanuj Nową",
+      "noUpcoming": "Nie masz zaplanowanych nadchodzących wizyt"
+    },
+    "activity": {
+      "logTest": "Zapisz Testową Aktywność",
+      "testMessage": "To jest testowa aktywność",
+      "success": "Testowa aktywność została pomyślnie zapisana",
+      "error": "Nie udało się zapisać aktywności"
+    }
+  },
+  "IndexPage": {
+    "description": "To jest podstawowy przykład demonstrujący użycie <code>next-intl</code> z Next.js App Router. Spróbuj zmienić język w prawym górnym rogu i zobacz, jak zmienia się zawartość.",
+    "title": "Przykład next-intl",
+    "features": {
+      "title": "Funkcje Platformy",
+      "description": "Nasza platforma zapewnia wszystko, czego specjaliści zdrowia psychicznego potrzebują do świadczenia wyjątkowej opieki zdalnej.",
+      "items": {
+        "appointments": {
+          "title": "Zarządzanie Wizytami",
+          "description": "Łatwe planowanie i zarządzanie wizytami pacjentów"
+        },
+        "hipaa": {
+          "title": "Zgodność z HIPAA",
+          "description": "Bezpieczna, szyfrowana platforma do przechowywania danych pacjentów"
+        },
+        "messaging": {
+          "title": "Bezpieczna Komunikacja",
+          "description": "Poufna komunikacja między terapeutami a pacjentami"
+        },
+        "notes": {
+          "title": "Notatki z Sesji",
+          "description": "Uporządkowana dokumentacja postępów pacjenta"
+        }
+      }
+    },
+    "roles": {
+      "title": "Dostęp Oparty na Rolach",
+      "description": "Nasza platforma zapewnia dostosowane doświadczenia zarówno dla terapeutów, jak i pacjentów.",
+      "therapists": {
+        "title": "Dla Terapeutów",
+        "features": [
+          "Kompleksowy panel zarządzania pacjentami",
+          "Bezpieczne notatki z sesji i planowanie leczenia",
+          "Planowanie wizyt i integracja z kalendarzem",
+          "Komunikacja z pacjentami zgodna z HIPAA"
+        ]
+      },
+      "patients": {
+        "title": "Dla Pacjentów",
+        "features": [
+          "Łatwe rezerwowanie i zarządzanie wizytami",
+          "Bezpieczna komunikacja z terapeutą",
+          "Dostęp do przydzielonych materiałów i zadań",
+          "Śledzenie postępów i historia wizyt"
+        ]
+      }
+    },
+    "stats": {
+      "hipaa": {
+        "value": "100%",
+        "label": "Zgodność z HIPAA"
+      },
+      "professionals": {
+        "value": "500+",
+        "label": "Specjalistów Zdrowia Psychicznego"
+      },
+      "access": {
+        "value": "24/7",
+        "label": "Bezpieczny Dostęp"
+      }
+    },
+    "cta": {
+      "title": "Gotowy na Transformację Swojej Praktyki?",
+      "description": "Dołącz do specjalistów zdrowia psychicznego, którzy ufają naszej platformie w bezpiecznym łączeniu się z pacjentami.",
+      "button": "Utwórz Konto"
+    }
+  },
+  "Dashboard": {
+    "overview": "Przegląd",
+    "totalUsers": "Liczba Użytkowników",
+    "activeUsers": "Aktywni Użytkownicy",
+    "revenue": "Przychód",
+    "growth": "Wzrost",
+    "recentActivity": "Ostatnia Aktywność",
+    "activityItem": "Aktywność {id}",
+    "minutesAgo": "{minutes} minut temu",
+    "table": {
+      "showEmails": "Pokaż Adresy Email",
+      "hideEmails": "Ukryj Adresy Email",
+      "emailsHidden": "Adresy email są domyślnie ukryte ze względu na prywatność"
+    }
+  },
+  "LocaleLayout": {
+    "title": "Ambra - Platforma SaaS dla Przedsiębiorstw",
+    "brand": "Ambra",
+    "description": "Kompleksowa platforma SaaS dla przedsiębiorstw z zaawansowanym zarządzaniem magazynem, administracją użytkowników i możliwościami analitycznymi."
+  },
+  "metadata": {
+    "common": {
+      "appName": "Ambra",
+      "separator": " | ",
+      "defaultDescription": "Platforma SaaS klassy enterprise dla nowoczesnych firm"
+    },
+    "auth": {
+      "signIn": {
+        "title": "Logowanie",
+        "description": "Uzyskaj dostęp do swojego konta Ambra z bezpieczną uwierzytelnianiem enterprise"
+      },
+      "signUp": {
+        "title": "Rejestracja",
+        "description": "Utwórz konto organizacji Ambra i zacznij zarządzać swoim biznesem"
+      },
+      "forgotPassword": {
+        "title": "Resetuj Hasło",
+        "description": "Bezpiecznie zresetuj hasło do swojego konta Ambra"
+      }
+    },
+    "public": {
+      "home": {
+        "title": "Platforma SaaS dla Przedsiębiorstw",
+        "description": "Ambra zapewnia kompleksowe rozwiązania do zarządzania biznesem z zaawansowanym zarządzaniem magazynem, administracją użytkowników i analityką"
+      },
+      "features": {
+        "title": "Funkcje",
+        "description": "Odkryj potężne funkcje obejmujące zarządzanie magazynem, role użytkowników, śledzenie zapasów i analitykę enterprise"
+      },
+      "pricing": {
+        "title": "Cennik",
+        "description": "Wybierz idealny plan dla swojej organizacji z elastycznymi opcjami cenowymi i funkcjami klasy enterprise"
+      }
+    },
+    "dashboard": {
+      "start": {
+        "title": "Panel Główny",
+        "description": "Przegląd kluczowych wskaźników organizacji, aktywności i szybki dostęp do ważnych funkcji",
+        "gettingStarted": {
+          "title": "Pierwsze Kroki",
+          "description": "Szybki przewodnik konfiguracji i kroki onboardingu"
+        },
+        "recentUpdates": {
+          "title": "Ostatnie Aktualizacje",
+          "description": "Najnowsze funkcje, ulepszenia i aktualizacje systemu"
+        }
+      },
+      "analytics": {
+        "title": "Analityka",
+        "description": "Kompleksowa analityka biznesowa i raportowanie dla podejmowania decyzji opartych na danych"
+      },
+      "reports": {
+        "title": "Raporty",
+        "description": "Generuj szczegółowe raporty i analizuj wskaźniki wydajności swojego biznesu"
+      },
+      "activities": {
+        "title": "Oś Czasu Aktywności",
+        "description": "Śledź wszystkie aktywności organizacyjne i zdarzenia systemowe w czasie rzeczywistym"
+      },
+      "testActivity": {
+        "title": "Test Aktywności",
+        "description": "Testuj i monitoruj aktywności systemowe w celu zapewnienia jakości"
+      },
+      "teams": {
+        "contacts": {
+          "title": "Kontakty",
+          "description": "Zarządzaj kontaktami zespołu i członkami organizacji",
+          "custom": {
+            "title": "Moje kontakty",
+            "description": "Zarządzaj swoją osobistą listą kontaktów"
+          },
+          "profile": {
+            "title": "Profil użytkownika",
+            "description": "Zobacz szczegółowe informacje o użytkowniku"
+          }
+        }
+      }
+    },
+    "warehouse": {
+      "products": {
+        "title": "Produkty",
+        "description": "Kompleksowe zarządzanie katalogiem produktów ze śledzeniem zapasów i kontrolą stanu"
+      },
+      "productDetail": {
+        "title": "Szczegóły Produktu",
+        "description": "Szczegółowe informacje o produkcie, poziomy zapasów i opcje zarządzania"
+      },
+      "locations": {
+        "title": "Lokalizacje",
+        "description": "Zarządzanie lokalizacjami magazynowymi z hierarchiczną organizacją i kodami QR"
+      },
+      "locationDetail": {
+        "title": "Szczegóły Lokalizacji",
+        "description": "Szczegółowe informacje o lokalizacji, poziomy zapasów i opcje zarządzania"
+      },
+      "suppliers": {
+        "title": "Dostawcy",
+        "description": "Zarządzanie relacjami z dostawcami i administracja katalogiem dostawców"
+      },
+      "supplierDetail": {
+        "title": "Szczegóły Dostawcy",
+        "description": "Kompleksowe informacje o dostawcy i zarządzanie relacjami"
+      },
+      "suppliersList": {
+        "title": "Lista Dostawców",
+        "description": "Kompletna lista dostawców z informacjami kontaktowymi i narzędziami zarządzania"
+      },
+      "deliveries": {
+        "title": "Dostawy",
+        "description": "Śledź i zarządzaj przychodzącymi dostawami i przetwarzaniem przesyłek"
+      },
+      "audits": {
+        "title": "Audyty Magazynowe",
+        "description": "Planuj i zarządzaj audytami magazynowymi dla dokładnej kontroli zapasów"
+      },
+      "auditHistory": {
+        "title": "Historia Audytów",
+        "description": "Historyczny zapis wszystkich audytów magazynowych i raportów rozbieżności"
+      },
+      "auditSchedule": {
+        "title": "Harmonogram Audytów",
+        "description": "Planuj i zarządzaj nadchodzącymi audytami magazynowymi i zadaniami cyklicznymi"
+      }
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "Zmień język",
+    "locale": "{locale, select, de {🇩🇪} en {🇺🇸} pl {🇵🇱} other {Nieznany}}"
+  },
+  "Manifest": {
+    "name": "Przykład next-intl"
+  },
+  "Navigation": {
+    "home": "Strona główna",
+    "pathnames": "Ścieżki",
+    "login": "Zaloguj się",
+    "logout": "Wyloguj się",
+    "register": "Zarejestruj się",
+    "brand": "TherapyConnect",
+    "menu": {
+      "features": "Funkcje",
+      "forTherapists": "Dla Terapeutów",
+      "forPatients": "Dla Pacjentów",
+      "pricing": "Cennik"
+    },
+    "buttons": {
+      "dashboard": "Panel",
+      "signIn": "Zaloguj się",
+      "signUp": "Zarejestruj się"
+    }
+  },
+  "NotFoundPage": {
+    "description": "Sprawdź poprawność adresu w pasku przeglądarki lub użyj nawigacji, aby przejść do znanej strony.",
+    "title": "Nie znaleziono strony",
+    "Dashboard": {
+      "title": "Nie znaleziono strony",
+      "description": "Strona, której szukasz, nie istnieje lub została przeniesiona.",
+      "content": "Błąd 404 - Ta strona nie została znaleziona w panelu.",
+      "dashboardHome": "Strona główna panelu",
+      "goBack": "Wróć"
+    },
+    "Public": {
+      "title": "Nie znaleziono strony",
+      "description": "Strona, której szukasz, nie istnieje lub została przeniesiona.",
+      "content": "Błąd 404 - Ta strona nie została znaleziona.",
+      "backToHomepage": "Powrót do strony głównej"
+    }
+  },
+  "PageLayout": {
+    "links": {
+      "docs": {
+        "description": "Dowiedz się więcej o next-intl w oficjalnej dokumentacji.",
+        "href": "https://next-intl.dev",
+        "title": "Dokumentacja"
+      },
+      "source": {
+        "description": "Przeglądaj kod źródłowy tego przykładu na GitHub.",
+        "href": "https://github.com/amannn/next-intl/tree/main/examples/example-app-router",
+        "title": "Kod źródłowy"
+      }
+    }
+  },
+  "PathnamesPage": {
+    "description": "<p>Ścieżki są również zinternacjonalizowane.</p><p>Jeśli używasz domyślnego języka angielskiego, zobaczysz <code>/en/pathnames</code> w pasku adresu przeglądarki na tej stronie.</p><p>Jeśli zmienisz język na polski, adres URL zostanie odpowiednio zlokalizowany (<code>/pl/sciezki</code>).</p>",
+    "title": "Ścieżki"
+  },
+  "loginPage": {
+    "description": "<p>Strona logowania</p>",
+    "title": "Logowanie"
+  },
+  "ProtectedPage": {
+    "protectedMessage": "To jest chroniona strona, którą możesz zobaczyć tylko jako zalogowany użytkownik",
+    "userDetails": "Twoje dane użytkownika",
+    "nextSteps": "Następne kroki"
+  },
+  "Hero": {
+    "title": {
+      "start": "Połącz się",
+      "highlight": "Bezpiecznie",
+      "end": "ze Swoimi Pacjentami"
+    },
+    "description": "Platforma zgodna z HIPAA, stworzona dla specjalistów zdrowia psychicznego, umożliwiająca łączenie się z pacjentami, zarządzanie wizytami i świadczenie bezpiecznej opieki zdalnej.",
+    "buttons": {
+      "createAccount": "Utwórz Konto",
+      "signIn": "Zaloguj się"
+    },
+    "features": {
+      "hipaa": "Zgodność z HIPAA",
+      "messaging": "Bezpieczna Komunikacja",
+      "care": "Opieka Skupiona na Pacjencie"
+    }
+  },
+  "Footer": {
+    "platform": {
+      "title": "Platforma",
+      "features": "Funkcje",
+      "pricing": "Cennik",
+      "dashboard": "Panel",
+      "security": "Bezpieczeństwo"
+    },
+    "forTherapists": {
+      "title": "Dla Terapeutów",
+      "patientManagement": "Zarządzanie Pacjentami",
+      "sessionNotes": "Notatki z Sesji",
+      "appointmentScheduling": "Planowanie Wizyt",
+      "resourcesLibrary": "Biblioteka Materiałów"
+    },
+    "forPatients": {
+      "title": "Dla Pacjentów",
+      "findTherapist": "Znajdź Terapeutę",
+      "bookAppointments": "Umów Wizytę",
+      "secureMessaging": "Bezpieczna Komunikacja",
+      "mentalHealthResources": "Materiały o Zdrowiu Psychicznym"
+    },
+    "legal": {
+      "title": "Prawne",
+      "privacyPolicy": "Polityka Prywatności",
+      "termsOfService": "Warunki Użytkowania",
+      "hipaaCompliance": "Zgodność z HIPAA",
+      "accessibility": "Dostępność"
+    },
+    "copyright": "© {year} TherapyConnect. Wszelkie prawa zastrzeżone.",
+    "socialMedia": {
+      "twitter": "Twitter",
+      "linkedin": "LinkedIn",
+      "instagram": "Instagram",
+      "facebook": "Facebook"
+    }
+  },
+  "AdminDashboard": {
+    "welcome": "Panel Administratora",
+    "exportReport": "Eksportuj Raport",
+    "manage": "Zarządzaj",
+    "features": {
+      "users": "Użytkownicy",
+      "usersDesc": "Zarządzaj kontami i uprawnieniami użytkowników",
+      "activity": "Aktywność",
+      "activityDesc": "Monitoruj użycie platformy i zdarzenia",
+      "security": "Bezpieczeństwo",
+      "securityDesc": "Przeglądaj ustawienia i logi bezpieczeństwa",
+      "settings": "Ustawienia",
+      "settingsDesc": "Konfiguruj ustawienia platformy"
+    },
+    "table": {
+      "users": "Użytkownicy",
+      "search": "Szukaj użytkowników...",
+      "name": "Imię i nazwisko",
+      "email": "Email",
+      "role": "Rola",
+      "status": "Status",
+      "actions": "Akcje",
+      "edit": "Edytuj Użytkownika",
+      "delete": "Usuń Użytkownika",
+      "showEmails": "Pokaż Adresy Email",
+      "hideEmails": "Ukryj Adresy Email",
+      "emailsHidden": "Adresy email są domyślnie ukryte ze względu na prywatność"
+    },
+    "recentActivity": "Ostatnia Aktywność",
+    "activityItem": {
+      "title": "Nowa rejestracja użytkownika",
+      "time": "5 minut temu"
+    },
+    "systemStatus": "Status Systemu",
+    "status": {
+      "server": "Status Serwera",
+      "database": "Status Bazy Danych",
+      "operational": "Operacyjny"
+    },
+    "toast": {
+      "exportStarted": {
+        "title": "Eksport Rozpoczęty",
+        "description": "Twój raport jest generowany i zostanie wkrótce pobrany"
+      },
+      "emailsToggle": {
+        "hidden": {
+          "title": "Adresy Email Ukryte",
+          "description": "Adresy email są teraz ukryte"
+        },
+        "visible": {
+          "title": "Adresy Email Widoczne",
+          "description": "Adresy email są teraz widoczne"
+        }
+      }
+    }
+  },
+  "Auth": {
+    "email": "Email",
+    "password": "Hasło",
+    "fullName": "Imię i nazwisko",
+    "emailPlaceholder": "ty@example.com",
+    "passwordPlaceholder": "Wprowadź hasło",
+    "fullNamePlaceholder": "Jan Kowalski",
+    "orContinueWith": "Lub kontynuuj przez",
+    "loginWith": "Zaloguj się przez {provider}",
+    "privacyTerms": {
+      "prefix": "Kontynuując, zgadzasz się na nasze",
+      "terms": "Warunki Użytkowania",
+      "privacy": "Polityka Prywatności",
+      "separator": "oraz"
+    },
+    "signIn": {
+      "title": "Witaj ponownie",
+      "description": "Zaloguj się na swoje konto",
+      "action": "Zaloguj się",
+      "noAccount": "Nie masz konta?",
+      "signUpLink": "Zarejestruj się"
+    },
+    "signUp": {
+      "title": "Utwórz konto",
+      "description": "Wprowadź swoje dane, aby rozpocząć",
+      "action": "Zarejestruj się",
+      "haveAccount": "Masz już konto?",
+      "signInLink": "Zaloguj się"
+    },
+    "forgotPassword": {
+      "title": "Zapomniałeś hasła?",
+      "pageTitle": "Resetuj hasło",
+      "description": "Wprowadź swój adres email, a wyślemy Ci link do resetowania hasła",
+      "action": "Wyślij link",
+      "rememberPassword": "Pamiętasz hasło?",
+      "signInLink": "Zaloguj się",
+      "checkEmail": "Sprawdź swoją skrzynkę",
+      "emailSent": "Jeśli konto z tym adresem email istnieje, wysłaliśmy link do resetowania hasła"
+    },
+    "errors": {
+      "invalidCredentials": "Nieprawidłowy email lub hasło. Spróbuj ponownie.",
+      "emailNotConfirmed": "Potwierdź adres email przed zalogowaniem.",
+      "generic": "Wystąpił błąd podczas logowania.",
+      "unexpected": "Wystąpił nieoczekiwany błąd. "
+    },
+    "passwordStrength": {
+      "label": "Siła hasła",
+      "weak": "Słabe",
+      "fair": "Średnie",
+      "good": "Dobre",
+      "strong": "Silne",
+      "requirements": {
+        "length": "Co najmniej 8 znaków",
+        "uppercase": "Jedna wielka litera",
+        "lowercase": "Jedna mała litera",
+        "number": "Jedna cyfra"
+      }
+    }
+  },
+  "ConfirmationPage": {
+    "title": "Sprawdź swoją skrzynkę",
+    "description": "Wysłaliśmy link weryfikacyjny do potwierdzenia Twojego konta",
+    "instructions": {
+      "primary": "Sprawdź swoją skrzynkę pocztową i kliknij w link weryfikacyjny, aby zakończyć rejestrację.",
+      "secondary": "Jeśli nie widzisz wiadomości, sprawdź folder spam."
+    },
+    "backToSignIn": "Wróć do logowania"
+  },
+  "announcements": {
+    "title": "Ogłoszenia",
+    "addAnnouncement": "Dodaj Ogłoszenie",
+    "announcementsHistory": "Historia Ogłoszeń",
+    "recentAnnouncements": "Najnowsze Ogłoszenia",
+    "noAnnouncements": "Brak ogłoszeń",
+    "noAnnouncementsDescription": "Nie ma obecnie żadnych ogłoszeń do wyświetlenia.",
+    "form": {
+      "title": "Tytuł",
+      "titlePlaceholder": "Wprowadź tytuł ogłoszenia...",
+      "content": "Treść",
+      "contentPlaceholder": "Wprowadź treść ogłoszenia...",
+      "excerpt": "Krótki Opis",
+      "excerptPlaceholder": "Krótkie streszczenie (opcjonalne)...",
+      "priority": "Priorytet",
+      "priorityPreview": "Ogłoszenie będzie wyświetlane jako",
+      "badges": "Oznaczenia",
+      "badgePlaceholder": "Dodaj oznaczenie (naciśnij Enter)",
+      "badgeColor": "Kolor Oznaczenia",
+      "publishDate": "Data Publikacji",
+      "save": "Zapisz Ogłoszenie",
+      "cancel": "Anuluj",
+      "edit": "Edytuj Ogłoszenie",
+      "delete": "Usuń Ogłoszenie",
+      "confirmDelete": "Czy na pewno chcesz usunąć to ogłoszenie?",
+      "saving": "Zapisywanie...",
+      "updating": "Aktualizowanie...",
+      "deleting": "Usuwanie...",
+      "viewDetails": "Zobacz Szczegóły",
+      "showMore": "Pokaż Więcej",
+      "showLess": "Pokaż Mniej"
+    },
+    "priority": {
+      "normal": "Normalny",
+      "important": "Ważny",
+      "urgent": "Pilny",
+      "critical": "Krytyczny"
+    },
+    "badges": {
+      "announcement": "Ogłoszenie",
+      "update": "Aktualizacja",
+      "maintenance": "Konserwacja",
+      "feature": "Nowa Funkcja",
+      "bugfix": "Poprawka Błędu",
+      "security": "Bezpieczeństwo",
+      "important": "Ważne",
+      "urgent": "Pilne",
+      "info": "Informacja"
+    },
+    "widget": {
+      "title": "Najnowsze Ogłoszenia",
+      "viewAll": "Zobacz Wszystkie Ogłoszenia",
+      "publishedBy": "Opublikowane przez {author}",
+      "timeAgo": "{time} temu"
+    },
+    "editor": {
+      "placeholder": "Wprowadź treść ogłoszenia tutaj...",
+      "toolbar": {
+        "bold": "Pogrubienie",
+        "italic": "Kursywa",
+        "underline": "Podkreślenie",
+        "strikethrough": "Przekreślenie",
+        "link": "Dodaj Link",
+        "heading": "Nagłówek",
+        "bulletList": "Lista Punktowa",
+        "numberedList": "Lista Numerowana",
+        "quote": "Cytat",
+        "code": "Blok Kodu"
+      }
+    },
+    "filters": {
+      "all": "Wszystkie",
+      "priority": "Filtruj po Priorytecie",
+      "author": "Filtruj po Autorze",
+      "dateRange": "Zakres Dat"
+    },
+    "success": {
+      "created": "Ogłoszenie utworzone pomyślnie",
+      "updated": "Ogłoszenie zaktualizowane pomyślnie",
+      "deleted": "Ogłoszenie usunięte pomyślnie"
+    },
+    "errors": {
+      "loadFailed": "Nie udało się załadować ogłoszeń",
+      "createFailed": "Nie udało się utworzyć ogłoszenia",
+      "updateFailed": "Nie udało się zaktualizować ogłoszenia",
+      "deleteFailed": "Nie udało się usunąć ogłoszenia",
+      "titleRequired": "Tytuł jest wymagany",
+      "contentRequired": "Treść jest wymagana"
+    }
+  },
+  "modules": {
+    "contacts": {
+      "title": "Kontakty"
+    },
+    "documentation": {
+      "title": "Dokumentacja",
+      "description": "Centrum wiedzy z przewodnikami i referencjami",
+      "items": {
+        "home": "Dokumentacja",
+        "user": "Przewodnik Użytkownika",
+        "dev": "Dokumentacja Deweloperska",
+        "spec": "Specyfikacje"
+      }
+    },
+    "home": {
+      "title": "Start",
+      "items": {
+        "dashboard": "Panel główny",
+        "newsHistory": "Historia aktualności"
+      }
+    },
+    "warehouse": {
+      "title": "Magazyn",
+      "description": "Zarządzanie magazynem i zapasami",
+      "items": {
+        "settings": {
+          "title": "Ustawienia",
+          "general": {
+            "title": "Ustawienia ogólne",
+            "description": "Ogólne ustawienia modułu magazynu"
+          },
+          "products": {
+            "title": "Ustawienia produktów",
+            "description": "Jednostki, miary, warianty i kategorie",
+            "units": "Jednostki miary",
+            "variants": "Grupy opcji wariantów",
+            "categories": "Kategorie produktów"
+          },
+          "locations": {
+            "title": "Ustawienia lokalizacji",
+            "description": "Ustawienia zarządzania lokalizacjami"
+          },
+          "inventory": {
+            "title": "Ustawienia inwentarza",
+            "description": "Powody korekt i opcje inwentarza",
+            "adjustmentReasons": "Powody korekt"
+          },
+          "variantOptions": {
+            "title": "Grupy opcji wariantów",
+            "description": "Zarządzaj grupami opcji dla wariantów produktów",
+            "loading": "Ładowanie...",
+            "empty": "Brak grup opcji wariantów",
+            "confirmDelete": "Czy na pewno chcesz usunąć \"{name}\"?",
+            "table": {
+              "name": "Nazwa",
+              "description": "Opis",
+              "values": "Wartości",
+              "actions": "Akcje"
+            },
+            "actions": {
+              "edit": "Edytuj (wkrótce)",
+              "delete": "Usuń"
+            },
+            "values": {
+              "title": "Wartości",
+              "empty": "Brak wartości",
+              "addValue": "Dodaj wartość",
+              "valuePlaceholder": "Wpisz wartość"
+            },
+            "form": {
+              "groupName": "Nazwa grupy",
+              "groupNamePlaceholder": "np. Rozmiar, Kolor, Wymiary",
+              "description": "Opis",
+              "descriptionPlaceholder": "Opcjonalny opis",
+              "add": "Dodaj",
+              "quickPick": "Szybki wybór"
+            },
+            "quickPick": {
+              "title": "Szybki wybór grup opcji",
+              "description": "Wybierz z popularnych grup opcji",
+              "language": "Język",
+              "valuesCount": "wartości",
+              "done": "Gotowe"
+            },
+            "errors": {
+              "loadFailed": "Nie udało się załadować grup opcji wariantów",
+              "createFailed": "Nie udało się utworzyć grupy opcji wariantów",
+              "deleteFailed": "Nie udało się usunąć grupy opcji wariantów",
+              "addValueFailed": "Nie udało się dodać wartości",
+              "deleteValueFailed": "Nie udało się usunąć wartości"
+            },
+            "success": {
+              "groupCreated": "Grupa opcji wariantów została utworzona pomyślnie",
+              "groupDeleted": "Grupa opcji wariantów została usunięta pomyślnie",
+              "valueAdded": "Wartość została dodana pomyślnie",
+              "valueDeleted": "Wartość została usunięta pomyślnie"
+            }
+          },
+          "categories": {
+            "title": "Kategorie produktów",
+            "description": "Organizuj produkty w kategorie i podkategorie",
+            "dragToReorder": "Przeciągnij aby zmienić kolejność",
+            "loading": "Ładowanie...",
+            "saving": "Zapisywanie",
+            "empty": "Brak kategorii",
+            "emptyDescription": "Utwórz pierwszą kategorię aby organizować produkty",
+            "addCategory": "Dodaj kategorię",
+            "addSubcategory": "Dodaj podkategorię",
+            "rootCategory": "Kategoria główna",
+            "default": "Domyślna",
+            "productsCount": "{count} produktów",
+            "table": {
+              "name": "Nazwa",
+              "description": "Opis",
+              "actions": "Akcje"
+            },
+            "actions": {
+              "edit": "Edytuj",
+              "addSubcategory": "Dodaj podkategorię",
+              "move": "Przenieś do",
+              "delete": "Usuń"
+            },
+            "moveCategory": "Przenieś kategorię",
+            "moveCategoryDescription": "Wybierz nową kategorię nadrzędną dla \"{name}\"",
+            "topLevel": "Poziom główny (Bez nadrzędnej)",
+            "form": {
+              "name": "Nazwa kategorii",
+              "namePlaceholder": "np. Elektronika, Meble",
+              "description": "Opis",
+              "descriptionPlaceholder": "Opcjonalny opis",
+              "parentCategory": "Kategoria nadrzędna",
+              "parentCategoryPlaceholder": "Wybierz kategorię nadrzędną",
+              "targetParent": "Przenieś do",
+              "selectTarget": "Wybierz docelową nadrzędną",
+              "color": "Kolor (opcjonalnie)",
+              "colorPlaceholder": "Wybierz kolor",
+              "cancel": "Anuluj",
+              "add": "Dodaj",
+              "save": "Zapisz",
+              "saving": "Zapisywanie...",
+              "move": "Przenieś",
+              "moving": "Przenoszenie...",
+              "addDescription": "Utwórz nową kategorię aby organizować produkty",
+              "editCategory": "Edytuj kategorię",
+              "editDescription": "Zaktualizuj informacje o kategorii"
+            },
+            "confirmDelete": {
+              "title": "Usunąć \"{name}\"?",
+              "usedBy": "Ta kategoria jest używana przez {count} produktów."
+            },
+            "deleteWarning": {
+              "subcategory": "{count} produktów zostanie przeniesionych z \"{name}\" do \"{target}\"",
+              "mainCategory": "Ta kategoria zawiera {productCount} produktów i {childCount} podkategorii. Wszystko zostanie przeniesione do \"{target}\""
+            },
+            "errors": {
+              "loadFailed": "Nie udało się załadować kategorii",
+              "createFailed": "Nie udało się utworzyć kategorii",
+              "updateFailed": "Nie udało się zaktualizować kategorii",
+              "deleteFailed": "Nie udało się usunąć kategorii",
+              "moveFailed": "Nie udało się przenieść kategorii",
+              "reorderFailed": "Nie udało się zmienić kolejności kategorii",
+              "cannotDeleteDefault": "Nie można usunąć domyślnej kategorii",
+              "cannotMoveToDescendant": "Nie można przenieść kategorii do własnej podkategorii",
+              "togglePreferredFailed": "Nie udało się zmienić statusu ulubionej"
+            },
+            "success": {
+              "created": "Kategoria została utworzona pomyślnie",
+              "updated": "Kategoria została zaktualizowana pomyślnie",
+              "deleted": "Kategoria została usunięta pomyślnie",
+              "moved": "Kategoria została przeniesiona pomyślnie",
+              "reordered": "Kolejność kategorii została zmieniona pomyślnie",
+              "markedPreferred": "Kategoria oznaczona jako ulubiona",
+              "unmarkedPreferred": "Kategoria odznaczona jako ulubiona"
+            }
+          }
+        },
+        "products": {
+          "title": "Produkty",
+          "overview": "Przegląd produktów",
+          "templates": "Szablony produktów"
+        },
+        "inventory": {
+          "title": "Inwentarz",
+          "movements": "Ruchy magazynowe",
+          "adjustments": {
+            "title": "Korekty stanów",
+            "single": "Pojedyncza korekta"
+          }
+        },
+        "locations": "Lokalizacje",
+        "audits": {
+          "title": "Audyty",
+          "overview": "Audyty magazynowe",
+          "schedule": "Grafik audytów",
+          "history": "Historia audytów"
+        },
+        "labels": {
+          "title": "Etykiety i kody QR",
+          "overview": "Przegląd etykiet",
+          "creator": "Kreator etykiet",
+          "templates": "Szablony etykiet",
+          "batches": "Partie etykiet",
+          "history": "Historia przypisań"
+        },
+        "alerts": {
+          "title": "Alerty Stanów Magazynowych",
+          "description": "Monitorowanie niskich stanów i alerty uzupełnienia"
+        },
+        "scanning": {
+          "title": "Skanowanie kodów",
+          "delivery": "Skanowanie dostaw",
+          "inventory": "Skanowanie inwentarza",
+          "assignment": "Przypisanie lokalizacji",
+          "verification": "Weryfikacja produktów",
+          "operations": "Operacje skanowania"
+        },
+        "deliveries": {
+          "title": "Dostawy",
+          "list": "Lista dostaw",
+          "new": "Nowa dostawa",
+          "statuses": {
+            "draft": "Szkic",
+            "cancelled": "Anulowane",
+            "pending": "Oczekuje",
+            "approved": "Zatwierdzone",
+            "completed": "Zakończone"
+          },
+          "wizard": {
+            "step1": "Informacje o dostawie",
+            "step2": "Weryfikacja",
+            "step3": "Zakończone"
+          },
+          "fields": {
+            "deliveryNumber": "Numer dostawy",
+            "reference": "Referencja",
+            "contact": "Kontakt",
+            "scheduledDate": "Planowana data",
+            "invoiceDate": "Data faktury",
+            "invoiceNumber": "Numer faktury",
+            "sourceDocument": "Dokument źródłowy",
+            "status": "Status",
+            "deliveryAddress": "Adres dostawy",
+            "operationType": "Typ operacji",
+            "shippingPolicy": "Polityka wysyłki",
+            "responsible": "Odpowiedzialny",
+            "destinationLocation": "Lokalizacja docelowa",
+            "notes": {
+              "label": "Uwagi"
+            },
+            "supplier": "Dostawca",
+            "address": "Adres",
+            "enableVerification": "Włącz krok weryfikacji",
+            "verificationEnabledHelp": "Najpierw wprowadzisz oczekiwane ilości, następnie zweryfikujesz faktycznie otrzymane ilości w osobnym kroku. Pozwala to śledzić rozbieżności i uszkodzone towary.",
+            "verificationDisabledHelp": "Tryb szybki: Wprowadź faktycznie otrzymane ilości i zakończ natychmiast. Bez osobnego kroku weryfikacji."
+          },
+          "actions": {
+            "markAsTodo": "Oznacz jako do zrobienia",
+            "validate": "Zatwierdź",
+            "verify": "Zweryfikuj",
+            "cancel": "Anuluj",
+            "edit": "Edytuj",
+            "delete": "Usuń",
+            "viewDetails": "Zobacz szczegóły",
+            "saving": "Zapisywanie...",
+            "save": "Zapisz",
+            "saveAsDraft": "Zapisz jako szkic",
+            "next": "Dalej",
+            "back": "Wróć",
+            "previous": "Wstecz",
+            "completeDelivery": "Zakończ dostawę",
+            "receiveDelivery": "Przyjmij dostawę",
+            "processingDelivery": "Procesowanie dostawy..."
+          },
+          "products": {
+            "title": "Produkty",
+            "addProduct": "Dodaj produkt",
+            "product": "Produkt",
+            "demand": "Zapotrzebowanie",
+            "unitCost": "Cena jednostkowa",
+            "total": "Suma",
+            "noProducts": "Nie dodano jeszcze produktów",
+            "selectProduct": "Wybierz produkt",
+            "selectVariant": "Wybierz wariant (opcjonalnie)",
+            "quantity": "Ilość zapotrzebowania",
+            "enterQuantity": "Wprowadź ilość",
+            "enterUnitCost": "Wprowadź cenę jednostkową"
+          },
+          "form": {
+            "optional": "(opcjonalne)",
+            "noLocationsAvailable": "Brak dostępnych lokalizacji",
+            "selectLocationPlaceholder": "Wybierz lokalizację...",
+            "receiveWithoutLocation": "Przyjmij bez lokalizacji",
+            "noLocationsFound": "Nie znaleziono lokalizacji",
+            "moveToLocationInfo": "Produkty zostaną przeniesione do wybranej lokalizacji po odebraniu",
+            "receiveWithoutLocationInfo": "Produkty zostaną odebrane bez przypisania do lokalizacji",
+            "deliveryAddressPlaceholder": "np. Lumber Inc",
+            "sourceDocumentPlaceholder": "np. PO0032",
+            "invoiceNumberPlaceholder": "np. FV/2024/001",
+            "notesPlaceholder": "Dodaj notatki...",
+            "operationTypeValue": "Zlecenia dostawy",
+            "sendMessage": "Wyślij wiadomość",
+            "logNote": "Dodaj notatkę",
+            "activity": "Aktywność",
+            "today": "Dzisiaj",
+            "activityDescription": "Tworzenie nowego rekordu...",
+            "selectSupplierPlaceholder": "Wybierz dostawcę...",
+            "noSuppliersFound": "Nie znaleziono dostawców",
+            "addNewSupplier": "Dodaj nowego dostawcę",
+            "noLocationSet": "Nie ustawiono lokalizacji",
+            "noNotes": "Brak notatek"
+          },
+          "tabs": {
+            "operations": "Operacje",
+            "receipts": "Przyjęcia",
+            "additionalInfo": "Informacje dodatkowe",
+            "note": "Notatka"
+          },
+          "receipts": {
+            "title": "Dokumenty przyjęcia",
+            "noReceipts": "Nie wygenerowano jeszcze przyjęć",
+            "autoGeneratedInfo": "Przyjęcia są automatycznie generowane po zakończeniu dostawy",
+            "loading": "Ładowanie...",
+            "receiptDate": "Data przyjęcia",
+            "pzDocument": "Dokument PZ",
+            "totalItems": "Łączna liczba pozycji",
+            "totalValue": "Łączna wartość",
+            "receivedBy": "Przyjęte przez",
+            "completedAt": "Zakończono o",
+            "downloadPz": "Pobierz PZ",
+            "statusCompleted": "Zakończone",
+            "statusDraft": "Szkic"
+          },
+          "additionalInfo": {
+            "title": "Inne informacje",
+            "shippingPolicy": "Polityka wysyłki",
+            "responsible": "Odpowiedzialny",
+            "responsibleHelp": "Automatycznie przypisany jako odpowiedzialny za tę dostawę"
+          },
+          "filters": {
+            "all": "Wszystkie dostawy",
+            "draft": "Projekt",
+            "waiting": "Oczekuje",
+            "ready": "Gotowe",
+            "done": "Zakończone",
+            "cancelled": "Anulowane",
+            "search": "Szukaj dostaw..."
+          },
+          "messages": {
+            "created": "Dostawa utworzona pomyślnie",
+            "updated": "Dostawa zaktualizowana pomyślnie",
+            "validated": "Dostawa zatwierdzona pomyślnie",
+            "cancelled": "Dostawa anulowana pomyślnie",
+            "deleted": "Dostawa usunięta pomyślnie",
+            "draftSaved": "Szkic zapisany pomyślnie",
+            "error": "Wystąpił błąd",
+            "noDeliveries": "Nie znaleziono dostaw",
+            "loadingDeliveries": "Ładowanie dostaw...",
+            "validationConfirm": "Czy na pewno chcesz zatwierdzić tę dostawę? Spowoduje to aktualizację stanów magazynowych.",
+            "cancelConfirm": "Czy na pewno chcesz anulować tę dostawę?",
+            "deleteConfirm": "Czy na pewno chcesz usunąć tę dostawę?"
+          },
+          "shipping": {
+            "asSoonAsPossible": "Jak najszybciej",
+            "whenAllReady": "Gdy wszystkie produkty są gotowe"
+          },
+          "receiving": {
+            "title": "Przyjęcie dostawy",
+            "movementLabel": "Ruch",
+            "infoTitle": "Informacje o dostawie",
+            "reference": "Referencja",
+            "created": "Utworzono"
+          }
+        },
+        "suppliers": {
+          "title": "Dostawcy",
+          "list": "Lista dostawców",
+          "deliveries": "Dostawy"
+        },
+        "sales": {
+          "title": "Sprzedaż",
+          "orders": "Zamówienia Sprzedaży",
+          "clients": "Klienci"
+        },
+        "purchases": {
+          "title": "Zakupy",
+          "orders": "Zamówienia Zakupu"
+        }
+      },
+      "partnerTypes": {
+        "vendor": "Dostawca",
+        "customer": "Klient"
+      }
+    },
+    "teams": {
+      "title": "Zespoły",
+      "description": "Zarządzanie zespołami i komunikacją",
+      "items": {
+        "members": "Członkowie zespołu",
+        "communication": {
+          "title": "Komunikacja",
+          "chat": "Chat zespołu",
+          "announcements": "Ogłoszenia"
+        },
+        "kanban": "Tablica Kanban",
+        "calendar": "Kalendarz zespołu",
+        "contacts": {
+          "title": "Kontakty",
+          "organization": "Członkowie organizacji",
+          "custom": "Moje kontakty",
+          "pages": {
+            "organization": {
+              "title": "Członkowie organizacji",
+              "description": "Przeglądaj i nawiązuj kontakt z współpracownikami w organizacji",
+              "searchPlaceholder": "Szukaj po imieniu, e-mailu lub dziale...",
+              "noResults": "Nie znaleziono członków",
+              "loading": "Ładowanie członków...",
+              "viewProfile": "Zobacz profil",
+              "sendMessage": "Wyślij wiadomość"
+            },
+            "custom": {
+              "title": "Moje kontakty",
+              "description": "Zarządzaj swoją listą kontaktów",
+              "addContact": "Dodaj kontakt",
+              "editContact": "Edytuj kontakt",
+              "deleteContact": "Usuń kontakt",
+              "searchPlaceholder": "Szukaj kontaktów...",
+              "noContacts": "Brak kontaktów",
+              "confirmDelete": "Czy na pewno chcesz usunąć ten kontakt?"
+            },
+            "profile": {
+              "title": "Profil użytkownika",
+              "contact": "Informacje kontaktowe",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "branch": "Oddział",
+              "joinedDate": "Dołączył",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "sendMessage": "Wyślij wiadomość",
+              "addToContacts": "Dodaj do moich kontaktów"
+            },
+            "form": {
+              "firstName": "Imię",
+              "lastName": "Nazwisko",
+              "email": "E-mail",
+              "phone": "Telefon",
+              "position": "Stanowisko",
+              "department": "Dział",
+              "notes": "Notatki",
+              "save": "Zapisz kontakt",
+              "cancel": "Anuluj",
+              "required": "Wymagane",
+              "invalidEmail": "Nieprawidłowy format e-mail"
+            }
+          }
+        }
+      }
+    },
+    "organizationManagement": {
+      "title": "Zarządzanie organizacją",
+      "titleSidebar": "Organizacja",
+      "description": "Panel administracyjny do zarządzania organizacją, użytkownikami i uprawnieniami",
+      "items": {
+        "profile": "Profil organizacji",
+        "branches": "Oddziały",
+        "users": {
+          "title": "Użytkownicy",
+          "list": "Lista użytkowników",
+          "invitations": "Zaproszenia",
+          "roles": "Role i uprawnienia",
+          "positions": "Stanowiska",
+          "branches": "Oddziały"
+        },
+        "billing": "Rozliczenia i subskrypcje",
+        "branchAccess": "Dostęp do oddziałów"
+      },
+      "roles": {
+        "createButton": "Utwórz rolę",
+        "noRoles": "Brak ról.",
+        "systemBadge": "systemowa",
+        "scopeBadges": {
+          "branch": "oddział",
+          "both": "oba"
+        },
+        "dialog": {
+          "titleCreate": "Utwórz rolę",
+          "titleEdit": "Edytuj rolę",
+          "name": "Nazwa",
+          "namePlaceholder": "Nazwa roli",
+          "description": "Opis",
+          "descriptionPlaceholder": "Opcjonalny opis",
+          "scope": "Zakres",
+          "scopeOrg": "Organizacja — dotyczy wszystkich oddziałów",
+          "scopeBranch": "Oddział — przypisywana na poziomie oddziału",
+          "scopeNote": "Zakresu nie można zmienić po utworzeniu.",
+          "scopeReadOnly": "(tylko do odczytu)",
+          "permissions": "Uprawnienia",
+          "permissionsSelected": "{count, plural, one {# uprawnienie wybrane} few {# uprawnienia wybrane} other {# uprawnień wybranych}}",
+          "cancel": "Anuluj",
+          "save": "Zapisz",
+          "create": "Utwórz",
+          "saving": "Zapisywanie…"
+        }
+      }
+    },
+    "support": {
+      "title": "Wsparcie",
+      "description": "Panel pomocy, nowości i kontaktu z zespołem wsparcia",
+      "items": {
+        "help": "Pomoc",
+        "contact": "Kontakt ze wsparciem",
+        "announcements": {
+          "title": "Nowości i ogłoszenia",
+          "changelog": "Changelog",
+          "systemStatus": "Status systemu",
+          "roadmap": "Roadmapa"
+        }
+      }
+    },
+    "userAccount": {
+      "title": "Konto",
+      "description": "Ustawienia konta użytkownika i zarządzanie profilem",
+      "items": {
+        "profile": "Profil",
+        "preferences": "Preferencje"
+      }
+    },
+    "analytics": {
+      "title": "Analityka i Raporty",
+      "description": "Analityka aktywności, raporty i ślady audytu",
+      "items": {
+        "overview": "Panel aktywności",
+        "activities": "Dziennik aktywności",
+        "timeline": "Widok osi czasu",
+        "reports": {
+          "title": "Raporty",
+          "userActivity": "Raporty aktywności użytkowników",
+          "modules": "Raporty modułów",
+          "security": "Raporty bezpieczeństwa"
+        },
+        "exports": {
+          "title": "Eksport danych",
+          "activities": "Eksportuj aktywności",
+          "reports": "Eksportuj raporty"
+        },
+        "settings": {
+          "title": "Ustawienia analityki",
+          "retention": "Przechowywanie danych",
+          "notifications": "Powiadomienia o aktywności",
+          "presets": "Predefiniowane filtry"
+        }
+      }
+    },
+    "development": {
+      "title": "Rozwój",
+      "description": "Narzędzia deweloperskie i użytki debugowania",
+      "items": {
+        "dashboard": "Panel debugowania",
+        "permissions": "Debug uprawnień",
+        "context": "Debug kontekstu",
+        "logo": "Debug logo",
+        "service": "Debug usług",
+        "labels": "Testowanie etykiet",
+        "locations": "Debug lokalizacji",
+        "richTextEditor": "Edytor Tekstu",
+        "subscriptionTest": "Test Subskrypcji",
+        "skuGenerator": "Test Generatora SKU",
+        "deliveryDebugger": "Debugger Dostaw",
+        "reservationsTest": "Test Rezerwacji"
+      }
+    },
+    "tools": {
+      "title": "Narzędzia",
+      "titleSidebar": "Narzędzia",
+      "description": "Narzędzia produktywności i integracje dla Twojego zespołu",
+      "items": {
+        "myTools": "Moje Narzędzia",
+        "allTools": "Wszystkie Narzędzia",
+        "detail": "Szczegóły narzędzia"
+      },
+      "pages": {
+        "myTools": {
+          "title": "Moje Narzędzia",
+          "subtitle": "Narzędzia, które włączyłeś do szybkiego dostępu",
+          "empty": "Nie masz jeszcze włączonych żadnych narzędzi.",
+          "emptyAction": "Przeglądaj katalog, aby znaleźć narzędzia"
+        },
+        "catalog": {
+          "title": "Wszystkie Narzędzia",
+          "subtitle": "Przeglądaj i włączaj narzędzia dla swojego przepływu pracy",
+          "searchPlaceholder": "Szukaj narzędzi…",
+          "filterAll": "Wszystkie",
+          "empty": "Brak narzędzi pasujących do wyszukiwania.",
+          "categories": {
+            "productivity": "Produktywność",
+            "data": "Dane",
+            "analytics": "Analityka",
+            "integrations": "Integracje",
+            "compliance": "Zgodność"
+          }
+        },
+        "detail": {
+          "enabledBadge": "Włączone",
+          "disabledBadge": "Wyłączone",
+          "pinnedBadge": "Przypięte",
+          "notFound": "Narzędzie nie znalezione",
+          "notFoundDescription": "To narzędzie nie istnieje lub nie jest już dostępne.",
+          "backToAll": "Wróć do wszystkich narzędzi",
+          "backToMyTools": "Moje narzędzia",
+          "category": "Kategoria",
+          "status": "Status",
+          "enableToUse": "Włącz to narzędzie, aby zacząć z niego korzystać",
+          "uiNotRegistered": "Interfejs nie jest jeszcze zaimplementowany",
+          "uiNotRegisteredDesc": "Dodaj komponent do rejestru narzędzi, aby zaimplementować interfejs tego narzędzia.",
+          "uiNotRegisteredHint": "src/lib/tools/registry.tsx"
+        }
+      },
+      "actions": {
+        "enable": "Włącz",
+        "disable": "Wyłącz",
+        "pin": "Przypnij",
+        "unpin": "Odepnij",
+        "enabling": "Włączanie…",
+        "disabling": "Wyłączanie…"
+      },
+      "toasts": {
+        "toolEnabled": "Narzędzie włączone",
+        "toolDisabled": "Narzędzie wyłączone",
+        "toolPinned": "Narzędzie przypięte",
+        "toolUnpinned": "Narzędzie odpięte",
+        "settingsSaved": "Ustawienia zapisane",
+        "errorGeneric": "Coś poszło nie tak. Spróbuj ponownie."
+      },
+      "loading": {
+        "catalog": "Ładowanie narzędzi…",
+        "detail": "Ładowanie narzędzia…",
+        "myTools": "Ładowanie Twoich narzędzi…"
+      },
+      "errors": {
+        "title": "Coś poszło nie tak",
+        "description": "Wystąpił nieoczekiwany błąd w module Narzędzia.",
+        "refresh": "Spróbuj ponownie",
+        "goHome": "Strona główna"
+      },
+      "aria": {
+        "enableTool": "Włącz {name}",
+        "disableTool": "Wyłącz {name}",
+        "pinTool": "Przypnij {name}",
+        "unpinTool": "Odepnij {name}",
+        "searchTools": "Szukaj narzędzi",
+        "toolCard": "Karta narzędzia {name}",
+        "viewDetail": "Zobacz szczegóły {name}"
+      }
+    }
+  },
+  "organization": {
+    "billing": {
+      "title": "Rozliczenia i subskrypcje",
+      "description": "Zarządzaj planem subskrypcji i informacjami o rozliczeniach organizacji",
+      "noSubscription": {
+        "title": "Brak aktywnej subskrypcji",
+        "description": "Ta organizacja nie ma aktywnego planu subskrypcji."
+      },
+      "currentPlan": {
+        "title": "Obecny plan",
+        "subtitle": "Szczegóły Twojego aktywnego planu subskrypcji"
+      },
+      "status": {
+        "active": "Aktywny",
+        "trialing": "Próbny",
+        "past_due": "Przeterminowany",
+        "canceled": "Anulowany",
+        "unpaid": "Nieopłacony",
+        "incomplete": "Niekompletny"
+      },
+      "developmentPlan": "Rozwojowy",
+      "perMonth": "miesiąc",
+      "billingPeriod": "Okres rozliczeniowy",
+      "planIncludes": "Plan zawiera",
+      "modules": "moduły",
+      "contexts": "konteksty",
+      "users": "użytkownicy",
+      "branches": "oddziały",
+      "products": "produkty",
+      "locations": "lokalizacje",
+      "unlimited": "Nieograniczone",
+      "availableModules": {
+        "title": "Dostępne moduły",
+        "description": "Moduły zawarte w Twoim obecnym planie subskrypcji"
+      },
+      "availableContexts": {
+        "title": "Dostępne konteksty",
+        "description": "Konteksty biznesowe dostępne w Twoim obecnym planie"
+      },
+      "features": {
+        "title": "Funkcje planu",
+        "description": "Funkcje i możliwości zawarte w Twojej subskrypcji"
+      },
+      "moduleNames": {
+        "home": "Start",
+        "warehouse": "Magazyn",
+        "teams": "Zespoły",
+        "organization-management": "Organizacja",
+        "support": "Wsparcie",
+        "user-account": "Konto",
+        "analytics": "Analityka",
+        "development": "Rozwój"
+      },
+      "contextNames": {
+        "warehouse": "Magazyn",
+        "ecommerce": "E-commerce",
+        "b2b": "B2B",
+        "pos": "Punkt sprzedaży",
+        "manufacturing": "Produkcja"
+      },
+      "contextDescriptions": {
+        "warehouse": "Wewnętrzne zarządzanie zapasami",
+        "ecommerce": "Zarządzanie produktami sklepu internetowego",
+        "b2b": "Katalog klientów biznesowych",
+        "pos": "Integracja z punktem sprzedaży",
+        "manufacturing": "Produkcja i montaż"
+      },
+      "featureNames": {
+        "basic_support": "Podstawowe wsparcie",
+        "api_access": "Dostęp do API",
+        "advanced_reports": "Zaawansowane raporty",
+        "priority_support": "Wsparcie priorytetowe",
+        "custom_branding": "Własny branding",
+        "white_label": "White label",
+        "custom_integrations": "Niestandardowe integracje"
+      }
+    }
+  },
+  "dashboard": {
+    "header": {
+      "quickAdd": {
+        "title": "Szybkie dodawanie",
+        "tooltip": "Szybkie dodawanie",
+        "inventory": {
+          "title": "MAGAZYN",
+          "product": "Produkt",
+          "location": "Lokalizacja",
+          "order": "Zamówienie"
+        },
+        "sales": {
+          "title": "SPRZEDAŻ",
+          "customer": "Klient",
+          "invoice": "Faktura"
+        },
+        "purchases": {
+          "title": "ZAKUPY",
+          "supplier": "Dostawca",
+          "bill": "Rachunek"
+        },
+        "other": {
+          "title": "INNE",
+          "document": "Dokument"
+        }
+      },
+      "userMenu": {
+        "profile": "Profil",
+        "preferences": "Preferencje",
+        "signOut": "Wyloguj się",
+        "home": "Strona główna",
+        "account": "Konto",
+        "dashboard": "Panel",
+        "adminPanel": "Panel administracyjny",
+        "diagnostics": "Diagnostyka",
+        "logOut": "Wyloguj się"
+      }
+    }
+  },
+  "pages": {
+    "start": {
+      "title": "Start",
+      "description": "Twój spersonalizowany panel z aktualizacjami i szybkimi akcjami",
+      "tabs": {
+        "overview": "Panel",
+        "gettingStarted": "Pierwsze Kroki",
+        "recentUpdates": "Ostatnie Aktualizacje"
+      },
+      "gettingStarted": {
+        "welcomeTitle": "Witaj w Ambra!",
+        "welcomeDescription": "Wykonaj te kroki, aby rozpocząć pracę z platformą i w pełni wykorzystać jej możliwości.",
+        "progressTitle": "Postęp Konfiguracji",
+        "progressDescription": "Wykonaj te kroki, aby w pełni skonfigurować swoje środowisko pracy",
+        "startButton": "Rozpocznij",
+        "steps": {
+          "configureOrganization": {
+            "title": "Skonfiguruj Organizację",
+            "description": "Ustaw profil organizacji, logo i podstawowe informacje"
+          },
+          "inviteTeam": {
+            "title": "Zaproś Członków Zespołu",
+            "description": "Dodaj członków zespołu i przypisz role, aby rozpocząć współpracę"
+          },
+          "setupWarehouse": {
+            "title": "Skonfiguruj Lokalizacje Magazynowe",
+            "description": "Utwórz lokalizacje magazynowe i zorganizuj strukturę zapasów"
+          },
+          "addProducts": {
+            "title": "Dodaj Pierwsze Produkty",
+            "description": "Zacznij budować katalog produktów z artykułami i wariantami"
+          },
+          "configureSettings": {
+            "title": "Skonfiguruj Ustawienia Modułu",
+            "description": "Dostosuj ustawienia magazynu, jednostki, kategorie i preferencje"
+          },
+          "getHelp": {
+            "title": "Uzyskaj Pomoc i Wsparcie",
+            "description": "Uzyskaj dostęp do dokumentacji, samouczków i skontaktuj się z naszym zespołem wsparcia"
+          }
+        },
+        "needHelp": {
+          "title": "Potrzebujesz Pomocy?",
+          "description": "Jesteśmy tutaj, aby pomóc Ci rozpocząć. Skontaktuj się z naszym zespołem wsparcia lub przejrzyj naszą dokumentację.",
+          "contactSupport": "Skontaktuj się z Pomocą",
+          "viewDocs": "Zobacz Dokumentację"
+        }
+      },
+      "recentUpdates": {
+        "title": "Co Nowego",
+        "description": "Bądź na bieżąco z najnowszymi funkcjami, ulepszeniami i poprawkami błędów",
+        "types": {
+          "feature": "Nowa Funkcja",
+          "improvement": "Ulepszenie",
+          "bugfix": "Poprawka Błędu"
+        },
+        "updates": {
+          "warehouseAudits": {
+            "title": "System Audytów Magazynowych",
+            "description": "Nowy kompleksowy system audytów z harmonogramowaniem, historią i weryfikacją zapasów. Przeprowadzaj audyty z przewodnikiem krok po kroku i automatycznymi korektami stanów."
+          },
+          "labelGenerator": {
+            "title": "Generator Etykiet i Szablony",
+            "description": "Generuj profesjonalne etykiety dla produktów i lokalizacji. Twórz własne szablony i drukuj kody QR do łatwego skanowania."
+          },
+          "inventoryCorrections": {
+            "title": "Ulepszone Korekty Stanów Magazynowych",
+            "description": "Ulepszony proces korekt stanów z lepszą walidacją, ścieżką audytu i wsparciem dla korekt opartych na lokalizacji."
+          },
+          "performanceOptimization": {
+            "title": "Ulepszenia Wydajności",
+            "description": "Szybsze ładowanie stron, zoptymalizowane zapytania do bazy danych i poprawiona ogólna responsywność systemu we wszystkich modułach."
+          },
+          "bugFixes": {
+            "title": "Poprawki Błędów i Stabilność",
+            "description": "Naprawiono wiele problemów, w tym filtrowanie produktów, renderowanie drzewa lokalizacji i walidację uprawnień."
+          }
+        },
+        "footer": {
+          "moreUpdates": "Chcesz zobaczyć więcej aktualizacji?",
+          "viewChangelog": "Zobacz pełny dziennik zmian"
+        }
+      }
+    },
+    "accessDenied": {
+      "title": "Brak dostępu",
+      "description": "Nie masz uprawnień do tej sekcji.",
+      "moduleHint": "Moduł \"{module}\" nie jest włączony dla Twojego konta.",
+      "contactAdmin": "Skontaktuj się z administratorem organizacji, aby poprosić o dostęp.",
+      "goToDashboard": "Wróć do panelu"
+    }
+  },
+  "productsModule": {
+    "title": "Produkty",
+    "description": "Zarządzaj katalogiem produktów",
+    "createProduct": "Utwórz Produkt",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProduct": "Edytuj Produkt",
+    "deleteProduct": "Usuń Produkt",
+    "productType": {
+      "label": "Typ Produktu",
+      "goods": "Towary",
+      "service": "Usługa",
+      "itemGroup": "Grupa Produktów",
+      "goodsDescription": "Fizyczne towary magazynowe",
+      "serviceDescription": "Usługi lub produkty niefizyczne"
+    },
+    "basicInfo": {
+      "title": "Podstawowe Informacje",
+      "name": "Nazwa",
+      "namePlaceholder": "Wprowadź nazwę produktu",
+      "sku": "SKU",
+      "skuPlaceholder": "Wprowadź SKU",
+      "skuDescription": "Pozostaw puste, aby automatycznie wygenerować",
+      "description": "Opis",
+      "descriptionPlaceholder": "Wprowadź opis produktu",
+      "category": "Kategoria",
+      "selectCategory": "Wybierz kategorię",
+      "categoryPlaceholder": "Wybierz kategorię",
+      "brand": "Marka",
+      "brandPlaceholder": "Wprowadź markę",
+      "manufacturer": "Producent",
+      "manufacturerPlaceholder": "Wprowadź producenta",
+      "unit": "Jednostka",
+      "unitPlaceholder": "Wybierz jednostkę",
+      "selectUnit": "Wybierz jednostkę miary",
+      "noUnits": "Brak dostępnych jednostek. Dodaj jednostki w ustawieniach magazynu.",
+      "returnableItem": "Produkt Zwrotny",
+      "returnableItemDescription": "Włącz, jeśli ten produkt może być zwracany przez klientów",
+      "productType": "Typ Produktu",
+      "productTypeDescription": "Wybierz, czy to jest fizyczny towar, czy usługa"
+    },
+    "measurements": {
+      "title": "Wymiary",
+      "dimensions": "Wymiary (D × S × W)",
+      "length": "Długość",
+      "width": "Szerokość",
+      "height": "Wysokość",
+      "weight": "Waga",
+      "dimensionsUnit": "cm",
+      "weightUnit": "kg"
+    },
+    "identifiers": {
+      "title": "Identyfikatory",
+      "upc": "UPC",
+      "ean": "EAN",
+      "isbn": "ISBN",
+      "mpn": "MPN"
+    },
+    "salesInfo": {
+      "title": "Informacje Sprzedażowe",
+      "sellingPrice": "Cena Sprzedaży",
+      "salesAccount": "Konto Sprzedaży",
+      "salesDescription": "Opis Sprzedażowy"
+    },
+    "purchaseInfo": {
+      "title": "Informacje Zakupowe",
+      "costPrice": "Cena Zakupu",
+      "purchaseAccount": "Konto Zakupu",
+      "purchaseDescription": "Opis Zakupowy",
+      "preferredVendor": "Preferowany Dostawca"
+    },
+    "inventorySettings": {
+      "title": "Ustawienia Magazynowe",
+      "trackInventory": "Śledź Inwentarz",
+      "inventoryAccount": "Konto Magazynowe",
+      "reorderPoint": "Punkt Zamówienia",
+      "reorderPointHelp": "Ustaw na 0, aby wyłączyć powiadomienia o niskim stanie",
+      "openingStock": "Stan Początkowy",
+      "openingStockRate": "Stawka Stanu Początkowego"
+    },
+    "barcodes": {
+      "title": "Kody Kreskowe",
+      "manageBarcodes": "Zarządzaj Kodami Kreskowymi",
+      "addBarcode": "Dodaj Kod Kreskowy",
+      "defaultBarcode": "Domyślny kod kreskowy",
+      "barcodePlaceholder": "Wprowadź kod kreskowy",
+      "setPrimary": "Ustaw jako główny",
+      "remove": "Usuń",
+      "isPrimary": "Główny",
+      "primary": "Główny",
+      "noBarcodes": "Nie dodano jeszcze kodów kreskowych. Kliknij przycisk powyżej, aby dodać.",
+      "helpText": "Domyślny kod kreskowy jest synchronizowany z integracjami e-commerce i używany do drukowania etykiet."
+    },
+    "customFields": {
+      "title": "Pola Niestandardowe",
+      "manageCustomFields": "Zarządzaj Polami Niestandardowymi",
+      "addField": "Dodaj Pole",
+      "fieldName": "Nazwa Pola",
+      "fieldType": "Typ Pola",
+      "fieldValue": "Wartość",
+      "dialogTitle": "Dostosuj inFlow do swoich potrzeb za pomocą pól niestandardowych.",
+      "dialogDescription": "Dodaj pola niestandardowe, aby śledzić dodatkowe informacje o produktach",
+      "fieldLabel": "Pole {number}",
+      "fieldNamePlaceholder": "np. Marka, Kraj, Materiał",
+      "typeLabel": "Typ",
+      "manageDropdownOptions": "Zarządzaj opcjami listy rozwijanej",
+      "addOption": "Dodaj Opcję",
+      "optionPlaceholder": "Opcja {number}",
+      "showInactive": "Pokaż nieaktywne",
+      "enterData": "Wprowadź dane",
+      "selectPlaceholder": "Wybierz...",
+      "pickDate": "Wybierz datę",
+      "yes": "Tak",
+      "no": "Nie",
+      "saving": "Zapisywanie...",
+      "saveChanges": "Zapisz Zmiany",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "loading": "Ładowanie pól niestandardowych...",
+      "noFieldsDefined": "Nie zdefiniowano jeszcze pól niestandardowych. Przejdź do Ustawienia → Pola Niestandardowe, aby je utworzyć.",
+      "noCustomFieldsSelected": "Nie wybrano pól niestandardowych dla tego produktu. Kliknij 'Dodaj Pole', aby dodać.",
+      "successCreate": "Pole niestandardowe utworzone pomyślnie",
+      "successUpdate": "Pola niestandardowe zaktualizowane pomyślnie",
+      "successSave": "Pola niestandardowe zapisane pomyślnie",
+      "errorLoad": "Nie udało się załadować pól niestandardowych",
+      "errorSave": "Nie udało się zapisać pól niestandardowych",
+      "confirmDelete": "Czy na pewno chcesz usunąć \"{name}\"?",
+      "types": {
+        "text": "Pole tekstowe",
+        "number": "Liczba",
+        "date": "Pole daty",
+        "dropdown": "Lista rozwijana",
+        "checkbox": "Pole wyboru"
+      }
+    },
+    "actions": {
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "edit": "Edytuj",
+      "duplicate": "Duplikuj",
+      "archive": "Archiwizuj"
+    },
+    "messages": {
+      "nameRequired": "Nazwa produktu jest wymagana",
+      "unitRequired": "Jednostka jest wymagana",
+      "organizationRequired": "Organizacja jest wymagana",
+      "productCreated": "Produkt utworzony pomyślnie",
+      "productCreationFailed": "Nie udało się utworzyć produktu",
+      "createSuccess": "Produkt utworzony pomyślnie",
+      "updateSuccess": "Produkt zaktualizowany pomyślnie",
+      "deleteSuccess": "Produkt usunięty pomyślnie",
+      "createError": "Nie udało się utworzyć produktu",
+      "updateError": "Nie udało się zaktualizować produktu",
+      "deleteError": "Nie udało się usunąć produktu",
+      "cannotRemoveCustomField": "Nie można usunąć pola niestandardowego w tym trybie.",
+      "customFieldRemoved": "Pole niestandardowe usunięte pomyślnie.",
+      "customFieldRemoveFailed": "Nie udało się usunąć pola niestandardowego."
+    },
+    "tabs": {
+      "basic": "Podstawowe",
+      "sales": "Sprzedaż",
+      "purchase": "Zakup",
+      "inventory": "Magazyn",
+      "additional": "Dodatkowe",
+      "overview": "Przegląd",
+      "vendors": "Dostawcy Produktu",
+      "orderHistory": "Historia Zamówień",
+      "movementHistory": "Historia Ruchów"
+    },
+    "status": {
+      "active": "Aktywny",
+      "inactive": "Nieaktywny",
+      "archived": "Zarchiwizowany"
+    },
+    "filters": {
+      "all": "Wszystkie Produkty",
+      "goods": "Towary",
+      "services": "Usługi",
+      "itemGroups": "Grupy Produktów",
+      "search": "Szukaj produktów...",
+      "filterBy": "Filtruj według",
+      "sortBy": "Sortuj według"
+    },
+    "pricing": {
+      "title": "Ceny"
+    },
+    "yes": "Tak",
+    "no": "Nie",
+    "noProductsFound": "Nie znaleziono produktów",
+    "noCategoryAssigned": "Brak przypisanej kategorii"
+  },
+  "productGroups": {
+    "title": "Grupy Produktów",
+    "description": "Zarządzaj grupami produktów z wariantami",
+    "createProductGroup": "Utwórz Grupę Produktów",
+    "editProductGroup": "Edytuj Grupę Produktów",
+    "deleteProductGroup": "Usuń Grupę Produktów",
+    "skuGenerator": {
+      "title": "Konfiguruj Wzór SKU dla {baseName}",
+      "description": "Ustaw wzór SKU dla wszystkich wariantów w tej grupie produktów",
+      "table": {
+        "selectAttribute": "Wybierz Atrybut",
+        "show": "Pokaż",
+        "letterCase": "Wielkość Liter",
+        "separator": "Separator"
+      },
+      "format": {
+        "first": "Pierwsze 3 znaki",
+        "last": "Ostatnie 3 znaki",
+        "full": "Pełny tekst"
+      },
+      "case": {
+        "upper": "WIELKIE LITERY",
+        "lower": "małe litery",
+        "title": "Pierwsza Wielka"
+      },
+      "preview": {
+        "title": "Podgląd SKU",
+        "empty": "Nie wygenerowano SKU",
+        "description": "Ten podgląd pokazuje, jak będzie wyglądał SKU na podstawie Twojej konfiguracji"
+      },
+      "actions": {
+        "cancel": "Anuluj",
+        "generate": "Generuj SKU"
+      }
+    },
+    "variantGeneration": {
+      "title": "Generowanie Wariantów",
+      "description": "Skonfiguruj atrybuty, aby wygenerować warianty produktów",
+      "selectAttributes": "Wybierz Atrybuty",
+      "selectAttributesDescription": "Wybierz atrybuty do użycia dla wariantów",
+      "attributesSelected": "Wybrano {count} atrybutów",
+      "variantsWillBeGenerated": "Zostanie wygenerowanych {count} wariantów",
+      "generateVariants": "Generuj Warianty",
+      "configureSKU": "Konfiguruj Wzór SKU"
+    },
+    "variantsTable": {
+      "title": "Wygenerowane Warianty",
+      "description": "Wszystkie kombinacje wariantów z ich atrybutami",
+      "variantName": "Nazwa Wariantu",
+      "sku": "SKU",
+      "attributes": "Atrybuty",
+      "sellingPrice": "Cena Sprzedaży",
+      "costPrice": "Cena Zakupu",
+      "reorderPoint": "Punkt Zamówienia",
+      "active": "Aktywny",
+      "actions": "Akcje",
+      "noVariants": "Nie wygenerowano jeszcze wariantów",
+      "editVariant": "Edytuj Wariant",
+      "deleteVariant": "Usuń Wariant",
+      "bulkEdit": "Edycja Zbiorcza",
+      "copyToAll": "Kopiuj do Wszystkich"
+    },
+    "attributes": {
+      "title": "Atrybuty",
+      "description": "Atrybuty grupy produktów i ich wartości",
+      "selectAttribute": "Wybierz Atrybut",
+      "selectValues": "Wybierz Wartości",
+      "addAttribute": "Dodaj Atrybut",
+      "removeAttribute": "Usuń Atrybut",
+      "noAttributes": "Nie wybrano atrybutów",
+      "noAttributesDescription": "Dodaj atrybuty, aby wygenerować warianty produktów"
+    },
+    "detail": {
+      "title": "Szczegóły Grupy Produktów",
+      "overview": "Przegląd",
+      "variants": "Warianty",
+      "settings": "Ustawienia",
+      "totalVariants": "Wszystkie Warianty",
+      "activeVariants": "Aktywne Warianty",
+      "totalStock": "Całkowity Stan",
+      "viewVariants": "Zobacz Warianty",
+      "manageVariants": "Zarządzaj Wariantami"
+    },
+    "messages": {
+      "nameRequired": "Nazwa grupy produktów jest wymagana",
+      "attributesRequired": "Wymagany jest przynajmniej jeden atrybut",
+      "variantsRequired": "Musi zostać wygenerowany przynajmniej jeden wariant",
+      "productGroupCreated": "Grupa produktów została utworzona pomyślnie",
+      "productGroupUpdated": "Grupa produktów została zaktualizowana pomyślnie",
+      "productGroupDeleted": "Grupa produktów została usunięta pomyślnie",
+      "variantUpdated": "Wariant zaktualizowany pomyślnie",
+      "variantDeleted": "Wariant usunięty pomyślnie",
+      "variantsBulkUpdated": "Warianty zaktualizowane pomyślnie",
+      "createError": "Nie udało się utworzyć grupy produktów",
+      "updateError": "Nie udało się zaktualizować grupy produktów",
+      "deleteError": "Nie udało się usunąć grupy produktów",
+      "loadError": "Nie udało się załadować grupy produktów"
+    }
+  },
+  "stockMovements": {
+    "title": "Ruchy Magazynowe",
+    "description": "Śledź i zarządzaj wszystkimi ruchami magazynowymi",
+    "createMovement": "Utwórz Ruch",
+    "movementDetails": "Szczegóły Ruchu",
+    "movementNumber": "Numer Ruchu",
+    "movementType": "Typ Ruchu",
+    "category": "Kategoria",
+    "status": "Status",
+    "product": "Produkt",
+    "variant": "Wariant",
+    "quantity": "Ilość",
+    "unitOfMeasure": "Jednostka Miary",
+    "sourceLocation": "Lokalizacja Źródłowa",
+    "destinationLocation": "Lokalizacja Docelowa",
+    "unitCost": "Koszt Jednostkowy",
+    "totalCost": "Koszt Całkowity",
+    "currency": "Waluta",
+    "notes": "Uwagi",
+    "batchNumber": "Numer Partii",
+    "serialNumber": "Numer Seryjny",
+    "lotNumber": "Numer Lotu",
+    "expiryDate": "Data Ważności",
+    "referenceType": "Typ Referencji",
+    "referenceNumber": "Numer Referencji",
+    "createdBy": "Utworzył",
+    "approvedBy": "Zatwierdził",
+    "occurredAt": "Data Wystąpienia",
+    "createdAt": "Data Utworzenia",
+    "approvedAt": "Data Zatwierdzenia",
+    "completedAt": "Data Zakończenia",
+    "cancelledAt": "Data Anulowania",
+    "statuses": {
+      "draft": "Szkic",
+      "pending": "Oczekujący",
+      "approved": "Zatwierdzony",
+      "completed": "Zakończony",
+      "cancelled": "Anulowany",
+      "reversed": "Cofnięty"
+    },
+    "categories": {
+      "receipt": "Przyjęcie",
+      "issue": "Wydanie",
+      "transfer": "Przesunięcie",
+      "adjustment": "Korekta",
+      "reservation": "Rezerwacja",
+      "ecommerce": "E-commerce"
+    },
+    "actions": {
+      "approve": "Zatwierdź Ruch",
+      "cancel": "Anuluj Ruch",
+      "refresh": "Odśwież",
+      "viewDetails": "Zobacz Szczegóły",
+      "create": "Utwórz Ruch"
+    },
+    "messages": {
+      "movementCreated": "Ruch został utworzony pomyślnie",
+      "movementApproved": "Ruch został zatwierdzony pomyślnie",
+      "movementCancelled": "Ruch został anulowany pomyślnie",
+      "loadError": "Nie udało się załadować ruchów",
+      "createError": "Nie udało się utworzyć ruchu",
+      "approveError": "Nie udało się zatwierdzić ruchu",
+      "cancelError": "Nie udało się anulować ruchu",
+      "noMovements": "Nie znaleziono ruchów",
+      "authRequired": "Wymagana autoryzacja",
+      "cancellationReasonRequired": "Wymagany powód anulowania"
+    },
+    "filters": {
+      "title": "Filtry",
+      "clear": "Wyczyść Filtry",
+      "show": "Pokaż Filtry",
+      "hide": "Ukryj Filtry",
+      "allCategories": "Wszystkie Kategorie",
+      "allMovements": "Wszystkie Ruchy",
+      "requiresApproval": "Wymaga Zatwierdzenia",
+      "allStatuses": "Wszystkie Statusy",
+      "fromDate": "Od Daty",
+      "toDate": "Do Daty",
+      "selectDate": "Wybierz datę"
+    },
+    "inventory": {
+      "title": "Panel Inwentaryzacji",
+      "description": "Poziomy zapasów i przegląd inwentaryzacji w czasie rzeczywistym",
+      "totalProducts": "Wszystkie Produkty",
+      "totalValue": "Wartość Całkowita",
+      "lowStock": "Niski Stan",
+      "outOfStock": "Brak w Magazynie",
+      "available": "Dostępne",
+      "reserved": "Zarezerwowane",
+      "atp": "Dostępne do Obietnicy",
+      "value": "Wartość",
+      "avgCost": "Śr. Koszt",
+      "stockLevel": "Poziom Zapasów",
+      "inStock": "W Magazynie",
+      "lowStockStatus": "Niski Stan",
+      "outOfStockStatus": "Brak w Magazynie",
+      "search": "Szukaj po ID produktu lub lokalizacji..."
+    },
+    "approvalQueue": {
+      "title": "Oczekujące Zatwierdzenia",
+      "description": "Ruchy oczekujące na zatwierdzenie",
+      "noApprovals": "Brak ruchów oczekujących na zatwierdzenie",
+      "reject": "Odrzuć",
+      "approve": "Zatwierdź"
+    }
+  },
+  "transfers": {
+    "title": "Transfery Magazynowe",
+    "description": "Zarządzaj transferami między magazynami i lokalizacjami",
+    "createTransfer": "Utwórz Transfer",
+    "transferDetails": "Szczegóły Transferu",
+    "transferNumber": "Numer Transferu",
+    "fromBranch": "Z Magazynu",
+    "toBranch": "Do Magazynu",
+    "fromLocation": "Z Lokalizacji",
+    "toLocation": "Do Lokalizacji",
+    "priority": "Priorytet",
+    "expectedDate": "Oczekiwana Data",
+    "shippingMethod": "Metoda Wysyłki",
+    "carrier": "Przewoźnik",
+    "trackingNumber": "Numer Śledzenia",
+    "requestedBy": "Zgłoszone Przez",
+    "approvedBy": "Zatwierdzone Przez",
+    "shippedBy": "Wysłane Przez",
+    "receivedBy": "Odebrane Przez",
+    "createdAt": "Data Utworzenia",
+    "approvedAt": "Data Zatwierdzenia",
+    "shippedAt": "Data Wysyłki",
+    "receivedAt": "Data Odbioru",
+    "items": "Pozycje",
+    "itemCount": "{count} pozycji",
+    "totalQuantity": "Całkowita Ilość",
+    "receivedQuantity": "Ilość Odebrana",
+    "statuses": {
+      "draft": "Szkic",
+      "pending": "Oczekujący",
+      "approved": "Zatwierdzony",
+      "in_transit": "W Transporcie",
+      "completed": "Zakończony",
+      "cancelled": "Anulowany",
+      "rejected": "Odrzucony"
+    },
+    "priorities": {
+      "normal": "Normalny",
+      "high": "Wysoki",
+      "urgent": "Pilny"
+    },
+    "actions": {
+      "submit": "Wyślij do Zatwierdzenia",
+      "approve": "Zatwierdź Transfer",
+      "reject": "Odrzuć Transfer",
+      "ship": "Oznacz jako Wysłane",
+      "receive": "Odbierz Transfer",
+      "cancel": "Anuluj Transfer",
+      "edit": "Edytuj",
+      "viewDetails": "Zobacz Szczegóły",
+      "refresh": "Odśwież"
+    },
+    "messages": {
+      "transferCreated": "Transfer został utworzony pomyślnie",
+      "transferSubmitted": "Transfer został wysłany do zatwierdzenia",
+      "transferApproved": "Transfer został zatwierdzony",
+      "transferRejected": "Transfer został odrzucony",
+      "transferShipped": "Transfer został oznaczony jako wysłany",
+      "transferReceived": "Transfer został odebrany",
+      "transferCancelled": "Transfer został anulowany",
+      "transferUpdated": "Transfer został zaktualizowany",
+      "loadError": "Nie udało się załadować transferów",
+      "createError": "Nie udało się utworzyć transferu",
+      "updateError": "Nie udało się zaktualizować transferu",
+      "noTransfers": "Nie znaleziono transferów",
+      "noItems": "Brak pozycji w transferze",
+      "sameWarehouseError": "Magazyn źródłowy i docelowy muszą być różne"
+    },
+    "filters": {
+      "allStatuses": "Wszystkie Statusy",
+      "allPriorities": "Wszystkie Priorytety",
+      "fromDate": "Od Daty",
+      "toDate": "Do Daty",
+      "search": "Szukaj po numerze lub uwagach..."
+    },
+    "workflow": {
+      "title": "Przepływ Pracy",
+      "created": "Utworzono",
+      "submitted": "Wysłano do zatwierdzenia",
+      "approved": "Zatwierdzono",
+      "shipped": "Wysłano",
+      "received": "Odebrano",
+      "status": "Status: {status}"
+    },
+    "stats": {
+      "total": "Wszystkie Transfery",
+      "pending": "Oczekujące",
+      "inTransit": "W Transporcie",
+      "completed": "Zakończone",
+      "overdue": "Opóźnione"
+    },
+    "form": {
+      "selectBranch": "Wybierz magazyn",
+      "selectLocation": "Wybierz lokalizację",
+      "selectProduct": "Wybierz produkt",
+      "addItem": "Dodaj Pozycję",
+      "removeItem": "Usuń Pozycję",
+      "notes": "Uwagi",
+      "enterNotes": "Wprowadź uwagi...",
+      "reasonRequired": "Wymagany powód",
+      "enterReason": "Wprowadź powód..."
+    }
+  },
+  "contacts": {
+    "clients": {
+      "title": "Klienci",
+      "description": "Zarządzaj kontaktami i relacjami z klientami",
+      "pageTitle": "Klienci",
+      "pageDescription": "Zarządzanie relacjami z klientami",
+      "list": "Lista Klientów",
+      "totalCount": "{count} klientów w sumie"
+    },
+    "vendors": {
+      "title": "Dostawcy",
+      "description": "Zarządzaj kontaktami i relacjami z dostawcami",
+      "pageTitle": "Dostawcy",
+      "pageDescription": "Zarządzanie relacjami z dostawcami",
+      "list": "Lista Dostawców",
+      "totalCount": "{count} dostawców w sumie"
+    },
+    "title": "Kontakty",
+    "description": "Zarządzaj kontaktami osobistymi i organizacyjnymi",
+    "types": {
+      "contact": "Kontakt",
+      "lead": "Potencjalny klient",
+      "other": "Inny"
+    },
+    "visibilityScopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja",
+      "privateDesc": "Widoczne tylko dla Ciebie",
+      "branchDesc": "Widoczne dla członków oddziału",
+      "organizationDesc": "Widoczne dla wszystkich członków organizacji"
+    },
+    "entityTypes": {
+      "business": "Firma",
+      "individual": "Osoba prywatna"
+    },
+    "form": {
+      "newTitle": "Nowy {type}",
+      "editTitle": "Edytuj {type}",
+      "save": "Zapisz",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
+      "tabs": {
+        "basicInfo": "Podstawowe Informacje",
+        "info": "Informacje",
+        "otherDetails": "Inne Szczegóły",
+        "address": "Adres",
+        "linkedAccounts": "Powiązane Konta Biznesowe",
+        "contactPersons": "Osoby Kontaktowe",
+        "customFields": "Pola Niestandardowe",
+        "remarks": "Uwagi",
+        "notes": "Notatki"
+      },
+      "entityTypes": {
+        "business": "Firma",
+        "individual": "Osoba prywatna"
+      },
+      "salutations": {
+        "label": "Tytuł",
+        "mr": "Pan",
+        "mrs": "Pani",
+        "ms": "Pani",
+        "dr": "Dr",
+        "prof": "Prof.",
+        "mx": "Mx."
+      },
+      "fields": {
+        "visibilityScope": "Zakres Widoczności",
+        "visibilityScopeHelp": "Kontroluj, kto może zobaczyć ten kontakt",
+        "contactVisibility": "Typ Kontaktu",
+        "privateVisibilityDesc": "Tylko Ty możesz przeglądać i edytować ten kontakt",
+        "organizationVisibilityDesc": "Wszyscy członkowie organizacji mogą przeglądać i edytować ten kontakt",
+        "privateVisibilityInfo": "Prywatne kontakty nie mogą być powiązane z kontami biznesowymi. Zmień na publiczny, aby powiązać ten kontakt z klientami lub dostawcami.",
+        "organizationVisibilityInfo": "Kontakty organizacji mogą być powiązane z kontami biznesowymi (klienci/dostawcy). Po ustawieniu na publiczny, nie można zmienić z powrotem na prywatny.",
+        "organizationVisibilityLocked": "Ten kontakt jest publiczny i nie może być zmieniony na prywatny, ponieważ może być już powiązany z kontami biznesowymi.",
+        "customerType": "Typ Klienta",
+        "salutation": "Tytuł",
+        "firstName": "Imię",
+        "lastName": "Nazwisko",
+        "companyName": "Nazwa Firmy",
+        "displayName": "Nazwa Wyświetlana",
+        "displayNameHelp": "Ta nazwa będzie wyświetlana we wszystkich transakcjach",
+        "primaryEmail": "Główny Email",
+        "workPhone": "Telefon Służbowy",
+        "mobilePhone": "Telefon Komórkowy",
+        "website": "Strona WWW",
+        "language": "Język",
+        "currency": "Waluta",
+        "paymentTerms": "Warunki Płatności",
+        "taxRegistrationNumber": "NIP",
+        "companyIdNumber": "REGON",
+        "taxRate": "Stawka VAT (%)",
+        "taxExempt": "Zwolniony z VAT",
+        "creditLimit": "Limit Kredytowy",
+        "openingBalance": "Saldo Początkowe",
+        "portalEnabled": "Dostęp do Portalu",
+        "portalLanguage": "Język Portalu",
+        "fax": "Faks",
+        "billingAddress": "Adres Fakturowy",
+        "shippingAddress": "Adres Dostawy",
+        "attentionTo": "Do rąk",
+        "country": "Kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Adres - linia 2",
+        "city": "Miasto",
+        "stateProvince": "Województwo",
+        "postalCode": "Kod Pocztowy",
+        "phone": "Telefon",
+        "defaultAddress": "Domyślny",
+        "contactPersons": "Osoby Kontaktowe",
+        "name": "Nazwa",
+        "email": "Email",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "primary": "Główny",
+        "active": "Aktywny",
+        "actions": "Akcje",
+        "primaryContact": "Główny Kontakt",
+        "notes": "Notatki",
+        "internalNotes": "Notatki Wewnętrzne",
+        "internalNotesHelp": "Te notatki są tylko do użytku wewnętrznego i nie będą widoczne dla kontaktu",
+        "type": "Typ",
+        "location": "Lokalizacja",
+        "tags": "Tagi",
+        "tagsHelp": "Użyj tagów do kategoryzowania i organizowania kontaktów"
+      },
+      "placeholders": {
+        "salutation": "Wybierz tytuł",
+        "firstName": "Wprowadź imię",
+        "lastName": "Wprowadź nazwisko",
+        "companyName": "Wprowadź nazwę firmy",
+        "displayName": "Wprowadź nazwę wyświetlaną",
+        "email": "przykład@firma.pl",
+        "phone": "+48 123 456 789",
+        "website": "https://przyklad.pl",
+        "paymentTerms": "Wybierz warunki płatności",
+        "taxNumber": "Wprowadź NIP",
+        "companyId": "Wprowadź REGON",
+        "taxRate": "np. 23",
+        "creditLimit": "0.00",
+        "openingBalance": "0.00",
+        "fax": "Wprowadź numer faksu",
+        "attentionTo": "Imię i nazwisko osoby",
+        "country": "Wprowadź kraj",
+        "addressLine1": "Ulica i numer",
+        "addressLine2": "Mieszkanie, biuro, itp.",
+        "city": "Wprowadź miasto",
+        "stateProvince": "Wprowadź województwo",
+        "postalCode": "Wprowadź kod pocztowy",
+        "designation": "Stanowisko",
+        "department": "Nazwa działu",
+        "notes": "Dodaj dodatkowe notatki tutaj...",
+        "tags": "Dodaj tagi (naciśnij Enter aby dodać)",
+        "primaryEmail": "przyklad@firma.pl",
+        "workPhone": "+48 123 456 789",
+        "mobilePhone": "+48 123 456 789"
+      },
+      "actions": {
+        "addBillingAddress": "Dodaj Adres Fakturowy",
+        "addShippingAddress": "Dodaj Adres Dostawy",
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "add": "Dodaj",
+        "update": "Aktualizuj",
+        "cancel": "Anuluj"
+      },
+      "dialogs": {
+        "addContactPerson": "Dodaj Osobę Kontaktową",
+        "editContactPerson": "Edytuj Osobę Kontaktową",
+        "title": "Tytuł",
+        "workPhone": "Telefon Służbowy",
+        "designation": "Stanowisko",
+        "department": "Dział",
+        "notes": "Notatki",
+        "primaryContact": "Główny Kontakt",
+        "active": "Aktywny",
+        "cancel": "Anuluj",
+        "add": "Dodaj",
+        "update": "Aktualizuj"
+      },
+      "messages": {
+        "createSuccess": "Kontakt został utworzony pomyślnie",
+        "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+        "error": "Nie udało się zapisać kontaktu",
+        "noAddresses": "Nie dodano jeszcze żadnych adresów",
+        "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
+        "customFieldsPlaceholder": "Brak zdefiniowanych pól niestandardowych",
+        "customFieldsInfo": "Pola niestandardowe można skonfigurować w ustawieniach organizacji"
+      }
+    },
+    "actions": {
+      "newContact": "Nowy Kontakt",
+      "newClient": "Nowy Klient",
+      "newVendor": "Nowy Dostawca",
+      "addBillingAddress": "Dodaj Adres Fakturowy",
+      "addShippingAddress": "Dodaj Adres Dostawy",
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "add": "Dodaj",
+      "save": "Zapisz",
+      "update": "Aktualizuj",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie...",
+      "view": "Pokaż",
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "confirmDelete": "Potwierdź Usunięcie"
+    },
+    "dialogs": {
+      "addContactPerson": "Dodaj Osobę Kontaktową",
+      "editContactPerson": "Edytuj Osobę Kontaktową",
+      "title": "Tytuł",
+      "workPhone": "Telefon Służbowy",
+      "designation": "Stanowisko",
+      "department": "Dział",
+      "notes": "Notatki",
+      "primaryContact": "Główny Kontakt",
+      "active": "Aktywny",
+      "cancel": "Anuluj",
+      "add": "Dodaj",
+      "update": "Aktualizuj"
+    },
+    "messages": {
+      "loading": "Ładowanie kontaktów...",
+      "noContacts": "Nie znaleziono kontaktów",
+      "noAddresses": "Nie dodano jeszcze żadnych adresów",
+      "noContactPersons": "Nie dodano jeszcze żadnych osób kontaktowych",
+      "createSuccess": "Kontakt został utworzony pomyślnie",
+      "updateSuccess": "Kontakt został zaktualizowany pomyślnie",
+      "deleteSuccess": "Kontakt został usunięty pomyślnie",
+      "deleteError": "Nie udało się usunąć kontaktu",
+      "confirmDeleteText": "Czy na pewno chcesz usunąć {name}? Ta akcja nie może być cofnięta.",
+      "error": "Wystąpił błąd"
+    },
+    "filters": {
+      "title": "Filtry",
+      "searchPlaceholder": "Szukaj po nazwie, emailu lub telefonie...",
+      "allTypes": "Wszystkie Typy",
+      "allScopes": "Wszystkie Zakresy",
+      "clearAll": "Wyczyść Wszystko"
+    },
+    "scopes": {
+      "private": "Prywatne",
+      "branch": "Oddział",
+      "organization": "Organizacja"
+    },
+    "pagination": {
+      "showing": "Pokazuję {start} do {end} z {total}",
+      "previous": "Poprzednia",
+      "next": "Następna"
+    }
+  },
+  "documentation": {
+    "title": "Dokumentacja",
+    "description": "Centrum wiedzy z przewodnikami, specyfikacjami i referencjami",
+    "sections": {
+      "user": "Przewodnik Użytkownika",
+      "dev": "Dokumentacja Deweloperska",
+      "spec": "Specyfikacje",
+      "internal": "Dokumentacja Wewnętrzna",
+      "api": "Dokumentacja API",
+      "meta": "Dokumentacja Systemowa"
+    },
+    "sectionDescriptions": {
+      "user": "Naucz się efektywnie używać AmbraWMS",
+      "dev": "Dokumentacja techniczna dla programistów",
+      "spec": "Szczegółowe specyfikacje techniczne",
+      "internal": "Dokumentacja wewnętrzna zespołu",
+      "api": "Endpointy API i przewodniki integracji",
+      "meta": "Architektura systemu i dokumenty projektowe"
+    },
+    "navigation": {
+      "home": "Strona Główna Dokumentacji",
+      "back": "Wstecz",
+      "tableOfContents": "Spis Treści",
+      "onThisPage": "Na Tej Stronie",
+      "quickLinks": "Szybkie Linki"
+    },
+    "search": {
+      "placeholder": "Szukaj w dokumentacji...",
+      "noResults": "Nie znaleziono wyników",
+      "searching": "Wyszukiwanie...",
+      "results": "Znaleziono {count} wyników"
+    },
+    "actions": {
+      "edit": "Edytuj",
+      "print": "Drukuj",
+      "download": "Pobierz PDF",
+      "share": "Udostępnij",
+      "feedback": "Wyślij Opinię",
+      "createTranslation": "Utwórz Tłumaczenie"
+    },
+    "language": {
+      "switchLanguage": "Zmień Język",
+      "notTranslated": "Ten dokument nie został jeszcze przetłumaczony na {language}.",
+      "viewOriginal": "Zobacz w języku {language}",
+      "helpTranslate": "Pomóż przetłumaczyć ten dokument",
+      "notAvailable": "Ten dokument nie jest dostępny w Twoim języku.",
+      "showingFallback": "Pokazywanie wersji angielskiej."
+    },
+    "metadata": {
+      "lastUpdated": "Ostatnia aktualizacja",
+      "version": "Wersja",
+      "author": "Autor",
+      "difficulty": "Poziom trudności",
+      "estimatedTime": "Szacowany czas czytania",
+      "minutes": "{count} min",
+      "prerequisites": "Wymagania wstępne",
+      "relatedDocs": "Powiązana Dokumentacja"
+    },
+    "difficulty": {
+      "beginner": "Początkujący",
+      "intermediate": "Średniozaawansowany",
+      "advanced": "Zaawansowany",
+      "expert": "Ekspert"
+    },
+    "status": {
+      "draft": "Szkic",
+      "review": "W Recenzji",
+      "published": "Opublikowane",
+      "archived": "Zarchiwizowane"
+    },
+    "messages": {
+      "loading": "Ładowanie dokumentacji...",
+      "notFound": "Nie znaleziono dokumentacji",
+      "error": "Nie udało się załadować dokumentacji",
+      "saved": "Zmiany zostały zapisane",
+      "published": "Dokument został opublikowany"
+    },
+    "widgets": {
+      "search": {
+        "title": "Szukaj w Dokumentacji",
+        "description": "Szybkie wyszukiwanie w całej dokumentacji"
+      },
+      "recent": {
+        "title": "Ostatnio Przeglądane",
+        "description": "Twoje ostatnio przeglądane dokumenty",
+        "empty": "Brak ostatnio przeglądanych dokumentów"
+      }
+    }
+  },
+  "toasts": {
+    "passwordUpdated": "Hasło zaktualizowane pomyślnie. Zaloguj się.",
+    "passwordError": "Nie udało się zaktualizować hasła. Spróbuj ponownie.",
+    "passwordSameAsOld": "Nowe hasło nie może być takie same jak poprzednie.",
+    "passwordTooWeak": "Hasło jest zbyt słabe. Użyj silniejszego hasła.",
+    "passwordSessionExpired": "Sesja wygasła. Poproś o nowy link do resetowania hasła."
+  },
+  "invitationPage": {
+    "loading": "Ładowanie zaproszenia...",
+    "errorTitle": "Błąd zaproszenia",
+    "notFoundTitle": "Zaproszenie nie znalezione",
+    "notFoundDescription": "Nie udało się znaleźć zaproszenia o podanym tokenie.",
+    "loginRequired": "Logowanie wymagane",
+    "loginRequiredDescription": "Aby zaakceptować zaproszenie, musisz być zalogowany",
+    "loginRequiredDescriptionFrom": "{inviterName} zaprosił(a) Cię do dołączenia do {orgName}. Zaloguj się lub utwórz konto, aby wyświetlić zaproszenie.",
+    "invitationFor": "Zaproszenie dla:",
+    "hasAccount": "Mam już konto - Zaloguj się",
+    "noAccount": "Nie mam konta - Zarejestruj się",
+    "pageTitle": "Zaproszenie do organizacji",
+    "pageDescription": "Zostałeś zaproszony do dołączenia do organizacji",
+    "orgLabel": "Organizacja:",
+    "roleLabel": "Rola:",
+    "branchLabel": "Oddział:",
+    "emailLabel": "Email:",
+    "statusLabel": "Status:",
+    "expiresLabel": "Wygasa:",
+    "noRole": "Brak roli",
+    "noBranch": "Brak oddziału",
+    "statusPending": "Oczekuje",
+    "statusAccepted": "Zaakceptowane",
+    "statusRejected": "Odrzucone",
+    "statusExpired": "Wygasłe",
+    "statusCancelled": "Anulowane",
+    "expiredWarning": "To zaproszenie wygasło. Skontaktuj się z administratorem organizacji aby otrzymać nowe zaproszenie.",
+    "alreadyProcessed": "To zaproszenie zostało już {status}.",
+    "processedAccepted": "zaakceptowane",
+    "processedRejected": "odrzucone",
+    "processedCancelled": "anulowane",
+    "processedDefault": "przetworzone",
+    "emailMismatch": "To zaproszenie zostało wysłane na adres {invitationEmail}, ale jesteś zalogowany jako {userEmail}. Zaloguj się na właściwe konto aby zaakceptować zaproszenie.",
+    "acceptButton": "Zaakceptuj zaproszenie",
+    "goToDashboard": "Przejdź do dashboardu",
+    "successMessage": "Zaproszenie zostało zaakceptowane! Zostaniesz przekierowany do dashboardu.",
+    "errorMessage": "Nie udało się zaakceptować zaproszenia",
+    "unexpectedError": "Wystąpił nieoczekiwany błąd",
+    "expiredTitle": "Zaproszenie wygasło",
+    "cancelledTitle": "Zaproszenie anulowane",
+    "cancelledDescription": "To zaproszenie zostało anulowane przez organizację.",
+    "acceptedTitle": "Już zaakceptowane",
+    "acceptedDescription": "To zaproszenie zostało już zaakceptowane.",
+    "declinedTitle": "Zaproszenie odrzucone",
+    "declinedDescription": "To zaproszenie zostało już przez Ciebie odrzucone.",
+    "declineButton": "Odrzuć zaproszenie",
+    "declineError": "Nie udało się odrzucić zaproszenia",
+    "inviterLabel": "Zaproszony przez:",
+    "declineSuccessMessage": "Zaproszenie zostało odrzucone. Możesz kontynuować onboarding.",
+    "continueButton": "Kontynuuj onboarding",
+    "goToDashboardButton": "Przejdź do dashboardu"
+  },
+  "inviteResolvePage": {
+    "title": "Oczekujące zaproszenie",
+    "singleInviteDescription": "Masz oczekujące zaproszenie do dołączenia do organizacji.",
+    "multipleInviteDescription": "Masz oczekujące zaproszenia do dołączenia do organizacji.",
+    "joinButton": "Zobacz i zaakceptuj zaproszenie",
+    "detailsButton": "Szczegóły Zaproszenia",
+    "skipButton": "Kontynuuj bez akceptowania",
+    "skipHint": "Twoje zaproszenia pozostaną oczekujące i będą mogły być zaakceptowane później.",
+    "expiresLabel": "Wygasa"
+  },
+  "invitationFormDialog": {
+    "title": "Zaproś nowego użytkownika",
+    "description": "Wyślij zaproszenie do dołączenia do organizacji. Użytkownik otrzyma link do zaakceptowania zaproszenia.",
+    "emailLabel": "Adres email",
+    "emailPlaceholder": "np. jan.kowalski@example.com",
+    "roleLabel": "Rola",
+    "roleOptionalHint": "(opcjonalna)",
+    "rolePlaceholder": "Wybierz rolę",
+    "roleLoading": "Ładowanie ról...",
+    "roleNoneLabel": "Brak dodatkowej roli (domyślnie org_member)",
+    "roleBaseHint": "Zaproszony użytkownik zawsze otrzymuje bazową rolę org_member przy akceptacji.",
+    "expiresLabel": "Data wygaśnięcia",
+    "expiresHint": "Zaproszenie wygaśnie o północy w wybranym dniu.",
+    "cancelButton": "Anuluj",
+    "submitButton": "Wyślij zaproszenie",
+    "pendingButton": "Wysyłanie...",
+    "successToast": "Zaproszenie zostało wysłane.",
+    "errorFallback": "Nie udało się wysłać zaproszenia."
+  },
+  "onboardingEntry": {
+    "title": "Witaj!",
+    "titleWithName": "Witaj, {name}!",
+    "description": "Twoje konto jest gotowe. Nie jesteś jeszcze przypisany do żadnej organizacji.",
+    "signedInAs": "Zalogowany jako",
+    "pendingInviteHint": "Masz oczekujące zaproszenie. Zaakceptuj je, aby dołączyć do organizacji.",
+    "reviewInviteButton": "Przejrzyj zaproszenie",
+    "browseDashboardButton": "Przejdź do dashboardu",
+    "createOrgHint": "Skonfiguruj organizację, aby zacząć.",
+    "signOutButton": "Wyloguj się"
+  },
+  "onboardingWizard": {
+    "title": "Witaj!",
+    "titleWithName": "Witaj, {name}!",
+    "signedInAs": "Zalogowany jako",
+    "orgStepDescription": "Zacznijmy od nadania nazwy Twojej organizacji.",
+    "orgNameLabel": "Nazwa organizacji",
+    "orgNamePlaceholder": "np. Acme",
+    "orgName2Label": "Nazwa uzupełniająca (opcjonalnie)",
+    "orgName2Placeholder": "np. Sp. z o.o., S.A., Sp. k.",
+    "orgName2Hint": "Forma prawna, oddział lub druga część pełnej nazwy.",
+    "orgNameTooShort": "Nazwa organizacji musi mieć co najmniej 2 znaki.",
+    "orgSlugLabel": "Slug URL",
+    "orgSlugPlaceholder": "moja-organizacja",
+    "orgSlugHint": "Tylko małe litery, cyfry i myślniki. Musi być unikalny.",
+    "orgSlugGenerate": "Generuj z nazwy",
+    "orgSlugChecking": "Sprawdzanie dostępności...",
+    "orgSlugAvailable": "Slug jest dostępny",
+    "orgSlugTaken": "Ten slug jest już zajęty",
+    "orgSlugRequired": "Slug jest wymagany",
+    "orgSlugInvalid": "Dozwolone są tylko małe litery, cyfry i myślniki",
+    "orgSlugTooShort": "Slug musi mieć co najmniej 2 znaki",
+    "branchStepTitle": "Twój pierwszy oddział",
+    "branchStepDescription": "Oddział to lokalizacja lub zespół w Twojej organizacji. Możesz dodać więcej później.",
+    "branchNameLabel": "Nazwa oddziału",
+    "branchNamePlaceholder": "np. Oddział Główny, Warszawa, Magazyn",
+    "branchNameHint": "Zazwyczaj to Twoje główne biuro, magazyn lub zespół.",
+    "planStepTitle": "Wybierz plan",
+    "planStepDescription": "Możesz zmienić lub zaktualizować plan w dowolnym momencie.",
+    "nextButton": "Dalej",
+    "backButton": "Wstecz",
+    "createButton": "Utwórz organizację",
+    "creatingTitle": "Konfigurowanie organizacji...",
+    "creatingDescription": "To zajmie tylko chwilę.",
+    "createError": "Coś poszło nie tak. Spróbuj ponownie.",
+    "priceFree": "Bezpłatny",
+    "pricePaid": "{amount} zł/mies.",
+    "limitUnlimited": "Nielimitowane {unit}",
+    "limitCount": "{count} {unit}",
+    "unitBranches": "oddziały",
+    "unitMembers": "członkowie"
+  },
+  "onboardingInvitePending": {
+    "title": "Masz zaproszenie!",
+    "titleWithName": "Cześć, {name}! Masz zaproszenie.",
+    "description": "Zostałeś zaproszony do organizacji. Przejrzyj zaproszenie, aby zacząć.",
+    "signedInAs": "Zalogowany jako",
+    "inviteHint": "Oczekujące zaproszenie",
+    "unknownOrg": "Organizacja",
+    "reviewButton": "Przejrzyj",
+    "moreInvites": "+{count} więcej zaproszenie(ń)",
+    "orSeparator": "lub",
+    "signOutButton": "Wyloguj się"
+  },
+  "activityFeed": {
+    "personalTitle": "Moja aktywno\u015b\u0107",
+    "personalDescription": "Twoje ostatnie dzia\u0142ania w tej organizacji.",
+    "orgTitle": "Aktywno\u015b\u0107 organizacji",
+    "orgDescription": "Ostatnia aktywno\u015b\u0107 w Twojej organizacji.",
+    "auditTitle": "Dziennik audytu",
+    "auditDescription": "Pe\u0142ny dziennik zdarze\u0144 audytu \u0142\u0105cznie z adresami IP i danymi przegl\u0105darki.",
+    "empty": "Brak zdarze\u0144.",
+    "loading": "\u0141adowanie\u2026",
+    "pagination": "Pokazuje {from}\u2013{to} z {total}",
+    "prev": "Poprzednia",
+    "next": "Nast\u0119pna",
+    "pageOf": "Strona {page} z {total}",
+    "ip": "IP",
+    "ua": "Przegl\u0105darka"
+  },
+  "adminInvitations": {
+    "inviteMemberButton": "Zaproś członka",
+    "noInvitations": "Brak zaproszeń.",
+    "dialogTitle": "Zaproś członka",
+    "emailAddressLabel": "Adres e-mail",
+    "rolesLabel": "Dodatkowe role",
+    "rolesHint": "Zaproszony zawsze otrzymuje bazową rolę org_member. Tu możesz dodać dodatkowe role.",
+    "addRoleButton": "Dodaj rolę",
+    "roleSelectPlaceholder": "Wybierz rolę",
+    "branchSelectPlaceholder": "Wybierz oddział",
+    "cancelButton": "Anuluj",
+    "sendButton": "Wyślij zaproszenie",
+    "sendingButton": "Wysyłanie…",
+    "expiresLabel": "Wygasa:",
+    "resendTitle": "Wyślij ponownie",
+    "cancelTitle": "Anuluj zaproszenie",
+    "statusDeclined": "odrzucone",
+    "inviteErrors": {
+      "DUPLICATE_PENDING": "Zaproszenie dla tego adresu e-mail jest już oczekujące.",
+      "ALREADY_MEMBER": "Ta osoba jest już członkiem Twojej organizacji.",
+      "ALREADY_IN_ORG": "Ta osoba należy już do innej organizacji.",
+      "SELF_INVITE": "Nie możesz zaprosić samego siebie.",
+      "UNAUTHORIZED": "Nie masz uprawnień do wysyłania zaproszeń.",
+      "INVALID_EMAIL": "Podaj prawidłowy adres e-mail.",
+      "UNKNOWN": "Coś poszło nie tak. Spróbuj ponownie."
+    },
+    "inviteSentSuccess": "Zaproszenie zostało wysłane",
+    "resendSuccess": "Zaproszenie zostało wysłane ponownie",
+    "emailDeliveryWarning": "Zaproszenie zostało utworzone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
+    "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie."
+  },
+  "events": {
+    "auth": {
+      "login": {
+        "self": "Zalogowałeś się",
+        "default": "{actorName} zalogował się",
+        "audit": "{actorName} zalogował się"
+      },
+      "loginFailed": {
+        "self": "Wystąpiła nieudana próba logowania",
+        "default": "Wystąpiła nieudana próba logowania",
+        "audit": "Nieudana próba logowania"
+      },
+      "password": {
+        "resetRequested": {
+          "self": "Zażądano resetowania hasła",
+          "default": "Zażądano resetowania hasła",
+          "audit": "Zażądano resetowania hasła"
+        },
+        "resetCompleted": {
+          "self": "Zresetowałeś hasło",
+          "default": "{actorName} zresetował hasło",
+          "audit": "{actorName} zresetował hasło"
+        }
+      },
+      "session": {
+        "revoked": {
+          "self": "Twoja sesja została zakończona",
+          "default": "{actorName} został wylogowany",
+          "audit": "Sesja {actorName} została unieważniona"
+        }
+      }
+    },
+    "org": {
+      "created": {
+        "self": "Utworzyłeś organizację",
+        "default": "{actorName} utworzył organizację",
+        "audit": "{actorName} utworzył organizację {orgName}"
+      },
+      "updated": {
+        "self": "Zaktualizowałeś profil organizacji",
+        "default": "{actorName} zaktualizował profil organizacji",
+        "audit": "{actorName} zaktualizował profil organizacji"
+      },
+      "onboarding": {
+        "completed": {
+          "self": "Ukończyłeś konfigurację organizacji",
+          "default": "{actorName} ukończył konfigurację organizacji",
+          "audit": "{actorName} ukończył konfigurację dla {orgName}"
+        }
+      },
+      "member": {
+        "invited": {
+          "self": "Zaprosiłeś {targetName} do organizacji",
+          "default": "{actorName} zaprosił {targetName} do organizacji",
+          "audit": "{actorName} zaprosił {targetName} do organizacji"
+        },
+        "removed": {
+          "self": "Usunąłeś {targetName} z organizacji",
+          "default": "{actorName} usunął {targetName} z organizacji",
+          "audit": "{actorName} usunął {targetName} z organizacji"
+        },
+        "roleAssigned": {
+          "self": "Przypisałeś rolę {roleName} użytkownikowi {targetName}",
+          "default": "{actorName} przypisał rolę {roleName} użytkownikowi {targetName}",
+          "audit": "{actorName} przypisał rolę {roleName} do {targetName}"
+        },
+        "roleRemoved": {
+          "self": "Usunąłeś rolę {roleName} od użytkownika {targetName}",
+          "default": "{actorName} usunął rolę {roleName} od użytkownika {targetName}",
+          "audit": "{actorName} usunął rolę {roleName} od {targetName}"
+        }
+      },
+      "invitation": {
+        "accepted": {
+          "self": "Dołączyłeś do organizacji",
+          "default": "{actorName} dołączył do organizacji",
+          "audit": "{actorName} zaakceptował zaproszenie i dołączył"
+        },
+        "cancelled": {
+          "self": "Anulowałeś zaproszenie dla {targetName}",
+          "default": "{actorName} anulował zaproszenie dla {targetName}",
+          "audit": "{actorName} anulował zaproszenie dla {targetName}"
+        },
+        "resent": {
+          "self": "Ponownie wysłałeś zaproszenie do {targetName}",
+          "default": "{actorName} ponownie wysłał zaproszenie do {targetName}",
+          "audit": "{actorName} ponownie wysłał zaproszenie do {targetName}"
+        },
+        "declined": {
+          "self": "Odrzuciłeś zaproszenie",
+          "default": "{actorName} odrzucił zaproszenie",
+          "audit": "{actorName} odrzucił zaproszenie"
+        }
+      },
+      "role": {
+        "created": {
+          "self": "Utworzyłeś rolę {roleName}",
+          "default": "{actorName} utworzył rolę {roleName}",
+          "audit": "{actorName} utworzył rolę {roleName}"
+        },
+        "updated": {
+          "self": "Zaktualizowałeś rolę {roleName}",
+          "default": "{actorName} zaktualizował rolę {roleName}",
+          "audit": "{actorName} zaktualizował rolę {roleName}"
+        },
+        "deleted": {
+          "self": "Usunąłeś rolę {roleName}",
+          "default": "{actorName} usunął rolę {roleName}",
+          "audit": "{actorName} usunął rolę {roleName}"
+        }
+      },
+      "branch": {
+        "created": {
+          "self": "Utworzyłeś oddział {branchName}",
+          "default": "{actorName} utworzył oddział {branchName}",
+          "audit": "{actorName} utworzył oddział {branchName}"
+        },
+        "updated": {
+          "self": "Zaktualizowałeś oddział {branchName}",
+          "default": "{actorName} zaktualizował oddział {branchName}",
+          "audit": "{actorName} zaktualizował oddział {branchName}"
+        },
+        "deleted": {
+          "self": "Usunąłeś oddział {branchName}",
+          "default": "{actorName} usunął oddział {branchName}",
+          "audit": "{actorName} usunął oddział {branchName}"
+        }
+      }
+    }
+  },
+  "activityDrawer": {
+    "title": "Ostatnia aktywność",
+    "description": "Twoje ostatnie 10 działań",
+    "empty": "Brak ostatniej aktywności",
+    "viewAll": "Zobacz całą aktywność",
+    "loading": "Ładowanie aktywności…"
+  }
+}
