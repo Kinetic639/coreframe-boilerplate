@@ -67,6 +67,21 @@ export const SELF_UPDATE = "self.update" as const;
 export const MODULE_ACCESS_WILDCARD = "module.*" as const;
 export const MODULE_ORGANIZATION_MANAGEMENT_ACCESS =
   "module.organization-management.access" as const;
+// module.warehouse.access — user-level gate to the warehouse module.
+// org_owner has it via module.* wildcard; org_member has it as an explicit grant.
+// Seeded in migration 20260401120000_warehouse_locations.
+export const MODULE_WAREHOUSE_ACCESS = "module.warehouse.access" as const;
+
+// Warehouse Permissions (org+branch-scoped — warehouse module, phase 1)
+// warehouse.*               — org_owner wildcard; compiler expands to all concrete warehouse.* slugs
+// warehouse.read            — broad read gate checked in layout and actions
+// warehouse.locations.read  — read / list warehouse locations for the active branch
+// warehouse.locations.manage — create / update / soft-delete warehouse locations
+// Seeded in migration 20260401120000_warehouse_locations.
+export const WAREHOUSE_WILDCARD = "warehouse.*" as const;
+export const WAREHOUSE_READ = "warehouse.read" as const;
+export const WAREHOUSE_LOCATIONS_READ = "warehouse.locations.read" as const;
+export const WAREHOUSE_LOCATIONS_MANAGE = "warehouse.locations.manage" as const;
 
 // Audit Permissions (org-scoped)
 // audit.events.read — view the full organization audit event log (IP, UA, all metadata)
@@ -123,6 +138,11 @@ export type PermissionSlug =
   | typeof SELF_UPDATE
   | typeof MODULE_ACCESS_WILDCARD
   | typeof MODULE_ORGANIZATION_MANAGEMENT_ACCESS
+  | typeof MODULE_WAREHOUSE_ACCESS
+  | typeof WAREHOUSE_WILDCARD
+  | typeof WAREHOUSE_READ
+  | typeof WAREHOUSE_LOCATIONS_READ
+  | typeof WAREHOUSE_LOCATIONS_MANAGE
   | typeof AUDIT_EVENTS_READ
   | typeof EVENTS_ORG_ACTIVITY_READ
   | typeof EVENTS_ORG_SENSITIVE_READ
@@ -164,6 +184,11 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   SELF_UPDATE,
   MODULE_ACCESS_WILDCARD,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  MODULE_WAREHOUSE_ACCESS,
+  WAREHOUSE_WILDCARD,
+  WAREHOUSE_READ,
+  WAREHOUSE_LOCATIONS_READ,
+  WAREHOUSE_LOCATIONS_MANAGE,
   AUDIT_EVENTS_READ,
   EVENTS_ORG_ACTIVITY_READ,
   EVENTS_ORG_SENSITIVE_READ,

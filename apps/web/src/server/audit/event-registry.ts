@@ -563,6 +563,78 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["self", "org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  // -------------------------------------------------------------------------
+  // Warehouse module — Locations
+  // -------------------------------------------------------------------------
+
+  "warehouse.location.created": {
+    actionKey: "warehouse.location.created",
+    moduleSlug: "warehouse",
+    eventTier: "baseline",
+    category: "WAREHOUSE",
+    intent: "CREATE",
+    i18nKey: "events.warehouse.location.created",
+    description: "A warehouse location was created",
+    metadataSchema: z.object({
+      location_id: z.string().uuid(),
+      location_name: z.string(),
+      branch_id: z.string().uuid(),
+      parent_id: z.string().uuid().nullable().optional(),
+    }),
+    summaryTemplate: "Created location {{location_name}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.location.updated": {
+    actionKey: "warehouse.location.updated",
+    moduleSlug: "warehouse",
+    eventTier: "baseline",
+    category: "WAREHOUSE",
+    intent: "UPDATE",
+    i18nKey: "events.warehouse.location.updated",
+    description: "A warehouse location was updated",
+    metadataSchema: z.object({
+      location_id: z.string().uuid(),
+      location_name: z.string(),
+      branch_id: z.string().uuid(),
+      updated_fields: z.array(z.string()).optional(),
+    }),
+    summaryTemplate: "Updated location {{location_name}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.location.deleted": {
+    actionKey: "warehouse.location.deleted",
+    moduleSlug: "warehouse",
+    eventTier: "enhanced",
+    category: "WAREHOUSE",
+    intent: "DELETE",
+    i18nKey: "events.warehouse.location.deleted",
+    description: "A warehouse location was soft-deleted",
+    metadataSchema: z.object({
+      location_id: z.string().uuid(),
+      location_name: z.string(),
+      branch_id: z.string().uuid(),
+    }),
+    summaryTemplate: "Deleted location {{location_name}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------

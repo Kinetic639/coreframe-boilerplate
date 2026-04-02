@@ -39,7 +39,8 @@ export type EventCategory =
   | "DATA"
   | "STATE"
   | "SECURITY"
-  | "AUTOMATION";
+  | "AUTOMATION"
+  | "WAREHOUSE";
 
 /**
  * Action classification — WHAT ACTION happened.
