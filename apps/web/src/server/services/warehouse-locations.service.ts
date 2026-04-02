@@ -10,6 +10,16 @@
  * - never bypasses RLS
  * - fail-closed: returns ServiceResult<T>, never throws to callers
  * - no stock, movement, document, or product coupling
+ *
+ * Hierarchy guarantees:
+ * - Self-parent is blocked at DB level (CHECK constraint) and service level.
+ * - Cyclical reparenting is blocked by wouldCreateCycle() before any UPDATE.
+ * - Soft-delete explicitly reparents direct children to root (parent_id = NULL,
+ *   level = 0) and cascades level values to all descendants of reparented children.
+ *   This keeps the DB state consistent — no dangling parent_id references to
+ *   soft-deleted rows.
+ * - Level values are always kept consistent: when a node is reparented the service
+ *   recomputes its level and cascades the new values to all descendants.
  */
 
 import "server-only";
@@ -101,7 +111,7 @@ export class WarehouseLocationsService {
 
   /**
    * Resolve the direct children of a location.
-   * Useful for lazy-loading tree nodes.
+   * Useful for lazy-loading tree nodes and for cascade operations.
    */
   static async getChildren(
     supabase: SupabaseClient,
@@ -183,8 +193,12 @@ export class WarehouseLocationsService {
 
   /**
    * Update an existing location.
-   * If parent_id changes, level is recomputed from the new parent.
-   * The location must belong to the given org.
+   *
+   * If parent_id changes:
+   * - Self-parent is rejected.
+   * - Reparenting into a descendant (cycle) is rejected.
+   * - Level is recomputed from the new parent and cascaded to all descendants.
+   * - The new parent must belong to the same org and branch.
    */
   static async update(
     supabase: SupabaseClient,
@@ -208,6 +222,8 @@ export class WarehouseLocationsService {
     if (input.color !== undefined) updatePayload.color = input.color;
     if (input.sort_order !== undefined) updatePayload.sort_order = input.sort_order;
 
+    let newLevel: number | undefined;
+
     if (input.parent_id !== undefined) {
       if (input.parent_id === id) {
         return { success: false, error: "A location cannot be its own parent" };
@@ -215,8 +231,25 @@ export class WarehouseLocationsService {
       updatePayload.parent_id = input.parent_id;
 
       if (input.parent_id === null) {
+        newLevel = 0;
         updatePayload.level = 0;
       } else {
+        // Guard against cyclical reparenting: reject if this node is an ancestor
+        // of the proposed new parent (which would create A → B → ... → A).
+        const cycleCheck = await WarehouseLocationsService.wouldCreateCycle(
+          supabase,
+          orgId,
+          id,
+          input.parent_id
+        );
+        if (cycleCheck.success === false) return { success: false, error: cycleCheck.error };
+        if (cycleCheck.data) {
+          return {
+            success: false,
+            error: "Cannot reparent a location into one of its own descendants",
+          };
+        }
+
         const newParentResult = await WarehouseLocationsService.getById(
           supabase,
           orgId,
@@ -228,7 +261,8 @@ export class WarehouseLocationsService {
         if (newParentResult.data.branch_id !== current.branch_id) {
           return { success: false, error: "Parent location belongs to a different branch" };
         }
-        updatePayload.level = newParentResult.data.level + 1;
+        newLevel = newParentResult.data.level + 1;
+        updatePayload.level = newLevel;
       }
     }
 
@@ -251,19 +285,64 @@ export class WarehouseLocationsService {
       return { success: false, error: error.message };
     }
 
+    // If the node's level changed, cascade the new level values to all descendants.
+    if (newLevel !== undefined && newLevel !== current.level) {
+      const cascadeResult = await WarehouseLocationsService.cascadeDescendantLevels(
+        supabase,
+        orgId,
+        id,
+        newLevel
+      );
+      if (cascadeResult.success === false) return { success: false, error: cascadeResult.error };
+    }
+
     return { success: true, data: data as WarehouseLocation };
   }
 
   /**
    * Soft-delete a location by setting deleted_at.
-   * Children whose parent_id points to this location will have parent_id set to NULL
-   * by the ON DELETE SET NULL FK constraint — they become root nodes.
+   *
+   * Before deleting, direct children are explicitly reparented to root
+   * (parent_id = NULL, level = 0). Their descendants' levels are then cascaded
+   * so that all subtrees remain internally consistent.
+   *
+   * Note: the ON DELETE SET NULL FK on parent_id only fires for hard DELETEs —
+   * it does NOT fire for this soft-delete UPDATE. Children are reparented
+   * explicitly here to keep the DB state consistent.
    */
   static async softDelete(
     supabase: SupabaseClient,
     orgId: string,
     id: string
   ): Promise<ServiceResult<void>> {
+    // Step 1: Fetch direct children so we can cascade their descendants' levels.
+    const childrenResult = await WarehouseLocationsService.getChildren(supabase, orgId, id);
+    if (childrenResult.success === false) return { success: false, error: childrenResult.error };
+
+    // Step 2: Reparent direct children to root (single batch UPDATE).
+    if (childrenResult.data.length > 0) {
+      const { error: reparentError } = await supabase
+        .from("warehouse_locations")
+        .update({ parent_id: null, level: 0 })
+        .eq("organization_id", orgId)
+        .eq("parent_id", id)
+        .is("deleted_at", null);
+
+      if (reparentError) return { success: false, error: reparentError.message };
+
+      // Step 3: Cascade level=1 to grandchildren, level=2 to great-grandchildren, etc.
+      for (const child of childrenResult.data) {
+        const cascadeResult = await WarehouseLocationsService.cascadeDescendantLevels(
+          supabase,
+          orgId,
+          child.id,
+          0 // the child is now at level=0; cascade from level 0+1=1 downward
+        );
+        if (cascadeResult.success === false) return { success: false, error: cascadeResult.error };
+      }
+    }
+
+    // Step 4: Soft-delete the location.
     const { error } = await supabase
       .from("warehouse_locations")
       .update({ deleted_at: new Date().toISOString() })
@@ -272,6 +351,82 @@ export class WarehouseLocationsService {
       .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
+  }
+
+  // ─── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Detect whether reparenting `nodeId` to `newParentId` would create a cycle.
+   *
+   * Walks up the ancestor chain from `newParentId`. If `nodeId` appears in that
+   * chain, a cycle would be created (A → newParent → ... → A).
+   *
+   * Caps traversal at `maxDepth` to guard against pre-existing corrupt data.
+   * Returns { success: true, data: true } if a cycle would be created.
+   */
+  private static async wouldCreateCycle(
+    supabase: SupabaseClient,
+    orgId: string,
+    nodeId: string,
+    newParentId: string,
+    maxDepth = 50
+  ): Promise<ServiceResult<boolean>> {
+    let currentId: string | null = newParentId;
+    let depth = 0;
+
+    while (currentId !== null && depth < maxDepth) {
+      if (currentId === nodeId) {
+        return { success: true, data: true };
+      }
+      const result = await WarehouseLocationsService.getById(supabase, orgId, currentId);
+      if (result.success === false) return { success: false as const, error: result.error };
+      if (!result.data) break; // reached a root or a detached node — no cycle
+      currentId = result.data.parent_id;
+      depth++;
+    }
+
+    return { success: true, data: false };
+  }
+
+  /**
+   * Recursively update the `level` field for all active descendants of `parentId`.
+   *
+   * Each child's level is set to parentLevel + 1. The update recurses depth-first.
+   * Nodes whose level is already correct are still updated to keep the operation
+   * idempotent and simple; the extra writes are cheap for typical tree sizes.
+   */
+  private static async cascadeDescendantLevels(
+    supabase: SupabaseClient,
+    orgId: string,
+    parentId: string,
+    parentLevel: number
+  ): Promise<ServiceResult<void>> {
+    const childrenResult = await WarehouseLocationsService.getChildren(supabase, orgId, parentId);
+    if (childrenResult.success === false) return { success: false, error: childrenResult.error };
+    if (childrenResult.data.length === 0) return { success: true, data: undefined };
+
+    const childLevel = parentLevel + 1;
+
+    for (const child of childrenResult.data) {
+      const { error } = await supabase
+        .from("warehouse_locations")
+        .update({ level: childLevel })
+        .eq("id", child.id)
+        .eq("organization_id", orgId)
+        .is("deleted_at", null);
+
+      if (error) return { success: false, error: error.message };
+
+      const sub = await WarehouseLocationsService.cascadeDescendantLevels(
+        supabase,
+        orgId,
+        child.id,
+        childLevel
+      );
+      if (sub.success === false) return { success: false, error: sub.error };
+    }
+
     return { success: true, data: undefined };
   }
 }

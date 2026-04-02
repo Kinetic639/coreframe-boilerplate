@@ -239,6 +239,23 @@ describe("updateLocationAction", () => {
     expect(result.success).toBe(false);
   });
 
+  it("returns error when no activeBranchId (fail-closed branch guard)", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue({
+      app: { activeOrgId: ORG_ID, activeBranchId: null },
+      user: {
+        user: { id: USER_ID },
+        permissionSnapshot: { allow: FULL_PERMS, deny: [] },
+      },
+    } as never);
+    const result = await updateLocationAction({
+      id: "22222222-2222-2222-2222-222222222222",
+      name: "X",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/active branch/i);
+  });
+
   it("delegates to service on valid input", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
     const updated = makeLocation({ id: "22222222-2222-2222-2222-222222222222", name: "Updated" });
@@ -264,6 +281,20 @@ describe("deleteLocationAction", () => {
     expect(result.success).toBe(false);
   });
 
+  it("returns error when no activeBranchId (fail-closed branch guard)", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue({
+      app: { activeOrgId: ORG_ID, activeBranchId: null },
+      user: {
+        user: { id: USER_ID },
+        permissionSnapshot: { allow: FULL_PERMS, deny: [] },
+      },
+    } as never);
+    const result = await deleteLocationAction({ id: "33333333-3333-3333-3333-333333333333" });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/active branch/i);
+  });
+
   it("returns error when location not found before delete", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
     vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
@@ -276,9 +307,30 @@ describe("deleteLocationAction", () => {
       expect((result as { success: false; error: string }).error).toMatch(/not found/i);
   });
 
+  it("returns error when location belongs to a different branch (cross-branch denial)", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
+    // Location is in a different branch than the active branch
+    const locInOtherBranch = makeLocation({
+      id: "55555555-5555-5555-5555-555555555555",
+      branch_id: "different-branch-id",
+    });
+    vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
+      success: true,
+      data: locInOtherBranch,
+    });
+    const result = await deleteLocationAction({ id: "55555555-5555-5555-5555-555555555555" });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(
+        /does not belong to the active branch/i
+      );
+    // softDelete must NOT be called
+    expect(WarehouseLocationsService.softDelete).not.toHaveBeenCalled();
+  });
+
   it("soft-deletes and emits event on success", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
-    const loc = makeLocation({ id: "44444444-4444-4444-4444-444444444444" });
+    const loc = makeLocation({ id: "44444444-4444-4444-4444-444444444444", branch_id: BRANCH_ID });
     vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({ success: true, data: loc });
     vi.mocked(WarehouseLocationsService.softDelete).mockResolvedValue({
       success: true,

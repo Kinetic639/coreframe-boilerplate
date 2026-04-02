@@ -156,6 +156,12 @@ export async function updateLocationAction(rawInput: unknown) {
       return { success: false, error: "Unauthorized" };
     }
 
+    // Active branch is required: mutations are branch-scoped. Without an active
+    // branch the RLS boundary cannot be verified at the application layer.
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch — select a branch to manage locations" };
+    }
+
     const parsed = updateLocationSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
@@ -218,12 +224,19 @@ export async function deleteLocationAction(rawInput: unknown) {
       return { success: false, error: "Unauthorized" };
     }
 
+    // Active branch is required: mutations are branch-scoped. Without an active
+    // branch the RLS boundary cannot be verified at the application layer.
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch — select a branch to manage locations" };
+    }
+
     const parsed = deleteLocationSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
 
-    // Fetch name + branchId before deletion for event metadata
+    // Fetch name + branchId before deletion for event metadata, and to confirm
+    // the location belongs to the active branch.
     const fetchResult = await WarehouseLocationsService.getById(
       supabase,
       auth.context.app.activeOrgId,
@@ -231,6 +244,11 @@ export async function deleteLocationAction(rawInput: unknown) {
     );
     if (!fetchResult.success) return fetchResult;
     if (!fetchResult.data) return { success: false, error: "Location not found" };
+
+    // Fail closed: reject if the location belongs to a different branch.
+    if (fetchResult.data.branch_id !== auth.context.app.activeBranchId) {
+      return { success: false, error: "Location does not belong to the active branch" };
+    }
 
     const { name: locationName, branch_id: branchId } = fetchResult.data;
     const userId = auth.context.user.user?.id;
