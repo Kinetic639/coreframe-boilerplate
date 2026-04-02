@@ -5,9 +5,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Hoisted mock factory — must come before vi.mock() calls so the reference is
 // available inside the factory closure (Vitest hoists vi.mock to top of file).
-const { mockEmit } = vi.hoisted(() => {
+const { mockEmit, mockNextRedirect, mockServiceUpsert } = vi.hoisted(() => {
   const mockEmit = vi.fn().mockResolvedValue({ success: true, data: { id: "evt-test" } });
-  return { mockEmit };
+  const mockNextRedirect = vi.fn((href: string) => {
+    const error = new Error("NEXT_REDIRECT");
+    (error as any).digest = `NEXT_REDIRECT;${href}`;
+    throw error;
+  });
+  const mockServiceUpsert = vi.fn().mockResolvedValue({ data: {}, error: null });
+  return { mockEmit, mockNextRedirect, mockServiceUpsert };
 });
 
 // Mock modules before imports
@@ -33,6 +39,14 @@ const mockHeaders = new Map([["origin", "http://localhost:3000"]]);
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn(async () => mockSupabaseClient),
+}));
+
+vi.mock("@/utils/supabase/service", () => ({
+  createServiceClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      upsert: mockServiceUpsert,
+    })),
+  })),
 }));
 
 vi.mock("next/headers", () => ({
@@ -64,6 +78,10 @@ vi.mock("@/i18n/navigation", () => ({
   }),
 }));
 
+vi.mock("next/navigation", () => ({
+  redirect: mockNextRedirect,
+}));
+
 vi.mock("@/utils/utils", () => ({
   encodedRedirect: vi.fn((type, path, message) => ({
     type,
@@ -77,12 +95,22 @@ vi.mock("@/server/services/event.service", () => ({
 }));
 
 // Import actions and mocked functions after mocks are set up
-import { forgotPasswordAction, resetPasswordAction, signInAction, signOutAction } from "../actions";
+import {
+  forgotPasswordAction,
+  resetPasswordAction,
+  signInAction,
+  signOutAction,
+  signUpAction,
+} from "../actions";
 import { redirect as mockRedirect } from "@/i18n/navigation";
 
 describe("Auth Actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.clear();
+    mockHeaders.set("origin", "http://localhost:3000");
+    mockHeaders.set("x-forwarded-for", "203.0.113.10, 10.0.0.1");
+    mockHeaders.set("user-agent", "Vitest");
   });
 
   afterEach(() => {
@@ -350,6 +378,48 @@ describe("Auth Actions", () => {
       expect(mockSupabaseClient.auth.signOut).not.toHaveBeenCalled();
     });
 
+    it("should map weak password errors to password-too-weak", async () => {
+      const formData = new FormData();
+      formData.append("password", "Password123");
+      formData.append("confirmPassword", "Password123");
+
+      mockSupabaseClient.auth.updateUser.mockResolvedValue({
+        data: null,
+        error: { message: "Password strength is weak" },
+      });
+
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-too-weak" },
+        },
+        locale: "en",
+      });
+    });
+
+    it("should map expired session errors to password-session-expired", async () => {
+      const formData = new FormData();
+      formData.append("password", "Password123");
+      formData.append("confirmPassword", "Password123");
+
+      mockSupabaseClient.auth.updateUser.mockResolvedValue({
+        data: null,
+        error: { message: "Session token expired" },
+      });
+
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith({
+        href: {
+          pathname: "/reset-password",
+          query: { toast: "password-session-expired" },
+        },
+        locale: "en",
+      });
+    });
+
     it("should accept password with special characters", async () => {
       const formData = new FormData();
       formData.append("password", "Password123!@#");
@@ -388,6 +458,34 @@ describe("Auth Actions", () => {
       await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
 
       expect(mockSupabaseClient.auth.updateUser).toHaveBeenCalled();
+    });
+
+    it("logs typed error string when password reset completion emit fails", async () => {
+      const formData = new FormData();
+      formData.append("password", "Password123");
+      formData.append("confirmPassword", "Password123");
+
+      mockSupabaseClient.auth.updateUser.mockResolvedValue({
+        data: { user: {} },
+        error: null,
+      });
+      mockSupabaseClient.auth.getUser.mockResolvedValue({
+        data: { user: { id: "user-test" } },
+        error: null,
+      });
+      mockSupabaseClient.auth.signOut.mockResolvedValue({ error: null });
+      mockEmit.mockResolvedValue({ success: false, error: "emit failed after reset" });
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(resetPasswordAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[resetPasswordAction] Failed to emit auth.password.reset_completed:",
+        expect.objectContaining({ error: "emit failed after reset" })
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 });
@@ -511,6 +609,130 @@ describe("T-EMIT-TYPED-FAILURE — typed result handling", () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe("signInAction — successful routing", () => {
+    it("redirects to returnUrl after successful sign-in", async () => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: "user-1", email: "user@example.com" } },
+        error: null,
+      });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "Password123");
+      formData.append("returnUrl", "/invite/tok-1");
+
+      await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockNextRedirect).toHaveBeenCalledWith("/invite/tok-1");
+      expect(mockEmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actionKey: "auth.login",
+          actorUserId: "user-1",
+          ipAddress: "203.0.113.10",
+          userAgent: "Vitest",
+        })
+      );
+    });
+
+    it("redirects to invite resolve when pending invitations exist", async () => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: "user-1", email: "user@example.com" } },
+        error: null,
+      });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { success: true, invitations: [{ id: "invite-1" }] },
+        error: null,
+      });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "Password123");
+
+      await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith({ href: "/invite/resolve", locale: "en" });
+    });
+
+    it("redirects to onboarding when user has no active membership", async () => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: "user-1", email: "user@example.com" } },
+        error: null,
+      });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { success: true, invitations: [] },
+        error: null,
+      });
+      mockSupabaseClient.from.mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "Password123");
+
+      await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith({ href: "/onboarding", locale: "en" });
+    });
+
+    it("redirects to dashboard when membership exists and logs successful emit failures", async () => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: "user-1", email: "user@example.com" } },
+        error: null,
+      });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { success: true, invitations: [] },
+        error: null,
+      });
+      mockSupabaseClient.from.mockReturnValue({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        is: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { organization_id: "org-1" }, error: null }),
+      });
+      mockEmit.mockResolvedValue({ success: false, error: "login emit failed" });
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "Password123");
+
+      await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockRedirect).toHaveBeenCalledWith({ href: "/dashboard/start", locale: "en" });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "[signInAction] Failed to emit auth.login:",
+        expect.objectContaining({ error: "login emit failed" })
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it("skips successful login emit when signIn returns no user id", async () => {
+      mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+        data: { user: { id: null, email: "user@example.com" } },
+        error: null,
+      });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { success: true, invitations: [] },
+        error: null,
+      });
+
+      const formData = new FormData();
+      formData.append("email", "user@example.com");
+      formData.append("password", "Password123");
+
+      await expect(signInAction(formData)).rejects.toThrow("NEXT_REDIRECT");
+
+      expect(mockEmit).not.toHaveBeenCalled();
     });
   });
 

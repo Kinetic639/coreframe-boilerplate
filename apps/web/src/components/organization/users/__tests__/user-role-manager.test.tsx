@@ -124,6 +124,18 @@ const userWithRole = {
   ],
 } as never;
 
+const userWithBranchRole = {
+  id: "user-1",
+  roles: [
+    {
+      id: "assignment-2",
+      scope: "branch",
+      scope_name: "Warsaw",
+      role: { name: "branch_manager", is_basic: false },
+    },
+  ],
+} as never;
+
 describe("UserRoleManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -164,5 +176,38 @@ describe("UserRoleManager", () => {
     });
 
     expect(mockOnUpdate).toHaveBeenCalled();
+  });
+
+  it("assigns a branch-scoped role", async () => {
+    mockAssignUserRole.mockResolvedValue(undefined);
+
+    render(<UserRoleManager user={emptyUser} onUpdate={mockOnUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /assign first role/i }));
+
+    const selects = screen.getAllByLabelText("select");
+    fireEvent.change(selects[0], { target: { value: "role-1" } });
+    fireEvent.change(selects[1], { target: { value: "branch" } });
+    fireEvent.change(screen.getAllByLabelText("select")[2], { target: { value: "b-1" } });
+    fireEvent.click(screen.getByRole("button", { name: /assign role/i }));
+
+    await waitFor(() => {
+      expect(mockAssignUserRole).toHaveBeenCalledWith("user-1", "role-1", "branch", "b-1");
+    });
+  });
+
+  it("renders branch role metadata and shows removal errors", async () => {
+    mockRemoveUserRole.mockRejectedValue(new Error("Remove failed"));
+
+    render(<UserRoleManager user={userWithBranchRole} onUpdate={mockOnUpdate} />);
+
+    expect(await screen.findByText("branch_manager")).toBeInTheDocument();
+    expect(screen.getByText("Custom")).toBeInTheDocument();
+    expect(screen.getByText("Branch-specific")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /remove role/i }));
+
+    expect(await screen.findByText("Remove failed")).toBeInTheDocument();
+    expect(mockOnUpdate).not.toHaveBeenCalled();
   });
 });

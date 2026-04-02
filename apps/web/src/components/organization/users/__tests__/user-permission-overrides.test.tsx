@@ -143,6 +143,21 @@ const userWithOverride = {
   ],
 } as never;
 
+const userWithBranchOverride = {
+  id: "user-1",
+  roles: [],
+  permissionOverrides: [
+    {
+      id: "override-2",
+      permission_id: "permission-1",
+      allowed: false,
+      scope: "branch",
+      scope_id: "b-1",
+      permission: { label: "Users View", slug: "users.manage" },
+    },
+  ],
+} as never;
+
 describe("UserPermissionOverrides", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -203,5 +218,43 @@ describe("UserPermissionOverrides", () => {
     await waitFor(() => {
       expect(mockRemovePermissionOverride).toHaveBeenCalledWith("override-1");
     });
+  });
+
+  it("adds a branch-scoped override", async () => {
+    mockUpsertPermissionOverride.mockResolvedValue(undefined);
+
+    render(<UserPermissionOverrides user={emptyUser} onUpdate={mockOnUpdate} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /add override/i })[0]);
+
+    const selects = screen.getAllByLabelText("select");
+    fireEvent.change(selects[0], { target: { value: "permission-1" } });
+    fireEvent.change(selects[1], { target: { value: "b-1" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /add override/i })[1]);
+
+    await waitFor(() => {
+      expect(mockUpsertPermissionOverride).toHaveBeenCalledWith(
+        "user-1",
+        "org-1",
+        "permission-1",
+        true,
+        "b-1"
+      );
+    });
+  });
+
+  it("renders branch scope details and shows update errors", async () => {
+    mockUpsertPermissionOverride.mockRejectedValue(new Error("Toggle failed"));
+
+    render(<UserPermissionOverrides user={userWithBranchOverride} onUpdate={mockOnUpdate} />);
+
+    const overrideRow = screen.getByText("users.manage").closest("tr");
+    expect(overrideRow).not.toBeNull();
+    expect(within(overrideRow as HTMLTableRowElement).getByText("Warsaw")).toBeInTheDocument();
+    expect(within(overrideRow as HTMLTableRowElement).getByText("Denied")).toBeInTheDocument();
+    fireEvent.click(within(overrideRow as HTMLTableRowElement).getByLabelText("switch"));
+
+    expect(await screen.findByText("Toggle failed")).toBeInTheDocument();
+    expect(mockOnUpdate).not.toHaveBeenCalled();
   });
 });

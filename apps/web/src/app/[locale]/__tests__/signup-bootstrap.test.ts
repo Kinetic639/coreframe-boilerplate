@@ -14,7 +14,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ─── Supabase mock ────────────────────────────────────────────────────────────
-const { signUpMock } = vi.hoisted(() => ({ signUpMock: vi.fn() }));
+const { signUpMock, serviceUpsertMock } = vi.hoisted(() => ({
+  signUpMock: vi.fn(),
+  serviceUpsertMock: vi.fn(),
+}));
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -22,6 +25,14 @@ vi.mock("@/utils/supabase/server", () => ({
       signUp: signUpMock,
     },
   }),
+}));
+
+vi.mock("@/utils/supabase/service", () => ({
+  createServiceClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      upsert: serviceUpsertMock,
+    })),
+  })),
 }));
 
 // next-intl server helpers
@@ -59,11 +70,13 @@ function makeFormData(overrides: Record<string, string> = {}): FormData {
 describe("signUpAction — invitation_token in metadata", () => {
   beforeEach(() => {
     signUpMock.mockReset();
+    serviceUpsertMock.mockReset();
     // Return a valid user so the action doesn't error
     signUpMock.mockResolvedValue({
-      data: { user: { id: "user-123" } },
+      data: { user: { id: "user-123", identities: [{ identity_id: "id-1" }] } },
       error: null,
     });
+    serviceUpsertMock.mockResolvedValue({ data: {}, error: null });
     process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.com";
   });
 
@@ -90,6 +103,26 @@ describe("signUpAction — invitation_token in metadata", () => {
     expect(callArgs.options.data).toMatchObject({ first_name: "Anna", last_name: "Nowak" });
   });
 
+  it("persists first and last name via service client when provided", async () => {
+    await signUpAction(makeFormData({ firstName: "Anna", lastName: "Nowak" }));
+
+    expect(serviceUpsertMock).toHaveBeenCalledWith(
+      {
+        id: "user-123",
+        email: "user@example.com",
+        first_name: "Anna",
+        last_name: "Nowak",
+      },
+      { onConflict: "id" }
+    );
+  });
+
+  it("does not call service upsert when no names are provided", async () => {
+    await signUpAction(makeFormData());
+
+    expect(serviceUpsertMock).not.toHaveBeenCalled();
+  });
+
   it("preserves invitation_token in emailRedirectTo callback URL", async () => {
     await signUpAction(makeFormData({ invitationToken: "tok-xyz" }));
 
@@ -111,6 +144,12 @@ describe("signUpAction — invitation_token in metadata", () => {
 describe("signUpAction — UX message differentiation", () => {
   beforeEach(() => {
     signUpMock.mockReset();
+    serviceUpsertMock.mockReset();
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "user-123", identities: [{ identity_id: "id-1" }] } },
+      error: null,
+    });
+    serviceUpsertMock.mockResolvedValue({ data: {}, error: null });
     process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.com";
   });
 
@@ -170,6 +209,27 @@ describe("signUpAction — UX message differentiation", () => {
     await signUpAction(makeFormData({ email: "existing@example.com" }));
 
     expect(redirect).toHaveBeenCalledWith(expect.stringContaining("error="));
+  });
+
+  it("returns registration failure when Supabase returns an auth error", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: null },
+      error: { code: "auth_error", message: "signup failed" },
+    });
+
+    const { redirect } = await import("next/navigation");
+    await signUpAction(makeFormData({ email: "broken@example.com" }));
+
+    expect(redirect).toHaveBeenCalledWith(expect.stringContaining("signup+failed"));
+  });
+
+  it("falls back to localhost callback URL when NEXT_PUBLIC_SITE_URL is missing", async () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+
+    await signUpAction(makeFormData());
+
+    const callArgs = signUpMock.mock.calls[0][0];
+    expect(callArgs.options.emailRedirectTo).toBe("http://localhost:3000/auth/callback");
   });
 });
 

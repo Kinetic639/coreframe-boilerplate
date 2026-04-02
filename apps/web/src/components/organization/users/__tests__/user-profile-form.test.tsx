@@ -125,4 +125,44 @@ describe("UserProfileForm", () => {
     expect(mockOnUpdate).toHaveBeenCalled();
     expect(screen.getByText("Saved!")).toBeInTheDocument();
   });
+
+  it("cancels edits and restores original values", () => {
+    render(<UserProfileForm user={user} onUpdate={mockOnUpdate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    fireEvent.change(screen.getByLabelText("First Name"), { target: { value: "Grace" } });
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(screen.getByText("Ada")).toBeInTheDocument();
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it("shows fallback states and surfaces save errors", async () => {
+    mockUpdateUserProfile.mockRejectedValue(new Error("Save failed"));
+
+    render(
+      <UserProfileForm
+        user={
+          {
+            ...user,
+            first_name: null,
+            last_name: null,
+            default_branch_id: null,
+            branch: null,
+          } as never
+        }
+        onUpdate={mockOnUpdate}
+      />
+    );
+
+    expect(screen.getAllByText("Not set").length).toBeGreaterThan(0);
+    expect(screen.getByText("No default branch")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    fireEvent.change(screen.getByLabelText("First Name"), { target: { value: "Grace" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(await screen.findByText("Save failed")).toBeInTheDocument();
+    expect(mockOnUpdate).not.toHaveBeenCalled();
+  });
 });

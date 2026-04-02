@@ -74,6 +74,8 @@ vi.mock("@/components/ui/FancySpinner", () => ({
 
 import { InvitePageClient } from "../_components/invite-page-client";
 
+const realSetTimeout = globalThis.setTimeout;
+
 const preview = {
   reason_code: "INVITE_PENDING",
   org_name: "Acme",
@@ -132,6 +134,71 @@ describe("InvitePageClient", () => {
 
     expect(screen.getByText("successMessage")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "goToDashboardButton" })).toHaveAttribute(
+      "href",
+      "/dashboard/start"
+    );
+  });
+
+  it("renders the mismatch warning for a different authenticated email", () => {
+    render(
+      <InvitePageClient token="tok-1" preview={preview} userEmail="other@example.com" locale="en" />
+    );
+
+    expect(screen.getByText(/emailMismatch/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "goToDashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard/start"
+    );
+  });
+
+  it("declines an invitation and routes to resolve when pending invites remain", async () => {
+    mockDeclineInvitationAction.mockResolvedValue({ success: true });
+    mockGetMyPendingInvitationsAction.mockResolvedValue({
+      success: true,
+      invitations: [{ id: "pending-1" }],
+    });
+    const timeoutSpy = vi
+      .spyOn(globalThis, "setTimeout")
+      .mockImplementation(((callback: (...args: any[]) => void, ms?: number, ...args: any[]) =>
+        realSetTimeout(callback, ms === 3000 ? 0 : ms, ...args)) as typeof setTimeout);
+
+    render(
+      <InvitePageClient token="tok-1" preview={preview} userEmail="user@example.com" locale="en" />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "declineButton" }));
+
+    await waitFor(() => {
+      expect(mockDeclineInvitationAction).toHaveBeenCalledWith("tok-1");
+    });
+
+    expect(mockGetMyPendingInvitationsAction).toHaveBeenCalled();
+    expect(screen.getByText("declineSuccessMessage")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "continueButton" })).toHaveAttribute(
+      "href",
+      "/invite/resolve"
+    );
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith("/invite/resolve");
+    });
+
+    timeoutSpy.mockRestore();
+  });
+
+  it("renders terminal invite states", () => {
+    render(
+      <InvitePageClient
+        token="tok-1"
+        preview={{ reason_code: "INVITE_EXPIRED" } as never}
+        userEmail="user@example.com"
+        locale="pl"
+      />
+    );
+
+    expect(screen.getByText("expiredTitle")).toBeInTheDocument();
+    expect(screen.getByText("expiredWarning")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "goToDashboard" })).toHaveAttribute(
       "href",
       "/dashboard/start"
     );
