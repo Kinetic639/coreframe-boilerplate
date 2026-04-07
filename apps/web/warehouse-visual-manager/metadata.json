@@ -1,0 +1,5 @@
+{
+  "name": "Warehouse Layout & Location Manager",
+  "description": "A visual warehouse topology builder with a hierarchical location engine. Design layouts, place storage structures, and auto-generate location codes.",
+  "requestFramePermissions": []
+}
