@@ -353,7 +353,8 @@ export class WarehouseLayoutsService {
   }
 
   /**
-   * Soft-delete a layout. Also soft-deletes all of its shapes atomically.
+   * Atomically soft-delete a layout and all its shapes via the
+   * `soft_delete_warehouse_layout` DB RPC (single transaction).
    * Published layouts may be deleted — callers should warn the user first.
    */
   static async softDelete(
@@ -361,24 +362,10 @@ export class WarehouseLayoutsService {
     orgId: string,
     layoutId: string
   ): Promise<ServiceResult<void>> {
-    const now = new Date().toISOString();
-
-    // Soft-delete shapes first (they CASCADE via layout_id FK but we need soft-delete)
-    const { error: shapesError } = await supabase
-      .from("warehouse_layout_shapes")
-      .update({ deleted_at: now })
-      .eq("layout_id", layoutId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
-
-    if (shapesError) return { success: false, error: shapesError.message };
-
-    const { error } = await supabase
-      .from("warehouse_layouts")
-      .update({ deleted_at: now })
-      .eq("id", layoutId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
+    const { error } = await supabase.rpc("soft_delete_warehouse_layout", {
+      p_org_id: orgId,
+      p_layout_id: layoutId,
+    });
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: undefined };

@@ -62,11 +62,16 @@ function makeLocation(overrides: Partial<WarehouseLocation> = {}): WarehouseLoca
 // ─── Supabase mock builders ───────────────────────────────────────────────────
 
 /**
- * Each entry in `results` is consumed by one `.from()` call.
+ * Each entry in `fromResults` is consumed by one `.from()` call.
+ * Each entry in `rpcResults`  is consumed by one `.rpc()` call.
  * Supports chained .select/.eq/.is/.order/.maybeSingle/.single and UPDATE/INSERT.
  */
-function makeSupabaseMock(results: Array<{ data: unknown; error: unknown }>) {
-  let callIndex = 0;
+function makeSupabaseMock(
+  fromResults: Array<{ data: unknown; error: unknown }>,
+  rpcResults: Array<{ data: unknown; error: unknown }> = []
+) {
+  let fromIndex = 0;
+  let rpcIndex = 0;
 
   const makeChain = (result: { data: unknown; error: unknown }) => {
     const chain: Record<string, unknown> = {};
@@ -84,9 +89,14 @@ function makeSupabaseMock(results: Array<{ data: unknown; error: unknown }>) {
 
   return {
     from: vi.fn().mockImplementation(() => {
-      const result = results[callIndex] ?? { data: null, error: null };
-      callIndex++;
+      const result = fromResults[fromIndex] ?? { data: null, error: null };
+      fromIndex++;
       return makeChain(result);
+    }),
+    rpc: vi.fn().mockImplementation(() => {
+      const result = rpcResults[rpcIndex] ?? { data: null, error: null };
+      rpcIndex++;
+      return Promise.resolve(result);
     }),
   };
 }
@@ -428,19 +438,21 @@ describe("WarehouseLocationsService.update", () => {
     //   2. wouldCreateCycle: currentId="B" !== "A" → getById("B") → B.parent_id=null
     //   3. wouldCreateCycle: currentId=null → loop ends, no cycle
     //   4. getById("B") for new parent → B (level=0, same branch)
-    //   5. update query → returns updated A
-    //   6. cascadeDescendantLevels for A: getChildren("A") → [] (no children)
+    //   5. update query → returns updated A (level=1)
+    //   6. rpc(cascade_warehouse_location_levels) — A's level changed (0→1)
     const nodeA = makeLocation({ id: "A", parent_id: null, level: 0 });
     const nodeB = makeLocation({ id: "B", parent_id: null, level: 0 });
     const updatedA = makeLocation({ id: "A", parent_id: "B", level: 1 });
 
-    const supabase = makeSupabaseMock([
-      { data: nodeA, error: null }, // getById current ("A")
-      { data: nodeB, error: null }, // wouldCreateCycle: getById("B") → B.parent_id=null → loop ends
-      { data: nodeB, error: null }, // getById new parent "B"
-      { data: updatedA, error: null }, // update query
-      { data: [], error: null }, // cascadeDescendantLevels: getChildren("A")
-    ]);
+    const supabase = makeSupabaseMock(
+      [
+        { data: nodeA, error: null }, // getById current ("A")
+        { data: nodeB, error: null }, // wouldCreateCycle: getById("B") → B.parent_id=null
+        { data: nodeB, error: null }, // getById new parent "B"
+        { data: updatedA, error: null }, // update query
+      ],
+      [{ data: null, error: null }] // rpc(cascade_warehouse_location_levels)
+    );
 
     const result = await WarehouseLocationsService.update(
       supabase as never,
@@ -450,30 +462,34 @@ describe("WarehouseLocationsService.update", () => {
       USER_ID
     );
     expect(result.success).toBe(true);
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("cascade_warehouse_location_levels", {
+      p_org_id: ORG_ID,
+      p_parent_id: "A",
+      p_parent_level: 1,
+    });
   });
 
-  it("cascades level to direct children after reparent", async () => {
+  it("calls cascade RPC after reparent when level changes", async () => {
     // Tree: A (level=2) has child C (level=3).
-    // Reparent A to root (parent_id=null) → A becomes level=0 → C should become level=1.
+    // Reparent A to root (parent_id=null) → A becomes level=0.
+    // Service delegates the descendant level cascade to the DB RPC.
     //
     // Service calls:
     //   1. getById("A") → current A (level=2, parent_id="X")
-    //   2. (parent_id=null, no cycle check needed)
+    //   2. (parent_id=null — no cycle check needed)
     //   3. update query → returns A at level=0
-    //   4. cascadeDescendantLevels("A", 0): getChildren("A") → [C]
-    //   5. cascadeDescendantLevels: update C to level=1
-    //   6. cascadeDescendantLevels("C", 1): getChildren("C") → [] (leaf)
+    //   4. rpc(cascade_warehouse_location_levels, { p_parent_id:"A", p_parent_level:0 })
     const nodeA = makeLocation({ id: "A", parent_id: "X", level: 2 });
-    const nodeC = makeLocation({ id: "C", parent_id: "A", level: 3 });
     const updatedA = makeLocation({ id: "A", parent_id: null, level: 0 });
 
-    const supabase = makeSupabaseMock([
-      { data: nodeA, error: null }, // getById current ("A")
-      { data: updatedA, error: null }, // update A to level=0
-      { data: [nodeC], error: null }, // cascadeDescendantLevels: getChildren("A")
-      { data: null, error: null }, // cascade: update C to level=1
-      { data: [], error: null }, // cascade: getChildren("C") → no grandchildren
-    ]);
+    const supabase = makeSupabaseMock(
+      [
+        { data: nodeA, error: null }, // getById current ("A")
+        { data: updatedA, error: null }, // update A to level=0
+      ],
+      [{ data: null, error: null }] // rpc(cascade_warehouse_location_levels)
+    );
 
     const result = await WarehouseLocationsService.update(
       supabase as never,
@@ -483,8 +499,12 @@ describe("WarehouseLocationsService.update", () => {
       USER_ID
     );
     expect(result.success).toBe(true);
-    // Verify the cascade UPDATE was called for child C
-    expect(supabase.from).toHaveBeenCalledTimes(5);
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("cascade_warehouse_location_levels", {
+      p_org_id: ORG_ID,
+      p_parent_id: "A",
+      p_parent_level: 0,
+    });
   });
 
   it("rejects when new parent belongs to different branch", async () => {
@@ -541,96 +561,63 @@ describe("WarehouseLocationsService.update", () => {
 });
 
 // ─── softDelete ───────────────────────────────────────────────────────────────
+//
+// softDelete now delegates entirely to the soft_delete_warehouse_location RPC.
+// Child reparenting, level cascade, and soft-delete all happen atomically in
+// the DB function. The TypeScript service just calls rpc() and propagates errors.
 
 describe("WarehouseLocationsService.softDelete", () => {
   it("returns success on successful deletion (no children)", async () => {
-    const supabase = makeSupabaseMock([
-      { data: [], error: null }, // getChildren → no children
-      { data: null, error: null }, // soft-delete UPDATE
-    ]);
+    const supabase = makeSupabaseMock(
+      [],
+      [{ data: null, error: null }] // rpc returns success
+    );
     const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "loc-1");
     expect(result.success).toBe(true);
-    expect(supabase.from).toHaveBeenCalledTimes(2);
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("soft_delete_warehouse_location", {
+      p_org_id: ORG_ID,
+      p_location_id: "loc-1",
+    });
   });
 
-  it("explicitly reparents direct children to root before soft-deleting", async () => {
-    // Tree: parent P (being deleted) → child C (no grandchildren)
-    //
-    // Expected DB calls:
-    //   1. getChildren(P) → [C]
-    //   2. batch UPDATE children: parent_id=null, level=0
-    //   3. cascadeDescendantLevels(C, 0): getChildren(C) → [] (leaf)
-    //   4. soft-delete UPDATE on P
-    const child = makeLocation({ id: "C", parent_id: "P", level: 1 });
-    const supabase = makeSupabaseMock([
-      { data: [child], error: null }, // getChildren("P")
-      { data: null, error: null }, // batch reparent
-      { data: [], error: null }, // cascadeDescendantLevels: getChildren("C") → []
-      { data: null, error: null }, // soft-delete P
-    ]);
+  it("delegates child reparent + cascade atomically to the DB RPC", async () => {
+    // The soft_delete_warehouse_location RPC handles all steps atomically.
+    // This test verifies the service calls the RPC with the correct args.
+    const supabase = makeSupabaseMock(
+      [],
+      [{ data: null, error: null }] // rpc returns success
+    );
 
     const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "P");
     expect(result.success).toBe(true);
-    expect(supabase.from).toHaveBeenCalledTimes(4);
+    expect(supabase.rpc).toHaveBeenCalledOnce();
+    expect(supabase.rpc).toHaveBeenCalledWith("soft_delete_warehouse_location", {
+      p_org_id: ORG_ID,
+      p_location_id: "P",
+    });
+    // No direct from() calls expected — behavior is entirely in the RPC
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  it("cascades grandchild levels after reparenting direct children", async () => {
-    // Tree: P → C → G
-    // Delete P: C gets parent_id=null, level=0; G must be updated to level=1.
-    //
-    // Expected DB calls:
-    //   1. getChildren("P") → [C]
-    //   2. batch reparent: UPDATE parent_id=null, level=0 for C
-    //   3. cascadeDescendantLevels("C", 0): getChildren("C") → [G]
-    //   4. cascade: UPDATE G level=1
-    //   5. cascadeDescendantLevels("G", 1): getChildren("G") → [] (leaf)
-    //   6. soft-delete P
-    const child = makeLocation({ id: "C", parent_id: "P", level: 1 });
-    const grandchild = makeLocation({ id: "G", parent_id: "C", level: 2 });
-    const supabase = makeSupabaseMock([
-      { data: [child], error: null }, // getChildren("P")
-      { data: null, error: null }, // batch reparent C
-      { data: [grandchild], error: null }, // cascadeDescendantLevels: getChildren("C")
-      { data: null, error: null }, // cascade: update G to level=1
-      { data: [], error: null }, // cascadeDescendantLevels: getChildren("G") → leaf
-      { data: null, error: null }, // soft-delete P
-    ]);
-
-    const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "P");
-    expect(result.success).toBe(true);
-    expect(supabase.from).toHaveBeenCalledTimes(6);
-  });
-
-  it("returns failure on DB error during soft-delete", async () => {
-    const supabase = makeSupabaseMock([
-      { data: [], error: null }, // getChildren → no children
-      { data: null, error: { message: "RLS denied" } }, // soft-delete UPDATE fails
-    ]);
+  it("returns failure when RPC returns a DB error", async () => {
+    const supabase = makeSupabaseMock([], [{ data: null, error: { message: "RLS denied" } }]);
     const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "loc-1");
     expect(result.success).toBe(false);
     if (!result.success)
       expect((result as { success: false; error: string }).error).toBe("RLS denied");
   });
 
-  it("returns failure if getChildren DB error occurs before soft-delete", async () => {
-    const supabase = makeSupabaseMock([
-      { data: null, error: { message: "getChildren failed" } }, // getChildren fails
-    ]);
-    const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "loc-1");
-    expect(result.success).toBe(false);
-    if (!result.success)
-      expect((result as { success: false; error: string }).error).toBe("getChildren failed");
-  });
-
-  it("returns failure if reparent UPDATE is blocked by RLS (42501)", async () => {
-    const child = makeLocation({ id: "C", parent_id: "P", level: 1 });
-    const supabase = makeSupabaseMock([
-      { data: [child], error: null }, // getChildren → has children
-      {
-        data: null,
-        error: { code: "42501", message: "permission denied for table warehouse_locations" },
-      },
-    ]);
+  it("returns failure when RPC is blocked by RLS (42501)", async () => {
+    const supabase = makeSupabaseMock(
+      [],
+      [
+        {
+          data: null,
+          error: { code: "42501", message: "permission denied for table warehouse_locations" },
+        },
+      ]
+    );
     const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "P");
     expect(result.success).toBe(false);
     if (!result.success)

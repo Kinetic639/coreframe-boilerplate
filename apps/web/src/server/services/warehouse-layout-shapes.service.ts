@@ -119,6 +119,19 @@ export class WarehouseLayoutShapesService {
     userId: string,
     shape: ShapeUpsertInput
   ): Promise<ServiceResult<WarehouseLayoutShape>> {
+    // Cross-layout ID guard: reject if this shape ID is already owned by a
+    // different layout (active or soft-deleted — the ID is still claimed).
+    const { data: existing, error: existErr } = await supabase
+      .from("warehouse_layout_shapes")
+      .select("layout_id")
+      .eq("id", shape.id)
+      .maybeSingle();
+
+    if (existErr) return { success: false, error: existErr.message };
+    if (existing && (existing as { layout_id: string }).layout_id !== layoutId) {
+      return { success: false, error: "shape_id belongs to a different layout" };
+    }
+
     // Validate location_id cross-branch before any write
     if (shape.location_id) {
       const { data: loc, error: locErr } = await supabase
