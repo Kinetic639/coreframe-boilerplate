@@ -55,3 +55,11 @@ export const getLocationSchema = z.object({
 
 export type CreateLocationInput = z.infer<typeof createLocationSchema>;
 export type UpdateLocationInput = z.infer<typeof updateLocationSchema>;
+
+export const reorderLocationsSchema = z.object({
+  items: z
+    .array(z.object({ id: z.string().uuid(), sort_order: z.number().int().min(0) }))
+    .min(1)
+    .max(200),
+});
+export type ReorderLocationsInput = z.infer<typeof reorderLocationsSchema>;

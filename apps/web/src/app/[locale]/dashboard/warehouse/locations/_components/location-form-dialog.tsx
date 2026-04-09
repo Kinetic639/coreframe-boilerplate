@@ -38,6 +38,10 @@ interface LocationFormDialogProps {
   isPending: boolean;
 }
 
+// ─── Form values type (id excluded — added manually on submit for updates) ────
+
+type FormValues = Omit<CreateLocationInput, never>;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LocationFormDialog({
@@ -50,7 +54,8 @@ export function LocationFormDialog({
 }: LocationFormDialogProps) {
   const isEdit = !!location;
 
-  const schema = isEdit ? updateLocationSchema : createLocationSchema;
+  // For edit mode, omit `id` from the resolver — it's added manually on submit.
+  const schema = isEdit ? updateLocationSchema.omit({ id: true }) : createLocationSchema;
 
   const {
     register,
@@ -59,7 +64,7 @@ export function LocationFormDialog({
     watch,
     reset,
     formState: { errors },
-  } = useForm<CreateLocationInput>({
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
@@ -97,15 +102,19 @@ export function LocationFormDialog({
     }
   }, [open, location, reset]);
 
-  function handleFormSubmit(data: CreateLocationInput) {
+  function handleFormSubmit(data: FormValues) {
     if (isEdit && location) {
-      onSubmit({ ...data, id: location.id });
+      onSubmit({ ...data, id: location.id } as UpdateLocationInput & { id: string });
     } else {
-      onSubmit(data);
+      onSubmit(data as CreateLocationInput);
     }
   }
 
   const selectedParentId = watch("parent_id");
+  const colorValue = watch("color");
+  // Use a sensible default for the color picker display
+  const colorPickerValue =
+    colorValue && /^#[0-9A-Fa-f]{6}$/.test(colorValue) ? colorValue : "#10b981";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -162,18 +171,27 @@ export function LocationFormDialog({
           {/* Color */}
           <div className="space-y-1">
             <Label htmlFor="color">Color</Label>
-            <div className="flex gap-2">
-              <Input
+            <div className="flex items-center gap-2">
+              <input
                 id="color"
-                {...register("color", { setValueAs: (v) => (v === "" ? null : v) })}
-                placeholder="#FF5733 (optional)"
-                className="flex-1"
+                type="color"
+                value={colorPickerValue}
+                onChange={(e) => setValue("color", e.target.value)}
+                className="w-9 h-9 rounded border cursor-pointer p-0.5 shrink-0"
               />
-              {watch("color") && /^#[0-9A-Fa-f]{6}$/.test(watch("color") ?? "") && (
-                <div
-                  className="h-9 w-9 shrink-0 rounded border"
-                  style={{ backgroundColor: watch("color") ?? undefined }}
-                />
+              <span className="text-xs font-mono text-muted-foreground flex-1">
+                {colorValue ?? "No color"}
+              </span>
+              {colorValue && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground"
+                  onClick={() => setValue("color", null)}
+                >
+                  Clear
+                </Button>
               )}
             </div>
             {errors.color && <p className="text-xs text-destructive">{errors.color.message}</p>}

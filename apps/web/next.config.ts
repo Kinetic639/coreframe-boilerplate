@@ -38,13 +38,16 @@ const nextConfig = {
     // Disable TypeScript type-checking during builds to avoid timeout - run separately with 'npm run type-check'
     ignoreBuildErrors: true,
   },
-  // Suppress Supabase Edge Runtime warnings
+  // Suppress Supabase Edge Runtime warnings + prevent konva canvas SSR errors
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.ignoreWarnings = [
         { module: /node_modules\/@supabase\/realtime-js/ },
         { module: /node_modules\/@supabase\/supabase-js/ },
       ];
+      // Prevent react-konva / konva from trying to load the 'canvas' npm package
+      // server-side. All Konva components use dynamic(..., { ssr: false }) so this is safe.
+      config.externals = [...(config.externals ?? []), { canvas: "canvas" }];
     }
     return config;
   },

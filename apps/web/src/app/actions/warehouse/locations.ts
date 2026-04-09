@@ -18,6 +18,7 @@ import {
   updateLocationSchema,
   deleteLocationSchema,
   getLocationSchema,
+  reorderLocationsSchema,
 } from "./schemas";
 
 // ─── Shared auth helper ───────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ async function requireWarehouseContext() {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-export async function listLocationsAction(branchId: string) {
+export async function listLocationsAction() {
   try {
     const auth = await requireWarehouseContext();
     if (!auth.success) return auth;
@@ -52,8 +53,18 @@ export async function listLocationsAction(branchId: string) {
       return { success: false, error: "Unauthorized" };
     }
 
+    // Active branch is the authoritative warehouse context. Branch id must not be
+    // accepted from the client — that would allow cross-branch data leakage.
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch — select a branch to view locations" };
+    }
+
     const supabase = await createClient();
-    return WarehouseLocationsService.listByBranch(supabase, auth.context.app.activeOrgId, branchId);
+    return WarehouseLocationsService.listByBranch(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId
+    );
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -73,12 +84,25 @@ export async function getLocationAction(rawInput: unknown) {
     const parsed = getLocationSchema.safeParse(rawInput);
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
+    // Active branch is required for reads — prevents cross-branch enumeration.
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch — select a branch to view locations" };
+    }
+
     const supabase = await createClient();
-    return WarehouseLocationsService.getById(
+    const result = await WarehouseLocationsService.getById(
       supabase,
       auth.context.app.activeOrgId,
       parsed.data.id
     );
+    if (!result.success) return result;
+
+    // Fail closed: reject if the location does not belong to the active branch.
+    if (result.data && result.data.branch_id !== auth.context.app.activeBranchId) {
+      return { success: false, error: "Location does not belong to the active branch" };
+    }
+
+    return result;
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };
@@ -170,6 +194,19 @@ export async function updateLocationAction(rawInput: unknown) {
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
+
+    // Fail closed: verify the location belongs to the active branch before mutating.
+    const fetchResult = await WarehouseLocationsService.getById(
+      supabase,
+      auth.context.app.activeOrgId,
+      id
+    );
+    if (!fetchResult.success) return fetchResult;
+    if (!fetchResult.data) return { success: false, error: "Location not found" };
+    if (fetchResult.data.branch_id !== auth.context.app.activeBranchId) {
+      return { success: false, error: "Location does not belong to the active branch" };
+    }
+
     const result = await WarehouseLocationsService.update(
       supabase,
       auth.context.app.activeOrgId,
@@ -284,6 +321,58 @@ export async function deleteLocationAction(rawInput: unknown) {
     }
 
     return result;
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function reorderLocationsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+
+    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = reorderLocationsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch" };
+    }
+
+    const supabase = await createClient();
+    return WarehouseLocationsService.reorderBatch(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId,
+      parsed.data.items as { id: string; sort_order: number }[]
+    );
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function listPlacedLocationIdsAction() {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+
+    if (!auth.context.app.activeBranchId) {
+      return { success: true, data: [] as string[] };
+    }
+
+    const supabase = await createClient();
+    return WarehouseLocationsService.listPlacedLocationIds(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId
+    );
   } catch (error) {
     const mapped = mapEntitlementError(error);
     if (mapped) return { success: false, error: mapped.message };

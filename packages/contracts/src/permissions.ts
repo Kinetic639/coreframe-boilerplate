@@ -11,7 +11,7 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 35 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools + 1 audit + 2 event-feed)
+ * Expected Count: 38 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools + 1 audit + 2 event-feed + 3 warehouse-layouts)
  */
 
 // Account Permissions (global scope, system permissions)
@@ -83,6 +83,18 @@ export const WAREHOUSE_READ = "warehouse.read" as const;
 export const WAREHOUSE_LOCATIONS_READ = "warehouse.locations.read" as const;
 export const WAREHOUSE_LOCATIONS_MANAGE = "warehouse.locations.manage" as const;
 
+// Warehouse Layout Permissions (org+branch-scoped — warehouse module, phase 2)
+// warehouse.layouts.read    — view layouts and their shapes (published + draft)
+// warehouse.layouts.manage  — create / edit / soft-delete layouts and shapes
+// warehouse.layouts.publish — publish a draft layout as the canonical map for its scope
+//                             deliberately separate from manage: editors draw, publishers approve
+// Seeded in migration 20260407110000_warehouse_layouts.
+// org_owner is covered by warehouse.* wildcard — do NOT add explicit grants.
+// org_member receives warehouse.layouts.read only (can view published maps, not edit).
+export const WAREHOUSE_LAYOUTS_READ = "warehouse.layouts.read" as const;
+export const WAREHOUSE_LAYOUTS_MANAGE = "warehouse.layouts.manage" as const;
+export const WAREHOUSE_LAYOUTS_PUBLISH = "warehouse.layouts.publish" as const;
+
 // Audit Permissions (org-scoped)
 // audit.events.read — view the full organization audit event log (IP, UA, all metadata)
 // Granted to org_owner by default; assignable to custom roles via roles editor.
@@ -143,6 +155,9 @@ export type PermissionSlug =
   | typeof WAREHOUSE_READ
   | typeof WAREHOUSE_LOCATIONS_READ
   | typeof WAREHOUSE_LOCATIONS_MANAGE
+  | typeof WAREHOUSE_LAYOUTS_READ
+  | typeof WAREHOUSE_LAYOUTS_MANAGE
+  | typeof WAREHOUSE_LAYOUTS_PUBLISH
   | typeof AUDIT_EVENTS_READ
   | typeof EVENTS_ORG_ACTIVITY_READ
   | typeof EVENTS_ORG_SENSITIVE_READ
@@ -189,6 +204,9 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WAREHOUSE_READ,
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_LOCATIONS_MANAGE,
+  WAREHOUSE_LAYOUTS_READ,
+  WAREHOUSE_LAYOUTS_MANAGE,
+  WAREHOUSE_LAYOUTS_PUBLISH,
   AUDIT_EVENTS_READ,
   EVENTS_ORG_ACTIVITY_READ,
   EVENTS_ORG_SENSITIVE_READ,

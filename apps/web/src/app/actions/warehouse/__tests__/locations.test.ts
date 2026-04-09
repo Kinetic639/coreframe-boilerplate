@@ -115,13 +115,13 @@ describe("listLocationsAction", () => {
       app: { activeOrgId: null },
       user: { user: null, permissionSnapshot: { allow: [], deny: [] } },
     } as never);
-    const result = await listLocationsAction(BRANCH_ID);
+    const result = await listLocationsAction();
     expect(result.success).toBe(false);
   });
 
   it("returns unauthorized when MODULE_WAREHOUSE_ACCESS missing", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext([]) as never);
-    const result = await listLocationsAction(BRANCH_ID);
+    const result = await listLocationsAction();
     expect(result.success).toBe(false);
     if (!result.success)
       expect((result as { success: false; error: string }).error).toBe("Unauthorized");
@@ -131,24 +131,39 @@ describe("listLocationsAction", () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(
       makeContext(["module.warehouse.access", "warehouse.read"]) as never
     );
-    const result = await listLocationsAction(BRANCH_ID);
+    const result = await listLocationsAction();
     expect(result.success).toBe(false);
     if (!result.success)
       expect((result as { success: false; error: string }).error).toBe("Unauthorized");
   });
 
-  it("delegates to service on success", async () => {
+  it("returns error when no activeBranchId", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue({
+      app: { activeOrgId: ORG_ID, activeBranchId: null },
+      user: {
+        user: { id: USER_ID },
+        permissionSnapshot: { allow: FULL_PERMS, deny: [] },
+      },
+    } as never);
+    const result = await listLocationsAction();
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/active branch/i);
+    expect(WarehouseLocationsService.listByBranch).not.toHaveBeenCalled();
+  });
+
+  it("delegates to service using activeBranchId from context (not client-supplied)", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
     vi.mocked(WarehouseLocationsService.listByBranch).mockResolvedValue({
       success: true,
       data: [makeLocation()],
     });
-    const result = await listLocationsAction(BRANCH_ID);
+    const result = await listLocationsAction();
     expect(result.success).toBe(true);
     expect(WarehouseLocationsService.listByBranch).toHaveBeenCalledWith(
       expect.anything(),
       ORG_ID,
-      BRANCH_ID
+      BRANCH_ID // derived from context, not a param
     );
   });
 });
@@ -162,9 +177,41 @@ describe("getLocationAction", () => {
     expect(result.success).toBe(false);
   });
 
-  it("delegates to service with valid UUID", async () => {
+  it("returns error when no activeBranchId", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue({
+      app: { activeOrgId: ORG_ID, activeBranchId: null },
+      user: {
+        user: { id: USER_ID },
+        permissionSnapshot: { allow: FULL_PERMS, deny: [] },
+      },
+    } as never);
+    const result = await getLocationAction({ id: "11111111-1111-1111-1111-111111111111" });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/active branch/i);
+  });
+
+  it("returns error when location belongs to a different branch (cross-branch denial)", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
-    const loc = makeLocation({ id: "11111111-1111-1111-1111-111111111111" });
+    const locInOtherBranch = makeLocation({
+      id: "11111111-1111-1111-1111-111111111111",
+      branch_id: "other-branch-id",
+    });
+    vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
+      success: true,
+      data: locInOtherBranch,
+    });
+    const result = await getLocationAction({ id: "11111111-1111-1111-1111-111111111111" });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(
+        /does not belong to the active branch/i
+      );
+  });
+
+  it("delegates to service with valid UUID and correct branch", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
+    const loc = makeLocation({ id: "11111111-1111-1111-1111-111111111111", branch_id: BRANCH_ID });
     vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
       success: true,
       data: loc,
@@ -256,13 +303,40 @@ describe("updateLocationAction", () => {
       expect((result as { success: false; error: string }).error).toMatch(/active branch/i);
   });
 
-  it("delegates to service on valid input", async () => {
+  it("returns error when location belongs to a different branch (cross-branch denial)", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
-    const updated = makeLocation({ id: "22222222-2222-2222-2222-222222222222", name: "Updated" });
-    vi.mocked(WarehouseLocationsService.update).mockResolvedValue({
-      success: true,
-      data: updated,
+    const locInOtherBranch = makeLocation({
+      id: "22222222-2222-2222-2222-222222222222",
+      branch_id: "other-branch-id",
     });
+    vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
+      success: true,
+      data: locInOtherBranch,
+    });
+    const result = await updateLocationAction({
+      id: "22222222-2222-2222-2222-222222222222",
+      name: "Updated",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(
+        /does not belong to the active branch/i
+      );
+    expect(WarehouseLocationsService.update).not.toHaveBeenCalled();
+  });
+
+  it("delegates to service when location belongs to the active branch", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext(FULL_PERMS) as never);
+    const existing = makeLocation({
+      id: "22222222-2222-2222-2222-222222222222",
+      branch_id: BRANCH_ID,
+    });
+    const updated = makeLocation({ id: "22222222-2222-2222-2222-222222222222", name: "Updated" });
+    vi.mocked(WarehouseLocationsService.getById).mockResolvedValue({
+      success: true,
+      data: existing,
+    });
+    vi.mocked(WarehouseLocationsService.update).mockResolvedValue({ success: true, data: updated });
     const result = await updateLocationAction({
       id: "22222222-2222-2222-2222-222222222222",
       name: "Updated",

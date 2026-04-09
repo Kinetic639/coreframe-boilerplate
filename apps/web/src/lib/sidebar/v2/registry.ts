@@ -167,6 +167,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
               requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
             },
           },
+
           {
             id: "warehouse.labels",
             title: "Labels & QR",

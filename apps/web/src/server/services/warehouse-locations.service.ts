@@ -88,6 +88,28 @@ export class WarehouseLocationsService {
   }
 
   /**
+   * Returns distinct location IDs that have a shape on any layout for the branch.
+   * Used by the locations page to mark/sort placed vs. unplaced locations.
+   */
+  static async listPlacedLocationIds(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string
+  ): Promise<ServiceResult<string[]>> {
+    const { data, error } = await supabase
+      .from("warehouse_layout_shapes")
+      .select("location_id")
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .not("location_id", "is", null)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    const ids = [...new Set((data ?? []).map((r: any) => r.location_id as string))];
+    return { success: true, data: ids };
+  }
+
+  /**
    * Get a single active location by id, scoped to the organisation.
    * Returns null data (not an error) when the location does not exist or
    * belongs to a different org — prevents enumeration.
@@ -351,6 +373,32 @@ export class WarehouseLocationsService {
       .is("deleted_at", null);
 
     if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
+  }
+
+  /**
+   * Batch-update sort_order for a set of sibling locations.
+   * All items must belong to the same org/branch (enforced by the WHERE clause).
+   */
+  static async reorderBatch(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    items: { id: string; sort_order: number }[]
+  ): Promise<ServiceResult<void>> {
+    const results = await Promise.all(
+      items.map(({ id, sort_order }) =>
+        supabase
+          .from("warehouse_locations")
+          .update({ sort_order, updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("organization_id", orgId)
+          .eq("branch_id", branchId)
+          .is("deleted_at", null)
+      )
+    );
+    const failed = results.find((r) => r.error);
+    if (failed?.error) return { success: false, error: failed.error.message };
     return { success: true, data: undefined };
   }
 
