@@ -95,6 +95,11 @@ export class WarehouseLayoutShapesService {
       const msg = error.message ?? "";
       if (msg.includes("layout_not_found"))
         return { success: false, error: "Layout not found or does not belong to this branch" };
+      if (msg.includes("cross_layout_id"))
+        return {
+          success: false,
+          error: "One or more shape IDs already belong to a different layout",
+        };
       if (msg.includes("invalid_location_id"))
         return {
           success: false,

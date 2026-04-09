@@ -135,7 +135,10 @@ function makeRlsDeniedClient(tableName = "warehouse_locations") {
     return q;
   }
 
-  return { from: vi.fn().mockImplementation(() => makeChain()) };
+  return {
+    from: vi.fn().mockImplementation(() => makeChain()),
+    rpc: vi.fn().mockResolvedValue(errResult),
+  };
 }
 
 /**
@@ -158,7 +161,10 @@ function makeRlsEmptyClient() {
     return q;
   }
 
-  return { from: vi.fn().mockImplementation(() => makeChain()) };
+  return {
+    from: vi.fn().mockImplementation(() => makeChain()),
+    rpc: vi.fn().mockResolvedValue(emptyNullResult),
+  };
 }
 
 // ─── buildLocationTree ────────────────────────────────────────────────────────
@@ -670,14 +676,16 @@ describe("T-RLS: RLS simulation — create (INSERT blocked)", () => {
 
 describe("T-RLS: RLS simulation — softDelete (UPDATE blocked)", () => {
   it("propagates 42501 error when UPDATE is denied by RLS for soft-delete", async () => {
-    // getChildren returns empty (no children to reparent), then soft-delete UPDATE is denied
-    const supabase = makeSupabaseMock([
-      { data: [], error: null }, // getChildren succeeds
-      {
-        data: null,
-        error: { code: "42501", message: "permission denied for table warehouse_locations" },
-      }, // soft-delete UPDATE blocked
-    ]);
+    // softDelete now goes through the RPC, so RLS-denied behavior is modeled there.
+    const supabase = makeSupabaseMock(
+      [],
+      [
+        {
+          data: null,
+          error: { code: "42501", message: "permission denied for table warehouse_locations" },
+        },
+      ]
+    );
     const result = await WarehouseLocationsService.softDelete(supabase as never, ORG_ID, "loc-1");
     expect(result.success).toBe(false);
     if (!result.success)
