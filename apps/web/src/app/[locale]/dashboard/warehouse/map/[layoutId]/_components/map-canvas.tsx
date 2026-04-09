@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Stage, Layer, Rect, Group, Text, Line, Transformer } from "react-konva";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import type { WarehouseLayoutShape, ShapeType, ShapeStyle } from "@/lib/warehouse/layouts";
@@ -85,6 +86,7 @@ export function MapCanvas({
   initialPan,
   onViewportChange,
 }: MapCanvasProps) {
+  const t = useTranslations("warehouseMapCanvas");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const stageRef = React.useRef<any>(null);
   const transformerRef = React.useRef<any>(null);
@@ -122,6 +124,7 @@ export function MapCanvas({
   }, [zoom, pan]);
 
   const isDark = useIsDark();
+  const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
   // Canvas is a physical floor plan — always needs clear contrast against its surround.
   // Light: white canvas on zinc-200 surround. Dark: near-black canvas on zinc-900 surround.
   const canvasBg = isDark ? "#18181b" : "#ffffff"; // zinc-950 / white
@@ -345,7 +348,7 @@ export function MapCanvas({
           onTransformEnd={handleTransformEnd}
         >
           <Text
-            text={shape.label ?? "Label"}
+            text={shape.label ?? t("defaultLabel")}
             fontSize={style?.fontSize ?? 0.8}
             fontFamily="sans-serif"
             fontStyle={style?.fontWeight ?? "normal"}
@@ -435,76 +438,81 @@ export function MapCanvas({
           : undefined
       }
     >
-      <Stage
-        ref={stageRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        scaleX={zoom * METER_TO_PIXEL}
-        scaleY={zoom * METER_TO_PIXEL}
-        x={pan.x}
-        y={pan.y}
-        draggable
-        onWheel={handleWheel}
-        onDragEnd={(e) => {
-          if (e.target === e.target.getStage()) {
-            setPan({ x: e.target.x(), y: e.target.y() });
-          }
-        }}
-        onClick={(e) => {
-          if (e.target === e.target.getStage()) onSelectionChange([]);
-        }}
-        onTap={(e) => {
-          if (e.target === e.target.getStage()) onSelectionChange([]);
-        }}
-      >
-        <Layer>
-          {/* Canvas background */}
-          <Rect
-            x={0}
-            y={0}
-            width={canvasWidthM}
-            height={canvasHeightM}
-            fill={canvasBg}
-            stroke={canvasBorder}
-            strokeWidth={2 / (zoom * METER_TO_PIXEL)}
-            shadowBlur={0.5}
-            shadowColor="rgba(0,0,0,0.2)"
-            onClick={() => onSelectionChange([])}
-          />
+      {hasMeasuredViewport ? (
+        <Stage
+          ref={stageRef}
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={zoom * METER_TO_PIXEL}
+          scaleY={zoom * METER_TO_PIXEL}
+          x={pan.x}
+          y={pan.y}
+          draggable
+          onWheel={handleWheel}
+          onDragEnd={(e) => {
+            if (e.target === e.target.getStage()) {
+              setPan({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
+          onClick={(e) => {
+            if (e.target === e.target.getStage()) onSelectionChange([]);
+          }}
+          onTap={(e) => {
+            if (e.target === e.target.getStage()) onSelectionChange([]);
+          }}
+        >
+          <Layer>
+            {/* Canvas background */}
+            <Rect
+              x={0}
+              y={0}
+              width={canvasWidthM}
+              height={canvasHeightM}
+              fill={canvasBg}
+              stroke={canvasBorder}
+              strokeWidth={2 / (zoom * METER_TO_PIXEL)}
+              shadowBlur={0.5}
+              shadowColor="rgba(0,0,0,0.2)"
+              onClick={() => onSelectionChange([])}
+            />
 
-          {renderGrid()}
+            {renderGrid()}
 
-          {/* Shapes sorted by z_index */}
-          {[...shapes]
-            .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
-            .map(renderShape)}
+            {/* Shapes sorted by z_index */}
+            {[...shapes]
+              .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
+              .map(renderShape)}
 
-          <Transformer
-            ref={transformerRef}
-            boundBoxFunc={(oldBox, newBox) => {
-              const scale = zoom * METER_TO_PIXEL;
-              const minSize = 0.1 * scale;
-              // Reject below-minimum size
-              if (newBox.width < minSize || newBox.height < minSize) return oldBox;
-              // Reject if any edge crosses the canvas boundary (screen pixels)
-              const canvasRight = pan.x + canvasWidthM * scale;
-              const canvasBottom = pan.y + canvasHeightM * scale;
-              if (newBox.x < pan.x || newBox.y < pan.y) return oldBox;
-              if (newBox.x + newBox.width > canvasRight || newBox.y + newBox.height > canvasBottom)
-                return oldBox;
-              return newBox;
-            }}
-            anchorSize={7}
-            anchorCornerRadius={2}
-            anchorStroke="#2563eb"
-            anchorFill="white"
-            borderStroke="#2563eb"
-            borderStrokeWidth={1.5}
-            keepRatio={false}
-            rotateEnabled={true}
-          />
-        </Layer>
-      </Stage>
+            <Transformer
+              ref={transformerRef}
+              boundBoxFunc={(oldBox, newBox) => {
+                const scale = zoom * METER_TO_PIXEL;
+                const minSize = 0.1 * scale;
+                // Reject below-minimum size
+                if (newBox.width < minSize || newBox.height < minSize) return oldBox;
+                // Reject if any edge crosses the canvas boundary (screen pixels)
+                const canvasRight = pan.x + canvasWidthM * scale;
+                const canvasBottom = pan.y + canvasHeightM * scale;
+                if (newBox.x < pan.x || newBox.y < pan.y) return oldBox;
+                if (
+                  newBox.x + newBox.width > canvasRight ||
+                  newBox.y + newBox.height > canvasBottom
+                )
+                  return oldBox;
+                return newBox;
+              }}
+              anchorSize={7}
+              anchorCornerRadius={2}
+              anchorStroke="#2563eb"
+              anchorFill="white"
+              borderStroke="#2563eb"
+              borderStrokeWidth={1.5}
+              keepRatio={false}
+              rotateEnabled={true}
+            />
+          </Layer>
+        </Stage>
+      ) : null}
 
       {/* Zoom controls */}
       <div className="absolute top-3 left-3 flex flex-col gap-1">
@@ -512,21 +520,21 @@ export function MapCanvas({
           <button
             onClick={() => zoomAtCenter(1.25)}
             className="p-2 hover:bg-muted text-muted-foreground border-b transition-colors"
-            title="Zoom in"
+            title={t("actions.zoomIn")}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => zoomAtCenter(0.8)}
             className="p-2 hover:bg-muted text-muted-foreground border-b transition-colors"
-            title="Zoom out"
+            title={t("actions.zoomOut")}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
           <button
             onClick={fitToCanvas}
             className="p-2 hover:bg-muted text-muted-foreground transition-colors"
-            title="Fit to canvas"
+            title={t("actions.fitToCanvas")}
           >
             <Maximize2 className="w-4 h-4" />
           </button>
@@ -536,17 +544,17 @@ export function MapCanvas({
       {/* Status bar */}
       <div className="absolute bottom-3 right-3 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-full border shadow-sm flex gap-3 text-[10px] font-mono text-muted-foreground items-center">
         <span>
-          <span className="opacity-50">ZOOM </span>
+          <span className="opacity-50">{t("status.zoom")} </span>
           <span className="font-bold text-foreground">{(zoom * 100).toFixed(0)}%</span>
         </span>
         <div className="w-px h-3 bg-border" />
         <span>
-          <span className="opacity-50">GRID </span>
+          <span className="opacity-50">{t("status.grid")} </span>
           <span className="font-bold text-foreground">{gridIntervalM}m</span>
         </span>
         <div className="w-px h-3 bg-border" />
         <span>
-          <span className="opacity-50">CANVAS </span>
+          <span className="opacity-50">{t("status.canvas")} </span>
           <span className="font-bold text-foreground">
             {canvasWidthM}×{canvasHeightM}m
           </span>

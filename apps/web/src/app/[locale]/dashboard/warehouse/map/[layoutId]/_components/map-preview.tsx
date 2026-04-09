@@ -12,7 +12,8 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
-import { ChevronDown, ChevronRight, Loader2, MapPin } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { ChevronDown, ChevronRight, Loader2, MapPin, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "@/lib/warehouse/layouts";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
@@ -43,6 +44,7 @@ function TreeNode({
   highlightedId,
   onSelect,
   depth,
+  t,
 }: {
   location: WarehouseLocation;
   allLocations: WarehouseLocation[];
@@ -50,6 +52,7 @@ function TreeNode({
   highlightedId: string | null;
   onSelect: (id: string) => void;
   depth: number;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
   const children = allLocations.filter((l) => l.parent_id === location.id);
@@ -108,12 +111,15 @@ function TreeNode({
 
         {/* Placed indicator */}
         {isPlaced && !isActive && (
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="On canvas" />
+          <div
+            className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+            title={t("tree.onCanvas")}
+          />
         )}
         {isActive && (
           <div
             className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 animate-pulse"
-            title="Highlighted"
+            title={t("tree.highlighted")}
           />
         )}
       </div>
@@ -128,6 +134,7 @@ function TreeNode({
             highlightedId={highlightedId}
             onSelect={onSelect}
             depth={depth + 1}
+            t={t}
           />
         ))}
     </div>
@@ -146,7 +153,9 @@ interface MapPreviewProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProps) {
+  const t = useTranslations("warehouseMapPreview");
   const [highlightedId, setHighlightedId] = React.useState<string | null>(null);
+  const [isMonochrome, setIsMonochrome] = React.useState(true);
 
   // All descendants of root (BFS), or full list for legacy layouts
   const descendants = React.useMemo(() => {
@@ -191,18 +200,16 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
         {/* Header */}
         <div className="px-4 py-3 border-b bg-muted/50 shrink-0">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Locations
+            {t("tree.title")}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Click a location to highlight it on the map.
-          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{t("tree.description")}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1">
           {treeRoots.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center text-muted-foreground">
               <MapPin className="w-8 h-8 mb-2 opacity-20" />
-              <p className="text-xs">No locations placed on this layout yet.</p>
+              <p className="text-xs">{t("tree.empty")}</p>
             </div>
           ) : (
             treeRoots.map((loc) => (
@@ -214,6 +221,7 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
                 highlightedId={highlightedId}
                 onSelect={handleTreeSelect}
                 depth={0}
+                t={t}
               />
             ))
           )}
@@ -223,11 +231,11 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
         <div className="p-3 border-t bg-muted/30 shrink-0 space-y-1.5">
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Placed on canvas
+            {t("tree.legendPlaced")}
           </div>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
-            Not yet placed
+            {t("tree.legendUnplaced")}
           </div>
         </div>
       </div>
@@ -236,8 +244,32 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
       {/* Clicking the dark surround (outside the Konva canvas) clears the highlight */}
       <div
         className="flex-1 h-full overflow-hidden bg-zinc-200 dark:bg-zinc-900 relative"
-        onClick={() => setHighlightedId(null)}
+        onClick={() => {
+          setHighlightedId(null);
+          setIsMonochrome(true);
+        }}
       >
+        {highlightedId && (
+          <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+            <button
+              type="button"
+              title={isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsMonochrome((v) => !v);
+              }}
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
+                isMonochrome
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "text-muted-foreground"
+              )}
+            >
+              <Palette className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* stopPropagation so clicks on the canvas itself don't bubble to the surround */}
         <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
           <WarehouseMapViewer
@@ -245,6 +277,7 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
             locations={locations}
             highlightLocationId={highlightedId}
             autoPanToHighlight={false}
+            monochromaticHighlight={isMonochrome}
             onShapeClick={handleShapeClick}
             className="h-full w-full"
           />

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import { Save, Globe, EyeOff, ArrowLeft, Loader2, Pencil, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ export function MapEditor({
   canManage,
   canPublish,
 }: MapEditorProps) {
+  const t = useTranslations("warehouseMapEditor");
   const router = useRouter();
 
   // ── Local canvas state ────────────────────────────────────────────────────
@@ -137,7 +139,7 @@ export function MapEditor({
     const saved = await batchSave.mutateAsync(input);
     setShapes(saved);
     setIsDirty(false);
-    toast.success("Layout saved");
+    toast.success(t("feedback.layoutSaved"));
     return saved;
   };
 
@@ -309,15 +311,15 @@ export function MapEditor({
     const name = newLocName.trim();
     const code = newLocCode.trim();
     if (!name) {
-      setNewLocError("Name is required.");
+      setNewLocError(t("dialogs.location.validation.nameRequired"));
       return;
     }
     if (!code) {
-      setNewLocError("Code is required.");
+      setNewLocError(t("dialogs.location.validation.codeRequired"));
       return;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(code)) {
-      setNewLocError("Code may only contain letters, numbers, hyphens and underscores.");
+      setNewLocError(t("dialogs.location.validation.codeInvalid"));
       return;
     }
     setNewLocError("");
@@ -385,7 +387,8 @@ export function MapEditor({
       setIsDirty(true);
       queryClient.invalidateQueries({ queryKey: warehouseKeys.locationsByBranch(branchId) });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to create location.";
+      const message =
+        error instanceof Error ? error.message : t("dialogs.location.validation.createFailed");
       setNewLocError(message);
       return;
     } finally {
@@ -460,7 +463,7 @@ export function MapEditor({
   // ── Publish / Unpublish ───────────────────────────────────────────────────
   const handlePublish = async () => {
     if (isDirty) {
-      toast.info("Saving before publishing…");
+      toast.info(t("feedback.savingBeforePublishing"));
       try {
         await handleSave();
       } catch {
@@ -493,7 +496,7 @@ export function MapEditor({
           onClick={() => router.push("/dashboard/warehouse/locations" as any)}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span className="text-xs">Locations</span>
+          <span className="text-xs">{t("actions.backToLocations")}</span>
         </Button>
 
         <div className="w-px h-5 bg-border" />
@@ -508,10 +511,14 @@ export function MapEditor({
               : "text-[10px]"
           }
         >
-          {layout.status}
+          {layout.status === "published" ? t("status.published") : t("status.draft")}
         </Badge>
 
-        {isDirty && <span className="text-[10px] text-amber-600 font-medium">Unsaved changes</span>}
+        {isDirty && (
+          <span className="text-[10px] text-amber-600 font-medium">
+            {t("status.unsavedChanges")}
+          </span>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {/* Edit / Preview toggle */}
@@ -527,7 +534,7 @@ export function MapEditor({
               )}
             >
               <Pencil className="w-3 h-3" />
-              Edit
+              {t("actions.edit")}
             </button>
             <button
               type="button"
@@ -540,7 +547,7 @@ export function MapEditor({
               )}
             >
               <Eye className="w-3 h-3" />
-              Preview
+              {t("actions.preview")}
             </button>
           </div>
 
@@ -560,7 +567,7 @@ export function MapEditor({
               ) : (
                 <Save className="w-3.5 h-3.5" />
               )}
-              {isSaving ? "Saving…" : "Save"}
+              {isSaving ? t("actions.saving") : t("actions.save")}
             </Button>
           )}
 
@@ -578,7 +585,7 @@ export function MapEditor({
               ) : (
                 <Globe className="w-3.5 h-3.5" />
               )}
-              Publish
+              {t("actions.publish")}
             </Button>
           )}
 
@@ -591,7 +598,7 @@ export function MapEditor({
               disabled={isPublishing}
             >
               <EyeOff className="w-3.5 h-3.5" />
-              Unpublish
+              {t("actions.unpublish")}
             </Button>
           )}
         </div>
@@ -679,38 +686,38 @@ export function MapEditor({
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>{pendingClone ? "Clone Location" : "New Storage Location"}</DialogTitle>
+            <DialogTitle>
+              {pendingClone ? t("dialogs.location.cloneTitle") : t("dialogs.location.createTitle")}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="nloc-name">
-                Name <span className="text-destructive">*</span>
+                {t("dialogs.location.fields.name")} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="nloc-name"
                 value={newLocName}
                 onChange={(e) => setNewLocName(e.target.value)}
-                placeholder="e.g. Shelf A"
+                placeholder={t("dialogs.location.placeholders.name")}
                 autoFocus
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="nloc-code">
-                Code <span className="text-destructive">*</span>
+                {t("dialogs.location.fields.code")} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="nloc-code"
                 value={newLocCode}
                 onChange={(e) => setNewLocCode(e.target.value.toUpperCase())}
-                placeholder="e.g. A-01"
+                placeholder={t("dialogs.location.placeholders.code")}
                 className="font-mono"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Letters, numbers, hyphens, underscores — max 20 chars
-              </p>
+              <p className="text-[11px] text-muted-foreground">{t("dialogs.location.help.code")}</p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nloc-color">Color</Label>
+              <Label htmlFor="nloc-color">{t("dialogs.location.fields.color")}</Label>
               <div className="flex items-center gap-2">
                 <input
                   id="nloc-color"
@@ -733,17 +740,17 @@ export function MapEditor({
               }}
               disabled={newLocCreating}
             >
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button onClick={handleCreateNewLocation} disabled={newLocCreating}>
               {newLocCreating ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating…
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t("actions.creating")}
                 </>
               ) : pendingClone ? (
-                "Clone"
+                t("actions.clone")
               ) : (
-                "Create"
+                t("actions.create")
               )}
             </Button>
           </DialogFooter>

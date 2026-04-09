@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 
 import {
@@ -143,6 +144,7 @@ export function useWarehouseLocationQuery(
 
 export function useCreateLocationMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: CreateLocationInput) =>
@@ -155,10 +157,10 @@ export function useCreateLocationMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.locations() });
       }
-      toast.success("Location created");
+      toast.success(t("locationCreated"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to create location");
+      toast.error(err.message || t("locationCreateFailed"));
     },
   });
 }
@@ -167,6 +169,7 @@ export function useCreateLocationMutation(branchId: string | null | undefined) {
 
 export function useUpdateLocationMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: UpdateLocationInput & { id: string }) =>
@@ -180,10 +183,10 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.locations() });
       }
-      toast.success("Location updated");
+      toast.success(t("locationUpdated"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to update location");
+      toast.error(err.message || t("locationUpdateFailed"));
     },
   });
 }
@@ -192,6 +195,7 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
 
 export function useDeleteLocationMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (id: string) => unwrapSR((await deleteLocationAction({ id })) as SR<void>),
@@ -203,10 +207,10 @@ export function useDeleteLocationMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.locations() });
       }
-      toast.success("Location deleted");
+      toast.success(t("locationDeleted"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to delete location");
+      toast.error(err.message || t("locationDeleteFailed"));
     },
   });
 }
@@ -215,6 +219,7 @@ export function useDeleteLocationMutation(branchId: string | null | undefined) {
 
 export function useReorderLocationsMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: ReorderLocationsInput) =>
@@ -238,7 +243,7 @@ export function useReorderLocationsMutation(branchId: string | null | undefined)
       if (branchId && ctx?.previous) {
         queryClient.setQueryData(warehouseKeys.locationsByBranch(branchId), ctx.previous);
       }
-      toast.error("Failed to reorder locations");
+      toast.error(t("locationReorderFailed"));
     },
     onSettled: () => {
       if (branchId)
@@ -325,6 +330,7 @@ export function usePublishedLayoutQuery(
 
 export function useCreateLayoutMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: CreateLayoutInput) =>
@@ -335,10 +341,10 @@ export function useCreateLayoutMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layouts() });
       }
-      toast.success("Layout created");
+      toast.success(t("layoutCreated"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to create layout");
+      toast.error(err.message || t("layoutCreateFailed"));
     },
   });
 }
@@ -347,6 +353,7 @@ export function useCreateLayoutMutation(branchId: string | null | undefined) {
 
 export function useCreateLayoutForLocationMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: CreateLayoutForLocationInput) =>
@@ -357,10 +364,10 @@ export function useCreateLayoutForLocationMutation(branchId: string | null | und
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layouts() });
       }
-      toast.success("Map created");
+      toast.success(t("mapCreated"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to create map");
+      toast.error(err.message || t("mapCreateFailed"));
     },
   });
 }
@@ -369,6 +376,7 @@ export function useCreateLayoutForLocationMutation(branchId: string | null | und
 
 export function useUpdateLayoutMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (input: UpdateLayoutSchemaInput & { id: string }) =>
@@ -380,7 +388,7 @@ export function useUpdateLayoutMutation(branchId: string | null | undefined) {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to update layout");
+      toast.error(err.message || t("layoutUpdateFailed"));
     },
   });
 }
@@ -389,6 +397,7 @@ export function useUpdateLayoutMutation(branchId: string | null | undefined) {
 
 export function usePublishLayoutMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (id: string) =>
@@ -399,16 +408,17 @@ export function usePublishLayoutMutation(branchId: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layoutsByBranch(branchId) });
         invalidatePublishedLayoutsForBranch(queryClient, branchId);
       }
-      toast.success("Layout published");
+      toast.success(t("layoutPublished"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to publish layout");
+      toast.error(err.message || t("layoutPublishFailed"));
     },
   });
 }
 
 export function useUnpublishLayoutMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (id: string) =>
@@ -419,10 +429,10 @@ export function useUnpublishLayoutMutation(branchId: string | null | undefined) 
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layoutsByBranch(branchId) });
         invalidatePublishedLayoutsForBranch(queryClient, branchId);
       }
-      toast.success("Layout unpublished");
+      toast.success(t("layoutUnpublished"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to unpublish layout");
+      toast.error(err.message || t("layoutUnpublishFailed"));
     },
   });
 }
@@ -431,6 +441,7 @@ export function useUnpublishLayoutMutation(branchId: string | null | undefined) 
 
 export function useDeleteLayoutMutation(branchId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (id: string) => unwrapSR((await deleteLayoutAction({ id })) as SR<void>),
@@ -441,10 +452,10 @@ export function useDeleteLayoutMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layouts() });
       }
-      toast.success("Layout deleted");
+      toast.success(t("layoutDeleted"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to delete layout");
+      toast.error(err.message || t("layoutDeleteFailed"));
     },
   });
 }
@@ -457,10 +468,11 @@ export function useDeleteLayoutMutation(branchId: string | null | undefined) {
 
 export function useBatchSaveShapesMutation(layoutId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (shapes: ShapeUpsertInput[]) => {
-      if (!layoutId) throw new Error("No layout selected");
+      if (!layoutId) throw new Error(t("noLayoutSelected"));
       return unwrapSR(
         (await batchSaveShapesAction({ layout_id: layoutId, shapes })) as SR<WarehouseLayoutShape[]>
       );
@@ -475,7 +487,7 @@ export function useBatchSaveShapesMutation(layoutId: string | null | undefined) 
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to save canvas — please try again");
+      toast.error(err.message || t("saveCanvasFailed"));
     },
   });
 }
@@ -484,10 +496,11 @@ export function useBatchSaveShapesMutation(layoutId: string | null | undefined) 
 
 export function useUpsertOneShapeMutation(layoutId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (shape: ShapeUpsertInput) => {
-      if (!layoutId) throw new Error("No layout selected");
+      if (!layoutId) throw new Error(t("noLayoutSelected"));
       return unwrapSR(
         (await upsertOneShapeAction({ layout_id: layoutId, shape })) as SR<WarehouseLayoutShape>
       );
@@ -509,7 +522,7 @@ export function useUpsertOneShapeMutation(layoutId: string | null | undefined) {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to save shape");
+      toast.error(err.message || t("shapeSaveFailed"));
     },
   });
 }
@@ -518,6 +531,7 @@ export function useUpsertOneShapeMutation(layoutId: string | null | undefined) {
 
 export function useDeleteShapeMutation(layoutId: string | null | undefined) {
   const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
 
   return useMutation({
     mutationFn: async (shapeId: string) =>
@@ -532,7 +546,7 @@ export function useDeleteShapeMutation(layoutId: string | null | undefined) {
       }
     },
     onError: (err: Error) => {
-      toast.error(err.message || "Failed to delete shape");
+      toast.error(err.message || t("shapeDeleteFailed"));
     },
   });
 }

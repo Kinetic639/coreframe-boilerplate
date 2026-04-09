@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +54,7 @@ export function LocationFormDialog({
   isPending,
 }: LocationFormDialogProps) {
   const isEdit = !!location;
+  const t = useTranslations("warehouseLocationsPage.form");
 
   // For edit mode, omit `id` from the resolver — it's added manually on submit.
   const schema = isEdit ? updateLocationSchema.omit({ id: true }) : createLocationSchema;
@@ -120,42 +122,42 @@ export function LocationFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Location" : "Create Location"}</DialogTitle>
+          <DialogTitle>{isEdit ? t("titleEdit") : t("titleCreate")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
           {/* Name */}
           <div className="space-y-1">
             <Label htmlFor="name">
-              Name <span className="text-destructive">*</span>
+              {t("fields.name")} <span className="text-destructive">*</span>
             </Label>
-            <Input id="name" {...register("name")} placeholder="e.g. Aisle A, Shelf 1" />
+            <Input id="name" {...register("name")} placeholder={t("placeholders.name")} />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
 
           {/* Code */}
           <div className="space-y-1">
-            <Label htmlFor="code">Code</Label>
+            <Label htmlFor="code">{t("fields.code")}</Label>
             <Input
               id="code"
               {...register("code", { setValueAs: (v) => (v === "" ? null : v) })}
-              placeholder="e.g. A-01 (optional)"
+              placeholder={t("placeholders.code")}
             />
             {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
           </div>
 
           {/* Parent */}
           <div className="space-y-1">
-            <Label>Parent Location</Label>
+            <Label>{t("fields.parentLocation")}</Label>
             <Select
               value={selectedParentId ?? "__none__"}
               onValueChange={(val) => setValue("parent_id", val === "__none__" ? null : val)}
             >
               <SelectTrigger>
-                <SelectValue placeholder="None (root location)" />
+                <SelectValue placeholder={t("placeholders.noParent")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">None (root location)</SelectItem>
+                <SelectItem value="__none__">{t("fields.parentNone")}</SelectItem>
                 {availableParents.map((loc) => (
                   <SelectItem key={loc.id} value={loc.id}>
                     {"  ".repeat(loc.level)}
@@ -170,7 +172,7 @@ export function LocationFormDialog({
 
           {/* Color */}
           <div className="space-y-1">
-            <Label htmlFor="color">Color</Label>
+            <Label htmlFor="color">{t("fields.color")}</Label>
             <div className="flex items-center gap-2">
               <input
                 id="color"
@@ -180,7 +182,7 @@ export function LocationFormDialog({
                 className="w-9 h-9 rounded border cursor-pointer p-0.5 shrink-0"
               />
               <span className="text-xs font-mono text-muted-foreground flex-1">
-                {colorValue ?? "No color"}
+                {colorValue ?? t("fields.noColor")}
               </span>
               {colorValue && (
                 <Button
@@ -190,7 +192,7 @@ export function LocationFormDialog({
                   className="h-7 text-xs text-muted-foreground"
                   onClick={() => setValue("color", null)}
                 >
-                  Clear
+                  {t("actions.clearColor")}
                 </Button>
               )}
             </div>
@@ -199,11 +201,11 @@ export function LocationFormDialog({
 
           {/* Description */}
           <div className="space-y-1">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{t("fields.description")}</Label>
             <Textarea
               id="description"
               {...register("description", { setValueAs: (v) => (v === "" ? null : v) })}
-              placeholder="Optional description"
+              placeholder={t("placeholders.description")}
               rows={3}
             />
             {errors.description && (
@@ -218,10 +220,14 @@ export function LocationFormDialog({
               onClick={() => onOpenChange(false)}
               disabled={isPending}
             >
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving..." : isEdit ? "Save Changes" : "Create"}
+              {isPending
+                ? t("actions.saving")
+                : isEdit
+                  ? t("actions.saveChanges")
+                  : t("actions.create")}
             </Button>
           </DialogFooter>
         </form>

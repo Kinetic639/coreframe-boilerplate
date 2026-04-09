@@ -13,6 +13,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import {
   Map,
   ExternalLink,
@@ -58,6 +59,7 @@ function TreeNode({
   highlightedId,
   onSelect,
   depth,
+  t,
 }: {
   location: WarehouseLocation;
   allLocations: WarehouseLocation[];
@@ -65,6 +67,7 @@ function TreeNode({
   highlightedId: string | null;
   onSelect: (id: string) => void;
   depth: number;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
   const children = allLocations.filter((l) => l.parent_id === location.id);
@@ -119,12 +122,15 @@ function TreeNode({
         )}
 
         {isPlaced && !isActive && (
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="On canvas" />
+          <div
+            className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+            title={t("tree.onCanvas")}
+          />
         )}
         {isActive && (
           <div
             className="w-1.5 h-1.5 rounded-full bg-primary shrink-0 animate-pulse"
-            title="Highlighted"
+            title={t("tree.highlighted")}
           />
         )}
       </div>
@@ -139,6 +145,7 @@ function TreeNode({
             highlightedId={highlightedId}
             onSelect={onSelect}
             depth={depth + 1}
+            t={t}
           />
         ))}
     </div>
@@ -153,12 +160,14 @@ function TreePanel({
   rootLocationId,
   highlightedId,
   onSelect,
+  t,
 }: {
   layout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
   rootLocationId: string | null | undefined;
   highlightedId: string | null;
   onSelect: (id: string) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   // BFS descendants of root (or all if no root scoping)
   const descendants = React.useMemo(() => {
@@ -187,16 +196,16 @@ function TreePanel({
     <div className="w-56 border-r bg-background flex flex-col shrink-0 overflow-hidden">
       <div className="px-3 py-2.5 border-b bg-muted/50 shrink-0">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Locations
+          {t("tree.title")}
         </p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">Click to highlight on map</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5">{t("tree.description")}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
         {treeRoots.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-3 text-center text-muted-foreground">
             <MapPin className="w-6 h-6 mb-2 opacity-20" />
-            <p className="text-[10px]">No locations on this layout yet.</p>
+            <p className="text-[10px]">{t("tree.empty")}</p>
           </div>
         ) : (
           treeRoots.map((loc) => (
@@ -208,6 +217,7 @@ function TreePanel({
               highlightedId={highlightedId}
               onSelect={onSelect}
               depth={0}
+              t={t}
             />
           ))
         )}
@@ -216,11 +226,11 @@ function TreePanel({
       <div className="p-2.5 border-t bg-muted/30 shrink-0 space-y-1">
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          Placed on canvas
+          {t("tree.legendPlaced")}
         </div>
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
           <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
-          Not yet placed
+          {t("tree.legendUnplaced")}
         </div>
       </div>
     </div>
@@ -244,7 +254,7 @@ export interface WarehouseMapDialogProps {
    * and click through locations to highlight them on the map.
    */
   locations?: WarehouseLocation[];
-  /** Dialog title — defaults to "Warehouse Map" */
+  /** Optional dialog title override. */
   title?: string;
   /** Show an "Open in Editor" button linking to /dashboard/warehouse/map. */
   showEditorLink?: boolean;
@@ -258,9 +268,10 @@ export function WarehouseMapDialog({
   highlightLocationId,
   rootLocationId,
   locations,
-  title = "Warehouse Map",
+  title,
   showEditorLink = false,
 }: WarehouseMapDialogProps) {
+  const t = useTranslations("warehouseMapDialog");
   const router = useRouter();
   const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
 
@@ -302,7 +313,7 @@ export function WarehouseMapDialog({
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base font-medium">
             <Map className="h-4 w-4 text-emerald-600" />
-            {title}
+            {title ?? t("title")}
           </DialogTitle>
           {false && showEditorLink && layout && (
             <Button
@@ -318,16 +329,14 @@ export function WarehouseMapDialog({
               }}
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open editor
+              {t("actions.openEditor")}
             </Button>
           )}
         </DialogHeader>
 
         {/* Body */}
         <div className="relative flex flex-1 overflow-hidden">
-          {!activeBranchId && (
-            <EmptyState icon="branch" message="Select a branch to view the warehouse map." />
-          )}
+          {!activeBranchId && <EmptyState icon="branch" message={t("states.noBranch")} />}
 
           {activeBranchId && isLoading && (
             <div className="flex h-full w-full items-center justify-center">
@@ -335,15 +344,10 @@ export function WarehouseMapDialog({
             </div>
           )}
 
-          {activeBranchId && isError && (
-            <EmptyState
-              icon="error"
-              message="Failed to load the warehouse map. Please try again."
-            />
-          )}
+          {activeBranchId && isError && <EmptyState icon="error" message={t("states.loadError")} />}
 
           {activeBranchId && !isLoading && !isError && !layout && (
-            <EmptyState icon="map" message="No published layout for this branch yet." />
+            <EmptyState icon="map" message={t("states.noPublishedLayout")} />
           )}
 
           {activeBranchId && layout && (
@@ -356,6 +360,7 @@ export function WarehouseMapDialog({
                   rootLocationId={rootLocationId}
                   highlightedId={highlightedId}
                   onSelect={(id) => setHighlightedId((prev) => (prev === id ? null : id))}
+                  t={t}
                 />
               )}
 
@@ -369,7 +374,9 @@ export function WarehouseMapDialog({
                   <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
                     <button
                       type="button"
-                      title={isMonochrome ? "Show colors" : "Monochromatic view"}
+                      title={
+                        isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         setIsMonochrome((v) => !v);

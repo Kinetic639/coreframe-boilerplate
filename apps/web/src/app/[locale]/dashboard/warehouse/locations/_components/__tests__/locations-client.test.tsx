@@ -4,6 +4,37 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => {
+    const t = ((key: string, values?: Record<string, string>) => {
+      if (values?.name && key === "actions.editLocation") return `Edit ${values.name}`;
+      if (values?.name && key === "actions.deleteLocation") return `Delete ${values.name}`;
+      const dictionary: Record<string, string> = {
+        "states.noPermission": "You do not have permission to view locations.",
+        "states.noBranchTitle": "No branch selected",
+        "states.emptyTitle": "No locations yet",
+        "actions.addLocation": "Add Location",
+        "deleteDialog.title": "Delete location?",
+      };
+      return dictionary[key] ?? key;
+    }) as ((key: string, values?: Record<string, string>) => string) & {
+      rich: (key: string, values: { name: () => React.ReactNode }) => React.ReactNode;
+    };
+    t.rich = (key: string, values: { name: () => React.ReactNode }) => {
+      if (key === "deleteDialog.description") {
+        return (
+          <>
+            {values.name()} will be soft-deleted. Any child locations will become root-level
+            locations.
+          </>
+        );
+      }
+      return key;
+    };
+    return t;
+  },
+}));
+
 vi.mock("@/hooks/v2/use-permissions", () => ({
   usePermissions: vi.fn(),
 }));
@@ -14,13 +45,25 @@ vi.mock("@/lib/stores/v2/app-store", () => ({
 
 vi.mock("@/hooks/queries/warehouse", () => ({
   useWarehouseLocationsQuery: vi.fn(),
+  useWarehouseLayoutsQuery: vi.fn(),
+  useCreateLayoutForLocationMutation: vi.fn(),
   useCreateLocationMutation: vi.fn(),
   useUpdateLocationMutation: vi.fn(),
   useDeleteLocationMutation: vi.fn(),
+  usePlacedLocationIdsQuery: vi.fn(),
+  useReorderLocationsMutation: vi.fn(),
 }));
 
 vi.mock("@/lib/warehouse/location-tree", () => ({
   buildLocationTree: vi.fn(),
+}));
+
+vi.mock("@/components/v2/warehouse/warehouse-map-dialog", () => ({
+  WarehouseMapDialog: () => null,
+}));
+
+vi.mock("@/i18n/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 // Silence react-toastify in tests
@@ -83,9 +126,13 @@ import { usePermissions } from "@/hooks/v2/use-permissions";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import {
   useWarehouseLocationsQuery,
+  useWarehouseLayoutsQuery,
+  useCreateLayoutForLocationMutation,
   useCreateLocationMutation,
   useUpdateLocationMutation,
   useDeleteLocationMutation,
+  usePlacedLocationIdsQuery,
+  useReorderLocationsMutation,
 } from "@/hooks/queries/warehouse";
 import { buildLocationTree } from "@/lib/warehouse/location-tree";
 import { LocationsClient } from "../locations-client";
@@ -140,6 +187,10 @@ beforeEach(() => {
   vi.mocked(useCreateLocationMutation).mockReturnValue(noopMutation as never);
   vi.mocked(useUpdateLocationMutation).mockReturnValue(noopMutation as never);
   vi.mocked(useDeleteLocationMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(useWarehouseLayoutsQuery).mockReturnValue({ data: [] } as never);
+  vi.mocked(useCreateLayoutForLocationMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(usePlacedLocationIdsQuery).mockReturnValue({ data: [] } as never);
+  vi.mocked(useReorderLocationsMutation).mockReturnValue(noopMutation as never);
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

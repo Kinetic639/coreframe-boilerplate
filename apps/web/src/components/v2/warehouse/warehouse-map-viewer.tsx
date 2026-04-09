@@ -72,6 +72,7 @@ export function WarehouseMapViewer({
   const isDark = useIsDark();
   const canvasBg = isDark ? "#18181b" : "#ffffff";
   const canvasBorder = isDark ? "#3f3f46" : "#94a3b8";
+  const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
 
   // ── Resize observer ────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -165,6 +166,25 @@ export function WarehouseMapViewer({
   const monoFill = isDark ? "#27272a" : "#e5e7eb";
   const monoStroke = isDark ? "#3f3f46" : "#9ca3af";
   const isMonoActive = monochromaticHighlight && !!highlightLocationId;
+  const sortedShapes = React.useMemo(() => {
+    const base = [...layout.shapes].sort(
+      (a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order
+    );
+    if (!highlightLocationId) return base;
+
+    const highlighted: WarehouseLayoutShape[] = [];
+    const normal: WarehouseLayoutShape[] = [];
+
+    for (const shape of base) {
+      if (shape.location_id === highlightLocationId) {
+        highlighted.push(shape);
+      } else {
+        normal.push(shape);
+      }
+    }
+
+    return [...normal, ...highlighted];
+  }, [layout.shapes, highlightLocationId]);
 
   const renderShape = (shape: WarehouseLayoutShape) => {
     const defaults = SHAPE_DEFAULTS[shape.shape_type];
@@ -267,38 +287,38 @@ export function WarehouseMapViewer({
 
   return (
     <div ref={containerRef} className={`w-full h-full ${className}`}>
-      <Stage
-        width={dimensions.width}
-        height={dimensions.height}
-        scaleX={zoom * METER_TO_PIXEL}
-        scaleY={zoom * METER_TO_PIXEL}
-        x={pan.x}
-        y={pan.y}
-        draggable
-        onWheel={handleWheel}
-        onDragEnd={(e) => {
-          if (e.target === e.target.getStage()) {
-            setPan({ x: e.target.x(), y: e.target.y() });
-          }
-        }}
-      >
-        <Layer>
-          {/* Canvas background */}
-          <Rect
-            x={0}
-            y={0}
-            width={layout.canvas_width_m}
-            height={layout.canvas_height_m}
-            fill={canvasBg}
-            stroke={canvasBorder}
-            strokeWidth={1.5 / (zoom * METER_TO_PIXEL)}
-          />
+      {!hasMeasuredViewport ? null : (
+        <Stage
+          width={dimensions.width}
+          height={dimensions.height}
+          scaleX={zoom * METER_TO_PIXEL}
+          scaleY={zoom * METER_TO_PIXEL}
+          x={pan.x}
+          y={pan.y}
+          draggable
+          onWheel={handleWheel}
+          onDragEnd={(e) => {
+            if (e.target === e.target.getStage()) {
+              setPan({ x: e.target.x(), y: e.target.y() });
+            }
+          }}
+        >
+          <Layer>
+            {/* Canvas background */}
+            <Rect
+              x={0}
+              y={0}
+              width={layout.canvas_width_m}
+              height={layout.canvas_height_m}
+              fill={canvasBg}
+              stroke={canvasBorder}
+              strokeWidth={1.5 / (zoom * METER_TO_PIXEL)}
+            />
 
-          {[...layout.shapes]
-            .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
-            .map(renderShape)}
-        </Layer>
-      </Stage>
+            {sortedShapes.map(renderShape)}
+          </Layer>
+        </Stage>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   MapPin,
   Map as MapIcon,
@@ -96,6 +97,7 @@ interface LocationsClientProps {
 interface TreeNodeRowProps {
   node: WarehouseLocationTreeNode;
   depth: number;
+  t: ReturnType<typeof useTranslations>;
   canManage: boolean;
   canManageLayouts: boolean;
   layout?: WarehouseLayout | null;
@@ -113,6 +115,7 @@ interface TreeNodeRowProps {
 function TreeNodeRow({
   node,
   depth,
+  t,
   canManage,
   canManageLayouts,
   layout,
@@ -141,7 +144,7 @@ function TreeNodeRow({
           type="button"
           className="h-4 w-4 shrink-0 text-muted-foreground"
           onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? "Collapse" : "Expand"}
+          aria-label={expanded ? t("tree.collapse") : t("tree.expand")}
         >
           {hasChildren ? (
             expanded ? (
@@ -176,19 +179,19 @@ function TreeNodeRow({
             {layout?.status === "published" ? (
               <Badge className="gap-1 bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5 py-0.5">
                 <Globe className="h-2.5 w-2.5" />
-                Published
+                {t("badges.published")}
               </Badge>
             ) : layout?.status === "draft" ? (
               <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0.5">
                 <FileEdit className="h-2.5 w-2.5" />
-                Draft
+                {t("badges.draft")}
               </Badge>
             ) : (
               <Badge
                 variant="outline"
                 className="text-[10px] px-1.5 py-0.5 text-muted-foreground border-dashed"
               >
-                No map
+                {t("badges.noMap")}
               </Badge>
             )}
           </span>
@@ -204,7 +207,7 @@ function TreeNodeRow({
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
                   onClick={() => onPreviewMap(node)}
-                  title="Preview map"
+                  title={t("actions.previewMap")}
                 >
                   <MapIcon className="h-3.5 w-3.5" />
                 </Button>
@@ -213,7 +216,7 @@ function TreeNodeRow({
                   size="icon"
                   className="h-7 w-7 text-muted-foreground hover:text-primary"
                   onClick={() => onOpenEditor(layout.id)}
-                  title="Open map editor"
+                  title={t("actions.openMapEditor")}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </Button>
@@ -224,7 +227,7 @@ function TreeNodeRow({
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-emerald-600"
                 onClick={() => onCreateMap(node)}
-                title="Create map for this location"
+                title={t("actions.createMapForLocation")}
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -240,7 +243,7 @@ function TreeNodeRow({
               }
               onClick={isPlaced ? () => onShowOnMap(node) : undefined}
               disabled={!isPlaced}
-              title={isPlaced ? "Show on map" : "Not placed on any map"}
+              title={isPlaced ? t("actions.showOnMap") : t("actions.notPlacedOnAnyMap")}
             >
               <MapIcon className="h-3.5 w-3.5" />
             </Button>
@@ -253,7 +256,7 @@ function TreeNodeRow({
                 size="icon"
                 className="h-7 w-7"
                 onClick={() => onEdit(node)}
-                aria-label={`Edit ${node.name}`}
+                aria-label={t("actions.editLocation", { name: node.name })}
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
@@ -262,7 +265,7 @@ function TreeNodeRow({
                 size="icon"
                 className="h-7 w-7 text-destructive hover:text-destructive"
                 onClick={() => onDelete(node)}
-                aria-label={`Delete ${node.name}`}
+                aria-label={t("actions.deleteLocation", { name: node.name })}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -276,7 +279,7 @@ function TreeNodeRow({
             type="button"
             {...dragHandleProps}
             className="h-6 w-6 shrink-0 flex items-center justify-center text-muted-foreground/40 hover:text-muted-foreground touch-none cursor-grab active:cursor-grabbing"
-            aria-label="Drag to reorder"
+            aria-label={t("actions.dragToReorder")}
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="h-4 w-4" />
@@ -298,6 +301,7 @@ function TreeNodeRow({
               key={child.id}
               node={child}
               depth={depth + 1}
+              t={t}
               canManage={canManage}
               canManageLayouts={canManageLayouts}
               placedLocationIds={placedLocationIds}
@@ -365,6 +369,7 @@ function DragPreview({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function LocationsClient({ initialLocations }: LocationsClientProps) {
+  const t = useTranslations("warehouseLocationsPage");
   const { can } = usePermissions();
   const router = useRouter();
   const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
@@ -504,9 +509,7 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
         <MapPin className="mb-4 h-10 w-10 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">
-          You do not have permission to view locations.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("states.noPermission")}</p>
       </div>
     );
   }
@@ -515,10 +518,8 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
         <MapPin className="mb-4 h-10 w-10 text-muted-foreground/50" />
-        <p className="text-sm font-medium">No branch selected</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Select a branch to view its warehouse locations.
-        </p>
+        <p className="text-sm font-medium">{t("states.noBranchTitle")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("states.noBranchDescription")}</p>
       </div>
     );
   }
@@ -528,15 +529,13 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Locations</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage the physical structure of your warehouse.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("header.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("header.description")}</p>
         </div>
         {canManage && (
           <Button onClick={handleCreate} size="sm">
             <Plus className="mr-2 h-4 w-4" />
-            Add Location
+            {t("actions.addLocation")}
           </Button>
         )}
       </div>
@@ -545,15 +544,13 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
       {tree.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
           <MapPin className="mb-4 h-10 w-10 text-muted-foreground/50" />
-          <p className="text-sm font-medium">No locations yet</p>
+          <p className="text-sm font-medium">{t("states.emptyTitle")}</p>
           {canManage && (
             <>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create your first location to organize this warehouse.
-              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("states.emptyDescription")}</p>
               <Button onClick={handleCreate} className="mt-4" size="sm" variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
-                Add Location
+                {t("actions.addLocation")}
               </Button>
             </>
           )}
@@ -575,6 +572,7 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
                       key={node.id}
                       node={node}
                       depth={0}
+                      t={t}
                       canManage={canManage}
                       canManageLayouts={canManageLayouts}
                       layout={layoutByLocationId[node.id] ?? null}
@@ -591,6 +589,7 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
                       key={node.id}
                       node={node}
                       depth={0}
+                      t={t}
                       canManage={false}
                       canManageLayouts={canManageLayouts}
                       layout={layoutByLocationId[node.id] ?? null}
@@ -635,7 +634,7 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
         rootLocationId={mapDialog?.rootLocationId ?? null}
         highlightLocationId={mapDialog?.highlightId ?? null}
         locations={mapDialog?.showTree ? locations : undefined}
-        title="Warehouse Map"
+        title={t("mapDialog.title")}
       />
 
       {/* Delete confirmation */}
@@ -645,20 +644,23 @@ export function LocationsClient({ initialLocations }: LocationsClientProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete location?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deletingLocation?.name}</strong> will be soft-deleted. Any child locations
-              will become root-level locations.
+              {t.rich("deleteDialog.description", {
+                name: () => <strong>{deletingLocation?.name}</strong>,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              {t("actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={deleteMutation.isPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              {deleteMutation.isPending ? t("actions.deleting") : t("actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

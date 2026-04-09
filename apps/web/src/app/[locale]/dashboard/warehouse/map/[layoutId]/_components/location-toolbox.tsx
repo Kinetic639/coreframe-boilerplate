@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Box,
   Minus,
@@ -54,7 +55,7 @@ import { cn } from "@/lib/utils";
 
 interface PaletteItem {
   type: ShapeType;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
   colorClass: string;
 }
@@ -62,49 +63,49 @@ interface PaletteItem {
 const PALETTE: PaletteItem[] = [
   {
     type: "location",
-    label: "Location",
+    labelKey: "palette.location",
     icon: <Box className="w-5 h-5" />,
     colorClass: "text-emerald-600 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950",
   },
   {
     type: "wall",
-    label: "Wall",
+    labelKey: "palette.wall",
     icon: <Minus className="w-5 h-5" />,
     colorClass: "text-muted-foreground group-hover:bg-muted",
   },
   {
     type: "door",
-    label: "Door",
+    labelKey: "palette.door",
     icon: <DoorOpen className="w-5 h-5" />,
     colorClass: "text-blue-600 group-hover:bg-blue-50 dark:group-hover:bg-blue-950",
   },
   {
     type: "aisle",
-    label: "Aisle",
+    labelKey: "palette.aisle",
     icon: <ArrowLeftRight className="w-5 h-5" />,
     colorClass: "text-yellow-600 group-hover:bg-yellow-50 dark:group-hover:bg-yellow-950",
   },
   {
     type: "zone",
-    label: "Zone",
+    labelKey: "palette.zone",
     icon: <LayoutGrid className="w-5 h-5" />,
     colorClass: "text-violet-600 group-hover:bg-violet-50 dark:group-hover:bg-violet-950",
   },
   {
     type: "obstacle",
-    label: "Obstacle",
+    labelKey: "palette.obstacle",
     icon: <AlertTriangle className="w-5 h-5" />,
     colorClass: "text-destructive group-hover:bg-destructive/10",
   },
   {
     type: "label",
-    label: "Label",
+    labelKey: "palette.label",
     icon: <Type className="w-5 h-5" />,
     colorClass: "text-muted-foreground group-hover:bg-muted",
   },
 ];
 
-function PaletteChip({ item }: { item: PaletteItem }) {
+function PaletteChip({ item, t }: { item: PaletteItem; t: ReturnType<typeof useTranslations> }) {
   return (
     <div
       draggable
@@ -127,7 +128,7 @@ function PaletteChip({ item }: { item: PaletteItem }) {
         {item.icon}
       </div>
       <span className="text-[10px] font-medium text-muted-foreground leading-none">
-        {item.label}
+        {t(item.labelKey)}
       </span>
     </div>
   );
@@ -197,12 +198,14 @@ function SortableTreeNode({
   placedLocationIds,
   onSelect,
   depth,
+  t,
 }: {
   location: WarehouseLocation;
   allLocations: WarehouseLocation[];
   placedLocationIds: Set<string>;
   onSelect: (id: string) => void;
   depth: number;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
 
@@ -276,7 +279,7 @@ function SortableTreeNode({
         {isPlaced && (
           <div
             className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 ml-1"
-            title="Placed on canvas"
+            title={t("indicators.placedOnCanvas")}
           />
         )}
       </div>
@@ -291,6 +294,7 @@ function SortableTreeNode({
               placedLocationIds={placedLocationIds}
               onSelect={onSelect}
               depth={depth + 1}
+              t={t}
             />
           ))}
         </SortableContext>
@@ -320,6 +324,7 @@ export function LocationToolbox({
   selectedId,
   onSelectLocation,
 }: LocationToolboxProps) {
+  const t = useTranslations("warehouseMapToolbox");
   const [treeOpen, setTreeOpen] = React.useState(true);
   const [shapesOpen, setShapesOpen] = React.useState(true);
   const [unplacedOpen, setUnplacedOpen] = React.useState(true);
@@ -401,7 +406,7 @@ export function LocationToolbox({
     <div className="w-56 h-full border-r bg-background flex flex-col shrink-0 overflow-hidden">
       {/* ── Locations tree ─────────────────────────────────────────────── */}
       <SectionHeader
-        title="Locations"
+        title={t("sections.locations")}
         count={descendants.length}
         open={treeOpen}
         onToggle={() => setTreeOpen((v) => !v)}
@@ -410,7 +415,7 @@ export function LocationToolbox({
         <div className="overflow-y-auto border-b py-1 max-h-52 shrink-0">
           {treeRoots.length === 0 ? (
             <p className="text-[10px] text-muted-foreground px-3 py-2 leading-relaxed">
-              No locations yet. Drop a Location tile onto the canvas to create storage units.
+              {t("states.noLocations")}
             </p>
           ) : (
             <DndContext
@@ -432,6 +437,7 @@ export function LocationToolbox({
                     placedLocationIds={placedLocationIds}
                     onSelect={onSelectLocation}
                     depth={0}
+                    t={t}
                   />
                 ))}
               </SortableContext>
@@ -445,12 +451,16 @@ export function LocationToolbox({
       )}
 
       {/* ── Shapes palette ─────────────────────────────────────────────── */}
-      <SectionHeader title="Shapes" open={shapesOpen} onToggle={() => setShapesOpen((v) => !v)} />
+      <SectionHeader
+        title={t("sections.shapes")}
+        open={shapesOpen}
+        onToggle={() => setShapesOpen((v) => !v)}
+      />
       {shapesOpen && (
         <div className="p-3 border-b shrink-0">
           <div className="grid grid-cols-3 gap-2">
             {PALETTE.map((item) => (
-              <PaletteChip key={item.type} item={item} />
+              <PaletteChip key={item.type} item={item} t={t} />
             ))}
           </div>
         </div>
@@ -458,7 +468,7 @@ export function LocationToolbox({
 
       {/* ── Unplaced locations ──────────────────────────────────────────── */}
       <SectionHeader
-        title="Unplaced"
+        title={t("sections.unplaced")}
         count={unplaced.length}
         open={unplacedOpen}
         onToggle={() => setUnplacedOpen((v) => !v)}
@@ -467,7 +477,7 @@ export function LocationToolbox({
         <div className="flex-1 overflow-y-auto">
           {unplaced.length === 0 ? (
             <div className="p-4 text-center text-[10px] text-muted-foreground">
-              All locations are placed on this layout.
+              {t("states.allPlaced")}
             </div>
           ) : (
             <div className="p-2 space-y-1">
@@ -518,20 +528,21 @@ export function LocationToolbox({
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete location?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleteTarget?.name}</strong> will be permanently deleted and removed from all
-              layouts. This cannot be undone.
+              {t("deleteDialog.description", { name: deleteTarget?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMut.isPending}>
+              {t("actions.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleteMut.isPending}
               onClick={confirmDelete}
             >
-              {deleteMut.isPending ? "Deleting…" : "Delete"}
+              {deleteMut.isPending ? t("actions.deleting") : t("actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

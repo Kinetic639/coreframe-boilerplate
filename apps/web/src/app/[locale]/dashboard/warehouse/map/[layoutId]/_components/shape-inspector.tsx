@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Trash2,
   Copy,
@@ -104,9 +105,11 @@ const DOT_OFFSET: Record<LabelAlignH | LabelAlignV, string> = {
 function LabelStyleSection({
   style,
   onStyleChange,
+  t,
 }: {
   style: ShapeStyle | null;
   onStyleChange: (patch: Partial<ShapeStyle>) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const labelColor = style?.labelColor ?? "#475569";
   const labelSize = style?.labelSize ?? 0.35;
@@ -116,13 +119,13 @@ function LabelStyleSection({
   return (
     <div className="space-y-3 pt-3 border-t">
       <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-        Code Label
+        {t("sections.codeLabel")}
       </Label>
 
       {/* Color + Size row */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 flex-1">
-          <Label className="text-[10px] text-muted-foreground shrink-0">Color</Label>
+          <Label className="text-[10px] text-muted-foreground shrink-0">{t("fields.color")}</Label>
           <input
             type="color"
             value={labelColor}
@@ -132,7 +135,7 @@ function LabelStyleSection({
         </div>
         <div className="flex items-center gap-1.5 flex-1">
           <Label htmlFor="label-size" className="text-[10px] text-muted-foreground shrink-0">
-            Size
+            {t("fields.size")}
           </Label>
           <Input
             id="label-size"
@@ -152,7 +155,7 @@ function LabelStyleSection({
 
       {/* Alignment grid — 3×3 */}
       <div className="space-y-1.5">
-        <Label className="text-[10px] text-muted-foreground">Position</Label>
+        <Label className="text-[10px] text-muted-foreground">{t("fields.position")}</Label>
         <div className="grid grid-cols-3 gap-1 w-full">
           {ALIGN_GRID.map(({ h, v }) => {
             const isActive = h === activeH && v === activeV;
@@ -160,7 +163,7 @@ function LabelStyleSection({
               <button
                 key={`${h}-${v}`}
                 type="button"
-                title={`${v} ${h}`}
+                title={t("alignment.position", { vertical: v, horizontal: h })}
                 onClick={() => onStyleChange({ labelAlignH: h, labelAlignV: v })}
                 className={cn(
                   "h-8 rounded border flex items-center transition-colors",
@@ -208,6 +211,13 @@ function AlignBtn({
   );
 }
 
+const GEOMETRY_FIELD_KEYS = {
+  x: "fields.x",
+  y: "fields.y",
+  width: "fields.width",
+  height: "fields.height",
+} as const;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ShapeInspector({
@@ -228,6 +238,7 @@ export function ShapeInspector({
   onAlignShapes,
   onLayoutMetaChange,
 }: ShapeInspectorProps) {
+  const t = useTranslations("warehouseShapeInspector");
   // Convenience for single-selection paths
   const selectedShape = selectedShapes.length === 1 ? selectedShapes[0] : null;
   const isMulti = selectedShapes.length > 1;
@@ -255,19 +266,19 @@ export function ShapeInspector({
       {/* Header */}
       <div className="px-4 py-3 border-b bg-muted/50 flex items-center justify-between shrink-0">
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Inspector
+          {t("header.title")}
         </span>
         {isMulti && (
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">
-              {selectedShapes.length} selected
+              {t("header.selectedCount", { count: String(selectedShapes.length) })}
             </span>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDeleteShapes(selectedShapes.map((s) => s.id))}
-              title="Delete selected shapes"
+              title={t("actions.deleteSelectedShapes")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -281,7 +292,7 @@ export function ShapeInspector({
                 size="icon"
                 className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
                 onClick={() => onCloneShape(selectedShape.id)}
-                title="Clone location"
+                title={t("actions.cloneLocation")}
               >
                 <Copy className="w-3.5 h-3.5" />
               </Button>
@@ -291,7 +302,7 @@ export function ShapeInspector({
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDeleteShape(selectedShape.id)}
-              title="Delete shape"
+              title={t("actions.deleteShape")}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
@@ -305,57 +316,57 @@ export function ShapeInspector({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-                Align
+                {t("sections.align")}
               </Label>
               <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground">Horizontal</p>
+                <p className="text-[10px] text-muted-foreground">{t("alignment.horizontal")}</p>
                 <div className="flex items-center gap-0.5">
                   <AlignBtn
                     icon={AlignStartVertical}
-                    title="Align left edges"
+                    title={t("alignment.left")}
                     onClick={() => onAlignShapes("left")}
                   />
                   <AlignBtn
                     icon={AlignCenterVertical}
-                    title="Center horizontally"
+                    title={t("alignment.centerH")}
                     onClick={() => onAlignShapes("center-h")}
                   />
                   <AlignBtn
                     icon={AlignEndVertical}
-                    title="Align right edges"
+                    title={t("alignment.right")}
                     onClick={() => onAlignShapes("right")}
                   />
                   {selectedShapes.length >= 3 && (
                     <AlignBtn
                       icon={AlignHorizontalSpaceAround}
-                      title="Distribute horizontally"
+                      title={t("alignment.distributeH")}
                       onClick={() => onAlignShapes("distribute-h")}
                     />
                   )}
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground">Vertical</p>
+                <p className="text-[10px] text-muted-foreground">{t("alignment.vertical")}</p>
                 <div className="flex items-center gap-0.5">
                   <AlignBtn
                     icon={AlignStartHorizontal}
-                    title="Align top edges"
+                    title={t("alignment.top")}
                     onClick={() => onAlignShapes("top")}
                   />
                   <AlignBtn
                     icon={AlignCenterHorizontal}
-                    title="Center vertically"
+                    title={t("alignment.centerV")}
                     onClick={() => onAlignShapes("center-v")}
                   />
                   <AlignBtn
                     icon={AlignEndHorizontal}
-                    title="Align bottom edges"
+                    title={t("alignment.bottom")}
                     onClick={() => onAlignShapes("bottom")}
                   />
                   {selectedShapes.length >= 3 && (
                     <AlignBtn
                       icon={AlignVerticalSpaceAround}
-                      title="Distribute vertically"
+                      title={t("alignment.distributeV")}
                       onClick={() => onAlignShapes("distribute-v")}
                     />
                   )}
@@ -367,6 +378,7 @@ export function ShapeInspector({
             {selectedShapes.every((s) => s.shape_type === "location") && (
               <LabelStyleSection
                 style={selectedShapes[0].style as ShapeStyle | null}
+                t={t}
                 onStyleChange={(patch) => {
                   selectedShapes.forEach((s) => {
                     const shapeStyle = s.style as ShapeStyle | null;
@@ -377,23 +389,25 @@ export function ShapeInspector({
             )}
 
             <p className="text-[10px] text-muted-foreground pt-1 border-t">
-              Shift+click shapes to add or remove from selection.
+              {t("multiSelect.help")}
             </p>
           </div>
         ) : !selectedShape ? (
           <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
             <Info className="w-10 h-10 mb-3 opacity-20" />
-            <p className="text-xs">Select a shape to inspect its properties.</p>
-            <p className="text-[10px] mt-1 opacity-60">Shift+click to select multiple.</p>
+            <p className="text-xs">{t("empty.title")}</p>
+            <p className="text-[10px] mt-1 opacity-60">{t("empty.description")}</p>
           </div>
         ) : (
           <>
             {/* Type badge */}
             <div>
               <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-                Type
+                {t("sections.type")}
               </Label>
-              <p className="mt-1 text-sm font-medium capitalize">{selectedShape.shape_type}</p>
+              <p className="mt-1 text-sm font-medium capitalize">
+                {t(`shapeTypes.${selectedShape.shape_type}`)}
+              </p>
             </div>
 
             {/* Location shapes: Name + Code editing the real warehouse_location record */}
@@ -405,7 +419,7 @@ export function ShapeInspector({
                       htmlFor="loc-name"
                       className="text-[10px] uppercase text-muted-foreground font-semibold"
                     >
-                      Name
+                      {t("fields.name")}
                     </Label>
                     <Input
                       id="loc-name"
@@ -417,7 +431,7 @@ export function ShapeInspector({
                           onUpdateLocation(linkedLocation.id, { name: trimmed });
                         }
                       }}
-                      placeholder="Location name"
+                      placeholder={t("placeholders.locationName")}
                       className="h-8 text-sm"
                     />
                   </div>
@@ -426,7 +440,7 @@ export function ShapeInspector({
                       htmlFor="loc-code"
                       className="text-[10px] uppercase text-muted-foreground font-semibold"
                     >
-                      Code
+                      {t("fields.code")}
                     </Label>
                     <Input
                       id="loc-code"
@@ -438,19 +452,17 @@ export function ShapeInspector({
                           onUpdateLocation(linkedLocation.id, { code: trimmed });
                         }
                       }}
-                      placeholder="e.g. A-01"
+                      placeholder={t("placeholders.locationCode")}
                       className="h-8 text-xs font-mono"
                     />
-                    <p className="text-[10px] text-muted-foreground">
-                      Letters, numbers, hyphens, underscores
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">{t("help.locationCode")}</p>
                   </div>
                   <div className="space-y-1">
                     <Label
                       htmlFor="loc-color"
                       className="text-[10px] uppercase text-muted-foreground font-semibold"
                     >
-                      Color
+                      {t("fields.color")}
                     </Label>
                     <div className="flex items-center gap-2">
                       <input
@@ -471,6 +483,7 @@ export function ShapeInspector({
                 </div>
                 <LabelStyleSection
                   style={style}
+                  t={t}
                   onStyleChange={(patch) =>
                     onShapeGeometryChange(selectedShape.id, {
                       style: { ...(style ?? {}), ...patch },
@@ -486,7 +499,7 @@ export function ShapeInspector({
                     htmlFor="shape-label"
                     className="text-[10px] uppercase text-muted-foreground font-semibold"
                   >
-                    Label
+                    {t("fields.label")}
                   </Label>
                   <Input
                     id="shape-label"
@@ -494,7 +507,7 @@ export function ShapeInspector({
                     onChange={(e) =>
                       onShapeGeometryChange(selectedShape.id, { label: e.target.value || null })
                     }
-                    placeholder="No label"
+                    placeholder={t("placeholders.noLabel")}
                     className="h-8 text-sm"
                   />
                 </div>
@@ -504,7 +517,7 @@ export function ShapeInspector({
                       htmlFor="shape-fontsize"
                       className="text-[10px] uppercase text-muted-foreground font-semibold"
                     >
-                      Font size (m)
+                      {t("fields.fontSize")}
                     </Label>
                     <Input
                       id="shape-fontsize"
@@ -531,7 +544,7 @@ export function ShapeInspector({
             {/* Geometry */}
             <div className="space-y-2 pt-3 border-t">
               <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-                Geometry (meters)
+                {t("sections.geometry")}
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 {(["x", "y", "width", "height"] as const).map((field) => (
@@ -540,7 +553,7 @@ export function ShapeInspector({
                       htmlFor={`shape-${field}`}
                       className="text-[10px] text-muted-foreground uppercase"
                     >
-                      {field}
+                      {t(GEOMETRY_FIELD_KEYS[field])}
                     </Label>
                     <Input
                       id={`shape-${field}`}
@@ -562,7 +575,7 @@ export function ShapeInspector({
                   htmlFor="shape-rotation"
                   className="text-[10px] text-muted-foreground uppercase"
                 >
-                  Rotation (°)
+                  {t("fields.rotation")}
                 </Label>
                 <Input
                   id="shape-rotation"
@@ -582,14 +595,14 @@ export function ShapeInspector({
             {selectedShape.shape_type !== "label" && selectedShape.shape_type !== "location" && (
               <div className="space-y-2 pt-3 border-t">
                 <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-                  Style
+                  {t("sections.style")}
                 </Label>
                 <div className="flex items-center gap-3">
                   <Label
                     htmlFor="shape-fill"
                     className="text-xs text-muted-foreground w-10 shrink-0"
                   >
-                    Fill
+                    {t("fields.fill")}
                   </Label>
                   <input
                     id="shape-fill"
@@ -606,7 +619,7 @@ export function ShapeInspector({
                     htmlFor="shape-stroke"
                     className="text-xs text-muted-foreground w-12 shrink-0"
                   >
-                    Stroke
+                    {t("fields.stroke")}
                   </Label>
                   <input
                     id="shape-stroke"
@@ -628,21 +641,21 @@ export function ShapeInspector({
         {/* ── Grid settings (always visible) ───────────────────────────────── */}
         <div className="space-y-3 pt-3 border-t">
           <Label className="text-[10px] uppercase text-muted-foreground font-semibold flex items-center gap-1.5">
-            <Grid3x3 className="w-3 h-3" /> Grid
+            <Grid3x3 className="w-3 h-3" /> {t("sections.grid")}
           </Label>
           <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">Show grid</Label>
+            <Label className="text-xs text-muted-foreground">{t("fields.showGrid")}</Label>
             <Switch checked={showGrid} onCheckedChange={onToggleGrid} />
           </div>
           <div className="flex items-center justify-between">
             <Label className="text-xs text-muted-foreground flex items-center gap-1">
-              <Magnet className="w-3 h-3" /> Snap to grid
+              <Magnet className="w-3 h-3" /> {t("fields.snapToGrid")}
             </Label>
             <Switch checked={snapToGrid} onCheckedChange={onToggleSnap} />
           </div>
           {showGrid && (
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Grid size</Label>
+              <Label className="text-xs text-muted-foreground">{t("fields.gridSize")}</Label>
               <Select
                 value={String(gridIntervalM)}
                 onValueChange={(v) => onGridIntervalChange(parseFloat(v))}
@@ -665,11 +678,13 @@ export function ShapeInspector({
         {/* ── Canvas dimensions ─────────────────────────────────────────────── */}
         <div className="space-y-2 pt-3 border-t">
           <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
-            Canvas Size (m)
+            {t("sections.canvasSize")}
           </Label>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground uppercase">Width</Label>
+              <Label className="text-[10px] text-muted-foreground uppercase">
+                {t("fields.width")}
+              </Label>
               <Input
                 type="number"
                 step="1"
@@ -683,7 +698,9 @@ export function ShapeInspector({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground uppercase">Height</Label>
+              <Label className="text-[10px] text-muted-foreground uppercase">
+                {t("fields.height")}
+              </Label>
               <Input
                 type="number"
                 step="1"

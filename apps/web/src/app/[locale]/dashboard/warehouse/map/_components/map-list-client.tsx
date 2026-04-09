@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Map, Plus, Pencil, Trash2, Globe, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -43,19 +44,25 @@ interface MapListClientProps {
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: WarehouseLayout["status"] }) {
+function StatusBadge({
+  status,
+  t,
+}: {
+  status: WarehouseLayout["status"];
+  t: ReturnType<typeof useTranslations>;
+}) {
   if (status === "published") {
     return (
       <Badge variant="default" className="gap-1 bg-emerald-600 text-xs">
         <Globe className="h-3 w-3" />
-        Published
+        {t("badges.published")}
       </Badge>
     );
   }
   return (
     <Badge variant="secondary" className="gap-1 text-xs">
       <FileText className="h-3 w-3" />
-      Draft
+      {t("badges.draft")}
     </Badge>
   );
 }
@@ -70,6 +77,7 @@ interface CreateDialogProps {
 }
 
 function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateDialogProps) {
+  const t = useTranslations("warehouseMapListPage");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
@@ -80,11 +88,11 @@ function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateD
     if (!name.trim()) return;
     const trimmedCode = code.trim();
     if (!trimmedCode) {
-      setCodeError("Code is required");
+      setCodeError(t("createDialog.validation.codeRequired"));
       return;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(trimmedCode)) {
-      setCodeError("Letters, numbers, hyphens and underscores only");
+      setCodeError(t("createDialog.validation.codeInvalid"));
       return;
     }
     setCodeError("");
@@ -106,23 +114,24 @@ function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateD
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>New Layout</DialogTitle>
+            <DialogTitle>{t("createDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="layout-name">Name</Label>
+              <Label htmlFor="layout-name">{t("createDialog.fields.name")}</Label>
               <Input
                 id="layout-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Main Floor"
+                placeholder={t("createDialog.placeholders.name")}
                 required
                 autoFocus
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="layout-code">
-                Root Location Code <span className="text-destructive">*</span>
+                {t("createDialog.fields.rootLocationCode")}{" "}
+                <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="layout-code"
@@ -131,7 +140,7 @@ function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateD
                   setCode(e.target.value.toUpperCase());
                   setCodeError("");
                 }}
-                placeholder="e.g. WH-MAIN"
+                placeholder={t("createDialog.placeholders.rootLocationCode")}
                 className="font-mono"
                 maxLength={20}
               />
@@ -139,27 +148,27 @@ function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateD
                 <p className="text-xs text-destructive">{codeError}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Unique identifier for the root location (letters, numbers, hyphens, underscores)
+                  {t("createDialog.help.rootLocationCode")}
                 </p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="layout-desc">Description (optional)</Label>
+              <Label htmlFor="layout-desc">{t("createDialog.fields.description")}</Label>
               <Textarea
                 id="layout-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this layout"
+                placeholder={t("createDialog.placeholders.description")}
                 rows={2}
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancel
+              {t("actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || !code.trim() || isPending}>
-              {isPending ? "Creating…" : "Create"}
+              {isPending ? t("actions.creating") : t("actions.create")}
             </Button>
           </DialogFooter>
         </form>
@@ -171,6 +180,7 @@ function CreateLayoutDialog({ open, onOpenChange, onSubmit, isPending }: CreateD
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MapListClient({ initialLayouts }: MapListClientProps) {
+  const t = useTranslations("warehouseMapListPage");
   const router = useRouter();
   const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
   const { can } = usePermissions();
@@ -206,7 +216,7 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
   if (!canRead) {
     return (
       <div className="flex h-64 items-center justify-center text-muted-foreground">
-        You don&apos;t have permission to view warehouse layouts.
+        {t("states.noPermission")}
       </div>
     );
   }
@@ -215,7 +225,7 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-2 text-muted-foreground">
         <Map className="h-8 w-8" />
-        <p>Select a branch to view warehouse layouts.</p>
+        <p>{t("states.noBranch")}</p>
       </div>
     );
   }
@@ -225,15 +235,13 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Warehouse Maps</h1>
-          <p className="text-sm text-muted-foreground">
-            Visual layout editor for your warehouse floor plans.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("header.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("header.description")}</p>
         </div>
         {canManage && (
           <Button onClick={() => setShowCreate(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            New Layout
+            {t("actions.newLayout")}
           </Button>
         )}
       </div>
@@ -242,11 +250,11 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
       {layouts.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed text-muted-foreground">
           <Map className="h-10 w-10 opacity-40" />
-          <p className="text-sm">No layouts yet.</p>
+          <p className="text-sm">{t("states.emptyTitle")}</p>
           {canManage && (
             <Button variant="outline" size="sm" onClick={() => setShowCreate(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
-              Create your first layout
+              {t("actions.createFirstLayout")}
             </Button>
           )}
         </div>
@@ -267,7 +275,7 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
                     </p>
                   )}
                 </div>
-                <StatusBadge status={layout.status} />
+                <StatusBadge status={layout.status} t={t} />
               </div>
 
               {/* Canvas dimensions */}
@@ -284,7 +292,7 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
                   onClick={() => router.push(`/dashboard/warehouse/map/${layout.id}`)}
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                  Open Editor
+                  {t("actions.openEditor")}
                 </Button>
                 {canManage && (
                   <Button
@@ -321,19 +329,19 @@ export function MapListClient({ initialLayouts }: MapListClientProps) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete layout?</AlertDialogTitle>
+            <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              &ldquo;{deleteTarget?.name}&rdquo; will be permanently deleted. This cannot be undone.
+              {t("deleteDialog.description", { name: deleteTarget?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleDelete}
               disabled={deleteLayout.isPending}
             >
-              {deleteLayout.isPending ? "Deleting…" : "Delete"}
+              {deleteLayout.isPending ? t("actions.deleting") : t("actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
