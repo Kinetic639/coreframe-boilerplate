@@ -56,6 +56,24 @@ function unwrapSR<T>(result: SR<T>): T {
   throw new Error((result as { error: string }).error);
 }
 
+function invalidatePublishedLayoutsForBranch(
+  queryClient: ReturnType<typeof useQueryClient>,
+  branchId: string
+) {
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      return (
+        Array.isArray(key) &&
+        key[0] === "warehouse" &&
+        key[1] === "layouts" &&
+        key[2] === "published" &&
+        key[3] === branchId
+      );
+    },
+  });
+}
+
 // ─── Query Key Factory ─────────────────────────────────────────────────────────
 
 export const warehouseKeys = {
@@ -73,7 +91,16 @@ export const warehouseKeys = {
   layout: (id: string) => [...warehouseKeys.layouts(), id] as const,
   layoutWithShapes: (id: string) => [...warehouseKeys.layout(id), "shapes"] as const,
   publishedLayout: (branchId: string, rootLocationId?: string | null) =>
-    [...warehouseKeys.layouts(), "published", branchId, rootLocationId ?? "root"] as const,
+    [
+      ...warehouseKeys.layouts(),
+      "published",
+      branchId,
+      rootLocationId === undefined
+        ? "__any__"
+        : rootLocationId === null
+          ? "__branch_root__"
+          : rootLocationId,
+    ] as const,
 };
 
 // ─── List locations ───────────────────────────────────────────────────────────
@@ -370,11 +397,7 @@ export function usePublishLayoutMutation(branchId: string | null | undefined) {
       queryClient.setQueryData(warehouseKeys.layout(data.id), data);
       if (branchId) {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layoutsByBranch(branchId) });
-        // Invalidate the published layout cache for this branch — canonical map changed
-        queryClient.invalidateQueries({
-          queryKey: warehouseKeys.publishedLayout(branchId),
-          exact: false,
-        });
+        invalidatePublishedLayoutsForBranch(queryClient, branchId);
       }
       toast.success("Layout published");
     },
@@ -394,10 +417,7 @@ export function useUnpublishLayoutMutation(branchId: string | null | undefined) 
       queryClient.setQueryData(warehouseKeys.layout(data.id), data);
       if (branchId) {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layoutsByBranch(branchId) });
-        queryClient.invalidateQueries({
-          queryKey: warehouseKeys.publishedLayout(branchId),
-          exact: false,
-        });
+        invalidatePublishedLayoutsForBranch(queryClient, branchId);
       }
       toast.success("Layout unpublished");
     },
@@ -417,10 +437,7 @@ export function useDeleteLayoutMutation(branchId: string | null | undefined) {
     onSuccess: () => {
       if (branchId) {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layoutsByBranch(branchId) });
-        queryClient.invalidateQueries({
-          queryKey: warehouseKeys.publishedLayout(branchId),
-          exact: false,
-        });
+        invalidatePublishedLayoutsForBranch(queryClient, branchId);
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.layouts() });
       }

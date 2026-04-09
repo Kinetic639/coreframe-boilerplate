@@ -41,6 +41,27 @@ const SHAPE_COLUMNS =
 
 export class WarehouseLayoutShapesService {
   /**
+   * Get a single active shape by ID, scoped to organization.
+   * Returns null when the shape does not exist or is not visible to the caller.
+   */
+  static async getById(
+    supabase: SupabaseClient,
+    orgId: string,
+    shapeId: string
+  ): Promise<ServiceResult<WarehouseLayoutShape | null>> {
+    const { data, error } = await supabase
+      .from("warehouse_layout_shapes")
+      .select(SHAPE_COLUMNS)
+      .eq("id", shapeId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as WarehouseLayoutShape | null };
+  }
+
+  /**
    * List all active (non-deleted) shapes for a layout, ordered by z_index then sort_order.
    * Verifies the layout belongs to the given org.
    */

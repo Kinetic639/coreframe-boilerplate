@@ -21,6 +21,7 @@ import type {
   WarehouseLayoutWithShapes,
   WarehouseLayoutShape,
   ShapeUpsertInput,
+  ShapeStyle,
   ShapeType,
 } from "@/lib/warehouse/layouts";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
@@ -32,6 +33,7 @@ import { MapPreview } from "./map-preview";
 
 import {
   useBatchSaveShapesMutation,
+  useCreateLocationMutation,
   usePublishLayoutMutation,
   useUnpublishLayoutMutation,
   useUpdateLayoutMutation,
@@ -40,7 +42,6 @@ import {
   warehouseKeys,
 } from "@/hooks/queries/warehouse";
 import { useQueryClient } from "@tanstack/react-query";
-import { createLocationAction } from "@/app/actions/warehouse/locations";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ export function MapEditor({
   const [gridIntervalM, setGridIntervalM] = React.useState(1);
   const [isDirty, setIsDirty] = React.useState(false);
   const [mode, setMode] = React.useState<"edit" | "preview">("edit");
+  const layoutMetaRequestSeq = React.useRef(0);
 
   // Persist canvas zoom/pan across preview-mode roundtrips without re-rendering.
   // Starts as null so MapCanvas knows to auto-fit on first mount.
@@ -97,6 +99,7 @@ export function MapEditor({
   // ── Mutations & cache ─────────────────────────────────────────────────────
   const queryClient = useQueryClient();
   const batchSave = useBatchSaveShapesMutation(layout.id);
+  const createLocMut = useCreateLocationMutation(branchId);
   const publishMut = usePublishLayoutMutation(branchId);
   const unpublishMut = useUnpublishLayoutMutation(branchId);
   const updateLayoutMut = useUpdateLayoutMutation(branchId);
@@ -126,18 +129,16 @@ export function MapEditor({
       width: s.width,
       height: s.height,
       rotation: s.rotation,
-      style: s.style as any,
+      style: s.style,
       z_index: s.z_index,
       sort_order: s.sort_order,
     }));
 
-    batchSave.mutate(input, {
-      onSuccess: (saved) => {
-        setShapes(saved);
-        setIsDirty(false);
-        toast.success("Layout saved");
-      },
-    });
+    const saved = await batchSave.mutateAsync(input);
+    setShapes(saved);
+    setIsDirty(false);
+    toast.success("Layout saved");
+    return saved;
   };
 
   // ── Shape mutations ───────────────────────────────────────────────────────
@@ -321,70 +322,75 @@ export function MapEditor({
     }
     setNewLocError("");
     setNewLocCreating(true);
-    const result = await createLocationAction({
-      name,
-      code,
-      parent_id: layout.root_location_id ?? null,
-      color: newLocColor,
-    });
-    setNewLocCreating(false);
-    if (!result.success) {
-      setNewLocError((result as any).error ?? "Failed to create location.");
+    try {
+      const createdLocation = await createLocMut.mutateAsync({
+        name,
+        code,
+        parent_id: layout.root_location_id ?? null,
+        color: newLocColor,
+      });
+      const newLocationId = createdLocation.id;
+
+      // Determine position + dimensions:
+      // - Clone: same size as source, placed immediately to its right with a small gap
+      // - Drop: default 2×2 at the drop point
+      let xM: number, yM: number, width: number, height: number;
+      const clonedLabelStyle: ShapeStyle = {};
+      if (pendingClone) {
+        const src = pendingClone.shape;
+        const srcStyle = src.style;
+        width = src.width;
+        height = src.height;
+        xM = Math.min(src.x + src.width + 0.2, Math.max(0, layout.canvas_width_m - width));
+        yM = src.y;
+        // Copy label style from source shape
+        if (srcStyle?.labelColor !== undefined) clonedLabelStyle.labelColor = srcStyle.labelColor;
+        if (srcStyle?.labelSize !== undefined) clonedLabelStyle.labelSize = srcStyle.labelSize;
+        if (srcStyle?.labelAlignH !== undefined)
+          clonedLabelStyle.labelAlignH = srcStyle.labelAlignH;
+        if (srcStyle?.labelAlignV !== undefined)
+          clonedLabelStyle.labelAlignV = srcStyle.labelAlignV;
+        setPendingClone(null);
+      } else {
+        xM = pendingDrop!.xM;
+        yM = pendingDrop!.yM;
+        width = 2;
+        height = 2;
+        setPendingDrop(null);
+      }
+
+      const newShape: WarehouseLayoutShape = {
+        id: crypto.randomUUID(),
+        layout_id: layout.id,
+        organization_id: layout.organization_id,
+        branch_id: layout.branch_id,
+        shape_type: "location",
+        location_id: newLocationId,
+        label: code,
+        x: Math.max(0, xM),
+        y: Math.max(0, yM),
+        width,
+        height,
+        rotation: 0,
+        style: { fill: locationColorToFill(newLocColor), stroke: newLocColor, ...clonedLabelStyle },
+        z_index: 0,
+        sort_order: shapes.length,
+        created_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+      };
+      setShapes((prev) => [...prev, newShape]);
+      setSelectedIds([newShape.id]);
+      setIsDirty(true);
+      queryClient.invalidateQueries({ queryKey: warehouseKeys.locationsByBranch(branchId) });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create location.";
+      setNewLocError(message);
       return;
+    } finally {
+      setNewLocCreating(false);
     }
-    const newLocationId = (result as any).data.id;
-
-    // Determine position + dimensions:
-    // - Clone: same size as source, placed immediately to its right with a small gap
-    // - Drop: default 2×2 at the drop point
-    let xM: number, yM: number, width: number, height: number;
-    const clonedLabelStyle: import("@/lib/warehouse/layouts").ShapeStyle = {};
-    if (pendingClone) {
-      const src = pendingClone.shape;
-      const srcStyle = src.style as import("@/lib/warehouse/layouts").ShapeStyle | null;
-      width = src.width;
-      height = src.height;
-      xM = Math.min(src.x + src.width + 0.2, Math.max(0, layout.canvas_width_m - width));
-      yM = src.y;
-      // Copy label style from source shape
-      if (srcStyle?.labelColor !== undefined) clonedLabelStyle.labelColor = srcStyle.labelColor;
-      if (srcStyle?.labelSize !== undefined) clonedLabelStyle.labelSize = srcStyle.labelSize;
-      if (srcStyle?.labelAlignH !== undefined) clonedLabelStyle.labelAlignH = srcStyle.labelAlignH;
-      if (srcStyle?.labelAlignV !== undefined) clonedLabelStyle.labelAlignV = srcStyle.labelAlignV;
-      setPendingClone(null);
-    } else {
-      xM = pendingDrop!.xM;
-      yM = pendingDrop!.yM;
-      width = 2;
-      height = 2;
-      setPendingDrop(null);
-    }
-
-    const newShape: WarehouseLayoutShape = {
-      id: crypto.randomUUID(),
-      layout_id: layout.id,
-      organization_id: layout.organization_id,
-      branch_id: layout.branch_id,
-      shape_type: "location",
-      location_id: newLocationId,
-      label: code,
-      x: Math.max(0, xM),
-      y: Math.max(0, yM),
-      width,
-      height,
-      rotation: 0,
-      style: { fill: locationColorToFill(newLocColor), stroke: newLocColor, ...clonedLabelStyle },
-      z_index: 0,
-      sort_order: shapes.length,
-      created_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      deleted_at: null,
-    };
-    setShapes((prev) => [...prev, newShape]);
-    setSelectedIds([newShape.id]);
-    setIsDirty(true);
-    queryClient.invalidateQueries({ queryKey: warehouseKeys.locationsByBranch(branchId) });
   };
 
   // ── Clone a location shape ────────────────────────────────────────────────
@@ -434,25 +440,37 @@ export function MapEditor({
   const handleLayoutMetaChange = (
     patch: Partial<{ canvas_width_m: number; canvas_height_m: number }>
   ) => {
+    const previous = {
+      canvas_width_m: layout.canvas_width_m,
+      canvas_height_m: layout.canvas_height_m,
+    };
+    const requestId = ++layoutMetaRequestSeq.current;
     setLayout((prev) => ({ ...prev, ...patch }));
-    // Persist canvas size change
-    updateLayoutMut.mutate({ id: layout.id, ...patch });
+    updateLayoutMut.mutate(
+      { id: layout.id, ...patch },
+      {
+        onError: () => {
+          if (layoutMetaRequestSeq.current !== requestId) return;
+          setLayout((prev) => ({ ...prev, ...previous }));
+        },
+      }
+    );
   };
 
   // ── Publish / Unpublish ───────────────────────────────────────────────────
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (isDirty) {
       toast.info("Saving before publishing…");
-      handleSave().then(() =>
-        publishMut.mutate(layout.id, {
-          onSuccess: (updated) => setLayout((prev) => ({ ...prev, ...updated })),
-        })
-      );
-    } else {
-      publishMut.mutate(layout.id, {
-        onSuccess: (updated) => setLayout((prev) => ({ ...prev, ...updated })),
-      });
+      try {
+        await handleSave();
+      } catch {
+        return;
+      }
     }
+
+    publishMut.mutate(layout.id, {
+      onSuccess: (updated) => setLayout((prev) => ({ ...prev, ...updated })),
+    });
   };
 
   const handleUnpublish = () => {
@@ -532,7 +550,9 @@ export function MapEditor({
               size="sm"
               variant="outline"
               className="h-8 gap-1.5 text-xs"
-              onClick={() => handleSave()}
+              onClick={() => {
+                void handleSave();
+              }}
               disabled={isSaving || !isDirty}
             >
               {isSaving ? (
@@ -548,7 +568,9 @@ export function MapEditor({
             <Button
               size="sm"
               className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700"
-              onClick={handlePublish}
+              onClick={() => {
+                void handlePublish();
+              }}
               disabled={isPublishing}
             >
               {isPublishing ? (

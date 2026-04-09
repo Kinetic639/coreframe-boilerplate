@@ -234,6 +234,17 @@ export async function deleteShapeAction(rawInput: unknown) {
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
+    const shapeResult = await WarehouseLayoutShapesService.getById(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id
+    );
+    if (!shapeResult.success) return shapeResult;
+    if (!shapeResult.data) return { success: false, error: "Shape not found" };
+    if (shapeResult.data.branch_id !== auth.context.app.activeBranchId) {
+      return { success: false, error: "Shape does not belong to the active branch" };
+    }
+
     return WarehouseLayoutShapesService.softDelete(
       supabase,
       auth.context.app.activeOrgId,

@@ -38,6 +38,7 @@ vi.mock("@/server/services/warehouse-layouts.service", () => ({
 
 vi.mock("@/server/services/warehouse-layout-shapes.service", () => ({
   WarehouseLayoutShapesService: {
+    getById: vi.fn(),
     listByLayout: vi.fn(),
     batchSave: vi.fn(),
     upsertOne: vi.fn(),
@@ -323,6 +324,10 @@ describe("deleteShapeAction", () => {
 
   it("delegates to softDelete service", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext() as any);
+    vi.mocked(WarehouseLayoutShapesService.getById).mockResolvedValue({
+      success: true,
+      data: makeShape(),
+    });
     vi.mocked(WarehouseLayoutShapesService.softDelete).mockResolvedValue({
       success: true,
       data: undefined,
@@ -331,5 +336,30 @@ describe("deleteShapeAction", () => {
     const result = await deleteShapeAction({ id: SHAPE_ID });
     expect(WarehouseLayoutShapesService.softDelete).toHaveBeenCalledOnce();
     expect(result.success).toBe(true);
+  });
+
+  it("rejects deleting a shape from a different branch", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext() as any);
+    vi.mocked(WarehouseLayoutShapesService.getById).mockResolvedValue({
+      success: true,
+      data: makeShape({ branch_id: "other-branch" }),
+    });
+
+    const result = await deleteShapeAction({ id: SHAPE_ID });
+    expect(result.success).toBe(false);
+    expect((result as { error: string }).error).toContain("active branch");
+    expect(WarehouseLayoutShapesService.softDelete).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when shape is missing", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext() as any);
+    vi.mocked(WarehouseLayoutShapesService.getById).mockResolvedValue({
+      success: true,
+      data: null,
+    });
+
+    const result = await deleteShapeAction({ id: SHAPE_ID });
+    expect(result.success).toBe(false);
+    expect((result as { error: string }).error).toBe("Shape not found");
   });
 });

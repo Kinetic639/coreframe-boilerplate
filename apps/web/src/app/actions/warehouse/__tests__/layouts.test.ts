@@ -57,6 +57,7 @@ import { WarehouseLayoutsService } from "@/server/services/warehouse-layouts.ser
 import { createClient } from "@/utils/supabase/server";
 import {
   listLayoutsAction,
+  getPublishedLayoutAction,
   createLayoutAction,
   createLayoutForLocationAction,
   publishLayoutAction,
@@ -145,6 +146,34 @@ describe("listLayoutsAction", () => {
     const result = await listLayoutsAction();
     expect(result.success).toBe(true);
     expect((result as { data: unknown[] }).data).toHaveLength(1);
+  });
+});
+
+// ─── getPublishedLayoutAction ────────────────────────────────────────────────
+
+describe("getPublishedLayoutAction", () => {
+  it("rejects malformed root_location_id instead of widening to any published layout", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext() as any);
+
+    const result = await getPublishedLayoutAction({ root_location_id: "not-a-uuid" });
+    expect(result.success).toBe(false);
+  });
+
+  it("passes undefined scope through as an explicit any-layout lookup", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(makeContext() as any);
+    vi.mocked(WarehouseLayoutsService.getPublishedForScope).mockResolvedValue({
+      success: true,
+      data: null,
+    });
+
+    const result = await getPublishedLayoutAction(undefined);
+    expect(result.success).toBe(true);
+    expect(WarehouseLayoutsService.getPublishedForScope).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      BRANCH_ID,
+      undefined
+    );
   });
 });
 

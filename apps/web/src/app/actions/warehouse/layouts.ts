@@ -132,17 +132,23 @@ export async function getPublishedLayoutAction(rawInput: unknown) {
       return { success: false, error: "No active branch — select a branch to view layouts" };
     }
 
-    // Accept optional rootLocationId from input
     const publishedScopeSchema = z.object({
       root_location_id: z.string().uuid().nullable().optional(),
     });
-    const parsed = publishedScopeSchema.safeParse(rawInput);
+    const parsed =
+      rawInput === undefined
+        ? { success: true as const, data: {} }
+        : publishedScopeSchema.safeParse(rawInput);
+
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.errors[0].message };
+    }
 
     // Preserve undefined vs null distinction:
     //   undefined → no scope filter (any published layout)
     //   null      → whole-branch layout (root_location_id IS NULL)
     //   string    → specific root location scope
-    const rootLocationId = parsed.success ? parsed.data.root_location_id : undefined;
+    const rootLocationId = parsed.data.root_location_id;
 
     const supabase = await createClient();
     return WarehouseLayoutsService.getPublishedForScope(
