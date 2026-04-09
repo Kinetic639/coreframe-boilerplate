@@ -307,70 +307,36 @@ export class WarehouseLocationsService {
       return { success: false, error: error.message };
     }
 
-    // If the node's level changed, cascade the new level values to all descendants.
+    // If the node's level changed, cascade the new level values to all descendants
+    // via the DB RPC (single recursive CTE — atomic and fast).
     if (newLevel !== undefined && newLevel !== current.level) {
-      const cascadeResult = await WarehouseLocationsService.cascadeDescendantLevels(
-        supabase,
-        orgId,
-        id,
-        newLevel
-      );
-      if (cascadeResult.success === false) return { success: false, error: cascadeResult.error };
+      const { error: cascadeError } = await supabase.rpc("cascade_warehouse_location_levels", {
+        p_org_id: orgId,
+        p_parent_id: id,
+        p_parent_level: newLevel,
+      });
+      if (cascadeError) return { success: false, error: cascadeError.message };
     }
 
     return { success: true, data: data as WarehouseLocation };
   }
 
   /**
-   * Soft-delete a location by setting deleted_at.
+   * Soft-delete a location by calling the `soft_delete_warehouse_location` DB RPC.
    *
-   * Before deleting, direct children are explicitly reparented to root
-   * (parent_id = NULL, level = 0). Their descendants' levels are then cascaded
-   * so that all subtrees remain internally consistent.
-   *
-   * Note: the ON DELETE SET NULL FK on parent_id only fires for hard DELETEs —
-   * it does NOT fire for this soft-delete UPDATE. Children are reparented
-   * explicitly here to keep the DB state consistent.
+   * The RPC atomically reparents direct children to root (parent_id = NULL,
+   * level = 0), cascades corrected levels to all grandchildren, and then sets
+   * deleted_at on the target — all in one transaction.
    */
   static async softDelete(
     supabase: SupabaseClient,
     orgId: string,
     id: string
   ): Promise<ServiceResult<void>> {
-    // Step 1: Fetch direct children so we can cascade their descendants' levels.
-    const childrenResult = await WarehouseLocationsService.getChildren(supabase, orgId, id);
-    if (childrenResult.success === false) return { success: false, error: childrenResult.error };
-
-    // Step 2: Reparent direct children to root (single batch UPDATE).
-    if (childrenResult.data.length > 0) {
-      const { error: reparentError } = await supabase
-        .from("warehouse_locations")
-        .update({ parent_id: null, level: 0 })
-        .eq("organization_id", orgId)
-        .eq("parent_id", id)
-        .is("deleted_at", null);
-
-      if (reparentError) return { success: false, error: reparentError.message };
-
-      // Step 3: Cascade level=1 to grandchildren, level=2 to great-grandchildren, etc.
-      for (const child of childrenResult.data) {
-        const cascadeResult = await WarehouseLocationsService.cascadeDescendantLevels(
-          supabase,
-          orgId,
-          child.id,
-          0 // the child is now at level=0; cascade from level 0+1=1 downward
-        );
-        if (cascadeResult.success === false) return { success: false, error: cascadeResult.error };
-      }
-    }
-
-    // Step 4: Soft-delete the location.
-    const { error } = await supabase
-      .from("warehouse_locations")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
+    const { error } = await supabase.rpc("soft_delete_warehouse_location", {
+      p_org_id: orgId,
+      p_location_id: id,
+    });
 
     if (error) return { success: false, error: error.message };
     return { success: true, data: undefined };
@@ -435,46 +401,5 @@ export class WarehouseLocationsService {
     }
 
     return { success: true, data: false };
-  }
-
-  /**
-   * Recursively update the `level` field for all active descendants of `parentId`.
-   *
-   * Each child's level is set to parentLevel + 1. The update recurses depth-first.
-   * Nodes whose level is already correct are still updated to keep the operation
-   * idempotent and simple; the extra writes are cheap for typical tree sizes.
-   */
-  private static async cascadeDescendantLevels(
-    supabase: SupabaseClient,
-    orgId: string,
-    parentId: string,
-    parentLevel: number
-  ): Promise<ServiceResult<void>> {
-    const childrenResult = await WarehouseLocationsService.getChildren(supabase, orgId, parentId);
-    if (childrenResult.success === false) return { success: false, error: childrenResult.error };
-    if (childrenResult.data.length === 0) return { success: true, data: undefined };
-
-    const childLevel = parentLevel + 1;
-
-    for (const child of childrenResult.data) {
-      const { error } = await supabase
-        .from("warehouse_locations")
-        .update({ level: childLevel })
-        .eq("id", child.id)
-        .eq("organization_id", orgId)
-        .is("deleted_at", null);
-
-      if (error) return { success: false, error: error.message };
-
-      const sub = await WarehouseLocationsService.cascadeDescendantLevels(
-        supabase,
-        orgId,
-        child.id,
-        childLevel
-      );
-      if (sub.success === false) return { success: false, error: sub.error };
-    }
-
-    return { success: true, data: undefined };
   }
 }

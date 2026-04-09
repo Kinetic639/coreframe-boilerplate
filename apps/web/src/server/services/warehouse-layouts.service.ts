@@ -150,9 +150,9 @@ export class WarehouseLayoutsService {
       .is("deleted_at", null);
 
     if (rootLocationId === undefined) {
-      // No scope filter — return any published layout for this branch.
-      // Limit to 1 to avoid maybeSingle() failing when multiple layouts are published.
-      query = query.limit(1);
+      // No scope filter — return the most recently published layout for this branch.
+      // Order by published_at DESC + limit(1) for deterministic results.
+      query = query.order("published_at", { ascending: false }).limit(1);
     } else if (rootLocationId === null) {
       query = query.is("root_location_id", null);
     } else {
@@ -276,8 +276,9 @@ export class WarehouseLayoutsService {
   }
 
   /**
-   * Revert a published layout back to draft.
-   * Does not affect any other layouts for the scope.
+   * Revert a published layout back to draft via the DB RPC.
+   * The RPC re-validates warehouse.layouts.publish before executing the UPDATE
+   * (SECURITY INVOKER — same gate as publish, NOT manage).
    */
   static async unpublish(
     supabase: SupabaseClient,
@@ -285,17 +286,70 @@ export class WarehouseLayoutsService {
     layoutId: string,
     userId: string
   ): Promise<ServiceResult<WarehouseLayout>> {
-    const { data, error } = await supabase
-      .from("warehouse_layouts")
-      .update({ status: "draft", updated_by: userId })
-      .eq("id", layoutId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null)
-      .select(LAYOUT_COLUMNS)
-      .single();
+    const { error: rpcError } = await supabase.rpc("unpublish_warehouse_layout", {
+      p_layout_id: layoutId,
+      p_user_id: userId,
+    });
 
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data as WarehouseLayout };
+    if (rpcError) {
+      const msg = rpcError.message ?? "";
+      if (msg.includes("layout_not_found")) return { success: false, error: "Layout not found" };
+      if (msg.includes("insufficient_permission"))
+        return { success: false, error: "You do not have permission to unpublish layouts" };
+      return { success: false, error: rpcError.message };
+    }
+
+    const result = await WarehouseLayoutsService.getById(supabase, orgId, layoutId);
+    if (!result.success) return result;
+    if (!result.data) return { success: false, error: "Layout not found after unpublish" };
+    return { success: true, data: result.data };
+  }
+
+  /**
+   * Atomically create a root warehouse_location and a linked warehouse_layout
+   * in one DB transaction via the `create_warehouse_layout_with_root` RPC.
+   * Eliminates the orphan-location risk of the two-step TypeScript approach.
+   *
+   * Returns the newly-created layout (fetched after the RPC succeeds).
+   */
+  static async createWithRootLocation(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    userId: string,
+    input: {
+      name: string;
+      description?: string | null;
+      root_location_code: string;
+      canvas_width_m?: number;
+      canvas_height_m?: number;
+    }
+  ): Promise<ServiceResult<WarehouseLayout>> {
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      "create_warehouse_layout_with_root",
+      {
+        p_org_id: orgId,
+        p_branch_id: branchId,
+        p_user_id: userId,
+        p_layout_name: input.name.trim(),
+        p_layout_description: input.description ?? null,
+        p_root_loc_code: input.root_location_code,
+        p_canvas_width_m: input.canvas_width_m ?? 50,
+        p_canvas_height_m: input.canvas_height_m ?? 30,
+      }
+    );
+
+    if (rpcError) return { success: false, error: rpcError.message };
+
+    // The RPC returns TABLE(layout_id UUID, root_location_id UUID).
+    // Supabase returns this as an array with one row.
+    const row = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    if (!row?.layout_id) return { success: false, error: "RPC returned no layout_id" };
+
+    const result = await WarehouseLayoutsService.getById(supabase, orgId, row.layout_id as string);
+    if (!result.success) return result;
+    if (!result.data) return { success: false, error: "Layout not found after creation" };
+    return { success: true, data: result.data };
   }
 
   /**

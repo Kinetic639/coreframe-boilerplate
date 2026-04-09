@@ -5,7 +5,6 @@ import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-conte
 import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { WarehouseLayoutsService } from "@/server/services/warehouse-layouts.service";
-import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { eventService } from "@/server/services/event.service";
 import { MODULE_WAREHOUSE } from "@/lib/constants/modules";
 import {
@@ -186,30 +185,21 @@ export async function createLayoutAction(rawInput: unknown) {
     const orgId = auth.context.app.activeOrgId;
     const branchId = auth.context.app.activeBranchId;
 
-    // Auto-create a root warehouse_location for this layout.
-    // The layout represents the physical space; its root location is the
-    // top-level entry in the locations hierarchy (e.g. "Main Warehouse").
-    // All storage locations added via the canvas editor will be nested under it.
-    const { root_location_code, ...layoutInput } = parsed.data;
-
-    const rootLocResult = await WarehouseLocationsService.create(
+    // Atomically create the root warehouse_location + layout in one DB transaction.
+    // If the layout INSERT fails the location INSERT is rolled back — no orphan locations.
+    const result = await WarehouseLayoutsService.createWithRootLocation(
       supabase,
       orgId,
       branchId,
-      { name: parsed.data.name, code: root_location_code, color: "#10b981" },
-      userId
+      userId,
+      {
+        name: parsed.data.name,
+        description: parsed.data.description,
+        root_location_code: parsed.data.root_location_code,
+        canvas_width_m: parsed.data.canvas_width_m,
+        canvas_height_m: parsed.data.canvas_height_m,
+      }
     );
-    if (!rootLocResult.success) {
-      return {
-        success: false,
-        error: `Failed to create root location: ${(rootLocResult as { error: string }).error}`,
-      };
-    }
-
-    const result = await WarehouseLayoutsService.create(supabase, orgId, branchId, userId, {
-      ...(layoutInput as import("@/server/services/warehouse-layouts.service").CreateLayoutInput),
-      root_location_id: rootLocResult.data.id,
-    });
 
     if (result.success) {
       await eventService
@@ -261,20 +251,33 @@ export async function createLayoutForLocationAction(rawInput: unknown) {
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
+    const orgId = auth.context.app.activeOrgId;
+    const branchId = auth.context.app.activeBranchId;
 
-    const result = await WarehouseLayoutsService.create(
-      supabase,
-      auth.context.app.activeOrgId,
-      auth.context.app.activeBranchId,
-      userId,
-      {
-        name: parsed.data.name,
-        description: parsed.data.description,
-        root_location_id: parsed.data.location_id,
-        canvas_width_m: parsed.data.canvas_width_m,
-        canvas_height_m: parsed.data.canvas_height_m,
-      }
-    );
+    // Validate the root_location_id belongs to the active branch (cross-branch guard).
+    const { data: locRow, error: locErr } = await supabase
+      .from("warehouse_locations")
+      .select("id")
+      .eq("id", parsed.data.location_id)
+      .eq("organization_id", orgId)
+      .eq("branch_id", branchId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (locErr) return { success: false, error: locErr.message };
+    if (!locRow)
+      return {
+        success: false,
+        error: "Location not found or does not belong to the active branch",
+      };
+
+    const result = await WarehouseLayoutsService.create(supabase, orgId, branchId, userId, {
+      name: parsed.data.name,
+      description: parsed.data.description,
+      root_location_id: parsed.data.location_id,
+      canvas_width_m: parsed.data.canvas_width_m,
+      canvas_height_m: parsed.data.canvas_height_m,
+    });
 
     if (result.success) {
       await eventService

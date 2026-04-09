@@ -65,13 +65,14 @@ export class WarehouseLayoutShapesService {
   /**
    * Batch save — the primary editor save operation.
    *
-   * Treats the input array as the canonical active shape state for the layout:
-   * - Shapes in DB but NOT in the input list are soft-deleted
-   * - Shapes in the input list are upserted (insert new, update existing)
+   * Delegates to the `batch_save_warehouse_layout_shapes` DB RPC which runs the
+   * full replace-active-shapes operation in a single transaction:
+   *   1. Validates all location_ids belong to the same org+branch
+   *   2. Soft-deletes shapes present in DB but absent from the input list
+   *   3. Upserts all shapes in the input list (insert new, update existing,
+   *      restore previously soft-deleted shapes re-added with the same id)
    *
    * Each shape in the input must carry a client-generated UUID as `id`.
-   * org_id and branch_id are copied from the parent layout — not accepted in input.
-   *
    * Returns the full active shape list after the operation.
    */
   static async batchSave(
@@ -82,72 +83,33 @@ export class WarehouseLayoutShapesService {
     userId: string,
     shapes: ShapeUpsertInput[]
   ): Promise<ServiceResult<WarehouseLayoutShape[]>> {
-    // 1. Fetch all currently active shape IDs for this layout
-    const { data: existing, error: fetchError } = await supabase
-      .from("warehouse_layout_shapes")
-      .select("id")
-      .eq("layout_id", layoutId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
+    const { data, error } = await supabase.rpc("batch_save_warehouse_layout_shapes", {
+      p_layout_id: layoutId,
+      p_org_id: orgId,
+      p_branch_id: branchId,
+      p_user_id: userId,
+      p_shapes: shapes as unknown as object,
+    });
 
-    if (fetchError) return { success: false, error: fetchError.message };
-
-    const inputIds = new Set(shapes.map((s) => s.id));
-    const idsToDelete = (existing ?? [])
-      .map((r) => r.id as string)
-      .filter((id) => !inputIds.has(id));
-
-    // 2. Soft-delete shapes removed from the canvas
-    if (idsToDelete.length > 0) {
-      const { error: deleteError } = await supabase
-        .from("warehouse_layout_shapes")
-        .update({ deleted_at: new Date().toISOString() })
-        .in("id", idsToDelete)
-        .eq("organization_id", orgId)
-        .is("deleted_at", null);
-
-      if (deleteError) return { success: false, error: deleteError.message };
+    if (error) {
+      const msg = error.message ?? "";
+      if (msg.includes("layout_not_found"))
+        return { success: false, error: "Layout not found or does not belong to this branch" };
+      if (msg.includes("invalid_location_id"))
+        return {
+          success: false,
+          error: "One or more shapes reference a location from a different branch",
+        };
+      return { success: false, error: error.message };
     }
 
-    // 3. Upsert active shapes. Each row carries the full current state from the editor.
-    if (shapes.length > 0) {
-      const rows = shapes.map((s, idx) => ({
-        id: s.id,
-        layout_id: layoutId,
-        organization_id: orgId,
-        branch_id: branchId,
-        shape_type: s.shape_type,
-        location_id: s.location_id ?? null,
-        label: s.label ?? null,
-        x: s.x,
-        y: s.y,
-        width: s.width,
-        height: s.height,
-        rotation: s.rotation,
-        style: s.style ?? null,
-        z_index: s.z_index ?? 0,
-        sort_order: s.sort_order ?? idx,
-        created_by: userId,
-        // deleted_at must be NULL on upsert to restore any previously soft-deleted shape
-        // that was re-added to the canvas with the same ID.
-        deleted_at: null,
-      }));
-
-      const { error: upsertError } = await supabase.from("warehouse_layout_shapes").upsert(rows, {
-        onConflict: "id",
-        ignoreDuplicates: false,
-      });
-
-      if (upsertError) return { success: false, error: upsertError.message };
-    }
-
-    // 4. Return the fresh active shape list
-    return WarehouseLayoutShapesService.listByLayout(supabase, orgId, layoutId);
+    return { success: true, data: (data ?? []) as WarehouseLayoutShape[] };
   }
 
   /**
    * Upsert a single shape (for incremental saves, e.g. after a single drag-end).
    * org_id and branch_id must be supplied by the caller (copied from the layout).
+   * If the shape links a location_id, validates it belongs to the same org+branch.
    */
   static async upsertOne(
     supabase: SupabaseClient,
@@ -157,6 +119,25 @@ export class WarehouseLayoutShapesService {
     userId: string,
     shape: ShapeUpsertInput
   ): Promise<ServiceResult<WarehouseLayoutShape>> {
+    // Validate location_id cross-branch before any write
+    if (shape.location_id) {
+      const { data: loc, error: locErr } = await supabase
+        .from("warehouse_locations")
+        .select("id")
+        .eq("id", shape.location_id)
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (locErr) return { success: false, error: locErr.message };
+      if (!loc)
+        return {
+          success: false,
+          error: "location_id does not belong to this org/branch",
+        };
+    }
+
     const { data, error } = await supabase
       .from("warehouse_layout_shapes")
       .upsert(
