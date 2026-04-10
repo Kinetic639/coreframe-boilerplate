@@ -22,6 +22,8 @@ interface UiStoreV2State {
   // Transient (not persisted)
   _syncVersion: number; // Counter for change detection (future auto-sync)
   _hasHydrated: boolean; // True after Zustand hydrates from localStorage
+  /** When true, DashboardShell removes padding/scroll from <main> for full-screen pages */
+  flushContent: boolean;
 }
 
 interface UiStoreV2Actions {
@@ -29,6 +31,7 @@ interface UiStoreV2Actions {
   setSidebarCollapsed: (collapsed: boolean) => void;
   setTheme: (theme: Theme) => void;
   setColorTheme: (colorTheme: string) => void;
+  setFlushContent: (flush: boolean) => void;
 
   /** Called by onRehydrateStorage when localStorage is loaded */
   _setHasHydrated: (v: boolean) => void;
@@ -67,6 +70,7 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
       _lastLocalChangeAt: null,
       _syncVersion: 0,
       _hasHydrated: false,
+      flushContent: false,
 
       _setHasHydrated: (v) => set({ _hasHydrated: v }),
 
@@ -97,6 +101,8 @@ export const useUiStoreV2 = create<UiStoreV2State & UiStoreV2Actions>()(
           _lastLocalChangeAt: new Date().toISOString(),
           _syncVersion: state._syncVersion + 1,
         })),
+
+      setFlushContent: (flush) => set({ flushContent: flush }),
 
       resetToDefaults: () =>
         set((state) => ({

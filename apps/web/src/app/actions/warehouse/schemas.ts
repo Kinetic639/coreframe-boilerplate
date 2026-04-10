@@ -31,6 +31,7 @@ export const createLocationSchema = z.object({
   icon_name: z.string().max(50, "Icon name must be 50 characters or fewer").nullable().optional(),
   color: hexColorSchema,
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
+  group_id: z.string().uuid("Invalid group").nullable().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 
@@ -42,8 +43,47 @@ export const updateLocationSchema = z.object({
   icon_name: z.string().max(50).nullable().optional(),
   color: hexColorSchema,
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
+  group_id: z.string().uuid("Invalid group").nullable().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
+
+// ─── Location group schemas ───────────────────────────────────────────────────
+
+export const createLocationGroupSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or fewer"),
+  description: z
+    .string()
+    .max(500, "Description must be 500 characters or fewer")
+    .nullable()
+    .optional(),
+  color: hexColorSchema,
+  sort_order: z.number().int().min(0).optional(),
+  parent_location_id: z.string().uuid("Invalid parent location").nullable().optional(),
+});
+
+export const updateLocationGroupSchema = z.object({
+  id: z.string().uuid("Invalid group id"),
+  name: z.string().min(1, "Name is required").max(100).optional(),
+  description: z.string().max(500).nullable().optional(),
+  color: hexColorSchema,
+  sort_order: z.number().int().min(0).optional(),
+  parent_location_id: z.string().uuid("Invalid parent location").nullable().optional(),
+});
+
+export const deleteLocationGroupSchema = z.object({
+  id: z.string().uuid("Invalid group id"),
+});
+
+export const reorderGroupsSchema = z.object({
+  items: z
+    .array(z.object({ id: z.string().uuid(), sort_order: z.number().int().min(0) }))
+    .min(1)
+    .max(200),
+});
+export type ReorderGroupsInput = z.infer<typeof reorderGroupsSchema>;
+
+export type CreateLocationGroupInput = z.infer<typeof createLocationGroupSchema>;
+export type UpdateLocationGroupInput = z.infer<typeof updateLocationGroupSchema>;
 
 export const deleteLocationSchema = z.object({
   id: z.string().uuid("Invalid location id"),

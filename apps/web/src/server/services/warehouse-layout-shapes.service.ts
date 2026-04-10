@@ -124,7 +124,8 @@ export class WarehouseLayoutShapesService {
       if (msg.includes("invalid_location_id"))
         return {
           success: false,
-          error: "One or more shapes reference a location from a different branch",
+          error:
+            "One or more shapes reference a deleted or inaccessible location. Please remove those shapes and try again.",
         };
       return { success: false, error: error.message };
     }

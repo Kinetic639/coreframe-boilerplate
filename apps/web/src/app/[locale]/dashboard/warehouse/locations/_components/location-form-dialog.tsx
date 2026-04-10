@@ -25,6 +25,7 @@ import {
 import { createLocationSchema, updateLocationSchema } from "@/app/actions/warehouse/schemas";
 import type { CreateLocationInput, UpdateLocationInput } from "@/app/actions/warehouse/schemas";
 import type { WarehouseLocation } from "@/server/services/warehouse-locations.service";
+import type { WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,8 @@ interface LocationFormDialogProps {
   location?: WarehouseLocation | null;
   /** Flat list of locations available as parents (excludes the location being edited) */
   availableParents: WarehouseLocation[];
+  /** Available groups for assignment */
+  availableGroups?: WarehouseLocationGroup[];
   onSubmit: (data: CreateLocationInput | (UpdateLocationInput & { id: string })) => void;
   isPending: boolean;
 }
@@ -50,6 +53,7 @@ export function LocationFormDialog({
   onOpenChange,
   location,
   availableParents,
+  availableGroups = [],
   onSubmit,
   isPending,
 }: LocationFormDialogProps) {
@@ -75,6 +79,7 @@ export function LocationFormDialog({
       icon_name: null,
       color: null,
       parent_id: null,
+      group_id: null,
       sort_order: 0,
     },
   });
@@ -89,6 +94,7 @@ export function LocationFormDialog({
         icon_name: location.icon_name ?? null,
         color: location.color ?? null,
         parent_id: location.parent_id ?? null,
+        group_id: location.group_id ?? null,
         sort_order: location.sort_order,
       });
     } else if (open && !location) {
@@ -99,6 +105,7 @@ export function LocationFormDialog({
         icon_name: null,
         color: null,
         parent_id: null,
+        group_id: null,
         sort_order: 0,
       });
     }
@@ -113,6 +120,7 @@ export function LocationFormDialog({
   }
 
   const selectedParentId = watch("parent_id");
+  const selectedGroupId = watch("group_id");
   const colorValue = watch("color");
   // Use a sensible default for the color picker display
   const colorPickerValue =
@@ -169,6 +177,29 @@ export function LocationFormDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Group */}
+          {availableGroups.length > 0 && (
+            <div className="space-y-1">
+              <Label>{t("fields.group")}</Label>
+              <Select
+                value={selectedGroupId ?? "__none__"}
+                onValueChange={(val) => setValue("group_id", val === "__none__" ? null : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("placeholders.noGroup")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t("fields.groupNone")}</SelectItem>
+                  {availableGroups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Color */}
           <div className="space-y-1">

@@ -516,7 +516,10 @@
     },
     "deleteDialog": {
       "title": "Delete location?",
-      "description": "<name></name> will be soft-deleted. Any child locations will become root-level locations."
+      "description": "<name></name> will be soft-deleted. Any child locations will become root-level locations.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
     },
     "form": {
       "titleCreate": "Create Location",
@@ -528,12 +531,46 @@
         "parentNone": "None (root location)",
         "color": "Color",
         "noColor": "No color",
-        "description": "Description"
+        "description": "Description",
+        "group": "Group",
+        "groupNone": "None (ungrouped)"
       },
       "placeholders": {
         "name": "e.g. Aisle A, Shelf 1",
         "code": "e.g. A-01 (optional)",
         "noParent": "None (root location)",
+        "noGroup": "No group",
+        "description": "Optional description"
+      },
+      "actions": {
+        "clearColor": "Clear",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveChanges": "Save Changes",
+        "create": "Create"
+      }
+    },
+    "groups": {
+      "createGroup": "Create Group",
+      "editGroup": "Edit group",
+      "deleteGroup": "Delete group",
+      "addLocation": "Add location to group",
+      "emptyGroup": "No locations in this group yet.",
+      "ungrouped": "Ungrouped",
+      "deleteGroupTitle": "Delete group?",
+      "deleteGroupDescription": "{name} will be deleted. Member locations will become ungrouped."
+    },
+    "groupForm": {
+      "titleCreate": "Create Group",
+      "titleEdit": "Edit Group",
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "color": "Color",
+        "noColor": "No color"
+      },
+      "placeholders": {
+        "name": "e.g. Rack R1, Shelf Row A",
         "description": "Optional description"
       },
       "actions": {
@@ -681,7 +718,8 @@
     },
     "states": {
       "noLocations": "No locations yet. Drop a Location tile onto the canvas to create storage units.",
-      "allPlaced": "All locations are placed on this layout."
+      "allPlaced": "All locations are placed on this layout.",
+      "emptyGroup": "Empty group"
     },
     "indicators": {
       "placedOnCanvas": "Placed on canvas"
@@ -689,11 +727,16 @@
     "actions": {
       "cancel": "Cancel",
       "delete": "Delete",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "ungroup": "Remove from group"
     },
     "deleteDialog": {
       "title": "Delete location?",
       "description": "{name} will be permanently deleted and removed from all layouts. This cannot be undone."
+    },
+    "deleteGroupDialog": {
+      "title": "Delete group?",
+      "description": "{name} will be deleted. Member locations will become ungrouped."
     }
   },
   "warehouseMapPreview": {
@@ -808,6 +851,13 @@
     "locationDeleted": "Location deleted",
     "locationDeleteFailed": "Failed to delete location",
     "locationReorderFailed": "Failed to reorder locations",
+    "locationGroupCreated": "Group created",
+    "locationGroupCreateFailed": "Failed to create group",
+    "locationGroupUpdated": "Group updated",
+    "locationGroupUpdateFailed": "Failed to update group",
+    "locationGroupDeleted": "Group deleted",
+    "locationGroupDeleteFailed": "Failed to delete group",
+    "locationGroupReorderFailed": "Failed to reorder groups",
     "layoutCreated": "Layout created",
     "layoutCreateFailed": "Failed to create layout",
     "layoutUpdateFailed": "Failed to update layout",

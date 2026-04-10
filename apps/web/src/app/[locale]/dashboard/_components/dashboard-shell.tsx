@@ -402,6 +402,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
   const sidebarCollapsed = useUiStoreV2((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStoreV2((s) => s.setSidebarCollapsed);
+  const flushContent = useUiStoreV2((s) => s.flushContent);
 
   const handleSidebarOpenChange = (open: boolean) => {
     setSidebarCollapsed(!open);
@@ -417,7 +418,13 @@ export function DashboardShell({
       />
       <SidebarInset className="flex flex-col">
         <DashboardHeaderV2 />
-        <main className="flex-1 overflow-auto p-4 pb-12">{children}</main>
+        <main
+          className={
+            flushContent ? "flex flex-col flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 pb-12"
+          }
+        >
+          {children}
+        </main>
         <DashboardStatusBar initialLatestEvent={initialLatestEvent} />
       </SidebarInset>
     </SidebarProvider>

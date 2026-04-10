@@ -14,6 +14,9 @@ import {
   ChevronRight,
   Trash2,
   GripVertical,
+  Layers,
+  FolderOpen,
+  X,
 } from "lucide-react";
 import {
   DndContext,
@@ -25,6 +28,7 @@ import {
   useSensors,
   type DragEndEvent,
   type DragStartEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -47,8 +51,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { ShapeType } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
-import { useDeleteLocationMutation, useReorderLocationsMutation } from "@/hooks/queries/warehouse";
+import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
+import {
+  useDeleteLocationMutation,
+  useDeleteLocationGroupMutation,
+  useReorderLocationsMutation,
+  useWarehouseLocationGroupsQuery,
+  useReorderGroupsMutation,
+  useUpdateLocationMutation,
+} from "@/hooks/queries/warehouse";
 import { cn } from "@/lib/utils";
 
 // ─── Shape palette ────────────────────────────────────────────────────────────
@@ -190,43 +201,409 @@ function DragPreview({ location }: { location: WarehouseLocation }) {
   );
 }
 
-// ─── Sortable tree node ───────────────────────────────────────────────────────
+// ─── Toolbox context ──────────────────────────────────────────────────────────
 
-function SortableTreeNode({
-  location,
-  allLocations,
-  placedLocationIds,
-  onSelect,
+interface ToolboxCtx {
+  allLocations: WarehouseLocation[];
+  groups: WarehouseLocationGroup[];
+  placedLocationIds: Set<string>;
+  canManage: boolean;
+  onSelect: (id: string) => void;
+  onReorderSiblings: (parentId: string | null, items: { id: string; sort_order: number }[]) => void;
+  onReorderGroups: (items: { id: string; sort_order: number }[]) => void;
+  onAssignToGroup: (locationId: string, groupId: string) => void;
+  onUngroup: (locationId: string) => void;
+  onDeleteGroup: (group: WarehouseLocationGroup) => void;
+  t: ReturnType<typeof useTranslations>;
+}
+
+// ─── SortableNodeWrapper ──────────────────────────────────────────────────────
+
+function SortableNodeWrapper({
+  id,
+  dataType,
+  children,
+}: {
+  id: string;
+  dataType: "group" | "location";
+  children: (dragHandleProps: React.HTMLAttributes<HTMLButtonElement>) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    data: { type: dataType },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        position: "relative",
+        zIndex: isDragging ? 10 : undefined,
+      }}
+    >
+      {children({ ...attributes, ...listeners } as React.HTMLAttributes<HTMLButtonElement>)}
+    </div>
+  );
+}
+
+// ─── ToolboxGroupSection ──────────────────────────────────────────────────────
+
+function ToolboxGroupSection({
+  group,
+  members,
   depth,
-  t,
+  ctx,
+  isDropTarget,
+  dragHandleProps,
+}: {
+  group: WarehouseLocationGroup;
+  members: WarehouseLocation[];
+  depth: number;
+  ctx: ToolboxCtx;
+  isDropTarget: boolean;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+}) {
+  const [expanded, setExpanded] = React.useState(true);
+  const [memberActiveId, setMemberActiveId] = React.useState<string | null>(null);
+  const indent = 6 + depth * 14;
+
+  const memberSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleMemberDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setMemberActiveId(null);
+    if (!over || active.id === over.id) return;
+    const oldIdx = members.findIndex((m) => m.id === (active.id as string));
+    const newIdx = members.findIndex((m) => m.id === (over.id as string));
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(members, oldIdx, newIdx);
+    ctx.onReorderSiblings(
+      members[0]?.parent_id ?? null,
+      reordered.map((m, i) => ({ id: m.id, sort_order: i }))
+    );
+  }
+
+  const activeMember = memberActiveId ? members.find((m) => m.id === memberActiveId) : null;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "group/grp flex items-center gap-1 py-1.5 pr-2 transition-colors",
+          isDropTarget
+            ? "bg-emerald-50 dark:bg-emerald-950/30 ring-2 ring-inset ring-emerald-400"
+            : "bg-muted/30 hover:bg-muted/50"
+        )}
+        style={{ paddingLeft: indent }}
+      >
+        {/* drag handle */}
+        {dragHandleProps && ctx.canManage && (
+          <button
+            type="button"
+            {...dragHandleProps}
+            className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 group-hover/grp:text-muted-foreground transition-colors"
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+          >
+            <GripVertical className="w-3 h-3" />
+          </button>
+        )}
+
+        {/* expand toggle */}
+        <button
+          type="button"
+          className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+
+        {group.color ? (
+          <div
+            className="w-2 h-2 rounded-full shrink-0 border"
+            style={{ backgroundColor: group.color }}
+          />
+        ) : (
+          <Layers className="w-3 h-3 shrink-0 text-muted-foreground/60" />
+        )}
+
+        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
+          {group.name}
+        </span>
+        <span className="text-[9px] text-muted-foreground shrink-0 mr-1">{members.length}</span>
+
+        {ctx.canManage && (
+          <button
+            type="button"
+            className="shrink-0 opacity-0 group-hover/grp:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground/50 hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onDeleteGroup(group);
+            }}
+            tabIndex={-1}
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {expanded &&
+        (members.length === 0 ? (
+          <div
+            className="flex items-center gap-1 py-1.5 text-[10px] text-muted-foreground italic"
+            style={{ paddingLeft: indent + 20 }}
+          >
+            <FolderOpen className="w-3 h-3 shrink-0" />
+            {ctx.t("states.emptyGroup")}
+          </div>
+        ) : (
+          <DndContext
+            sensors={memberSensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragStart={(e) => setMemberActiveId(e.active.id as string)}
+            onDragEnd={handleMemberDragEnd}
+          >
+            <SortableContext
+              items={members.map((m) => m.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {members.map((member) => (
+                <SortableNodeWrapper key={member.id} id={member.id} dataType="location">
+                  {(handle) => (
+                    <ToolboxLocationRow
+                      location={member}
+                      depth={depth + 1}
+                      ctx={ctx}
+                      dragHandleProps={handle}
+                      onUngroup={() => ctx.onUngroup(member.id)}
+                    />
+                  )}
+                </SortableNodeWrapper>
+              ))}
+            </SortableContext>
+
+            <DragOverlay dropAnimation={null}>
+              {activeMember && <DragPreview location={activeMember} />}
+            </DragOverlay>
+          </DndContext>
+        ))}
+    </>
+  );
+}
+
+// ─── ToolboxChildrenList ──────────────────────────────────────────────────────
+//
+// Renders a location's direct children + inline groups. parentId may be null
+// for the root level (locations with parent_id = null).
+// Each ToolboxChildrenList has its own DnD context for reordering and
+// drop-to-group.
+
+function ToolboxChildrenList({
+  parentId,
+  ctx,
+  depth,
+}: {
+  parentId: string | null;
+  ctx: ToolboxCtx;
+  depth: number;
+}) {
+  const [localActiveId, setLocalActiveId] = React.useState<string | null>(null);
+  const [dropTargetGroupId, setDropTargetGroupId] = React.useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const myGroups = ctx.groups
+    .filter((g) => g.parent_location_id === parentId)
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+
+  const knownGroupIds = new Set(myGroups.map((g) => g.id));
+
+  const children = ctx.allLocations
+    .filter((l) => l.parent_id === parentId)
+    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+
+  const groupedChildIds = new Set(
+    children.filter((c) => c.group_id && knownGroupIds.has(c.group_id)).map((c) => c.id)
+  );
+
+  const ungroupedChildren = children.filter((c) => !groupedChildIds.has(c.id));
+
+  type Item = { kind: "group"; g: WarehouseLocationGroup } | { kind: "loc"; l: WarehouseLocation };
+
+  const items: Item[] = [
+    ...myGroups.map((g) => ({ kind: "group" as const, g })),
+    ...ungroupedChildren.map((l) => ({ kind: "loc" as const, l })),
+  ].sort((a, b) => {
+    const ao = a.kind === "group" ? a.g.sort_order : a.l.sort_order;
+    const bo = b.kind === "group" ? b.g.sort_order : b.l.sort_order;
+    return ao - bo;
+  });
+
+  const allIds = items.map((item) => (item.kind === "group" ? item.g.id : item.l.id));
+
+  function handleDragStart(e: DragStartEvent) {
+    setLocalActiveId(e.active.id as string);
+  }
+
+  function handleDragOver(e: DragOverEvent) {
+    const overId = e.over?.id as string | undefined;
+    // Use the sortable item's data.type to detect groups — avoids searching arrays
+    const overType = (e.over?.data.current as { type?: string } | null)?.type;
+    if (!overId || !localActiveId) {
+      setDropTargetGroupId(null);
+      return;
+    }
+    const activeIsUngrouped = ungroupedChildren.some((l) => l.id === localActiveId);
+    setDropTargetGroupId(activeIsUngrouped && overType === "group" ? overId : null);
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    setLocalActiveId(null);
+    setDropTargetGroupId(null);
+    if (!over || active.id === over.id) return;
+
+    const activeStr = active.id as string;
+    const overStr = over.id as string;
+    // Read the final drop target's type from its sortable data
+    const overType = (over.data.current as { type?: string } | null)?.type;
+
+    const activeIsGroup = myGroups.some((g) => g.id === activeStr);
+    const activeIsUngrouped = ungroupedChildren.some((l) => l.id === activeStr);
+
+    // Ungrouped location dropped directly onto a group header → assign to group
+    if (activeIsUngrouped && overType === "group") {
+      ctx.onAssignToGroup(activeStr, overStr);
+      return;
+    }
+
+    // All other drag operations (group↔group, group↔location, location↔location):
+    // unified positional reorder. Sort-orders for groups and locations live in the
+    // same numeric space so they interleave correctly after this update.
+    if (!activeIsGroup && !activeIsUngrouped) return;
+
+    const oldIdx = items.findIndex((item) =>
+      item.kind === "group" ? item.g.id === activeStr : item.l.id === activeStr
+    );
+    const newIdx = items.findIndex((item) =>
+      item.kind === "group" ? item.g.id === overStr : item.l.id === overStr
+    );
+    if (oldIdx === -1 || newIdx === -1) return;
+
+    const reordered = arrayMove(items, oldIdx, newIdx);
+
+    const groupUpdates = reordered.flatMap((item, i) =>
+      item.kind === "group" ? [{ id: item.g.id, sort_order: i }] : []
+    );
+    const locationUpdates = reordered.flatMap((item, i) =>
+      item.kind === "loc" ? [{ id: item.l.id, sort_order: i }] : []
+    );
+
+    if (groupUpdates.length > 0) ctx.onReorderGroups(groupUpdates);
+    if (locationUpdates.length > 0) ctx.onReorderSiblings(parentId, locationUpdates);
+  }
+
+  const activeItem = localActiveId
+    ? items.find((item) =>
+        item.kind === "group" ? item.g.id === localActiveId : item.l.id === localActiveId
+      )
+    : null;
+
+  if (items.length === 0) return null;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      modifiers={[restrictToVerticalAxis]}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={allIds} strategy={verticalListSortingStrategy}>
+        {items.map((item) =>
+          item.kind === "group" ? (
+            <SortableNodeWrapper key={item.g.id} id={item.g.id} dataType="group">
+              {(handle) => (
+                <ToolboxGroupSection
+                  group={item.g}
+                  members={children
+                    .filter((c) => c.group_id === item.g.id)
+                    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))}
+                  depth={depth}
+                  ctx={ctx}
+                  isDropTarget={dropTargetGroupId === item.g.id}
+                  dragHandleProps={handle}
+                />
+              )}
+            </SortableNodeWrapper>
+          ) : (
+            <SortableNodeWrapper key={item.l.id} id={item.l.id} dataType="location">
+              {(handle) => (
+                <ToolboxLocationRow
+                  location={item.l}
+                  depth={depth}
+                  ctx={ctx}
+                  dragHandleProps={handle}
+                />
+              )}
+            </SortableNodeWrapper>
+          )
+        )}
+      </SortableContext>
+
+      <DragOverlay dropAnimation={null}>
+        {activeItem &&
+          (activeItem.kind === "group" ? (
+            <div className="flex items-center gap-1.5 rounded-md border bg-muted/80 shadow-lg px-2 py-1 text-[10px] font-semibold uppercase tracking-wide w-48 opacity-90">
+              <Layers className="w-3 h-3 text-muted-foreground shrink-0" />
+              <span className="truncate">{activeItem.g.name}</span>
+            </div>
+          ) : (
+            <DragPreview location={activeItem.l} />
+          ))}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+// ─── ToolboxLocationRow ───────────────────────────────────────────────────────
+
+function ToolboxLocationRow({
+  location,
+  depth,
+  ctx,
+  dragHandleProps,
+  onUngroup,
 }: {
   location: WarehouseLocation;
-  allLocations: WarehouseLocation[];
-  placedLocationIds: Set<string>;
-  onSelect: (id: string) => void;
   depth: number;
-  t: ReturnType<typeof useTranslations>;
+  ctx: ToolboxCtx;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
+  onUngroup?: () => void;
 }) {
   const [expanded, setExpanded] = React.useState(true);
 
-  const children = allLocations
-    .filter((l) => l.parent_id === location.id)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
-
-  const isPlaced = placedLocationIds.has(location.id);
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: location.id,
-  });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.35 : 1,
-  };
+  const children = ctx.allLocations.filter((l) => l.parent_id === location.id);
+  const myGroups = ctx.groups.filter((g) => g.parent_location_id === location.id);
+  const hasChildren = children.length > 0 || myGroups.length > 0;
+  const isPlaced = ctx.placedLocationIds.has(location.id);
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div>
       <div
         className={cn(
           "flex items-center gap-1 py-1 pr-2 rounded-md mx-1 transition-colors group/node",
@@ -234,15 +611,14 @@ function SortableTreeNode({
         )}
         style={{ paddingLeft: 6 + depth * 14 }}
         onClick={() => {
-          if (isPlaced) onSelect(location.id);
+          if (isPlaced) ctx.onSelect(location.id);
         }}
       >
-        {/* Drag handle — only activates dnd-kit drag */}
+        {/* Drag handle */}
         <button
           type="button"
           className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 group-hover/node:text-muted-foreground transition-colors"
-          {...attributes}
-          {...listeners}
+          {...(dragHandleProps ?? {})}
           onClick={(e) => e.stopPropagation()}
           tabIndex={-1}
         >
@@ -254,7 +630,7 @@ function SortableTreeNode({
           type="button"
           className={cn(
             "shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground",
-            children.length === 0 && "invisible pointer-events-none"
+            !hasChildren && "invisible pointer-events-none"
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -264,7 +640,6 @@ function SortableTreeNode({
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         </button>
 
-        {/* Color dot */}
         <div
           className="w-2 h-2 rounded-sm shrink-0"
           style={{ backgroundColor: location.color ?? "#10b981" }}
@@ -279,25 +654,27 @@ function SortableTreeNode({
         {isPlaced && (
           <div
             className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 ml-1"
-            title={t("indicators.placedOnCanvas")}
+            title={ctx.t("indicators.placedOnCanvas")}
           />
+        )}
+        {onUngroup && ctx.canManage && (
+          <button
+            type="button"
+            className="shrink-0 opacity-0 group-hover/node:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground/50 hover:text-amber-600 ml-0.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUngroup();
+            }}
+            tabIndex={-1}
+            title={ctx.t("actions.ungroup")}
+          >
+            <X className="w-3 h-3" />
+          </button>
         )}
       </div>
 
-      {expanded && children.length > 0 && (
-        <SortableContext items={children.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          {children.map((child) => (
-            <SortableTreeNode
-              key={child.id}
-              location={child}
-              allLocations={allLocations}
-              placedLocationIds={placedLocationIds}
-              onSelect={onSelect}
-              depth={depth + 1}
-              t={t}
-            />
-          ))}
-        </SortableContext>
+      {expanded && hasChildren && (
+        <ToolboxChildrenList parentId={location.id} ctx={ctx} depth={depth + 1} />
       )}
     </div>
   );
@@ -321,26 +698,33 @@ export function LocationToolbox({
   rootLocationId,
   branchId,
   placedLocationIds,
-  selectedId,
+  selectedId: _selectedId,
   onSelectLocation,
 }: LocationToolboxProps) {
   const t = useTranslations("warehouseMapToolbox");
   const [treeOpen, setTreeOpen] = React.useState(true);
   const [shapesOpen, setShapesOpen] = React.useState(true);
   const [unplacedOpen, setUnplacedOpen] = React.useState(true);
-  const [deleteTarget, setDeleteTarget] = React.useState<WarehouseLocation | null>(null);
-  const [activeId, setActiveId] = React.useState<string | null>(null);
-
-  const deleteMut = useDeleteLocationMutation(branchId);
-  const reorderMut = useReorderLocationsMutation(branchId);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  const [deleteLocTarget, setDeleteLocTarget] = React.useState<WarehouseLocation | null>(null);
+  const [deleteGroupTarget, setDeleteGroupTarget] = React.useState<WarehouseLocationGroup | null>(
+    null
   );
 
-  // All descendants of rootLocationId
-  const descendants = React.useMemo(() => {
+  const deleteLocMut = useDeleteLocationMutation(branchId);
+  const deleteGroupMut = useDeleteLocationGroupMutation(branchId);
+  const reorderMut = useReorderLocationsMutation(branchId);
+  const reorderGroupsMut = useReorderGroupsMutation(branchId);
+  const updateLocationMut = useUpdateLocationMutation(branchId);
+
+  const groupsQuery = useWarehouseLocationGroupsQuery(branchId);
+  const groups: WarehouseLocationGroup[] = groupsQuery.data ?? [];
+
+  // Determine if user can manage (editor only renders toolbox when canManage=true,
+  // but we derive it from whether the mutation hooks are available)
+  const canManage = true; // LocationToolbox is only rendered when canManage is true in map-editor.tsx
+
+  // All locations under rootLocationId (or all if no root)
+  const allLocations = React.useMemo(() => {
     if (!rootLocationId) return locations;
     const result: WarehouseLocation[] = [];
     const visited = new Set<string>();
@@ -355,51 +739,41 @@ export function LocationToolbox({
     return result;
   }, [locations, rootLocationId]);
 
-  const treeRoots = descendants
-    .filter((l) => l.parent_id === rootLocationId)
-    .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  const unplaced = allLocations.filter((l) => !placedLocationIds.has(l.id));
 
-  const unplaced = descendants.filter((l) => !placedLocationIds.has(l.id));
+  // ── Callbacks ────────────────────────────────────────────────────────────────
 
-  const activeLocation = activeId ? descendants.find((l) => l.id === activeId) : null;
+  function handleReorderSiblings(
+    _parentId: string | null,
+    items: { id: string; sort_order: number }[]
+  ) {
+    reorderMut.mutate({ items });
+  }
 
-  // ── DnD handlers ────────────────────────────────────────────────────────────
+  function handleReorderGroups(items: { id: string; sort_order: number }[]) {
+    reorderGroupsMut.mutate({ items });
+  }
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
+  function handleAssignToGroup(locationId: string, groupId: string) {
+    updateLocationMut.mutate({ id: locationId, group_id: groupId });
+  }
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null);
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  function handleUngroup(locationId: string) {
+    updateLocationMut.mutate({ id: locationId, group_id: null });
+  }
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeLoc = descendants.find((l) => l.id === activeId);
-    const overLoc = descendants.find((l) => l.id === overId);
-
-    // Only reorder within the same parent
-    if (!activeLoc || !overLoc || activeLoc.parent_id !== overLoc.parent_id) return;
-
-    const siblings = descendants
-      .filter((l) => l.parent_id === activeLoc.parent_id)
-      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
-
-    const oldIndex = siblings.findIndex((l) => l.id === activeId);
-    const newIndex = siblings.findIndex((l) => l.id === overId);
-    if (oldIndex === newIndex) return;
-
-    const reordered = arrayMove(siblings, oldIndex, newIndex);
-    reorderMut.mutate({
-      items: reordered.map((l, i) => ({ id: l.id, sort_order: i * 10 })),
-    });
-  };
-
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteMut.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
+  const ctx: ToolboxCtx = {
+    allLocations,
+    groups,
+    placedLocationIds,
+    canManage,
+    onSelect: onSelectLocation,
+    onReorderSiblings: handleReorderSiblings,
+    onReorderGroups: handleReorderGroups,
+    onAssignToGroup: handleAssignToGroup,
+    onUngroup: handleUngroup,
+    onDeleteGroup: setDeleteGroupTarget,
+    t,
   };
 
   return (
@@ -407,45 +781,20 @@ export function LocationToolbox({
       {/* ── Locations tree ─────────────────────────────────────────────── */}
       <SectionHeader
         title={t("sections.locations")}
-        count={descendants.length}
+        count={allLocations.length}
         open={treeOpen}
         onToggle={() => setTreeOpen((v) => !v)}
       />
       {treeOpen && (
         <div className="overflow-y-auto border-b py-1 max-h-52 shrink-0">
-          {treeRoots.length === 0 ? (
+          {allLocations.length === 0 ? (
             <p className="text-[10px] text-muted-foreground px-3 py-2 leading-relaxed">
               {t("states.noLocations")}
             </p>
           ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              modifiers={[restrictToVerticalAxis]}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={treeRoots.map((l) => l.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {treeRoots.map((loc) => (
-                  <SortableTreeNode
-                    key={loc.id}
-                    location={loc}
-                    allLocations={descendants}
-                    placedLocationIds={placedLocationIds}
-                    onSelect={onSelectLocation}
-                    depth={0}
-                    t={t}
-                  />
-                ))}
-              </SortableContext>
-
-              <DragOverlay dropAnimation={null}>
-                {activeLocation && <DragPreview location={activeLocation} />}
-              </DragOverlay>
-            </DndContext>
+            // Render the root level via ToolboxChildrenList so groups attached
+            // to rootLocationId (or null for top-level) are shown correctly.
+            <ToolboxChildrenList parentId={rootLocationId} ctx={ctx} depth={0} />
           )}
         </div>
       )}
@@ -513,7 +862,7 @@ export function LocationToolbox({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 shrink-0 text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setDeleteTarget(loc)}
+                    onClick={() => setDeleteLocTarget(loc)}
                   >
                     <Trash2 className="w-3 h-3" />
                   </Button>
@@ -524,25 +873,65 @@ export function LocationToolbox({
         </div>
       )}
 
-      {/* ── Delete confirmation ──────────────────────────────────────────── */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      {/* ── Delete location confirmation ─────────────────────────────────── */}
+      <AlertDialog
+        open={!!deleteLocTarget}
+        onOpenChange={(open) => !open && setDeleteLocTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("deleteDialog.description", { name: deleteTarget?.name ?? "" })}
+              {t("deleteDialog.description", { name: deleteLocTarget?.name ?? "" })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>
+            <AlertDialogCancel disabled={deleteLocMut.isPending}>
               {t("actions.cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMut.isPending}
-              onClick={confirmDelete}
+              disabled={deleteLocMut.isPending}
+              onClick={() => {
+                if (!deleteLocTarget) return;
+                deleteLocMut.mutate(deleteLocTarget.id, {
+                  onSuccess: () => setDeleteLocTarget(null),
+                });
+              }}
             >
-              {deleteMut.isPending ? t("actions.deleting") : t("actions.delete")}
+              {deleteLocMut.isPending ? t("actions.deleting") : t("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Delete group confirmation ────────────────────────────────────── */}
+      <AlertDialog
+        open={!!deleteGroupTarget}
+        onOpenChange={(open) => !open && setDeleteGroupTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteGroupDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("deleteGroupDialog.description", { name: deleteGroupTarget?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteGroupMut.isPending}>
+              {t("actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteGroupMut.isPending}
+              onClick={() => {
+                if (!deleteGroupTarget) return;
+                deleteGroupMut.mutate(deleteGroupTarget.id, {
+                  onSuccess: () => setDeleteGroupTarget(null),
+                });
+              }}
+            >
+              {deleteGroupMut.isPending ? t("actions.deleting") : t("actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

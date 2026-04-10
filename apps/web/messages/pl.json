@@ -565,7 +565,10 @@
     },
     "deleteDialog": {
       "title": "Usunąć lokalizację?",
-      "description": "<name></name> zostanie miękko usunięta. Wszystkie lokalizacje podrzędne staną się lokalizacjami głównego poziomu."
+      "description": "<name></name> zostanie miękko usunięta. Wszystkie lokalizacje podrzędne staną się lokalizacjami głównego poziomu.",
+      "cancel": "Anuluj",
+      "confirm": "Usuń",
+      "deleting": "Usuwanie…"
     },
     "form": {
       "titleCreate": "Utwórz lokalizację",
@@ -577,12 +580,46 @@
         "parentNone": "Brak (lokalizacja główna)",
         "color": "Kolor",
         "noColor": "Brak koloru",
-        "description": "Opis"
+        "description": "Opis",
+        "group": "Grupa",
+        "groupNone": "Brak (bez grupy)"
       },
       "placeholders": {
         "name": "np. Alejka A, Półka 1",
         "code": "np. A-01 (opcjonalnie)",
         "noParent": "Brak (lokalizacja główna)",
+        "noGroup": "Brak grupy",
+        "description": "Opcjonalny opis"
+      },
+      "actions": {
+        "clearColor": "Wyczyść",
+        "cancel": "Anuluj",
+        "saving": "Zapisywanie...",
+        "saveChanges": "Zapisz zmiany",
+        "create": "Utwórz"
+      }
+    },
+    "groups": {
+      "createGroup": "Utwórz grupę",
+      "editGroup": "Edytuj grupę",
+      "deleteGroup": "Usuń grupę",
+      "addLocation": "Dodaj lokalizację do grupy",
+      "emptyGroup": "Brak lokalizacji w tej grupie.",
+      "ungrouped": "Bez grupy",
+      "deleteGroupTitle": "Usunąć grupę?",
+      "deleteGroupDescription": "{name} zostanie usunięta. Lokalizacje należące do grupy staną się niezgrupowane."
+    },
+    "groupForm": {
+      "titleCreate": "Utwórz grupę",
+      "titleEdit": "Edytuj grupę",
+      "fields": {
+        "name": "Nazwa",
+        "description": "Opis",
+        "color": "Kolor",
+        "noColor": "Brak koloru"
+      },
+      "placeholders": {
+        "name": "np. Regał R1, Rząd półek A",
         "description": "Opcjonalny opis"
       },
       "actions": {
@@ -730,7 +767,8 @@
     },
     "states": {
       "noLocations": "Nie ma jeszcze lokalizacji. Upuść kafelek Lokalizacja na planszę, aby utworzyć jednostki składowania.",
-      "allPlaced": "Wszystkie lokalizacje są umieszczone na tym układzie."
+      "allPlaced": "Wszystkie lokalizacje są umieszczone na tym układzie.",
+      "emptyGroup": "Pusta grupa"
     },
     "indicators": {
       "placedOnCanvas": "Umieszczono na planie"
@@ -738,11 +776,16 @@
     "actions": {
       "cancel": "Anuluj",
       "delete": "Usuń",
-      "deleting": "Usuwanie…"
+      "deleting": "Usuwanie…",
+      "ungroup": "Usuń z grupy"
     },
     "deleteDialog": {
       "title": "Usunąć lokalizację?",
       "description": "{name} zostanie trwale usunięta i usunięta ze wszystkich układów. Tej operacji nie można cofnąć."
+    },
+    "deleteGroupDialog": {
+      "title": "Usunąć grupę?",
+      "description": "{name} zostanie usunięta. Lokalizacje należące do grupy staną się niezgrupowane."
     }
   },
   "warehouseMapPreview": {
@@ -857,6 +900,13 @@
     "locationDeleted": "Lokalizacja została usunięta",
     "locationDeleteFailed": "Nie udało się usunąć lokalizacji",
     "locationReorderFailed": "Nie udało się zmienić kolejności lokalizacji",
+    "locationGroupCreated": "Grupa została utworzona",
+    "locationGroupCreateFailed": "Nie udało się utworzyć grupy",
+    "locationGroupUpdated": "Grupa została zaktualizowana",
+    "locationGroupUpdateFailed": "Nie udało się zaktualizować grupy",
+    "locationGroupDeleted": "Grupa została usunięta",
+    "locationGroupDeleteFailed": "Nie udało się usunąć grupy",
+    "locationGroupReorderFailed": "Nie udało się zmienić kolejności grup",
     "layoutCreated": "Układ został utworzony",
     "layoutCreateFailed": "Nie udało się utworzyć układu",
     "layoutUpdateFailed": "Nie udało się zaktualizować układu",

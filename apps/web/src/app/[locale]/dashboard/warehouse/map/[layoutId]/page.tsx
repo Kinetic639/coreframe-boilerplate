@@ -78,14 +78,12 @@ export default async function WarehouseMapEditorPage({ params }: Props) {
   const canPublish = checkPermission(snapshot, WAREHOUSE_LAYOUTS_PUBLISH);
 
   return (
-    <div className="-m-4 -mb-12 flex h-[calc(100vh-9rem)] flex-col overflow-hidden">
-      <MapEditorShell
-        initialLayout={layoutResult.data}
-        locations={locations}
-        branchId={app.activeBranchId}
-        canManage={canManage}
-        canPublish={canPublish}
-      />
-    </div>
+    <MapEditorShell
+      initialLayout={layoutResult.data}
+      locations={locations}
+      branchId={app.activeBranchId}
+      canManage={canManage}
+      canPublish={canPublish}
+    />
   );
 }

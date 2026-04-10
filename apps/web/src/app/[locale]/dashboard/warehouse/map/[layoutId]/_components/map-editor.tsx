@@ -107,6 +107,24 @@ export function MapEditor({
   const updateLayoutMut = useUpdateLayoutMutation(branchId);
   const updateLocMut = useUpdateLocationMutation(branchId);
 
+  // ── Auto-remove shapes for deleted locations ──────────────────────────────
+  // When a location is soft-deleted (from the locations page or the toolbox),
+  // liveLocations updates and drops that location. Any canvas shape that still
+  // references it would block future saves (DB rejects deleted location_ids).
+  // Remove those shapes immediately so the canvas stays in sync.
+  React.useEffect(() => {
+    const validIds = new Set(liveLocations.map((l) => l.id));
+    setShapes((prev) => {
+      const toRemove = new Set(
+        prev.filter((s) => s.location_id && !validIds.has(s.location_id)).map((s) => s.id)
+      );
+      if (toRemove.size === 0) return prev;
+      setSelectedIds((sel) => sel.filter((id) => !toRemove.has(id)));
+      setIsDirty(true);
+      return prev.filter((s) => !toRemove.has(s.id));
+    });
+  }, [liveLocations]);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const selectedShapes = React.useMemo(
     () => shapes.filter((s) => selectedIds.includes(s.id)),
@@ -118,13 +136,38 @@ export function MapEditor({
     [shapes]
   );
 
+  // ── Group highlight: shapes in the same group as the selected shape ────────
+  const groupHighlightShapeIds = React.useMemo<Set<string>>(() => {
+    if (!selectedShape?.location_id) return new Set();
+    const selectedLoc = liveLocations.find((l) => l.id === selectedShape.location_id);
+    if (!selectedLoc?.group_id) return new Set();
+    const groupId = selectedLoc.group_id;
+    const groupLocIds = new Set(
+      liveLocations
+        .filter((l) => l.group_id === groupId && l.id !== selectedLoc.id)
+        .map((l) => l.id)
+    );
+    return new Set(
+      shapes
+        .filter((s) => s.location_id && groupLocIds.has(s.location_id) && s.id !== selectedShape.id)
+        .map((s) => s.id)
+    );
+  }, [selectedShape, liveLocations, shapes]);
+
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (shapesToSave: WarehouseLayoutShape[] = shapes) => {
+    // Defensive: strip location_id from shapes referencing soft-deleted locations.
+    // A location can be deleted (via the locations page or toolbox) after shapes
+    // were placed. The batch-save DB function rejects any location_id whose row
+    // has deleted_at IS NOT NULL, so we null it out here before sending.
+    const validLocationIds = new Set(liveLocations.map((l) => l.id));
+
     const input: ShapeUpsertInput[] = shapesToSave.map((s) => ({
       id: s.id,
       shape_type: s.shape_type,
-      // Coerce empty string → null defensively (drag-and-drop edge case)
-      location_id: s.location_id || null,
+      // Coerce empty string → null defensively (drag-and-drop edge case).
+      // Also null out references to locations that have since been deleted.
+      location_id: s.location_id && validLocationIds.has(s.location_id) ? s.location_id : null,
       label: s.label,
       x: s.x,
       y: s.y,
@@ -648,6 +691,7 @@ export function MapEditor({
               onViewportChange={(zoom, pan) => {
                 canvasViewportRef.current = { zoom, pan };
               }}
+              groupHighlightShapeIds={groupHighlightShapeIds}
             />
 
             <ShapeInspector

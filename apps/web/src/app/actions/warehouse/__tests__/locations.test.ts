@@ -82,6 +82,7 @@ function makeLocation(overrides = {}) {
     icon_name: null,
     color: null,
     parent_id: null,
+    group_id: null,
     level: 0,
     sort_order: 0,
     qr_code: "qr-x",

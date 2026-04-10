@@ -64,6 +64,8 @@ export interface MapCanvasProps {
   initialPan?: { x: number; y: number };
   /** Called whenever zoom or pan changes so the parent can persist the viewport */
   onViewportChange?: (zoom: number, pan: { x: number; y: number }) => void;
+  /** Shape IDs in the same group as the selected shape — rendered with a soft highlight ring */
+  groupHighlightShapeIds?: Set<string>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ export function MapCanvas({
   initialZoom,
   initialPan,
   onViewportChange,
+  groupHighlightShapeIds,
 }: MapCanvasProps) {
   const t = useTranslations("warehouseMapCanvas");
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -278,6 +281,7 @@ export function MapCanvas({
     const stroke = locColor ?? style?.stroke ?? defaults.stroke;
     const strokeWidth = (style?.strokeWidth ?? 1) / (zoom * METER_TO_PIXEL);
     const isSelected = selectedIds.includes(shape.id);
+    const isGroupHighlighted = !isSelected && (groupHighlightShapeIds?.has(shape.id) ?? false);
     const isDraggable = canManage && isSelected && selectedIds.length === 1;
 
     // ── Shared transform handler ─────────────────────────────────────────────
@@ -389,6 +393,21 @@ export function MapCanvas({
           shadowBlur={isSelected ? 0.15 : 0}
           shadowColor="rgba(37,99,235,0.4)"
         />
+        {isGroupHighlighted && (
+          <Rect
+            x={-strokeWidth * 2}
+            y={-strokeWidth * 2}
+            width={shape.width + strokeWidth * 4}
+            height={shape.height + strokeWidth * 4}
+            fill="transparent"
+            stroke={stroke}
+            strokeWidth={strokeWidth * 1.5}
+            opacity={0.4}
+            dash={[strokeWidth * 4, strokeWidth * 3]}
+            cornerRadius={(style?.cornerRadius ?? 0) / (zoom * METER_TO_PIXEL)}
+            listening={false}
+          />
+        )}
         {shape.shape_type === "location" && (
           <Text
             x={0}
@@ -427,7 +446,7 @@ export function MapCanvas({
   return (
     <div
       ref={containerRef}
-      className="flex-1 h-full bg-zinc-200 dark:bg-zinc-900 overflow-hidden relative"
+      className="min-w-0 flex-1 h-full bg-zinc-200 dark:bg-zinc-900 overflow-hidden relative"
       onDrop={canManage ? handleDrop : undefined}
       onDragOver={
         canManage

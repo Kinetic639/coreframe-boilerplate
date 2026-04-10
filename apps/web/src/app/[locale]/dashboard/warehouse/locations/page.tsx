@@ -5,15 +5,16 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { WAREHOUSE_READ, WAREHOUSE_LOCATIONS_READ } from "@/lib/constants/permissions";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
+import { WarehouseLocationGroupsService } from "@/server/services/warehouse-location-groups.service";
 import { LocationsClient } from "./_components/locations-client";
 
 /**
  * /dashboard/warehouse/locations
  *
  * SSR page that:
- *  1. Validates warehouse read permission (layout already gates MODULE_WAREHOUSE_ACCESS)
- *  2. Fetches the flat location list for the active branch server-side
- *  3. Passes it to LocationsClient as initialData (React Query seeds its cache)
+ *  1. Validates warehouse read permission
+ *  2. Fetches the flat location list + location groups in parallel
+ *  3. Passes them to LocationsClient as initialData (React Query seeds its cache)
  */
 export default async function WarehouseLocationsPage() {
   const locale = await getLocale();
@@ -46,15 +47,18 @@ export default async function WarehouseLocationsPage() {
   const supabase = await createClient();
   const { app } = context;
 
-  // If no active branch, render the client with empty initial data — it will show the
-  // "no branch selected" state and react to branch changes.
-  const initialLocations = app.activeBranchId
-    ? await WarehouseLocationsService.listByBranch(
-        supabase,
-        app.activeOrgId,
-        app.activeBranchId
-      ).then((r) => (r.success ? r.data : []))
-    : [];
+  const [initialLocations, initialGroups] = app.activeBranchId
+    ? await Promise.all([
+        WarehouseLocationsService.listByBranch(supabase, app.activeOrgId, app.activeBranchId).then(
+          (r) => (r.success ? r.data : [])
+        ),
+        WarehouseLocationGroupsService.listByBranch(
+          supabase,
+          app.activeOrgId,
+          app.activeBranchId
+        ).then((r) => (r.success ? r.data : [])),
+      ])
+    : [[], []];
 
-  return <LocationsClient initialLocations={initialLocations} />;
+  return <LocationsClient initialLocations={initialLocations} initialGroups={initialGroups} />;
 }

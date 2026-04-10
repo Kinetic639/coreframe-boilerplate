@@ -9,6 +9,26 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * A display-only group that visually clusters sibling locations (e.g. bays of
+ * the same rack). Not an inventory entity — no stock, QR code, or movements.
+ */
+export interface WarehouseLocationGroup {
+  id: string;
+  organization_id: string;
+  branch_id: string;
+  /** The location whose direct children this group organises. Null = legacy top-level. */
+  parent_location_id: string | null;
+  name: string;
+  description: string | null;
+  color: string | null;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
 export interface WarehouseLocation {
   id: string;
   organization_id: string;
@@ -19,6 +39,8 @@ export interface WarehouseLocation {
   icon_name: string | null;
   color: string | null;
   parent_id: string | null;
+  /** Optional group this location belongs to (display only, not hierarchy). */
+  group_id: string | null;
   level: number;
   sort_order: number;
   qr_code: string;
