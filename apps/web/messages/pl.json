@@ -525,6 +525,354 @@
   "Manifest": {
     "name": "Przykład next-intl"
   },
+  "warehouseLocationsPage": {
+    "header": {
+      "title": "Lokalizacje",
+      "description": "Zarządzaj fizyczną strukturą swojego magazynu."
+    },
+    "badges": {
+      "published": "Opublikowana",
+      "draft": "Szkic",
+      "noMap": "Brak mapy"
+    },
+    "actions": {
+      "addLocation": "Dodaj lokalizację",
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "deleting": "Usuwanie...",
+      "previewMap": "Podejrzyj mapę",
+      "openMapEditor": "Otwórz edytor mapy",
+      "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
+      "showOnMap": "Pokaż na mapie",
+      "notPlacedOnAnyMap": "Nie umieszczono na żadnej mapie",
+      "dragToReorder": "Przeciągnij, aby zmienić kolejność",
+      "editLocation": "Edytuj {name}",
+      "deleteLocation": "Usuń {name}"
+    },
+    "states": {
+      "noPermission": "Nie masz uprawnień do wyświetlania lokalizacji.",
+      "noBranchTitle": "Nie wybrano oddziału",
+      "noBranchDescription": "Wybierz oddział, aby zobaczyć jego lokalizacje magazynowe.",
+      "emptyTitle": "Brak lokalizacji",
+      "emptyDescription": "Utwórz pierwszą lokalizację, aby uporządkować magazyn."
+    },
+    "tree": {
+      "collapse": "Zwiń",
+      "expand": "Rozwiń"
+    },
+    "mapDialog": {
+      "title": "Mapa magazynu"
+    },
+    "deleteDialog": {
+      "title": "Usunąć lokalizację?",
+      "description": "<name></name> zostanie miękko usunięta. Wszystkie lokalizacje podrzędne staną się lokalizacjami głównego poziomu."
+    },
+    "form": {
+      "titleCreate": "Utwórz lokalizację",
+      "titleEdit": "Edytuj lokalizację",
+      "fields": {
+        "name": "Nazwa",
+        "code": "Kod",
+        "parentLocation": "Lokalizacja nadrzędna",
+        "parentNone": "Brak (lokalizacja główna)",
+        "color": "Kolor",
+        "noColor": "Brak koloru",
+        "description": "Opis"
+      },
+      "placeholders": {
+        "name": "np. Alejka A, Półka 1",
+        "code": "np. A-01 (opcjonalnie)",
+        "noParent": "Brak (lokalizacja główna)",
+        "description": "Opcjonalny opis"
+      },
+      "actions": {
+        "clearColor": "Wyczyść",
+        "cancel": "Anuluj",
+        "saving": "Zapisywanie...",
+        "saveChanges": "Zapisz zmiany",
+        "create": "Utwórz"
+      }
+    }
+  },
+  "warehouseMapDialog": {
+    "title": "Mapa magazynu",
+    "tree": {
+      "title": "Lokalizacje",
+      "description": "Kliknij, aby podświetlić na mapie",
+      "empty": "Na tym układzie nie ma jeszcze lokalizacji.",
+      "legendPlaced": "Umieszczono na planie",
+      "legendUnplaced": "Jeszcze nie umieszczono",
+      "onCanvas": "Na planie",
+      "highlighted": "Podświetlono"
+    },
+    "actions": {
+      "openEditor": "Otwórz edytor",
+      "showColors": "Pokaż kolory",
+      "monochromaticView": "Widok monochromatyczny"
+    },
+    "states": {
+      "noBranch": "Wybierz oddział, aby zobaczyć mapę magazynu.",
+      "loadError": "Nie udało się załadować mapy magazynu. Spróbuj ponownie.",
+      "noPublishedLayout": "Brak opublikowanego układu dla tego oddziału."
+    }
+  },
+  "warehouseMapListPage": {
+    "header": {
+      "title": "Mapy magazynu",
+      "description": "Wizualny edytor układów planów magazynu."
+    },
+    "badges": {
+      "published": "Opublikowana",
+      "draft": "Szkic"
+    },
+    "actions": {
+      "newLayout": "Nowy układ",
+      "createFirstLayout": "Utwórz pierwszy układ",
+      "openEditor": "Otwórz edytor",
+      "cancel": "Anuluj",
+      "create": "Utwórz",
+      "creating": "Tworzenie…",
+      "delete": "Usuń",
+      "deleting": "Usuwanie…"
+    },
+    "states": {
+      "noPermission": "Nie masz uprawnień do wyświetlania układów magazynu.",
+      "noBranch": "Wybierz oddział, aby zobaczyć układy magazynu.",
+      "emptyTitle": "Brak układów."
+    },
+    "createDialog": {
+      "title": "Nowy układ",
+      "fields": {
+        "name": "Nazwa",
+        "rootLocationCode": "Kod lokalizacji głównej",
+        "description": "Opis (opcjonalnie)"
+      },
+      "placeholders": {
+        "name": "np. Główna hala",
+        "rootLocationCode": "np. WH-MAIN",
+        "description": "Krótki opis tego układu"
+      },
+      "help": {
+        "rootLocationCode": "Unikalny identyfikator lokalizacji głównej (litery, cyfry, myślniki, podkreślenia)"
+      },
+      "validation": {
+        "codeRequired": "Kod jest wymagany",
+        "codeInvalid": "Dozwolone są tylko litery, cyfry, myślniki i podkreślenia"
+      }
+    },
+    "deleteDialog": {
+      "title": "Usunąć układ?",
+      "description": "\"{name}\" zostanie trwale usunięty. Tej operacji nie można cofnąć."
+    }
+  },
+  "warehouseMapEditor": {
+    "actions": {
+      "backToLocations": "Lokalizacje",
+      "edit": "Edytuj",
+      "preview": "Podgląd",
+      "save": "Zapisz",
+      "saving": "Zapisywanie…",
+      "publish": "Publikuj",
+      "unpublish": "Cofnij publikację",
+      "cancel": "Anuluj",
+      "create": "Utwórz",
+      "creating": "Tworzenie…",
+      "clone": "Klonuj"
+    },
+    "status": {
+      "published": "Opublikowana",
+      "draft": "Szkic",
+      "unsavedChanges": "Niezapisane zmiany"
+    },
+    "feedback": {
+      "layoutSaved": "Układ został zapisany",
+      "savingBeforePublishing": "Zapisywanie przed publikacją…"
+    },
+    "dialogs": {
+      "location": {
+        "createTitle": "Nowa lokalizacja składowania",
+        "cloneTitle": "Klonuj lokalizację",
+        "fields": {
+          "name": "Nazwa",
+          "code": "Kod",
+          "color": "Kolor"
+        },
+        "placeholders": {
+          "name": "np. Regał A",
+          "code": "np. A-01"
+        },
+        "help": {
+          "code": "Litery, cyfry, myślniki, podkreślenia — maks. 20 znaków"
+        },
+        "validation": {
+          "nameRequired": "Nazwa jest wymagana.",
+          "codeRequired": "Kod jest wymagany.",
+          "codeInvalid": "Kod może zawierać tylko litery, cyfry, myślniki i podkreślenia.",
+          "createFailed": "Nie udało się utworzyć lokalizacji."
+        }
+      }
+    }
+  },
+  "warehouseMapToolbox": {
+    "sections": {
+      "locations": "Lokalizacje",
+      "shapes": "Kształty",
+      "unplaced": "Nieumieszczone"
+    },
+    "palette": {
+      "location": "Lokalizacja",
+      "wall": "Ściana",
+      "door": "Drzwi",
+      "aisle": "Przejście",
+      "zone": "Strefa",
+      "obstacle": "Przeszkoda",
+      "label": "Etykieta"
+    },
+    "states": {
+      "noLocations": "Nie ma jeszcze lokalizacji. Upuść kafelek Lokalizacja na planszę, aby utworzyć jednostki składowania.",
+      "allPlaced": "Wszystkie lokalizacje są umieszczone na tym układzie."
+    },
+    "indicators": {
+      "placedOnCanvas": "Umieszczono na planie"
+    },
+    "actions": {
+      "cancel": "Anuluj",
+      "delete": "Usuń",
+      "deleting": "Usuwanie…"
+    },
+    "deleteDialog": {
+      "title": "Usunąć lokalizację?",
+      "description": "{name} zostanie trwale usunięta i usunięta ze wszystkich układów. Tej operacji nie można cofnąć."
+    }
+  },
+  "warehouseMapPreview": {
+    "actions": {
+      "showColors": "Pokaż kolory",
+      "monochromaticView": "Widok monochromatyczny"
+    },
+    "tree": {
+      "title": "Lokalizacje",
+      "description": "Kliknij lokalizację, aby podświetlić ją na mapie.",
+      "empty": "Na tym układzie nie ma jeszcze umieszczonych lokalizacji.",
+      "legendPlaced": "Umieszczono na planie",
+      "legendUnplaced": "Jeszcze nie umieszczono",
+      "onCanvas": "Na planie",
+      "highlighted": "Podświetlono"
+    }
+  },
+  "warehouseMapCanvas": {
+    "defaultLabel": "Etykieta",
+    "actions": {
+      "zoomIn": "Powiększ",
+      "zoomOut": "Pomniejsz",
+      "fitToCanvas": "Dopasuj do planszy"
+    },
+    "status": {
+      "zoom": "ZOOM",
+      "grid": "SIATKA",
+      "canvas": "PLANSZA"
+    }
+  },
+  "warehouseShapeInspector": {
+    "header": {
+      "title": "Inspektor",
+      "selectedCount": "{count} zazn."
+    },
+    "actions": {
+      "deleteSelectedShapes": "Usuń zaznaczone kształty",
+      "cloneLocation": "Klonuj lokalizację",
+      "deleteShape": "Usuń kształt"
+    },
+    "multiSelect": {
+      "help": "Shift+kliknięcie dodaje lub usuwa kształty z zaznaczenia."
+    },
+    "empty": {
+      "title": "Wybierz kształt, aby sprawdzić jego właściwości.",
+      "description": "Użyj Shift+kliknięcia, aby zaznaczyć wiele elementów."
+    },
+    "sections": {
+      "codeLabel": "Etykieta kodu",
+      "align": "Wyrównanie",
+      "type": "Typ",
+      "geometry": "Geometria (metry)",
+      "style": "Styl",
+      "grid": "Siatka",
+      "canvasSize": "Rozmiar planszy (m)"
+    },
+    "fields": {
+      "color": "Kolor",
+      "size": "Rozmiar",
+      "position": "Pozycja",
+      "x": "X",
+      "y": "Y",
+      "name": "Nazwa",
+      "code": "Kod",
+      "label": "Etykieta",
+      "fontSize": "Rozmiar czcionki (m)",
+      "rotation": "Obrót (°)",
+      "fill": "Wypełnienie",
+      "stroke": "Obrys",
+      "showGrid": "Pokaż siatkę",
+      "snapToGrid": "Przyciągaj do siatki",
+      "gridSize": "Rozmiar siatki",
+      "width": "Szerokość",
+      "height": "Wysokość"
+    },
+    "placeholders": {
+      "locationName": "Nazwa lokalizacji",
+      "locationCode": "np. A-01",
+      "noLabel": "Brak etykiety"
+    },
+    "help": {
+      "locationCode": "Litery, cyfry, myślniki, podkreślenia"
+    },
+    "alignment": {
+      "position": "{vertical} {horizontal}",
+      "horizontal": "Poziomo",
+      "vertical": "Pionowo",
+      "left": "Wyrównaj do lewej",
+      "centerH": "Wyśrodkuj poziomo",
+      "right": "Wyrównaj do prawej",
+      "distributeH": "Rozłóż poziomo",
+      "top": "Wyrównaj do góry",
+      "centerV": "Wyśrodkuj pionowo",
+      "bottom": "Wyrównaj do dołu",
+      "distributeV": "Rozłóż pionowo"
+    },
+    "shapeTypes": {
+      "location": "Lokalizacja",
+      "wall": "Ściana",
+      "door": "Drzwi",
+      "aisle": "Przejście",
+      "zone": "Strefa",
+      "obstacle": "Przeszkoda",
+      "label": "Etykieta"
+    }
+  },
+  "warehouseFeedback": {
+    "locationCreated": "Lokalizacja została utworzona",
+    "locationCreateFailed": "Nie udało się utworzyć lokalizacji",
+    "locationUpdated": "Lokalizacja została zaktualizowana",
+    "locationUpdateFailed": "Nie udało się zaktualizować lokalizacji",
+    "locationDeleted": "Lokalizacja została usunięta",
+    "locationDeleteFailed": "Nie udało się usunąć lokalizacji",
+    "locationReorderFailed": "Nie udało się zmienić kolejności lokalizacji",
+    "layoutCreated": "Układ został utworzony",
+    "layoutCreateFailed": "Nie udało się utworzyć układu",
+    "layoutUpdateFailed": "Nie udało się zaktualizować układu",
+    "layoutPublished": "Układ został opublikowany",
+    "layoutPublishFailed": "Nie udało się opublikować układu",
+    "layoutUnpublished": "Cofnięto publikację układu",
+    "layoutUnpublishFailed": "Nie udało się cofnąć publikacji układu",
+    "layoutDeleted": "Układ został usunięty",
+    "layoutDeleteFailed": "Nie udało się usunąć układu",
+    "mapCreated": "Mapa została utworzona",
+    "mapCreateFailed": "Nie udało się utworzyć mapy",
+    "noLayoutSelected": "Nie wybrano układu",
+    "saveCanvasFailed": "Nie udało się zapisać planszy — spróbuj ponownie",
+    "shapeSaveFailed": "Nie udało się zapisać kształtu",
+    "shapeDeleteFailed": "Nie udało się usunąć kształtu"
+  },
   "Navigation": {
     "home": "Strona główna",
     "pathnames": "Ścieżki",

@@ -43,6 +43,7 @@ export const CATEGORY_ICON_MAP: Record<EventCategory, string> = {
   DATA: "database",
   STATE: "refresh-cw",
   AUTOMATION: "bot",
+  WAREHOUSE: "warehouse",
 };
 
 // ---------------------------------------------------------------------------
@@ -115,6 +116,7 @@ export const CATEGORY_LABEL_MAP: Record<EventCategory, string> = {
   DATA: "Data",
   STATE: "State",
   AUTOMATION: "Automation",
+  WAREHOUSE: "Warehouse",
 };
 
 /** Maps EventIntent → display label. */

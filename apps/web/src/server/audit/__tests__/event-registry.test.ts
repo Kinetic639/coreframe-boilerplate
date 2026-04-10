@@ -43,6 +43,7 @@ const VALID_CATEGORIES: EventCategory[] = [
   "STATE",
   "SECURITY",
   "AUTOMATION",
+  "WAREHOUSE",
 ];
 
 const VALID_INTENTS: EventIntent[] = [
@@ -69,8 +70,8 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
     expect(actionKeys.length).toBeGreaterThan(0);
   });
 
-  it("has exactly the expected 22 entries", () => {
-    expect(actionKeys.length).toBe(22);
+  it("has exactly the expected 25 entries", () => {
+    expect(actionKeys.length).toBe(25);
   });
 
   for (const key of actionKeys) {

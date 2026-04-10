@@ -1,0 +1,10 @@
+// =============================================
+// Contact Detail Page - Individual Contact View
+// =============================================
+
+import { ContactDetailView } from "@/modules/contacts/components/contact-detail-view";
+
+export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ContactDetailView contactId={id} />;
+}

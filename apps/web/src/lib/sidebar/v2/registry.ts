@@ -7,6 +7,8 @@ import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   PERMISSION_TOOLS_READ,
   AUDIT_EVENTS_READ,
+  MODULE_WAREHOUSE_ACCESS,
+  WAREHOUSE_LOCATIONS_READ,
 } from "@/lib/constants/permissions";
 import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
@@ -118,9 +120,8 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     ],
   },
 
-  // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules)
-  // NOTE (skeleton): No user-level permission gate yet.
-  // Warehouse permission family (warehouse.read etc.) will be added in a later slice.
+  // Warehouse (plan-gated: MODULE_WAREHOUSE must be in enabled_modules,
+  // user-gated: MODULE_WAREHOUSE_ACCESS permission required)
   {
     id: "warehouse",
     title: "Warehouse",
@@ -128,6 +129,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     iconKey: "warehouse",
     visibility: {
       requiresModules: [MODULE_WAREHOUSE],
+      requiresPermissions: [MODULE_WAREHOUSE_ACCESS],
     },
     children: [
       {
@@ -161,7 +163,11 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             iconKey: "locations",
             href: "/dashboard/warehouse/locations",
             match: { startsWith: "/dashboard/warehouse/locations" },
+            visibility: {
+              requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
+            },
           },
+
           {
             id: "warehouse.labels",
             title: "Labels & QR",

@@ -476,6 +476,354 @@
   "Manifest": {
     "name": "next-intl example"
   },
+  "warehouseLocationsPage": {
+    "header": {
+      "title": "Locations",
+      "description": "Manage the physical structure of your warehouse."
+    },
+    "badges": {
+      "published": "Published",
+      "draft": "Draft",
+      "noMap": "No map"
+    },
+    "actions": {
+      "addLocation": "Add Location",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "previewMap": "Preview map",
+      "openMapEditor": "Open map editor",
+      "createMapForLocation": "Create map for this location",
+      "showOnMap": "Show on map",
+      "notPlacedOnAnyMap": "Not placed on any map",
+      "dragToReorder": "Drag to reorder",
+      "editLocation": "Edit {name}",
+      "deleteLocation": "Delete {name}"
+    },
+    "states": {
+      "noPermission": "You do not have permission to view locations.",
+      "noBranchTitle": "No branch selected",
+      "noBranchDescription": "Select a branch to view its warehouse locations.",
+      "emptyTitle": "No locations yet",
+      "emptyDescription": "Create your first location to organize this warehouse."
+    },
+    "tree": {
+      "collapse": "Collapse",
+      "expand": "Expand"
+    },
+    "mapDialog": {
+      "title": "Warehouse Map"
+    },
+    "deleteDialog": {
+      "title": "Delete location?",
+      "description": "<name></name> will be soft-deleted. Any child locations will become root-level locations."
+    },
+    "form": {
+      "titleCreate": "Create Location",
+      "titleEdit": "Edit Location",
+      "fields": {
+        "name": "Name",
+        "code": "Code",
+        "parentLocation": "Parent Location",
+        "parentNone": "None (root location)",
+        "color": "Color",
+        "noColor": "No color",
+        "description": "Description"
+      },
+      "placeholders": {
+        "name": "e.g. Aisle A, Shelf 1",
+        "code": "e.g. A-01 (optional)",
+        "noParent": "None (root location)",
+        "description": "Optional description"
+      },
+      "actions": {
+        "clearColor": "Clear",
+        "cancel": "Cancel",
+        "saving": "Saving...",
+        "saveChanges": "Save Changes",
+        "create": "Create"
+      }
+    }
+  },
+  "warehouseMapDialog": {
+    "title": "Warehouse Map",
+    "tree": {
+      "title": "Locations",
+      "description": "Click to highlight on map",
+      "empty": "No locations on this layout yet.",
+      "legendPlaced": "Placed on canvas",
+      "legendUnplaced": "Not yet placed",
+      "onCanvas": "On canvas",
+      "highlighted": "Highlighted"
+    },
+    "actions": {
+      "openEditor": "Open editor",
+      "showColors": "Show colors",
+      "monochromaticView": "Monochromatic view"
+    },
+    "states": {
+      "noBranch": "Select a branch to view the warehouse map.",
+      "loadError": "Failed to load the warehouse map. Please try again.",
+      "noPublishedLayout": "No published layout for this branch yet."
+    }
+  },
+  "warehouseMapListPage": {
+    "header": {
+      "title": "Warehouse Maps",
+      "description": "Visual layout editor for your warehouse floor plans."
+    },
+    "badges": {
+      "published": "Published",
+      "draft": "Draft"
+    },
+    "actions": {
+      "newLayout": "New Layout",
+      "createFirstLayout": "Create your first layout",
+      "openEditor": "Open Editor",
+      "cancel": "Cancel",
+      "create": "Create",
+      "creating": "Creating…",
+      "delete": "Delete",
+      "deleting": "Deleting…"
+    },
+    "states": {
+      "noPermission": "You don't have permission to view warehouse layouts.",
+      "noBranch": "Select a branch to view warehouse layouts.",
+      "emptyTitle": "No layouts yet."
+    },
+    "createDialog": {
+      "title": "New Layout",
+      "fields": {
+        "name": "Name",
+        "rootLocationCode": "Root Location Code",
+        "description": "Description (optional)"
+      },
+      "placeholders": {
+        "name": "e.g. Main Floor",
+        "rootLocationCode": "e.g. WH-MAIN",
+        "description": "Brief description of this layout"
+      },
+      "help": {
+        "rootLocationCode": "Unique identifier for the root location (letters, numbers, hyphens, underscores)"
+      },
+      "validation": {
+        "codeRequired": "Code is required",
+        "codeInvalid": "Letters, numbers, hyphens and underscores only"
+      }
+    },
+    "deleteDialog": {
+      "title": "Delete layout?",
+      "description": "\"{name}\" will be permanently deleted. This cannot be undone."
+    }
+  },
+  "warehouseMapEditor": {
+    "actions": {
+      "backToLocations": "Locations",
+      "edit": "Edit",
+      "preview": "Preview",
+      "save": "Save",
+      "saving": "Saving…",
+      "publish": "Publish",
+      "unpublish": "Unpublish",
+      "cancel": "Cancel",
+      "create": "Create",
+      "creating": "Creating…",
+      "clone": "Clone"
+    },
+    "status": {
+      "published": "Published",
+      "draft": "Draft",
+      "unsavedChanges": "Unsaved changes"
+    },
+    "feedback": {
+      "layoutSaved": "Layout saved",
+      "savingBeforePublishing": "Saving before publishing…"
+    },
+    "dialogs": {
+      "location": {
+        "createTitle": "New Storage Location",
+        "cloneTitle": "Clone Location",
+        "fields": {
+          "name": "Name",
+          "code": "Code",
+          "color": "Color"
+        },
+        "placeholders": {
+          "name": "e.g. Shelf A",
+          "code": "e.g. A-01"
+        },
+        "help": {
+          "code": "Letters, numbers, hyphens, underscores — max 20 chars"
+        },
+        "validation": {
+          "nameRequired": "Name is required.",
+          "codeRequired": "Code is required.",
+          "codeInvalid": "Code may only contain letters, numbers, hyphens and underscores.",
+          "createFailed": "Failed to create location."
+        }
+      }
+    }
+  },
+  "warehouseMapToolbox": {
+    "sections": {
+      "locations": "Locations",
+      "shapes": "Shapes",
+      "unplaced": "Unplaced"
+    },
+    "palette": {
+      "location": "Location",
+      "wall": "Wall",
+      "door": "Door",
+      "aisle": "Aisle",
+      "zone": "Zone",
+      "obstacle": "Obstacle",
+      "label": "Label"
+    },
+    "states": {
+      "noLocations": "No locations yet. Drop a Location tile onto the canvas to create storage units.",
+      "allPlaced": "All locations are placed on this layout."
+    },
+    "indicators": {
+      "placedOnCanvas": "Placed on canvas"
+    },
+    "actions": {
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting…"
+    },
+    "deleteDialog": {
+      "title": "Delete location?",
+      "description": "{name} will be permanently deleted and removed from all layouts. This cannot be undone."
+    }
+  },
+  "warehouseMapPreview": {
+    "actions": {
+      "showColors": "Show colors",
+      "monochromaticView": "Monochromatic view"
+    },
+    "tree": {
+      "title": "Locations",
+      "description": "Click a location to highlight it on the map.",
+      "empty": "No locations placed on this layout yet.",
+      "legendPlaced": "Placed on canvas",
+      "legendUnplaced": "Not yet placed",
+      "onCanvas": "On canvas",
+      "highlighted": "Highlighted"
+    }
+  },
+  "warehouseMapCanvas": {
+    "defaultLabel": "Label",
+    "actions": {
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "fitToCanvas": "Fit to canvas"
+    },
+    "status": {
+      "zoom": "ZOOM",
+      "grid": "GRID",
+      "canvas": "CANVAS"
+    }
+  },
+  "warehouseShapeInspector": {
+    "header": {
+      "title": "Inspector",
+      "selectedCount": "{count} selected"
+    },
+    "actions": {
+      "deleteSelectedShapes": "Delete selected shapes",
+      "cloneLocation": "Clone location",
+      "deleteShape": "Delete shape"
+    },
+    "multiSelect": {
+      "help": "Shift+click shapes to add or remove from selection."
+    },
+    "empty": {
+      "title": "Select a shape to inspect its properties.",
+      "description": "Shift+click to select multiple."
+    },
+    "sections": {
+      "codeLabel": "Code Label",
+      "align": "Align",
+      "type": "Type",
+      "geometry": "Geometry (meters)",
+      "style": "Style",
+      "grid": "Grid",
+      "canvasSize": "Canvas Size (m)"
+    },
+    "fields": {
+      "color": "Color",
+      "size": "Size",
+      "position": "Position",
+      "x": "X",
+      "y": "Y",
+      "name": "Name",
+      "code": "Code",
+      "label": "Label",
+      "fontSize": "Font size (m)",
+      "rotation": "Rotation (°)",
+      "fill": "Fill",
+      "stroke": "Stroke",
+      "showGrid": "Show grid",
+      "snapToGrid": "Snap to grid",
+      "gridSize": "Grid size",
+      "width": "Width",
+      "height": "Height"
+    },
+    "placeholders": {
+      "locationName": "Location name",
+      "locationCode": "e.g. A-01",
+      "noLabel": "No label"
+    },
+    "help": {
+      "locationCode": "Letters, numbers, hyphens, underscores"
+    },
+    "alignment": {
+      "position": "{vertical} {horizontal}",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical",
+      "left": "Align left edges",
+      "centerH": "Center horizontally",
+      "right": "Align right edges",
+      "distributeH": "Distribute horizontally",
+      "top": "Align top edges",
+      "centerV": "Center vertically",
+      "bottom": "Align bottom edges",
+      "distributeV": "Distribute vertically"
+    },
+    "shapeTypes": {
+      "location": "Location",
+      "wall": "Wall",
+      "door": "Door",
+      "aisle": "Aisle",
+      "zone": "Zone",
+      "obstacle": "Obstacle",
+      "label": "Label"
+    }
+  },
+  "warehouseFeedback": {
+    "locationCreated": "Location created",
+    "locationCreateFailed": "Failed to create location",
+    "locationUpdated": "Location updated",
+    "locationUpdateFailed": "Failed to update location",
+    "locationDeleted": "Location deleted",
+    "locationDeleteFailed": "Failed to delete location",
+    "locationReorderFailed": "Failed to reorder locations",
+    "layoutCreated": "Layout created",
+    "layoutCreateFailed": "Failed to create layout",
+    "layoutUpdateFailed": "Failed to update layout",
+    "layoutPublished": "Layout published",
+    "layoutPublishFailed": "Failed to publish layout",
+    "layoutUnpublished": "Layout unpublished",
+    "layoutUnpublishFailed": "Failed to unpublish layout",
+    "layoutDeleted": "Layout deleted",
+    "layoutDeleteFailed": "Failed to delete layout",
+    "mapCreated": "Map created",
+    "mapCreateFailed": "Failed to create map",
+    "noLayoutSelected": "No layout selected",
+    "saveCanvasFailed": "Failed to save canvas — please try again",
+    "shapeSaveFailed": "Failed to save shape",
+    "shapeDeleteFailed": "Failed to delete shape"
+  },
   "Navigation": {
     "home": "Home",
     "pathnames": "Pathnames",

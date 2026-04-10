@@ -12,6 +12,7 @@ import {
 } from "@/lib/constants/modules";
 import {
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+  MODULE_WAREHOUSE_ACCESS,
   ORG_READ,
   ORG_UPDATE,
   MEMBERS_READ,
@@ -54,7 +55,10 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       avatar_signed_url: null,
     },
     roles: [],
-    permissionSnapshot: { allow: [], deny: [] },
+    permissionSnapshot: {
+      allow: [MODULE_WAREHOUSE_ACCESS, MODULE_ORGANIZATION_MANAGEMENT_ACCESS],
+      deny: [],
+    },
   };
 
   const baseEntitlements: OrganizationEntitlements = {
@@ -177,6 +181,7 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
         permissionSnapshot: {
           allow: [
             MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
+            MODULE_WAREHOUSE_ACCESS,
             ORG_READ,
             ORG_UPDATE,
             MEMBERS_READ,
@@ -282,7 +287,7 @@ describe("buildSidebarModel (Phase 4 - SSR Assembly)", () => {
       const userWithPermissions: UserContextV2 = {
         ...baseUserContext,
         permissionSnapshot: {
-          allow: [ORG_READ, ACCOUNT_PROFILE_READ, PERMISSION_TOOLS_READ],
+          allow: [MODULE_WAREHOUSE_ACCESS, ORG_READ, ACCOUNT_PROFILE_READ, PERMISSION_TOOLS_READ],
           deny: [],
         },
       };

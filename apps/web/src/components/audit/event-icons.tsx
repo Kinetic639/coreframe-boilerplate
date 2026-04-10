@@ -26,6 +26,7 @@ import {
   Database,
   RefreshCw,
   Bot,
+  Warehouse,
   // Intent icons
   PlusCircle,
   Pencil,
@@ -58,6 +59,7 @@ const CATEGORY_ICON_COMPONENTS: Record<EventCategory, LucideIcon> = {
   DATA: Database,
   STATE: RefreshCw,
   AUTOMATION: Bot,
+  WAREHOUSE: Warehouse,
 };
 
 // ---------------------------------------------------------------------------

@@ -107,6 +107,14 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/locations",
       pl: "/dashboard/magazyn/lokalizacje",
     },
+    "/dashboard/warehouse/map": {
+      en: "/dashboard/warehouse/map",
+      pl: "/dashboard/magazyn/mapa",
+    },
+    "/dashboard/warehouse/map/[layoutId]": {
+      en: "/dashboard/warehouse/map/[layoutId]",
+      pl: "/dashboard/magazyn/mapa/[layoutId]",
+    },
     "/dashboard/warehouse/alerts": {
       en: "/dashboard/warehouse/alerts",
       pl: "/dashboard/magazyn/alerty",

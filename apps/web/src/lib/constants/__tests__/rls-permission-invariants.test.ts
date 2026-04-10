@@ -23,18 +23,19 @@
  * audit function), see:
  *   src/server/services/__tests__/rls-wildcard-db-invariant.test.ts
  *
- * ─── FULL RLS SLUG INVENTORY (verified 2026-03-04 via Supabase MCP) ──────────
- * The following 10 permission slugs appear in RLS policy expressions across
+ * ─── FULL RLS SLUG INVENTORY (updated 2026-04-02 via Supabase MCP) ─────────
+ * The following 12 permission slugs appear in RLS policy expressions across
  * the public schema tables (user_role_assignments, user_permission_overrides,
  * organization_members, branches, org_positions, org_profiles, invitations,
- * user_effective_permissions):
+ * user_effective_permissions, warehouse_locations):
  *
  *   members.read, members.manage, branch.roles.manage,
  *   branches.create, branches.delete, branches.update,
  *   invites.create, invites.read, invites.cancel,
- *   org.update
+ *   org.update,
+ *   warehouse.locations.read, warehouse.locations.manage
  *
- * None contain "*". This contract test verifies all 10.
+ * None contain "*". This contract test verifies all 12.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -52,6 +53,9 @@ import {
   INVITES_CANCEL,
   // Org profile
   ORG_UPDATE,
+  // Warehouse locations
+  WAREHOUSE_LOCATIONS_READ,
+  WAREHOUSE_LOCATIONS_MANAGE,
   // DB RPC gate slugs
   BRANCHES_VIEW_ANY,
   BRANCHES_VIEW_UPDATE_ANY,
@@ -78,6 +82,8 @@ const RLS_GATE_SLUGS = [
   INVITES_READ, // invitations SELECT policy
   INVITES_CANCEL, // invitations UPDATE/DELETE (cancel) policy
   ORG_UPDATE, // org_positions / org_profiles UPDATE policy
+  WAREHOUSE_LOCATIONS_READ, // warehouse_locations SELECT policy (wl_select_locations_read)
+  WAREHOUSE_LOCATIONS_MANAGE, // warehouse_locations INSERT/UPDATE policies
 ] as const;
 
 /**
@@ -137,6 +143,14 @@ describe("RLS gate slugs — non-wildcard invariant (complete inventory)", () =>
   it("ORG_UPDATE is the exact slug used in org_positions/org_profiles UPDATE policies", () => {
     expect(ORG_UPDATE).toBe("org.update");
   });
+
+  it("WAREHOUSE_LOCATIONS_READ is the exact slug used in wl_select_locations_read policy", () => {
+    expect(WAREHOUSE_LOCATIONS_READ).toBe("warehouse.locations.read");
+  });
+
+  it("WAREHOUSE_LOCATIONS_MANAGE is the exact slug used in wl_insert_manage and wl_update_manage policies", () => {
+    expect(WAREHOUSE_LOCATIONS_MANAGE).toBe("warehouse.locations.manage");
+  });
 });
 
 describe("ALL_PERMISSION_SLUGS registry", () => {
@@ -150,7 +164,7 @@ describe("ALL_PERMISSION_SLUGS registry", () => {
   it("wildcard slugs in the registry are explicitly identified (not accidental)", () => {
     const wildcardSlugs = ALL_PERMISSION_SLUGS.filter(isWildcard);
     // Only expected wildcard slugs — if a new wildcard sneaks in, this test fails
-    expect(wildcardSlugs.sort()).toEqual(["account.*", "module.*", "superadmin.*"]);
+    expect(wildcardSlugs.sort()).toEqual(["account.*", "module.*", "superadmin.*", "warehouse.*"]);
   });
 
   it("wildcard slugs are NOT in any gate slug list", () => {

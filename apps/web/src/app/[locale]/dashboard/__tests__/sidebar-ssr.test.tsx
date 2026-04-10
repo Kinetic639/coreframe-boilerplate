@@ -436,7 +436,7 @@ describe("Sidebar SSR Integration", () => {
 
   // ── Warehouse Module ───────────────────────────────────────────────────────
 
-  // wh-1: warehouse group visible when MODULE_WAREHOUSE is in enabled_modules
+  // wh-1: warehouse group visible when MODULE_WAREHOUSE is in enabled_modules + user has access
   it("should show warehouse group when MODULE_WAREHOUSE is entitled", () => {
     const userContext = {
       user: {
@@ -448,7 +448,10 @@ describe("Sidebar SSR Integration", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: [], deny: [] },
+      permissionSnapshot: {
+        allow: ["module.warehouse.access", "warehouse.read", "warehouse.locations.read"],
+        deny: [],
+      },
     };
 
     const entitledEntitlements = {
@@ -558,7 +561,7 @@ describe("Sidebar SSR Integration", () => {
         avatar_signed_url: null,
       },
       roles: [],
-      permissionSnapshot: { allow: ["tools.read"], deny: [] },
+      permissionSnapshot: { allow: ["tools.read", "module.warehouse.access"], deny: [] },
     };
 
     const bothEntitlements = {
@@ -572,7 +575,7 @@ describe("Sidebar SSR Integration", () => {
 
     const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, bothEntitlements, "en");
 
-    // Warehouse visible
+    // Warehouse visible (module entitled + user has module.warehouse.access)
     expect(findItemById(model, "warehouse")).toBeDefined();
     // Tools still visible (no regression)
     expect(findItemById(model, "tools")).toBeDefined();
