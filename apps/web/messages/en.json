@@ -491,6 +491,8 @@
       "cancel": "Cancel",
       "delete": "Delete",
       "deleting": "Deleting...",
+      "copyLocationCode": "Copy location code",
+      "copyLocationPath": "Copy location path",
       "previewMap": "Preview map",
       "openMapEditor": "Open map editor",
       "createMapForLocation": "Create map for this location",
@@ -506,6 +508,11 @@
       "noBranchDescription": "Select a branch to view its warehouse locations.",
       "emptyTitle": "No locations yet",
       "emptyDescription": "Create your first location to organize this warehouse."
+    },
+    "feedback": {
+      "locationCodeCopied": "Location code {code} copied to clipboard.",
+      "locationPathCopied": "Location path copied to clipboard.",
+      "copyFailed": "Failed to copy to clipboard."
     },
     "tree": {
       "collapse": "Collapse",
@@ -728,6 +735,7 @@
       "cancel": "Cancel",
       "delete": "Delete",
       "deleting": "Deleting…",
+      "assignToGroup": "Drop into group",
       "ungroup": "Remove from group"
     },
     "deleteDialog": {
@@ -775,7 +783,9 @@
     "actions": {
       "deleteSelectedShapes": "Delete selected shapes",
       "cloneLocation": "Clone location",
-      "deleteShape": "Delete shape"
+      "deleteShape": "Delete shape",
+      "selectGroupMembers": "Select group members",
+      "deleteGroup": "Delete group"
     },
     "multiSelect": {
       "help": "Shift+click shapes to add or remove from selection."
@@ -787,6 +797,7 @@
     "sections": {
       "codeLabel": "Code Label",
       "align": "Align",
+      "group": "Group",
       "type": "Type",
       "geometry": "Geometry (meters)",
       "style": "Style",
@@ -801,6 +812,11 @@
       "y": "Y",
       "name": "Name",
       "code": "Code",
+      "group": "Group",
+      "groupNone": "None (ungrouped)",
+      "groupName": "Group name",
+      "groupColor": "Group color",
+      "groupMembers": "Members",
       "label": "Label",
       "fontSize": "Font size (m)",
       "rotation": "Rotation (°)",
@@ -815,6 +831,8 @@
     "placeholders": {
       "locationName": "Location name",
       "locationCode": "e.g. A-01",
+      "groupName": "Group name",
+      "noGroup": "No group",
       "noLabel": "No label"
     },
     "help": {

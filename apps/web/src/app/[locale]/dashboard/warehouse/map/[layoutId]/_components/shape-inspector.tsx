@@ -31,7 +31,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { WarehouseLayoutShape, ShapeStyle } from "@/lib/warehouse/layouts";
 import type { WarehouseLayout } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 
 // ─── Alignment type ───────────────────────────────────────────────────────────
 
@@ -49,8 +49,10 @@ export type AlignType =
 
 interface ShapeInspectorProps {
   selectedShapes: WarehouseLayoutShape[];
+  selectedGroup: WarehouseLocationGroup | null;
   layout: WarehouseLayout;
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   showGrid: boolean;
   snapToGrid: boolean;
   gridIntervalM: number;
@@ -67,6 +69,13 @@ interface ShapeInspectorProps {
     locationId: string,
     patch: { name?: string; code?: string | null; color?: string | null }
   ) => void;
+  onUpdateLocationGroup: (locationId: string, groupId: string | null) => void;
+  onUpdateGroup: (
+    groupId: string,
+    patch: { name?: string; color?: string | null; description?: string | null }
+  ) => void;
+  onDeleteGroup: () => void;
+  onSelectGroupMembers: () => void;
   onDeleteShape: (id: string) => void;
   onDeleteShapes: (ids: string[]) => void;
   onCloneShape: (shapeId: string) => void;
@@ -222,8 +231,10 @@ const GEOMETRY_FIELD_KEYS = {
 
 export function ShapeInspector({
   selectedShapes,
+  selectedGroup,
   layout,
   locations,
+  locationGroups,
   showGrid,
   snapToGrid,
   gridIntervalM,
@@ -232,6 +243,10 @@ export function ShapeInspector({
   onGridIntervalChange,
   onShapeGeometryChange,
   onUpdateLocation,
+  onUpdateLocationGroup,
+  onUpdateGroup,
+  onDeleteGroup,
+  onSelectGroupMembers,
   onDeleteShape,
   onDeleteShapes,
   onCloneShape,
@@ -249,17 +264,30 @@ export function ShapeInspector({
     selectedShape?.shape_type === "location" && selectedShape.location_id
       ? (locations.find((l) => l.id === selectedShape.location_id) ?? null)
       : null;
+  const availableGroups = React.useMemo(() => {
+    if (!linkedLocation) return [];
+    return locationGroups
+      .filter((group) => group.parent_location_id === linkedLocation.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }, [linkedLocation, locationGroups]);
 
   // Local edit state for name/code/color — synced from linkedLocation when selection changes
   const [locName, setLocName] = React.useState(linkedLocation?.name ?? "");
   const [locCode, setLocCode] = React.useState(linkedLocation?.code ?? "");
   const [locColor, setLocColor] = React.useState(linkedLocation?.color ?? "#10b981");
+  const [groupName, setGroupName] = React.useState(selectedGroup?.name ?? "");
+  const [groupColor, setGroupColor] = React.useState(selectedGroup?.color ?? "#64748b");
 
   React.useEffect(() => {
     setLocName(linkedLocation?.name ?? "");
     setLocCode(linkedLocation?.code ?? "");
     setLocColor(linkedLocation?.color ?? "#10b981");
   }, [linkedLocation?.id]); // reset only when a different location is selected
+
+  React.useEffect(() => {
+    setGroupName(selectedGroup?.name ?? "");
+    setGroupColor(selectedGroup?.color ?? "#64748b");
+  }, [selectedGroup?.id]);
 
   return (
     <div className="w-72 h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -392,6 +420,91 @@ export function ShapeInspector({
               {t("multiSelect.help")}
             </p>
           </div>
+        ) : selectedGroup ? (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                {t("sections.group")}
+              </Label>
+              <p className="mt-1 text-sm font-medium">{selectedGroup.name}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="group-name"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.groupName")}
+                </Label>
+                <Input
+                  id="group-name"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  onBlur={() => {
+                    const trimmed = groupName.trim();
+                    if (trimmed && trimmed !== selectedGroup.name) {
+                      onUpdateGroup(selectedGroup.id, { name: trimmed });
+                    }
+                  }}
+                  placeholder={t("placeholders.groupName")}
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="group-color"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.groupColor")}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="group-color"
+                    type="color"
+                    value={groupColor}
+                    onChange={(e) => setGroupColor(e.target.value)}
+                    onBlur={() => {
+                      if (groupColor !== (selectedGroup.color ?? "#64748b")) {
+                        onUpdateGroup(selectedGroup.id, { color: groupColor });
+                      }
+                    }}
+                    className="w-8 h-8 rounded border cursor-pointer p-0.5"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">{groupColor}</span>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-muted/30 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                  {t("fields.groupMembers")}
+                </p>
+                <p className="mt-1 text-sm font-medium">
+                  {locations.filter((location) => location.group_id === selectedGroup.id).length}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-3 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onSelectGroupMembers}
+              >
+                {t("actions.selectGroupMembers")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full"
+                onClick={onDeleteGroup}
+              >
+                {t("actions.deleteGroup")}
+              </Button>
+            </div>
+          </div>
         ) : !selectedShape ? (
           <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
             <Info className="w-10 h-10 mb-3 opacity-20" />
@@ -479,6 +592,32 @@ export function ShapeInspector({
                       />
                       <span className="text-xs font-mono text-muted-foreground">{locColor}</span>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                      {t("fields.group")}
+                    </Label>
+                    <Select
+                      value={linkedLocation.group_id ?? "__none__"}
+                      onValueChange={(value) =>
+                        onUpdateLocationGroup(
+                          linkedLocation.id,
+                          value === "__none__" ? null : value
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder={t("placeholders.noGroup")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">{t("fields.groupNone")}</SelectItem>
+                        {availableGroups.map((group) => (
+                          <SelectItem key={group.id} value={group.id}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <LabelStyleSection

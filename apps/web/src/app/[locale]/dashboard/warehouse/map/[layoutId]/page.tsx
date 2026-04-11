@@ -11,8 +11,10 @@ import {
   WAREHOUSE_LAYOUTS_PUBLISH,
 } from "@/lib/constants/permissions";
 import { WarehouseLayoutsService } from "@/server/services/warehouse-layouts.service";
+import { WarehouseLocationGroupsService } from "@/server/services/warehouse-location-groups.service";
 import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { MapEditorShell } from "./_components/map-editor-shell";
+import type { WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -59,9 +61,10 @@ export default async function WarehouseMapEditorPage({ params }: Props) {
   const supabase = await createClient();
 
   // Load layout + shapes in parallel with location list
-  const [layoutResult, locationsResult] = await Promise.all([
+  const [layoutResult, locationsResult, groupsResult] = await Promise.all([
     WarehouseLayoutsService.getWithShapes(supabase, app.activeOrgId, layoutId),
     WarehouseLocationsService.listByBranch(supabase, app.activeOrgId, app.activeBranchId),
+    WarehouseLocationGroupsService.listByBranch(supabase, app.activeOrgId, app.activeBranchId),
   ]);
 
   if (!layoutResult.success || !layoutResult.data) {
@@ -74,6 +77,7 @@ export default async function WarehouseMapEditorPage({ params }: Props) {
   }
 
   const locations = locationsResult.success ? locationsResult.data : [];
+  const locationGroups: WarehouseLocationGroup[] = groupsResult.success ? groupsResult.data : [];
   const canManage = checkPermission(snapshot, WAREHOUSE_LAYOUTS_MANAGE);
   const canPublish = checkPermission(snapshot, WAREHOUSE_LAYOUTS_PUBLISH);
 
@@ -81,6 +85,7 @@ export default async function WarehouseMapEditorPage({ params }: Props) {
     <MapEditorShell
       initialLayout={layoutResult.data}
       locations={locations}
+      locationGroups={locationGroups}
       branchId={app.activeBranchId}
       canManage={canManage}
       canPublish={canPublish}

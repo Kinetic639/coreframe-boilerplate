@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
 import { MapEditorLoading } from "./map-editor-loading";
 
@@ -24,6 +24,7 @@ const MapEditor = dynamic(() => import("./map-editor").then((m) => ({ default: m
 interface MapEditorShellProps {
   initialLayout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   branchId: string;
   canManage: boolean;
   canPublish: boolean;

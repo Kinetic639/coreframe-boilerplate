@@ -24,6 +24,7 @@ import {
   PointerSensor,
   KeyboardSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -54,9 +55,7 @@ import type { ShapeType } from "@/lib/warehouse/layouts";
 import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import {
   useDeleteLocationMutation,
-  useDeleteLocationGroupMutation,
   useReorderLocationsMutation,
-  useWarehouseLocationGroupsQuery,
   useReorderGroupsMutation,
   useUpdateLocationMutation,
 } from "@/hooks/queries/warehouse";
@@ -207,13 +206,14 @@ interface ToolboxCtx {
   allLocations: WarehouseLocation[];
   groups: WarehouseLocationGroup[];
   placedLocationIds: Set<string>;
+  selectedGroupId: string | null;
   canManage: boolean;
   onSelect: (id: string) => void;
+  onSelectGroup: (groupId: string) => void;
   onReorderSiblings: (parentId: string | null, items: { id: string; sort_order: number }[]) => void;
   onReorderGroups: (items: { id: string; sort_order: number }[]) => void;
   onAssignToGroup: (locationId: string, groupId: string) => void;
   onUngroup: (locationId: string) => void;
-  onDeleteGroup: (group: WarehouseLocationGroup) => void;
   t: ReturnType<typeof useTranslations>;
 }
 
@@ -249,6 +249,62 @@ function SortableNodeWrapper({
   );
 }
 
+function GroupAssignDropZone({
+  groupId,
+  isActive,
+  title,
+}: {
+  groupId: string;
+  isActive: boolean;
+  title: string;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `group-dropzone:${groupId}`,
+    data: { type: "group-dropzone", groupId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "pointer-events-none absolute inset-y-1 right-5 w-10 rounded-full border transition-colors",
+        isActive || isOver
+          ? "border-emerald-500 bg-emerald-100 dark:bg-emerald-950/40"
+          : "border-transparent bg-transparent"
+      )}
+      title={title}
+      aria-label={title}
+    />
+  );
+}
+
+function GroupColorBadge({ color }: { color: string | null }) {
+  if (!color) {
+    return (
+      <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+        <Layers className="w-3 h-3 text-muted-foreground/60" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded">
+      <Layers className="w-3 h-3" style={{ color }} strokeWidth={2.25} />
+    </div>
+  );
+}
+
+function LocationColorBadge({ color }: { color: string | null }) {
+  return (
+    <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+      <div
+        className="h-2.5 w-2.5 rounded-sm shrink-0"
+        style={{ backgroundColor: color ?? "#10b981" }}
+      />
+    </div>
+  );
+}
+
 // ─── ToolboxGroupSection ──────────────────────────────────────────────────────
 
 function ToolboxGroupSection({
@@ -256,19 +312,23 @@ function ToolboxGroupSection({
   members,
   depth,
   ctx,
+  isSelected,
   isDropTarget,
+  showDropZone = false,
   dragHandleProps,
 }: {
   group: WarehouseLocationGroup;
   members: WarehouseLocation[];
   depth: number;
   ctx: ToolboxCtx;
+  isSelected: boolean;
   isDropTarget: boolean;
+  showDropZone?: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(false);
   const [memberActiveId, setMemberActiveId] = React.useState<string | null>(null);
-  const indent = 6 + depth * 14;
+  const indent = 2 + depth * 10;
 
   const memberSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -295,13 +355,47 @@ function ToolboxGroupSection({
     <>
       <div
         className={cn(
-          "group/grp flex items-center gap-1 py-1.5 pr-2 transition-colors",
+          "group/grp relative flex items-center gap-1.5 py-1 pr-1.5 rounded-md mx-1 transition-colors",
           isDropTarget
             ? "bg-emerald-50 dark:bg-emerald-950/30 ring-2 ring-inset ring-emerald-400"
-            : "bg-muted/30 hover:bg-muted/50"
+            : isSelected
+              ? "bg-primary/10 ring-1 ring-inset ring-primary/30"
+              : "bg-muted/30 hover:bg-muted/50"
         )}
         style={{ paddingLeft: indent }}
+        onClick={() => ctx.onSelectGroup(group.id)}
+        onDoubleClick={() => setExpanded((v) => !v)}
       >
+        <GroupColorBadge color={group.color} />
+
+        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
+          {group.name}
+        </span>
+        <span className="text-[9px] text-muted-foreground shrink-0 mr-1">{members.length}</span>
+
+        {ctx.canManage && showDropZone && (
+          <GroupAssignDropZone
+            groupId={group.id}
+            isActive={isDropTarget}
+            title={ctx.t("actions.assignToGroup")}
+          />
+        )}
+
+        <button
+          type="button"
+          className="shrink-0 w-3.5 h-3.5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? (
+            <ChevronDown className="w-2.5 h-2.5" />
+          ) : (
+            <ChevronRight className="w-2.5 h-2.5" />
+          )}
+        </button>
+
         {/* drag handle */}
         {dragHandleProps && ctx.canManage && (
           <button
@@ -312,46 +406,6 @@ function ToolboxGroupSection({
             tabIndex={-1}
           >
             <GripVertical className="w-3 h-3" />
-          </button>
-        )}
-
-        {/* expand toggle */}
-        <button
-          type="button"
-          className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
-        >
-          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        </button>
-
-        {group.color ? (
-          <div
-            className="w-2 h-2 rounded-full shrink-0 border"
-            style={{ backgroundColor: group.color }}
-          />
-        ) : (
-          <Layers className="w-3 h-3 shrink-0 text-muted-foreground/60" />
-        )}
-
-        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
-          {group.name}
-        </span>
-        <span className="text-[9px] text-muted-foreground shrink-0 mr-1">{members.length}</span>
-
-        {ctx.canManage && (
-          <button
-            type="button"
-            className="shrink-0 opacity-0 group-hover/grp:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground/50 hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              ctx.onDeleteGroup(group);
-            }}
-            tabIndex={-1}
-          >
-            <Trash2 className="w-3 h-3" />
           </button>
         )}
       </div>
@@ -459,15 +513,15 @@ function ToolboxChildrenList({
   }
 
   function handleDragOver(e: DragOverEvent) {
-    const overId = e.over?.id as string | undefined;
-    // Use the sortable item's data.type to detect groups — avoids searching arrays
-    const overType = (e.over?.data.current as { type?: string } | null)?.type;
-    if (!overId || !localActiveId) {
+    const overData = e.over?.data.current as { type?: string; groupId?: string } | null;
+    if (!overData?.type || !localActiveId) {
       setDropTargetGroupId(null);
       return;
     }
     const activeIsUngrouped = ungroupedChildren.some((l) => l.id === localActiveId);
-    setDropTargetGroupId(activeIsUngrouped && overType === "group" ? overId : null);
+    setDropTargetGroupId(
+      activeIsUngrouped && overData.type === "group-dropzone" ? (overData.groupId ?? null) : null
+    );
   }
 
   function handleDragEnd(e: DragEndEvent) {
@@ -478,21 +532,17 @@ function ToolboxChildrenList({
 
     const activeStr = active.id as string;
     const overStr = over.id as string;
-    // Read the final drop target's type from its sortable data
-    const overType = (over.data.current as { type?: string } | null)?.type;
+    const overData = over.data.current as { type?: string; groupId?: string } | null;
+    const overType = overData?.type;
 
     const activeIsGroup = myGroups.some((g) => g.id === activeStr);
     const activeIsUngrouped = ungroupedChildren.some((l) => l.id === activeStr);
 
-    // Ungrouped location dropped directly onto a group header → assign to group
-    if (activeIsUngrouped && overType === "group") {
-      ctx.onAssignToGroup(activeStr, overStr);
+    if (activeIsUngrouped && overType === "group-dropzone" && overData?.groupId) {
+      ctx.onAssignToGroup(activeStr, overData.groupId);
       return;
     }
 
-    // All other drag operations (group↔group, group↔location, location↔location):
-    // unified positional reorder. Sort-orders for groups and locations live in the
-    // same numeric space so they interleave correctly after this update.
     if (!activeIsGroup && !activeIsUngrouped) return;
 
     const oldIdx = items.findIndex((item) =>
@@ -521,6 +571,8 @@ function ToolboxChildrenList({
         item.kind === "group" ? item.g.id === localActiveId : item.l.id === localActiveId
       )
     : null;
+  const showGroupDropZones =
+    !!localActiveId && ungroupedChildren.some((location) => location.id === localActiveId);
 
   if (items.length === 0) return null;
 
@@ -545,7 +597,9 @@ function ToolboxChildrenList({
                     .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))}
                   depth={depth}
                   ctx={ctx}
+                  isSelected={ctx.selectedGroupId === item.g.id}
                   isDropTarget={dropTargetGroupId === item.g.id}
+                  showDropZone={showGroupDropZones}
                   dragHandleProps={handle}
                 />
               )}
@@ -606,44 +660,15 @@ function ToolboxLocationRow({
     <div>
       <div
         className={cn(
-          "flex items-center gap-1 py-1 pr-2 rounded-md mx-1 transition-colors group/node",
+          "flex items-center gap-1.5 py-1 pr-1.5 rounded-md mx-1 transition-colors group/node",
           isPlaced ? "cursor-pointer hover:bg-accent" : "cursor-default hover:bg-muted/50"
         )}
-        style={{ paddingLeft: 6 + depth * 14 }}
+        style={{ paddingLeft: 2 + depth * 10 }}
         onClick={() => {
           if (isPlaced) ctx.onSelect(location.id);
         }}
       >
-        {/* Drag handle */}
-        <button
-          type="button"
-          className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 group-hover/node:text-muted-foreground transition-colors"
-          {...(dragHandleProps ?? {})}
-          onClick={(e) => e.stopPropagation()}
-          tabIndex={-1}
-        >
-          <GripVertical className="w-3 h-3" />
-        </button>
-
-        {/* Expand toggle */}
-        <button
-          type="button"
-          className={cn(
-            "shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground",
-            !hasChildren && "invisible pointer-events-none"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            setExpanded((v) => !v);
-          }}
-        >
-          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        </button>
-
-        <div
-          className="w-2 h-2 rounded-sm shrink-0"
-          style={{ backgroundColor: location.color ?? "#10b981" }}
-        />
+        <LocationColorBadge color={location.color} />
 
         <span className="text-xs truncate flex-1 min-w-0">{location.name}</span>
         {location.code && (
@@ -671,6 +696,36 @@ function ToolboxLocationRow({
             <X className="w-3 h-3" />
           </button>
         )}
+
+        {/* Expand toggle */}
+        <button
+          type="button"
+          className={cn(
+            "shrink-0 w-3.5 h-3.5 flex items-center justify-center text-muted-foreground hover:text-foreground",
+            !hasChildren && "invisible pointer-events-none"
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? (
+            <ChevronDown className="w-2.5 h-2.5" />
+          ) : (
+            <ChevronRight className="w-2.5 h-2.5" />
+          )}
+        </button>
+
+        {/* Drag handle */}
+        <button
+          type="button"
+          className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground/30 group-hover/node:text-muted-foreground transition-colors"
+          {...(dragHandleProps ?? {})}
+          onClick={(e) => e.stopPropagation()}
+          tabIndex={-1}
+        >
+          <GripVertical className="w-3 h-3" />
+        </button>
       </div>
 
       {expanded && hasChildren && (
@@ -684,40 +739,39 @@ function ToolboxLocationRow({
 
 interface LocationToolboxProps {
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   rootLocationId: string | null;
   branchId: string;
   placedLocationIds: Set<string>;
   selectedId: string | null;
+  selectedGroupId: string | null;
   onSelectLocation: (locationId: string) => void;
+  onSelectGroup: (groupId: string) => void;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function LocationToolbox({
   locations,
+  locationGroups,
   rootLocationId,
   branchId,
   placedLocationIds,
   selectedId: _selectedId,
+  selectedGroupId,
   onSelectLocation,
+  onSelectGroup,
 }: LocationToolboxProps) {
   const t = useTranslations("warehouseMapToolbox");
   const [treeOpen, setTreeOpen] = React.useState(true);
   const [shapesOpen, setShapesOpen] = React.useState(true);
   const [unplacedOpen, setUnplacedOpen] = React.useState(true);
   const [deleteLocTarget, setDeleteLocTarget] = React.useState<WarehouseLocation | null>(null);
-  const [deleteGroupTarget, setDeleteGroupTarget] = React.useState<WarehouseLocationGroup | null>(
-    null
-  );
 
   const deleteLocMut = useDeleteLocationMutation(branchId);
-  const deleteGroupMut = useDeleteLocationGroupMutation(branchId);
   const reorderMut = useReorderLocationsMutation(branchId);
   const reorderGroupsMut = useReorderGroupsMutation(branchId);
   const updateLocationMut = useUpdateLocationMutation(branchId);
-
-  const groupsQuery = useWarehouseLocationGroupsQuery(branchId);
-  const groups: WarehouseLocationGroup[] = groupsQuery.data ?? [];
 
   // Determine if user can manage (editor only renders toolbox when canManage=true,
   // but we derive it from whether the mutation hooks are available)
@@ -764,15 +818,16 @@ export function LocationToolbox({
 
   const ctx: ToolboxCtx = {
     allLocations,
-    groups,
+    groups: locationGroups,
     placedLocationIds,
+    selectedGroupId,
     canManage,
     onSelect: onSelectLocation,
+    onSelectGroup,
     onReorderSiblings: handleReorderSiblings,
     onReorderGroups: handleReorderGroups,
     onAssignToGroup: handleAssignToGroup,
     onUngroup: handleUngroup,
-    onDeleteGroup: setDeleteGroupTarget,
     t,
   };
 
@@ -900,38 +955,6 @@ export function LocationToolbox({
               }}
             >
               {deleteLocMut.isPending ? t("actions.deleting") : t("actions.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── Delete group confirmation ────────────────────────────────────── */}
-      <AlertDialog
-        open={!!deleteGroupTarget}
-        onOpenChange={(open) => !open && setDeleteGroupTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteGroupDialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteGroupDialog.description", { name: deleteGroupTarget?.name ?? "" })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteGroupMut.isPending}>
-              {t("actions.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteGroupMut.isPending}
-              onClick={() => {
-                if (!deleteGroupTarget) return;
-                deleteGroupMut.mutate(deleteGroupTarget.id, {
-                  onSuccess: () => setDeleteGroupTarget(null),
-                });
-              }}
-            >
-              {deleteGroupMut.isPending ? t("actions.deleting") : t("actions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -540,6 +540,8 @@
       "cancel": "Anuluj",
       "delete": "Usuń",
       "deleting": "Usuwanie...",
+      "copyLocationCode": "Kopiuj kod lokalizacji",
+      "copyLocationPath": "Kopiuj ścieżkę lokalizacji",
       "previewMap": "Podejrzyj mapę",
       "openMapEditor": "Otwórz edytor mapy",
       "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
@@ -555,6 +557,11 @@
       "noBranchDescription": "Wybierz oddział, aby zobaczyć jego lokalizacje magazynowe.",
       "emptyTitle": "Brak lokalizacji",
       "emptyDescription": "Utwórz pierwszą lokalizację, aby uporządkować magazyn."
+    },
+    "feedback": {
+      "locationCodeCopied": "Skopiowano kod lokalizacji {code}.",
+      "locationPathCopied": "Skopiowano ścieżkę lokalizacji.",
+      "copyFailed": "Nie udało się skopiować do schowka."
     },
     "tree": {
       "collapse": "Zwiń",
@@ -777,6 +784,7 @@
       "cancel": "Anuluj",
       "delete": "Usuń",
       "deleting": "Usuwanie…",
+      "assignToGroup": "Upuść do grupy",
       "ungroup": "Usuń z grupy"
     },
     "deleteDialog": {
@@ -824,7 +832,9 @@
     "actions": {
       "deleteSelectedShapes": "Usuń zaznaczone kształty",
       "cloneLocation": "Klonuj lokalizację",
-      "deleteShape": "Usuń kształt"
+      "deleteShape": "Usuń kształt",
+      "selectGroupMembers": "Zaznacz członków grupy",
+      "deleteGroup": "Usuń grupę"
     },
     "multiSelect": {
       "help": "Shift+kliknięcie dodaje lub usuwa kształty z zaznaczenia."
@@ -836,6 +846,7 @@
     "sections": {
       "codeLabel": "Etykieta kodu",
       "align": "Wyrównanie",
+      "group": "Grupa",
       "type": "Typ",
       "geometry": "Geometria (metry)",
       "style": "Styl",
@@ -850,6 +861,11 @@
       "y": "Y",
       "name": "Nazwa",
       "code": "Kod",
+      "group": "Grupa",
+      "groupNone": "Brak (bez grupy)",
+      "groupName": "Nazwa grupy",
+      "groupColor": "Kolor grupy",
+      "groupMembers": "Członkowie",
       "label": "Etykieta",
       "fontSize": "Rozmiar czcionki (m)",
       "rotation": "Obrót (°)",
@@ -864,6 +880,8 @@
     "placeholders": {
       "locationName": "Nazwa lokalizacji",
       "locationCode": "np. A-01",
+      "groupName": "Nazwa grupy",
+      "noGroup": "Brak grupy",
       "noLabel": "Brak etykiety"
     },
     "help": {
