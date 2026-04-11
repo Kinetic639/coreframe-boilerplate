@@ -62,6 +62,9 @@ export interface UpdateLocationInput {
 const LOCATION_COLUMNS =
   "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
+const GROUP_SCOPE_COLUMNS =
+  "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class WarehouseLocationsService {
@@ -168,6 +171,7 @@ export class WarehouseLocationsService {
     userId: string
   ): Promise<ServiceResult<WarehouseLocation>> {
     let level = 0;
+    const effectiveParentId = input.parent_id ?? null;
 
     if (input.parent_id) {
       const parentResult = await WarehouseLocationsService.getById(
@@ -181,6 +185,20 @@ export class WarehouseLocationsService {
         return { success: false, error: "Parent location belongs to a different branch" };
       }
       level = parentResult.data.level + 1;
+    }
+
+    const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
+      supabase,
+      orgId,
+      branchId,
+      effectiveParentId,
+      input.group_id ?? null
+    );
+    if (!groupValidation.success) {
+      return {
+        success: false,
+        error: (groupValidation as { success: false; error: string }).error,
+      };
     }
 
     const { data, error } = await supabase
@@ -290,6 +308,22 @@ export class WarehouseLocationsService {
         newLevel = newParentResult.data.level + 1;
         updatePayload.level = newLevel;
       }
+    }
+
+    const effectiveParentId = input.parent_id !== undefined ? input.parent_id : current.parent_id;
+    const effectiveGroupId = input.group_id !== undefined ? input.group_id : current.group_id;
+    const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
+      supabase,
+      orgId,
+      current.branch_id,
+      effectiveParentId ?? null,
+      effectiveGroupId ?? null
+    );
+    if (!groupValidation.success) {
+      return {
+        success: false,
+        error: (groupValidation as { success: false; error: string }).error,
+      };
     }
 
     const { data, error } = await supabase
@@ -405,5 +439,47 @@ export class WarehouseLocationsService {
     }
 
     return { success: true, data: false };
+  }
+
+  private static async validateGroupAssignment(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    parentId: string | null,
+    groupId: string | null
+  ): Promise<ServiceResult<void>> {
+    if (!groupId) return { success: true, data: undefined };
+
+    const { data, error } = await supabase
+      .from("warehouse_location_groups")
+      .select(GROUP_SCOPE_COLUMNS)
+      .eq("id", groupId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Location group not found" };
+
+    const group = data as {
+      id: string;
+      organization_id: string;
+      branch_id: string;
+      parent_location_id: string | null;
+      deleted_at: string | null;
+    };
+
+    if (group.branch_id !== branchId) {
+      return { success: false, error: "Location group belongs to a different branch" };
+    }
+
+    if (group.parent_location_id !== parentId) {
+      return {
+        success: false,
+        error: "Location group belongs to a different parent location",
+      };
+    }
+
+    return { success: true, data: undefined };
   }
 }

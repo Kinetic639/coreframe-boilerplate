@@ -41,6 +41,8 @@ export interface UpdateLocationGroupInput {
 const GROUP_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, name, description, color, sort_order, created_by, created_at, updated_at, deleted_at" as const;
 
+const PARENT_LOCATION_SCOPE_COLUMNS = "id, organization_id, branch_id, deleted_at" as const;
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export class WarehouseLocationGroupsService {
@@ -97,6 +99,19 @@ export class WarehouseLocationGroupsService {
     input: CreateLocationGroupInput,
     userId: string
   ): Promise<ServiceResult<WarehouseLocationGroup>> {
+    const parentValidation = await this.validateParentLocationScope(
+      supabase,
+      orgId,
+      branchId,
+      input.parent_location_id ?? null
+    );
+    if (!parentValidation.success) {
+      return {
+        success: false,
+        error: (parentValidation as { success: false; error: string }).error,
+      };
+    }
+
     // Compute next sort_order unless explicitly supplied
     let sortOrder = input.sort_order ?? 0;
     if (input.sort_order === undefined) {
@@ -141,6 +156,25 @@ export class WarehouseLocationGroupsService {
     groupId: string,
     input: UpdateLocationGroupInput
   ): Promise<ServiceResult<WarehouseLocationGroup>> {
+    const current = await this.getById(supabase, orgId, groupId);
+    if (!current.success) return current;
+    if (!current.data) return { success: false, error: "Group not found" };
+
+    const parentValidation = await this.validateParentLocationScope(
+      supabase,
+      orgId,
+      current.data.branch_id,
+      input.parent_location_id !== undefined
+        ? (input.parent_location_id ?? null)
+        : current.data.parent_location_id
+    );
+    if (!parentValidation.success) {
+      return {
+        success: false,
+        error: (parentValidation as { success: false; error: string }).error,
+      };
+    }
+
     const patch: Record<string, unknown> = {};
     if (input.name !== undefined) patch.name = input.name.trim();
     if (input.description !== undefined) patch.description = input.description;
@@ -149,9 +183,7 @@ export class WarehouseLocationGroupsService {
     if (input.parent_location_id !== undefined) patch.parent_location_id = input.parent_location_id;
 
     if (Object.keys(patch).length === 0) {
-      const existing = await this.getById(supabase, orgId, groupId);
-      if (!existing.success || !existing.data) return { success: false, error: "Group not found" };
-      return { success: true, data: existing.data };
+      return { success: true, data: current.data };
     }
 
     const { data, error } = await supabase
@@ -185,19 +217,13 @@ export class WarehouseLocationGroupsService {
     branchId: string,
     items: { id: string; sort_order: number }[]
   ): Promise<ServiceResult<void>> {
-    const updates = items.map(({ id, sort_order }) =>
-      supabase
-        .from("warehouse_location_groups")
-        .update({ sort_order })
-        .eq("id", id)
-        .eq("organization_id", orgId)
-        .eq("branch_id", branchId)
-        .is("deleted_at", null)
-    );
+    const { error } = await supabase.rpc("reorder_warehouse_location_groups", {
+      p_org_id: orgId,
+      p_branch_id: branchId,
+      p_items: items,
+    });
 
-    const results = await Promise.all(updates);
-    const firstError = results.find((r) => r.error)?.error;
-    if (firstError) return { success: false, error: firstError.message };
+    if (error) return { success: false, error: error.message };
     return { success: true, data: undefined };
   }
 
@@ -206,25 +232,45 @@ export class WarehouseLocationGroupsService {
     orgId: string,
     groupId: string
   ): Promise<ServiceResult<void>> {
-    // Clear group_id from all member locations first
-    const { error: clearErr } = await supabase
-      .from("warehouse_locations")
-      .update({ group_id: null })
-      .eq("group_id", groupId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
-
-    if (clearErr) return { success: false, error: clearErr.message };
-
-    // Soft-delete the group
-    const { error } = await supabase
-      .from("warehouse_location_groups")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", groupId)
-      .eq("organization_id", orgId)
-      .is("deleted_at", null);
+    const { error } = await supabase.rpc("soft_delete_warehouse_location_group", {
+      p_org_id: orgId,
+      p_group_id: groupId,
+    });
 
     if (error) return { success: false, error: error.message };
+    return { success: true, data: undefined };
+  }
+
+  private static async validateParentLocationScope(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    parentLocationId: string | null
+  ): Promise<ServiceResult<void>> {
+    if (!parentLocationId) return { success: true, data: undefined };
+
+    const { data, error } = await supabase
+      .from("warehouse_locations")
+      .select(PARENT_LOCATION_SCOPE_COLUMNS)
+      .eq("id", parentLocationId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Parent location not found" };
+
+    const parent = data as {
+      id: string;
+      organization_id: string;
+      branch_id: string;
+      deleted_at: string | null;
+    };
+
+    if (parent.branch_id !== branchId) {
+      return { success: false, error: "Parent location belongs to a different branch" };
+    }
+
     return { success: true, data: undefined };
   }
 }

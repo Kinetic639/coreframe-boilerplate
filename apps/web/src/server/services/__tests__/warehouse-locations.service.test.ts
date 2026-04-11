@@ -9,9 +9,9 @@
  *  - listByBranch (success, DB error)
  *  - getById (found, not found, DB error)
  *  - getChildren (success, DB error)
- *  - create (success, parent branch mismatch, 23505 duplicate code, parent not found)
+ *  - create (success, parent/group branch mismatch, group parent mismatch, 23505 duplicate code, parent not found)
  *  - update (success, self-parent guard, cycle guard, new parent branch mismatch,
- *            23505, not found, level cascade after reparent)
+ *            group mismatch after reparent, 23505, not found, level cascade after reparent)
  *  - softDelete (success, DB error, children reparented to root, grandchild levels cascaded)
  *
  * RLS simulation tests (T-RLS):
@@ -55,6 +55,25 @@ function makeLocation(overrides: Partial<WarehouseLocation> = {}): WarehouseLoca
     updated_by: USER_ID,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
+    deleted_at: null,
+    ...overrides,
+  };
+}
+
+function makeGroup(
+  overrides: Partial<{
+    id: string;
+    organization_id: string;
+    branch_id: string;
+    parent_location_id: string | null;
+    deleted_at: string | null;
+  }> = {}
+) {
+  return {
+    id: "group-001",
+    organization_id: ORG_ID,
+    branch_id: BRANCH_ID,
+    parent_location_id: null,
     deleted_at: null,
     ...overrides,
   };
@@ -366,6 +385,40 @@ describe("WarehouseLocationsService.create", () => {
     if (!result.success)
       expect((result as { success: false; error: string }).error).toMatch(/not found/i);
   });
+
+  it("rejects if group belongs to different branch", async () => {
+    const group = makeGroup({ id: "group-x", branch_id: "other-branch" });
+    const supabase = makeSupabaseMock([{ data: group, error: null }]);
+    const result = await WarehouseLocationsService.create(
+      supabase as never,
+      ORG_ID,
+      BRANCH_ID,
+      { name: "Grouped", group_id: "group-x" },
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/different branch/i);
+  });
+
+  it("rejects if group belongs to a different parent location", async () => {
+    const parent = makeLocation({ id: "parent-1" });
+    const group = makeGroup({ id: "group-x", parent_location_id: "other-parent" });
+    const supabase = makeSupabaseMock([
+      { data: parent, error: null },
+      { data: group, error: null },
+    ]);
+    const result = await WarehouseLocationsService.create(
+      supabase as never,
+      ORG_ID,
+      BRANCH_ID,
+      { name: "Grouped", parent_id: "parent-1", group_id: "group-x" },
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/different parent/i);
+  });
 });
 
 // ─── update ───────────────────────────────────────────────────────────────────
@@ -564,6 +617,47 @@ describe("WarehouseLocationsService.update", () => {
     expect(result.success).toBe(false);
     if (!result.success)
       expect((result as { success: false; error: string }).error).toMatch(/already exists/i);
+  });
+
+  it("rejects when group belongs to a different branch", async () => {
+    const current = makeLocation({ id: "loc-1", parent_id: null, group_id: null });
+    const group = makeGroup({ id: "group-x", branch_id: "other-branch" });
+    const supabase = makeSupabaseMock([
+      { data: current, error: null },
+      { data: group, error: null },
+    ]);
+    const result = await WarehouseLocationsService.update(
+      supabase as never,
+      ORG_ID,
+      "loc-1",
+      { group_id: "group-x" },
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/different branch/i);
+  });
+
+  it("rejects keeping a group that no longer matches after reparent", async () => {
+    const current = makeLocation({ id: "loc-1", parent_id: "old-parent", group_id: "group-x" });
+    const newParent = makeLocation({ id: "new-parent", parent_id: null, level: 0 });
+    const group = makeGroup({ id: "group-x", parent_location_id: "old-parent" });
+    const supabase = makeSupabaseMock([
+      { data: current, error: null },
+      { data: newParent, error: null },
+      { data: newParent, error: null },
+      { data: group, error: null },
+    ]);
+    const result = await WarehouseLocationsService.update(
+      supabase as never,
+      ORG_ID,
+      "loc-1",
+      { parent_id: "new-parent" },
+      USER_ID
+    );
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect((result as { success: false; error: string }).error).toMatch(/different parent/i);
   });
 });
 
