@@ -14,14 +14,11 @@ import dynamic from "next/dynamic";
 import type { WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
 import { useUiStoreV2 } from "@/lib/stores/v2/ui-store";
+import { MapEditorLoading } from "./map-editor-loading";
 
 const MapEditor = dynamic(() => import("./map-editor").then((m) => ({ default: m.MapEditor })), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      Loading editor…
-    </div>
-  ),
+  loading: () => <MapEditorLoading />,
 });
 
 interface MapEditorShellProps {
