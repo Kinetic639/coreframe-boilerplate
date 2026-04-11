@@ -14,6 +14,13 @@ import {
   listPlacedLocationIdsAction,
 } from "@/app/actions/warehouse/locations";
 import {
+  listLocationGroupsAction,
+  createLocationGroupAction,
+  updateLocationGroupAction,
+  deleteLocationGroupAction,
+  reorderGroupsAction,
+} from "@/app/actions/warehouse/location-groups";
+import {
   listLayoutsAction,
   getLayoutWithShapesAction,
   getPublishedLayoutAction,
@@ -29,7 +36,7 @@ import {
   upsertOneShapeAction,
   deleteShapeAction,
 } from "@/app/actions/warehouse/shapes";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import type {
   WarehouseLayout,
   WarehouseLayoutWithShapes,
@@ -40,6 +47,9 @@ import type {
   CreateLocationInput,
   UpdateLocationInput,
   ReorderLocationsInput,
+  CreateLocationGroupInput,
+  UpdateLocationGroupInput,
+  ReorderGroupsInput,
 } from "@/app/actions/warehouse/schemas";
 import type {
   CreateLayoutInput,
@@ -75,6 +85,35 @@ function invalidatePublishedLayoutsForBranch(
   });
 }
 
+function patchLocationInList(
+  locations: WarehouseLocation[] | undefined,
+  locationId: string,
+  patch: Partial<WarehouseLocation>
+) {
+  if (!locations) return locations;
+  return locations.map((location) =>
+    location.id === locationId ? { ...location, ...patch } : location
+  );
+}
+
+function patchGroupSortOrders(
+  groups: WarehouseLocationGroup[] | undefined,
+  items: { id?: string; sort_order?: number }[]
+) {
+  if (!groups) return groups;
+  const orderMap = new Map(
+    items
+      .filter(
+        (item): item is { id: string; sort_order: number } =>
+          typeof item.id === "string" && typeof item.sort_order === "number"
+      )
+      .map(({ id, sort_order }) => [id, sort_order])
+  );
+  return groups.map((group) =>
+    orderMap.has(group.id) ? { ...group, sort_order: orderMap.get(group.id)! } : group
+  );
+}
+
 // ─── Query Key Factory ─────────────────────────────────────────────────────────
 
 export const warehouseKeys = {
@@ -86,6 +125,10 @@ export const warehouseKeys = {
   location: (id: string) => [...warehouseKeys.locations(), id] as const,
   placedLocationIds: (branchId: string) =>
     [...warehouseKeys.locations(), "placed", branchId] as const,
+  // ── location groups ──
+  locationGroups: () => [...warehouseKeys.all, "locationGroups"] as const,
+  locationGroupsByBranch: (branchId: string) =>
+    [...warehouseKeys.locationGroups(), "branch", branchId] as const,
   // ── layouts ──
   layouts: () => [...warehouseKeys.all, "layouts"] as const,
   layoutsByBranch: (branchId: string) => [...warehouseKeys.layouts(), "branch", branchId] as const,
@@ -174,7 +217,28 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
   return useMutation({
     mutationFn: async (input: UpdateLocationInput & { id: string }) =>
       unwrapSR((await updateLocationAction(input)) as SR<WarehouseLocation>),
-    onSuccess: (data) => {
+    onMutate: async (input) => {
+      if (!branchId) return;
+
+      const listKey = warehouseKeys.locationsByBranch(branchId);
+      const singleKey = warehouseKeys.location(input.id);
+
+      await queryClient.cancelQueries({ queryKey: listKey });
+      await queryClient.cancelQueries({ queryKey: singleKey });
+
+      const previousList = queryClient.getQueryData<WarehouseLocation[]>(listKey);
+      const previousSingle = queryClient.getQueryData<WarehouseLocation>(singleKey);
+
+      queryClient.setQueryData<WarehouseLocation[] | undefined>(listKey, (old) =>
+        patchLocationInList(old, input.id, input)
+      );
+      queryClient.setQueryData<WarehouseLocation | undefined>(singleKey, (old) =>
+        old ? { ...old, ...input } : old
+      );
+
+      return { previousList, previousSingle };
+    },
+    onSuccess: (data, variables) => {
       queryClient.setQueryData(warehouseKeys.location(data.id), data);
       if (branchId) {
         queryClient.invalidateQueries({
@@ -183,9 +247,25 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
       } else {
         queryClient.invalidateQueries({ queryKey: warehouseKeys.locations() });
       }
-      toast.success(t("locationUpdated"));
+
+      const changedKeys = Object.keys(variables).filter((key) => key !== "id");
+      const isDragOnlyUpdate =
+        changedKeys.length > 0 &&
+        changedKeys.every((key) => key === "group_id" || key === "inherit_group_color");
+
+      if (!isDragOnlyUpdate) {
+        toast.success(t("locationUpdated"));
+      }
     },
-    onError: (err: Error) => {
+    onError: (err: Error, input, context) => {
+      if (branchId) {
+        if (context?.previousList) {
+          queryClient.setQueryData(warehouseKeys.locationsByBranch(branchId), context.previousList);
+        }
+        if (context?.previousSingle) {
+          queryClient.setQueryData(warehouseKeys.location(input.id), context.previousSingle);
+        }
+      }
       toast.error(err.message || t("locationUpdateFailed"));
     },
   });
@@ -262,6 +342,136 @@ export function usePlacedLocationIdsQuery(branchId: string | null | undefined) {
     queryFn: async () => unwrapSR((await listPlacedLocationIdsAction()) as SR<string[]>),
     enabled: !!branchId,
     staleTime: 30_000,
+  });
+}
+
+// =============================================================================
+// LOCATION GROUPS
+// =============================================================================
+
+export function useWarehouseLocationGroupsQuery(
+  branchId: string | null | undefined,
+  initialData?: WarehouseLocationGroup[]
+) {
+  return useQuery({
+    queryKey: branchId
+      ? warehouseKeys.locationGroupsByBranch(branchId)
+      : warehouseKeys.locationGroups(),
+    queryFn: async () =>
+      unwrapSR((await listLocationGroupsAction()) as SR<WarehouseLocationGroup[]>),
+    enabled: !!branchId,
+    initialData,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCreateLocationGroupMutation(branchId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
+
+  return useMutation({
+    mutationFn: async (input: CreateLocationGroupInput) =>
+      unwrapSR((await createLocationGroupAction(input)) as SR<WarehouseLocationGroup>),
+    onSuccess: () => {
+      if (branchId) {
+        queryClient.invalidateQueries({
+          queryKey: warehouseKeys.locationGroupsByBranch(branchId),
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: warehouseKeys.locationGroups() });
+      }
+      toast.success(t("locationGroupCreated"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("locationGroupCreateFailed"));
+    },
+  });
+}
+
+export function useUpdateLocationGroupMutation(branchId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
+
+  return useMutation({
+    mutationFn: async (input: UpdateLocationGroupInput & { id: string }) =>
+      unwrapSR((await updateLocationGroupAction(input)) as SR<WarehouseLocationGroup>),
+    onSuccess: () => {
+      if (branchId) {
+        queryClient.invalidateQueries({
+          queryKey: warehouseKeys.locationGroupsByBranch(branchId),
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: warehouseKeys.locationGroups() });
+      }
+      toast.success(t("locationGroupUpdated"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("locationGroupUpdateFailed"));
+    },
+  });
+}
+
+export function useDeleteLocationGroupMutation(branchId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
+
+  return useMutation({
+    mutationFn: async (id: string) =>
+      unwrapSR((await deleteLocationGroupAction({ id })) as SR<void>),
+    onSuccess: () => {
+      if (branchId) {
+        queryClient.invalidateQueries({
+          queryKey: warehouseKeys.locationGroupsByBranch(branchId),
+        });
+        // Also invalidate locations — their group_id fields were cleared
+        queryClient.invalidateQueries({
+          queryKey: warehouseKeys.locationsByBranch(branchId),
+        });
+      }
+      toast.success(t("locationGroupDeleted"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("locationGroupDeleteFailed"));
+    },
+  });
+}
+
+export function useReorderGroupsMutation(branchId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("warehouseFeedback");
+
+  return useMutation({
+    mutationFn: async (input: ReorderGroupsInput) =>
+      unwrapSR((await reorderGroupsAction(input)) as SR<void>),
+    onMutate: async (input) => {
+      if (!branchId) return;
+
+      const key = warehouseKeys.locationGroupsByBranch(branchId);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<WarehouseLocationGroup[]>(key);
+
+      queryClient.setQueryData<WarehouseLocationGroup[] | undefined>(key, (old) =>
+        patchGroupSortOrders(old, input.items)
+      );
+
+      return { previous };
+    },
+    onError: (err: Error, _input, context) => {
+      if (branchId && context?.previous) {
+        queryClient.setQueryData(warehouseKeys.locationGroupsByBranch(branchId), context.previous);
+      }
+      toast.error(err.message || t("locationGroupReorderFailed"));
+    },
+    onSettled: () => {
+      if (branchId) {
+        queryClient.invalidateQueries({
+          queryKey: warehouseKeys.locationGroupsByBranch(branchId),
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: warehouseKeys.locationGroups() });
+      }
+    },
   });
 }
 

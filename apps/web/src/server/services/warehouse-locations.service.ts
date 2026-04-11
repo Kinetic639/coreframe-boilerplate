@@ -42,6 +42,8 @@ export interface CreateLocationInput {
   icon_name?: string | null;
   color?: string | null;
   parent_id?: string | null;
+  group_id?: string | null;
+  inherit_group_color?: boolean;
   sort_order?: number;
 }
 
@@ -52,13 +54,18 @@ export interface UpdateLocationInput {
   icon_name?: string | null;
   color?: string | null;
   parent_id?: string | null;
+  group_id?: string | null;
+  inherit_group_color?: boolean;
   sort_order?: number;
 }
 
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+
+const GROUP_SCOPE_COLUMNS =
+  "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
@@ -166,6 +173,7 @@ export class WarehouseLocationsService {
     userId: string
   ): Promise<ServiceResult<WarehouseLocation>> {
     let level = 0;
+    const effectiveParentId = input.parent_id ?? null;
 
     if (input.parent_id) {
       const parentResult = await WarehouseLocationsService.getById(
@@ -181,6 +189,20 @@ export class WarehouseLocationsService {
       level = parentResult.data.level + 1;
     }
 
+    const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
+      supabase,
+      orgId,
+      branchId,
+      effectiveParentId,
+      input.group_id ?? null
+    );
+    if (!groupValidation.success) {
+      return {
+        success: false,
+        error: (groupValidation as { success: false; error: string }).error,
+      };
+    }
+
     const { data, error } = await supabase
       .from("warehouse_locations")
       .insert({
@@ -192,6 +214,8 @@ export class WarehouseLocationsService {
         icon_name: input.icon_name ?? null,
         color: input.color ?? null,
         parent_id: input.parent_id ?? null,
+        group_id: input.group_id ?? null,
+        inherit_group_color: input.group_id ? (input.inherit_group_color ?? false) : false,
         level,
         sort_order: input.sort_order ?? 0,
         created_by: userId,
@@ -243,6 +267,10 @@ export class WarehouseLocationsService {
     if (input.icon_name !== undefined) updatePayload.icon_name = input.icon_name;
     if (input.color !== undefined) updatePayload.color = input.color;
     if (input.sort_order !== undefined) updatePayload.sort_order = input.sort_order;
+    if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
+    if (input.inherit_group_color !== undefined) {
+      updatePayload.inherit_group_color = input.inherit_group_color;
+    }
 
     let newLevel: number | undefined;
 
@@ -286,6 +314,30 @@ export class WarehouseLocationsService {
         newLevel = newParentResult.data.level + 1;
         updatePayload.level = newLevel;
       }
+    }
+
+    const effectiveParentId = input.parent_id !== undefined ? input.parent_id : current.parent_id;
+    const effectiveGroupId = input.group_id !== undefined ? input.group_id : current.group_id;
+    const effectiveInheritGroupColor =
+      input.inherit_group_color !== undefined
+        ? input.inherit_group_color
+        : current.inherit_group_color;
+    const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
+      supabase,
+      orgId,
+      current.branch_id,
+      effectiveParentId ?? null,
+      effectiveGroupId ?? null
+    );
+    if (!groupValidation.success) {
+      return {
+        success: false,
+        error: (groupValidation as { success: false; error: string }).error,
+      };
+    }
+
+    if (!effectiveGroupId && effectiveInheritGroupColor) {
+      updatePayload.inherit_group_color = false;
     }
 
     const { data, error } = await supabase
@@ -401,5 +453,47 @@ export class WarehouseLocationsService {
     }
 
     return { success: true, data: false };
+  }
+
+  private static async validateGroupAssignment(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    parentId: string | null,
+    groupId: string | null
+  ): Promise<ServiceResult<void>> {
+    if (!groupId) return { success: true, data: undefined };
+
+    const { data, error } = await supabase
+      .from("warehouse_location_groups")
+      .select(GROUP_SCOPE_COLUMNS)
+      .eq("id", groupId)
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "Location group not found" };
+
+    const group = data as {
+      id: string;
+      organization_id: string;
+      branch_id: string;
+      parent_location_id: string | null;
+      deleted_at: string | null;
+    };
+
+    if (group.branch_id !== branchId) {
+      return { success: false, error: "Location group belongs to a different branch" };
+    }
+
+    if (group.parent_location_id !== parentId) {
+      return {
+        success: false,
+        error: "Location group belongs to a different parent location",
+      };
+    }
+
+    return { success: true, data: undefined };
   }
 }

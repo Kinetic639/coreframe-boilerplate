@@ -9,6 +9,8 @@ vi.mock("next-intl", () => ({
     const t = ((key: string, values?: Record<string, string>) => {
       if (values?.name && key === "actions.editLocation") return `Edit ${values.name}`;
       if (values?.name && key === "actions.deleteLocation") return `Delete ${values.name}`;
+      if (values?.name && key === "deleteDialog.description")
+        return `${values.name} will be deleted.`;
       const dictionary: Record<string, string> = {
         "states.noPermission": "You do not have permission to view locations.",
         "states.noBranchTitle": "No branch selected",
@@ -46,12 +48,17 @@ vi.mock("@/lib/stores/v2/app-store", () => ({
 vi.mock("@/hooks/queries/warehouse", () => ({
   useWarehouseLocationsQuery: vi.fn(),
   useWarehouseLayoutsQuery: vi.fn(),
+  useWarehouseLocationGroupsQuery: vi.fn(),
   useCreateLayoutForLocationMutation: vi.fn(),
   useCreateLocationMutation: vi.fn(),
   useUpdateLocationMutation: vi.fn(),
   useDeleteLocationMutation: vi.fn(),
   usePlacedLocationIdsQuery: vi.fn(),
   useReorderLocationsMutation: vi.fn(),
+  useCreateLocationGroupMutation: vi.fn(),
+  useUpdateLocationGroupMutation: vi.fn(),
+  useDeleteLocationGroupMutation: vi.fn(),
+  useReorderGroupsMutation: vi.fn(),
 }));
 
 vi.mock("@/lib/warehouse/location-tree", () => ({
@@ -127,12 +134,17 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import {
   useWarehouseLocationsQuery,
   useWarehouseLayoutsQuery,
+  useWarehouseLocationGroupsQuery,
   useCreateLayoutForLocationMutation,
   useCreateLocationMutation,
   useUpdateLocationMutation,
   useDeleteLocationMutation,
   usePlacedLocationIdsQuery,
   useReorderLocationsMutation,
+  useCreateLocationGroupMutation,
+  useUpdateLocationGroupMutation,
+  useDeleteLocationGroupMutation,
+  useReorderGroupsMutation,
 } from "@/hooks/queries/warehouse";
 import { buildLocationTree } from "@/lib/warehouse/location-tree";
 import { LocationsClient } from "../locations-client";
@@ -151,6 +163,8 @@ function makeLocation(overrides: Partial<WarehouseLocation> = {}): WarehouseLoca
     icon_name: null,
     color: null,
     parent_id: null,
+    group_id: null,
+    inherit_group_color: false,
     level: 0,
     sort_order: 0,
     qr_code: "qr-x",
@@ -188,9 +202,14 @@ beforeEach(() => {
   vi.mocked(useUpdateLocationMutation).mockReturnValue(noopMutation as never);
   vi.mocked(useDeleteLocationMutation).mockReturnValue(noopMutation as never);
   vi.mocked(useWarehouseLayoutsQuery).mockReturnValue({ data: [] } as never);
+  vi.mocked(useWarehouseLocationGroupsQuery).mockReturnValue({ data: [] } as never);
   vi.mocked(useCreateLayoutForLocationMutation).mockReturnValue(noopMutation as never);
   vi.mocked(usePlacedLocationIdsQuery).mockReturnValue({ data: [] } as never);
   vi.mocked(useReorderLocationsMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(useCreateLocationGroupMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(useUpdateLocationGroupMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(useDeleteLocationGroupMutation).mockReturnValue(noopMutation as never);
+  vi.mocked(useReorderGroupsMutation).mockReturnValue(noopMutation as never);
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -207,7 +226,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([]);
 
-    render(<LocationsClient initialLocations={[]} />, { wrapper });
+    render(<LocationsClient initialLocations={[]} initialGroups={[]} />, { wrapper });
     expect(screen.getByText(/permission to view locations/i)).toBeInTheDocument();
   });
 
@@ -223,7 +242,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([]);
 
-    render(<LocationsClient initialLocations={[]} />, { wrapper });
+    render(<LocationsClient initialLocations={[]} initialGroups={[]} />, { wrapper });
     expect(screen.getByText(/no branch selected/i)).toBeInTheDocument();
   });
 
@@ -242,7 +261,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([]);
 
-    render(<LocationsClient initialLocations={[]} />, { wrapper });
+    render(<LocationsClient initialLocations={[]} initialGroups={[]} />, { wrapper });
     expect(screen.getByText(/no locations yet/i)).toBeInTheDocument();
     expect(screen.getAllByText(/add location/i).length).toBeGreaterThan(0);
   });
@@ -259,7 +278,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [loc] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([makeTreeNode(loc)]);
 
-    render(<LocationsClient initialLocations={[loc]} />, { wrapper });
+    render(<LocationsClient initialLocations={[loc]} initialGroups={[]} />, { wrapper });
     expect(screen.getByText("Aisle A")).toBeInTheDocument();
   });
 
@@ -274,7 +293,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([]);
 
-    render(<LocationsClient initialLocations={[]} />, { wrapper });
+    render(<LocationsClient initialLocations={[]} initialGroups={[]} />, { wrapper });
 
     // Click the header "Add Location" button
     const addButtons = screen.getAllByText(/add location/i);
@@ -294,7 +313,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([]);
 
-    render(<LocationsClient initialLocations={[]} />, { wrapper });
+    render(<LocationsClient initialLocations={[]} initialGroups={[]} />, { wrapper });
     expect(screen.queryByText(/add location/i)).not.toBeInTheDocument();
   });
 
@@ -310,7 +329,7 @@ describe("LocationsClient", () => {
     vi.mocked(useWarehouseLocationsQuery).mockReturnValue({ data: [loc] } as never);
     vi.mocked(buildLocationTree).mockReturnValue([makeTreeNode(loc)]);
 
-    render(<LocationsClient initialLocations={[loc]} />, { wrapper });
+    render(<LocationsClient initialLocations={[loc]} initialGroups={[]} />, { wrapper });
 
     // Click the delete button for "Zone X"
     const deleteBtn = screen.getByLabelText("Delete Zone X");

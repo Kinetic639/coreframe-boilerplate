@@ -16,7 +16,11 @@ import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Loader2, MapPin, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 
 // ─── Viewer: Konva — client-only ──────────────────────────────────────────────
 
@@ -44,6 +48,7 @@ function TreeNode({
   highlightedId,
   onSelect,
   depth,
+  groups,
   t,
 }: {
   location: WarehouseLocation;
@@ -52,6 +57,7 @@ function TreeNode({
   highlightedId: string | null;
   onSelect: (id: string) => void;
   depth: number;
+  groups: WarehouseLocationGroup[];
   t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
@@ -91,7 +97,7 @@ function TreeNode({
         {/* Color dot */}
         <div
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
-          style={{ backgroundColor: location.color ?? "#10b981" }}
+          style={{ backgroundColor: getEffectiveLocationColor(location, groups) ?? "#10b981" }}
         />
 
         {/* Name + code */}
@@ -134,6 +140,7 @@ function TreeNode({
             highlightedId={highlightedId}
             onSelect={onSelect}
             depth={depth + 1}
+            groups={groups}
             t={t}
           />
         ))}
@@ -147,12 +154,13 @@ interface MapPreviewProps {
   /** Current layout state (may include unsaved shapes) */
   layout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   rootLocationId: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProps) {
+export function MapPreview({ layout, locations, locationGroups, rootLocationId }: MapPreviewProps) {
   const t = useTranslations("warehouseMapPreview");
   const [highlightedId, setHighlightedId] = React.useState<string | null>(null);
   const [isMonochrome, setIsMonochrome] = React.useState(true);
@@ -221,6 +229,7 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
                 highlightedId={highlightedId}
                 onSelect={handleTreeSelect}
                 depth={0}
+                groups={locationGroups}
                 t={t}
               />
             ))
@@ -275,6 +284,7 @@ export function MapPreview({ layout, locations, rootLocationId }: MapPreviewProp
           <WarehouseMapViewer
             layout={layout}
             locations={locations}
+            locationGroups={locationGroups}
             highlightLocationId={highlightedId}
             autoPanToHighlight={false}
             monochromaticHighlight={isMonochrome}

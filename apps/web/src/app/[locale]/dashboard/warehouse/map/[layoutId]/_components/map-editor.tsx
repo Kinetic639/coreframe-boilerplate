@@ -15,6 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +35,11 @@ import type {
   ShapeStyle,
   ShapeType,
 } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 
 import { MapCanvas, locationColorToFill } from "./map-canvas";
 import { LocationToolbox } from "./location-toolbox";
@@ -35,10 +49,13 @@ import { MapPreview } from "./map-preview";
 import {
   useBatchSaveShapesMutation,
   useCreateLocationMutation,
+  useDeleteLocationGroupMutation,
   usePublishLayoutMutation,
   useUnpublishLayoutMutation,
   useUpdateLayoutMutation,
+  useUpdateLocationGroupMutation,
   useUpdateLocationMutation,
+  useWarehouseLocationGroupsQuery,
   useWarehouseLocationsQuery,
   warehouseKeys,
 } from "@/hooks/queries/warehouse";
@@ -49,6 +66,7 @@ import { useQueryClient } from "@tanstack/react-query";
 interface MapEditorProps {
   initialLayout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   branchId: string;
   canManage: boolean;
   canPublish: boolean;
@@ -59,17 +77,20 @@ interface MapEditorProps {
 export function MapEditor({
   initialLayout,
   locations,
+  locationGroups: initialLocationGroups,
   branchId,
   canManage,
   canPublish,
 }: MapEditorProps) {
   const t = useTranslations("warehouseMapEditor");
+  const toolboxT = useTranslations("warehouseMapToolbox");
   const router = useRouter();
 
   // ── Local canvas state ────────────────────────────────────────────────────
   const [layout, setLayout] = React.useState(initialLayout);
   const [shapes, setShapes] = React.useState<WarehouseLayoutShape[]>(initialLayout.shapes);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
   const [showGrid, setShowGrid] = React.useState(true);
   const [snapToGrid, setSnapToGrid] = React.useState(true);
   const [gridIntervalM, setGridIntervalM] = React.useState(1);
@@ -94,9 +115,14 @@ export function MapEditor({
   const [newLocColor, setNewLocColor] = React.useState("#10b981");
   const [newLocCreating, setNewLocCreating] = React.useState(false);
   const [newLocError, setNewLocError] = React.useState("");
+  const [pendingDeleteGroupId, setPendingDeleteGroupId] = React.useState<string | null>(null);
 
   // ── Live locations (reactive — updates when cache is invalidated) ─────────
   const { data: liveLocations = locations } = useWarehouseLocationsQuery(branchId, locations);
+  const { data: locationGroups = initialLocationGroups } = useWarehouseLocationGroupsQuery(
+    branchId,
+    initialLocationGroups
+  );
 
   // ── Mutations & cache ─────────────────────────────────────────────────────
   const queryClient = useQueryClient();
@@ -106,6 +132,32 @@ export function MapEditor({
   const unpublishMut = useUnpublishLayoutMutation(branchId);
   const updateLayoutMut = useUpdateLayoutMutation(branchId);
   const updateLocMut = useUpdateLocationMutation(branchId);
+  const updateGroupMut = useUpdateLocationGroupMutation(branchId);
+  const deleteGroupMut = useDeleteLocationGroupMutation(branchId);
+
+  // ── Auto-remove shapes for deleted locations ──────────────────────────────
+  // When a location is soft-deleted (from the locations page or the toolbox),
+  // liveLocations updates and drops that location. Any canvas shape that still
+  // references it would block future saves (DB rejects deleted location_ids).
+  // Remove those shapes immediately so the canvas stays in sync.
+  React.useEffect(() => {
+    const validIds = new Set(liveLocations.map((l) => l.id));
+    setShapes((prev) => {
+      const toRemove = new Set(
+        prev.filter((s) => s.location_id && !validIds.has(s.location_id)).map((s) => s.id)
+      );
+      if (toRemove.size === 0) return prev;
+      setSelectedIds((sel) => sel.filter((id) => !toRemove.has(id)));
+      setIsDirty(true);
+      return prev.filter((s) => !toRemove.has(s.id));
+    });
+  }, [liveLocations]);
+
+  React.useEffect(() => {
+    if (selectedGroupId && !locationGroups.some((group) => group.id === selectedGroupId)) {
+      setSelectedGroupId(null);
+    }
+  }, [locationGroups, selectedGroupId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const selectedShapes = React.useMemo(
@@ -113,18 +165,47 @@ export function MapEditor({
     [shapes, selectedIds]
   );
   const selectedShape = selectedShapes.length === 1 ? selectedShapes[0] : null;
+  const selectedGroup = React.useMemo(
+    () => locationGroups.find((group) => group.id === selectedGroupId) ?? null,
+    [locationGroups, selectedGroupId]
+  );
   const placedLocationIds = React.useMemo(
     () => new Set(shapes.filter((s) => s.location_id).map((s) => s.location_id!)),
     [shapes]
   );
 
+  // ── Group highlight: shapes in the same group as the selected shape ────────
+  const groupHighlightShapeIds = React.useMemo<Set<string>>(() => {
+    if (!selectedShape?.location_id) return new Set();
+    const selectedLoc = liveLocations.find((l) => l.id === selectedShape.location_id);
+    if (!selectedLoc?.group_id) return new Set();
+    const groupId = selectedLoc.group_id;
+    const groupLocIds = new Set(
+      liveLocations
+        .filter((l) => l.group_id === groupId && l.id !== selectedLoc.id)
+        .map((l) => l.id)
+    );
+    return new Set(
+      shapes
+        .filter((s) => s.location_id && groupLocIds.has(s.location_id) && s.id !== selectedShape.id)
+        .map((s) => s.id)
+    );
+  }, [selectedShape, liveLocations, shapes]);
+
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (shapesToSave: WarehouseLayoutShape[] = shapes) => {
+    // Defensive: strip location_id from shapes referencing soft-deleted locations.
+    // A location can be deleted (via the locations page or toolbox) after shapes
+    // were placed. The batch-save DB function rejects any location_id whose row
+    // has deleted_at IS NOT NULL, so we null it out here before sending.
+    const validLocationIds = new Set(liveLocations.map((l) => l.id));
+
     const input: ShapeUpsertInput[] = shapesToSave.map((s) => ({
       id: s.id,
       shape_type: s.shape_type,
-      // Coerce empty string → null defensively (drag-and-drop edge case)
-      location_id: s.location_id || null,
+      // Coerce empty string → null defensively (drag-and-drop edge case).
+      // Also null out references to locations that have since been deleted.
+      location_id: s.location_id && validLocationIds.has(s.location_id) ? s.location_id : null,
       label: s.label,
       x: s.x,
       y: s.y,
@@ -259,7 +340,7 @@ export function MapEditor({
     const loc = locationId ? liveLocations.find((l) => l.id === locationId) : null;
     const label = loc?.code ?? null;
     // Persist location color into shape.style so the viewer always has the right color
-    const locColor = loc?.color ?? null;
+    const locColor = loc ? getEffectiveLocationColor(loc, locationGroups) : null;
     const newShape: WarehouseLayoutShape = {
       id: crypto.randomUUID(),
       layout_id: layout.id,
@@ -402,7 +483,7 @@ export function MapEditor({
     if (!shape || shape.shape_type !== "location" || !shape.location_id) return;
     const loc = liveLocations.find((l) => l.id === shape.location_id);
     if (!loc) return;
-    const color = loc.color ?? "#10b981";
+    const color = getEffectiveLocationColor(loc, locationGroups) ?? "#10b981";
     setPendingClone({ shape, color });
     setNewLocName(loc.name);
     setNewLocCode(loc.code ?? "");
@@ -413,7 +494,13 @@ export function MapEditor({
   // ── Update warehouse_location name / code / color from inspector ─────────
   const handleUpdateLocation = (
     locationId: string,
-    patch: { name?: string; code?: string | null; color?: string | null }
+    patch: {
+      name?: string;
+      code?: string | null;
+      color?: string | null;
+      group_id?: string | null;
+      inherit_group_color?: boolean;
+    }
   ) => {
     updateLocMut.mutate(
       { id: locationId, ...patch },
@@ -425,8 +512,23 @@ export function MapEditor({
           // Sync label with new code
           if (patch.code !== undefined) shapePatch.label = patch.code || null;
           // Sync shape.style so the viewer always has the right persisted color
-          if (patch.color !== undefined) {
-            const c = patch.color ?? "#10b981";
+          if (
+            patch.color !== undefined ||
+            patch.group_id !== undefined ||
+            patch.inherit_group_color !== undefined
+          ) {
+            const latestLocations =
+              queryClient.getQueryData<WarehouseLocation[]>(
+                warehouseKeys.locationsByBranch(branchId)
+              ) ?? liveLocations;
+            const updatedLocation = latestLocations.find((location) => location.id === locationId);
+            const nextLocation = {
+              ...updatedLocation,
+              ...patch,
+            } as WarehouseLocation | undefined;
+            const c = nextLocation
+              ? (getEffectiveLocationColor(nextLocation, locationGroups) ?? "#10b981")
+              : (patch.color ?? "#10b981");
             shapePatch.style = {
               ...((target.style as object | null) ?? {}),
               fill: locationColorToFill(c),
@@ -437,6 +539,35 @@ export function MapEditor({
         },
       }
     );
+  };
+
+  const handleUpdateLocationGroup = (locationId: string, groupId: string | null) => {
+    updateLocMut.mutate({ id: locationId, group_id: groupId });
+  };
+
+  const handleUpdateGroup = (
+    groupId: string,
+    patch: { name?: string; color?: string | null; description?: string | null }
+  ) => {
+    updateGroupMut.mutate({ id: groupId, ...patch });
+  };
+
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedIds([]);
+    setSelectedGroupId(groupId);
+  };
+
+  const handleSelectGroupMembers = (groupId: string) => {
+    const memberLocationIds = new Set(
+      liveLocations
+        .filter((location) => location.group_id === groupId)
+        .map((location) => location.id)
+    );
+    const memberShapeIds = shapes
+      .filter((shape) => shape.location_id && memberLocationIds.has(shape.location_id))
+      .map((shape) => shape.id);
+    setSelectedGroupId(null);
+    setSelectedIds(memberShapeIds);
   };
 
   // ── Layout meta changes ───────────────────────────────────────────────────
@@ -611,6 +742,7 @@ export function MapEditor({
           <MapPreview
             layout={{ ...layout, shapes }}
             locations={liveLocations}
+            locationGroups={locationGroups}
             rootLocationId={layout.root_location_id ?? null}
           />
         ) : (
@@ -618,24 +750,34 @@ export function MapEditor({
             {canManage && (
               <LocationToolbox
                 locations={liveLocations}
+                locationGroups={locationGroups}
                 rootLocationId={layout.root_location_id ?? null}
                 branchId={branchId}
                 placedLocationIds={placedLocationIds}
                 selectedId={selectedIds[0] ?? null}
+                selectedGroupId={selectedGroupId}
                 onSelectLocation={(locId) => {
                   const existing = shapes.find((s) => s.location_id === locId);
-                  if (existing) setSelectedIds([existing.id]);
+                  if (existing) {
+                    setSelectedGroupId(null);
+                    setSelectedIds([existing.id]);
+                  }
                 }}
+                onSelectGroup={handleSelectGroup}
               />
             )}
 
             <MapCanvas
               shapes={shapes}
               locations={liveLocations}
+              locationGroups={locationGroups}
               canvasWidthM={layout.canvas_width_m}
               canvasHeightM={layout.canvas_height_m}
               selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
+              onSelectionChange={(ids) => {
+                setSelectedGroupId(null);
+                setSelectedIds(ids);
+              }}
               onShapeDragEnd={handleShapeDragEnd}
               onShapeTransformEnd={handleShapeTransformEnd}
               onDropNewShape={handleDropFromCanvas}
@@ -648,12 +790,15 @@ export function MapEditor({
               onViewportChange={(zoom, pan) => {
                 canvasViewportRef.current = { zoom, pan };
               }}
+              groupHighlightShapeIds={groupHighlightShapeIds}
             />
 
             <ShapeInspector
               selectedShapes={selectedShapes}
+              selectedGroup={selectedGroup}
               layout={layout}
               locations={liveLocations}
+              locationGroups={locationGroups}
               showGrid={showGrid}
               snapToGrid={snapToGrid}
               gridIntervalM={gridIntervalM}
@@ -664,6 +809,11 @@ export function MapEditor({
                 patchShape(id, patch as Partial<WarehouseLayoutShape>)
               }
               onUpdateLocation={handleUpdateLocation}
+              onUpdateGroup={handleUpdateGroup}
+              onDeleteGroup={() => setPendingDeleteGroupId(selectedGroup?.id ?? null)}
+              onSelectGroupMembers={() =>
+                selectedGroup ? handleSelectGroupMembers(selectedGroup.id) : undefined
+              }
               onDeleteShape={handleDeleteShape}
               onDeleteShapes={handleDeleteShapes}
               onCloneShape={handleCloneShape}
@@ -673,6 +823,40 @@ export function MapEditor({
           </>
         )}
       </div>
+
+      <AlertDialog
+        open={!!pendingDeleteGroupId}
+        onOpenChange={(open) => !open && setPendingDeleteGroupId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{toolboxT("deleteGroupDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toolboxT("deleteGroupDialog.description", { name: selectedGroup?.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteGroupMut.isPending}>
+              {toolboxT("actions.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteGroupMut.isPending}
+              onClick={() => {
+                if (!pendingDeleteGroupId) return;
+                deleteGroupMut.mutate(pendingDeleteGroupId, {
+                  onSuccess: () => {
+                    setPendingDeleteGroupId(null);
+                    setSelectedGroupId(null);
+                  },
+                });
+              }}
+            >
+              {deleteGroupMut.isPending ? toolboxT("actions.deleting") : toolboxT("actions.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── New / Clone location dialog ────────────────────────────────────── */}
       <Dialog
