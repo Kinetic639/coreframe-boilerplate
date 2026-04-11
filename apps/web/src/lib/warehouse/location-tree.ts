@@ -41,6 +41,8 @@ export interface WarehouseLocation {
   parent_id: string | null;
   /** Optional group this location belongs to (display only, not hierarchy). */
   group_id: string | null;
+  /** When true, the effective UI color should follow the assigned group's color. */
+  inherit_group_color: boolean;
   level: number;
   sort_order: number;
   qr_code: string;
@@ -53,6 +55,21 @@ export interface WarehouseLocation {
 
 export interface WarehouseLocationTreeNode extends WarehouseLocation {
   children: WarehouseLocationTreeNode[];
+}
+
+export function getEffectiveLocationColor(
+  location: Pick<WarehouseLocation, "color" | "group_id" | "inherit_group_color">,
+  groups?: WarehouseLocationGroup[] | Map<string, WarehouseLocationGroup>
+): string | null {
+  if (!location.inherit_group_color || !location.group_id) {
+    return location.color ?? null;
+  }
+
+  if (groups instanceof Map) {
+    return groups.get(location.group_id)?.color ?? location.color ?? null;
+  }
+
+  return groups?.find((group) => group.id === location.group_id)?.color ?? location.color ?? null;
 }
 
 // ─── buildLocationTree ────────────────────────────────────────────────────────

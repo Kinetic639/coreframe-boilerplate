@@ -84,7 +84,7 @@ import {
   useDeleteLocationGroupMutation,
   useReorderGroupsMutation,
 } from "@/hooks/queries/warehouse";
-import { buildLocationTree } from "@/lib/warehouse/location-tree";
+import { buildLocationTree, getEffectiveLocationColor } from "@/lib/warehouse/location-tree";
 import type {
   WarehouseLocation,
   WarehouseLocationTreeNode,
@@ -263,24 +263,39 @@ function LocationColorBadge({ color }: { color: string | null }) {
   );
 }
 
-function RowMenu({ triggerLabel, children }: { triggerLabel: string; children: React.ReactNode }) {
+function RowMenu({
+  triggerLabel,
+  tooltipLabel,
+  children,
+}: {
+  triggerLabel: string;
+  tooltipLabel: string;
+  children: React.ReactNode;
+}) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0 text-muted-foreground"
-          aria-label={triggerLabel}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {children}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <TooltipProvider delayDuration={100}>
+      <Tooltip>
+        <DropdownMenu>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                aria-label={triggerLabel}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            {children}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <TooltipContent>{tooltipLabel}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -288,12 +303,14 @@ function LocationCodeActions({
   code,
   onCopyCode,
   onCopyPath,
+  codeTooltipLabel,
   copyCodeLabel,
   copyPathLabel,
 }: {
   code: string;
   onCopyCode: () => void;
   onCopyPath: () => void;
+  codeTooltipLabel: string;
   copyCodeLabel: string;
   copyPathLabel: string;
 }) {
@@ -302,9 +319,16 @@ function LocationCodeActions({
       className="group/code flex items-center justify-end"
       onClick={(event) => event.stopPropagation()}
     >
-      <span className="cursor-default text-xs font-mono text-muted-foreground transition-all duration-200 ease-out group-hover/code:-translate-x-1.5 group-focus-within/code:-translate-x-1.5">
-        {code}
-      </span>
+      <TooltipProvider delayDuration={100}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-default text-xs font-mono text-muted-foreground transition-all duration-200 ease-out group-hover/code:-translate-x-1.5 group-focus-within/code:-translate-x-1.5">
+              {code}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{codeTooltipLabel}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <div className="ml-0 flex w-0 items-center gap-1 overflow-hidden opacity-0 transition-all duration-200 ease-out group-hover/code:ml-2 group-hover/code:w-[3.5rem] group-hover/code:opacity-100 group-focus-within/code:ml-2 group-focus-within/code:w-[3.5rem] group-focus-within/code:opacity-100">
         <TooltipProvider delayDuration={100}>
           <Tooltip>
@@ -346,6 +370,33 @@ function LocationCodeActions({
         </TooltipProvider>
       </div>
     </div>
+  );
+}
+
+function LocationNameLabel({
+  name,
+  description,
+  className,
+}: {
+  name: string;
+  description: string | null;
+  className: string;
+}) {
+  if (!description?.trim()) {
+    return <span className={className}>{name}</span>;
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={className}>{name}</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs whitespace-pre-wrap break-words">
+          {description}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -530,10 +581,10 @@ function ChildrenList({
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-medium w-64 opacity-90">
-              {activeItem.n.color && (
+              {getEffectiveLocationColor(activeItem.n, ctx.groups) && (
                 <div
                   className="h-3 w-3 shrink-0 rounded-full border"
-                  style={{ backgroundColor: activeItem.n.color }}
+                  style={{ backgroundColor: getEffectiveLocationColor(activeItem.n, ctx.groups)! }}
                 />
               )}
               <span className="flex-1 truncate">{activeItem.n.name}</span>
@@ -630,7 +681,7 @@ function InlineGroupSection({
         )}
 
         {canManage && (
-          <RowMenu triggerLabel={group.name}>
+          <RowMenu triggerLabel={group.name} tooltipLabel={t("actions.moreActions")}>
             <DropdownMenuItem onClick={() => ctx.onEditGroup(group)}>
               <Pencil className="mr-2 h-4 w-4" />
               {t("groups.editGroup")}
@@ -698,10 +749,12 @@ function InlineGroupSection({
             <DragOverlay dropAnimation={null}>
               {activeMember && (
                 <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-medium w-64 opacity-90">
-                  {activeMember.color && (
+                  {getEffectiveLocationColor(activeMember, ctx.groups) && (
                     <div
                       className="h-3 w-3 shrink-0 rounded-full border"
-                      style={{ backgroundColor: activeMember.color }}
+                      style={{
+                        backgroundColor: getEffectiveLocationColor(activeMember, ctx.groups)!,
+                      }}
                     />
                   )}
                   <span className="flex-1 truncate">{activeMember.name}</span>
@@ -734,6 +787,17 @@ function TreeNodeRow({
   const hasChildren = node.children.length > 0;
   const isRoot = depth === 0;
   const isPlaced = placedLocationIds.has(node.id);
+  const effectiveColor = getEffectiveLocationColor(node, ctx.groups);
+  const rootMapStatusLabel = layout
+    ? layout.status === "published"
+      ? t("badges.published")
+      : t("badges.draft")
+    : t("badges.noMap");
+  const rootMapActionLabel = layout
+    ? t("actions.previewMap")
+    : canManageLayouts
+      ? t("actions.createMapForLocation")
+      : t("badges.noMap");
 
   return (
     <>
@@ -772,21 +836,24 @@ function TreeNodeRow({
         </button>
 
         {/* Color dot */}
-        {node.color ? (
-          <LocationColorBadge color={node.color} />
+        {effectiveColor ? (
+          <LocationColorBadge color={effectiveColor} />
         ) : (
           <MapPin className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         )}
 
         {/* Name + code */}
-        <span className={`flex-1 text-sm ${isRoot ? "font-semibold" : "font-medium"}`}>
-          {node.name}
-        </span>
+        <LocationNameLabel
+          name={node.name}
+          description={node.description}
+          className={`flex-1 text-sm ${isRoot ? "font-semibold" : "font-medium"}`}
+        />
         {node.code && (
           <LocationCodeActions
             code={node.code}
             onCopyCode={() => ctx.onCopyLocationCode(node)}
             onCopyPath={() => ctx.onCopyLocationPath(node)}
+            codeTooltipLabel={t("actions.locationCode")}
             copyCodeLabel={t("actions.copyLocationCode")}
             copyPathLabel={t("actions.copyLocationPath")}
           />
@@ -796,65 +863,76 @@ function TreeNodeRow({
           <TooltipProvider delayDuration={100}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className={
-                    layout?.status === "published"
-                      ? "h-7 w-7 shrink-0 border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-700"
-                      : layout?.status === "draft"
-                        ? "h-7 w-7 shrink-0"
-                        : "h-7 w-7 shrink-0 border-dashed text-muted-foreground"
-                  }
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (layout) {
-                      ctx.onPreviewMap(node);
-                      return;
+                <span className="inline-flex">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={
+                      layout?.status === "published"
+                        ? "h-7 w-7 shrink-0 border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-700"
+                        : layout?.status === "draft"
+                          ? "h-7 w-7 shrink-0"
+                          : "h-7 w-7 shrink-0 border-dashed text-muted-foreground"
                     }
-                    if (canManageLayouts) {
-                      ctx.onCreateMap(node);
-                    }
-                  }}
-                  disabled={!layout && !canManageLayouts}
-                >
-                  <MapIcon className="h-3.5 w-3.5" />
-                </Button>
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (layout) {
+                        ctx.onPreviewMap(node);
+                        return;
+                      }
+                      if (canManageLayouts) {
+                        ctx.onCreateMap(node);
+                      }
+                    }}
+                    disabled={!layout && !canManageLayouts}
+                  >
+                    <MapIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
               </TooltipTrigger>
               <TooltipContent>
-                {layout?.status === "published"
-                  ? t("badges.published")
-                  : layout?.status === "draft"
-                    ? t("badges.draft")
-                    : t("badges.noMap")}
+                <div className="flex flex-col gap-0.5">
+                  <span>{rootMapActionLabel}</span>
+                  <span className="text-xs text-muted-foreground">{rootMapStatusLabel}</span>
+                </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            className={
-              isPlaced
-                ? "h-7 w-7 shrink-0 text-muted-foreground hover:text-emerald-600"
-                : "h-7 w-7 shrink-0 text-muted-foreground/30 cursor-not-allowed"
-            }
-            onClick={
-              isPlaced
-                ? (event) => {
-                    event.stopPropagation();
-                    ctx.onShowOnMap(node);
-                  }
-                : (event) => event.stopPropagation()
-            }
-            disabled={!isPlaced}
-            title={isPlaced ? t("actions.showOnMap") : t("actions.notPlacedOnAnyMap")}
-          >
-            <MapIcon className="h-3.5 w-3.5" />
-          </Button>
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={
+                      isPlaced
+                        ? "h-7 w-7 shrink-0 text-muted-foreground hover:text-emerald-600"
+                        : "h-7 w-7 shrink-0 text-muted-foreground/30 cursor-not-allowed"
+                    }
+                    onClick={
+                      isPlaced
+                        ? (event) => {
+                            event.stopPropagation();
+                            ctx.onShowOnMap(node);
+                          }
+                        : (event) => event.stopPropagation()
+                    }
+                    disabled={!isPlaced}
+                  >
+                    <MapIcon className="h-3.5 w-3.5" />
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isPlaced ? t("actions.showOnMap") : t("actions.notPlacedOnAnyMap")}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
-        <RowMenu triggerLabel={node.name}>
+        <RowMenu triggerLabel={node.name} tooltipLabel={t("actions.moreActions")}>
           {isRoot && layout && (
             <DropdownMenuItem onClick={() => ctx.onOpenEditor(layout.id)}>
               <LayoutGrid className="mr-2 h-4 w-4" />
@@ -952,13 +1030,19 @@ function SortableRootRow({
 
 // ─── Root drag preview ────────────────────────────────────────────────────────
 
-function RootDragPreview({ node }: { node: WarehouseLocationTreeNode }) {
+function RootDragPreview({
+  node,
+  groups,
+}: {
+  node: WarehouseLocationTreeNode;
+  groups: WarehouseLocationGroup[];
+}) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-semibold w-64">
-      {node.color && (
+      {getEffectiveLocationColor(node, groups) && (
         <div
           className="h-3 w-3 shrink-0 rounded-full border"
-          style={{ backgroundColor: node.color }}
+          style={{ backgroundColor: getEffectiveLocationColor(node, groups)! }}
         />
       )}
       <span className="flex-1 truncate">{node.name}</span>
@@ -1324,7 +1408,7 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           </div>
 
           <DragOverlay dropAnimation={null}>
-            {activeRootNode && <RootDragPreview node={activeRootNode} />}
+            {activeRootNode && <RootDragPreview node={activeRootNode} groups={groups} />}
           </DragOverlay>
         </DndContext>
       )}
@@ -1367,7 +1451,13 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("deleteDialog.description", { name: deletingLocation?.name ?? "" })}
+              {t.rich("deleteDialog.description", {
+                name: () => (
+                  <span className="font-medium text-foreground">
+                    {deletingLocation?.name ?? ""}
+                  </span>
+                ),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1410,7 +1500,9 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           onOpenChange={(open) => !open && setMapDialog(null)}
           rootLocationId={mapDialog.rootLocationId}
           highlightLocationId={mapDialog.highlightLocationId}
-          locations={mapDialog.showTree ? locations : undefined}
+          locations={locations}
+          locationGroups={groups}
+          showTree={mapDialog.showTree}
         />
       )}
     </div>

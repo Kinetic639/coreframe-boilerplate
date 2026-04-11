@@ -35,7 +35,11 @@ import type {
   ShapeStyle,
   ShapeType,
 } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 
 import { MapCanvas, locationColorToFill } from "./map-canvas";
 import { LocationToolbox } from "./location-toolbox";
@@ -336,7 +340,7 @@ export function MapEditor({
     const loc = locationId ? liveLocations.find((l) => l.id === locationId) : null;
     const label = loc?.code ?? null;
     // Persist location color into shape.style so the viewer always has the right color
-    const locColor = loc?.color ?? null;
+    const locColor = loc ? getEffectiveLocationColor(loc, locationGroups) : null;
     const newShape: WarehouseLayoutShape = {
       id: crypto.randomUUID(),
       layout_id: layout.id,
@@ -479,7 +483,7 @@ export function MapEditor({
     if (!shape || shape.shape_type !== "location" || !shape.location_id) return;
     const loc = liveLocations.find((l) => l.id === shape.location_id);
     if (!loc) return;
-    const color = loc.color ?? "#10b981";
+    const color = getEffectiveLocationColor(loc, locationGroups) ?? "#10b981";
     setPendingClone({ shape, color });
     setNewLocName(loc.name);
     setNewLocCode(loc.code ?? "");
@@ -490,7 +494,13 @@ export function MapEditor({
   // ── Update warehouse_location name / code / color from inspector ─────────
   const handleUpdateLocation = (
     locationId: string,
-    patch: { name?: string; code?: string | null; color?: string | null }
+    patch: {
+      name?: string;
+      code?: string | null;
+      color?: string | null;
+      group_id?: string | null;
+      inherit_group_color?: boolean;
+    }
   ) => {
     updateLocMut.mutate(
       { id: locationId, ...patch },
@@ -502,8 +512,23 @@ export function MapEditor({
           // Sync label with new code
           if (patch.code !== undefined) shapePatch.label = patch.code || null;
           // Sync shape.style so the viewer always has the right persisted color
-          if (patch.color !== undefined) {
-            const c = patch.color ?? "#10b981";
+          if (
+            patch.color !== undefined ||
+            patch.group_id !== undefined ||
+            patch.inherit_group_color !== undefined
+          ) {
+            const latestLocations =
+              queryClient.getQueryData<WarehouseLocation[]>(
+                warehouseKeys.locationsByBranch(branchId)
+              ) ?? liveLocations;
+            const updatedLocation = latestLocations.find((location) => location.id === locationId);
+            const nextLocation = {
+              ...updatedLocation,
+              ...patch,
+            } as WarehouseLocation | undefined;
+            const c = nextLocation
+              ? (getEffectiveLocationColor(nextLocation, locationGroups) ?? "#10b981")
+              : (patch.color ?? "#10b981");
             shapePatch.style = {
               ...((target.style as object | null) ?? {}),
               fill: locationColorToFill(c),
@@ -717,6 +742,7 @@ export function MapEditor({
           <MapPreview
             layout={{ ...layout, shapes }}
             locations={liveLocations}
+            locationGroups={locationGroups}
             rootLocationId={layout.root_location_id ?? null}
           />
         ) : (
@@ -744,6 +770,7 @@ export function MapEditor({
             <MapCanvas
               shapes={shapes}
               locations={liveLocations}
+              locationGroups={locationGroups}
               canvasWidthM={layout.canvas_width_m}
               canvasHeightM={layout.canvas_height_m}
               selectedIds={selectedIds}
@@ -782,7 +809,6 @@ export function MapEditor({
                 patchShape(id, patch as Partial<WarehouseLayoutShape>)
               }
               onUpdateLocation={handleUpdateLocation}
-              onUpdateLocationGroup={handleUpdateLocationGroup}
               onUpdateGroup={handleUpdateGroup}
               onDeleteGroup={() => setPendingDeleteGroupId(selectedGroup?.id ?? null)}
               onSelectGroupMembers={() =>

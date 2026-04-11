@@ -491,12 +491,14 @@
       "cancel": "Cancel",
       "delete": "Delete",
       "deleting": "Deleting...",
+      "locationCode": "Location code",
       "copyLocationCode": "Copy location code",
       "copyLocationPath": "Copy location path",
       "previewMap": "Preview map",
       "openMapEditor": "Open map editor",
       "createMapForLocation": "Create map for this location",
       "showOnMap": "Show on map",
+      "moreActions": "More actions",
       "notPlacedOnAnyMap": "Not placed on any map",
       "dragToReorder": "Drag to reorder",
       "editLocation": "Edit {name}",
@@ -540,7 +542,9 @@
         "noColor": "No color",
         "description": "Description",
         "group": "Group",
-        "groupNone": "None (ungrouped)"
+        "groupNone": "None (ungrouped)",
+        "inheritGroupColor": "Inherit group color",
+        "groupColorInherited": "Inherited from group"
       },
       "placeholders": {
         "name": "e.g. Aisle A, Shelf 1",
@@ -548,6 +552,9 @@
         "noParent": "None (root location)",
         "noGroup": "No group",
         "description": "Optional description"
+      },
+      "help": {
+        "inheritGroupColor": "Use the selected group's color for this location."
       },
       "actions": {
         "clearColor": "Clear",
@@ -817,6 +824,7 @@
       "groupName": "Group name",
       "groupColor": "Group color",
       "groupMembers": "Members",
+      "inheritGroupColor": "Inherit group color",
       "label": "Label",
       "fontSize": "Font size (m)",
       "rotation": "Rotation (°)",
@@ -836,7 +844,8 @@
       "noLabel": "No label"
     },
     "help": {
-      "locationCode": "Letters, numbers, hyphens, underscores"
+      "locationCode": "Letters, numbers, hyphens, underscores",
+      "inheritGroupColor": "Use the selected group's color for this location."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",

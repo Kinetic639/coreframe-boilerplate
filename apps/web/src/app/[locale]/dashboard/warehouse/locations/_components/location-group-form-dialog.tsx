@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
@@ -49,6 +49,7 @@ export function LocationGroupFormDialog({
 }: LocationGroupFormDialogProps) {
   const isEdit = !!group;
   const t = useTranslations("warehouseLocationsPage.groupForm");
+  const colorInputRef = useRef<HTMLInputElement | null>(null);
 
   const schema = isEdit ? updateLocationGroupSchema.omit({ id: true }) : createLocationGroupSchema;
 
@@ -86,7 +87,7 @@ export function LocationGroupFormDialog({
 
   const colorValue = watch("color");
   const colorPickerValue =
-    colorValue && /^#[0-9A-Fa-f]{6}$/.test(colorValue) ? colorValue : "#10b981";
+    colorValue && /^#[0-9A-Fa-f]{6}$/.test(colorValue) ? colorValue : "#94a3b8";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,12 +130,32 @@ export function LocationGroupFormDialog({
             <Label htmlFor="group-color">{t("fields.color")}</Label>
             <div className="flex items-center gap-2">
               <input
+                ref={colorInputRef}
                 id="group-color"
                 type="color"
                 value={colorPickerValue}
                 onChange={(e) => setValue("color", e.target.value)}
-                className="w-9 h-9 rounded border cursor-pointer p-0.5 shrink-0"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
               />
+              <button
+                type="button"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded border p-0.5 transition-colors hover:border-foreground/30"
+                onClick={() => colorInputRef.current?.click()}
+                aria-label={t("fields.color")}
+              >
+                <span
+                  className={`flex h-full w-full items-center justify-center rounded-sm ${
+                    colorValue ? "" : "border border-dashed border-muted-foreground/40 bg-muted"
+                  }`}
+                  style={colorValue ? { backgroundColor: colorValue } : undefined}
+                >
+                  {!colorValue ? (
+                    <span className="text-[10px] text-muted-foreground">-</span>
+                  ) : null}
+                </span>
+              </button>
               <span className="text-xs font-mono text-muted-foreground flex-1">
                 {colorValue ?? t("fields.noColor")}
               </span>

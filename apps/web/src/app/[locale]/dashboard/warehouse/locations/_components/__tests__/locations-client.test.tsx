@@ -164,6 +164,7 @@ function makeLocation(overrides: Partial<WarehouseLocation> = {}): WarehouseLoca
     color: null,
     parent_id: null,
     group_id: null,
+    inherit_group_color: false,
     level: 0,
     sort_order: 0,
     qr_code: "qr-x",

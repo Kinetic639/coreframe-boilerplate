@@ -52,7 +52,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { ShapeType } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 import {
   useDeleteLocationMutation,
   useReorderLocationsMutation,
@@ -184,13 +188,19 @@ function SectionHeader({
 
 // ─── Drag overlay preview ─────────────────────────────────────────────────────
 
-function DragPreview({ location }: { location: WarehouseLocation }) {
+function DragPreview({
+  location,
+  groups,
+}: {
+  location: WarehouseLocation;
+  groups: WarehouseLocationGroup[];
+}) {
   return (
     <div className="flex items-center gap-1.5 py-1 px-2 rounded-md bg-background border border-primary/30 shadow-lg text-xs select-none">
       <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
       <div
         className="w-2 h-2 rounded-sm shrink-0"
-        style={{ backgroundColor: location.color ?? "#10b981" }}
+        style={{ backgroundColor: getEffectiveLocationColor(location, groups) ?? "#10b981" }}
       />
       <span className="truncate font-medium">{location.name}</span>
       {location.code && (
@@ -447,7 +457,7 @@ function ToolboxGroupSection({
             </SortableContext>
 
             <DragOverlay dropAnimation={null}>
-              {activeMember && <DragPreview location={activeMember} />}
+              {activeMember && <DragPreview location={activeMember} groups={ctx.groups} />}
             </DragOverlay>
           </DndContext>
         ))}
@@ -627,7 +637,7 @@ function ToolboxChildrenList({
               <span className="truncate">{activeItem.g.name}</span>
             </div>
           ) : (
-            <DragPreview location={activeItem.l} />
+            <DragPreview location={activeItem.l} groups={ctx.groups} />
           ))}
       </DragOverlay>
     </DndContext>
@@ -668,7 +678,7 @@ function ToolboxLocationRow({
           if (isPlaced) ctx.onSelect(location.id);
         }}
       >
-        <LocationColorBadge color={location.color} />
+        <LocationColorBadge color={getEffectiveLocationColor(location, ctx.groups)} />
 
         <span className="text-xs truncate flex-1 min-w-0">{location.name}</span>
         {location.code && (
@@ -902,7 +912,9 @@ export function LocationToolbox({
                 >
                   <div
                     className="w-2.5 h-2.5 rounded-sm shrink-0"
-                    style={{ backgroundColor: loc.color ?? "#10b981" }}
+                    style={{
+                      backgroundColor: getEffectiveLocationColor(loc, locationGroups) ?? "#10b981",
+                    }}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium truncate">{loc.name}</p>

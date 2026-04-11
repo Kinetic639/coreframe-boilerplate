@@ -540,12 +540,14 @@
       "cancel": "Anuluj",
       "delete": "Usuń",
       "deleting": "Usuwanie...",
+      "locationCode": "Kod lokalizacji",
       "copyLocationCode": "Kopiuj kod lokalizacji",
       "copyLocationPath": "Kopiuj ścieżkę lokalizacji",
       "previewMap": "Podejrzyj mapę",
       "openMapEditor": "Otwórz edytor mapy",
       "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
       "showOnMap": "Pokaż na mapie",
+      "moreActions": "Więcej akcji",
       "notPlacedOnAnyMap": "Nie umieszczono na żadnej mapie",
       "dragToReorder": "Przeciągnij, aby zmienić kolejność",
       "editLocation": "Edytuj {name}",
@@ -589,7 +591,9 @@
         "noColor": "Brak koloru",
         "description": "Opis",
         "group": "Grupa",
-        "groupNone": "Brak (bez grupy)"
+        "groupNone": "Brak (bez grupy)",
+        "inheritGroupColor": "Dziedzicz kolor grupy",
+        "groupColorInherited": "Dziedziczone z grupy"
       },
       "placeholders": {
         "name": "np. Alejka A, Półka 1",
@@ -597,6 +601,9 @@
         "noParent": "Brak (lokalizacja główna)",
         "noGroup": "Brak grupy",
         "description": "Opcjonalny opis"
+      },
+      "help": {
+        "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji."
       },
       "actions": {
         "clearColor": "Wyczyść",
@@ -866,6 +873,7 @@
       "groupName": "Nazwa grupy",
       "groupColor": "Kolor grupy",
       "groupMembers": "Członkowie",
+      "inheritGroupColor": "Dziedzicz kolor grupy",
       "label": "Etykieta",
       "fontSize": "Rozmiar czcionki (m)",
       "rotation": "Obrót (°)",
@@ -885,7 +893,8 @@
       "noLabel": "Brak etykiety"
     },
     "help": {
-      "locationCode": "Litery, cyfry, myślniki, podkreślenia"
+      "locationCode": "Litery, cyfry, myślniki, podkreślenia",
+      "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",

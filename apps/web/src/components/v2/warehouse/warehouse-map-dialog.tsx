@@ -30,7 +30,11 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
 import { usePublishedLayoutQuery } from "@/hooks/queries/warehouse";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "@/lib/warehouse/layouts";
 
 // ─── Viewer is Konva — must be loaded client-side only ───────────────────────
@@ -59,6 +63,7 @@ function TreeNode({
   highlightedId,
   onSelect,
   depth,
+  locationGroups,
   t,
 }: {
   location: WarehouseLocation;
@@ -67,6 +72,7 @@ function TreeNode({
   highlightedId: string | null;
   onSelect: (id: string) => void;
   depth: number;
+  locationGroups: WarehouseLocationGroup[];
   t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
@@ -104,7 +110,9 @@ function TreeNode({
 
         <div
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
-          style={{ backgroundColor: location.color ?? "#10b981" }}
+          style={{
+            backgroundColor: getEffectiveLocationColor(location, locationGroups) ?? "#10b981",
+          }}
         />
 
         <span
@@ -145,6 +153,7 @@ function TreeNode({
             highlightedId={highlightedId}
             onSelect={onSelect}
             depth={depth + 1}
+            locationGroups={locationGroups}
             t={t}
           />
         ))}
@@ -157,6 +166,7 @@ function TreeNode({
 function TreePanel({
   layout,
   locations,
+  locationGroups,
   rootLocationId,
   highlightedId,
   onSelect,
@@ -164,6 +174,7 @@ function TreePanel({
 }: {
   layout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
   rootLocationId: string | null | undefined;
   highlightedId: string | null;
   onSelect: (id: string) => void;
@@ -217,6 +228,7 @@ function TreePanel({
               highlightedId={highlightedId}
               onSelect={onSelect}
               depth={0}
+              locationGroups={locationGroups}
               t={t}
             />
           ))
@@ -254,6 +266,8 @@ export interface WarehouseMapDialogProps {
    * and click through locations to highlight them on the map.
    */
   locations?: WarehouseLocation[];
+  locationGroups?: WarehouseLocationGroup[];
+  showTree?: boolean;
   /** Optional dialog title override. */
   title?: string;
   /** Show an "Open in Editor" button linking to /dashboard/warehouse/map. */
@@ -268,6 +282,8 @@ export function WarehouseMapDialog({
   highlightLocationId,
   rootLocationId,
   locations,
+  locationGroups,
+  showTree,
   title,
   showEditorLink = false,
 }: WarehouseMapDialogProps) {
@@ -293,7 +309,7 @@ export function WarehouseMapDialog({
     isError,
   } = usePublishedLayoutQuery(open ? activeBranchId : null, rootLocationId);
 
-  const showTree = !!locations && !!layout;
+  const shouldShowTree = (showTree ?? !!locations) && !!layout;
 
   const handleShapeClick = (shape: WarehouseLayoutShape) => {
     if (shape.location_id) {
@@ -306,7 +322,7 @@ export function WarehouseMapDialog({
       <DialogContent
         className={cn(
           "flex flex-col gap-0 p-0",
-          showTree ? "h-[80vh] max-w-5xl" : "h-[80vh] max-w-4xl"
+          shouldShowTree ? "h-[80vh] max-w-5xl" : "h-[80vh] max-w-4xl"
         )}
       >
         {/* Header */}
@@ -353,10 +369,11 @@ export function WarehouseMapDialog({
           {activeBranchId && layout && (
             <>
               {/* Left tree panel */}
-              {showTree && (
+              {shouldShowTree && (
                 <TreePanel
                   layout={layout}
-                  locations={locations!}
+                  locations={locations ?? []}
+                  locationGroups={locationGroups ?? []}
                   rootLocationId={rootLocationId}
                   highlightedId={highlightedId}
                   onSelect={(id) => setHighlightedId((prev) => (prev === id ? null : id))}
@@ -398,10 +415,11 @@ export function WarehouseMapDialog({
                   <WarehouseMapViewer
                     layout={layout}
                     locations={locations}
+                    locationGroups={locationGroups}
                     highlightLocationId={highlightedId}
                     autoPanToHighlight={false}
                     monochromaticHighlight={isMonochrome}
-                    onShapeClick={showTree ? handleShapeClick : undefined}
+                    onShapeClick={shouldShowTree ? handleShapeClick : undefined}
                     className="h-full w-full"
                   />
                 </div>

@@ -32,6 +32,7 @@ export const createLocationSchema = z.object({
   color: hexColorSchema,
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
   group_id: z.string().uuid("Invalid group").nullable().optional(),
+  inherit_group_color: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 
@@ -44,6 +45,7 @@ export const updateLocationSchema = z.object({
   color: hexColorSchema,
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
   group_id: z.string().uuid("Invalid group").nullable().optional(),
+  inherit_group_color: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 

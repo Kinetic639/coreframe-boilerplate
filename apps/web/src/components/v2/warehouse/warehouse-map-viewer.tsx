@@ -8,7 +8,11 @@ import type {
   ShapeStyle,
   ShapeType,
 } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 import {
   METER_TO_PIXEL,
   locationColorToFill,
@@ -33,6 +37,7 @@ export interface WarehouseMapViewerProps {
   layout: WarehouseLayoutWithShapes;
   /** Optional locations list — used to derive fill/stroke from location.color live. */
   locations?: WarehouseLocation[];
+  locationGroups?: WarehouseLocationGroup[];
   /** The location_id to highlight (pulses with a blue border). */
   highlightLocationId?: string | null;
   /**
@@ -57,6 +62,7 @@ export interface WarehouseMapViewerProps {
 export function WarehouseMapViewer({
   layout,
   locations,
+  locationGroups,
   highlightLocationId,
   autoPanToHighlight = true,
   monochromaticHighlight = false,
@@ -192,7 +198,10 @@ export function WarehouseMapViewer({
     // Prefer live location color, then persisted shape.style, then default
     const locColor =
       shape.shape_type === "location" && shape.location_id
-        ? (locations?.find((l) => l.id === shape.location_id)?.color ?? null)
+        ? (() => {
+            const location = locations?.find((l) => l.id === shape.location_id);
+            return location ? getEffectiveLocationColor(location, locationGroups) : null;
+          })()
         : null;
     const fill = locColor ? locationColorToFill(locColor) : (style?.fill ?? defaults.fill);
     const stroke = locColor ?? style?.stroke ?? defaults.stroke;

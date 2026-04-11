@@ -43,6 +43,7 @@ export interface CreateLocationInput {
   color?: string | null;
   parent_id?: string | null;
   group_id?: string | null;
+  inherit_group_color?: boolean;
   sort_order?: number;
 }
 
@@ -54,13 +55,14 @@ export interface UpdateLocationInput {
   color?: string | null;
   parent_id?: string | null;
   group_id?: string | null;
+  inherit_group_color?: boolean;
   sort_order?: number;
 }
 
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const GROUP_SCOPE_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
@@ -213,6 +215,7 @@ export class WarehouseLocationsService {
         color: input.color ?? null,
         parent_id: input.parent_id ?? null,
         group_id: input.group_id ?? null,
+        inherit_group_color: input.group_id ? (input.inherit_group_color ?? false) : false,
         level,
         sort_order: input.sort_order ?? 0,
         created_by: userId,
@@ -265,6 +268,9 @@ export class WarehouseLocationsService {
     if (input.color !== undefined) updatePayload.color = input.color;
     if (input.sort_order !== undefined) updatePayload.sort_order = input.sort_order;
     if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
+    if (input.inherit_group_color !== undefined) {
+      updatePayload.inherit_group_color = input.inherit_group_color;
+    }
 
     let newLevel: number | undefined;
 
@@ -312,6 +318,10 @@ export class WarehouseLocationsService {
 
     const effectiveParentId = input.parent_id !== undefined ? input.parent_id : current.parent_id;
     const effectiveGroupId = input.group_id !== undefined ? input.group_id : current.group_id;
+    const effectiveInheritGroupColor =
+      input.inherit_group_color !== undefined
+        ? input.inherit_group_color
+        : current.inherit_group_color;
     const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
       supabase,
       orgId,
@@ -324,6 +334,10 @@ export class WarehouseLocationsService {
         success: false,
         error: (groupValidation as { success: false; error: string }).error,
       };
+    }
+
+    if (!effectiveGroupId && effectiveInheritGroupColor) {
+      updatePayload.inherit_group_color = false;
     }
 
     const { data, error } = await supabase

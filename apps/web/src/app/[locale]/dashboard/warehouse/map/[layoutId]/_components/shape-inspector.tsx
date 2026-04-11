@@ -31,7 +31,11 @@ import {
 import { cn } from "@/lib/utils";
 import type { WarehouseLayoutShape, ShapeStyle } from "@/lib/warehouse/layouts";
 import type { WarehouseLayout } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 
 // ─── Alignment type ───────────────────────────────────────────────────────────
 
@@ -67,9 +71,14 @@ interface ShapeInspectorProps {
   ) => void;
   onUpdateLocation: (
     locationId: string,
-    patch: { name?: string; code?: string | null; color?: string | null }
+    patch: {
+      name?: string;
+      code?: string | null;
+      color?: string | null;
+      group_id?: string | null;
+      inherit_group_color?: boolean;
+    }
   ) => void;
-  onUpdateLocationGroup: (locationId: string, groupId: string | null) => void;
   onUpdateGroup: (
     groupId: string,
     patch: { name?: string; color?: string | null; description?: string | null }
@@ -243,7 +252,6 @@ export function ShapeInspector({
   onGridIntervalChange,
   onShapeGeometryChange,
   onUpdateLocation,
-  onUpdateLocationGroup,
   onUpdateGroup,
   onDeleteGroup,
   onSelectGroupMembers,
@@ -275,6 +283,9 @@ export function ShapeInspector({
   const [locName, setLocName] = React.useState(linkedLocation?.name ?? "");
   const [locCode, setLocCode] = React.useState(linkedLocation?.code ?? "");
   const [locColor, setLocColor] = React.useState(linkedLocation?.color ?? "#10b981");
+  const [inheritGroupColor, setInheritGroupColor] = React.useState(
+    linkedLocation?.inherit_group_color ?? false
+  );
   const [groupName, setGroupName] = React.useState(selectedGroup?.name ?? "");
   const [groupColor, setGroupColor] = React.useState(selectedGroup?.color ?? "#64748b");
 
@@ -282,7 +293,15 @@ export function ShapeInspector({
     setLocName(linkedLocation?.name ?? "");
     setLocCode(linkedLocation?.code ?? "");
     setLocColor(linkedLocation?.color ?? "#10b981");
+    setInheritGroupColor(linkedLocation?.inherit_group_color ?? false);
   }, [linkedLocation?.id]); // reset only when a different location is selected
+
+  const effectivePreviewColor = linkedLocation
+    ? (getEffectiveLocationColor(
+        { ...linkedLocation, color: locColor, inherit_group_color: inheritGroupColor },
+        locationGroups
+      ) ?? "#10b981")
+    : "#10b981";
 
   React.useEffect(() => {
     setGroupName(selectedGroup?.name ?? "");
@@ -588,9 +607,14 @@ export function ShapeInspector({
                             onUpdateLocation(linkedLocation.id, { color: locColor });
                           }
                         }}
-                        className="w-8 h-8 rounded border cursor-pointer p-0.5"
+                        disabled={inheritGroupColor && !!linkedLocation.group_id}
+                        className="w-8 h-8 rounded border cursor-pointer p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                       />
-                      <span className="text-xs font-mono text-muted-foreground">{locColor}</span>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {inheritGroupColor && linkedLocation.group_id
+                          ? effectivePreviewColor
+                          : locColor}
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -599,12 +623,19 @@ export function ShapeInspector({
                     </Label>
                     <Select
                       value={linkedLocation.group_id ?? "__none__"}
-                      onValueChange={(value) =>
-                        onUpdateLocationGroup(
-                          linkedLocation.id,
-                          value === "__none__" ? null : value
-                        )
-                      }
+                      onValueChange={(value) => {
+                        const nextGroupId = value === "__none__" ? null : value;
+                        if (!nextGroupId) {
+                          setInheritGroupColor(false);
+                          onUpdateLocation(linkedLocation.id, {
+                            group_id: null,
+                            inherit_group_color: false,
+                          });
+                          return;
+                        }
+
+                        onUpdateLocation(linkedLocation.id, { group_id: nextGroupId });
+                      }}
                     >
                       <SelectTrigger className="h-8 text-xs">
                         <SelectValue placeholder={t("placeholders.noGroup")} />
@@ -619,6 +650,29 @@ export function ShapeInspector({
                       </SelectContent>
                     </Select>
                   </div>
+                  {linkedLocation.group_id && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                            {t("fields.inheritGroupColor")}
+                          </Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            {t("help.inheritGroupColor")}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={inheritGroupColor}
+                          onCheckedChange={(checked) => {
+                            setInheritGroupColor(checked);
+                            onUpdateLocation(linkedLocation.id, {
+                              inherit_group_color: checked,
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <LabelStyleSection
                   style={style}

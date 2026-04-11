@@ -250,7 +250,8 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
 
       const changedKeys = Object.keys(variables).filter((key) => key !== "id");
       const isDragOnlyUpdate =
-        changedKeys.length > 0 && changedKeys.every((key) => key === "group_id");
+        changedKeys.length > 0 &&
+        changedKeys.every((key) => key === "group_id" || key === "inherit_group_color");
 
       if (!isDragOnlyUpdate) {
         toast.success(t("locationUpdated"));

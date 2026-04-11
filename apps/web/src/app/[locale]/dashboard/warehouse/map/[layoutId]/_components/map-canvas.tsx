@@ -5,7 +5,11 @@ import { useTranslations } from "next-intl";
 import { Stage, Layer, Rect, Group, Text, Line, Transformer } from "react-konva";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import type { WarehouseLayoutShape, ShapeType, ShapeStyle } from "@/lib/warehouse/layouts";
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 import { useIsDark } from "@/hooks/use-css-var";
 
 /**
@@ -41,6 +45,7 @@ const SHAPE_DEFAULTS: Record<ShapeType, { fill: string; stroke: string }> = {
 export interface MapCanvasProps {
   shapes: WarehouseLayoutShape[];
   locations?: WarehouseLocation[];
+  locationGroups?: WarehouseLocationGroup[];
   canvasWidthM: number;
   canvasHeightM: number;
   selectedIds: string[];
@@ -73,6 +78,7 @@ export interface MapCanvasProps {
 export function MapCanvas({
   shapes,
   locations,
+  locationGroups,
   canvasWidthM,
   canvasHeightM,
   selectedIds,
@@ -275,7 +281,10 @@ export function MapCanvas({
     // so the canvas always reflects the current location color.
     const locColor =
       shape.shape_type === "location" && shape.location_id
-        ? (locations?.find((l) => l.id === shape.location_id)?.color ?? null)
+        ? (() => {
+            const location = locations?.find((l) => l.id === shape.location_id);
+            return location ? getEffectiveLocationColor(location, locationGroups) : null;
+          })()
         : null;
     const fill = locColor ? locationColorToFill(locColor) : (style?.fill ?? defaults.fill);
     const stroke = locColor ?? style?.stroke ?? defaults.stroke;
