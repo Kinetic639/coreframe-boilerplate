@@ -45,6 +45,7 @@ export const layoutIdSchema = z.object({
 // ─── Shape schemas ────────────────────────────────────────────────────────────
 
 const shapeTypeSchema = z.enum(["location", "wall", "door", "aisle", "zone", "obstacle", "label"]);
+const projectionSchema = z.enum(["top_down", "front_elevation"]);
 
 const shapeStyleSchema = z
   .object({
@@ -69,6 +70,11 @@ const shapeStyleSchema = z
 export const shapeUpsertSchema = z.object({
   id: uuidSchema,
   shape_type: shapeTypeSchema,
+  projection: projectionSchema.optional(),
+  anchor_location_id: z.preprocess(
+    (val) => (val === "" ? null : val),
+    uuidSchema.nullable().optional()
+  ),
   // Preprocess: coerce empty string → null so a drag-and-drop that clears
   // locationId to "" doesn't fail UUID validation.
   location_id: z.preprocess((val) => (val === "" ? null : val), uuidSchema.nullable().optional()),

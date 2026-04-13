@@ -495,6 +495,7 @@
       "copyLocationCode": "Copy location code",
       "copyLocationPath": "Copy location path",
       "previewMap": "Preview map",
+      "previewGroupOnMap": "Preview group on map",
       "openMapEditor": "Open map editor",
       "createMapForLocation": "Create map for this location",
       "showOnMap": "Show on map",
@@ -502,6 +503,7 @@
       "notPlacedOnAnyMap": "Not placed on any map",
       "dragToReorder": "Drag to reorder",
       "editLocation": "Edit {name}",
+      "cloneLocation": "Clone {name}",
       "deleteLocation": "Delete {name}"
     },
     "states": {
@@ -544,17 +546,69 @@
         "group": "Group",
         "groupNone": "None (ungrouped)",
         "inheritGroupColor": "Inherit group color",
-        "groupColorInherited": "Inherited from group"
+        "inheritParentColor": "Inherit parent color",
+        "groupColorInherited": "Inherited from group",
+        "parentColorInherited": "Inherited from parent",
+        "mapRole": "Map role",
+        "selectRootLocation": "Select root location",
+        "physicalWidth": "Width (m)",
+        "physicalWidthOptional": "Width (m, optional)",
+        "physicalDepth": "Depth (m)",
+        "physicalHeight": "Height (m)",
+        "physicalHeightOptional": "Height (m, optional)",
+        "roomWidth": "Room width (m)",
+        "roomLength": "Room length (m)",
+        "elevationStart": "Elevation start (m)",
+        "storageMode": "Storage mode",
+        "allowTopStorage": "Allow top storage"
       },
       "placeholders": {
         "name": "e.g. Aisle A, Shelf 1",
-        "code": "e.g. A-01 (optional)",
+        "code": "e.g. R1/A-01 (optional)",
         "noParent": "None (root location)",
+        "selectRootLocation": "Select root location",
+        "selectTopDownUnit": "Select top-down unit",
         "noGroup": "No group",
         "description": "Optional description"
       },
       "help": {
-        "inheritGroupColor": "Use the selected group's color for this location."
+        "inheritGroupColor": "Use the selected group's color for this location.",
+        "mapping": "Physical metadata and mapping role used by the dual-projection map viewer.",
+        "allowTopStorage": "Allow storage above the nominal top of this unit.",
+        "allowTopStorageTopDown": "Enable this when stock may be placed on top of the rack or cabinet.",
+        "layoutRoot": "This is the root map location. Its width and length define the layout canvas for the whole warehouse or room.",
+        "inheritTopDownParentColor": "Use the selected container or parent location color for this top-down unit.",
+        "inheritParentColor": "Use the selected parent unit's color for this front segment.",
+        "inheritTopStorageParentColor": "Use the selected top-down unit's color for this top storage segment.",
+        "logicalRole": "This is a container location. It stores child locations and codes, but is not placed directly on the map and does not change the map-projection hierarchy.",
+        "topDownParent": "Top-down units must belong directly to a root map location.",
+        "frontSegmentParent": "Front segments must belong directly to a top-down unit.",
+        "topStorageParent": "Top storage segments must belong directly to a top-down unit with top storage enabled.",
+        "parentHeightBound": "Parent height limit: {value} m",
+        "parentHeightUnknown": "Parent height is not specified yet.",
+        "frontSegmentMaxHeight": "Max height: {value} m",
+        "frontSegmentAvailableHeight": "Available: {value} m",
+        "frontSegmentHeightHint": "This segment can use up to {available} m of the parent's {max} m height.",
+        "frontSegmentHeightRequired": "Front segments require an explicit height.",
+        "frontSegmentHeightExceeded": "Segment height exceeds the available parent height ({available} m of {max} m).",
+        "topStorageHeightHint": "Top storage sits above the rack body, so its height is not limited by the parent's front-segment stack.",
+        "topStorageHeightRequired": "Top storage segments require an explicit height.",
+        "topStorageHeightExceeded": "Top storage height exceeds the available parent height ({available} m of {max} m)."
+      },
+      "sections": {
+        "mapping": "Mapping"
+      },
+      "validation": {
+        "nameRequired": "Name is required.",
+        "codeTooLong": "Code must be 20 characters or fewer.",
+        "codeInvalid": "Code may only contain letters, numbers, forward slashes, hyphens, and underscores."
+      },
+      "roles": {
+        "logical": "Container location",
+        "layoutRoot": "Root location",
+        "topDownUnit": "Top-down unit",
+        "frontSegment": "Front segment",
+        "topStorageSegment": "Top storage segment"
       },
       "actions": {
         "clearColor": "Clear",
@@ -570,6 +624,7 @@
       "deleteGroup": "Delete group",
       "addLocation": "Add location to group",
       "emptyGroup": "No locations in this group yet.",
+      "noPlacedMembers": "No group members are placed on any map",
       "ungrouped": "Ungrouped",
       "deleteGroupTitle": "Delete group?",
       "deleteGroupDescription": "{name} will be deleted. Member locations will become ungrouped."
@@ -791,6 +846,8 @@
       "deleteSelectedShapes": "Delete selected shapes",
       "cloneLocation": "Clone location",
       "deleteShape": "Delete shape",
+      "rotateLeft": "Rotate left",
+      "rotateRight": "Rotate right",
       "selectGroupMembers": "Select group members",
       "deleteGroup": "Delete group"
     },
@@ -834,6 +891,7 @@
       "snapToGrid": "Snap to grid",
       "gridSize": "Grid size",
       "width": "Width",
+      "depth": "Depth",
       "height": "Height"
     },
     "placeholders": {
@@ -854,10 +912,12 @@
       "left": "Align left edges",
       "centerH": "Center horizontally",
       "right": "Align right edges",
+      "stitchH": "Stitch horizontally",
       "distributeH": "Distribute horizontally",
       "top": "Align top edges",
       "centerV": "Center vertically",
       "bottom": "Align bottom edges",
+      "stitchV": "Stitch vertically",
       "distributeV": "Distribute vertically"
     },
     "shapeTypes": {
@@ -873,6 +933,7 @@
   "warehouseFeedback": {
     "locationCreated": "Location created",
     "locationCreateFailed": "Failed to create location",
+    "locationCodeDuplicateSameParent": "A location with this code already exists under the same parent location",
     "locationUpdated": "Location updated",
     "locationUpdateFailed": "Failed to update location",
     "locationDeleted": "Location deleted",
@@ -1131,6 +1192,14 @@
           "title": "Emails Visible",
           "description": "Email addresses are now visible"
         }
+      },
+      "warehouseFrontElevation": {
+        "title": "Front Elevation",
+        "subtitle": "Front view for {name}",
+        "emptyTitle": "Select a top-down storage unit",
+        "emptyDescription": "Choose a rack, cabinet, shelf block, or other top-down unit to inspect its front view.",
+        "noFrontViewTitle": "No front view yet",
+        "noFrontViewDescription": "Add front-segment children or front-elevation shapes to this location to populate the vertical view."
       }
     }
   },

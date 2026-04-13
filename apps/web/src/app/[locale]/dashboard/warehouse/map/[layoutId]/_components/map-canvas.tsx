@@ -40,6 +40,32 @@ const SHAPE_DEFAULTS: Record<ShapeType, { fill: string; stroke: string }> = {
   label: { fill: "transparent", stroke: "transparent" },
 };
 
+function getRotationOffsets(
+  width: number,
+  height: number,
+  rotation: number
+): { minX: number; maxX: number; minY: number; maxY: number } {
+  const angle = (rotation * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const corners = [
+    { x: 0, y: 0 },
+    { x: width, y: 0 },
+    { x: 0, y: height },
+    { x: width, y: height },
+  ].map((corner) => ({
+    x: corner.x * cos - corner.y * sin,
+    y: corner.x * sin + corner.y * cos,
+  }));
+
+  return {
+    minX: Math.min(...corners.map((corner) => corner.x)),
+    maxX: Math.max(...corners.map((corner) => corner.x)),
+    minY: Math.min(...corners.map((corner) => corner.y)),
+    maxY: Math.max(...corners.map((corner) => corner.y)),
+  };
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface MapCanvasProps {
@@ -51,6 +77,7 @@ export interface MapCanvasProps {
   selectedIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onShapeDragEnd: (id: string, x: number, y: number) => void;
+  onShapesDragEnd?: (positions: { id: string; x: number; y: number }[]) => void;
   onShapeTransformEnd: (
     id: string,
     x: number,
@@ -84,6 +111,7 @@ export function MapCanvas({
   selectedIds,
   onSelectionChange,
   onShapeDragEnd,
+  onShapesDragEnd,
   onShapeTransformEnd,
   onDropNewShape,
   showGrid,
@@ -274,9 +302,14 @@ export function MapCanvas({
   };
 
   // ── Shape rendering ───────────────────────────────────────────────────────
-  const renderShape = (shape: WarehouseLayoutShape) => {
+  const renderShape = (
+    shape: WarehouseLayoutShape,
+    options?: { offsetX?: number; offsetY?: number; draggableOverride?: boolean }
+  ) => {
     const defaults = SHAPE_DEFAULTS[shape.shape_type];
     const style = shape.style as ShapeStyle | null;
+    const offsetX = options?.offsetX ?? 0;
+    const offsetY = options?.offsetY ?? 0;
     // For location shapes: derive fill/stroke from the linked location's color
     // so the canvas always reflects the current location color.
     const locColor =
@@ -291,7 +324,8 @@ export function MapCanvas({
     const strokeWidth = (style?.strokeWidth ?? 1) / (zoom * METER_TO_PIXEL);
     const isSelected = selectedIds.includes(shape.id);
     const isGroupHighlighted = !isSelected && (groupHighlightShapeIds?.has(shape.id) ?? false);
-    const isDraggable = canManage && isSelected && selectedIds.length === 1;
+    const isDraggable =
+      options?.draggableOverride ?? (canManage && isSelected && selectedIds.length === 1);
 
     // ── Shared transform handler ─────────────────────────────────────────────
     // The Transformer is attached to the Group (id="shape-{id}"). Konva fires
@@ -308,10 +342,10 @@ export function MapCanvas({
       const scaleY = node.scaleY();
       const newWidth = snap(Math.max(0.1, shape.width * scaleX));
       const newHeight = snap(Math.max(0.1, shape.height * scaleY));
-      // Clamp position so the shape stays inside the canvas after resize
-      const newX = snap(Math.max(0, Math.min(canvasWidthM - newWidth, node.x())));
-      const newY = snap(Math.max(0, Math.min(canvasHeightM - newHeight, node.y())));
       const newRot = node.rotation();
+      const offsets = getRotationOffsets(newWidth, newHeight, newRot);
+      const newX = snap(Math.min(Math.max(node.x(), -offsets.minX), canvasWidthM - offsets.maxX));
+      const newY = snap(Math.min(Math.max(node.y(), -offsets.minY), canvasHeightM - offsets.maxY));
       node.scaleX(1);
       node.scaleY(1);
       onShapeTransformEnd(shape.id, newX, newY, newWidth, newHeight, newRot);
@@ -321,9 +355,16 @@ export function MapCanvas({
     // dragBoundFunc receives/returns ABSOLUTE screen-pixel positions.
     const dragBoundFunc = (pos: { x: number; y: number }) => {
       const scale = zoom * METER_TO_PIXEL;
+      const offsets = getRotationOffsets(shape.width, shape.height, shape.rotation);
       return {
-        x: Math.min(Math.max(pos.x, pan.x), pan.x + (canvasWidthM - shape.width) * scale),
-        y: Math.min(Math.max(pos.y, pan.y), pan.y + (canvasHeightM - shape.height) * scale),
+        x: Math.min(
+          Math.max(pos.x, pan.x - offsets.minX * scale),
+          pan.x + (canvasWidthM - offsets.maxX) * scale
+        ),
+        y: Math.min(
+          Math.max(pos.y, pan.y - offsets.minY * scale),
+          pan.y + (canvasHeightM - offsets.maxY) * scale
+        ),
       };
     };
 
@@ -341,23 +382,26 @@ export function MapCanvas({
       }
     };
 
+    const handleDragEnd = (e: any) => {
+      const offsets = getRotationOffsets(shape.width, shape.height, shape.rotation);
+      const x = snap(Math.min(Math.max(e.target.x(), -offsets.minX), canvasWidthM - offsets.maxX));
+      const y = snap(Math.min(Math.max(e.target.y(), -offsets.minY), canvasHeightM - offsets.maxY));
+      onShapeDragEnd(shape.id, x, y);
+    };
+
     if (shape.shape_type === "label") {
       return (
         <Group
           key={shape.id}
           id={`shape-${shape.id}`}
-          x={shape.x}
-          y={shape.y}
+          x={shape.x - offsetX}
+          y={shape.y - offsetY}
           rotation={shape.rotation}
           draggable={isDraggable}
           dragBoundFunc={isDraggable ? dragBoundFunc : undefined}
           onClick={handleShapeClick}
           onTap={handleShapeClick}
-          onDragEnd={(e) => {
-            const x = snap(Math.max(0, Math.min(canvasWidthM - shape.width, e.target.x())));
-            const y = snap(Math.max(0, Math.min(canvasHeightM - shape.height, e.target.y())));
-            onShapeDragEnd(shape.id, x, y);
-          }}
+          onDragEnd={handleDragEnd}
           onTransformEnd={handleTransformEnd}
         >
           <Text
@@ -376,18 +420,14 @@ export function MapCanvas({
       <Group
         key={shape.id}
         id={`shape-${shape.id}`}
-        x={shape.x}
-        y={shape.y}
+        x={shape.x - offsetX}
+        y={shape.y - offsetY}
         rotation={shape.rotation}
         draggable={isDraggable}
         dragBoundFunc={isDraggable ? dragBoundFunc : undefined}
         onClick={handleShapeClick}
         onTap={handleShapeClick}
-        onDragEnd={(e) => {
-          const x = snap(Math.max(0, Math.min(canvasWidthM - shape.width, e.target.x())));
-          const y = snap(Math.max(0, Math.min(canvasHeightM - shape.height, e.target.y())));
-          onShapeDragEnd(shape.id, x, y);
-        }}
+        onDragEnd={handleDragEnd}
         onTransformEnd={handleTransformEnd}
       >
         <Rect
@@ -418,24 +458,33 @@ export function MapCanvas({
           />
         )}
         {shape.shape_type === "location" && (
-          <Text
-            x={0}
-            y={0}
-            width={shape.width}
-            height={shape.height}
-            padding={0.05}
-            text={shape.label ?? ""}
-            fontSize={style?.labelSize ?? 0.35}
-            fontFamily="monospace"
-            fill={style?.labelColor ?? (isSelected ? "#1d4ed8" : "#475569")}
-            align={style?.labelAlignH ?? "left"}
-            verticalAlign={
-              (style?.labelAlignV ?? "top") === "center" ? "middle" : (style?.labelAlignV ?? "top")
-            }
-            wrap="none"
-            ellipsis={false}
+          <Group
+            x={shape.width / 2}
+            y={shape.height / 2}
+            rotation={-shape.rotation}
             listening={false}
-          />
+          >
+            <Text
+              x={-shape.width / 2}
+              y={-shape.height / 2}
+              width={shape.width}
+              height={shape.height}
+              padding={0.05}
+              text={shape.label ?? ""}
+              fontSize={style?.labelSize ?? 0.35}
+              fontFamily="monospace"
+              fill={style?.labelColor ?? (isSelected ? "#1d4ed8" : "#475569")}
+              align={style?.labelAlignH ?? "left"}
+              verticalAlign={
+                (style?.labelAlignV ?? "top") === "center"
+                  ? "middle"
+                  : (style?.labelAlignV ?? "top")
+              }
+              wrap="none"
+              ellipsis={false}
+              listening={false}
+            />
+          </Group>
         )}
         {shape.shape_type === "zone" && shape.label && (
           <Text
@@ -507,9 +556,121 @@ export function MapCanvas({
             {renderGrid()}
 
             {/* Shapes sorted by z_index */}
-            {[...shapes]
-              .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
-              .map(renderShape)}
+            {(() => {
+              const sortedShapes = [...shapes].sort(
+                (a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order
+              );
+              const multiSelectedShapes =
+                selectedIds.length > 1
+                  ? sortedShapes.filter((shape) => selectedIds.includes(shape.id))
+                  : [];
+              const nonSelectedShapes =
+                selectedIds.length > 1
+                  ? sortedShapes.filter((shape) => !selectedIds.includes(shape.id))
+                  : sortedShapes;
+
+              const selectedBounds =
+                multiSelectedShapes.length > 0
+                  ? {
+                      minX: Math.min(
+                        ...multiSelectedShapes.map((shape) => {
+                          const offsets = getRotationOffsets(
+                            shape.width,
+                            shape.height,
+                            shape.rotation
+                          );
+                          return shape.x + offsets.minX;
+                        })
+                      ),
+                      minY: Math.min(
+                        ...multiSelectedShapes.map((shape) => {
+                          const offsets = getRotationOffsets(
+                            shape.width,
+                            shape.height,
+                            shape.rotation
+                          );
+                          return shape.y + offsets.minY;
+                        })
+                      ),
+                      maxX: Math.max(
+                        ...multiSelectedShapes.map((shape) => {
+                          const offsets = getRotationOffsets(
+                            shape.width,
+                            shape.height,
+                            shape.rotation
+                          );
+                          return shape.x + offsets.maxX;
+                        })
+                      ),
+                      maxY: Math.max(
+                        ...multiSelectedShapes.map((shape) => {
+                          const offsets = getRotationOffsets(
+                            shape.width,
+                            shape.height,
+                            shape.rotation
+                          );
+                          return shape.y + offsets.maxY;
+                        })
+                      ),
+                    }
+                  : null;
+
+              return (
+                <>
+                  {nonSelectedShapes.map((shape) => renderShape(shape))}
+                  {multiSelectedShapes.length > 0 && selectedBounds ? (
+                    <Group
+                      x={selectedBounds.minX}
+                      y={selectedBounds.minY}
+                      draggable={canManage}
+                      dragBoundFunc={(pos) => {
+                        const scale = zoom * METER_TO_PIXEL;
+                        const width = selectedBounds.maxX - selectedBounds.minX;
+                        const height = selectedBounds.maxY - selectedBounds.minY;
+
+                        return {
+                          x: Math.min(
+                            Math.max(pos.x, pan.x),
+                            pan.x + (canvasWidthM - width) * scale
+                          ),
+                          y: Math.min(
+                            Math.max(pos.y, pan.y),
+                            pan.y + (canvasHeightM - height) * scale
+                          ),
+                        };
+                      }}
+                      onDragEnd={(e) => {
+                        const nextX = snap(e.target.x());
+                        const nextY = snap(e.target.y());
+                        const deltaX = nextX - selectedBounds.minX;
+                        const deltaY = nextY - selectedBounds.minY;
+
+                        onShapesDragEnd?.(
+                          multiSelectedShapes.map((shape) => ({
+                            id: shape.id,
+                            x: snap(shape.x + deltaX),
+                            y: snap(shape.y + deltaY),
+                          }))
+                        );
+
+                        e.target.position({
+                          x: selectedBounds.minX,
+                          y: selectedBounds.minY,
+                        });
+                      }}
+                    >
+                      {multiSelectedShapes.map((shape) =>
+                        renderShape(shape, {
+                          offsetX: selectedBounds.minX,
+                          offsetY: selectedBounds.minY,
+                          draggableOverride: false,
+                        })
+                      )}
+                    </Group>
+                  ) : null}
+                </>
+              );
+            })()}
 
             <Transformer
               ref={transformerRef}

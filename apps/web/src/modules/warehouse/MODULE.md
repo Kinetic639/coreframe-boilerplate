@@ -227,7 +227,7 @@ Registry: `src/server/audit/event-registry.ts`.
 - Warehouse data is branch-scoped: never query across branches without explicit multi-branch permission check.
 - `level` is always consistent after service mutations. If a future migration is needed, run a recursive CTE to recompute all levels from scratch.
 - `qr_code` is a stable identifier — do not regenerate it on update.
-- `code` is optional but when set must be unique per org+branch (enforced by partial unique index `wl_code_unique_in_branch_idx`).
+- `code` is optional but when set must be unique within the same parent scope in an org+branch. Reusing the same segment code in different branches of the location tree is allowed, so full paths such as `MG / R1K1 / A1` and `MG / R2K1 / A1` can coexist.
 
 ---
 

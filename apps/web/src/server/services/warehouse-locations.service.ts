@@ -44,6 +44,14 @@ export interface CreateLocationInput {
   parent_id?: string | null;
   group_id?: string | null;
   inherit_group_color?: boolean;
+  inherit_parent_color?: boolean;
+  physical_width_m?: number | null;
+  physical_depth_m?: number | null;
+  physical_height_m?: number | null;
+  physical_elevation_start_m?: number | null;
+  map_role?: WarehouseLocation["map_role"];
+  storage_mode?: string;
+  allow_top_storage?: boolean;
   sort_order?: number;
 }
 
@@ -56,13 +64,21 @@ export interface UpdateLocationInput {
   parent_id?: string | null;
   group_id?: string | null;
   inherit_group_color?: boolean;
+  inherit_parent_color?: boolean;
+  physical_width_m?: number | null;
+  physical_depth_m?: number | null;
+  physical_height_m?: number | null;
+  physical_elevation_start_m?: number | null;
+  map_role?: WarehouseLocation["map_role"];
+  storage_mode?: string;
+  allow_top_storage?: boolean;
   sort_order?: number;
 }
 
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const GROUP_SCOPE_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
@@ -203,6 +219,21 @@ export class WarehouseLocationsService {
       };
     }
 
+    const frontSegmentValidation = await WarehouseLocationsService.validateFrontSegmentHeight(
+      supabase,
+      orgId,
+      branchId,
+      {
+        locationId: null,
+        parentId: effectiveParentId,
+        mapRole: input.map_role ?? "logical",
+        physicalHeightM: input.physical_height_m ?? null,
+      }
+    );
+    if (frontSegmentValidation.success === false) {
+      return { success: false, error: frontSegmentValidation.error };
+    }
+
     const { data, error } = await supabase
       .from("warehouse_locations")
       .insert({
@@ -216,6 +247,14 @@ export class WarehouseLocationsService {
         parent_id: input.parent_id ?? null,
         group_id: input.group_id ?? null,
         inherit_group_color: input.group_id ? (input.inherit_group_color ?? false) : false,
+        inherit_parent_color: input.parent_id ? (input.inherit_parent_color ?? false) : false,
+        physical_width_m: input.physical_width_m ?? null,
+        physical_depth_m: input.physical_depth_m ?? null,
+        physical_height_m: input.physical_height_m ?? null,
+        physical_elevation_start_m: input.physical_elevation_start_m ?? null,
+        map_role: input.map_role ?? "logical",
+        storage_mode: input.storage_mode ?? "standard",
+        allow_top_storage: input.allow_top_storage ?? false,
         level,
         sort_order: input.sort_order ?? 0,
         created_by: userId,
@@ -228,7 +267,7 @@ export class WarehouseLocationsService {
       if (error.code === "23505") {
         return {
           success: false,
-          error: "A location with this code already exists in this branch",
+          error: "A location with this code already exists under the same parent location",
         };
       }
       return { success: false, error: error.message };
@@ -270,6 +309,30 @@ export class WarehouseLocationsService {
     if (input.group_id !== undefined) updatePayload.group_id = input.group_id;
     if (input.inherit_group_color !== undefined) {
       updatePayload.inherit_group_color = input.inherit_group_color;
+    }
+    if (input.inherit_parent_color !== undefined) {
+      updatePayload.inherit_parent_color = input.inherit_parent_color;
+    }
+    if (input.physical_width_m !== undefined) {
+      updatePayload.physical_width_m = input.physical_width_m;
+    }
+    if (input.physical_depth_m !== undefined) {
+      updatePayload.physical_depth_m = input.physical_depth_m;
+    }
+    if (input.physical_height_m !== undefined) {
+      updatePayload.physical_height_m = input.physical_height_m;
+    }
+    if (input.physical_elevation_start_m !== undefined) {
+      updatePayload.physical_elevation_start_m = input.physical_elevation_start_m;
+    }
+    if (input.map_role !== undefined) {
+      updatePayload.map_role = input.map_role;
+    }
+    if (input.storage_mode !== undefined) {
+      updatePayload.storage_mode = input.storage_mode;
+    }
+    if (input.allow_top_storage !== undefined) {
+      updatePayload.allow_top_storage = input.allow_top_storage;
     }
 
     let newLevel: number | undefined;
@@ -317,11 +380,19 @@ export class WarehouseLocationsService {
     }
 
     const effectiveParentId = input.parent_id !== undefined ? input.parent_id : current.parent_id;
+    const effectiveMapRole =
+      input.map_role !== undefined ? input.map_role : (current.map_role ?? "logical");
+    const effectivePhysicalHeightM =
+      input.physical_height_m !== undefined ? input.physical_height_m : current.physical_height_m;
     const effectiveGroupId = input.group_id !== undefined ? input.group_id : current.group_id;
     const effectiveInheritGroupColor =
       input.inherit_group_color !== undefined
         ? input.inherit_group_color
         : current.inherit_group_color;
+    const effectiveInheritParentColor =
+      input.inherit_parent_color !== undefined
+        ? input.inherit_parent_color
+        : (current.inherit_parent_color ?? false);
     const groupValidation = await WarehouseLocationsService.validateGroupAssignment(
       supabase,
       orgId,
@@ -339,6 +410,24 @@ export class WarehouseLocationsService {
     if (!effectiveGroupId && effectiveInheritGroupColor) {
       updatePayload.inherit_group_color = false;
     }
+    if (!effectiveParentId && effectiveInheritParentColor) {
+      updatePayload.inherit_parent_color = false;
+    }
+
+    const frontSegmentValidation = await WarehouseLocationsService.validateFrontSegmentHeight(
+      supabase,
+      orgId,
+      current.branch_id,
+      {
+        locationId: id,
+        parentId: effectiveParentId,
+        mapRole: effectiveMapRole,
+        physicalHeightM: effectivePhysicalHeightM ?? null,
+      }
+    );
+    if (frontSegmentValidation.success === false) {
+      return { success: false, error: frontSegmentValidation.error };
+    }
 
     const { data, error } = await supabase
       .from("warehouse_locations")
@@ -353,7 +442,7 @@ export class WarehouseLocationsService {
       if (error.code === "23505") {
         return {
           success: false,
-          error: "A location with this code already exists in this branch",
+          error: "A location with this code already exists under the same parent location",
         };
       }
       return { success: false, error: error.message };
@@ -491,6 +580,114 @@ export class WarehouseLocationsService {
       return {
         success: false,
         error: "Location group belongs to a different parent location",
+      };
+    }
+
+    return { success: true, data: undefined };
+  }
+
+  private static async validateFrontSegmentHeight(
+    supabase: SupabaseClient,
+    orgId: string,
+    branchId: string,
+    input: {
+      locationId: string | null;
+      parentId: string | null;
+      mapRole: WarehouseLocation["map_role"];
+      physicalHeightM: number | null;
+    }
+  ): Promise<ServiceResult<void>> {
+    if (input.mapRole !== "front_segment" && input.mapRole !== "top_storage_segment") {
+      return { success: true, data: undefined };
+    }
+
+    const isTopStorageSegment = input.mapRole === "top_storage_segment";
+
+    if (!input.parentId) {
+      return {
+        success: false,
+        error: isTopStorageSegment
+          ? "Top storage segments must belong directly to a top-down unit"
+          : "Front segments must belong directly to a top-down unit",
+      };
+    }
+
+    if (input.physicalHeightM === null) {
+      return {
+        success: false,
+        error: isTopStorageSegment
+          ? "Top storage segments require an explicit height"
+          : "Front segments require an explicit height",
+      };
+    }
+
+    const parentResult = await WarehouseLocationsService.getById(supabase, orgId, input.parentId);
+    if (parentResult.success === false) return { success: false, error: parentResult.error };
+    if (!parentResult.data) {
+      return { success: false, error: "Parent location not found" };
+    }
+    if (parentResult.data.branch_id !== branchId) {
+      return { success: false, error: "Parent location belongs to a different branch" };
+    }
+    if ((parentResult.data.map_role ?? "logical") !== "top_down_unit") {
+      return {
+        success: false,
+        error: isTopStorageSegment
+          ? "Top storage segments must belong directly to a top-down unit"
+          : "Front segments must belong directly to a top-down unit",
+      };
+    }
+
+    if (isTopStorageSegment && !parentResult.data.allow_top_storage) {
+      return {
+        success: false,
+        error: "The parent top-down unit does not allow top storage",
+      };
+    }
+
+    if (parentResult.data.physical_height_m === null) {
+      if (!isTopStorageSegment) {
+        return { success: true, data: undefined };
+      }
+      return { success: true, data: undefined };
+    }
+
+    const siblingsResult = await WarehouseLocationsService.getChildren(
+      supabase,
+      orgId,
+      input.parentId
+    );
+    if (siblingsResult.success === false) return { success: false, error: siblingsResult.error };
+
+    if (isTopStorageSegment) {
+      const duplicateTopStorage = siblingsResult.data.some(
+        (child) =>
+          child.id !== input.locationId && (child.map_role ?? "logical") === "top_storage_segment"
+      );
+      if (duplicateTopStorage) {
+        return {
+          success: false,
+          error: "Only one top storage segment is allowed per top-down unit",
+        };
+      }
+
+      return { success: true, data: undefined };
+    }
+
+    const usedHeight = siblingsResult.data
+      .filter((child) => child.id !== input.locationId)
+      .filter((child) =>
+        ["front_segment", "top_storage_segment"].includes(child.map_role ?? "logical")
+      )
+      .reduce((sum, child) => sum + (child.physical_height_m ?? 0), 0);
+
+    const availableHeight = Math.max(0, parentResult.data.physical_height_m - usedHeight);
+    if (input.physicalHeightM > availableHeight) {
+      return {
+        success: false,
+        error: isTopStorageSegment
+          ? `Top storage height exceeds available parent height (${availableHeight} m remaining of ${parentResult.data.physical_height_m} m)`
+          : `Front segment height exceeds available parent height (${availableHeight} m remaining of ${parentResult.data.physical_height_m} m)`,
       };
     }
 

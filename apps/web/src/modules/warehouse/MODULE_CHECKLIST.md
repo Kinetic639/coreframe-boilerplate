@@ -99,7 +99,7 @@
 
 - [x] `warehouse_locations` table created with all required columns, constraints, and indexes.
 - [x] `updated_at` trigger attached (uses `public.set_updated_at()`).
-- [x] Partial unique index on `code` per org+branch (when code IS NOT NULL and deleted_at IS NULL).
+- [x] Partial unique index on `code` per org+branch+parent scope (when `code IS NOT NULL` and `deleted_at IS NULL`).
 - [x] `wl_no_self_parent` CHECK constraint in DB.
 
 ### Hierarchy Integrity

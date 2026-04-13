@@ -21,6 +21,8 @@ import {
   type WarehouseLocation,
   type WarehouseLocationGroup,
 } from "@/lib/warehouse/location-tree";
+import { resolveLocationMapContext, resolveLocationMapContexts } from "@/lib/warehouse/map-context";
+import { WarehouseFrontElevationPanel } from "@/components/v2/warehouse/warehouse-front-elevation-panel";
 
 // ─── Viewer: Konva — client-only ──────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ function TreeNode({
   location,
   allLocations,
   placedLocationIds,
+  mappableLocationIds,
   highlightedId,
   onSelect,
   depth,
@@ -54,6 +57,7 @@ function TreeNode({
   location: WarehouseLocation;
   allLocations: WarehouseLocation[];
   placedLocationIds: Set<string>;
+  mappableLocationIds: Set<string>;
   highlightedId: string | null;
   onSelect: (id: string) => void;
   depth: number;
@@ -63,6 +67,7 @@ function TreeNode({
   const [expanded, setExpanded] = React.useState(true);
   const children = allLocations.filter((l) => l.parent_id === location.id);
   const isPlaced = placedLocationIds.has(location.id);
+  const isMappable = mappableLocationIds.has(location.id);
   const isActive = highlightedId === location.id;
 
   return (
@@ -71,12 +76,12 @@ function TreeNode({
         className={cn(
           "flex items-center gap-1.5 py-1.5 pr-2 rounded-md mx-1 transition-colors",
           isActive && "bg-primary/10",
-          !isActive && isPlaced && "cursor-pointer hover:bg-accent",
-          !isActive && !isPlaced && "opacity-50 cursor-default"
+          !isActive && isMappable && "cursor-pointer hover:bg-accent",
+          !isActive && !isMappable && "opacity-50 cursor-default"
         )}
         style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => {
-          if (isPlaced) onSelect(location.id);
+          if (isMappable) onSelect(location.id);
         }}
       >
         {/* Expand toggle */}
@@ -97,7 +102,9 @@ function TreeNode({
         {/* Color dot */}
         <div
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
-          style={{ backgroundColor: getEffectiveLocationColor(location, groups) ?? "#10b981" }}
+          style={{
+            backgroundColor: getEffectiveLocationColor(location, groups, allLocations) ?? "#10b981",
+          }}
         />
 
         {/* Name + code */}
@@ -137,6 +144,7 @@ function TreeNode({
             location={child}
             allLocations={allLocations}
             placedLocationIds={placedLocationIds}
+            mappableLocationIds={mappableLocationIds}
             highlightedId={highlightedId}
             onSelect={onSelect}
             depth={depth + 1}
@@ -188,6 +196,41 @@ export function MapPreview({ layout, locations, locationGroups, rootLocationId }
     () => new Set(layout.shapes.filter((s) => s.location_id).map((s) => s.location_id!)),
     [layout.shapes]
   );
+  const mappableLocationIds = React.useMemo(
+    () =>
+      new Set(
+        descendants
+          .filter((location) => {
+            const context = resolveLocationMapContext(location.id, locations, rootLocationId);
+            return !!context.topDownAnchorLocationId || !!context.frontAnchorLocationId;
+          })
+          .map((location) => location.id)
+      ),
+    [descendants, locations, rootLocationId]
+  );
+  const mapContexts = React.useMemo(
+    () =>
+      resolveLocationMapContexts(highlightedId ? [highlightedId] : [], locations, rootLocationId),
+    [highlightedId, locations, rootLocationId]
+  );
+  const topDownHighlightIds = React.useMemo(
+    () =>
+      [
+        ...new Set(mapContexts.map((context) => context.topDownAnchorLocationId).filter(Boolean)),
+      ] as string[],
+    [mapContexts]
+  );
+  const frontHighlightIds = React.useMemo(
+    () =>
+      [
+        ...new Set(mapContexts.map((context) => context.frontAnchorLocationId).filter(Boolean)),
+      ] as string[],
+    [mapContexts]
+  );
+  const frontAnchorLocationId = React.useMemo(
+    () => (topDownHighlightIds.length === 1 ? topDownHighlightIds[0] : null),
+    [topDownHighlightIds]
+  );
 
   // Clicking a shape on the canvas highlights its location in the tree
   const handleShapeClick = (shape: WarehouseLayoutShape) => {
@@ -226,6 +269,7 @@ export function MapPreview({ layout, locations, locationGroups, rootLocationId }
                 location={loc}
                 allLocations={descendants}
                 placedLocationIds={placedLocationIds}
+                mappableLocationIds={mappableLocationIds}
                 highlightedId={highlightedId}
                 onSelect={handleTreeSelect}
                 depth={0}
@@ -251,47 +295,62 @@ export function MapPreview({ layout, locations, locationGroups, rootLocationId }
 
       {/* ── Right: map viewer ──────────────────────────────────────────── */}
       {/* Clicking the dark surround (outside the Konva canvas) clears the highlight */}
-      <div
-        className="flex-1 h-full overflow-hidden bg-zinc-200 dark:bg-zinc-900 relative"
-        onClick={() => {
-          setHighlightedId(null);
-          setIsMonochrome(true);
-        }}
-      >
-        {highlightedId && (
-          <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
-            <button
-              type="button"
-              title={isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMonochrome((v) => !v);
-              }}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
-                isMonochrome
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-muted-foreground"
-              )}
-            >
-              <Palette className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className="relative min-h-0 flex-1 overflow-hidden bg-zinc-200 dark:bg-zinc-900"
+          onClick={() => {
+            setHighlightedId(null);
+            setIsMonochrome(true);
+          }}
+        >
+          {highlightedId && (
+            <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+              <button
+                type="button"
+                title={isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMonochrome((v) => !v);
+                }}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
+                  isMonochrome
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "text-muted-foreground"
+                )}
+              >
+                <Palette className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-        {/* stopPropagation so clicks on the canvas itself don't bubble to the surround */}
-        <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
-          <WarehouseMapViewer
-            layout={layout}
-            locations={locations}
-            locationGroups={locationGroups}
-            highlightLocationId={highlightedId}
-            autoPanToHighlight={false}
-            monochromaticHighlight={isMonochrome}
-            onShapeClick={handleShapeClick}
-            className="h-full w-full"
-          />
+          {/* stopPropagation so clicks on the canvas itself don't bubble to the surround */}
+          <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
+            <WarehouseMapViewer
+              layout={layout}
+              locations={locations}
+              locationGroups={locationGroups}
+              highlightLocationId={highlightedId}
+              highlightLocationIds={
+                topDownHighlightIds.length > 0 ? topDownHighlightIds : undefined
+              }
+              autoPanToHighlight={false}
+              monochromaticHighlight={isMonochrome}
+              onShapeClick={handleShapeClick}
+              className="h-full w-full"
+            />
+          </div>
         </div>
+
+        <WarehouseFrontElevationPanel
+          layout={layout}
+          locations={locations}
+          locationGroups={locationGroups}
+          anchorLocationId={frontAnchorLocationId}
+          anchorLocationIds={topDownHighlightIds}
+          highlightLocationIds={frontHighlightIds}
+          className="h-64 shrink-0"
+        />
       </div>
     </div>
   );

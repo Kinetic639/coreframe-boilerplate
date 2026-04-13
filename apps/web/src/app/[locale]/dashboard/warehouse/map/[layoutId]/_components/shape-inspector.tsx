@@ -8,6 +8,10 @@ import {
   Info,
   Grid3x3,
   Magnet,
+  RotateCcw,
+  RotateCw,
+  Rows3,
+  Columns3,
   AlignStartVertical,
   AlignCenterVertical,
   AlignEndVertical,
@@ -21,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -46,6 +51,8 @@ export type AlignType =
   | "bottom"
   | "center-h"
   | "center-v"
+  | "stitch-h"
+  | "stitch-v"
   | "distribute-h"
   | "distribute-v";
 
@@ -54,6 +61,7 @@ export type AlignType =
 interface ShapeInspectorProps {
   selectedShapes: WarehouseLayoutShape[];
   selectedGroup: WarehouseLocationGroup | null;
+  selectedContainerLocation: WarehouseLocation | null;
   layout: WarehouseLayout;
   locations: WarehouseLocation[];
   locationGroups: WarehouseLocationGroup[];
@@ -79,12 +87,21 @@ interface ShapeInspectorProps {
       inherit_group_color?: boolean;
     }
   ) => void;
+  onUpdateLocationDimensions: (
+    locationId: string,
+    patch: {
+      physical_width_m?: number;
+      physical_depth_m?: number;
+    }
+  ) => void;
   onUpdateGroup: (
     groupId: string,
     patch: { name?: string; color?: string | null; description?: string | null }
   ) => void;
   onDeleteGroup: () => void;
   onSelectGroupMembers: () => void;
+  onDeleteContainerLocation: () => void;
+  onSelectContainerMembers: () => void;
   onDeleteShape: (id: string) => void;
   onDeleteShapes: (ids: string[]) => void;
   onCloneShape: (shapeId: string) => void;
@@ -236,11 +253,17 @@ const GEOMETRY_FIELD_KEYS = {
   height: "fields.height",
 } as const;
 
+function normalizeRotation(value: number) {
+  const normalized = value % 360;
+  return normalized < 0 ? normalized + 360 : normalized;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ShapeInspector({
   selectedShapes,
   selectedGroup,
+  selectedContainerLocation,
   layout,
   locations,
   locationGroups,
@@ -252,9 +275,12 @@ export function ShapeInspector({
   onGridIntervalChange,
   onShapeGeometryChange,
   onUpdateLocation,
+  onUpdateLocationDimensions,
   onUpdateGroup,
   onDeleteGroup,
   onSelectGroupMembers,
+  onDeleteContainerLocation,
+  onSelectContainerMembers,
   onDeleteShape,
   onDeleteShapes,
   onCloneShape,
@@ -266,6 +292,16 @@ export function ShapeInspector({
   const selectedShape = selectedShapes.length === 1 ? selectedShapes[0] : null;
   const isMulti = selectedShapes.length > 1;
   const style = selectedShape?.style as ShapeStyle | null;
+  const isTopDownLocationShape =
+    selectedShape?.shape_type === "location" &&
+    (selectedShape.projection ?? "top_down") === "top_down";
+  const isBulkTopDownLocationSelection =
+    isMulti &&
+    selectedShapes.every(
+      (shape) => shape.shape_type === "location" && (shape.projection ?? "top_down") === "top_down"
+    );
+  const isBulkRotatableSelection =
+    isMulti && selectedShapes.every((shape) => shape.shape_type !== "label");
 
   // The linked warehouse_location for the selected shape (location shapes only)
   const linkedLocation =
@@ -307,6 +343,66 @@ export function ShapeInspector({
     setGroupName(selectedGroup?.name ?? "");
     setGroupColor(selectedGroup?.color ?? "#64748b");
   }, [selectedGroup?.id]);
+
+  const commonMultiWidth = React.useMemo(() => {
+    if (!isBulkTopDownLocationSelection || selectedShapes.length === 0) return "";
+    const [first, ...rest] = selectedShapes;
+    return rest.every((shape) => Math.abs(shape.width - first.width) < 0.001)
+      ? first.width.toFixed(2)
+      : "";
+  }, [isBulkTopDownLocationSelection, selectedShapes]);
+
+  const commonMultiDepth = React.useMemo(() => {
+    if (!isBulkTopDownLocationSelection || selectedShapes.length === 0) return "";
+    const [first, ...rest] = selectedShapes;
+    return rest.every((shape) => Math.abs(shape.height - first.height) < 0.001)
+      ? first.height.toFixed(2)
+      : "";
+  }, [isBulkTopDownLocationSelection, selectedShapes]);
+
+  const [bulkWidth, setBulkWidth] = React.useState(commonMultiWidth);
+  const [bulkDepth, setBulkDepth] = React.useState(commonMultiDepth);
+
+  React.useEffect(() => {
+    setBulkWidth(commonMultiWidth);
+    setBulkDepth(commonMultiDepth);
+  }, [commonMultiDepth, commonMultiWidth]);
+
+  const applyBulkTopDownDimension = React.useCallback(
+    (field: "width" | "height", rawValue: string) => {
+      const value = parseFloat(rawValue);
+      if (Number.isNaN(value) || value <= 0 || !isBulkTopDownLocationSelection) return;
+
+      selectedShapes.forEach((shape) => {
+        onShapeGeometryChange(shape.id, { [field]: value });
+        if (shape.location_id) {
+          onUpdateLocationDimensions(shape.location_id, {
+            ...(field === "width" ? { physical_width_m: value } : {}),
+            ...(field === "height" ? { physical_depth_m: value } : {}),
+          });
+        }
+      });
+    },
+    [
+      isBulkTopDownLocationSelection,
+      onShapeGeometryChange,
+      onUpdateLocationDimensions,
+      selectedShapes,
+    ]
+  );
+
+  const applyBulkRotation = React.useCallback(
+    (delta: number) => {
+      if (!isBulkRotatableSelection) return;
+
+      selectedShapes.forEach((shape) => {
+        onShapeGeometryChange(shape.id, {
+          rotation: normalizeRotation(shape.rotation + delta),
+        });
+      });
+    },
+    [isBulkRotatableSelection, onShapeGeometryChange, selectedShapes]
+  );
 
   return (
     <div className="w-72 h-full border-l bg-background flex flex-col shrink-0 overflow-hidden">
@@ -390,6 +486,11 @@ export function ShapeInspector({
                       onClick={() => onAlignShapes("distribute-h")}
                     />
                   )}
+                  <AlignBtn
+                    icon={Columns3}
+                    title={t("alignment.stitchH")}
+                    onClick={() => onAlignShapes("stitch-h")}
+                  />
                 </div>
               </div>
               <div className="space-y-1">
@@ -417,9 +518,94 @@ export function ShapeInspector({
                       onClick={() => onAlignShapes("distribute-v")}
                     />
                   )}
+                  <AlignBtn
+                    icon={Rows3}
+                    title={t("alignment.stitchV")}
+                    onClick={() => onAlignShapes("stitch-v")}
+                  />
                 </div>
               </div>
             </div>
+
+            {isBulkTopDownLocationSelection && (
+              <div className="space-y-2 pt-3 border-t">
+                <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                  {t("sections.geometry")}
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase">
+                      {t("fields.width")}
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min={0.1}
+                      value={bulkWidth}
+                      placeholder="—"
+                      onChange={(e) => setBulkWidth(e.target.value)}
+                      onBlur={(e) => applyBulkTopDownDimension("width", e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground uppercase">
+                      {t("fields.depth")}
+                    </Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min={0.1}
+                      value={bulkDepth}
+                      placeholder="—"
+                      onChange={(e) => setBulkDepth(e.target.value)}
+                      onBlur={(e) => applyBulkTopDownDimension("height", e.target.value)}
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isBulkRotatableSelection && (
+              <div className="space-y-2 pt-3 border-t">
+                <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                  {t("fields.rotation")}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => applyBulkRotation(-90)}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("actions.rotateLeft")}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => applyBulkRotation(90)}
+                        >
+                          <RotateCw className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("actions.rotateRight")}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            )}
 
             {/* Label style — shown when all selected shapes are location shapes */}
             {selectedShapes.every((s) => s.shape_type === "location") && (
@@ -521,6 +707,122 @@ export function ShapeInspector({
                 onClick={onDeleteGroup}
               >
                 {t("actions.deleteGroup")}
+              </Button>
+            </div>
+          </div>
+        ) : selectedContainerLocation ? (
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[10px] uppercase text-muted-foreground font-semibold">
+                {t("sections.group")}
+              </Label>
+              <p className="mt-1 text-sm font-medium">{selectedContainerLocation.name}</p>
+              {selectedContainerLocation.code ? (
+                <p className="mt-1 text-xs font-mono text-muted-foreground">
+                  {selectedContainerLocation.code}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label
+                  htmlFor="container-name"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.name")}
+                </Label>
+                <Input
+                  id="container-name"
+                  value={locName}
+                  onChange={(e) => setLocName(e.target.value)}
+                  onBlur={() => {
+                    const trimmed = locName.trim();
+                    if (trimmed && trimmed !== selectedContainerLocation.name) {
+                      onUpdateLocation(selectedContainerLocation.id, { name: trimmed });
+                    }
+                  }}
+                  placeholder={t("placeholders.locationName")}
+                  className="h-8 text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="container-code"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.code")}
+                </Label>
+                <Input
+                  id="container-code"
+                  value={locCode}
+                  onChange={(e) => setLocCode(e.target.value.toUpperCase())}
+                  onBlur={() => {
+                    const trimmed = locCode.trim() || null;
+                    if (trimmed !== (selectedContainerLocation.code ?? null)) {
+                      onUpdateLocation(selectedContainerLocation.id, { code: trimmed });
+                    }
+                  }}
+                  placeholder={t("placeholders.locationCode")}
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label
+                  htmlFor="container-color"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.color")}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="container-color"
+                    type="color"
+                    value={locColor}
+                    onChange={(e) => setLocColor(e.target.value)}
+                    onBlur={() => {
+                      if (locColor !== (selectedContainerLocation.color ?? "#10b981")) {
+                        onUpdateLocation(selectedContainerLocation.id, { color: locColor });
+                      }
+                    }}
+                    className="w-8 h-8 rounded border cursor-pointer p-0.5"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">{locColor}</span>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-muted/30 px-3 py-2">
+                <p className="text-[10px] uppercase text-muted-foreground font-semibold">
+                  {t("fields.groupMembers")}
+                </p>
+                <p className="mt-1 text-sm font-medium">
+                  {
+                    locations.filter(
+                      (location) => location.parent_id === selectedContainerLocation.id
+                    ).length
+                  }
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-3 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onSelectContainerMembers}
+              >
+                {t("actions.selectGroupMembers")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full"
+                onClick={onDeleteContainerLocation}
+              >
+                {t("actions.deleteShape")}
               </Button>
             </div>
           </div>
@@ -746,7 +1048,9 @@ export function ShapeInspector({
                       htmlFor={`shape-${field}`}
                       className="text-[10px] text-muted-foreground uppercase"
                     >
-                      {t(GEOMETRY_FIELD_KEYS[field])}
+                      {field === "height" && isTopDownLocationShape
+                        ? t("fields.depth")
+                        : t(GEOMETRY_FIELD_KEYS[field])}
                     </Label>
                     <Input
                       id={`shape-${field}`}
@@ -770,17 +1074,63 @@ export function ShapeInspector({
                 >
                   {t("fields.rotation")}
                 </Label>
-                <Input
-                  id="shape-rotation"
-                  type="number"
-                  step="1"
-                  value={selectedShape.rotation.toFixed(0)}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value);
-                    if (!isNaN(v)) onShapeGeometryChange(selectedShape.id, { rotation: v });
-                  }}
-                  className="h-8 text-xs font-mono"
-                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="shape-rotation"
+                    type="number"
+                    step="1"
+                    value={selectedShape.rotation.toFixed(0)}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!isNaN(v)) {
+                        onShapeGeometryChange(selectedShape.id, {
+                          rotation: normalizeRotation(v),
+                        });
+                      }
+                    }}
+                    className="h-8 w-20 text-xs font-mono"
+                  />
+                  {selectedShape.shape_type !== "label" && (
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() =>
+                              onShapeGeometryChange(selectedShape.id, {
+                                rotation: normalizeRotation(selectedShape.rotation - 90),
+                              })
+                            }
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("actions.rotateLeft")}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() =>
+                              onShapeGeometryChange(selectedShape.id, {
+                                rotation: normalizeRotation(selectedShape.rotation + 90),
+                              })
+                            }
+                          >
+                            <RotateCw className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{t("actions.rotateRight")}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               </div>
             </div>
 
