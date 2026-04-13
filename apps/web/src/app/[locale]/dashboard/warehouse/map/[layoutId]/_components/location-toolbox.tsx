@@ -191,16 +191,20 @@ function SectionHeader({
 function DragPreview({
   location,
   groups,
+  locations,
 }: {
   location: WarehouseLocation;
   groups: WarehouseLocationGroup[];
+  locations: WarehouseLocation[];
 }) {
   return (
     <div className="flex items-center gap-1.5 py-1 px-2 rounded-md bg-background border border-primary/30 shadow-lg text-xs select-none">
       <GripVertical className="w-3 h-3 text-muted-foreground shrink-0" />
       <div
         className="w-2 h-2 rounded-sm shrink-0"
-        style={{ backgroundColor: getEffectiveLocationColor(location, groups) ?? "#10b981" }}
+        style={{
+          backgroundColor: getEffectiveLocationColor(location, groups, locations) ?? "#10b981",
+        }}
       />
       <span className="truncate font-medium">{location.name}</span>
       {location.code && (
@@ -217,9 +221,11 @@ interface ToolboxCtx {
   groups: WarehouseLocationGroup[];
   placedLocationIds: Set<string>;
   selectedGroupId: string | null;
+  selectedContainerLocationId: string | null;
   canManage: boolean;
   onSelect: (id: string) => void;
   onSelectGroup: (groupId: string) => void;
+  onSelectContainer: (locationId: string) => void;
   onReorderSiblings: (parentId: string | null, items: { id: string; sort_order: number }[]) => void;
   onReorderGroups: (items: { id: string; sort_order: number }[]) => void;
   onAssignToGroup: (locationId: string, groupId: string) => void;
@@ -457,7 +463,13 @@ function ToolboxGroupSection({
             </SortableContext>
 
             <DragOverlay dropAnimation={null}>
-              {activeMember && <DragPreview location={activeMember} groups={ctx.groups} />}
+              {activeMember && (
+                <DragPreview
+                  location={activeMember}
+                  groups={ctx.groups}
+                  locations={ctx.allLocations}
+                />
+              )}
             </DragOverlay>
           </DndContext>
         ))}
@@ -637,7 +649,7 @@ function ToolboxChildrenList({
               <span className="truncate">{activeItem.g.name}</span>
             </div>
           ) : (
-            <DragPreview location={activeItem.l} groups={ctx.groups} />
+            <DragPreview location={activeItem.l} groups={ctx.groups} locations={ctx.allLocations} />
           ))}
       </DragOverlay>
     </DndContext>
@@ -664,21 +676,42 @@ function ToolboxLocationRow({
   const children = ctx.allLocations.filter((l) => l.parent_id === location.id);
   const myGroups = ctx.groups.filter((g) => g.parent_location_id === location.id);
   const hasChildren = children.length > 0 || myGroups.length > 0;
+  const isLogicalContainer = (location.map_role ?? "logical") === "logical";
+  const isFrontSegment = ["front_segment", "top_storage_segment"].includes(
+    location.map_role ?? "logical"
+  );
   const isPlaced = ctx.placedLocationIds.has(location.id);
+  const isSelectableOnCanvas = isPlaced && !isFrontSegment;
 
   return (
     <div>
       <div
         className={cn(
           "flex items-center gap-1.5 py-1 pr-1.5 rounded-md mx-1 transition-colors group/node",
-          isPlaced ? "cursor-pointer hover:bg-accent" : "cursor-default hover:bg-muted/50"
+          isLogicalContainer && ctx.selectedContainerLocationId === location.id
+            ? "bg-primary/10 ring-1 ring-inset ring-primary/30"
+            : isSelectableOnCanvas
+              ? "cursor-pointer hover:bg-accent"
+              : "cursor-default hover:bg-muted/50"
         )}
         style={{ paddingLeft: 2 + depth * 10 }}
         onClick={() => {
-          if (isPlaced) ctx.onSelect(location.id);
+          if (isLogicalContainer) {
+            ctx.onSelectContainer(location.id);
+            return;
+          }
+          if (isSelectableOnCanvas) ctx.onSelect(location.id);
         }}
       >
-        <LocationColorBadge color={getEffectiveLocationColor(location, ctx.groups)} />
+        {isLogicalContainer ? (
+          <GroupColorBadge
+            color={getEffectiveLocationColor(location, ctx.groups, ctx.allLocations)}
+          />
+        ) : (
+          <LocationColorBadge
+            color={getEffectiveLocationColor(location, ctx.groups, ctx.allLocations)}
+          />
+        )}
 
         <span className="text-xs truncate flex-1 min-w-0">{location.name}</span>
         {location.code && (
@@ -686,7 +719,7 @@ function ToolboxLocationRow({
             {location.code}
           </span>
         )}
-        {isPlaced && (
+        {isSelectableOnCanvas && (
           <div
             className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 ml-1"
             title={ctx.t("indicators.placedOnCanvas")}
@@ -755,8 +788,10 @@ interface LocationToolboxProps {
   placedLocationIds: Set<string>;
   selectedId: string | null;
   selectedGroupId: string | null;
+  selectedContainerLocationId: string | null;
   onSelectLocation: (locationId: string) => void;
   onSelectGroup: (groupId: string) => void;
+  onSelectContainerLocation: (locationId: string) => void;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -769,8 +804,10 @@ export function LocationToolbox({
   placedLocationIds,
   selectedId: _selectedId,
   selectedGroupId,
+  selectedContainerLocationId,
   onSelectLocation,
   onSelectGroup,
+  onSelectContainerLocation,
 }: LocationToolboxProps) {
   const t = useTranslations("warehouseMapToolbox");
   const [treeOpen, setTreeOpen] = React.useState(true);
@@ -803,7 +840,11 @@ export function LocationToolbox({
     return result;
   }, [locations, rootLocationId]);
 
-  const unplaced = allLocations.filter((l) => !placedLocationIds.has(l.id));
+  const unplaced = allLocations.filter(
+    (location) =>
+      !placedLocationIds.has(location.id) &&
+      !["front_segment", "top_storage_segment", "logical"].includes(location.map_role ?? "logical")
+  );
 
   // ── Callbacks ────────────────────────────────────────────────────────────────
 
@@ -831,9 +872,11 @@ export function LocationToolbox({
     groups: locationGroups,
     placedLocationIds,
     selectedGroupId,
+    selectedContainerLocationId,
     canManage,
     onSelect: onSelectLocation,
     onSelectGroup,
+    onSelectContainer: onSelectContainerLocation,
     onReorderSiblings: handleReorderSiblings,
     onReorderGroups: handleReorderGroups,
     onAssignToGroup: handleAssignToGroup,

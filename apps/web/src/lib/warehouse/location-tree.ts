@@ -43,6 +43,22 @@ export interface WarehouseLocation {
   group_id: string | null;
   /** When true, the effective UI color should follow the assigned group's color. */
   inherit_group_color: boolean;
+  /** When true, the effective UI color should follow the parent location's color. */
+  inherit_parent_color?: boolean;
+  /** Physical front-view width in meters. */
+  physical_width_m?: number | null;
+  /** Physical top-down depth in meters. */
+  physical_depth_m?: number | null;
+  /** Physical height in meters. */
+  physical_height_m?: number | null;
+  /** Vertical bottom offset within the parent front elevation in meters. */
+  physical_elevation_start_m?: number | null;
+  /** Mapping role hint used by dual-projection viewers/editors. */
+  map_role?: WarehouseLocationMapRole;
+  /** Optional semantic storage classification for future workflows. */
+  storage_mode?: string;
+  /** Whether storage above the nominal unit height is allowed. */
+  allow_top_storage?: boolean;
   level: number;
   sort_order: number;
   qr_code: string;
@@ -57,10 +73,39 @@ export interface WarehouseLocationTreeNode extends WarehouseLocation {
   children: WarehouseLocationTreeNode[];
 }
 
+export type WarehouseLocationMapRole =
+  | "logical"
+  | "layout_root"
+  | "top_down_unit"
+  | "front_segment"
+  | "top_storage_segment";
+
 export function getEffectiveLocationColor(
-  location: Pick<WarehouseLocation, "color" | "group_id" | "inherit_group_color">,
-  groups?: WarehouseLocationGroup[] | Map<string, WarehouseLocationGroup>
+  location: Pick<
+    WarehouseLocation,
+    "id" | "color" | "parent_id" | "group_id" | "inherit_group_color" | "inherit_parent_color"
+  >,
+  groups?: WarehouseLocationGroup[] | Map<string, WarehouseLocationGroup>,
+  locations?: WarehouseLocation[] | Map<string, WarehouseLocation>,
+  visited = new Set<string>()
 ): string | null {
+  if (
+    location.inherit_parent_color &&
+    location.parent_id &&
+    locations &&
+    !visited.has(location.id)
+  ) {
+    const locationMap =
+      locations instanceof Map ? locations : new Map(locations.map((entry) => [entry.id, entry]));
+    const parent = locationMap.get(location.parent_id);
+    if (parent) {
+      visited.add(location.id);
+      return (
+        getEffectiveLocationColor(parent, groups, locationMap, visited) ?? location.color ?? null
+      );
+    }
+  }
+
   if (!location.inherit_group_color || !location.group_id) {
     return location.color ?? null;
   }

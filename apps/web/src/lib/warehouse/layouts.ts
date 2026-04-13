@@ -12,6 +12,7 @@
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type LayoutStatus = "draft" | "published";
+export type WarehouseLayoutProjection = "top_down" | "front_elevation";
 
 /**
  * Every visual element on a layout has one of these types.
@@ -87,6 +88,9 @@ export interface WarehouseLayoutShape {
   /** Denormalized from parent layout for branch-aware RLS */
   branch_id: string;
   shape_type: ShapeType;
+  projection?: WarehouseLayoutProjection;
+  /** The location whose visual context this shape is anchored to. */
+  anchor_location_id?: string | null;
   /** Populated only when shape_type = 'location' */
   location_id: string | null;
   /** Display override; for location shapes falls back to the linked location's name */
@@ -128,6 +132,8 @@ export interface WarehouseLayoutWithShapes extends WarehouseLayout {
 export interface ShapeUpsertInput {
   id: string;
   shape_type: ShapeType;
+  projection?: WarehouseLayoutProjection;
+  anchor_location_id?: string | null;
   location_id?: string | null;
   label?: string | null;
   x: number;

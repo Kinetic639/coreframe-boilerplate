@@ -12,12 +12,31 @@ const hexColorSchema = z
   .nullable()
   .optional();
 
-// Location code: alphanumeric, hyphens and underscores; max 20 chars
+// Location code: alphanumeric, forward slashes, hyphens and underscores; max 20 chars
 const locationCodeSchema = z
   .string()
   .max(20, "Code must be 20 characters or fewer")
-  .regex(/^[A-Za-z0-9_-]+$/, "Code may only contain letters, numbers, hyphens, and underscores")
+  .regex(
+    /^[A-Za-z0-9_/-]+$/,
+    "Code may only contain letters, numbers, forward slashes, hyphens, and underscores"
+  )
   .nullable()
+  .optional();
+
+const positiveMetersSchema = z
+  .number({ invalid_type_error: "Must be a number" })
+  .positive("Must be greater than 0")
+  .nullable()
+  .optional();
+
+const nonNegativeMetersSchema = z
+  .number({ invalid_type_error: "Must be a number" })
+  .min(0, "Must be greater than or equal to 0")
+  .nullable()
+  .optional();
+
+const locationMapRoleSchema = z
+  .enum(["logical", "layout_root", "top_down_unit", "front_segment", "top_storage_segment"])
   .optional();
 
 export const createLocationSchema = z.object({
@@ -33,6 +52,14 @@ export const createLocationSchema = z.object({
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
   group_id: z.string().uuid("Invalid group").nullable().optional(),
   inherit_group_color: z.boolean().optional(),
+  inherit_parent_color: z.boolean().optional(),
+  physical_width_m: positiveMetersSchema,
+  physical_depth_m: positiveMetersSchema,
+  physical_height_m: positiveMetersSchema,
+  physical_elevation_start_m: nonNegativeMetersSchema,
+  map_role: locationMapRoleSchema,
+  storage_mode: z.string().max(50).optional(),
+  allow_top_storage: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 
@@ -46,6 +73,14 @@ export const updateLocationSchema = z.object({
   parent_id: z.string().uuid("Invalid parent location").nullable().optional(),
   group_id: z.string().uuid("Invalid group").nullable().optional(),
   inherit_group_color: z.boolean().optional(),
+  inherit_parent_color: z.boolean().optional(),
+  physical_width_m: positiveMetersSchema,
+  physical_depth_m: positiveMetersSchema,
+  physical_height_m: positiveMetersSchema,
+  physical_elevation_start_m: nonNegativeMetersSchema,
+  map_role: locationMapRoleSchema,
+  storage_mode: z.string().max(50).optional(),
+  allow_top_storage: z.boolean().optional(),
   sort_order: z.number().int().min(0).optional(),
 });
 

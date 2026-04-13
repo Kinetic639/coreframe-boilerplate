@@ -263,7 +263,7 @@ export async function createLayoutForLocationAction(rawInput: unknown) {
     // Validate the root_location_id belongs to the active branch (cross-branch guard).
     const { data: locRow, error: locErr } = await supabase
       .from("warehouse_locations")
-      .select("id")
+      .select("id, physical_width_m, physical_depth_m")
       .eq("id", parsed.data.location_id)
       .eq("organization_id", orgId)
       .eq("branch_id", branchId)
@@ -281,8 +281,14 @@ export async function createLayoutForLocationAction(rawInput: unknown) {
       name: parsed.data.name,
       description: parsed.data.description,
       root_location_id: parsed.data.location_id,
-      canvas_width_m: parsed.data.canvas_width_m,
-      canvas_height_m: parsed.data.canvas_height_m,
+      canvas_width_m:
+        parsed.data.canvas_width_m ??
+        (locRow as { physical_width_m?: number | null } | null)?.physical_width_m ??
+        50,
+      canvas_height_m:
+        parsed.data.canvas_height_m ??
+        (locRow as { physical_depth_m?: number | null } | null)?.physical_depth_m ??
+        30,
     });
 
     if (result.success) {

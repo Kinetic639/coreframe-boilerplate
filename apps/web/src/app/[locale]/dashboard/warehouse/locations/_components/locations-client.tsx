@@ -85,6 +85,7 @@ import {
   useReorderGroupsMutation,
 } from "@/hooks/queries/warehouse";
 import { buildLocationTree, getEffectiveLocationColor } from "@/lib/warehouse/location-tree";
+import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
 import type {
   WarehouseLocation,
   WarehouseLocationTreeNode,
@@ -126,7 +127,31 @@ function buildLocationPath(locationId: string, locations: WarehouseLocation[]): 
     current = current.parent_id ? byId.get(current.parent_id) : undefined;
   }
 
-  return path.join(" / ");
+  return path.join("/");
+}
+
+function getDescendantLocationIds(locationId: string, locations: WarehouseLocation[]): string[] {
+  const childrenByParentId = new Map<string | null, WarehouseLocation[]>();
+
+  for (const location of locations) {
+    const siblings = childrenByParentId.get(location.parent_id ?? null) ?? [];
+    siblings.push(location);
+    childrenByParentId.set(location.parent_id ?? null, siblings);
+  }
+
+  const descendantIds: string[] = [];
+  const queue = [...(childrenByParentId.get(locationId) ?? [])];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    descendantIds.push(current.id);
+    const children = childrenByParentId.get(current.id);
+    if (children?.length) {
+      queue.push(...children);
+    }
+  }
+
+  return descendantIds;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -142,10 +167,12 @@ interface TreeCtx {
   t: ReturnType<typeof useTranslations<"warehouseLocationsPage">>;
   canManage: boolean;
   canManageLayouts: boolean;
+  allLocations: WarehouseLocation[];
   groups: WarehouseLocationGroup[];
   placedLocationIds: Set<string>;
   layoutByLocationId: Record<string, WarehouseLayout>;
   onEdit: (l: WarehouseLocation) => void;
+  onClone: (l: WarehouseLocation) => void;
   onDelete: (l: WarehouseLocation) => void;
   onShowOnMap: (l: WarehouseLocation) => void;
   onPreviewMap: (l: WarehouseLocation) => void;
@@ -154,11 +181,16 @@ interface TreeCtx {
   onCreateGroup: (l: WarehouseLocation) => void;
   onEditGroup: (g: WarehouseLocationGroup) => void;
   onDeleteGroup: (g: WarehouseLocationGroup) => void;
+  onPreviewGroupOnMap: (
+    group: WarehouseLocationGroup,
+    members: WarehouseLocationTreeNode[]
+  ) => void;
   onReorderGroups: (input: ReorderGroupsInput) => void;
   onReorderChildLocations: (input: ReorderLocationsInput) => void;
   onAssignToGroup: (locationId: string, groupId: string) => void;
   onCopyLocationCode: (l: WarehouseLocation) => void;
   onCopyLocationPath: (l: WarehouseLocation) => void;
+  canPreviewLocationOnMap: (l: WarehouseLocation) => boolean;
 }
 
 // ─── Shared drag sensors ──────────────────────────────────────────────────────
@@ -301,6 +333,7 @@ function RowMenu({
 
 function LocationCodeActions({
   code,
+  fullPath,
   onCopyCode,
   onCopyPath,
   codeTooltipLabel,
@@ -308,12 +341,16 @@ function LocationCodeActions({
   copyPathLabel,
 }: {
   code: string;
+  fullPath: string;
   onCopyCode: () => void;
   onCopyPath: () => void;
   codeTooltipLabel: string;
   copyCodeLabel: string;
   copyPathLabel: string;
 }) {
+  const [showFullPathPreview, setShowFullPathPreview] = useState(false);
+  const displayedValue = showFullPathPreview ? fullPath : code;
+
   return (
     <div
       className="group/code flex items-center justify-end"
@@ -322,8 +359,8 @@ function LocationCodeActions({
       <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="cursor-default text-xs font-mono text-muted-foreground transition-all duration-200 ease-out group-hover/code:-translate-x-1.5 group-focus-within/code:-translate-x-1.5">
-              {code}
+            <span className="block max-w-[16rem] cursor-default truncate text-xs font-mono text-muted-foreground transition-all duration-200 ease-out group-hover/code:-translate-x-1.5 group-focus-within/code:-translate-x-1.5">
+              {displayedValue}
             </span>
           </TooltipTrigger>
           <TooltipContent>{codeTooltipLabel}</TooltipContent>
@@ -357,6 +394,10 @@ function LocationCodeActions({
                 size="icon"
                 className="h-6 w-6 shrink-0 text-muted-foreground transition-transform duration-200 ease-out delay-75 hover:text-foreground group-hover/code:translate-x-0 translate-x-2 group-focus-within/code:translate-x-0"
                 aria-label={copyPathLabel}
+                onMouseEnter={() => setShowFullPathPreview(true)}
+                onMouseLeave={() => setShowFullPathPreview(false)}
+                onFocus={() => setShowFullPathPreview(true)}
+                onBlur={() => setShowFullPathPreview(false)}
                 onClick={(event) => {
                   event.stopPropagation();
                   onCopyPath();
@@ -581,10 +622,16 @@ function ChildrenList({
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-medium w-64 opacity-90">
-              {getEffectiveLocationColor(activeItem.n, ctx.groups) && (
+              {getEffectiveLocationColor(activeItem.n, ctx.groups, ctx.allLocations) && (
                 <div
                   className="h-3 w-3 shrink-0 rounded-full border"
-                  style={{ backgroundColor: getEffectiveLocationColor(activeItem.n, ctx.groups)! }}
+                  style={{
+                    backgroundColor: getEffectiveLocationColor(
+                      activeItem.n,
+                      ctx.groups,
+                      ctx.allLocations
+                    )!,
+                  }}
                 />
               )}
               <span className="flex-1 truncate">{activeItem.n.name}</span>
@@ -619,8 +666,9 @@ function InlineGroupSection({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [memberActiveId, setMemberActiveId] = useState<string | null>(null);
-  const { t, canManage } = ctx;
+  const { t, canManage, placedLocationIds } = ctx;
   const indent = depth * 20 + 8;
+  const hasPlacedMembers = members.some((member) => placedLocationIds.has(member.id));
 
   const memberSensors = useTreeSensors();
 
@@ -671,6 +719,36 @@ function InlineGroupSection({
         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
           {members.length}
         </Badge>
+
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={
+                    hasPlacedMembers
+                      ? "h-7 w-7 shrink-0 text-muted-foreground hover:text-emerald-600"
+                      : "h-7 w-7 shrink-0 text-muted-foreground/30 cursor-not-allowed"
+                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (hasPlacedMembers) {
+                      ctx.onPreviewGroupOnMap(group, members);
+                    }
+                  }}
+                  disabled={!hasPlacedMembers}
+                >
+                  <MapIcon className="h-3.5 w-3.5" />
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {hasPlacedMembers ? t("actions.previewGroupOnMap") : t("groups.noPlacedMembers")}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {canManage && showDropZone && (
           <GroupAssignDropZone
@@ -749,11 +827,15 @@ function InlineGroupSection({
             <DragOverlay dropAnimation={null}>
               {activeMember && (
                 <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-medium w-64 opacity-90">
-                  {getEffectiveLocationColor(activeMember, ctx.groups) && (
+                  {getEffectiveLocationColor(activeMember, ctx.groups, ctx.allLocations) && (
                     <div
                       className="h-3 w-3 shrink-0 rounded-full border"
                       style={{
-                        backgroundColor: getEffectiveLocationColor(activeMember, ctx.groups)!,
+                        backgroundColor: getEffectiveLocationColor(
+                          activeMember,
+                          ctx.groups,
+                          ctx.allLocations
+                        )!,
                       }}
                     />
                   )}
@@ -782,12 +864,14 @@ function TreeNodeRow({
   layout?: WarehouseLayout | null;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const { t, canManage, canManageLayouts, placedLocationIds } = ctx;
   const hasChildren = node.children.length > 0;
+  const isLogicalContainer = (node.map_role ?? "logical") === "logical";
   const isRoot = depth === 0;
   const isPlaced = placedLocationIds.has(node.id);
-  const effectiveColor = getEffectiveLocationColor(node, ctx.groups);
+  const canPreviewOnMap = isRoot || ctx.canPreviewLocationOnMap(node);
+  const effectiveColor = getEffectiveLocationColor(node, ctx.groups, ctx.allLocations);
   const rootMapStatusLabel = layout
     ? layout.status === "published"
       ? t("badges.published")
@@ -837,7 +921,11 @@ function TreeNodeRow({
 
         {/* Color dot */}
         {effectiveColor ? (
-          <LocationColorBadge color={effectiveColor} />
+          isLogicalContainer ? (
+            <GroupColorBadge color={effectiveColor} />
+          ) : (
+            <LocationColorBadge color={effectiveColor} />
+          )
         ) : (
           <MapPin className="h-3 w-3 shrink-0 text-muted-foreground/50" />
         )}
@@ -851,6 +939,7 @@ function TreeNodeRow({
         {node.code && (
           <LocationCodeActions
             code={node.code}
+            fullPath={buildLocationPath(node.id, ctx.allLocations)}
             onCopyCode={() => ctx.onCopyLocationCode(node)}
             onCopyPath={() => ctx.onCopyLocationPath(node)}
             codeTooltipLabel={t("actions.locationCode")}
@@ -907,26 +996,26 @@ function TreeNodeRow({
                     variant="ghost"
                     size="icon"
                     className={
-                      isPlaced
+                      canPreviewOnMap
                         ? "h-7 w-7 shrink-0 text-muted-foreground hover:text-emerald-600"
                         : "h-7 w-7 shrink-0 text-muted-foreground/30 cursor-not-allowed"
                     }
                     onClick={
-                      isPlaced
+                      canPreviewOnMap
                         ? (event) => {
                             event.stopPropagation();
                             ctx.onShowOnMap(node);
                           }
                         : (event) => event.stopPropagation()
                     }
-                    disabled={!isPlaced}
+                    disabled={!canPreviewOnMap}
                   >
                     <MapIcon className="h-3.5 w-3.5" />
                   </Button>
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                {isPlaced ? t("actions.showOnMap") : t("actions.notPlacedOnAnyMap")}
+                {canPreviewOnMap ? t("actions.showOnMap") : t("actions.notPlacedOnAnyMap")}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -945,7 +1034,7 @@ function TreeNodeRow({
               {t("actions.createMapForLocation")}
             </DropdownMenuItem>
           )}
-          {isRoot && canManage && (
+          {(isRoot || isLogicalContainer) && canManage && (
             <DropdownMenuItem onClick={() => ctx.onCreateGroup(node)}>
               <Layers className="mr-2 h-4 w-4" />
               {t("groups.createGroup")}
@@ -955,6 +1044,12 @@ function TreeNodeRow({
             <DropdownMenuItem onClick={() => ctx.onEdit(node)}>
               <Pencil className="mr-2 h-4 w-4" />
               {t("actions.editLocation", { name: node.name })}
+            </DropdownMenuItem>
+          )}
+          {canManage && (
+            <DropdownMenuItem onClick={() => ctx.onClone(node)}>
+              <Copy className="mr-2 h-4 w-4" />
+              {t("actions.cloneLocation", { name: node.name })}
             </DropdownMenuItem>
           )}
           {canManage && (
@@ -1033,16 +1128,18 @@ function SortableRootRow({
 function RootDragPreview({
   node,
   groups,
+  locations,
 }: {
   node: WarehouseLocationTreeNode;
   groups: WarehouseLocationGroup[];
+  locations: WarehouseLocation[];
 }) {
   return (
     <div className="flex items-center gap-2 rounded-md border bg-background shadow-lg px-3 py-2 text-sm font-semibold w-64">
-      {getEffectiveLocationColor(node, groups) && (
+      {getEffectiveLocationColor(node, groups, locations) && (
         <div
           className="h-3 w-3 shrink-0 rounded-full border"
-          style={{ backgroundColor: getEffectiveLocationColor(node, groups)! }}
+          style={{ backgroundColor: getEffectiveLocationColor(node, groups, locations)! }}
         />
       )}
       <span className="flex-1 truncate">{node.name}</span>
@@ -1101,12 +1198,14 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
   // ── Dialog state ──────────────────────────────────────────────────────────
   const [formOpen, setFormOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<WarehouseLocation | null>(null);
+  const [templateLocation, setTemplateLocation] = useState<WarehouseLocation | null>(null);
   const [defaultGroupId, setDefaultGroupId] = useState<string | null>(null);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
   const [deletingLocation, setDeletingLocation] = useState<WarehouseLocation | null>(null);
   const [mapDialog, setMapDialog] = useState<{
     rootLocationId: string | null;
     highlightLocationId: string | null;
+    highlightLocationIds?: string[] | null;
     showTree: boolean;
   } | null>(null);
   const [groupFormOpen, setGroupFormOpen] = useState(false);
@@ -1141,6 +1240,7 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
 
   function handleCreate() {
     setEditingLocation(null);
+    setTemplateLocation(null);
     setDefaultGroupId(null);
     setDefaultParentId(null);
     setFormOpen(true);
@@ -1148,6 +1248,15 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
 
   function handleEdit(location: WarehouseLocation) {
     setEditingLocation(location);
+    setTemplateLocation(null);
+    setDefaultGroupId(null);
+    setDefaultParentId(null);
+    setFormOpen(true);
+  }
+
+  function handleClone(location: WarehouseLocation) {
+    setEditingLocation(null);
+    setTemplateLocation(location);
     setDefaultGroupId(null);
     setDefaultParentId(null);
     setFormOpen(true);
@@ -1210,10 +1319,61 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
   }
 
   function handleShowOnMap(location: WarehouseLocation) {
+    if ((location.map_role ?? "logical") === "logical") {
+      const highlightLocationIds = getDescendantLocationIds(location.id, locations).filter((id) => {
+        const descendant = locations.find((entry) => entry.id === id);
+        return descendant ? canPreviewLocationOnMap(descendant) : false;
+      });
+      const root = findRootAncestor(location.id, locations);
+
+      setMapDialog({
+        rootLocationId: root?.id ?? null,
+        highlightLocationId: null,
+        highlightLocationIds,
+        showTree: false,
+      });
+      return;
+    }
+
     const root = findRootAncestor(location.id, locations);
     setMapDialog({
       rootLocationId: root?.id ?? null,
       highlightLocationId: location.id,
+      highlightLocationIds: [location.id],
+      showTree: false,
+    });
+  }
+
+  function canPreviewLocationOnMap(location: WarehouseLocation) {
+    if ((location.map_role ?? "logical") === "logical") {
+      return getDescendantLocationIds(location.id, locations).some((id) => {
+        const descendant = locations.find((entry) => entry.id === id);
+        return descendant ? canPreviewLocationOnMap(descendant) : false;
+      });
+    }
+
+    if (placedLocationIds.has(location.id)) return true;
+
+    const root = findRootAncestor(location.id, locations);
+    if (!root) return false;
+
+    const context = resolveLocationMapContext(location.id, locations, root.id);
+    return !!context.topDownAnchorLocationId;
+  }
+
+  function handlePreviewGroupOnMap(
+    group: WarehouseLocationGroup,
+    members: WarehouseLocationTreeNode[]
+  ) {
+    const root = group.parent_location_id
+      ? findRootAncestor(group.parent_location_id, locations)
+      : members[0]
+        ? findRootAncestor(members[0].id, locations)
+        : null;
+    setMapDialog({
+      rootLocationId: root?.id ?? null,
+      highlightLocationId: null,
+      highlightLocationIds: members.map((member) => member.id),
       showTree: false,
     });
   }
@@ -1302,10 +1462,12 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
     t,
     canManage,
     canManageLayouts,
+    allLocations: locations,
     groups,
     placedLocationIds,
     layoutByLocationId,
     onEdit: handleEdit,
+    onClone: handleClone,
     onDelete: handleDelete,
     onShowOnMap: handleShowOnMap,
     onPreviewMap: handlePreviewMap,
@@ -1314,12 +1476,14 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
     onCreateGroup: handleCreateGroupForLocation,
     onEditGroup: handleEditGroup,
     onDeleteGroup: handleDeleteGroup,
+    onPreviewGroupOnMap: handlePreviewGroupOnMap,
     onReorderGroups: (input) => reorderGroupsMut.mutate(input),
     onReorderChildLocations: (input) => reorderMut.mutate(input),
     onAssignToGroup: (locationId, groupId) =>
       updateMutation.mutate({ id: locationId, group_id: groupId }),
     onCopyLocationCode: handleCopyLocationCode,
     onCopyLocationPath: handleCopyLocationPath,
+    canPreviewLocationOnMap,
   };
 
   // ── Guards ────────────────────────────────────────────────────────────────
@@ -1408,7 +1572,9 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           </div>
 
           <DragOverlay dropAnimation={null}>
-            {activeRootNode && <RootDragPreview node={activeRootNode} groups={groups} />}
+            {activeRootNode && (
+              <RootDragPreview node={activeRootNode} groups={groups} locations={locations} />
+            )}
           </DragOverlay>
         </DndContext>
       )}
@@ -1419,11 +1585,13 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
         onOpenChange={(open) => {
           setFormOpen(open);
           if (!open) {
+            setTemplateLocation(null);
             setDefaultGroupId(null);
             setDefaultParentId(null);
           }
         }}
         location={editingLocation}
+        templateLocation={templateLocation}
         availableParents={availableParents}
         availableGroups={groups}
         onSubmit={handleFormSubmit}
@@ -1500,6 +1668,7 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           onOpenChange={(open) => !open && setMapDialog(null)}
           rootLocationId={mapDialog.rootLocationId}
           highlightLocationId={mapDialog.highlightLocationId}
+          highlightLocationIds={mapDialog.highlightLocationIds}
           locations={locations}
           locationGroups={groups}
           showTree={mapDialog.showTree}

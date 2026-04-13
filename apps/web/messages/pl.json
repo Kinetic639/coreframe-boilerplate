@@ -544,6 +544,7 @@
       "copyLocationCode": "Kopiuj kod lokalizacji",
       "copyLocationPath": "Kopiuj ścieżkę lokalizacji",
       "previewMap": "Podejrzyj mapę",
+      "previewGroupOnMap": "Podejrzyj grupę na mapie",
       "openMapEditor": "Otwórz edytor mapy",
       "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
       "showOnMap": "Pokaż na mapie",
@@ -551,6 +552,7 @@
       "notPlacedOnAnyMap": "Nie umieszczono na żadnej mapie",
       "dragToReorder": "Przeciągnij, aby zmienić kolejność",
       "editLocation": "Edytuj {name}",
+      "cloneLocation": "Klonuj {name}",
       "deleteLocation": "Usuń {name}"
     },
     "states": {
@@ -593,17 +595,69 @@
         "group": "Grupa",
         "groupNone": "Brak (bez grupy)",
         "inheritGroupColor": "Dziedzicz kolor grupy",
-        "groupColorInherited": "Dziedziczone z grupy"
+        "inheritParentColor": "Dziedzicz kolor rodzica",
+        "groupColorInherited": "Dziedziczone z grupy",
+        "parentColorInherited": "Dziedziczone z rodzica",
+        "mapRole": "Rola na mapie",
+        "selectRootLocation": "Wybierz lokalizację główną",
+        "physicalWidth": "Szerokość (m)",
+        "physicalWidthOptional": "Szerokość (m, opcjonalnie)",
+        "physicalDepth": "Głębokość (m)",
+        "physicalHeight": "Wysokość (m)",
+        "physicalHeightOptional": "Wysokość (m, opcjonalnie)",
+        "roomWidth": "Szerokość (m)",
+        "roomLength": "Długość (m)",
+        "elevationStart": "Początek wysokości (m)",
+        "storageMode": "Tryb składowania",
+        "allowTopStorage": "Zezwalaj na składowanie nad górą"
       },
       "placeholders": {
         "name": "np. Alejka A, Półka 1",
-        "code": "np. A-01 (opcjonalnie)",
+        "code": "np. R1/A-01 (opcjonalnie)",
         "noParent": "Brak (lokalizacja główna)",
+        "selectRootLocation": "Wybierz lokalizację główną",
+        "selectTopDownUnit": "Wybierz jednostkę z rzutu z góry",
         "noGroup": "Brak grupy",
         "description": "Opcjonalny opis"
       },
       "help": {
-        "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji."
+        "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji.",
+        "mapping": "Metadane fizyczne i rola mapy używane przez widok z dwiema projekcjami.",
+        "allowTopStorage": "Zezwalaj na składowanie powyżej nominalnej wysokości tej jednostki.",
+        "allowTopStorageTopDown": "Włącz, jeśli towar może być odkładany na górze regału lub szafy.",
+        "layoutRoot": "To główna lokalizacja mapy. Jej szerokość i długość wyznaczają obszar układu dla całego magazynu lub pomieszczenia.",
+        "inheritTopDownParentColor": "Użyj koloru wybranego kontenera lub lokalizacji nadrzędnej dla tej jednostki z rzutu z góry.",
+        "inheritParentColor": "Użyj koloru wybranej jednostki nadrzędnej dla tego segmentu widoku frontowego.",
+        "inheritTopStorageParentColor": "Użyj koloru wybranej jednostki z rzutu z góry dla tego segmentu składowania na górze.",
+        "logicalRole": "To lokalizacja kontenerowa. Przechowuje lokalizacje podrzędne i kody, ale sama nie jest umieszczana bezpośrednio na mapie i nie zmienia hierarchii projekcji mapy.",
+        "topDownParent": "Jednostki z rzutu z góry muszą należeć bezpośrednio do lokalizacji głównej mapy.",
+        "frontSegmentParent": "Segmenty widoku frontowego muszą należeć bezpośrednio do jednostki z rzutu z góry.",
+        "topStorageParent": "Segmenty składowania na górze muszą należeć bezpośrednio do jednostki z rzutu z góry z włączonym składowaniem na górze.",
+        "parentHeightBound": "Limit wysokości rodzica: {value} m",
+        "parentHeightUnknown": "Wysokość rodzica nie została jeszcze określona.",
+        "frontSegmentMaxHeight": "Maks. wysokość: {value} m",
+        "frontSegmentAvailableHeight": "Dostępne: {value} m",
+        "frontSegmentHeightHint": "Ten segment może zajmować maksymalnie {available} m z {max} m wysokości rodzica.",
+        "frontSegmentHeightRequired": "Segment widoku frontowego wymaga określenia wysokości.",
+        "frontSegmentHeightExceeded": "Wysokość segmentu przekracza dostępną wysokość rodzica ({available} m z {max} m).",
+        "topStorageHeightHint": "Składowanie na górze znajduje się ponad korpusem regału, więc jego wysokość nie jest ograniczana przez stos segmentów frontowych rodzica.",
+        "topStorageHeightRequired": "Segment składowania na górze wymaga określenia wysokości.",
+        "topStorageHeightExceeded": "Wysokość segmentu składowania na górze przekracza dostępną wysokość rodzica ({available} m z {max} m)."
+      },
+      "sections": {
+        "mapping": "Mapowanie"
+      },
+      "validation": {
+        "nameRequired": "Nazwa jest wymagana.",
+        "codeTooLong": "Kod może mieć maksymalnie 20 znaków.",
+        "codeInvalid": "Kod może zawierać tylko litery, cyfry, ukośniki, myślniki i podkreślenia."
+      },
+      "roles": {
+        "logical": "Lokalizacja kontenerowa",
+        "layoutRoot": "Lokalizacja główna (mapa)",
+        "topDownUnit": "Jednostka z rzutu z góry",
+        "frontSegment": "Segment widoku frontowego",
+        "topStorageSegment": "Segment składowania na górze"
       },
       "actions": {
         "clearColor": "Wyczyść",
@@ -619,6 +673,7 @@
       "deleteGroup": "Usuń grupę",
       "addLocation": "Dodaj lokalizację do grupy",
       "emptyGroup": "Brak lokalizacji w tej grupie.",
+      "noPlacedMembers": "Żaden element grupy nie jest umieszczony na mapie",
       "ungrouped": "Bez grupy",
       "deleteGroupTitle": "Usunąć grupę?",
       "deleteGroupDescription": "{name} zostanie usunięta. Lokalizacje należące do grupy staną się niezgrupowane."
@@ -818,6 +873,14 @@
       "highlighted": "Podświetlono"
     }
   },
+  "warehouseFrontElevation": {
+    "title": "Widok Frontowy",
+    "subtitle": "Widok frontowy dla {name}",
+    "emptyTitle": "Wybierz jednostkę z rzutu z góry",
+    "emptyDescription": "Wybierz regał, szafę, blok półek lub inną jednostkę z rzutu z góry, aby zobaczyć jej widok frontowy.",
+    "noFrontViewTitle": "Brak widoku frontowego",
+    "noFrontViewDescription": "Dodaj dzieci typu segment frontowy lub kształty widoku frontowego do tej lokalizacji, aby uzupełnić widok pionowy."
+  },
   "warehouseMapCanvas": {
     "defaultLabel": "Etykieta",
     "actions": {
@@ -840,6 +903,8 @@
       "deleteSelectedShapes": "Usuń zaznaczone kształty",
       "cloneLocation": "Klonuj lokalizację",
       "deleteShape": "Usuń kształt",
+      "rotateLeft": "Obróć w lewo",
+      "rotateRight": "Obróć w prawo",
       "selectGroupMembers": "Zaznacz członków grupy",
       "deleteGroup": "Usuń grupę"
     },
@@ -883,6 +948,7 @@
       "snapToGrid": "Przyciągaj do siatki",
       "gridSize": "Rozmiar siatki",
       "width": "Szerokość",
+      "depth": "Głębokość",
       "height": "Wysokość"
     },
     "placeholders": {
@@ -903,10 +969,12 @@
       "left": "Wyrównaj do lewej",
       "centerH": "Wyśrodkuj poziomo",
       "right": "Wyrównaj do prawej",
+      "stitchH": "Zszyj poziomo",
       "distributeH": "Rozłóż poziomo",
       "top": "Wyrównaj do góry",
       "centerV": "Wyśrodkuj pionowo",
       "bottom": "Wyrównaj do dołu",
+      "stitchV": "Zszyj pionowo",
       "distributeV": "Rozłóż pionowo"
     },
     "shapeTypes": {
@@ -922,6 +990,7 @@
   "warehouseFeedback": {
     "locationCreated": "Lokalizacja została utworzona",
     "locationCreateFailed": "Nie udało się utworzyć lokalizacji",
+    "locationCodeDuplicateSameParent": "Lokalizacja z tym kodem już istnieje w tej samej lokalizacji nadrzędnej",
     "locationUpdated": "Lokalizacja została zaktualizowana",
     "locationUpdateFailed": "Nie udało się zaktualizować lokalizacji",
     "locationDeleted": "Lokalizacja została usunięta",

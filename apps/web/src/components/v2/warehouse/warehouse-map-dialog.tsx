@@ -15,7 +15,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import {
-  Map,
+  Map as MapIcon,
   ExternalLink,
   Loader2,
   AlertCircle,
@@ -30,12 +30,14 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
 import { usePublishedLayoutQuery } from "@/hooks/queries/warehouse";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
+import { resolveLocationMapContext, resolveLocationMapContexts } from "@/lib/warehouse/map-context";
 import {
   getEffectiveLocationColor,
   type WarehouseLocation,
   type WarehouseLocationGroup,
 } from "@/lib/warehouse/location-tree";
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "@/lib/warehouse/layouts";
+import { WarehouseFrontElevationPanel } from "./warehouse-front-elevation-panel";
 
 // ─── Viewer is Konva — must be loaded client-side only ───────────────────────
 
@@ -54,31 +56,83 @@ const WarehouseMapViewer = dynamic(
   }
 );
 
+function buildLocationMap(locations: WarehouseLocation[]) {
+  return new Map(locations.map((location) => [location.id, location]));
+}
+
+function findNearestLogicalContainerAncestor(
+  locationId: string,
+  locationMap: Map<string, WarehouseLocation>
+) {
+  let current = locationMap.get(locationId) ?? null;
+
+  while (current?.parent_id) {
+    current = locationMap.get(current.parent_id) ?? null;
+    if ((current?.map_role ?? "logical") === "logical") {
+      return current;
+    }
+  }
+
+  return null;
+}
+
+function getDescendantTopDownUnitIds(
+  containerId: string,
+  locations: WarehouseLocation[],
+  locationMap: Map<string, WarehouseLocation>
+) {
+  const topDownIds: string[] = [];
+  const queue = locations.filter((location) => location.parent_id === containerId);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if ((current.map_role ?? "logical") === "top_down_unit") {
+      topDownIds.push(current.id);
+    }
+
+    for (const child of locations) {
+      if (child.parent_id === current.id) {
+        queue.push(child);
+      }
+    }
+  }
+
+  return topDownIds.filter((topDownId) => {
+    const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
+    return nearestContainer?.id === containerId;
+  });
+}
+
 // ─── Location tree (same pattern as MapPreview) ───────────────────────────────
 
-function TreeNode({
+function TreeLocationRow({
   location,
   allLocations,
-  placedLocationIds,
-  highlightedId,
-  onSelect,
-  depth,
   locationGroups,
+  placedLocationIds,
+  mappableLocationIds,
+  highlightedIds,
+  onSelectIds,
+  depth,
   t,
 }: {
   location: WarehouseLocation;
   allLocations: WarehouseLocation[];
-  placedLocationIds: Set<string>;
-  highlightedId: string | null;
-  onSelect: (id: string) => void;
-  depth: number;
   locationGroups: WarehouseLocationGroup[];
+  placedLocationIds: Set<string>;
+  mappableLocationIds: Set<string>;
+  highlightedIds: string[];
+  onSelectIds: (ids: string[]) => void;
+  depth: number;
   t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(true);
-  const children = allLocations.filter((l) => l.parent_id === location.id);
+  const children = allLocations.filter((entry) => entry.parent_id === location.id);
+  const myGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
+  const hasChildren = children.length > 0 || myGroups.length > 0;
   const isPlaced = placedLocationIds.has(location.id);
-  const isActive = highlightedId === location.id;
+  const isMappable = mappableLocationIds.has(location.id);
+  const isActive = highlightedIds.includes(location.id);
 
   return (
     <div>
@@ -86,23 +140,23 @@ function TreeNode({
         className={cn(
           "flex items-center gap-1.5 py-1.5 pr-2 rounded-md mx-1 transition-colors",
           isActive && "bg-primary/10",
-          !isActive && isPlaced && "cursor-pointer hover:bg-accent",
-          !isActive && !isPlaced && "opacity-50 cursor-default"
+          !isActive && isMappable && "cursor-pointer hover:bg-accent",
+          !isActive && !isMappable && "opacity-50 cursor-default"
         )}
         style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => {
-          if (isPlaced) onSelect(location.id);
+          if (isMappable) onSelectIds([location.id]);
         }}
       >
         <button
           type="button"
           className={cn(
             "shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground",
-            children.length === 0 && "invisible pointer-events-none"
+            !hasChildren && "invisible pointer-events-none"
           )}
           onClick={(e) => {
             e.stopPropagation();
-            setExpanded((v) => !v);
+            if (hasChildren) setExpanded((v) => !v);
           }}
         >
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -111,7 +165,8 @@ function TreeNode({
         <div
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
           style={{
-            backgroundColor: getEffectiveLocationColor(location, locationGroups) ?? "#10b981",
+            backgroundColor:
+              getEffectiveLocationColor(location, locationGroups, allLocations) ?? "#10b981",
           }}
         />
 
@@ -143,21 +198,195 @@ function TreeNode({
         )}
       </div>
 
+      {expanded && (
+        <TreeItems
+          parentId={location.id}
+          allLocations={allLocations}
+          locationGroups={locationGroups}
+          placedLocationIds={placedLocationIds}
+          mappableLocationIds={mappableLocationIds}
+          highlightedIds={highlightedIds}
+          onSelectIds={onSelectIds}
+          depth={depth + 1}
+          t={t}
+        />
+      )}
+    </div>
+  );
+}
+
+function TreeGroupRow({
+  group,
+  members,
+  allLocations,
+  locationGroups,
+  placedLocationIds,
+  mappableLocationIds,
+  highlightedIds,
+  onSelectIds,
+  depth,
+  t,
+}: {
+  group: WarehouseLocationGroup;
+  members: WarehouseLocation[];
+  allLocations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
+  placedLocationIds: Set<string>;
+  mappableLocationIds: Set<string>;
+  highlightedIds: string[];
+  onSelectIds: (ids: string[]) => void;
+  depth: number;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [expanded, setExpanded] = React.useState(true);
+  const memberIds = React.useMemo(() => members.map((member) => member.id), [members]);
+  const isActive = memberIds.length > 0 && memberIds.every((id) => highlightedIds.includes(id));
+  const hasMappableMembers = members.some((member) => mappableLocationIds.has(member.id));
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center gap-1.5 py-1.5 pr-2 rounded-md mx-1 transition-colors",
+          isActive && "bg-primary/10",
+          !isActive && hasMappableMembers && "cursor-pointer hover:bg-accent",
+          !isActive && !hasMappableMembers && "opacity-50 cursor-default"
+        )}
+        style={{ paddingLeft: 8 + depth * 16 }}
+        onClick={() => {
+          if (hasMappableMembers) {
+            onSelectIds(memberIds);
+          }
+        }}
+      >
+        <button
+          type="button"
+          className="shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+
+        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <div
+            className="w-2.5 h-2.5 rounded-sm border border-black/10"
+            style={{ backgroundColor: group.color ?? "#94a3b8" }}
+          />
+        </div>
+
+        <span
+          className={cn(
+            "text-xs truncate flex-1 min-w-0 uppercase tracking-wide text-muted-foreground",
+            isActive && "font-semibold text-primary"
+          )}
+        >
+          {group.name}
+        </span>
+        <span className="text-[10px] text-muted-foreground shrink-0">{members.length}</span>
+      </div>
+
       {expanded &&
-        children.map((child) => (
-          <TreeNode
-            key={child.id}
-            location={child}
+        members.map((member) => (
+          <TreeLocationRow
+            key={member.id}
+            location={member}
             allLocations={allLocations}
-            placedLocationIds={placedLocationIds}
-            highlightedId={highlightedId}
-            onSelect={onSelect}
-            depth={depth + 1}
             locationGroups={locationGroups}
+            placedLocationIds={placedLocationIds}
+            mappableLocationIds={mappableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            depth={depth + 1}
             t={t}
           />
         ))}
     </div>
+  );
+}
+
+function TreeItems({
+  parentId,
+  allLocations,
+  locationGroups,
+  placedLocationIds,
+  mappableLocationIds,
+  highlightedIds,
+  onSelectIds,
+  depth,
+  t,
+}: {
+  parentId: string | null | undefined;
+  allLocations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
+  placedLocationIds: Set<string>;
+  mappableLocationIds: Set<string>;
+  highlightedIds: string[];
+  onSelectIds: (ids: string[]) => void;
+  depth: number;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const myGroups = locationGroups
+    .filter((group) => group.parent_location_id === (parentId ?? null))
+    .sort(
+      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+    );
+  const knownGroupIds = new Set(myGroups.map((group) => group.id));
+  const children = allLocations
+    .filter((location) => location.parent_id === (parentId ?? null))
+    .sort(
+      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+    );
+  const groupedChildIds = new Set(
+    children
+      .filter((location) => location.group_id && knownGroupIds.has(location.group_id))
+      .map((location) => location.id)
+  );
+  const ungroupedChildren = children.filter((location) => !groupedChildIds.has(location.id));
+  const items = [
+    ...myGroups.map((group) => ({ kind: "group" as const, group, sortOrder: group.sort_order })),
+    ...ungroupedChildren.map((location) => ({
+      kind: "location" as const,
+      location,
+      sortOrder: location.sort_order,
+    })),
+  ].sort((left, right) => left.sortOrder - right.sortOrder);
+
+  return (
+    <>
+      {items.map((item) =>
+        item.kind === "group" ? (
+          <TreeGroupRow
+            key={item.group.id}
+            group={item.group}
+            members={children.filter((location) => location.group_id === item.group.id)}
+            allLocations={allLocations}
+            locationGroups={locationGroups}
+            placedLocationIds={placedLocationIds}
+            mappableLocationIds={mappableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            depth={depth}
+            t={t}
+          />
+        ) : (
+          <TreeLocationRow
+            key={item.location.id}
+            location={item.location}
+            allLocations={allLocations}
+            locationGroups={locationGroups}
+            placedLocationIds={placedLocationIds}
+            mappableLocationIds={mappableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            depth={depth}
+            t={t}
+          />
+        )
+      )}
+    </>
   );
 }
 
@@ -168,16 +397,16 @@ function TreePanel({
   locations,
   locationGroups,
   rootLocationId,
-  highlightedId,
-  onSelect,
+  highlightedIds,
+  onSelectIds,
   t,
 }: {
   layout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
   locationGroups: WarehouseLocationGroup[];
   rootLocationId: string | null | undefined;
-  highlightedId: string | null;
-  onSelect: (id: string) => void;
+  highlightedIds: string[];
+  onSelectIds: (ids: string[]) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   // BFS descendants of root (or all if no root scoping)
@@ -196,11 +425,25 @@ function TreePanel({
     return result;
   }, [locations, rootLocationId]);
 
-  const treeRoots = descendants.filter((l) => l.parent_id === rootLocationId);
-
   const placedLocationIds = React.useMemo(
     () => new Set(layout.shapes.filter((s) => s.location_id).map((s) => s.location_id!)),
     [layout.shapes]
+  );
+  const mappableLocationIds = React.useMemo(
+    () =>
+      new Set(
+        descendants
+          .filter((location) => {
+            const context = resolveLocationMapContext(
+              location.id,
+              locations,
+              rootLocationId ?? layout.root_location_id
+            );
+            return !!context.topDownAnchorLocationId || !!context.frontAnchorLocationId;
+          })
+          .map((location) => location.id)
+      ),
+    [descendants, layout.root_location_id, locations, rootLocationId]
   );
 
   return (
@@ -213,25 +456,23 @@ function TreePanel({
       </div>
 
       <div className="flex-1 overflow-y-auto py-1">
-        {treeRoots.length === 0 ? (
+        {descendants.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-3 text-center text-muted-foreground">
             <MapPin className="w-6 h-6 mb-2 opacity-20" />
             <p className="text-[10px]">{t("tree.empty")}</p>
           </div>
         ) : (
-          treeRoots.map((loc) => (
-            <TreeNode
-              key={loc.id}
-              location={loc}
-              allLocations={descendants}
-              placedLocationIds={placedLocationIds}
-              highlightedId={highlightedId}
-              onSelect={onSelect}
-              depth={0}
-              locationGroups={locationGroups}
-              t={t}
-            />
-          ))
+          <TreeItems
+            parentId={rootLocationId}
+            allLocations={descendants}
+            locationGroups={locationGroups}
+            placedLocationIds={placedLocationIds}
+            mappableLocationIds={mappableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            depth={0}
+            t={t}
+          />
         )}
       </div>
 
@@ -256,6 +497,8 @@ export interface WarehouseMapDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Pre-select and highlight this location_id when the dialog opens. */
   highlightLocationId?: string | null;
+  /** Optional multi-highlight mode, used for group previews. */
+  highlightLocationIds?: string[] | null;
   /**
    * Scope the search to a published layout whose root_location_id matches this.
    * Leave undefined to use any published layout for the branch.
@@ -280,6 +523,7 @@ export function WarehouseMapDialog({
   open,
   onOpenChange,
   highlightLocationId,
+  highlightLocationIds,
   rootLocationId,
   locations,
   locationGroups,
@@ -292,16 +536,27 @@ export function WarehouseMapDialog({
   const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
 
   // Internal highlight state — initialised from prop, then driven by tree/canvas clicks
-  const [highlightedId, setHighlightedId] = React.useState<string | null>(
-    highlightLocationId ?? null
+  const [highlightedIds, setHighlightedIds] = React.useState<string[]>(
+    highlightLocationIds && highlightLocationIds.length > 0
+      ? [...new Set(highlightLocationIds)]
+      : highlightLocationId
+        ? [highlightLocationId]
+        : []
   );
   const [isMonochrome, setIsMonochrome] = React.useState(true);
+  const highlightedId = highlightedIds.length === 1 ? highlightedIds[0] : null;
 
   // Sync if the prop changes (e.g. opening for a different location)
   React.useEffect(() => {
-    setHighlightedId(highlightLocationId ?? null);
+    setHighlightedIds(
+      highlightLocationIds && highlightLocationIds.length > 0
+        ? [...new Set(highlightLocationIds)]
+        : highlightLocationId
+          ? [highlightLocationId]
+          : []
+    );
     setIsMonochrome(true);
-  }, [highlightLocationId, open]);
+  }, [highlightLocationId, highlightLocationIds, open]);
 
   const {
     data: layout,
@@ -310,10 +565,107 @@ export function WarehouseMapDialog({
   } = usePublishedLayoutQuery(open ? activeBranchId : null, rootLocationId);
 
   const shouldShowTree = (showTree ?? !!locations) && !!layout;
+  const mapContexts = React.useMemo(
+    () =>
+      locations && layout
+        ? resolveLocationMapContexts(
+            highlightedIds,
+            locations,
+            rootLocationId ?? layout.root_location_id
+          )
+        : [],
+    [highlightedIds, layout, locations, rootLocationId]
+  );
+  const topDownHighlightIds = React.useMemo(
+    () =>
+      [
+        ...new Set(mapContexts.map((context) => context.topDownAnchorLocationId).filter(Boolean)),
+      ] as string[],
+    [mapContexts]
+  );
+  const selectedTopDownFocusIds = React.useMemo(() => {
+    if (!locations) return [];
+
+    const locationMap = buildLocationMap(locations);
+    return [
+      ...new Set(
+        highlightedIds
+          .map((id) => {
+            const location = locationMap.get(id);
+            if (!location) return null;
+            if ((location.map_role ?? "logical") === "top_down_unit") return location.id;
+            if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
+              return location.parent_id ?? null;
+            }
+            return null;
+          })
+          .filter(Boolean)
+      ),
+    ] as string[];
+  }, [highlightedIds, locations]);
+  const frontStageAnchorIds = React.useMemo(() => {
+    if (!locations) return [];
+
+    const locationMap = buildLocationMap(locations);
+    const expandedAnchorIds = selectedTopDownFocusIds.flatMap((topDownId) => {
+      const topDownLocation = locationMap.get(topDownId);
+      if (!topDownLocation?.group_id) return [topDownId];
+
+      return locations
+        .filter(
+          (location) =>
+            (location.map_role ?? "logical") === "top_down_unit" &&
+            location.group_id === topDownLocation.group_id
+        )
+        .map((location) => location.id);
+    });
+
+    const containerExpandedAnchorIds = expandedAnchorIds.flatMap((topDownId) => {
+      const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
+      if (!nearestContainer) return [topDownId];
+
+      const containerTopDownIds = getDescendantTopDownUnitIds(
+        nearestContainer.id,
+        locations,
+        locationMap
+      );
+      return containerTopDownIds.length > 0 ? containerTopDownIds : [topDownId];
+    });
+
+    return [...new Set(containerExpandedAnchorIds)];
+  }, [locations, selectedTopDownFocusIds]);
+  const frontHighlightIds = React.useMemo(() => {
+    if (!locations) return [];
+    const locationMap = buildLocationMap(locations);
+    const explicitFrontSelections = highlightedIds.filter((id) =>
+      ["front_segment", "top_storage_segment"].includes(locationMap.get(id)?.map_role ?? "logical")
+    );
+
+    if (explicitFrontSelections.length > 0) {
+      return [...new Set(explicitFrontSelections)];
+    }
+
+    const highlightParentIds =
+      highlightedIds.length === 1 ? selectedTopDownFocusIds : frontStageAnchorIds;
+
+    return locations
+      .filter(
+        (location) =>
+          highlightParentIds.includes(location.parent_id ?? "") &&
+          ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
+      )
+      .map((location) => location.id);
+  }, [frontStageAnchorIds, highlightedIds, locations, selectedTopDownFocusIds]);
+  const frontAnchorLocationId = React.useMemo(
+    () => (frontStageAnchorIds.length === 1 ? frontStageAnchorIds[0] : null),
+    [frontStageAnchorIds]
+  );
 
   const handleShapeClick = (shape: WarehouseLayoutShape) => {
     if (shape.location_id) {
-      setHighlightedId((prev) => (prev === shape.location_id ? null : shape.location_id));
+      setHighlightedIds((prev) =>
+        prev.length === 1 && prev[0] === shape.location_id ? [] : [shape.location_id]
+      );
     }
   };
 
@@ -328,7 +680,7 @@ export function WarehouseMapDialog({
         {/* Header */}
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base font-medium">
-            <Map className="h-4 w-4 text-emerald-600" />
+            <MapIcon className="h-4 w-4 text-emerald-600" />
             {title ?? t("title")}
           </DialogTitle>
           {false && showEditorLink && layout && (
@@ -375,54 +727,78 @@ export function WarehouseMapDialog({
                   locations={locations ?? []}
                   locationGroups={locationGroups ?? []}
                   rootLocationId={rootLocationId}
-                  highlightedId={highlightedId}
-                  onSelect={(id) => setHighlightedId((prev) => (prev === id ? null : id))}
+                  highlightedIds={highlightedIds}
+                  onSelectIds={(ids) =>
+                    setHighlightedIds((prev) =>
+                      prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+                    )
+                  }
                   t={t}
                 />
               )}
 
               {/* Map area */}
-              <div
-                className="relative flex-1 overflow-hidden"
-                onClick={() => setHighlightedId(null)}
-              >
-                {/* Vertical control bar — top-left overlay, shown only when something is highlighted */}
-                {highlightedId && (
-                  <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
-                    <button
-                      type="button"
-                      title={
-                        isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMonochrome((v) => !v);
-                      }}
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
-                        isMonochrome
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Palette className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <div
+                  className="relative min-h-0 flex-1 overflow-hidden"
+                  onClick={() => setHighlightedIds([])}
+                >
+                  {/* Vertical control bar — top-left overlay, shown only when something is highlighted */}
+                  {highlightedIds.length > 0 && (
+                    <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+                      <button
+                        type="button"
+                        title={
+                          isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsMonochrome((v) => !v);
+                        }}
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
+                          isMonochrome
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        <Palette className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
 
-                {/* Canvas — stopPropagation so clicks inside don't clear highlight via the outer div */}
-                <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
-                  <WarehouseMapViewer
+                  {/* Canvas — stopPropagation so clicks inside don't clear highlight via the outer div */}
+                  <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
+                    <WarehouseMapViewer
+                      layout={layout}
+                      locations={locations}
+                      locationGroups={locationGroups}
+                      highlightLocationId={highlightedId}
+                      highlightLocationIds={
+                        topDownHighlightIds.length > 0 ? topDownHighlightIds : highlightedIds
+                      }
+                      autoPanToHighlight={false}
+                      monochromaticHighlight={isMonochrome}
+                      onShapeClick={shouldShowTree ? handleShapeClick : undefined}
+                      className="h-full w-full"
+                    />
+                  </div>
+                </div>
+
+                {locations && (
+                  <WarehouseFrontElevationPanel
                     layout={layout}
                     locations={locations}
-                    locationGroups={locationGroups}
-                    highlightLocationId={highlightedId}
-                    autoPanToHighlight={false}
+                    locationGroups={locationGroups ?? []}
+                    anchorLocationId={frontAnchorLocationId}
+                    anchorLocationIds={frontStageAnchorIds}
+                    highlightLocationIds={frontHighlightIds}
+                    headerActiveLocationIds={selectedTopDownFocusIds}
                     monochromaticHighlight={isMonochrome}
                     onShapeClick={shouldShowTree ? handleShapeClick : undefined}
-                    className="h-full w-full"
+                    className="h-64 shrink-0"
                   />
-                </div>
+                )}
               </div>
             </>
           )}
@@ -440,7 +816,7 @@ function EmptyState({ icon, message }: { icon: "branch" | "map" | "error"; messa
       {icon === "error" ? (
         <AlertCircle className="h-8 w-8 text-destructive/60" />
       ) : (
-        <Map className="h-8 w-8 opacity-40" />
+        <MapIcon className="h-8 w-8 opacity-40" />
       )}
       <p className="text-sm">{message}</p>
     </div>

@@ -67,6 +67,19 @@ function unwrapSR<T>(result: SR<T>): T {
   throw new Error((result as { error: string }).error);
 }
 
+function getWarehouseFeedbackErrorMessage(
+  t: ReturnType<typeof useTranslations<"warehouseFeedback">>,
+  error: Error,
+  fallbackKey: string
+) {
+  switch (error.message) {
+    case "A location with this code already exists under the same parent location":
+      return t("locationCodeDuplicateSameParent");
+    default:
+      return error.message || t(fallbackKey as never);
+  }
+}
+
 function invalidatePublishedLayoutsForBranch(
   queryClient: ReturnType<typeof useQueryClient>,
   branchId: string
@@ -203,7 +216,7 @@ export function useCreateLocationMutation(branchId: string | null | undefined) {
       toast.success(t("locationCreated"));
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("locationCreateFailed"));
+      toast.error(getWarehouseFeedbackErrorMessage(t, err, "locationCreateFailed"));
     },
   });
 }
@@ -266,7 +279,7 @@ export function useUpdateLocationMutation(branchId: string | null | undefined) {
           queryClient.setQueryData(warehouseKeys.location(input.id), context.previousSingle);
         }
       }
-      toast.error(err.message || t("locationUpdateFailed"));
+      toast.error(getWarehouseFeedbackErrorMessage(t, err, "locationUpdateFailed"));
     },
   });
 }

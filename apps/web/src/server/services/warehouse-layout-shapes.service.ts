@@ -35,7 +35,7 @@ export type ServiceResult<T> = { success: true; data: T } | { success: false; er
 // ─── Column select ─────────────────────────────────────────────────────────
 
 const SHAPE_COLUMNS =
-  "id, layout_id, organization_id, branch_id, shape_type, location_id, label, x, y, width, height, rotation, style, z_index, sort_order, created_by, created_at, updated_at, deleted_at" as const;
+  "id, layout_id, organization_id, branch_id, shape_type, projection, anchor_location_id, location_id, label, x, y, width, height, rotation, style, z_index, sort_order, created_by, created_at, updated_at, deleted_at" as const;
 
 // ─── Service ──────────────────────────────────────────────────────────────────
 
@@ -75,6 +75,47 @@ export class WarehouseLayoutShapesService {
       .select(SHAPE_COLUMNS)
       .eq("layout_id", layoutId)
       .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .order("z_index", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as WarehouseLayoutShape[] };
+  }
+
+  static async listByLayoutAndProjection(
+    supabase: SupabaseClient,
+    orgId: string,
+    layoutId: string,
+    projection: WarehouseLayoutShape["projection"]
+  ): Promise<ServiceResult<WarehouseLayoutShape[]>> {
+    const { data, error } = await supabase
+      .from("warehouse_layout_shapes")
+      .select(SHAPE_COLUMNS)
+      .eq("layout_id", layoutId)
+      .eq("organization_id", orgId)
+      .eq("projection", projection)
+      .is("deleted_at", null)
+      .order("z_index", { ascending: true })
+      .order("sort_order", { ascending: true });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as WarehouseLayoutShape[] };
+  }
+
+  static async listFrontElevationByAnchor(
+    supabase: SupabaseClient,
+    orgId: string,
+    layoutId: string,
+    anchorLocationId: string
+  ): Promise<ServiceResult<WarehouseLayoutShape[]>> {
+    const { data, error } = await supabase
+      .from("warehouse_layout_shapes")
+      .select(SHAPE_COLUMNS)
+      .eq("layout_id", layoutId)
+      .eq("organization_id", orgId)
+      .eq("projection", "front_elevation")
+      .eq("anchor_location_id", anchorLocationId)
       .is("deleted_at", null)
       .order("z_index", { ascending: true })
       .order("sort_order", { ascending: true });
@@ -159,22 +200,26 @@ export class WarehouseLayoutShapesService {
       return { success: false, error: "shape_id belongs to a different layout" };
     }
 
-    // Validate location_id cross-branch before any write
-    if (shape.location_id) {
+    // Validate location_id / anchor_location_id cross-branch before any write
+    const scopedLocationIds = [shape.location_id ?? null, shape.anchor_location_id ?? null].filter(
+      (value): value is string => typeof value === "string"
+    );
+
+    if (scopedLocationIds.length > 0) {
       const { data: loc, error: locErr } = await supabase
         .from("warehouse_locations")
         .select("id")
-        .eq("id", shape.location_id)
+        .in("id", scopedLocationIds)
         .eq("organization_id", orgId)
         .eq("branch_id", branchId)
-        .is("deleted_at", null)
-        .maybeSingle();
+        .is("deleted_at", null);
 
       if (locErr) return { success: false, error: locErr.message };
-      if (!loc)
+      const resolvedIds = new Set((loc ?? []).map((row) => (row as { id: string }).id));
+      if (scopedLocationIds.some((id) => !resolvedIds.has(id)))
         return {
           success: false,
-          error: "location_id does not belong to this org/branch",
+          error: "location_id or anchor_location_id does not belong to this org/branch",
         };
     }
 
@@ -187,6 +232,8 @@ export class WarehouseLayoutShapesService {
           organization_id: orgId,
           branch_id: branchId,
           shape_type: shape.shape_type,
+          projection: shape.projection ?? "top_down",
+          anchor_location_id: shape.anchor_location_id ?? null,
           location_id: shape.location_id ?? null,
           label: shape.label ?? null,
           x: shape.x,

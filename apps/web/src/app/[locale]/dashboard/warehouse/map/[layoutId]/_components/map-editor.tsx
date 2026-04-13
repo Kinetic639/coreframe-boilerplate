@@ -45,10 +45,13 @@ import { MapCanvas, locationColorToFill } from "./map-canvas";
 import { LocationToolbox } from "./location-toolbox";
 import { ShapeInspector, type AlignType } from "./shape-inspector";
 import { MapPreview } from "./map-preview";
+import { WarehouseFrontElevationPanel } from "@/components/v2/warehouse/warehouse-front-elevation-panel";
+import { isEligibleTopDownUnit } from "@/lib/warehouse/map-context";
 
 import {
   useBatchSaveShapesMutation,
   useCreateLocationMutation,
+  useDeleteLocationMutation,
   useDeleteLocationGroupMutation,
   usePublishLayoutMutation,
   useUnpublishLayoutMutation,
@@ -91,6 +94,9 @@ export function MapEditor({
   const [shapes, setShapes] = React.useState<WarehouseLayoutShape[]>(initialLayout.shapes);
   const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
   const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
+  const [selectedContainerLocationId, setSelectedContainerLocationId] = React.useState<
+    string | null
+  >(null);
   const [showGrid, setShowGrid] = React.useState(true);
   const [snapToGrid, setSnapToGrid] = React.useState(true);
   const [gridIntervalM, setGridIntervalM] = React.useState(1);
@@ -128,6 +134,7 @@ export function MapEditor({
   const queryClient = useQueryClient();
   const batchSave = useBatchSaveShapesMutation(layout.id);
   const createLocMut = useCreateLocationMutation(branchId);
+  const deleteLocMut = useDeleteLocationMutation(branchId);
   const publishMut = usePublishLayoutMutation(branchId);
   const unpublishMut = useUnpublishLayoutMutation(branchId);
   const updateLayoutMut = useUpdateLayoutMutation(branchId);
@@ -159,20 +166,90 @@ export function MapEditor({
     }
   }, [locationGroups, selectedGroupId]);
 
+  React.useEffect(() => {
+    if (
+      selectedContainerLocationId &&
+      !liveLocations.some((location) => location.id === selectedContainerLocationId)
+    ) {
+      setSelectedContainerLocationId(null);
+    }
+  }, [liveLocations, selectedContainerLocationId]);
+
+  React.useEffect(() => {
+    const liveLocationMap = new Map(liveLocations.map((location) => [location.id, location]));
+
+    setShapes((prev) => {
+      let changed = false;
+
+      const next = prev.map((shape) => {
+        if (
+          shape.shape_type !== "location" ||
+          !shape.location_id ||
+          (shape.projection ?? "top_down") !== "top_down"
+        ) {
+          return shape;
+        }
+
+        const location = liveLocationMap.get(shape.location_id);
+        if (!location) return shape;
+
+        const nextWidth = location.physical_width_m ?? shape.width;
+        const nextHeight = location.physical_depth_m ?? shape.height;
+        const nextLabel = location.code ?? shape.label ?? null;
+
+        if (nextWidth === shape.width && nextHeight === shape.height && nextLabel === shape.label) {
+          return shape;
+        }
+
+        changed = true;
+        return {
+          ...shape,
+          width: nextWidth,
+          height: nextHeight,
+          label: nextLabel,
+        };
+      });
+
+      return changed ? next : prev;
+    });
+  }, [liveLocations]);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const selectedShapes = React.useMemo(
     () => shapes.filter((s) => selectedIds.includes(s.id)),
     [shapes, selectedIds]
+  );
+  const topDownShapes = React.useMemo(
+    () => shapes.filter((shape) => (shape.projection ?? "top_down") !== "front_elevation"),
+    [shapes]
   );
   const selectedShape = selectedShapes.length === 1 ? selectedShapes[0] : null;
   const selectedGroup = React.useMemo(
     () => locationGroups.find((group) => group.id === selectedGroupId) ?? null,
     [locationGroups, selectedGroupId]
   );
-  const placedLocationIds = React.useMemo(
-    () => new Set(shapes.filter((s) => s.location_id).map((s) => s.location_id!)),
-    [shapes]
+  const selectedContainerLocation = React.useMemo(
+    () =>
+      liveLocations.find(
+        (location) =>
+          location.id === selectedContainerLocationId &&
+          (location.map_role ?? "logical") === "logical"
+      ) ?? null,
+    [liveLocations, selectedContainerLocationId]
   );
+  const placedLocationIds = React.useMemo(
+    () =>
+      new Set(
+        topDownShapes.filter((shape) => shape.location_id).map((shape) => shape.location_id!)
+      ),
+    [topDownShapes]
+  );
+  const selectedFrontAnchorLocationId = React.useMemo(() => {
+    if (!selectedShape?.location_id) return null;
+    return isEligibleTopDownUnit(selectedShape.location_id, liveLocations, layout.root_location_id)
+      ? selectedShape.location_id
+      : null;
+  }, [layout.root_location_id, liveLocations, selectedShape?.location_id]);
 
   // ── Group highlight: shapes in the same group as the selected shape ────────
   const groupHighlightShapeIds = React.useMemo<Set<string>>(() => {
@@ -186,11 +263,11 @@ export function MapEditor({
         .map((l) => l.id)
     );
     return new Set(
-      shapes
+      topDownShapes
         .filter((s) => s.location_id && groupLocIds.has(s.location_id) && s.id !== selectedShape.id)
         .map((s) => s.id)
     );
-  }, [selectedShape, liveLocations, shapes]);
+  }, [selectedShape, liveLocations, topDownShapes]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const handleSave = async (shapesToSave: WarehouseLayoutShape[] = shapes) => {
@@ -206,6 +283,8 @@ export function MapEditor({
       // Coerce empty string → null defensively (drag-and-drop edge case).
       // Also null out references to locations that have since been deleted.
       location_id: s.location_id && validLocationIds.has(s.location_id) ? s.location_id : null,
+      projection: s.projection ?? "top_down",
+      anchor_location_id: s.anchor_location_id ?? null,
       label: s.label,
       x: s.x,
       y: s.y,
@@ -234,6 +313,17 @@ export function MapEditor({
     patchShape(id, { x, y });
   };
 
+  const handleShapesDragEnd = (positions: { id: string; x: number; y: number }[]) => {
+    const positionMap = new Map(positions.map((position) => [position.id, position]));
+    setShapes((prev) =>
+      prev.map((shape) => {
+        const next = positionMap.get(shape.id);
+        return next ? { ...shape, x: next.x, y: next.y } : shape;
+      })
+    );
+    setIsDirty(true);
+  };
+
   const handleShapeTransformEnd = (
     id: string,
     x: number,
@@ -243,6 +333,19 @@ export function MapEditor({
     rotation: number
   ) => {
     patchShape(id, { x, y, width, height, rotation });
+
+    const transformedShape = shapes.find((shape) => shape.id === id);
+    if (
+      transformedShape?.shape_type === "location" &&
+      transformedShape.location_id &&
+      (transformedShape.projection ?? "top_down") === "top_down"
+    ) {
+      updateLocMut.mutate({
+        id: transformedShape.location_id,
+        physical_width_m: width,
+        physical_depth_m: height,
+      });
+    }
   };
 
   const handleDeleteShape = (id: string) => {
@@ -256,6 +359,39 @@ export function MapEditor({
     setShapes((prev) => prev.filter((s) => !idSet.has(s.id)));
     setSelectedIds((prev) => prev.filter((sid) => !idSet.has(sid)));
     setIsDirty(true);
+  };
+
+  const getRotatedBounds = (
+    shape: Pick<WarehouseLayoutShape, "x" | "y" | "width" | "height" | "rotation">
+  ) => {
+    const angle = ((shape.rotation ?? 0) * Math.PI) / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const corners = [
+      { x: 0, y: 0 },
+      { x: shape.width, y: 0 },
+      { x: 0, y: shape.height },
+      { x: shape.width, y: shape.height },
+    ].map((corner) => ({
+      x: shape.x + corner.x * cos - corner.y * sin,
+      y: shape.y + corner.x * sin + corner.y * cos,
+    }));
+
+    const minX = Math.min(...corners.map((corner) => corner.x));
+    const maxX = Math.max(...corners.map((corner) => corner.x));
+    const minY = Math.min(...corners.map((corner) => corner.y));
+    const maxY = Math.max(...corners.map((corner) => corner.y));
+
+    return {
+      minX,
+      maxX,
+      minY,
+      maxY,
+      offsetMinX: minX - shape.x,
+      offsetMaxX: maxX - shape.x,
+      offsetMinY: minY - shape.y,
+      offsetMaxY: maxY - shape.y,
+    };
   };
 
   // ── Align multiple shapes ─────────────────────────────────────────────────
@@ -310,6 +446,21 @@ export function MapEditor({
         });
         break;
       }
+      case "stitch-h": {
+        const sorted = [...targets]
+          .map((shape) => ({ shape, bounds: getRotatedBounds(shape) }))
+          .sort((a, b) => a.bounds.minX - b.bounds.minX || a.shape.sort_order - b.shape.sort_order);
+        let curRight = sorted[0].bounds.maxX;
+        patches = sorted.map((s, index) => {
+          if (index === 0) {
+            return { id: s.shape.id, x: s.shape.x };
+          }
+          const x = curRight - s.bounds.offsetMinX;
+          curRight = x + s.bounds.offsetMaxX;
+          return { id: s.shape.id, x };
+        });
+        break;
+      }
       case "distribute-v": {
         const sorted = [...targets].sort((a, b) => a.y - b.y);
         const minY = sorted[0].y;
@@ -321,6 +472,21 @@ export function MapEditor({
           const y = curY;
           curY += s.height + gap;
           return { id: s.id, y };
+        });
+        break;
+      }
+      case "stitch-v": {
+        const sorted = [...targets]
+          .map((shape) => ({ shape, bounds: getRotatedBounds(shape) }))
+          .sort((a, b) => a.bounds.minY - b.bounds.minY || a.shape.sort_order - b.shape.sort_order);
+        let curBottom = sorted[0].bounds.maxY;
+        patches = sorted.map((s, index) => {
+          if (index === 0) {
+            return { id: s.shape.id, y: s.shape.y };
+          }
+          const y = curBottom - s.bounds.offsetMinY;
+          curBottom = y + s.bounds.offsetMaxY;
+          return { id: s.shape.id, y };
         });
         break;
       }
@@ -341,18 +507,36 @@ export function MapEditor({
     const label = loc?.code ?? null;
     // Persist location color into shape.style so the viewer always has the right color
     const locColor = loc ? getEffectiveLocationColor(loc, locationGroups) : null;
+    const width =
+      type === "location"
+        ? Math.max(0.1, loc?.physical_width_m ?? 2)
+        : type === "wall"
+          ? 5
+          : type === "label"
+            ? 3
+            : 2;
+    const height =
+      type === "location"
+        ? Math.max(0.1, loc?.physical_depth_m ?? 2)
+        : type === "wall"
+          ? 0.3
+          : type === "label"
+            ? 0.8
+            : 2;
     const newShape: WarehouseLayoutShape = {
       id: crypto.randomUUID(),
       layout_id: layout.id,
       organization_id: layout.organization_id,
       branch_id: layout.branch_id,
       shape_type: type,
+      projection: "top_down",
+      anchor_location_id: layout.root_location_id ?? null,
       location_id: locationId,
       label,
       x: Math.max(0, xM),
       y: Math.max(0, yM),
-      width: type === "wall" ? 5 : type === "label" ? 3 : 2,
-      height: type === "wall" ? 0.3 : type === "label" ? 0.8 : 2,
+      width,
+      height,
       rotation: 0,
       style: locColor ? { fill: locationColorToFill(locColor), stroke: locColor } : null,
       z_index: type === "zone" || type === "aisle" ? -1 : 0,
@@ -399,7 +583,7 @@ export function MapEditor({
       setNewLocError(t("dialogs.location.validation.codeRequired"));
       return;
     }
-    if (!/^[A-Za-z0-9_-]+$/.test(code)) {
+    if (!/^[A-Za-z0-9_/-]+$/.test(code)) {
       setNewLocError(t("dialogs.location.validation.codeInvalid"));
       return;
     }
@@ -411,19 +595,22 @@ export function MapEditor({
         code,
         parent_id: layout.root_location_id ?? null,
         color: newLocColor,
+        physical_width_m: pendingClone?.shape.width ?? undefined,
+        physical_depth_m: pendingClone?.shape.height ?? undefined,
       });
       const newLocationId = createdLocation.id;
 
       // Determine position + dimensions:
       // - Clone: same size as source, placed immediately to its right with a small gap
       // - Drop: default 2×2 at the drop point
-      let xM: number, yM: number, width: number, height: number;
+      let xM: number, yM: number, width: number, height: number, rotation: number;
       const clonedLabelStyle: ShapeStyle = {};
       if (pendingClone) {
         const src = pendingClone.shape;
         const srcStyle = src.style;
         width = src.width;
         height = src.height;
+        rotation = src.rotation;
         xM = Math.min(src.x + src.width + 0.2, Math.max(0, layout.canvas_width_m - width));
         yM = src.y;
         // Copy label style from source shape
@@ -437,8 +624,9 @@ export function MapEditor({
       } else {
         xM = pendingDrop!.xM;
         yM = pendingDrop!.yM;
-        width = 2;
-        height = 2;
+        width = Math.max(0.1, createdLocation.physical_width_m ?? 2);
+        height = Math.max(0.1, createdLocation.physical_depth_m ?? 2);
+        rotation = 0;
         setPendingDrop(null);
       }
 
@@ -448,13 +636,15 @@ export function MapEditor({
         organization_id: layout.organization_id,
         branch_id: layout.branch_id,
         shape_type: "location",
+        projection: "top_down",
+        anchor_location_id: layout.root_location_id ?? null,
         location_id: newLocationId,
         label: code,
         x: Math.max(0, xM),
         y: Math.max(0, yM),
         width,
         height,
-        rotation: 0,
+        rotation,
         style: { fill: locationColorToFill(newLocColor), stroke: newLocColor, ...clonedLabelStyle },
         z_index: 0,
         sort_order: shapes.length,
@@ -545,6 +735,27 @@ export function MapEditor({
     updateLocMut.mutate({ id: locationId, group_id: groupId });
   };
 
+  const handleUpdateLocationDimensions = (
+    locationId: string,
+    patch: { physical_width_m?: number; physical_depth_m?: number }
+  ) => {
+    updateLocMut.mutate({ id: locationId, ...patch });
+
+    const targetShape = shapes.find(
+      (shape) =>
+        shape.shape_type === "location" &&
+        shape.location_id === locationId &&
+        (shape.projection ?? "top_down") === "top_down"
+    );
+
+    if (!targetShape) return;
+
+    patchShape(targetShape.id, {
+      ...(patch.physical_width_m !== undefined ? { width: patch.physical_width_m } : {}),
+      ...(patch.physical_depth_m !== undefined ? { height: patch.physical_depth_m } : {}),
+    });
+  };
+
   const handleUpdateGroup = (
     groupId: string,
     patch: { name?: string; color?: string | null; description?: string | null }
@@ -555,6 +766,13 @@ export function MapEditor({
   const handleSelectGroup = (groupId: string) => {
     setSelectedIds([]);
     setSelectedGroupId(groupId);
+    setSelectedContainerLocationId(null);
+  };
+
+  const handleSelectContainerLocation = (locationId: string) => {
+    setSelectedIds([]);
+    setSelectedGroupId(null);
+    setSelectedContainerLocationId(locationId);
   };
 
   const handleSelectGroupMembers = (groupId: string) => {
@@ -567,7 +785,29 @@ export function MapEditor({
       .filter((shape) => shape.location_id && memberLocationIds.has(shape.location_id))
       .map((shape) => shape.id);
     setSelectedGroupId(null);
+    setSelectedContainerLocationId(null);
     setSelectedIds(memberShapeIds);
+  };
+
+  const handleSelectContainerMembers = (locationId: string) => {
+    const descendantIds = new Set<string>();
+    const stack = liveLocations.filter((location) => location.parent_id === locationId);
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      descendantIds.add(current.id);
+      liveLocations
+        .filter((location) => location.parent_id === current.id)
+        .forEach((child) => stack.push(child));
+    }
+
+    const descendantShapeIds = shapes
+      .filter((shape) => shape.location_id && descendantIds.has(shape.location_id))
+      .map((shape) => shape.id);
+
+    setSelectedContainerLocationId(null);
+    setSelectedGroupId(null);
+    setSelectedIds(descendantShapeIds);
   };
 
   // ── Layout meta changes ───────────────────────────────────────────────────
@@ -756,46 +996,62 @@ export function MapEditor({
                 placedLocationIds={placedLocationIds}
                 selectedId={selectedIds[0] ?? null}
                 selectedGroupId={selectedGroupId}
+                selectedContainerLocationId={selectedContainerLocationId}
                 onSelectLocation={(locId) => {
                   const existing = shapes.find((s) => s.location_id === locId);
                   if (existing) {
                     setSelectedGroupId(null);
+                    setSelectedContainerLocationId(null);
                     setSelectedIds([existing.id]);
                   }
                 }}
                 onSelectGroup={handleSelectGroup}
+                onSelectContainerLocation={handleSelectContainerLocation}
               />
             )}
 
-            <MapCanvas
-              shapes={shapes}
-              locations={liveLocations}
-              locationGroups={locationGroups}
-              canvasWidthM={layout.canvas_width_m}
-              canvasHeightM={layout.canvas_height_m}
-              selectedIds={selectedIds}
-              onSelectionChange={(ids) => {
-                setSelectedGroupId(null);
-                setSelectedIds(ids);
-              }}
-              onShapeDragEnd={handleShapeDragEnd}
-              onShapeTransformEnd={handleShapeTransformEnd}
-              onDropNewShape={handleDropFromCanvas}
-              showGrid={showGrid}
-              snapToGrid={snapToGrid}
-              gridIntervalM={gridIntervalM}
-              canManage={canManage}
-              initialZoom={canvasViewportRef.current?.zoom}
-              initialPan={canvasViewportRef.current?.pan}
-              onViewportChange={(zoom, pan) => {
-                canvasViewportRef.current = { zoom, pan };
-              }}
-              groupHighlightShapeIds={groupHighlightShapeIds}
-            />
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <MapCanvas
+                shapes={topDownShapes}
+                locations={liveLocations}
+                locationGroups={locationGroups}
+                canvasWidthM={layout.canvas_width_m}
+                canvasHeightM={layout.canvas_height_m}
+                selectedIds={selectedIds}
+                onSelectionChange={(ids) => {
+                  setSelectedGroupId(null);
+                  setSelectedContainerLocationId(null);
+                  setSelectedIds(ids);
+                }}
+                onShapeDragEnd={handleShapeDragEnd}
+                onShapesDragEnd={handleShapesDragEnd}
+                onShapeTransformEnd={handleShapeTransformEnd}
+                onDropNewShape={handleDropFromCanvas}
+                showGrid={showGrid}
+                snapToGrid={snapToGrid}
+                gridIntervalM={gridIntervalM}
+                canManage={canManage}
+                initialZoom={canvasViewportRef.current?.zoom}
+                initialPan={canvasViewportRef.current?.pan}
+                onViewportChange={(zoom, pan) => {
+                  canvasViewportRef.current = { zoom, pan };
+                }}
+                groupHighlightShapeIds={groupHighlightShapeIds}
+              />
+
+              <WarehouseFrontElevationPanel
+                layout={{ ...layout, shapes }}
+                locations={liveLocations}
+                locationGroups={locationGroups}
+                anchorLocationId={selectedFrontAnchorLocationId}
+                className="h-64 shrink-0"
+              />
+            </div>
 
             <ShapeInspector
               selectedShapes={selectedShapes}
               selectedGroup={selectedGroup}
+              selectedContainerLocation={selectedContainerLocation}
               layout={layout}
               locations={liveLocations}
               locationGroups={locationGroups}
@@ -809,10 +1065,23 @@ export function MapEditor({
                 patchShape(id, patch as Partial<WarehouseLayoutShape>)
               }
               onUpdateLocation={handleUpdateLocation}
+              onUpdateLocationDimensions={handleUpdateLocationDimensions}
               onUpdateGroup={handleUpdateGroup}
               onDeleteGroup={() => setPendingDeleteGroupId(selectedGroup?.id ?? null)}
               onSelectGroupMembers={() =>
                 selectedGroup ? handleSelectGroupMembers(selectedGroup.id) : undefined
+              }
+              onDeleteContainerLocation={() => {
+                if (selectedContainerLocation) {
+                  deleteLocMut.mutate(selectedContainerLocation.id, {
+                    onSuccess: () => setSelectedContainerLocationId(null),
+                  });
+                }
+              }}
+              onSelectContainerMembers={() =>
+                selectedContainerLocation
+                  ? handleSelectContainerMembers(selectedContainerLocation.id)
+                  : undefined
               }
               onDeleteShape={handleDeleteShape}
               onDeleteShapes={handleDeleteShapes}
