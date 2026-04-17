@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 
 /**
@@ -20,11 +21,17 @@ import type { ComponentType } from "react";
 
 export type ToolRegistry = Record<string, ComponentType>;
 
+const SvwmsWddMatcher = dynamic(
+  () => import("@/components/tools/svwms-wdd-matcher").then((m) => m.SvwmsWddMatcher),
+  { ssr: false }
+);
+
 /**
  * Add entries here as tool UI components are implemented.
  * The key must match the tool's slug in the tools_catalog table.
  */
 const TOOL_REGISTRY: ToolRegistry = {
+  "svwms-wdd-matcher": SvwmsWddMatcher,
   // "qr-generator": QrGeneratorTool,
   // "text-converter": TextConverterTool,
 };

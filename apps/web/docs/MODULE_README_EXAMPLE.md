@@ -4,8 +4,7 @@
 
 - **What this module does:**
 - **Who uses it (roles):**
-- **Primary workflows:**
-  -
+- ## **Primary workflows:**
   -
 
 ## Status
@@ -136,8 +135,7 @@
 
 ### Services
 
-- `...service.ts` responsibilities:
-  -
+- ## `...service.ts` responsibilities:
   -
 
 ### React Query hooks
@@ -156,16 +154,13 @@
 
 ### Components
 
-- Server:
-  -
-- Client:
-  -
+- ## Server:
+- ## Client:
 
 ### Mobile responsiveness notes
 
 - Verified at 390px: ✅/❌
-- Known constraints:
-  -
+- ## Known constraints:
 
 ---
 
@@ -173,12 +168,9 @@
 
 ### Coverage map
 
-- Unit tests:
-  -
-- Integration / RLS tests:
-  -
-- Sidebar SSR tests:
-  -
+- ## Unit tests:
+- ## Integration / RLS tests:
+- ## Sidebar SSR tests:
 
 ### Manual test checklist
 

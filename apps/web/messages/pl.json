@@ -2013,6 +2013,85 @@
         "searchTools": "Szukaj narzędzi",
         "toolCard": "Karta narzędzia {name}",
         "viewDetail": "Zobacz szczegóły {name}"
+      },
+      "wddMatcher": {
+        "title": "SVWMS WDD Matcher",
+        "subtitle": "Wgraj pliki BC i zamówień marki — dopasowanie części odbywa się automatycznie.",
+        "uploadZone": {
+          "title": "Upuść pliki PDF tutaj lub kliknij, aby wybrać",
+          "subtitle": "Pliki dyspozycji BC i zamówień marki — typ pliku wykrywany automatycznie",
+          "processing": "Przetwarzanie plików…",
+          "process": "Przetwórz {count, plural, one {# plik} few {# pliki} other {# plików}}"
+        },
+        "processing": {
+          "title": "Przetwarzanie…",
+          "subtitle": "Przesyłanie, parsowanie i dopasowywanie plików PDF. To może chwilę potrwać."
+        },
+        "results": {
+          "session": "Sesja",
+          "exportCsv": "Eksportuj CSV",
+          "newUpload": "Nowe wgranie",
+          "exactMatches": "dokładne",
+          "partialMatches": "częściowe",
+          "unmatched": "niedopasowane WDD",
+          "unmatchedOrders": "niedopasowane zamówienia",
+          "empty": "Nie znaleziono bloków WDD. Upewnij się, że wgrany był co najmniej jeden plik BC.",
+          "columns": {
+            "wddNumber": "Nr WDD",
+            "groupName": "Grupa",
+            "parts": "Części",
+            "orderNumber": "Nr zamówienia",
+            "zwNumber": "Nr ZW",
+            "zlNumber": "Nr ZL",
+            "client": "Klient",
+            "confidence": "Pewność",
+            "status": "Status"
+          }
+        },
+        "history": {
+          "title": "Ostatnie wgrania",
+          "summary": "{exact} dokładne · {partial} częściowe · {unmatched} niedopasowane"
+        },
+        "status": {
+          "pending": "Oczekujące",
+          "processing": "Przetwarzanie",
+          "ready_for_review": "Gotowe",
+          "approved": "Zatwierdzone",
+          "rejected": "Odrzucone",
+          "failed": "Błąd"
+        },
+        "matchType": {
+          "exact": "Dokładne",
+          "partial": "Częściowe",
+          "unmatched_bc": "Brak dopasowania",
+          "unmatched_brand": "Brak WDD"
+        },
+        "toasts": {
+          "matchingComplete": "Dopasowanie zakończone",
+          "exportSuccess": "Pobrano CSV"
+        },
+        "extractionReview": {
+          "title": "Podgląd ekstrakcji",
+          "summary": "{files} pliki · {blocks} bloki · {lines} pozycje",
+          "runMatching": "Uruchom dopasowanie",
+          "copyJson": "Kopiuj JSON",
+          "noFiles": "Brak plików dla tej sesji.",
+          "parseError": "Błąd parsowania",
+          "fileStats": "{blocks} bloków · {lines} pozycji",
+          "excluded": "wykluczone",
+          "noBlocks": "Nie wykryto bloków w tym pliku.",
+          "excludedLabel": "wykluczone",
+          "positions": "pozycji",
+          "noLines": "Brak wyekstrahowanych pozycji dla tego bloku.",
+          "columns": {
+            "code": "Nr katalogowy",
+            "name": "Nazwa towaru",
+            "qty": "Ilość (IDP)"
+          }
+        },
+        "errors": {
+          "noFilesProcessed": "Żaden plik nie została przetworzony"
+        }
       }
     }
   },
