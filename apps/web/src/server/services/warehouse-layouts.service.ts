@@ -189,6 +189,28 @@ export class WarehouseLayoutsService {
     userId: string,
     input: CreateLayoutInput
   ): Promise<ServiceResult<WarehouseLayout>> {
+    if (input.root_location_id) {
+      const { data: existingLayouts, error: existingError } = await supabase
+        .from("warehouse_layouts")
+        .select(LAYOUT_COLUMNS)
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .eq("root_location_id", input.root_location_id)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false });
+
+      if (existingError) return { success: false, error: existingError.message };
+
+      const existingLayout =
+        (existingLayouts as WarehouseLayout[] | null)?.find(
+          (layout) => layout.status === "published"
+        ) ?? (existingLayouts as WarehouseLayout[] | null)?.[0];
+
+      if (existingLayout) {
+        return { success: true, data: existingLayout };
+      }
+    }
+
     const { data, error } = await supabase
       .from("warehouse_layouts")
       .insert({

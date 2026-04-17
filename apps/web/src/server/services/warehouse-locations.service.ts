@@ -676,9 +676,7 @@ export class WarehouseLocationsService {
 
     const usedHeight = siblingsResult.data
       .filter((child) => child.id !== input.locationId)
-      .filter((child) =>
-        ["front_segment", "top_storage_segment"].includes(child.map_role ?? "logical")
-      )
+      .filter((child) => (child.map_role ?? "logical") === "front_segment")
       .reduce((sum, child) => sum + (child.physical_height_m ?? 0), 0);
 
     const availableHeight = Math.max(0, parentResult.data.physical_height_m - usedHeight);

@@ -273,9 +273,7 @@ export function LocationFormDialog({
     shouldShowFrontSegmentDimensions && selectedParentId && !isTopStorageSegment
       ? _availableParents
           .filter((candidate) => candidate.parent_id === selectedParentId)
-          .filter((candidate) =>
-            ["front_segment", "top_storage_segment"].includes(candidate.map_role ?? "logical")
-          )
+          .filter((candidate) => (candidate.map_role ?? "logical") === "front_segment")
           .reduce((sum, candidate) => sum + (candidate.physical_height_m ?? 0), 0)
       : 0;
   const frontSegmentMaxHeight = selectedParentLocation?.physical_height_m ?? null;

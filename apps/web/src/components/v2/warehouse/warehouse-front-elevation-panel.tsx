@@ -37,6 +37,7 @@ interface WarehouseFrontElevationPanelProps {
   monochromaticHighlight?: boolean;
   className?: string;
   onShapeClick?: (shape: WarehouseLayoutShape) => void;
+  rightRail?: React.ReactNode;
 }
 
 export function WarehouseFrontElevationPanel({
@@ -50,6 +51,7 @@ export function WarehouseFrontElevationPanel({
   monochromaticHighlight = false,
   className = "",
   onShapeClick,
+  rightRail,
 }: WarehouseFrontElevationPanelProps) {
   const t = useTranslations("warehouseFrontElevation");
   const effectiveAnchorLocationIds = React.useMemo(
@@ -97,49 +99,42 @@ export function WarehouseFrontElevationPanel({
   return (
     <section className={`flex min-h-0 flex-col border-t bg-background ${className}`}>
       <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2.5">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t("title")}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {anchorLocations.length > 1
-              ? t("subtitle", {
-                  name: anchorLocations.map((location) => location.name).join(" + "),
-                })
-              : anchorLocation
-                ? t("subtitle", { name: anchorLocation.name })
-                : t("emptyTitle")}
-          </p>
-        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t("title")}
+        </p>
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
-        {effectiveAnchorLocationIds.length === 0 || anchorLocations.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
-            <Layers3 className="mb-2 h-7 w-7 opacity-30" />
-            <p className="text-sm font-medium">{t("emptyTitle")}</p>
-            <p className="mt-1 max-w-sm text-xs">{t("emptyDescription")}</p>
-          </div>
-        ) : !frontLayout ? (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
-            <Layers3 className="mb-2 h-7 w-7 opacity-30" />
-            <p className="text-sm font-medium">{t("noFrontViewTitle")}</p>
-            <p className="mt-1 max-w-sm text-xs">{t("noFrontViewDescription")}</p>
-          </div>
-        ) : (
-          <WarehouseMapViewer
-            layout={frontLayout}
-            projection="front_elevation"
-            locations={locations}
-            locationGroups={locationGroups}
-            highlightLocationIds={highlightLocationIds}
-            headerActiveLocationIds={headerActiveLocationIds}
-            monochromaticHighlight={monochromaticHighlight}
-            autoPanToHighlight={false}
-            onShapeClick={onShapeClick}
-            className="h-full w-full"
-          />
-        )}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          {effectiveAnchorLocationIds.length === 0 || anchorLocations.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
+              <Layers3 className="mb-2 h-7 w-7 opacity-30" />
+              <p className="text-sm font-medium">{t("emptyTitle")}</p>
+              <p className="mt-1 max-w-sm text-xs">{t("emptyDescription")}</p>
+            </div>
+          ) : !frontLayout ? (
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
+              <Layers3 className="mb-2 h-7 w-7 opacity-30" />
+              <p className="text-sm font-medium">{t("noFrontViewTitle")}</p>
+              <p className="mt-1 max-w-sm text-xs">{t("noFrontViewDescription")}</p>
+            </div>
+          ) : (
+            <WarehouseMapViewer
+              layout={frontLayout}
+              projection="front_elevation"
+              locations={locations}
+              locationGroups={locationGroups}
+              highlightLocationIds={highlightLocationIds}
+              headerActiveLocationIds={headerActiveLocationIds}
+              monochromaticHighlight={monochromaticHighlight}
+              autoPanToHighlight={false}
+              onShapeClick={onShapeClick}
+              className="h-full w-full"
+            />
+          )}
+        </div>
+
+        {rightRail}
       </div>
     </section>
   );

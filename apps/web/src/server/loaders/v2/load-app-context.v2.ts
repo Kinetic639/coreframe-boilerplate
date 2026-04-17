@@ -173,7 +173,7 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
   if (activeOrgId) {
     const { data: branches, error: branchesError } = await supabase
       .from("branches")
-      .select("id, name, organization_id, slug, created_at")
+      .select("id, name, organization_id, slug, public_warehouse_maps_enabled, created_at")
       .eq("organization_id", activeOrgId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
@@ -187,6 +187,7 @@ async function _loadAppContextV2(): Promise<AppContextV2 | null> {
       name: b.name,
       organization_id: b.organization_id,
       slug: b.slug,
+      public_warehouse_maps_enabled: b.public_warehouse_maps_enabled ?? false,
       created_at: b.created_at,
     }));
   }
