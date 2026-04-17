@@ -117,7 +117,7 @@ export function WarehouseMapViewer({
   const [dimensions, setDimensions] = React.useState({ width: 600, height: 400 });
   const [zoom, setZoom] = React.useState(1);
   const [pan, setPan] = React.useState({ x: 40, y: 40 });
-  const [tick, setTick] = React.useState(0); // drives highlight pulse animation
+  const [tick, setTick] = React.useState(0); // drives smooth highlight pulse animation
   const [hoveredLocationId, setHoveredLocationId] = React.useState<string | null>(null);
   const hasUserAdjustedCameraRef = React.useRef(false);
   const lastAutoFitKeyRef = React.useRef<string | null>(null);
@@ -203,7 +203,7 @@ export function WarehouseMapViewer({
   // ── Pulse animation for highlighted shape ─────────────────────────────────
   React.useEffect(() => {
     if (!hasHighlights) return;
-    const id = setInterval(() => setTick((t) => t + 1), 600);
+    const id = setInterval(() => setTick((t) => t + 1), 50);
     return () => clearInterval(id);
   }, [hasHighlights]);
 
@@ -341,6 +341,7 @@ export function WarehouseMapViewer({
   const monoFill = isDark ? "#27272a" : "#e5e7eb";
   const monoStroke = isDark ? "#3f3f46" : "#9ca3af";
   const isMonoActive = monochromaticHighlight && hasHighlights;
+  const pulsePhase = (Math.sin(tick / 3) + 1) / 2;
   const sortedShapes = React.useMemo(() => {
     const base = [...layout.shapes]
       .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
@@ -391,8 +392,8 @@ export function WarehouseMapViewer({
       hasHeaderActiveIds &&
       !!shape.location_id &&
       !headerActiveIdSet.has(shape.location_id);
-    // In monochromatic mode: non-highlighted shapes go gray; highlighted shape gets its full color.
-    // In normal mode: highlighted shape pulses with a blue border.
+    // In monochromatic mode: non-highlighted shapes go gray; highlighted shape keeps its full color.
+    // In color mode: highlighted shape gets a smooth, color-matched emphasis instead of a flashing border.
     const effectiveFill =
       isMonoActive && !isHighlighted
         ? monoFill
@@ -414,11 +415,11 @@ export function WarehouseMapViewer({
           ? "#3f3f46"
           : "#9ca3af"
         : isCombinedHeaderBackground && isHighlighted
-          ? "#2563eb"
+          ? stroke
           : isHighlighted
-            ? "#2563eb"
+            ? stroke
             : stroke;
-    // Pulse only in normal (non-mono) mode
+    // Smooth pulse only in normal (non-mono) mode
     const pulseStrokeWidth = isCombinedHeaderBackground
       ? isHighlighted
         ? sw * 2.25
@@ -426,9 +427,7 @@ export function WarehouseMapViewer({
           ? sw * 1.5
           : sw
       : !isMonoActive && isHighlighted
-        ? tick % 2 === 0
-          ? sw * 4
-          : sw * 2
+        ? sw * (1.6 + pulsePhase * 1.1)
         : sw;
 
     if (shape.shape_type === "label") {
@@ -523,20 +522,20 @@ export function WarehouseMapViewer({
           shadowBlur={
             isCombinedHeaderBackground
               ? isHighlighted
-                ? 0.36
+                ? 0.22 + pulsePhase * 0.12
                 : isHeaderHovered
-                  ? 0.24
+                  ? 0.18
                   : 0
               : isHighlighted && !isMonoActive
-                ? 0.3
+                ? 0.18 + pulsePhase * 0.18
                 : 0
           }
           shadowColor={
             isCombinedHeaderBackground
               ? isHighlighted
-                ? "rgba(37,99,235,0.45)"
-                : "rgba(15,23,42,0.24)"
-              : "rgba(37,99,235,0.5)"
+                ? withAlpha(stroke, "55")
+                : "rgba(15,23,42,0.16)"
+              : withAlpha(stroke, isHighlighted ? "44" : "00")
           }
         />
         {shape.label &&

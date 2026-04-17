@@ -533,7 +533,8 @@
     "badges": {
       "published": "Opublikowana",
       "draft": "Szkic",
-      "noMap": "Brak mapy"
+      "noMap": "Brak mapy",
+      "loadingMap": "Ładowanie mapy…"
     },
     "actions": {
       "addLocation": "Dodaj lokalizację",
@@ -544,6 +545,7 @@
       "copyLocationCode": "Kopiuj kod lokalizacji",
       "copyLocationPath": "Kopiuj ścieżkę lokalizacji",
       "previewMap": "Podejrzyj mapę",
+      "loadingMapState": "Ładowanie mapy…",
       "previewGroupOnMap": "Podejrzyj grupę na mapie",
       "openMapEditor": "Otwórz edytor mapy",
       "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
@@ -565,7 +567,19 @@
     "feedback": {
       "locationCodeCopied": "Skopiowano kod lokalizacji {code}.",
       "locationPathCopied": "Skopiowano ścieżkę lokalizacji.",
-      "copyFailed": "Nie udało się skopiować do schowka."
+      "copyFailed": "Nie udało się skopiować do schowka.",
+      "publicMapsEnabled": "Włączono publiczny podgląd map.",
+      "publicMapsDisabled": "Wyłączono publiczny podgląd map.",
+      "publicMapsToggleFailed": "Nie udało się zaktualizować ustawień publicznego podglądu map.",
+      "publicMapsLinkCopied": "Skopiowano publiczny link do map."
+    },
+    "publicMaps": {
+      "title": "Publiczny podgląd",
+      "enabled": "Włączony",
+      "disabled": "Wyłączony",
+      "toggle": "Przełącz publiczne mapy magazynu",
+      "copyLink": "Kopiuj publiczny link",
+      "copyLinkDisabled": "Włącz publiczny podgląd, aby skopiować link"
     },
     "tree": {
       "collapse": "Zwiń",
@@ -700,26 +714,71 @@
       }
     }
   },
+  "publicWarehouseMapsPage": {
+    "title": "Mapy magazynu",
+    "description": "Przeglądaj wszystkie opublikowane układy magazynu dla tego oddziału.",
+    "layoutSelectLabel": "Układ",
+    "layoutSelectPlaceholder": "Wybierz układ",
+    "emptyTitle": "Brak publicznych układów",
+    "emptyDescription": "Ten oddział nie opublikował jeszcze żadnych układów magazynu.",
+    "selectionCleared": "Kliknij lokalizację na mapie, aby podejrzeć jej widok frontowy.",
+    "colorMode": {
+      "showColors": "Pokaż kolory",
+      "showMonochrome": "Pokaż widok monochromatyczny"
+    }
+  },
   "warehouseMapDialog": {
     "title": "Mapa magazynu",
     "tree": {
-      "title": "Lokalizacje",
-      "description": "Kliknij, aby podświetlić na mapie",
       "empty": "Na tym układzie nie ma jeszcze lokalizacji.",
-      "legendPlaced": "Umieszczono na planie",
-      "legendUnplaced": "Jeszcze nie umieszczono",
-      "onCanvas": "Na planie",
-      "highlighted": "Podświetlono"
+      "searchPlaceholder": "Szukaj lokalizacji...",
+      "clearSearch": "Wyczyść wyszukiwanie",
+      "noResults": "Nie znaleziono pasujących lokalizacji.",
+      "collapseAll": "Zwiń wszystko",
+      "expandAll": "Rozwiń wszystko"
     },
     "actions": {
       "openEditor": "Otwórz edytor",
+      "copy": "Skopiuj",
+      "copied": "Skopiowano",
       "showColors": "Pokaż kolory",
-      "monochromaticView": "Widok monochromatyczny"
+      "monochromaticView": "Widok monochromatyczny",
+      "enterFullscreen": "Włącz pełny ekran",
+      "exitFullscreen": "Wyłącz pełny ekran"
     },
     "states": {
       "noBranch": "Wybierz oddział, aby zobaczyć mapę magazynu.",
       "loadError": "Nie udało się załadować mapy magazynu. Spróbuj ponownie.",
       "noPublishedLayout": "Brak opublikowanego układu dla tego oddziału."
+    },
+    "info": {
+      "topDownTitle": "Szczegóły rzutu z góry",
+      "frontTitle": "Szczegóły widoku frontowego",
+      "empty": "Nic jeszcze nie zaznaczono.",
+      "emptyTopDown": "Wybierz lokalizację w drzewie lub na mapie rzutu z góry, aby zobaczyć jej szczegóły.",
+      "emptyFront": "Wybierz lokalizację, która ma segmenty frontowe, aby podejrzeć ich szczegóły.",
+      "fields": {
+        "code": "Kod",
+        "description": "Opis",
+        "dimensions": "Wymiary",
+        "width": "Szerokość",
+        "depth": "Głębokość",
+        "height": "Wysokość",
+        "selectionCount": "{count, plural, one {# zaznaczona lokalizacja} few {# zaznaczone lokalizacje} many {# zaznaczonych lokalizacji} other {# zaznaczonej lokalizacji}}"
+      },
+      "roles": {
+        "logical": "Lokalizacja logiczna",
+        "layoutRoot": "Lokalizacja główna mapy",
+        "topDownUnit": "Jednostka z rzutu z góry",
+        "frontSegment": "Segment widoku frontowego",
+        "topStorageSegment": "Składowanie na górze"
+      },
+      "multiple": {
+        "topDownSelection": "Zaznaczenie rzutu z góry",
+        "frontSelection": "Zaznaczenie widoku frontowego",
+        "oneDescription": "1 zaznaczona lokalizacja ma opis.",
+        "manyDescriptions": "{count} zaznaczonych lokalizacji ma opisy."
+      }
     }
   },
   "warehouseMapListPage": {

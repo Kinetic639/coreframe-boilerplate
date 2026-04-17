@@ -484,7 +484,8 @@
     "badges": {
       "published": "Published",
       "draft": "Draft",
-      "noMap": "No map"
+      "noMap": "No map",
+      "loadingMap": "Loading map…"
     },
     "actions": {
       "addLocation": "Add Location",
@@ -495,6 +496,7 @@
       "copyLocationCode": "Copy location code",
       "copyLocationPath": "Copy location path",
       "previewMap": "Preview map",
+      "loadingMapState": "Loading map…",
       "previewGroupOnMap": "Preview group on map",
       "openMapEditor": "Open map editor",
       "createMapForLocation": "Create map for this location",
@@ -516,7 +518,19 @@
     "feedback": {
       "locationCodeCopied": "Location code {code} copied to clipboard.",
       "locationPathCopied": "Location path copied to clipboard.",
-      "copyFailed": "Failed to copy to clipboard."
+      "copyFailed": "Failed to copy to clipboard.",
+      "publicMapsEnabled": "Public map preview enabled.",
+      "publicMapsDisabled": "Public map preview disabled.",
+      "publicMapsToggleFailed": "Could not update public map preview settings.",
+      "publicMapsLinkCopied": "Public map link copied to clipboard."
+    },
+    "publicMaps": {
+      "title": "Public preview",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "toggle": "Toggle public warehouse maps",
+      "copyLink": "Copy public link",
+      "copyLinkDisabled": "Enable public preview to copy the link"
     },
     "tree": {
       "collapse": "Collapse",
@@ -651,26 +665,71 @@
       }
     }
   },
+  "publicWarehouseMapsPage": {
+    "title": "Warehouse maps",
+    "description": "Browse all published warehouse layouts for this branch.",
+    "layoutSelectLabel": "Layout",
+    "layoutSelectPlaceholder": "Select a layout",
+    "emptyTitle": "No public layouts available",
+    "emptyDescription": "This branch has not published any warehouse layouts yet.",
+    "selectionCleared": "Click a location on the map to inspect its front view.",
+    "colorMode": {
+      "showColors": "Show colors",
+      "showMonochrome": "Show monochromatic view"
+    }
+  },
   "warehouseMapDialog": {
     "title": "Warehouse Map",
     "tree": {
-      "title": "Locations",
-      "description": "Click to highlight on map",
       "empty": "No locations on this layout yet.",
-      "legendPlaced": "Placed on canvas",
-      "legendUnplaced": "Not yet placed",
-      "onCanvas": "On canvas",
-      "highlighted": "Highlighted"
+      "searchPlaceholder": "Search locations...",
+      "clearSearch": "Clear search",
+      "noResults": "No matching locations found.",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all"
     },
     "actions": {
       "openEditor": "Open editor",
+      "copy": "Copy",
+      "copied": "Copied",
       "showColors": "Show colors",
-      "monochromaticView": "Monochromatic view"
+      "monochromaticView": "Monochromatic view",
+      "enterFullscreen": "Enter fullscreen",
+      "exitFullscreen": "Exit fullscreen"
     },
     "states": {
       "noBranch": "Select a branch to view the warehouse map.",
       "loadError": "Failed to load the warehouse map. Please try again.",
       "noPublishedLayout": "No published layout for this branch yet."
+    },
+    "info": {
+      "topDownTitle": "Top-down details",
+      "frontTitle": "Front view details",
+      "empty": "Nothing selected yet.",
+      "emptyTopDown": "Select a location in the tree or on the top-down map to preview its details.",
+      "emptyFront": "Select a location that has front segments to preview their details here.",
+      "fields": {
+        "code": "Code",
+        "description": "Description",
+        "dimensions": "Dimensions",
+        "width": "Width",
+        "depth": "Depth",
+        "height": "Height",
+        "selectionCount": "{count, plural, one {# location selected} other {# locations selected}}"
+      },
+      "roles": {
+        "logical": "Logical location",
+        "layoutRoot": "Root map location",
+        "topDownUnit": "Top-down unit",
+        "frontSegment": "Front segment",
+        "topStorageSegment": "Top storage"
+      },
+      "multiple": {
+        "topDownSelection": "{count, plural, one {Top-down selection} other {Top-down selection}}",
+        "frontSelection": "{count, plural, one {Front selection} other {Front selection}}",
+        "oneDescription": "1 selected location has a description.",
+        "manyDescriptions": "{count} selected locations have descriptions."
+      }
     }
   },
   "warehouseMapListPage": {
