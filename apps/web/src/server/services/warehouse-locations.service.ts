@@ -679,8 +679,11 @@ export class WarehouseLocationsService {
       .filter((child) => (child.map_role ?? "logical") === "front_segment")
       .reduce((sum, child) => sum + (child.physical_height_m ?? 0), 0);
 
-    const availableHeight = Math.max(0, parentResult.data.physical_height_m - usedHeight);
-    if (input.physicalHeightM > availableHeight) {
+    const availableHeight = Math.max(
+      0,
+      Math.round((parentResult.data.physical_height_m - usedHeight) * 1e4) / 1e4
+    );
+    if (Math.round(input.physicalHeightM * 1e4) / 1e4 > availableHeight) {
       return {
         success: false,
         error: isTopStorageSegment

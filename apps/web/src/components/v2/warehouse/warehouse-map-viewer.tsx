@@ -119,6 +119,7 @@ export function WarehouseMapViewer({
   const [pan, setPan] = React.useState({ x: 40, y: 40 });
   const [tick, setTick] = React.useState(0); // drives smooth highlight pulse animation
   const [hoveredLocationId, setHoveredLocationId] = React.useState<string | null>(null);
+  const [mousePos, setMousePos] = React.useState<{ x: number; y: number } | null>(null);
   const hasUserAdjustedCameraRef = React.useRef(false);
   const lastAutoFitKeyRef = React.useRef<string | null>(null);
   const effectiveHighlightIds = React.useMemo(() => {
@@ -149,6 +150,13 @@ export function WarehouseMapViewer({
       ),
     [layout.shapes, projection]
   );
+  const narrowHeaderTooltip = React.useMemo(() => {
+    if (!hoveredLocationId) return null;
+    const bg = projectionShapes.find(
+      (s) => s.id === `combined:header-bg:${hoveredLocationId}` && s.label !== null
+    );
+    return bg?.label ?? null;
+  }, [hoveredLocationId, projectionShapes]);
   const contentBounds = React.useMemo(() => {
     if (projectionShapes.length === 0) {
       return {
@@ -598,7 +606,15 @@ export function WarehouseMapViewer({
   };
 
   return (
-    <div ref={containerRef} className={`w-full h-full ${className}`}>
+    <div
+      ref={containerRef}
+      className={`relative w-full h-full ${className}`}
+      onMouseMove={(e) => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      }}
+      onMouseLeave={() => setMousePos(null)}
+    >
       {!hasMeasuredViewport ? null : (
         <Stage
           width={dimensions.width}
@@ -631,6 +647,14 @@ export function WarehouseMapViewer({
             {sortedShapes.map(renderShape)}
           </Layer>
         </Stage>
+      )}
+      {narrowHeaderTooltip && mousePos && (
+        <div
+          className="pointer-events-none absolute z-50 rounded border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
+          style={{ left: mousePos.x + 12, top: mousePos.y - 28 }}
+        >
+          {narrowHeaderTooltip}
+        </div>
       )}
     </div>
   );
