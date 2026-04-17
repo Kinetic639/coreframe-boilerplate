@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
-import { Eraser } from "lucide-react";
+import { Check, ChevronsUpDown, Eraser } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { createLocationSchema, updateLocationSchema } from "@/app/actions/warehouse/schemas";
 import type { CreateLocationInput, UpdateLocationInput } from "@/app/actions/warehouse/schemas";
 import type { WarehouseLocation } from "@/server/services/warehouse-locations.service";
@@ -32,6 +42,103 @@ import {
   type WarehouseLocationGroup,
 } from "@/lib/warehouse/location-tree";
 import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
+
+// ─── Parent location combobox with search ─────────────────────────────────────
+
+function buildCodePath(loc: WarehouseLocation, allById: Map<string, WarehouseLocation>): string {
+  const parts: string[] = [];
+  let current: WarehouseLocation | undefined = loc;
+  while (current) {
+    if (current.code) parts.unshift(current.code);
+    current = current.parent_id ? allById.get(current.parent_id) : undefined;
+  }
+  return parts.join(" / ");
+}
+
+interface ParentLocationComboboxProps {
+  options: WarehouseLocation[];
+  allLocations: WarehouseLocation[];
+  value: string | null;
+  onChange: (val: string | null) => void;
+  placeholder: string;
+}
+
+function ParentLocationCombobox({
+  options,
+  allLocations,
+  value,
+  onChange,
+  placeholder,
+}: ParentLocationComboboxProps) {
+  const [open, setOpen] = useState(false);
+
+  const allById = useMemo(() => new Map(allLocations.map((l) => [l.id, l])), [allLocations]);
+
+  const selected = options.find((o) => o.id === value);
+  const selectedLabel = selected
+    ? `${selected.name}${selected.code ? ` (${selected.code})` : ""}`
+    : placeholder;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        style={{ width: "var(--radix-popover-trigger-width)" }}
+        className="p-0"
+        align="start"
+      >
+        <Command>
+          <CommandInput placeholder="Search..." />
+          <CommandList className="max-h-60">
+            <CommandEmpty>No locations found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((loc) => {
+                const codePath = buildCodePath(loc, allById);
+                const searchValue = `${loc.name} ${codePath}`;
+                return (
+                  <CommandItem
+                    key={loc.id}
+                    value={searchValue}
+                    onSelect={() => {
+                      onChange(loc.id === value ? null : loc.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4 shrink-0",
+                        value === loc.id ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    <span className="truncate flex-1">
+                      {loc.name}
+                      {loc.code ? ` (${loc.code})` : ""}
+                    </span>
+                    {codePath && (
+                      <span className="ml-3 text-xs text-muted-foreground shrink-0">
+                        {codePath}
+                      </span>
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -280,7 +387,7 @@ export function LocationFormDialog({
   const frontSegmentAvailableHeight =
     frontSegmentMaxHeight === null
       ? null
-      : Math.max(0, frontSegmentMaxHeight - frontSegmentSiblingHeight);
+      : Math.max(0, Math.round((frontSegmentMaxHeight - frontSegmentSiblingHeight) * 1e4) / 1e4);
   const selectedParentColor = selectedParentLocation
     ? getEffectiveLocationColor(selectedParentLocation, availableGroups, _availableParents)
     : null;
@@ -302,9 +409,13 @@ export function LocationFormDialog({
     const role = candidate.map_role ?? "logical";
     if (role === "layout_root") return true;
     if (role === "logical") return true;
+    if (role === "top_down_unit") return true;
     return false;
   });
-  const topStorageParentOptions = topDownParentOptions.filter((candidate) => {
+  const frontSegmentParentOptions = _availableParents.filter(
+    (candidate) => (candidate.map_role ?? "logical") === "top_down_unit"
+  );
+  const topStorageParentOptions = frontSegmentParentOptions.filter((candidate) => {
     if (!candidate.allow_top_storage) return false;
 
     const hasAnotherTopStorageChild = _availableParents.some(
@@ -569,37 +680,24 @@ export function LocationFormDialog({
               {(selectedMapRole === "logical" || shouldShowTopDownDimensions) && (
                 <div className="space-y-1">
                   <Label>{t("fields.parentLocation")}</Label>
-                  <Select
-                    value={selectedParentId ?? "__none__"}
-                    onValueChange={(val) => {
-                      const nextParentId = val === "__none__" ? null : val;
-                      setValue("parent_id", nextParentId);
-                      if (!nextParentId) {
+                  <ParentLocationCombobox
+                    options={
+                      selectedMapRole === "logical" ? logicalParentOptions : topDownParentOptions
+                    }
+                    allLocations={_availableParents}
+                    value={selectedParentId ?? null}
+                    onChange={(val) => {
+                      setValue("parent_id", val);
+                      if (!val) {
                         setValue("inherit_parent_color", false);
                       }
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          selectedMapRole === "logical"
-                            ? t("placeholders.noParent")
-                            : t("placeholders.selectRootLocation")
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(selectedMapRole === "logical"
-                        ? logicalParentOptions
-                        : topDownParentOptions
-                      ).map((loc) => (
-                        <SelectItem key={loc.id} value={loc.id}>
-                          {loc.name}
-                          {loc.code ? ` (${loc.code})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder={
+                      selectedMapRole === "logical"
+                        ? t("placeholders.noParent")
+                        : t("placeholders.selectRootLocation")
+                    }
+                  />
                   {shouldShowTopDownDimensions && (
                     <p className="text-xs text-muted-foreground">{t("help.topDownParent")}</p>
                   )}
@@ -609,30 +707,20 @@ export function LocationFormDialog({
               {shouldShowFrontSegmentDimensions && (
                 <div className="space-y-1">
                   <Label>{t("fields.parentLocation")}</Label>
-                  <Select
-                    value={selectedParentId ?? "__none__"}
-                    onValueChange={(val) => {
-                      const nextParentId = val === "__none__" ? null : val;
-                      setValue("parent_id", nextParentId);
-                      if (!nextParentId) {
+                  <ParentLocationCombobox
+                    options={
+                      isTopStorageSegment ? topStorageParentOptions : frontSegmentParentOptions
+                    }
+                    allLocations={_availableParents}
+                    value={selectedParentId ?? null}
+                    onChange={(val) => {
+                      setValue("parent_id", val);
+                      if (!val) {
                         setValue("inherit_parent_color", false);
                       }
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t("placeholders.selectTopDownUnit")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(isTopStorageSegment ? topStorageParentOptions : topDownParentOptions).map(
-                        (loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.name}
-                            {loc.code ? ` (${loc.code})` : ""}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
+                    placeholder={t("placeholders.selectTopDownUnit")}
+                  />
                   <p className="text-xs text-muted-foreground">
                     {isTopStorageSegment
                       ? t("help.topStorageParent")

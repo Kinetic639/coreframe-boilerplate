@@ -120,7 +120,7 @@ export function buildFrontElevationLayout(params: {
       ...layout,
       id: `${layout.id}:front:${anchorLocationId}`,
       name: `${layout.name} / ${anchorLocation.name}`,
-      canvas_width_m: Math.max(canvasWidth, 0.5),
+      canvas_width_m: Math.max(canvasWidth, 0.01),
       canvas_height_m: Math.max(canvasHeight, 0.5),
       shapes: explicitShapes,
     };
@@ -143,7 +143,7 @@ export function buildFrontElevationLayout(params: {
     ...layout,
     id: `${layout.id}:front:${anchorLocationId}`,
     name: `${layout.name} / ${anchorLocation.name}`,
-    canvas_width_m: Math.max(canvasWidth, 0.5),
+    canvas_width_m: Math.max(canvasWidth, 0.01),
     canvas_height_m: Math.max(
       canvasHeight,
       derivedShapes.reduce((max, shape) => Math.max(max, shape.y + shape.height), 0),
@@ -163,8 +163,7 @@ export function buildCombinedFrontElevationLayout(params: {
   const { layout, locations, locationGroups, anchorLocationIds, gapM = 0 } = params;
   const uniqueAnchorIds = [...new Set(anchorLocationIds.filter(Boolean))];
   const headerHeight = 0.52;
-  const anchorLocationMap = new Map(locations.map((location) => [location.id, location]));
-
+  const anchorLocationMap = new Map(locations.map((l) => [l.id, l]));
   if (uniqueAnchorIds.length === 0) {
     return null;
   }
@@ -188,77 +187,87 @@ export function buildCombinedFrontElevationLayout(params: {
     return partialLayouts[0];
   }
 
-  const maxContentHeight = partialLayouts.reduce(
-    (max, partialLayout) => Math.max(max, partialLayout.canvas_height_m),
-    0.5
+  // Use actual shape bounds (not canvas_height_m) so physical_height_m padding doesn't add whitespace
+  const colBottoms = partialLayouts.map((pl) =>
+    pl.shapes.reduce((m, s) => Math.max(m, s.y + s.height), 0)
   );
+  const maxContentHeight = Math.max(...colBottoms, 0.5);
 
   let nextX = 0;
   const stitchedShapes = partialLayouts.flatMap((partialLayout, index) => {
-    const offsetX = nextX;
-    const offsetY = headerHeight + Math.max(0, maxContentHeight - partialLayout.canvas_height_m);
-    nextX += partialLayout.canvas_width_m + (index < partialLayouts.length - 1 ? gapM : 0);
-    const anchorLocation = anchorLocationMap.get(uniqueAnchorIds[index]);
+    const anchorId = uniqueAnchorIds[index];
+    const anchorLocation = anchorLocationMap.get(anchorId);
     const anchorColor = anchorLocation
       ? (getEffectiveLocationColor(anchorLocation, locationGroups, locations) ?? "#64748b")
       : "#64748b";
-    const headerBackground: WarehouseLayoutShape = {
-      id: `combined:header-bg:${uniqueAnchorIds[index]}`,
-      layout_id: partialLayout.id,
-      organization_id: partialLayout.organization_id,
-      branch_id: partialLayout.branch_id,
-      shape_type: "zone",
-      projection: "front_elevation",
-      anchor_location_id: uniqueAnchorIds[index],
-      location_id: uniqueAnchorIds[index],
-      label: null,
-      x: offsetX,
-      y: 0,
-      width: partialLayout.canvas_width_m,
-      height: headerHeight,
-      rotation: 0,
-      style: {
-        fill: withAlpha(anchorColor, "26"),
-        stroke: anchorColor,
-        strokeWidth: 0.045,
-      },
-      z_index: 90,
-      sort_order: -200 + index,
-      created_by: null,
-      created_at: partialLayout.created_at,
-      updated_at: partialLayout.updated_at,
-      deleted_at: null,
-    };
-    const headerLabel: WarehouseLayoutShape = {
-      id: `combined:header:${uniqueAnchorIds[index]}`,
-      layout_id: partialLayout.id,
-      organization_id: partialLayout.organization_id,
-      branch_id: partialLayout.branch_id,
-      shape_type: "label",
-      projection: "front_elevation",
-      anchor_location_id: uniqueAnchorIds[index],
-      location_id: uniqueAnchorIds[index],
-      label: anchorLocation?.code ?? anchorLocation?.name ?? null,
-      x: offsetX,
-      y: 0.035,
-      width: partialLayout.canvas_width_m,
-      height: headerHeight - 0.07,
-      rotation: 0,
-      style: {
-        textColor: anchorColor,
-        fontSize: 0.24,
-      },
-      z_index: 100,
-      sort_order: -100 + index,
-      created_by: null,
-      created_at: partialLayout.created_at,
-      updated_at: partialLayout.updated_at,
-      deleted_at: null,
-    };
+    const topDownShape = layout.shapes.find(
+      (s) =>
+        s.projection !== "front_elevation" &&
+        s.location_id === anchorId &&
+        s.shape_type === "location" &&
+        !s.deleted_at
+    );
+    const effectiveWidth =
+      anchorLocation?.physical_width_m ?? topDownShape?.width ?? partialLayout.canvas_width_m;
+    const isNarrow = effectiveWidth <= 0.2;
+
+    const offsetX = nextX;
+    const offsetY = headerHeight + Math.max(0, maxContentHeight - colBottoms[index]);
+    nextX += partialLayout.canvas_width_m + (index < partialLayouts.length - 1 ? gapM : 0);
+
+    const headerShapes: WarehouseLayoutShape[] = isNarrow
+      ? []
+      : [
+          {
+            id: `combined:header-bg:${anchorId}`,
+            layout_id: partialLayout.id,
+            organization_id: partialLayout.organization_id,
+            branch_id: partialLayout.branch_id,
+            shape_type: "zone",
+            projection: "front_elevation",
+            anchor_location_id: anchorId,
+            location_id: anchorId,
+            label: null,
+            x: offsetX,
+            y: 0,
+            width: partialLayout.canvas_width_m,
+            height: headerHeight,
+            rotation: 0,
+            style: { fill: withAlpha(anchorColor, "26"), stroke: anchorColor, strokeWidth: 0.045 },
+            z_index: 90,
+            sort_order: -200 + index,
+            created_by: null,
+            created_at: partialLayout.created_at,
+            updated_at: partialLayout.updated_at,
+            deleted_at: null,
+          },
+          {
+            id: `combined:header:${anchorId}`,
+            layout_id: partialLayout.id,
+            organization_id: partialLayout.organization_id,
+            branch_id: partialLayout.branch_id,
+            shape_type: "label",
+            projection: "front_elevation",
+            anchor_location_id: anchorId,
+            location_id: anchorId,
+            label: anchorLocation?.code ?? anchorLocation?.name ?? null,
+            x: offsetX,
+            y: 0.035,
+            width: partialLayout.canvas_width_m,
+            height: headerHeight - 0.07,
+            rotation: 0,
+            style: { textColor: anchorColor, fontSize: 0.24 },
+            z_index: 100,
+            sort_order: -100 + index,
+            created_by: null,
+            created_at: partialLayout.created_at,
+            updated_at: partialLayout.updated_at,
+            deleted_at: null,
+          },
+        ];
 
     return [
-      headerBackground,
-      headerLabel,
+      ...headerShapes,
       ...partialLayout.shapes.map((shape) => ({
         ...shape,
         x: shape.x + offsetX,
