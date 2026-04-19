@@ -33,7 +33,13 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -41,7 +47,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "@/i18n/navigation";
 import { usePublishedLayoutQuery } from "@/hooks/queries/warehouse";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
-import { resolveLocationMapContext, resolveLocationMapContexts } from "@/lib/warehouse/map-context";
+import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
 import {
   getEffectiveLocationColor,
   type WarehouseLocation,
@@ -440,17 +446,11 @@ function TreeLocationRow({
   const myGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
   const hasChildren = children.length > 0 || myGroups.length > 0;
   const isSelectable = selectableLocationIds.has(location.id);
-  const isActive = highlightedIds.includes(location.id);
   const effectiveExpanded =
     hasChildren &&
     (expandMode === "all" ||
       (expandMode === "auto" && (expanded || autoExpandedLocationIds.has(location.id))));
-  const selectionIds =
-    (location.map_role ?? "logical") === "logical"
-      ? getDescendantLocationIds(location.id, allLocations).filter((id) =>
-          selectableLocationIds.has(id)
-        )
-      : [location.id];
+  const isActive = highlightedIds.includes(location.id);
 
   return (
     <div>
@@ -464,7 +464,11 @@ function TreeLocationRow({
         )}
         style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => {
-          if (isSelectable) onSelectIds(selectionIds);
+          if (isSelectable) {
+            onSelectIds(
+              highlightedIds.length === 1 && highlightedIds[0] === location.id ? [] : [location.id]
+            );
+          }
         }}
       >
         <button
@@ -1090,24 +1094,6 @@ export function WarehouseMapDialog({
       setIsFullscreen(false);
     }
   }, [open]);
-  const mapContexts = React.useMemo(
-    () =>
-      locations && layout
-        ? resolveLocationMapContexts(
-            highlightedIds,
-            locations,
-            rootLocationId ?? layout.root_location_id
-          )
-        : [],
-    [highlightedIds, layout, locations, rootLocationId]
-  );
-  const topDownHighlightIds = React.useMemo(
-    () =>
-      [
-        ...new Set(mapContexts.map((context) => context.topDownAnchorLocationId).filter(Boolean)),
-      ] as string[],
-    [mapContexts]
-  );
   const selectedTopDownFocusIds = React.useMemo(() => {
     if (!locations) return [];
 
@@ -1122,8 +1108,13 @@ export function WarehouseMapDialog({
             if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
               return location.parent_id ?? null;
             }
+            if ((location.map_role ?? "logical") === "logical") {
+              const containerTopDownIds = getDescendantTopDownUnitIds(id, locations, locationMap);
+              return containerTopDownIds;
+            }
             return null;
           })
+          .flat()
           .filter(Boolean)
       ),
     ] as string[];
@@ -1273,6 +1264,7 @@ export function WarehouseMapDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideClose
         className={cn(
           "flex flex-col gap-0 p-0",
           isFullscreen
@@ -1282,31 +1274,8 @@ export function WarehouseMapDialog({
               : "h-[80vh] max-w-4xl"
         )}
       >
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-14 top-4 z-10 h-8 w-8"
-                onClick={() => setIsFullscreen((value) => !value)}
-              >
-                {isFullscreen ? (
-                  <Minimize2 className="h-4 w-4" />
-                ) : (
-                  <Maximize2 className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {isFullscreen ? t("actions.exitFullscreen") : t("actions.enterFullscreen")}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
         {/* Header */}
-        <DialogHeader className="shrink-0 border-b px-4 py-3 pr-24">
+        <DialogHeader className="shrink-0 border-b px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <DialogTitle className="flex min-w-0 items-center gap-2 text-base font-medium">
@@ -1360,6 +1329,33 @@ export function WarehouseMapDialog({
               </DialogTitle>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      onClick={() => setIsFullscreen((value) => !value)}
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="h-4 w-4" />
+                      ) : (
+                        <Maximize2 className="h-4 w-4" />
+                      )}
+                      <span className="sr-only">
+                        {isFullscreen ? t("actions.exitFullscreen") : t("actions.enterFullscreen")}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isFullscreen ? t("actions.exitFullscreen") : t("actions.enterFullscreen")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <DialogClose className="inline-flex h-8 w-8 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
               {false && showEditorLink && layout && (
                 <Button
                   variant="ghost"
@@ -1451,11 +1447,14 @@ export function WarehouseMapDialog({
                     <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
                       <WarehouseMapViewer
                         layout={layout}
+                        viewBackgroundLabel={t("backgroundLabels.topDown")}
                         locations={locations}
                         locationGroups={locationGroups}
                         highlightLocationId={highlightedId}
                         highlightLocationIds={
-                          topDownHighlightIds.length > 0 ? topDownHighlightIds : highlightedIds
+                          selectedTopDownFocusIds.length > 0
+                            ? selectedTopDownFocusIds
+                            : highlightedIds
                         }
                         autoPanToHighlight={false}
                         monochromaticHighlight={isMonochrome}
@@ -1477,13 +1476,14 @@ export function WarehouseMapDialog({
                     layout={layout}
                     locations={locations}
                     locationGroups={locationGroups ?? []}
+                    viewBackgroundLabel={t("backgroundLabels.front")}
                     anchorLocationId={frontAnchorLocationId}
                     anchorLocationIds={frontStageAnchorIds}
                     highlightLocationIds={frontHighlightIds}
                     headerActiveLocationIds={selectedTopDownFocusIds}
                     monochromaticHighlight={isMonochrome}
                     onShapeClick={shouldShowTree ? handleShapeClick : undefined}
-                    className="h-64 shrink-0"
+                    className="h-[17rem] shrink-0"
                     rightRail={
                       <MapInfoDrawer
                         title={t("info.frontTitle")}

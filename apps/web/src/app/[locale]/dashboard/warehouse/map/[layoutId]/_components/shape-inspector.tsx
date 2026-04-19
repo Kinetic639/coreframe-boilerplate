@@ -85,6 +85,7 @@ interface ShapeInspectorProps {
       color?: string | null;
       group_id?: string | null;
       inherit_group_color?: boolean;
+      elevation_level?: number;
     }
   ) => void;
   onUpdateLocationDimensions: (
@@ -322,6 +323,9 @@ export function ShapeInspector({
   const [inheritGroupColor, setInheritGroupColor] = React.useState(
     linkedLocation?.inherit_group_color ?? false
   );
+  const [locElevationLevel, setLocElevationLevel] = React.useState(
+    String((linkedLocation ?? selectedContainerLocation)?.elevation_level ?? 1)
+  );
   const [groupName, setGroupName] = React.useState(selectedGroup?.name ?? "");
   const [groupColor, setGroupColor] = React.useState(selectedGroup?.color ?? "#64748b");
 
@@ -330,7 +334,16 @@ export function ShapeInspector({
     setLocCode(linkedLocation?.code ?? "");
     setLocColor(linkedLocation?.color ?? "#10b981");
     setInheritGroupColor(linkedLocation?.inherit_group_color ?? false);
+    setLocElevationLevel(String(linkedLocation?.elevation_level ?? 1));
   }, [linkedLocation?.id]); // reset only when a different location is selected
+
+  React.useEffect(() => {
+    if (!selectedContainerLocation) return;
+    setLocName(selectedContainerLocation.name ?? "");
+    setLocCode(selectedContainerLocation.code ?? "");
+    setLocColor(selectedContainerLocation.color ?? "#10b981");
+    setLocElevationLevel(String(selectedContainerLocation.elevation_level ?? 1));
+  }, [selectedContainerLocation?.id]);
 
   const effectivePreviewColor = linkedLocation
     ? (getEffectiveLocationColor(
@@ -360,13 +373,36 @@ export function ShapeInspector({
       : "";
   }, [isBulkTopDownLocationSelection, selectedShapes]);
 
+  const commonMultiElevationLevel = React.useMemo(() => {
+    if (!isBulkTopDownLocationSelection || selectedShapes.length === 0) return "";
+
+    const locationIds = selectedShapes
+      .map((shape) => shape.location_id)
+      .filter((locationId): locationId is string => !!locationId);
+    if (locationIds.length !== selectedShapes.length) return "";
+
+    const selectedLocations = locationIds
+      .map((locationId) => locations.find((location) => location.id === locationId) ?? null)
+      .filter((location): location is WarehouseLocation => !!location);
+    if (selectedLocations.length !== selectedShapes.length) return "";
+
+    const [first, ...rest] = selectedLocations;
+    return rest.every(
+      (location) => (location.elevation_level ?? 1) === (first.elevation_level ?? 1)
+    )
+      ? String(first.elevation_level ?? 1)
+      : "";
+  }, [isBulkTopDownLocationSelection, locations, selectedShapes]);
+
   const [bulkWidth, setBulkWidth] = React.useState(commonMultiWidth);
   const [bulkDepth, setBulkDepth] = React.useState(commonMultiDepth);
+  const [bulkElevationLevel, setBulkElevationLevel] = React.useState(commonMultiElevationLevel);
 
   React.useEffect(() => {
     setBulkWidth(commonMultiWidth);
     setBulkDepth(commonMultiDepth);
-  }, [commonMultiDepth, commonMultiWidth]);
+    setBulkElevationLevel(commonMultiElevationLevel);
+  }, [commonMultiDepth, commonMultiElevationLevel, commonMultiWidth]);
 
   const applyBulkTopDownDimension = React.useCallback(
     (field: "width" | "height", rawValue: string) => {
@@ -402,6 +438,19 @@ export function ShapeInspector({
       });
     },
     [isBulkRotatableSelection, onShapeGeometryChange, selectedShapes]
+  );
+
+  const applyBulkElevationLevel = React.useCallback(
+    (rawValue: string) => {
+      const value = Math.max(1, Number.parseInt(rawValue, 10) || 1);
+      if (!isBulkTopDownLocationSelection) return;
+
+      selectedShapes.forEach((shape) => {
+        if (!shape.location_id) return;
+        onUpdateLocation(shape.location_id, { elevation_level: value });
+      });
+    },
+    [isBulkTopDownLocationSelection, onUpdateLocation, selectedShapes]
   );
 
   return (
@@ -563,6 +612,28 @@ export function ShapeInspector({
                       className="h-8 text-xs font-mono"
                     />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground uppercase">
+                    {t("fields.elevationLevel")}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={bulkElevationLevel}
+                    placeholder="—"
+                    onChange={(e) => setBulkElevationLevel(e.target.value)}
+                    onBlur={(e) => {
+                      const nextValue = String(
+                        Math.max(1, Number.parseInt(e.target.value, 10) || 1)
+                      );
+                      setBulkElevationLevel(nextValue);
+                      applyBulkElevationLevel(nextValue);
+                    }}
+                    className="h-8 text-xs font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground">{t("help.elevationLevel")}</p>
                 </div>
               </div>
             )}
@@ -793,6 +864,36 @@ export function ShapeInspector({
                 </div>
               </div>
 
+              <div className="space-y-1">
+                <Label
+                  htmlFor="container-elevation-level"
+                  className="text-[10px] uppercase text-muted-foreground font-semibold"
+                >
+                  {t("fields.elevationLevel")}
+                </Label>
+                <Input
+                  id="container-elevation-level"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={locElevationLevel}
+                  onChange={(e) => setLocElevationLevel(e.target.value)}
+                  onBlur={() => {
+                    const nextValue = Math.max(
+                      1,
+                      Number.parseInt(locElevationLevel || "1", 10) || 1
+                    );
+                    setLocElevationLevel(String(nextValue));
+                    if (nextValue !== (selectedContainerLocation.elevation_level ?? 1)) {
+                      onUpdateLocation(selectedContainerLocation.id, {
+                        elevation_level: nextValue,
+                      });
+                    }
+                  }}
+                  className="h-8 text-xs font-mono"
+                />
+              </div>
+
               <div className="rounded-md border bg-muted/30 px-3 py-2">
                 <p className="text-[10px] uppercase text-muted-foreground font-semibold">
                   {t("fields.groupMembers")}
@@ -918,6 +1019,36 @@ export function ShapeInspector({
                           : locColor}
                       </span>
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="loc-elevation-level"
+                      className="text-[10px] uppercase text-muted-foreground font-semibold"
+                    >
+                      {t("fields.elevationLevel")}
+                    </Label>
+                    <Input
+                      id="loc-elevation-level"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={locElevationLevel}
+                      onChange={(e) => setLocElevationLevel(e.target.value)}
+                      onBlur={() => {
+                        const nextValue = Math.max(
+                          1,
+                          Number.parseInt(locElevationLevel || "1", 10) || 1
+                        );
+                        setLocElevationLevel(String(nextValue));
+                        if (nextValue !== (linkedLocation.elevation_level ?? 1)) {
+                          onUpdateLocation(linkedLocation.id, {
+                            elevation_level: nextValue,
+                          });
+                        }
+                      }}
+                      className="h-8 text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground">{t("help.elevationLevel")}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase text-muted-foreground font-semibold">

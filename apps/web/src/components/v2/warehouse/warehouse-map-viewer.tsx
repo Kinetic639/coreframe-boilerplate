@@ -18,7 +18,8 @@ import {
   METER_TO_PIXEL,
   locationColorToFill,
 } from "@/app/[locale]/dashboard/warehouse/map/[layoutId]/_components/map-canvas";
-import { useIsDark } from "@/hooks/use-css-var";
+import { useCssVars, useIsDark } from "@/hooks/use-css-var";
+import { cn } from "@/lib/utils";
 
 function withAlpha(color: string, alphaHex: string) {
   if (!color.startsWith("#")) return color;
@@ -55,23 +56,22 @@ function getRotationOffsets(
   };
 }
 
-// ─── Shape type colors (read-only, same palette as editor) ───────────────────
+function getShapeElevationLevel(shape: WarehouseLayoutShape, locations?: WarehouseLocation[]) {
+  if ((shape.projection ?? "top_down") !== "top_down") return 1;
+  if (shape.shape_type !== "location" || !shape.location_id) return 1;
 
-const SHAPE_DEFAULTS: Record<ShapeType, { fill: string; stroke: string }> = {
-  location: { fill: "#d1fae5", stroke: "#10b981" },
-  wall: { fill: "#94a3b8", stroke: "#475569" },
-  door: { fill: "#bfdbfe", stroke: "#3b82f6" },
-  aisle: { fill: "#fef9c3", stroke: "#eab308" },
-  zone: { fill: "#ede9fe", stroke: "#8b5cf6" },
-  obstacle: { fill: "#fee2e2", stroke: "#ef4444" },
-  label: { fill: "transparent", stroke: "transparent" },
-};
+  return Math.max(
+    1,
+    locations?.find((location) => location.id === shape.location_id)?.elevation_level ?? 1
+  );
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface WarehouseMapViewerProps {
   layout: WarehouseLayoutWithShapes;
   projection?: WarehouseLayoutProjection;
+  viewBackgroundLabel?: string | null;
   /** Optional locations list — used to derive fill/stroke from location.color live. */
   locations?: WarehouseLocation[];
   locationGroups?: WarehouseLocationGroup[];
@@ -93,6 +93,7 @@ export interface WarehouseMapViewerProps {
    * The highlighted shape is shown in its full color. Requires highlightLocationId.
    */
   monochromaticHighlight?: boolean;
+  viewportResetKey?: string | number;
   className?: string;
   /** Called when the user clicks a shape */
   onShapeClick?: (shape: WarehouseLayoutShape) => void;
@@ -103,6 +104,7 @@ export interface WarehouseMapViewerProps {
 export function WarehouseMapViewer({
   layout,
   projection = "top_down",
+  viewBackgroundLabel,
   locations,
   locationGroups,
   highlightLocationId,
@@ -110,6 +112,7 @@ export function WarehouseMapViewer({
   headerActiveLocationIds,
   autoPanToHighlight = true,
   monochromaticHighlight = false,
+  viewportResetKey,
   className = "",
   onShapeClick,
 }: WarehouseMapViewerProps) {
@@ -140,8 +143,76 @@ export function WarehouseMapViewer({
   const hasHighlights = effectiveHighlightIds.length > 0;
 
   const isDark = useIsDark();
-  const canvasBg = isDark ? "#18181b" : "#ffffff";
-  const canvasBorder = isDark ? "#3f3f46" : "#94a3b8";
+  const {
+    "--background": themeBackground,
+    "--card": themeCard,
+    "--border": themeBorder,
+    "--muted-foreground": themeMutedForeground,
+    "--muted": themeMuted,
+    "--accent": themeAccent,
+    "--foreground": themeForeground,
+    "--primary": themePrimary,
+    "--primary-foreground": themePrimaryForeground,
+    "--secondary": themeSecondary,
+    "--secondary-foreground": themeSecondaryForeground,
+    "--card-foreground": themeCardForeground,
+  } = useCssVars([
+    "--background",
+    "--card",
+    "--border",
+    "--muted-foreground",
+    "--muted",
+    "--accent",
+    "--foreground",
+    "--primary",
+    "--primary-foreground",
+    "--secondary",
+    "--secondary-foreground",
+    "--card-foreground",
+  ]);
+  const canvasBg = themeCard || themeBackground || (isDark ? "#18181b" : "#ffffff");
+  const canvasBorder = themeBorder || (isDark ? "#3f3f46" : "#94a3b8");
+  const shapeDefaults = React.useMemo<Record<ShapeType, { fill: string; stroke: string }>>(
+    () => ({
+      location: {
+        fill: themeAccent || themeMuted || canvasBg,
+        stroke: themePrimary || themeForeground || canvasBorder,
+      },
+      wall: {
+        fill: themeMuted || canvasBg,
+        stroke: themeBorder || canvasBorder,
+      },
+      door: {
+        fill: themeSecondary || themeAccent || canvasBg,
+        stroke: themePrimary || themeForeground || canvasBorder,
+      },
+      aisle: {
+        fill: themeBackground || canvasBg,
+        stroke: themeBorder || canvasBorder,
+      },
+      zone: {
+        fill: themeAccent || themeMuted || canvasBg,
+        stroke: themePrimary || themeForeground || canvasBorder,
+      },
+      obstacle: {
+        fill: themeMuted || themeSecondary || canvasBg,
+        stroke: themeMutedForeground || themeBorder || canvasBorder,
+      },
+      label: { fill: "transparent", stroke: "transparent" },
+    }),
+    [
+      canvasBg,
+      canvasBorder,
+      themeAccent,
+      themeBackground,
+      themeBorder,
+      themeForeground,
+      themeMuted,
+      themeMutedForeground,
+      themePrimary,
+      themeSecondary,
+    ]
+  );
   const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
   const projectionShapes = React.useMemo(
     () =>
@@ -208,6 +279,12 @@ export function WarehouseMapViewer({
     return () => obs.disconnect();
   }, []);
 
+  React.useEffect(() => {
+    if (viewportResetKey === undefined) return;
+    hasUserAdjustedCameraRef.current = false;
+    lastAutoFitKeyRef.current = null;
+  }, [viewportResetKey]);
+
   // ── Pulse animation for highlighted shape ─────────────────────────────────
   React.useEffect(() => {
     if (!hasHighlights) return;
@@ -224,7 +301,7 @@ export function WarehouseMapViewer({
       const padding = Math.max(0.35, Math.min(contentWidth, contentHeight) * 0.06);
       const tw = contentWidth + padding * 2;
       const th = contentHeight + padding * 2;
-      const newZoom = Math.min(w / (tw * METER_TO_PIXEL), h / (th * METER_TO_PIXEL), 3);
+      const newZoom = Math.min(w / (tw * METER_TO_PIXEL), h / (th * METER_TO_PIXEL), 10);
       setZoom(newZoom);
       setPan({
         x: w / 2 - (contentBounds.minX + contentWidth / 2) * newZoom * METER_TO_PIXEL,
@@ -313,7 +390,7 @@ export function WarehouseMapViewer({
     const newZoom = Math.min(
       dimensions.width / (w * METER_TO_PIXEL),
       dimensions.height / (h * METER_TO_PIXEL),
-      3
+      10
     );
     setZoom(newZoom);
     setPan({
@@ -346,13 +423,18 @@ export function WarehouseMapViewer({
   };
 
   // ── Shape rendering ───────────────────────────────────────────────────────
-  const monoFill = isDark ? "#27272a" : "#e5e7eb";
-  const monoStroke = isDark ? "#3f3f46" : "#9ca3af";
-  const isMonoActive = monochromaticHighlight && hasHighlights;
+  const monoFill = themeMuted || themeCard || canvasBg;
+  const monoStroke = themeBorder || canvasBorder;
+  const isMonoActive = monochromaticHighlight;
   const pulsePhase = (Math.sin(tick / 3) + 1) / 2;
   const sortedShapes = React.useMemo(() => {
     const base = [...layout.shapes]
-      .sort((a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order)
+      .sort(
+        (a, b) =>
+          a.z_index - b.z_index ||
+          getShapeElevationLevel(a, locations) - getShapeElevationLevel(b, locations) ||
+          a.sort_order - b.sort_order
+      )
       .filter((shape) => (shape.projection ?? "top_down") === projection);
     if (!hasHighlights) return base;
 
@@ -368,10 +450,10 @@ export function WarehouseMapViewer({
     }
 
     return [...normal, ...highlighted];
-  }, [layout.shapes, hasHighlights, highlightIdSet, projection]);
+  }, [layout.shapes, hasHighlights, highlightIdSet, locations, projection]);
 
   const renderShape = (shape: WarehouseLayoutShape) => {
-    const defaults = SHAPE_DEFAULTS[shape.shape_type];
+    const defaults = shapeDefaults[shape.shape_type];
     const style = shape.style as ShapeStyle | null;
     const isCombinedHeaderBackground = shape.id.startsWith("combined:header-bg:");
     const isCombinedHeaderLabel = shape.id.startsWith("combined:header:");
@@ -400,30 +482,27 @@ export function WarehouseMapViewer({
       hasHeaderActiveIds &&
       !!shape.location_id &&
       !headerActiveIdSet.has(shape.location_id);
+    const contentOpacity = isMonoActive && !isHighlighted ? 0.38 : isHeaderDimmed ? 0.55 : 1;
     // In monochromatic mode: non-highlighted shapes go gray; highlighted shape keeps its full color.
     // In color mode: highlighted shape gets a smooth, color-matched emphasis instead of a flashing border.
     const effectiveFill =
       isMonoActive && !isHighlighted
         ? monoFill
         : isHeaderDimmed
-          ? isDark
-            ? "#27272a"
-            : "#e5e7eb"
+          ? monoFill
           : isCombinedHeaderBackground && isHighlighted
-            ? withAlpha(stroke, "55")
+            ? themeAccent || themeSecondary || fill
             : isCombinedHeaderBackground && isHeaderHovered
-              ? withAlpha(stroke, "40")
+              ? themeAccent || themeMuted || fill
               : fill;
     const effectiveStroke = isMonoActive
       ? isHighlighted
         ? stroke
         : monoStroke
       : isHeaderDimmed
-        ? isDark
-          ? "#3f3f46"
-          : "#9ca3af"
+        ? monoStroke
         : isCombinedHeaderBackground && isHighlighted
-          ? stroke
+          ? themePrimary || stroke
           : isHighlighted
             ? stroke
             : stroke;
@@ -440,27 +519,22 @@ export function WarehouseMapViewer({
 
     if (shape.shape_type === "label") {
       const combinedHeaderLabelColor = isHeaderDimmed
-        ? isDark
-          ? "#71717a"
-          : "#9ca3af"
-        : (style?.textColor ?? "#1e293b");
+        ? themeMutedForeground || monoStroke
+        : (style?.textColor ?? themeCardForeground ?? themeForeground ?? "#1e293b");
       const labelColor =
         isMonoActive && !isHighlighted
-          ? isDark
-            ? "#52525b"
-            : "#9ca3af"
+          ? themeMutedForeground || monoStroke
           : isHeaderDimmed
-            ? isDark
-              ? "#71717a"
-              : "#9ca3af"
+            ? themeMutedForeground || monoStroke
             : isCombinedHeaderLabel
               ? combinedHeaderLabelColor
-              : (style?.textColor ?? "#1e293b");
+              : (style?.textColor ?? themeCardForeground ?? themeForeground ?? "#1e293b");
       return (
         <Group
           key={shape.id}
           x={shape.x}
           y={shape.y}
+          opacity={contentOpacity}
           onClick={onShapeClick ? () => onShapeClick(shape) : undefined}
           onMouseEnter={() => {
             if (isCombinedHeaderShape && shape.location_id) {
@@ -501,6 +575,7 @@ export function WarehouseMapViewer({
         x={shape.x}
         y={shape.y}
         rotation={shape.rotation}
+        opacity={contentOpacity}
         onClick={
           onShapeClick
             ? (e) => {
@@ -566,9 +641,7 @@ export function WarehouseMapViewer({
                 fontFamily="monospace"
                 fill={
                   isMonoActive && !isHighlighted
-                    ? isDark
-                      ? "#52525b"
-                      : "#9ca3af"
+                    ? themeMutedForeground || monoStroke
                     : ((style as any)?.labelColor ?? effectiveStroke)
                 }
                 align={(style as any)?.labelAlignH ?? "left"}
@@ -591,12 +664,10 @@ export function WarehouseMapViewer({
               fontFamily="sans-serif"
               fill={
                 isMonoActive && !isHighlighted
-                  ? isDark
-                    ? "#52525b"
-                    : "#9ca3af"
+                  ? themeMutedForeground || monoStroke
                   : isHighlighted
-                    ? "#1d4ed8"
-                    : "#475569"
+                    ? themePrimary || themePrimaryForeground || effectiveStroke
+                    : themeMutedForeground || themeForeground || "#475569"
               }
               listening={false}
             />
@@ -604,6 +675,11 @@ export function WarehouseMapViewer({
       </Group>
     );
   };
+
+  const backgroundLabelClassName = React.useMemo(() => {
+    if (!viewBackgroundLabel?.trim()) return null;
+    return null;
+  }, [viewBackgroundLabel]);
 
   return (
     <div
@@ -615,38 +691,57 @@ export function WarehouseMapViewer({
       }}
       onMouseLeave={() => setMousePos(null)}
     >
-      {!hasMeasuredViewport ? null : (
-        <Stage
-          width={dimensions.width}
-          height={dimensions.height}
-          scaleX={zoom * METER_TO_PIXEL}
-          scaleY={zoom * METER_TO_PIXEL}
-          x={pan.x}
-          y={pan.y}
-          draggable
-          onWheel={handleWheel}
-          onDragEnd={(e) => {
-            if (e.target === e.target.getStage()) {
-              hasUserAdjustedCameraRef.current = true;
-              setPan({ x: e.target.x(), y: e.target.y() });
-            }
-          }}
-        >
-          <Layer>
-            {/* Canvas background */}
-            <Rect
-              x={0}
-              y={0}
-              width={layout.canvas_width_m}
-              height={layout.canvas_height_m}
-              fill={canvasBg}
-              stroke={canvasBorder}
-              strokeWidth={1.5 / (zoom * METER_TO_PIXEL)}
-            />
+      {viewBackgroundLabel?.trim() ? (
+        <div className="pointer-events-none absolute inset-0 z-0 flex items-end justify-end overflow-hidden p-3">
+          <span
+            className={cn(
+              "select-none text-right text-[11px] font-semibold uppercase tracking-[0.18em]",
+              backgroundLabelClassName
+            )}
+            style={{
+              color: themeMutedForeground || canvasBorder,
+              opacity: 0.72,
+            }}
+          >
+            {viewBackgroundLabel}
+          </span>
+        </div>
+      ) : null}
 
-            {sortedShapes.map(renderShape)}
-          </Layer>
-        </Stage>
+      {!hasMeasuredViewport ? null : (
+        <div className="relative z-10 h-full w-full">
+          <Stage
+            width={dimensions.width}
+            height={dimensions.height}
+            scaleX={zoom * METER_TO_PIXEL}
+            scaleY={zoom * METER_TO_PIXEL}
+            x={pan.x}
+            y={pan.y}
+            draggable
+            onWheel={handleWheel}
+            onDragEnd={(e) => {
+              if (e.target === e.target.getStage()) {
+                hasUserAdjustedCameraRef.current = true;
+                setPan({ x: e.target.x(), y: e.target.y() });
+              }
+            }}
+          >
+            <Layer>
+              {/* Canvas background */}
+              <Rect
+                x={0}
+                y={0}
+                width={layout.canvas_width_m}
+                height={layout.canvas_height_m}
+                fill={canvasBg}
+                stroke={canvasBorder}
+                strokeWidth={1.5 / (zoom * METER_TO_PIXEL)}
+              />
+
+              {sortedShapes.map(renderShape)}
+            </Layer>
+          </Stage>
+        </div>
       )}
       {narrowHeaderTooltip && mousePos && (
         <div

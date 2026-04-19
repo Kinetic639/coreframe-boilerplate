@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import { getPublicWarehouseBranchBundleAction } from "@/app/actions/warehouse/public-maps";
-import { PublicWarehouseMapsPageClient } from "./_components/public-warehouse-maps-page-client";
+import { PublicWarehouseMapsPageShell } from "./_components/public-warehouse-maps-page-shell";
 
 interface Props {
   params: Promise<{ locale: string; branchId: string }>;
@@ -8,6 +10,7 @@ interface Props {
 
 export default async function PublicWarehouseMapsPage({ params }: Props) {
   const { branchId } = await params;
+  const messages = await getMessages();
   const result = await getPublicWarehouseBranchBundleAction(branchId);
 
   if (!result.success || !result.data) {
@@ -15,11 +18,13 @@ export default async function PublicWarehouseMapsPage({ params }: Props) {
   }
 
   return (
-    <PublicWarehouseMapsPageClient
-      branch={result.data.branch}
-      layouts={result.data.layouts}
-      locations={result.data.locations}
-      locationGroups={result.data.locationGroups}
-    />
+    <NextIntlClientProvider messages={messages}>
+      <PublicWarehouseMapsPageShell
+        branch={result.data.branch}
+        layouts={result.data.layouts}
+        locations={result.data.locations}
+        locationGroups={result.data.locationGroups}
+      />
+    </NextIntlClientProvider>
   );
 }

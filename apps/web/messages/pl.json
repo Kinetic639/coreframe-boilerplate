@@ -622,6 +622,7 @@
         "roomWidth": "Szerokość (m)",
         "roomLength": "Długość (m)",
         "elevationStart": "Początek wysokości (m)",
+        "elevationLevel": "Poziom elewacji",
         "storageMode": "Tryb składowania",
         "allowTopStorage": "Zezwalaj na składowanie nad górą"
       },
@@ -640,6 +641,7 @@
         "allowTopStorage": "Zezwalaj na składowanie powyżej nominalnej wysokości tej jednostki.",
         "allowTopStorageTopDown": "Włącz, jeśli towar może być odkładany na górze regału lub szafy.",
         "layoutRoot": "To główna lokalizacja mapy. Jej szerokość i długość wyznaczają obszar układu dla całego magazynu lub pomieszczenia.",
+        "elevationLevel": "Wyższe poziomy elewacji są renderowane nad niższymi w rzucie z góry.",
         "inheritTopDownParentColor": "Użyj koloru wybranego kontenera lub lokalizacji nadrzędnej dla tej jednostki z rzutu z góry.",
         "inheritParentColor": "Użyj koloru wybranej jednostki nadrzędnej dla tego segmentu widoku frontowego.",
         "inheritTopStorageParentColor": "Użyj koloru wybranej jednostki z rzutu z góry dla tego segmentu składowania na górze.",
@@ -716,9 +718,14 @@
   },
   "publicWarehouseMapsPage": {
     "title": "Mapy magazynu",
-    "description": "Przeglądaj wszystkie opublikowane układy magazynu dla tego oddziału.",
+    "description": "Przeglądaj opublikowane układy magazynu dla tego oddziału.",
     "layoutSelectLabel": "Układ",
     "layoutSelectPlaceholder": "Wybierz układ",
+    "globalSearch": {
+      "placeholder": "Szukaj we wszystkich lokalizacjach oddziału...",
+      "clear": "Wyczyść wyszukiwanie lokalizacji",
+      "noResults": "Nie znaleziono pasujących lokalizacji w oddziale."
+    },
     "emptyTitle": "Brak publicznych układów",
     "emptyDescription": "Ten oddział nie opublikował jeszcze żadnych układów magazynu.",
     "selectionCleared": "Kliknij lokalizację na mapie, aby podejrzeć jej widok frontowy.",
@@ -729,11 +736,17 @@
   },
   "warehouseMapDialog": {
     "title": "Mapa magazynu",
+    "backgroundLabels": {
+      "topDown": "Rzut z góry",
+      "front": "Widok frontowy"
+    },
     "tree": {
       "empty": "Na tym układzie nie ma jeszcze lokalizacji.",
       "searchPlaceholder": "Szukaj lokalizacji...",
       "clearSearch": "Wyczyść wyszukiwanie",
       "noResults": "Nie znaleziono pasujących lokalizacji.",
+      "expand": "Rozwiń",
+      "collapse": "Zwiń",
       "collapseAll": "Zwiń wszystko",
       "expandAll": "Rozwiń wszystko"
     },
@@ -765,6 +778,11 @@
         "depth": "Głębokość",
         "height": "Wysokość",
         "selectionCount": "{count, plural, one {# zaznaczona lokalizacja} few {# zaznaczone lokalizacje} many {# zaznaczonych lokalizacji} other {# zaznaczonej lokalizacji}}"
+      },
+      "metrics": {
+        "width": "Szerokość",
+        "depth": "Głębokość",
+        "height": "Wysokość"
       },
       "roles": {
         "logical": "Lokalizacja logiczna",
@@ -938,7 +956,11 @@
     "emptyTitle": "Wybierz jednostkę z rzutu z góry",
     "emptyDescription": "Wybierz regał, szafę, blok półek lub inną jednostkę z rzutu z góry, aby zobaczyć jej widok frontowy.",
     "noFrontViewTitle": "Brak widoku frontowego",
-    "noFrontViewDescription": "Dodaj dzieci typu segment frontowy lub kształty widoku frontowego do tej lokalizacji, aby uzupełnić widok pionowy."
+    "noFrontViewDescription": "Dodaj dzieci typu segment frontowy lub kształty widoku frontowego do tej lokalizacji, aby uzupełnić widok pionowy.",
+    "actions": {
+      "collapse": "Zwiń widok frontowy",
+      "expand": "Rozwiń widok frontowy"
+    }
   },
   "warehouseMapCanvas": {
     "defaultLabel": "Etykieta",
@@ -1008,7 +1030,8 @@
       "gridSize": "Rozmiar siatki",
       "width": "Szerokość",
       "depth": "Głębokość",
-      "height": "Wysokość"
+      "height": "Wysokość",
+      "elevationLevel": "Poziom elewacji"
     },
     "placeholders": {
       "locationName": "Nazwa lokalizacji",
@@ -1019,7 +1042,8 @@
     },
     "help": {
       "locationCode": "Litery, cyfry, myślniki, podkreślenia",
-      "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji."
+      "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji.",
+      "elevationLevel": "Wyższe poziomy elewacji są renderowane nad niższymi w rzucie z góry."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",

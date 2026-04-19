@@ -6,6 +6,7 @@ import {
   Palette,
   Map as MapIcon,
   Info,
+  Search,
   MoveHorizontal,
   MoveVertical,
   ChevronDown,
@@ -27,8 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { resolveLocationMapContext, resolveLocationMapContexts } from "@/lib/warehouse/map-context";
-import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
+import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
+import {
+  getEffectiveLocationColor,
+  type WarehouseLocation,
+  type WarehouseLocationGroup,
+} from "@/lib/warehouse/location-tree";
 import type { WarehouseLayoutShape, WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 import { WarehouseMapViewer } from "@/components/v2/warehouse/warehouse-map-viewer";
 import { WarehouseFrontElevationPanel } from "@/components/v2/warehouse/warehouse-front-elevation-panel";
@@ -108,6 +113,23 @@ function getDescendantLocationIds(locationId: string, locations: WarehouseLocati
   }
 
   return descendantIds;
+}
+
+function buildLocationCodePath(
+  locationId: string,
+  locationMap: Map<string, WarehouseLocation>,
+  stopAtId?: string | null
+) {
+  const path: string[] = [];
+  let current = locationMap.get(locationId) ?? null;
+
+  while (current) {
+    path.unshift(current.code?.trim() || current.name);
+    if (!current.parent_id || current.id === stopAtId) break;
+    current = locationMap.get(current.parent_id) ?? null;
+  }
+
+  return path.join("/");
 }
 
 function formatMeters(value: number | null | undefined) {
@@ -293,7 +315,7 @@ function MapInfoDrawer({
                 {summary.metrics.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      {t("info.dimensions")}
+                      {t("info.fields.dimensions")}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {summary.metrics.map((metric) => {
@@ -319,7 +341,7 @@ function MapInfoDrawer({
                 {summary.description ? (
                   <div className="space-y-1.5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      {t("info.description")}
+                      {t("info.fields.description")}
                     </p>
                     <p className="text-xs leading-relaxed text-muted-foreground">
                       {summary.description}
@@ -361,113 +383,99 @@ function TreeLocationRow({
   t: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const childGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
-  const childLocations = allLocations.filter(
-    (childLocation) => childLocation.parent_id === location.id && !childLocation.group_id
-  );
-  const hasChildren = childGroups.length > 0 || childLocations.length > 0;
-  const isExpanded =
+  const children = allLocations.filter((entry) => entry.parent_id === location.id);
+  const myGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
+  const hasChildren = children.length > 0 || myGroups.length > 0;
+  const isSelectable = selectableLocationIds.has(location.id);
+  const effectiveExpanded =
     hasChildren &&
     (expandMode === "all" ||
       (expandMode === "auto" && (expanded || autoExpandedLocationIds.has(location.id))));
-  const isSelected = highlightedIds.includes(location.id);
-  const isSelectable = selectableLocationIds.has(location.id);
+  const isActive = highlightedIds.includes(location.id);
 
   return (
-    <>
-      <button
-        type="button"
+    <div>
+      <div
         className={cn(
-          "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
-          isSelected ? "bg-primary/10 text-foreground" : "hover:bg-muted/50",
-          isSelectable ? "cursor-pointer" : "cursor-not-allowed opacity-45"
+          "mx-1 flex items-center gap-1.5 rounded-md py-1.5 pr-2 transition-colors",
+          isSelectable && "cursor-pointer",
+          isActive && "bg-primary/10",
+          !isActive && isSelectable && "hover:bg-accent",
+          !isActive && !isSelectable && "cursor-default opacity-45"
         )}
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => {
-          if (!isSelectable) return;
-          onSelectIds(
-            highlightedIds.length === 1 && highlightedIds[0] === location.id ? [] : [location.id]
-          );
+          if (isSelectable) {
+            onSelectIds(
+              highlightedIds.length === 1 && highlightedIds[0] === location.id ? [] : [location.id]
+            );
+          }
         }}
       >
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
-          {hasChildren ? (
-            <button
-              type="button"
-              className="flex h-4 w-4 items-center justify-center"
-              onClick={(event) => {
-                event.stopPropagation();
-                setExpanded((value) => !value);
-              }}
-              aria-label={isExpanded ? t("tree.collapse") : t("tree.expand")}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-            </button>
-          ) : null}
-        </span>
-        <span
-          className="h-3 w-3 shrink-0 rounded-full border border-border/70"
+        <button
+          type="button"
+          className={cn(
+            "flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground",
+            !hasChildren && "pointer-events-none invisible"
+          )}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (hasChildren) setExpanded((value) => !value);
+          }}
+          aria-label={effectiveExpanded ? t("tree.collapse") : t("tree.expand")}
+        >
+          {effectiveExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+
+        <div
+          className="h-2.5 w-2.5 shrink-0 rounded-sm border border-black/10"
           style={{
             backgroundColor:
-              location.color && location.color.trim().length > 0
-                ? location.color
-                : "var(--muted-foreground)",
+              getEffectiveLocationColor(location, locationGroups, allLocations) ?? "#10b981",
           }}
         />
-        <span className="min-w-0 flex-1 truncate">{location.name}</span>
+
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-xs",
+            isActive && "font-semibold text-primary"
+          )}
+        >
+          {location.name}
+        </span>
         {location.code ? (
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
             {location.code}
           </span>
         ) : null}
-      </button>
+      </div>
 
-      {isExpanded && (
-        <>
-          {childGroups.map((group) => (
-            <TreeGroupRow
-              key={group.id}
-              group={group}
-              allLocations={allLocations}
-              locationGroups={locationGroups}
-              selectableLocationIds={selectableLocationIds}
-              highlightedIds={highlightedIds}
-              onSelectIds={onSelectIds}
-              autoExpandedLocationIds={autoExpandedLocationIds}
-              autoExpandedGroupIds={autoExpandedGroupIds}
-              expandMode={expandMode}
-              depth={depth + 1}
-              t={t}
-            />
-          ))}
-          {childLocations.map((childLocation) => (
-            <TreeLocationRow
-              key={childLocation.id}
-              location={childLocation}
-              allLocations={allLocations}
-              locationGroups={locationGroups}
-              selectableLocationIds={selectableLocationIds}
-              highlightedIds={highlightedIds}
-              onSelectIds={onSelectIds}
-              autoExpandedLocationIds={autoExpandedLocationIds}
-              autoExpandedGroupIds={autoExpandedGroupIds}
-              expandMode={expandMode}
-              depth={depth + 1}
-              t={t}
-            />
-          ))}
-        </>
+      {effectiveExpanded && (
+        <TreeItems
+          parentId={location.id}
+          allLocations={allLocations}
+          locationGroups={locationGroups}
+          selectableLocationIds={selectableLocationIds}
+          highlightedIds={highlightedIds}
+          onSelectIds={onSelectIds}
+          autoExpandedLocationIds={autoExpandedLocationIds}
+          autoExpandedGroupIds={autoExpandedGroupIds}
+          expandMode={expandMode}
+          depth={depth + 1}
+          t={t}
+        />
       )}
-    </>
+    </div>
   );
 }
 
 function TreeGroupRow({
   group,
+  members,
   allLocations,
   locationGroups,
   selectableLocationIds,
@@ -480,6 +488,7 @@ function TreeGroupRow({
   t,
 }: {
   group: WarehouseLocationGroup;
+  members: WarehouseLocation[];
   allLocations: WarehouseLocation[];
   locationGroups: WarehouseLocationGroup[];
   selectableLocationIds: Set<string>;
@@ -492,71 +501,69 @@ function TreeGroupRow({
   t: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const groupLocations = allLocations.filter((location) => location.group_id === group.id);
-  const groupLocationIds = groupLocations
-    .filter((location) => selectableLocationIds.has(location.id))
-    .map((location) => location.id);
-  const hasChildren = groupLocations.length > 0;
-  const isExpanded =
-    hasChildren &&
-    (expandMode === "all" ||
-      (expandMode === "auto" && (expanded || autoExpandedGroupIds.has(group.id))));
-  const isSelected =
-    groupLocationIds.length > 0 &&
-    groupLocationIds.every((locationId) => highlightedIds.includes(locationId));
-  const isSelectable = groupLocationIds.length > 0;
+  const memberIds = React.useMemo(() => members.map((member) => member.id), [members]);
+  const isActive = memberIds.length > 0 && memberIds.every((id) => highlightedIds.includes(id));
+  const hasSelectableMembers = members.some((member) => selectableLocationIds.has(member.id));
+  const effectiveExpanded =
+    expandMode === "all" ||
+    (expandMode === "auto" && (expanded || autoExpandedGroupIds.has(group.id)));
 
   return (
-    <>
-      <button
-        type="button"
+    <div>
+      <div
         className={cn(
-          "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
-          isSelected ? "bg-primary/10 text-foreground" : "hover:bg-muted/50",
-          isSelectable ? "cursor-pointer" : "cursor-not-allowed opacity-45"
+          "mx-1 flex items-center gap-1.5 rounded-md py-1.5 pr-2 transition-colors",
+          hasSelectableMembers && "cursor-pointer",
+          isActive && "bg-primary/10",
+          !isActive && hasSelectableMembers && "hover:bg-accent",
+          !isActive && !hasSelectableMembers && "cursor-default opacity-45"
         )}
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        style={{ paddingLeft: 8 + depth * 16 }}
         onClick={() => {
-          if (!isSelectable) return;
-          onSelectIds(isSelected ? [] : groupLocationIds);
+          if (hasSelectableMembers) {
+            onSelectIds(memberIds.filter((id) => selectableLocationIds.has(id)));
+          }
         }}
       >
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
-          {hasChildren ? (
-            <button
-              type="button"
-              className="flex h-4 w-4 items-center justify-center"
-              onClick={(event) => {
-                event.stopPropagation();
-                setExpanded((value) => !value);
-              }}
-              aria-label={isExpanded ? t("tree.collapse") : t("tree.expand")}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-            </button>
-          ) : null}
-        </span>
-        <span
-          className="h-3 w-3 shrink-0 rounded-sm border border-border/70"
-          style={{
-            backgroundColor:
-              group.color && group.color.trim().length > 0
-                ? group.color
-                : "var(--muted-foreground)",
+        <button
+          type="button"
+          className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded((value) => !value);
           }}
-        />
-        <span className="min-w-0 flex-1 truncate">{group.name}</span>
-      </button>
+          aria-label={effectiveExpanded ? t("tree.collapse") : t("tree.expand")}
+        >
+          {effectiveExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
 
-      {isExpanded &&
-        groupLocations.map((location) => (
+        <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <div
+            className="h-2.5 w-2.5 rounded-sm border border-black/10"
+            style={{ backgroundColor: group.color ?? "#94a3b8" }}
+          />
+        </div>
+
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-xs uppercase tracking-wide text-muted-foreground",
+            isActive && "font-semibold text-primary"
+          )}
+        >
+          {group.name}
+        </span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{members.length}</span>
+      </div>
+
+      {effectiveExpanded &&
+        members.map((member) => (
           <TreeLocationRow
-            key={location.id}
-            location={location}
+            key={member.id}
+            location={member}
             allLocations={allLocations}
             locationGroups={locationGroups}
             selectableLocationIds={selectableLocationIds}
@@ -569,7 +576,7 @@ function TreeGroupRow({
             t={t}
           />
         ))}
-    </>
+    </div>
   );
 }
 
@@ -598,45 +605,81 @@ function TreeItems({
   depth: number;
   t: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
 }) {
-  const parentGroups = locationGroups.filter((group) => group.parent_location_id === parentId);
-  const parentLocations = allLocations.filter(
-    (location) => location.parent_id === parentId && !location.group_id
+  const myGroups = locationGroups
+    .filter((group) => group.parent_location_id === (parentId ?? null))
+    .sort(
+      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+    );
+  const knownGroupIds = new Set(myGroups.map((group) => group.id));
+  const children = allLocations
+    .filter((location) => location.parent_id === (parentId ?? null))
+    .sort(
+      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+    );
+  const groupedChildIds = new Set(
+    children
+      .filter((location) => location.group_id && knownGroupIds.has(location.group_id))
+      .map((location) => location.id)
   );
+  const ungroupedChildren = children.filter((location) => !groupedChildIds.has(location.id));
+  const items = [
+    ...myGroups.map((group) => ({
+      kind: "group" as const,
+      group,
+      sortOrder: group.sort_order,
+      isSelectable: children.some(
+        (location) => location.group_id === group.id && selectableLocationIds.has(location.id)
+      ),
+    })),
+    ...ungroupedChildren.map((location) => ({
+      kind: "location" as const,
+      location,
+      sortOrder: location.sort_order,
+      isSelectable: selectableLocationIds.has(location.id),
+    })),
+  ].sort((left, right) => {
+    if (left.isSelectable !== right.isSelectable) {
+      return left.isSelectable ? -1 : 1;
+    }
+    return left.sortOrder - right.sortOrder;
+  });
 
   return (
     <>
-      {parentGroups.map((group) => (
-        <TreeGroupRow
-          key={group.id}
-          group={group}
-          allLocations={allLocations}
-          locationGroups={locationGroups}
-          selectableLocationIds={selectableLocationIds}
-          highlightedIds={highlightedIds}
-          onSelectIds={onSelectIds}
-          autoExpandedLocationIds={autoExpandedLocationIds}
-          autoExpandedGroupIds={autoExpandedGroupIds}
-          expandMode={expandMode}
-          depth={depth}
-          t={t}
-        />
-      ))}
-      {parentLocations.map((location) => (
-        <TreeLocationRow
-          key={location.id}
-          location={location}
-          allLocations={allLocations}
-          locationGroups={locationGroups}
-          selectableLocationIds={selectableLocationIds}
-          highlightedIds={highlightedIds}
-          onSelectIds={onSelectIds}
-          autoExpandedLocationIds={autoExpandedLocationIds}
-          autoExpandedGroupIds={autoExpandedGroupIds}
-          expandMode={expandMode}
-          depth={depth}
-          t={t}
-        />
-      ))}
+      {items.map((item) =>
+        item.kind === "group" ? (
+          <TreeGroupRow
+            key={item.group.id}
+            group={item.group}
+            members={children.filter((location) => location.group_id === item.group.id)}
+            allLocations={allLocations}
+            locationGroups={locationGroups}
+            selectableLocationIds={selectableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            autoExpandedLocationIds={autoExpandedLocationIds}
+            autoExpandedGroupIds={autoExpandedGroupIds}
+            expandMode={expandMode}
+            depth={depth}
+            t={t}
+          />
+        ) : (
+          <TreeLocationRow
+            key={item.location.id}
+            location={item.location}
+            allLocations={allLocations}
+            locationGroups={locationGroups}
+            selectableLocationIds={selectableLocationIds}
+            highlightedIds={highlightedIds}
+            onSelectIds={onSelectIds}
+            autoExpandedLocationIds={autoExpandedLocationIds}
+            autoExpandedGroupIds={autoExpandedGroupIds}
+            expandMode={expandMode}
+            depth={depth}
+            t={t}
+          />
+        )
+      )}
     </>
   );
 }
@@ -676,7 +719,7 @@ function TreePanel({
   }, [locations, rootLocationId]);
 
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [expandMode, setExpandMode] = React.useState<"auto" | "all" | "collapsed">("collapsed");
+  const [expandMode, setExpandMode] = React.useState<"auto" | "all" | "collapsed">("auto");
   const locationMap = React.useMemo(() => buildLocationMap(descendants), [descendants]);
   const searchableGroups = React.useMemo(
     () =>
@@ -880,7 +923,7 @@ function TreePanel({
   );
 }
 
-interface PublicWarehouseMapsPageClientProps {
+export interface PublicWarehouseMapsPageClientProps {
   branch: {
     id: string;
     name: string;
@@ -902,27 +945,111 @@ export function PublicWarehouseMapsPageClient({
   const [selectedLayoutId, setSelectedLayoutId] = React.useState(layouts[0]?.id ?? "");
   const [highlightedIds, setHighlightedIds] = React.useState<string[]>([]);
   const [isMonochrome, setIsMonochrome] = React.useState(true);
+  const [didCopyPath, setDidCopyPath] = React.useState(false);
+  const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = React.useState("");
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = React.useState(false);
+  const [pendingHighlightLocationId, setPendingHighlightLocationId] = React.useState<string | null>(
+    null
+  );
+  const globalSearchBlurTimeoutRef = React.useRef<number | null>(null);
 
   const selectedLayout = React.useMemo(
     () => layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0] ?? null,
     [layouts, selectedLayoutId]
   );
   const highlightedId = highlightedIds.length === 1 ? highlightedIds[0] : null;
-  const mapContexts = React.useMemo(
-    () =>
-      selectedLayout
-        ? resolveLocationMapContexts(highlightedIds, locations, selectedLayout.root_location_id)
-        : [],
-    [highlightedIds, locations, selectedLayout]
-  );
-  const topDownHighlightIds = React.useMemo(
-    () =>
-      [
-        ...new Set(mapContexts.map((context) => context.topDownAnchorLocationId).filter(Boolean)),
-      ] as string[],
-    [mapContexts]
-  );
   const locationMap = React.useMemo(() => buildLocationMap(locations), [locations]);
+  const locationLayoutMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const layout of layouts) {
+      if (!layout.root_location_id) continue;
+      map.set(layout.root_location_id, layout.id);
+
+      const queue = locations.filter((location) => location.parent_id === layout.root_location_id);
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        if (map.has(current.id)) continue;
+        map.set(current.id, layout.id);
+        locations
+          .filter((location) => location.parent_id === current.id)
+          .forEach((location) => queue.push(location));
+      }
+    }
+
+    return map;
+  }, [layouts, locations]);
+  const globalSearchResults = React.useMemo(() => {
+    const query = globalSearchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    return locations
+      .filter((location) => locationLayoutMap.has(location.id))
+      .map((location) => {
+        const layoutId = locationLayoutMap.get(location.id)!;
+        const layout = layouts.find((entry) => entry.id === layoutId) ?? null;
+        const rootLocationName = layout?.root_location_id
+          ? (locationMap.get(layout.root_location_id)?.name ?? layout.name)
+          : (layout?.name ?? null);
+        const breadcrumbPath = buildLocationCodePath(
+          location.id,
+          locationMap,
+          layout?.root_location_id ?? null
+        );
+        const searchValue =
+          `${location.name} ${location.code ?? ""} ${breadcrumbPath} ${rootLocationName ?? ""}`.toLowerCase();
+
+        return {
+          location,
+          layoutId,
+          layoutName: layout?.name ?? "",
+          rootLocationName: rootLocationName ?? "",
+          breadcrumbPath,
+          searchValue,
+        };
+      })
+      .filter((entry) => entry.searchValue.includes(query))
+      .sort((left, right) => {
+        const leftStartsWith = left.location.name.toLowerCase().startsWith(query);
+        const rightStartsWith = right.location.name.toLowerCase().startsWith(query);
+        if (leftStartsWith !== rightStartsWith) return leftStartsWith ? -1 : 1;
+
+        const leftCodeStartsWith = (left.location.code ?? "").toLowerCase().startsWith(query);
+        const rightCodeStartsWith = (right.location.code ?? "").toLowerCase().startsWith(query);
+        if (leftCodeStartsWith !== rightCodeStartsWith) return leftCodeStartsWith ? -1 : 1;
+
+        return (
+          left.location.name.localeCompare(right.location.name) ||
+          (left.location.sort_order ?? 0) - (right.location.sort_order ?? 0)
+        );
+      })
+      .slice(0, 8);
+  }, [globalSearchQuery, layouts, locationLayoutMap, locationMap, locations]);
+  const resolvedRootLocationName = React.useMemo(() => {
+    if (!selectedLayout?.root_location_id) return null;
+    return (
+      locations.find((location) => location.id === selectedLayout.root_location_id)?.name ?? null
+    );
+  }, [locations, selectedLayout?.root_location_id]);
+  const highlightedLocationBreadcrumbs = React.useMemo(() => {
+    if (!selectedLayout?.root_location_id || !highlightedId) return [];
+
+    const breadcrumbs: string[] = [];
+    let current = locationMap.get(highlightedId) ?? null;
+
+    while (current) {
+      if (current.id === selectedLayout.root_location_id) break;
+      breadcrumbs.unshift(current.name);
+      current = current.parent_id ? (locationMap.get(current.parent_id) ?? null) : null;
+    }
+
+    return breadcrumbs;
+  }, [highlightedId, locationMap, selectedLayout?.root_location_id]);
+  const highlightedLocationCodePath = React.useMemo(() => {
+    if (!selectedLayout?.root_location_id || !highlightedId) return null;
+    return buildLocationCodePath(highlightedId, locationMap, selectedLayout.root_location_id);
+  }, [highlightedId, locationMap, selectedLayout?.root_location_id]);
   const selectedTopDownFocusIds = React.useMemo(() => {
     return [
       ...new Set(
@@ -934,12 +1061,17 @@ export function PublicWarehouseMapsPageClient({
             if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
               return location.parent_id ?? null;
             }
+            if ((location.map_role ?? "logical") === "logical") {
+              const containerTopDownIds = getDescendantTopDownUnitIds(id, locations, locationMap);
+              return containerTopDownIds;
+            }
             return null;
           })
+          .flat()
           .filter(Boolean)
       ),
     ] as string[];
-  }, [highlightedIds, locationMap]);
+  }, [highlightedIds, locationMap, locations]);
   const frontStageAnchorIds = React.useMemo(() => {
     const expandedAnchorIds = selectedTopDownFocusIds.flatMap((topDownId) => {
       const topDownLocation = locationMap.get(topDownId);
@@ -968,6 +1100,34 @@ export function PublicWarehouseMapsPageClient({
 
     return [...new Set(containerExpandedAnchorIds)];
   }, [locationMap, locations, selectedTopDownFocusIds]);
+  const orderedFrontStageAnchorIds = React.useMemo(() => {
+    const topDownShapeByLocationId = new Map(
+      selectedLayout.shapes
+        .filter(
+          (shape) =>
+            (shape.projection ?? "top_down") !== "front_elevation" &&
+            shape.shape_type === "location" &&
+            !!shape.location_id &&
+            !shape.deleted_at
+        )
+        .map((shape) => [shape.location_id!, shape] as const)
+    );
+
+    return [...frontStageAnchorIds].sort((leftId, rightId) => {
+      const leftShape = topDownShapeByLocationId.get(leftId);
+      const rightShape = topDownShapeByLocationId.get(rightId);
+      const leftX = leftShape?.x ?? 0;
+      const rightX = rightShape?.x ?? 0;
+      if (leftX !== rightX) return rightX - leftX;
+
+      const leftLocation = locationMap.get(leftId);
+      const rightLocation = locationMap.get(rightId);
+      return (
+        (leftLocation?.sort_order ?? 0) - (rightLocation?.sort_order ?? 0) ||
+        (leftLocation?.name ?? "").localeCompare(rightLocation?.name ?? "")
+      );
+    });
+  }, [frontStageAnchorIds, locationMap, selectedLayout.shapes]);
   const frontHighlightIds = React.useMemo(() => {
     const explicitFrontSelections = highlightedIds.filter((id) =>
       ["front_segment", "top_storage_segment"].includes(locationMap.get(id)?.map_role ?? "logical")
@@ -987,8 +1147,8 @@ export function PublicWarehouseMapsPageClient({
       .map((location) => location.id);
   }, [frontStageAnchorIds, highlightedIds, locationMap, locations, selectedTopDownFocusIds]);
   const frontAnchorLocationId = React.useMemo(
-    () => (frontStageAnchorIds.length === 1 ? frontStageAnchorIds[0] : null),
-    [frontStageAnchorIds]
+    () => (orderedFrontStageAnchorIds.length === 1 ? orderedFrontStageAnchorIds[0] : null),
+    [orderedFrontStageAnchorIds]
   );
   const topDownInfoLocations = React.useMemo(() => {
     if (highlightedIds.length === 0) return [];
@@ -1053,9 +1213,27 @@ export function PublicWarehouseMapsPageClient({
   );
 
   React.useEffect(() => {
-    setHighlightedIds([]);
+    if (
+      pendingHighlightLocationId &&
+      locationLayoutMap.get(pendingHighlightLocationId) === selectedLayoutId
+    ) {
+      setHighlightedIds([pendingHighlightLocationId]);
+      setPendingHighlightLocationId(null);
+    } else {
+      setHighlightedIds([]);
+    }
     setIsMonochrome(true);
-  }, [selectedLayoutId]);
+  }, [locationLayoutMap, pendingHighlightLocationId, selectedLayoutId]);
+  React.useEffect(() => {
+    setDidCopyPath(false);
+  }, [highlightedLocationCodePath]);
+  React.useEffect(() => {
+    return () => {
+      if (globalSearchBlurTimeoutRef.current !== null) {
+        window.clearTimeout(globalSearchBlurTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleShapeClick = React.useCallback((shape: WarehouseLayoutShape) => {
     if (!shape.location_id) return;
@@ -1063,10 +1241,26 @@ export function PublicWarehouseMapsPageClient({
       prev.length === 1 && prev[0] === shape.location_id ? [] : [shape.location_id]
     );
   }, []);
+  const handleCopyHighlightedLocationPath = React.useCallback(async () => {
+    if (!highlightedLocationCodePath) return;
+    try {
+      await navigator.clipboard.writeText(highlightedLocationCodePath);
+      setDidCopyPath(true);
+      window.setTimeout(() => setDidCopyPath(false), 1600);
+    } catch {
+      setDidCopyPath(false);
+    }
+  }, [highlightedLocationCodePath]);
+  const handleGlobalSearchSelect = React.useCallback((layoutId: string, locationId: string) => {
+    setPendingHighlightLocationId(locationId);
+    setSelectedLayoutId(layoutId);
+    setGlobalSearchQuery("");
+    setIsGlobalSearchOpen(false);
+  }, []);
 
   if (!selectedLayout) {
     return (
-      <div className="flex w-full max-w-5xl flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-6 py-16 text-center">
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed px-6 py-16 text-center">
         <MapIcon className="h-10 w-10 text-muted-foreground/40" />
         <div>
           <p className="text-lg font-semibold">{t("emptyTitle")}</p>
@@ -1077,16 +1271,138 @@ export function PublicWarehouseMapsPageClient({
   }
 
   return (
-    <div className="flex w-full max-w-[1200px] flex-col gap-3">
-      <div className="flex flex-col gap-2 rounded-2xl border bg-background/90 px-4 py-3 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
+    <div className="flex h-[calc(100vh-12.5rem)] min-h-[640px] w-full flex-col gap-2 self-stretch overflow-hidden">
+      <div className="flex shrink-0 flex-col gap-1 rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-base font-semibold tracking-tight">{branch.name}</h1>
+          <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
+            {branch.name}
+          </h1>
+          {(highlightedLocationBreadcrumbs.length > 0 || highlightedLocationCodePath) && (
+            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="min-w-0 truncate">
+                <span className="font-semibold text-foreground/90">
+                  {resolvedRootLocationName ?? selectedLayout.name}
+                </span>
+                {highlightedLocationBreadcrumbs.length > 0 ? (
+                  <span>{` / ${highlightedLocationBreadcrumbs.join(" / ")}`}</span>
+                ) : null}
+              </span>
+              {highlightedLocationCodePath && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleCopyHighlightedLocationPath}
+                        className="min-w-0 max-w-56 shrink cursor-pointer text-left transition-colors hover:text-foreground"
+                      >
+                        <span className="relative block overflow-hidden whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "block truncate transition-all duration-200",
+                              didCopyPath
+                                ? "translate-y-[-120%] opacity-0"
+                                : "translate-y-0 opacity-100"
+                            )}
+                          >
+                            ({highlightedLocationCodePath})
+                          </span>
+                          <span
+                            className={cn(
+                              "absolute inset-0 truncate text-emerald-600 transition-all duration-200",
+                              didCopyPath
+                                ? "translate-y-0 opacity-100"
+                                : "translate-y-[120%] opacity-0"
+                            )}
+                          >
+                            {dialogT("actions.copied")}
+                          </span>
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{dialogT("actions.copy")}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="w-64 max-w-full">
+        <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">
+          <div className="relative w-full md:w-80">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={globalSearchQuery}
+              onChange={(event) => {
+                setGlobalSearchQuery(event.target.value);
+                setIsGlobalSearchOpen(true);
+              }}
+              onFocus={() => setIsGlobalSearchOpen(true)}
+              onBlur={() => {
+                globalSearchBlurTimeoutRef.current = window.setTimeout(() => {
+                  setIsGlobalSearchOpen(false);
+                }, 120);
+              }}
+              placeholder={t("globalSearch.placeholder")}
+              className="h-8 rounded-lg pl-8 pr-8 text-xs"
+            />
+            {globalSearchQuery.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setGlobalSearchQuery("");
+                  setIsGlobalSearchOpen(false);
+                }}
+                aria-label={t("globalSearch.clear")}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
+              <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-20 overflow-hidden rounded-lg border bg-popover shadow-lg">
+                {globalSearchResults.length > 0 ? (
+                  <div className="max-h-80 overflow-y-auto p-1">
+                    {globalSearchResults.map((result) => (
+                      <button
+                        key={result.location.id}
+                        type="button"
+                        className="flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() =>
+                          handleGlobalSearchSelect(result.layoutId, result.location.id)
+                        }
+                      >
+                        <span className="truncate text-xs font-medium text-foreground">
+                          {result.location.name}
+                          {result.location.code ? (
+                            <span className="ml-1 font-mono text-[11px] font-normal text-muted-foreground">
+                              ({result.location.code})
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {result.rootLocationName}
+                          {result.breadcrumbPath ? ` / ${result.breadcrumbPath}` : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {t("globalSearch.noResults")}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="w-full md:w-64 md:max-w-full">
             <Select value={selectedLayout.id} onValueChange={setSelectedLayoutId}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-8 rounded-lg">
                 <SelectValue placeholder={t("layoutSelectPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
@@ -1098,30 +1414,11 @@ export function PublicWarehouseMapsPageClient({
               </SelectContent>
             </Select>
           </div>
-
-          <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant={!isMonochrome ? "default" : "outline"}
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  onClick={() => setIsMonochrome((value) => !value)}
-                >
-                  <Palette className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {!isMonochrome ? t("colorMode.showMonochrome") : t("colorMode.showColors")}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="relative flex h-[80vh] overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-sm">
+        <div className="relative flex h-full overflow-hidden">
           <TreePanel
             layout={selectedLayout}
             locations={locations}
@@ -1136,7 +1433,14 @@ export function PublicWarehouseMapsPageClient({
             t={dialogT}
           />
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div
+            className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{
+              gridTemplateRows: isFrontViewCollapsed
+                ? "minmax(0,1fr) 2.25rem"
+                : "minmax(0,1fr) clamp(16rem,38%,24rem)",
+            }}
+          >
             <div
               className="flex min-h-0 flex-1 overflow-hidden"
               onClick={() => setHighlightedIds([])}
@@ -1170,14 +1474,16 @@ export function PublicWarehouseMapsPageClient({
                 <div className="h-full w-full" onClick={(event) => event.stopPropagation()}>
                   <WarehouseMapViewer
                     layout={selectedLayout}
+                    viewBackgroundLabel={dialogT("backgroundLabels.topDown")}
                     locations={locations}
                     locationGroups={locationGroups}
                     highlightLocationId={highlightedId}
                     highlightLocationIds={
-                      topDownHighlightIds.length > 0 ? topDownHighlightIds : highlightedIds
+                      selectedTopDownFocusIds.length > 0 ? selectedTopDownFocusIds : highlightedIds
                     }
                     autoPanToHighlight={false}
                     monochromaticHighlight={isMonochrome}
+                    viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:top`}
                     onShapeClick={handleShapeClick}
                     className="h-full w-full"
                   />
@@ -1195,13 +1501,18 @@ export function PublicWarehouseMapsPageClient({
               layout={selectedLayout}
               locations={locations}
               locationGroups={locationGroups}
+              viewBackgroundLabel={dialogT("backgroundLabels.front")}
               anchorLocationId={frontAnchorLocationId}
-              anchorLocationIds={frontStageAnchorIds}
+              anchorLocationIds={orderedFrontStageAnchorIds}
               highlightLocationIds={frontHighlightIds}
               headerActiveLocationIds={selectedTopDownFocusIds}
               monochromaticHighlight={isMonochrome}
               onShapeClick={handleShapeClick}
-              className="h-64 shrink-0"
+              viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:${orderedFrontStageAnchorIds.join(",")}:front`}
+              collapsible
+              collapsed={isFrontViewCollapsed}
+              onCollapsedChange={setIsFrontViewCollapsed}
+              className="min-h-0 shrink-0"
               rightRail={
                 <MapInfoDrawer
                   title={dialogT("info.frontTitle")}
