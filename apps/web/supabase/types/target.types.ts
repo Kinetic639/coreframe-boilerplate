@@ -1426,6 +1426,7 @@ export type Database = {
           created_by: string | null;
           deleted_at: string | null;
           description: string | null;
+          elevation_level: number;
           group_id: string | null;
           icon_name: string | null;
           id: string;
@@ -1446,6 +1447,7 @@ export type Database = {
           created_by?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          elevation_level?: number;
           group_id?: string | null;
           icon_name?: string | null;
           id?: string;
@@ -1466,6 +1468,7 @@ export type Database = {
           created_by?: string | null;
           deleted_at?: string | null;
           description?: string | null;
+          elevation_level?: number;
           group_id?: string | null;
           icon_name?: string | null;
           id?: string;

@@ -38,7 +38,7 @@ const shapeColumns =
   "id, layout_id, organization_id, branch_id, shape_type, projection, anchor_location_id, location_id, label, x, y, width, height, rotation, style, z_index, sort_order, created_by, created_at, updated_at, deleted_at" as const;
 
 const locationColumns =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const groupColumns =
   "id, organization_id, branch_id, parent_location_id, name, description, color, sort_order, created_by, created_at, updated_at, deleted_at" as const;

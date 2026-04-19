@@ -35,6 +35,12 @@ const nonNegativeMetersSchema = z
   .nullable()
   .optional();
 
+const elevationLevelSchema = z
+  .number({ invalid_type_error: "Must be a number" })
+  .int("Must be a whole number")
+  .min(1, "Must be at least 1")
+  .optional();
+
 const locationMapRoleSchema = z
   .enum(["logical", "layout_root", "top_down_unit", "front_segment", "top_storage_segment"])
   .optional();
@@ -57,6 +63,7 @@ export const createLocationSchema = z.object({
   physical_depth_m: positiveMetersSchema,
   physical_height_m: positiveMetersSchema,
   physical_elevation_start_m: nonNegativeMetersSchema,
+  elevation_level: elevationLevelSchema,
   map_role: locationMapRoleSchema,
   storage_mode: z.string().max(50).optional(),
   allow_top_storage: z.boolean().optional(),
@@ -78,6 +85,7 @@ export const updateLocationSchema = z.object({
   physical_depth_m: positiveMetersSchema,
   physical_height_m: positiveMetersSchema,
   physical_elevation_start_m: nonNegativeMetersSchema,
+  elevation_level: elevationLevelSchema,
   map_role: locationMapRoleSchema,
   storage_mode: z.string().max(50).optional(),
   allow_top_storage: z.boolean().optional(),

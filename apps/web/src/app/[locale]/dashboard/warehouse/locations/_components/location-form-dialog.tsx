@@ -176,6 +176,16 @@ export function LocationFormDialog({
   const isEdit = !!location;
   const t = useTranslations("warehouseLocationsPage.form");
   const colorInputRef = useRef<HTMLInputElement | null>(null);
+  const parseDecimalMeters = (value: unknown) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+    const normalized = String(value).trim().replace(",", ".");
+    if (!normalized) return null;
+
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   function getFieldErrorMessage(message: string | undefined, field: "name" | "code") {
     if (!message) return message;
@@ -227,6 +237,7 @@ export function LocationFormDialog({
       physical_depth_m: null,
       physical_height_m: null,
       physical_elevation_start_m: null,
+      elevation_level: 1,
       map_role: "logical",
       storage_mode: "standard",
       allow_top_storage: false,
@@ -251,6 +262,7 @@ export function LocationFormDialog({
         physical_depth_m: location.physical_depth_m ?? null,
         physical_height_m: location.physical_height_m ?? null,
         physical_elevation_start_m: location.physical_elevation_start_m ?? null,
+        elevation_level: location.elevation_level ?? 1,
         map_role: location.map_role ?? "logical",
         storage_mode: location.storage_mode ?? "standard",
         allow_top_storage: location.allow_top_storage ?? false,
@@ -271,6 +283,7 @@ export function LocationFormDialog({
         physical_depth_m: templateLocation.physical_depth_m ?? null,
         physical_height_m: templateLocation.physical_height_m ?? null,
         physical_elevation_start_m: templateLocation.physical_elevation_start_m ?? null,
+        elevation_level: templateLocation.elevation_level ?? 1,
         map_role: templateLocation.map_role ?? "logical",
         storage_mode: templateLocation.storage_mode ?? "standard",
         allow_top_storage: templateLocation.allow_top_storage ?? false,
@@ -291,6 +304,7 @@ export function LocationFormDialog({
         physical_depth_m: null,
         physical_height_m: null,
         physical_elevation_start_m: null,
+        elevation_level: 1,
         map_role: "logical",
         storage_mode: "standard",
         allow_top_storage: false,
@@ -677,6 +691,25 @@ export function LocationFormDialog({
                 )}
               </div>
 
+              <div className="space-y-1">
+                <Label htmlFor="elevation_level">{t("fields.elevationLevel")}</Label>
+                <Input
+                  id="elevation_level"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  {...register("elevation_level", {
+                    setValueAs: (value) => {
+                      if (value === "" || value === null || value === undefined) return 1;
+                      const parsed = Number.parseInt(String(value), 10);
+                      return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+                    },
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">{t("help.elevationLevel")}</p>
+              </div>
+
               {(selectedMapRole === "logical" || shouldShowTopDownDimensions) && (
                 <div className="space-y-1">
                   <Label>{t("fields.parentLocation")}</Label>
@@ -737,10 +770,10 @@ export function LocationFormDialog({
                     </Label>
                     <Input
                       id="physical_width_m"
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       {...register("physical_width_m", {
-                        setValueAs: (value) => (value === "" ? null : parseFloat(value)),
+                        setValueAs: parseDecimalMeters,
                       })}
                     />
                   </div>
@@ -752,10 +785,10 @@ export function LocationFormDialog({
                     </Label>
                     <Input
                       id="physical_depth_m"
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       {...register("physical_depth_m", {
-                        setValueAs: (value) => (value === "" ? null : parseFloat(value)),
+                        setValueAs: parseDecimalMeters,
                       })}
                     />
                   </div>
@@ -763,10 +796,10 @@ export function LocationFormDialog({
                     <Label htmlFor="physical_height_m">{t("fields.physicalHeightOptional")}</Label>
                     <Input
                       id="physical_height_m"
-                      type="number"
-                      step="0.1"
+                      type="text"
+                      inputMode="decimal"
                       {...register("physical_height_m", {
-                        setValueAs: (value) => (value === "" ? null : parseFloat(value)),
+                        setValueAs: parseDecimalMeters,
                       })}
                     />
                   </div>
@@ -839,15 +872,15 @@ export function LocationFormDialog({
                       </div>
                       <Input
                         id="physical_height_m"
-                        type="number"
-                        step="0.1"
+                        type="text"
+                        inputMode="decimal"
                         max={
                           !isTopStorageSegment
                             ? (frontSegmentAvailableHeight ?? undefined)
                             : undefined
                         }
                         {...register("physical_height_m", {
-                          setValueAs: (value) => (value === "" ? null : parseFloat(value)),
+                          setValueAs: parseDecimalMeters,
                         })}
                       />
                       {!isTopStorageSegment && frontSegmentMaxHeight !== null && (

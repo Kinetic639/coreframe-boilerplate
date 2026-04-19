@@ -328,7 +328,11 @@ function RowMenu({
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent
+            align="end"
+            className="w-52"
+            onClick={(event) => event.stopPropagation()}
+          >
             {children}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -767,12 +771,20 @@ function InlineGroupSection({
 
         {canManage && (
           <RowMenu triggerLabel={group.name} tooltipLabel={t("actions.moreActions")}>
-            <DropdownMenuItem onClick={() => ctx.onEditGroup(group)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onEditGroup(group);
+              }}
+            >
               <Pencil className="mr-2 h-4 w-4" />
               {t("groups.editGroup")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => ctx.onDeleteGroup(group)}
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onDeleteGroup(group);
+              }}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -1041,38 +1053,66 @@ function TreeNodeRow({
 
         <RowMenu triggerLabel={node.name} tooltipLabel={t("actions.moreActions")}>
           {isRoot && layout && (
-            <DropdownMenuItem onClick={() => ctx.onOpenEditor(layout.id)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onOpenEditor(layout.id);
+              }}
+            >
               <LayoutGrid className="mr-2 h-4 w-4" />
               {t("actions.openMapEditor")}
             </DropdownMenuItem>
           )}
           {isRoot && !layout && canManageLayouts && (
-            <DropdownMenuItem onClick={() => ctx.onCreateMap(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onCreateMap(node);
+              }}
+            >
               <MapIcon className="mr-2 h-4 w-4" />
               {t("actions.createMapForLocation")}
             </DropdownMenuItem>
           )}
           {(isRoot || isLogicalContainer) && canManage && (
-            <DropdownMenuItem onClick={() => ctx.onCreateGroup(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onCreateGroup(node);
+              }}
+            >
               <Layers className="mr-2 h-4 w-4" />
               {t("groups.createGroup")}
             </DropdownMenuItem>
           )}
           {canManage && (
-            <DropdownMenuItem onClick={() => ctx.onEdit(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onEdit(node);
+              }}
+            >
               <Pencil className="mr-2 h-4 w-4" />
               {t("actions.editLocation", { name: node.name })}
             </DropdownMenuItem>
           )}
           {canManage && (
-            <DropdownMenuItem onClick={() => ctx.onClone(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onClone(node);
+              }}
+            >
               <Copy className="mr-2 h-4 w-4" />
               {t("actions.cloneLocation", { name: node.name })}
             </DropdownMenuItem>
           )}
           {canManage && (
             <DropdownMenuItem
-              onClick={() => ctx.onDelete(node)}
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onDelete(node);
+              }}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />

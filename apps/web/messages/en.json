@@ -573,6 +573,7 @@
         "roomWidth": "Room width (m)",
         "roomLength": "Room length (m)",
         "elevationStart": "Elevation start (m)",
+        "elevationLevel": "Elevation level",
         "storageMode": "Storage mode",
         "allowTopStorage": "Allow top storage"
       },
@@ -591,6 +592,7 @@
         "allowTopStorage": "Allow storage above the nominal top of this unit.",
         "allowTopStorageTopDown": "Enable this when stock may be placed on top of the rack or cabinet.",
         "layoutRoot": "This is the root map location. Its width and length define the layout canvas for the whole warehouse or room.",
+        "elevationLevel": "Higher elevation levels render above lower ones in the top-down map view.",
         "inheritTopDownParentColor": "Use the selected container or parent location color for this top-down unit.",
         "inheritParentColor": "Use the selected parent unit's color for this front segment.",
         "inheritTopStorageParentColor": "Use the selected top-down unit's color for this top storage segment.",
@@ -667,9 +669,14 @@
   },
   "publicWarehouseMapsPage": {
     "title": "Warehouse maps",
-    "description": "Browse all published warehouse layouts for this branch.",
+    "description": "Browse published warehouse layouts for this branch.",
     "layoutSelectLabel": "Layout",
     "layoutSelectPlaceholder": "Select a layout",
+    "globalSearch": {
+      "placeholder": "Search all branch locations...",
+      "clear": "Clear location search",
+      "noResults": "No matching branch locations found."
+    },
     "emptyTitle": "No public layouts available",
     "emptyDescription": "This branch has not published any warehouse layouts yet.",
     "selectionCleared": "Click a location on the map to inspect its front view.",
@@ -680,11 +687,17 @@
   },
   "warehouseMapDialog": {
     "title": "Warehouse Map",
+    "backgroundLabels": {
+      "topDown": "Top-down View",
+      "front": "Front View"
+    },
     "tree": {
       "empty": "No locations on this layout yet.",
       "searchPlaceholder": "Search locations...",
       "clearSearch": "Clear search",
       "noResults": "No matching locations found.",
+      "expand": "Expand",
+      "collapse": "Collapse",
       "collapseAll": "Collapse all",
       "expandAll": "Expand all"
     },
@@ -692,6 +705,8 @@
       "openEditor": "Open editor",
       "copy": "Copy",
       "copied": "Copied",
+      "showTree": "Show locations tree",
+      "hideTree": "Hide locations tree",
       "showColors": "Show colors",
       "monochromaticView": "Monochromatic view",
       "enterFullscreen": "Enter fullscreen",
@@ -716,6 +731,11 @@
         "depth": "Depth",
         "height": "Height",
         "selectionCount": "{count, plural, one {# location selected} other {# locations selected}}"
+      },
+      "metrics": {
+        "width": "Width",
+        "depth": "Depth",
+        "height": "Height"
       },
       "roles": {
         "logical": "Logical location",
@@ -951,7 +971,8 @@
       "gridSize": "Grid size",
       "width": "Width",
       "depth": "Depth",
-      "height": "Height"
+      "height": "Height",
+      "elevationLevel": "Elevation level"
     },
     "placeholders": {
       "locationName": "Location name",
@@ -962,7 +983,8 @@
     },
     "help": {
       "locationCode": "Letters, numbers, hyphens, underscores",
-      "inheritGroupColor": "Use the selected group's color for this location."
+      "inheritGroupColor": "Use the selected group's color for this location.",
+      "elevationLevel": "Higher elevation levels render above lower ones in the top-down map."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",
@@ -1258,7 +1280,11 @@
         "emptyTitle": "Select a top-down storage unit",
         "emptyDescription": "Choose a rack, cabinet, shelf block, or other top-down unit to inspect its front view.",
         "noFrontViewTitle": "No front view yet",
-        "noFrontViewDescription": "Add front-segment children or front-elevation shapes to this location to populate the vertical view."
+        "noFrontViewDescription": "Add front-segment children or front-elevation shapes to this location to populate the vertical view.",
+        "actions": {
+          "collapse": "Collapse front view",
+          "expand": "Expand front view"
+        }
       }
     }
   },

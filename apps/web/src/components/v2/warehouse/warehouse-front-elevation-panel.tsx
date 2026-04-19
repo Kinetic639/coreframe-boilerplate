@@ -3,7 +3,7 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
-import { Layers3, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Layers3, Loader2 } from "lucide-react";
 import type { WarehouseLayoutShape, WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import {
@@ -38,6 +38,11 @@ interface WarehouseFrontElevationPanelProps {
   className?: string;
   onShapeClick?: (shape: WarehouseLayoutShape) => void;
   rightRail?: React.ReactNode;
+  viewBackgroundLabel?: string;
+  viewportResetKey?: string | number;
+  collapsible?: boolean;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 export function WarehouseFrontElevationPanel({
@@ -52,6 +57,11 @@ export function WarehouseFrontElevationPanel({
   className = "",
   onShapeClick,
   rightRail,
+  viewBackgroundLabel,
+  viewportResetKey,
+  collapsible = false,
+  collapsed = false,
+  onCollapsedChange,
 }: WarehouseFrontElevationPanelProps) {
   const t = useTranslations("warehouseFrontElevation");
   const effectiveAnchorLocationIds = React.useMemo(
@@ -97,14 +107,35 @@ export function WarehouseFrontElevationPanel({
   }, [effectiveAnchorLocationIds, layout, locations, locationGroups]);
 
   return (
-    <section className={`flex min-h-0 flex-col border-t bg-background ${className}`}>
-      <div className="flex items-center justify-between border-b bg-muted/40 px-4 py-2.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("title")}
-        </p>
-      </div>
+    <section
+      className={`flex min-h-0 flex-col overflow-hidden border-t bg-background ${className}`}
+    >
+      {collapsible && (
+        <div className="flex shrink-0 items-center justify-between border-b bg-muted/30 px-3 py-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {viewBackgroundLabel ?? t("title")}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            onClick={() => onCollapsedChange?.(!collapsed)}
+            aria-label={collapsed ? t("actions.expand") : t("actions.collapse")}
+            title={collapsed ? t("actions.expand") : t("actions.collapse")}
+          >
+            {collapsed ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+      )}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div
+        className={`flex min-h-0 flex-1 overflow-hidden transition-[opacity,transform] duration-300 ease-out ${
+          collapsed ? "pointer-events-none -translate-y-2 opacity-0" : "translate-y-0 opacity-100"
+        }`}
+      >
         <div className="min-w-0 flex-1 overflow-hidden">
           {effectiveAnchorLocationIds.length === 0 || anchorLocations.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center text-muted-foreground">
@@ -122,11 +153,13 @@ export function WarehouseFrontElevationPanel({
             <WarehouseMapViewer
               layout={frontLayout}
               projection="front_elevation"
+              viewBackgroundLabel={viewBackgroundLabel ?? t("title")}
               locations={locations}
               locationGroups={locationGroups}
               highlightLocationIds={highlightLocationIds}
               headerActiveLocationIds={headerActiveLocationIds}
               monochromaticHighlight={monochromaticHighlight}
+              viewportResetKey={viewportResetKey}
               autoPanToHighlight={false}
               onShapeClick={onShapeClick}
               className="h-full w-full"
