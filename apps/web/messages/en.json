@@ -705,6 +705,8 @@
       "openEditor": "Open editor",
       "copy": "Copy",
       "copied": "Copied",
+      "showTree": "Show locations tree",
+      "hideTree": "Hide locations tree",
       "showColors": "Show colors",
       "monochromaticView": "Monochromatic view",
       "enterFullscreen": "Enter fullscreen",

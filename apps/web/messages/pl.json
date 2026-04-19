@@ -754,6 +754,8 @@
       "openEditor": "Otwórz edytor",
       "copy": "Skopiuj",
       "copied": "Skopiowano",
+      "showTree": "Pokaż drzewo lokalizacji",
+      "hideTree": "Ukryj drzewo lokalizacji",
       "showColors": "Pokaż kolory",
       "monochromaticView": "Widok monochromatyczny",
       "enterFullscreen": "Włącz pełny ekran",

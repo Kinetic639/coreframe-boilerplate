@@ -16,6 +16,8 @@ import {
   MapPin,
   ArrowUpDown,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,9 +280,9 @@ function MapInfoDrawer({
           open ? "w-72 opacity-100" : "w-0 opacity-0"
         )}
       >
-        <div className="flex h-full min-w-0 flex-col">
-          <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-            <div className="min-w-0">
+        <div className="flex h-full min-w-0 w-full flex-col">
+          <div className="flex w-full items-center justify-between border-b border-border/60 px-3 py-2">
+            <div className="min-w-0 flex-1">
               {summary.mode === "empty" ? (
                 <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   {title}
@@ -691,6 +693,7 @@ function TreePanel({
   rootLocationId,
   highlightedIds,
   onSelectIds,
+  onToggleVisibility,
   t,
 }: {
   layout: WarehouseLayoutWithShapes;
@@ -699,6 +702,7 @@ function TreePanel({
   rootLocationId: string | null | undefined;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
+  onToggleVisibility?: () => void;
   t: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
 }) {
   const descendants = React.useMemo(() => {
@@ -834,24 +838,44 @@ function TreePanel({
   return (
     <div className="flex w-56 shrink-0 flex-col overflow-hidden border-r bg-background">
       <div className="shrink-0 border-b bg-muted/50 px-3 py-2.5">
-        <div className="relative">
-          <Input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder={t("tree.searchPlaceholder")}
-            className="h-8 pr-8 text-xs"
-          />
-          {searchQuery.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
-              onClick={() => setSearchQuery("")}
-              aria-label={t("tree.clearSearch")}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("tree.searchPlaceholder")}
+              className="h-8 pr-8 text-xs"
+            />
+            {searchQuery.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
+                onClick={() => setSearchQuery("")}
+                aria-label={t("tree.clearSearch")}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          {onToggleVisibility && (
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 rounded-lg"
+                    onClick={onToggleVisibility}
+                  >
+                    <PanelLeftClose className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{t("actions.hideTree")}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>
@@ -947,12 +971,11 @@ export function PublicWarehouseMapsPageClient({
   const [isMonochrome, setIsMonochrome] = React.useState(true);
   const [didCopyPath, setDidCopyPath] = React.useState(false);
   const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(false);
+  const [isTreeVisible, setIsTreeVisible] = React.useState(true);
   const [globalSearchQuery, setGlobalSearchQuery] = React.useState("");
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = React.useState(false);
-  const [pendingHighlightLocationId, setPendingHighlightLocationId] = React.useState<string | null>(
-    null
-  );
   const globalSearchBlurTimeoutRef = React.useRef<number | null>(null);
+  const searchNavigationTargetRef = React.useRef<string | null>(null);
 
   const selectedLayout = React.useMemo(
     () => layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0] ?? null,
@@ -1213,20 +1236,21 @@ export function PublicWarehouseMapsPageClient({
   );
 
   React.useEffect(() => {
-    if (
-      pendingHighlightLocationId &&
-      locationLayoutMap.get(pendingHighlightLocationId) === selectedLayoutId
-    ) {
-      setHighlightedIds([pendingHighlightLocationId]);
-      setPendingHighlightLocationId(null);
-    } else {
+    const pendingLocationId = searchNavigationTargetRef.current;
+    if (pendingLocationId && locationLayoutMap.get(pendingLocationId) === selectedLayoutId) {
+      setHighlightedIds([pendingLocationId]);
+      searchNavigationTargetRef.current = null;
+    } else if (!pendingLocationId) {
       setHighlightedIds([]);
     }
     setIsMonochrome(true);
-  }, [locationLayoutMap, pendingHighlightLocationId, selectedLayoutId]);
+  }, [locationLayoutMap, selectedLayoutId]);
   React.useEffect(() => {
     setDidCopyPath(false);
   }, [highlightedLocationCodePath]);
+  React.useEffect(() => {
+    setIsTreeVisible(true);
+  }, [selectedLayoutId]);
   React.useEffect(() => {
     return () => {
       if (globalSearchBlurTimeoutRef.current !== null) {
@@ -1251,12 +1275,20 @@ export function PublicWarehouseMapsPageClient({
       setDidCopyPath(false);
     }
   }, [highlightedLocationCodePath]);
-  const handleGlobalSearchSelect = React.useCallback((layoutId: string, locationId: string) => {
-    setPendingHighlightLocationId(locationId);
-    setSelectedLayoutId(layoutId);
-    setGlobalSearchQuery("");
-    setIsGlobalSearchOpen(false);
-  }, []);
+  const handleGlobalSearchSelect = React.useCallback(
+    (layoutId: string, locationId: string) => {
+      setIsFrontViewCollapsed(false);
+      if (layoutId === selectedLayoutId) {
+        setHighlightedIds([locationId]);
+      } else {
+        searchNavigationTargetRef.current = locationId;
+        setSelectedLayoutId(layoutId);
+      }
+      setGlobalSearchQuery("");
+      setIsGlobalSearchOpen(false);
+    },
+    [selectedLayoutId]
+  );
 
   if (!selectedLayout) {
     return (
@@ -1272,7 +1304,7 @@ export function PublicWarehouseMapsPageClient({
 
   return (
     <div className="flex h-[calc(100vh-12.5rem)] min-h-[640px] w-full flex-col gap-2 self-stretch overflow-hidden">
-      <div className="flex shrink-0 flex-col gap-1 rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
+      <div className="relative z-[80] flex shrink-0 flex-col gap-1 overflow-visible rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
             {branch.name}
@@ -1329,7 +1361,7 @@ export function PublicWarehouseMapsPageClient({
         </div>
 
         <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">
-          <div className="relative w-full md:w-80">
+          <div className="relative z-[90] w-full md:w-80 overflow-visible">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={globalSearchQuery}
@@ -1363,7 +1395,7 @@ export function PublicWarehouseMapsPageClient({
               </Button>
             )}
             {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
-              <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-20 overflow-hidden rounded-lg border bg-popover shadow-lg">
+              <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-[120] overflow-hidden rounded-lg border bg-popover shadow-2xl">
                 {globalSearchResults.length > 0 ? (
                   <div className="max-h-80 overflow-y-auto p-1">
                     {globalSearchResults.map((result) => (
@@ -1385,8 +1417,8 @@ export function PublicWarehouseMapsPageClient({
                           ) : null}
                         </span>
                         <span className="truncate text-[11px] text-muted-foreground">
-                          {result.rootLocationName}
-                          {result.breadcrumbPath ? ` / ${result.breadcrumbPath}` : ""}
+                          {result.breadcrumbPath}
+                          {result.rootLocationName ? ` (${result.rootLocationName})` : ""}
                         </span>
                       </button>
                     ))}
@@ -1417,21 +1449,31 @@ export function PublicWarehouseMapsPageClient({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-sm">
+      <div className="relative z-0 min-h-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="relative flex h-full overflow-hidden">
-          <TreePanel
-            layout={selectedLayout}
-            locations={locations}
-            locationGroups={locationGroups}
-            rootLocationId={selectedLayout.root_location_id}
-            highlightedIds={highlightedIds}
-            onSelectIds={(ids) =>
-              setHighlightedIds((prev) =>
-                prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
-              )
-            }
-            t={dialogT}
-          />
+          <div
+            className={cn(
+              "shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+              isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
+            )}
+          >
+            <div className="w-56">
+              <TreePanel
+                layout={selectedLayout}
+                locations={locations}
+                locationGroups={locationGroups}
+                rootLocationId={selectedLayout.root_location_id}
+                highlightedIds={highlightedIds}
+                onSelectIds={(ids) =>
+                  setHighlightedIds((prev) =>
+                    prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+                  )
+                }
+                onToggleVisibility={() => setIsTreeVisible(false)}
+                t={dialogT}
+              />
+            </div>
+          </div>
 
           <div
             className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
@@ -1446,8 +1488,36 @@ export function PublicWarehouseMapsPageClient({
               onClick={() => setHighlightedIds([])}
             >
               <div className="relative min-w-0 flex-1 overflow-hidden">
+                {!isTreeVisible && (
+                  <div className="pointer-events-auto absolute left-3 top-3 z-30 animate-in fade-in-0 slide-in-from-left-2 duration-200">
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg border-border/70 bg-background/90 shadow-sm backdrop-blur-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setIsTreeVisible(true);
+                            }}
+                          >
+                            <PanelLeftOpen className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{dialogT("actions.showTree")}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
                 {highlightedIds.length > 0 && (
-                  <div className="absolute left-3 top-3 z-10 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+                  <div
+                    className={cn(
+                      "pointer-events-auto absolute top-3 z-30 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm transition-[left] duration-300 ease-out",
+                      !isTreeVisible ? "left-14" : "left-3"
+                    )}
+                  >
                     <button
                       type="button"
                       title={

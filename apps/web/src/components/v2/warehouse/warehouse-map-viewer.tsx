@@ -482,7 +482,17 @@ export function WarehouseMapViewer({
       hasHeaderActiveIds &&
       !!shape.location_id &&
       !headerActiveIdSet.has(shape.location_id);
-    const contentOpacity = isMonoActive && !isHighlighted ? 0.38 : isHeaderDimmed ? 0.55 : 1;
+    const isColorModeDimmed =
+      !isMonoActive && hasHighlights && !isHighlighted && !isCombinedHeaderShape;
+    const contentOpacity = isMonoActive
+      ? !isHighlighted
+        ? 0.38
+        : 1
+      : isHeaderDimmed
+        ? 0.55
+        : isColorModeDimmed
+          ? 0.62
+          : 1;
     // In monochromatic mode: non-highlighted shapes go gray; highlighted shape keeps its full color.
     // In color mode: highlighted shape gets a smooth, color-matched emphasis instead of a flashing border.
     const effectiveFill =
@@ -504,7 +514,7 @@ export function WarehouseMapViewer({
         : isCombinedHeaderBackground && isHighlighted
           ? themePrimary || stroke
           : isHighlighted
-            ? stroke
+            ? themePrimary || stroke
             : stroke;
     // Smooth pulse only in normal (non-mono) mode
     const pulseStrokeWidth = isCombinedHeaderBackground
@@ -514,8 +524,14 @@ export function WarehouseMapViewer({
           ? sw * 1.5
           : sw
       : !isMonoActive && isHighlighted
-        ? sw * (1.6 + pulsePhase * 1.1)
+        ? sw * (2.15 + pulsePhase * 1.35)
         : sw;
+    const highlightHaloStrokeWidth =
+      !isMonoActive && isHighlighted && !isCombinedHeaderBackground ? sw * 4.5 : 0;
+    const highlightHaloColor =
+      !isMonoActive && isHighlighted && !isCombinedHeaderBackground
+        ? withAlpha(themePrimary || stroke, "44")
+        : "transparent";
 
     if (shape.shape_type === "label") {
       const combinedHeaderLabelColor = isHeaderDimmed
@@ -595,6 +611,17 @@ export function WarehouseMapViewer({
           }
         }}
       >
+        {highlightHaloStrokeWidth > 0 ? (
+          <Rect
+            width={shape.width}
+            height={shape.height}
+            fillEnabled={false}
+            stroke={highlightHaloColor}
+            strokeWidth={highlightHaloStrokeWidth}
+            cornerRadius={(style?.cornerRadius ?? 0) / (zoom * METER_TO_PIXEL)}
+            listening={false}
+          />
+        ) : null}
         <Rect
           width={shape.width}
           height={shape.height}
@@ -610,7 +637,7 @@ export function WarehouseMapViewer({
                   ? 0.18
                   : 0
               : isHighlighted && !isMonoActive
-                ? 0.18 + pulsePhase * 0.18
+                ? 0.32 + pulsePhase * 0.22
                 : 0
           }
           shadowColor={
@@ -618,7 +645,7 @@ export function WarehouseMapViewer({
               ? isHighlighted
                 ? withAlpha(stroke, "55")
                 : "rgba(15,23,42,0.16)"
-              : withAlpha(stroke, isHighlighted ? "44" : "00")
+              : withAlpha(themePrimary || stroke, isHighlighted ? "66" : "00")
           }
         />
         {shape.label &&
