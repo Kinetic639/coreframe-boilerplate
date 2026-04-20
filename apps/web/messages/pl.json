@@ -533,7 +533,8 @@
     "badges": {
       "published": "Opublikowana",
       "draft": "Szkic",
-      "noMap": "Brak mapy"
+      "noMap": "Brak mapy",
+      "loadingMap": "Ładowanie mapy…"
     },
     "actions": {
       "addLocation": "Dodaj lokalizację",
@@ -544,6 +545,7 @@
       "copyLocationCode": "Kopiuj kod lokalizacji",
       "copyLocationPath": "Kopiuj ścieżkę lokalizacji",
       "previewMap": "Podejrzyj mapę",
+      "loadingMapState": "Ładowanie mapy…",
       "previewGroupOnMap": "Podejrzyj grupę na mapie",
       "openMapEditor": "Otwórz edytor mapy",
       "createMapForLocation": "Utwórz mapę dla tej lokalizacji",
@@ -565,7 +567,19 @@
     "feedback": {
       "locationCodeCopied": "Skopiowano kod lokalizacji {code}.",
       "locationPathCopied": "Skopiowano ścieżkę lokalizacji.",
-      "copyFailed": "Nie udało się skopiować do schowka."
+      "copyFailed": "Nie udało się skopiować do schowka.",
+      "publicMapsEnabled": "Włączono publiczny podgląd map.",
+      "publicMapsDisabled": "Wyłączono publiczny podgląd map.",
+      "publicMapsToggleFailed": "Nie udało się zaktualizować ustawień publicznego podglądu map.",
+      "publicMapsLinkCopied": "Skopiowano publiczny link do map."
+    },
+    "publicMaps": {
+      "title": "Publiczny podgląd",
+      "enabled": "Włączony",
+      "disabled": "Wyłączony",
+      "toggle": "Przełącz publiczne mapy magazynu",
+      "copyLink": "Kopiuj publiczny link",
+      "copyLinkDisabled": "Włącz publiczny podgląd, aby skopiować link"
     },
     "tree": {
       "collapse": "Zwiń",
@@ -608,6 +622,7 @@
         "roomWidth": "Szerokość (m)",
         "roomLength": "Długość (m)",
         "elevationStart": "Początek wysokości (m)",
+        "elevationLevel": "Poziom elewacji",
         "storageMode": "Tryb składowania",
         "allowTopStorage": "Zezwalaj na składowanie nad górą"
       },
@@ -626,6 +641,7 @@
         "allowTopStorage": "Zezwalaj na składowanie powyżej nominalnej wysokości tej jednostki.",
         "allowTopStorageTopDown": "Włącz, jeśli towar może być odkładany na górze regału lub szafy.",
         "layoutRoot": "To główna lokalizacja mapy. Jej szerokość i długość wyznaczają obszar układu dla całego magazynu lub pomieszczenia.",
+        "elevationLevel": "Wyższe poziomy elewacji są renderowane nad niższymi w rzucie z góry.",
         "inheritTopDownParentColor": "Użyj koloru wybranego kontenera lub lokalizacji nadrzędnej dla tej jednostki z rzutu z góry.",
         "inheritParentColor": "Użyj koloru wybranej jednostki nadrzędnej dla tego segmentu widoku frontowego.",
         "inheritTopStorageParentColor": "Użyj koloru wybranej jednostki z rzutu z góry dla tego segmentu składowania na górze.",
@@ -700,26 +716,89 @@
       }
     }
   },
+  "publicWarehouseMapsPage": {
+    "title": "Mapy magazynu",
+    "description": "Przeglądaj opublikowane układy magazynu dla tego oddziału.",
+    "layoutSelectLabel": "Układ",
+    "layoutSelectPlaceholder": "Wybierz układ",
+    "globalSearch": {
+      "placeholder": "Szukaj we wszystkich lokalizacjach oddziału...",
+      "clear": "Wyczyść wyszukiwanie lokalizacji",
+      "noResults": "Nie znaleziono pasujących lokalizacji w oddziale."
+    },
+    "emptyTitle": "Brak publicznych układów",
+    "emptyDescription": "Ten oddział nie opublikował jeszcze żadnych układów magazynu.",
+    "selectionCleared": "Kliknij lokalizację na mapie, aby podejrzeć jej widok frontowy.",
+    "colorMode": {
+      "showColors": "Pokaż kolory",
+      "showMonochrome": "Pokaż widok monochromatyczny"
+    }
+  },
   "warehouseMapDialog": {
     "title": "Mapa magazynu",
+    "backgroundLabels": {
+      "topDown": "Rzut z góry",
+      "front": "Widok frontowy"
+    },
     "tree": {
-      "title": "Lokalizacje",
-      "description": "Kliknij, aby podświetlić na mapie",
       "empty": "Na tym układzie nie ma jeszcze lokalizacji.",
-      "legendPlaced": "Umieszczono na planie",
-      "legendUnplaced": "Jeszcze nie umieszczono",
-      "onCanvas": "Na planie",
-      "highlighted": "Podświetlono"
+      "searchPlaceholder": "Szukaj lokalizacji...",
+      "clearSearch": "Wyczyść wyszukiwanie",
+      "noResults": "Nie znaleziono pasujących lokalizacji.",
+      "expand": "Rozwiń",
+      "collapse": "Zwiń",
+      "collapseAll": "Zwiń wszystko",
+      "expandAll": "Rozwiń wszystko"
     },
     "actions": {
       "openEditor": "Otwórz edytor",
+      "copy": "Skopiuj",
+      "copied": "Skopiowano",
+      "showTree": "Pokaż drzewo lokalizacji",
+      "hideTree": "Ukryj drzewo lokalizacji",
       "showColors": "Pokaż kolory",
-      "monochromaticView": "Widok monochromatyczny"
+      "monochromaticView": "Widok monochromatyczny",
+      "enterFullscreen": "Włącz pełny ekran",
+      "exitFullscreen": "Wyłącz pełny ekran"
     },
     "states": {
       "noBranch": "Wybierz oddział, aby zobaczyć mapę magazynu.",
       "loadError": "Nie udało się załadować mapy magazynu. Spróbuj ponownie.",
       "noPublishedLayout": "Brak opublikowanego układu dla tego oddziału."
+    },
+    "info": {
+      "topDownTitle": "Szczegóły rzutu z góry",
+      "frontTitle": "Szczegóły widoku frontowego",
+      "empty": "Nic jeszcze nie zaznaczono.",
+      "emptyTopDown": "Wybierz lokalizację w drzewie lub na mapie rzutu z góry, aby zobaczyć jej szczegóły.",
+      "emptyFront": "Wybierz lokalizację, która ma segmenty frontowe, aby podejrzeć ich szczegóły.",
+      "fields": {
+        "code": "Kod",
+        "description": "Opis",
+        "dimensions": "Wymiary",
+        "width": "Szerokość",
+        "depth": "Głębokość",
+        "height": "Wysokość",
+        "selectionCount": "{count, plural, one {# zaznaczona lokalizacja} few {# zaznaczone lokalizacje} many {# zaznaczonych lokalizacji} other {# zaznaczonej lokalizacji}}"
+      },
+      "metrics": {
+        "width": "Szerokość",
+        "depth": "Głębokość",
+        "height": "Wysokość"
+      },
+      "roles": {
+        "logical": "Lokalizacja logiczna",
+        "layoutRoot": "Lokalizacja główna mapy",
+        "topDownUnit": "Jednostka z rzutu z góry",
+        "frontSegment": "Segment widoku frontowego",
+        "topStorageSegment": "Składowanie na górze"
+      },
+      "multiple": {
+        "topDownSelection": "Zaznaczenie rzutu z góry",
+        "frontSelection": "Zaznaczenie widoku frontowego",
+        "oneDescription": "1 zaznaczona lokalizacja ma opis.",
+        "manyDescriptions": "{count} zaznaczonych lokalizacji ma opisy."
+      }
     }
   },
   "warehouseMapListPage": {
@@ -879,7 +958,11 @@
     "emptyTitle": "Wybierz jednostkę z rzutu z góry",
     "emptyDescription": "Wybierz regał, szafę, blok półek lub inną jednostkę z rzutu z góry, aby zobaczyć jej widok frontowy.",
     "noFrontViewTitle": "Brak widoku frontowego",
-    "noFrontViewDescription": "Dodaj dzieci typu segment frontowy lub kształty widoku frontowego do tej lokalizacji, aby uzupełnić widok pionowy."
+    "noFrontViewDescription": "Dodaj dzieci typu segment frontowy lub kształty widoku frontowego do tej lokalizacji, aby uzupełnić widok pionowy.",
+    "actions": {
+      "collapse": "Zwiń widok frontowy",
+      "expand": "Rozwiń widok frontowy"
+    }
   },
   "warehouseMapCanvas": {
     "defaultLabel": "Etykieta",
@@ -949,7 +1032,8 @@
       "gridSize": "Rozmiar siatki",
       "width": "Szerokość",
       "depth": "Głębokość",
-      "height": "Wysokość"
+      "height": "Wysokość",
+      "elevationLevel": "Poziom elewacji"
     },
     "placeholders": {
       "locationName": "Nazwa lokalizacji",
@@ -960,7 +1044,8 @@
     },
     "help": {
       "locationCode": "Litery, cyfry, myślniki, podkreślenia",
-      "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji."
+      "inheritGroupColor": "Użyj koloru wybranej grupy dla tej lokalizacji.",
+      "elevationLevel": "Wyższe poziomy elewacji są renderowane nad niższymi w rzucie z góry."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",

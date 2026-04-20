@@ -37,6 +37,10 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
+vi.mock("@/server/services/event.service", () => ({
+  eventService: { emit: vi.fn().mockResolvedValue({ success: true }) },
+}));
+
 import { acceptInvitationAction, declineInvitationAction } from "../invitations";
 import { getPublicInvitationPreviewAction } from "../invite-preview";
 

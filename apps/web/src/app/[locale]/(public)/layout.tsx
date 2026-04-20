@@ -13,8 +13,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
         linkText="Sprawdź ofertę"
       />
       <PublicHeader />
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center lg:py-16">
-        <div className="flex w-full max-w-7xl flex-1 flex-col items-center justify-center gap-20 p-5">
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-start py-1 lg:py-2">
+        <div className="flex h-full w-full max-w-7xl flex-1 flex-col items-stretch justify-start gap-2 px-3 py-1 lg:px-4 lg:py-2">
           {children}
         </div>
       </main>

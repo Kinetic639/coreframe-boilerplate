@@ -367,7 +367,7 @@ export function RolesClient({ initialRoles }: RolesClientProps) {
       )}
 
       <Dialog open={dialogMode !== null} onOpenChange={(open) => !open && setDialogMode(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               {dialogMode === "create" ? t("dialog.titleCreate") : t("dialog.titleEdit")}

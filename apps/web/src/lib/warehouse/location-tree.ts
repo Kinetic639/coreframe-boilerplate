@@ -53,6 +53,8 @@ export interface WarehouseLocation {
   physical_height_m?: number | null;
   /** Vertical bottom offset within the parent front elevation in meters. */
   physical_elevation_start_m?: number | null;
+  /** Visual top-down stacking order. Higher values render above lower ones. */
+  elevation_level?: number | null;
   /** Mapping role hint used by dual-projection viewers/editors. */
   map_role?: WarehouseLocationMapRole;
   /** Optional semantic storage classification for future workflows. */

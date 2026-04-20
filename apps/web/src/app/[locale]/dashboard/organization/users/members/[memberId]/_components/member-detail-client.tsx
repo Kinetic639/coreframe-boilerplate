@@ -380,7 +380,7 @@ export function MemberDetailClient({
 
       {/* Add Role Dialog */}
       <Dialog open={showAddRole} onOpenChange={(open) => !open && setShowAddRole(false)}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Add Role</DialogTitle>
           </DialogHeader>
@@ -506,7 +506,7 @@ export function MemberDetailClient({
 
       {/* Custom Access Dialog */}
       <Dialog open={showCustomAccess} onOpenChange={(open) => !open && setShowCustomAccess(false)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Custom Access</DialogTitle>
           </DialogHeader>

@@ -49,6 +49,7 @@ export interface CreateLocationInput {
   physical_depth_m?: number | null;
   physical_height_m?: number | null;
   physical_elevation_start_m?: number | null;
+  elevation_level?: number;
   map_role?: WarehouseLocation["map_role"];
   storage_mode?: string;
   allow_top_storage?: boolean;
@@ -69,6 +70,7 @@ export interface UpdateLocationInput {
   physical_depth_m?: number | null;
   physical_height_m?: number | null;
   physical_elevation_start_m?: number | null;
+  elevation_level?: number;
   map_role?: WarehouseLocation["map_role"];
   storage_mode?: string;
   allow_top_storage?: boolean;
@@ -78,7 +80,7 @@ export interface UpdateLocationInput {
 // ─── Column select ────────────────────────────────────────────────────────────
 
 const LOCATION_COLUMNS =
-  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
+  "id, organization_id, branch_id, name, code, description, icon_name, color, parent_id, group_id, inherit_group_color, inherit_parent_color, physical_width_m, physical_depth_m, physical_height_m, physical_elevation_start_m, elevation_level, map_role, storage_mode, allow_top_storage, level, sort_order, qr_code, created_by, updated_by, created_at, updated_at, deleted_at" as const;
 
 const GROUP_SCOPE_COLUMNS =
   "id, organization_id, branch_id, parent_location_id, deleted_at" as const;
@@ -252,6 +254,7 @@ export class WarehouseLocationsService {
         physical_depth_m: input.physical_depth_m ?? null,
         physical_height_m: input.physical_height_m ?? null,
         physical_elevation_start_m: input.physical_elevation_start_m ?? null,
+        elevation_level: input.elevation_level ?? 1,
         map_role: input.map_role ?? "logical",
         storage_mode: input.storage_mode ?? "standard",
         allow_top_storage: input.allow_top_storage ?? false,
@@ -324,6 +327,9 @@ export class WarehouseLocationsService {
     }
     if (input.physical_elevation_start_m !== undefined) {
       updatePayload.physical_elevation_start_m = input.physical_elevation_start_m;
+    }
+    if (input.elevation_level !== undefined) {
+      updatePayload.elevation_level = input.elevation_level;
     }
     if (input.map_role !== undefined) {
       updatePayload.map_role = input.map_role;
@@ -676,13 +682,14 @@ export class WarehouseLocationsService {
 
     const usedHeight = siblingsResult.data
       .filter((child) => child.id !== input.locationId)
-      .filter((child) =>
-        ["front_segment", "top_storage_segment"].includes(child.map_role ?? "logical")
-      )
+      .filter((child) => (child.map_role ?? "logical") === "front_segment")
       .reduce((sum, child) => sum + (child.physical_height_m ?? 0), 0);
 
-    const availableHeight = Math.max(0, parentResult.data.physical_height_m - usedHeight);
-    if (input.physicalHeightM > availableHeight) {
+    const availableHeight = Math.max(
+      0,
+      Math.round((parentResult.data.physical_height_m - usedHeight) * 1e4) / 1e4
+    );
+    if (Math.round(input.physicalHeightM * 1e4) / 1e4 > availableHeight) {
       return {
         success: false,
         error: isTopStorageSegment

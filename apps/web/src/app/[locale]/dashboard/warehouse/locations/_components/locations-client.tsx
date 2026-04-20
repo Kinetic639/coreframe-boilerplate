@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   MapPin,
   Map as MapIcon,
@@ -15,12 +15,15 @@ import {
   ChevronRight,
   ChevronDown,
   Globe,
+  Link as LinkIcon,
   FileEdit,
   GripVertical,
   Layers,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +71,7 @@ import {
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_LOCATIONS_MANAGE,
   WAREHOUSE_LAYOUTS_MANAGE,
+  WAREHOUSE_LAYOUTS_PUBLISH,
 } from "@/lib/constants/permissions";
 import {
   useWarehouseLocationsQuery,
@@ -83,6 +87,7 @@ import {
   useUpdateLocationGroupMutation,
   useDeleteLocationGroupMutation,
   useReorderGroupsMutation,
+  useSetBranchPublicWarehouseMapsMutation,
 } from "@/hooks/queries/warehouse";
 import { buildLocationTree, getEffectiveLocationColor } from "@/lib/warehouse/location-tree";
 import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
@@ -167,6 +172,8 @@ interface TreeCtx {
   t: ReturnType<typeof useTranslations<"warehouseLocationsPage">>;
   canManage: boolean;
   canManageLayouts: boolean;
+  layoutsReady: boolean;
+  isCreatingMap: boolean;
   allLocations: WarehouseLocation[];
   groups: WarehouseLocationGroup[];
   placedLocationIds: Set<string>;
@@ -321,7 +328,11 @@ function RowMenu({
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent
+            align="end"
+            className="w-52"
+            onClick={(event) => event.stopPropagation()}
+          >
             {children}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -760,12 +771,20 @@ function InlineGroupSection({
 
         {canManage && (
           <RowMenu triggerLabel={group.name} tooltipLabel={t("actions.moreActions")}>
-            <DropdownMenuItem onClick={() => ctx.onEditGroup(group)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onEditGroup(group);
+              }}
+            >
               <Pencil className="mr-2 h-4 w-4" />
               {t("groups.editGroup")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => ctx.onDeleteGroup(group)}
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onDeleteGroup(group);
+              }}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -871,17 +890,22 @@ function TreeNodeRow({
   const isRoot = depth === 0;
   const isPlaced = placedLocationIds.has(node.id);
   const canPreviewOnMap = isRoot || ctx.canPreviewLocationOnMap(node);
+  const isRootMapPending = isRoot && !layout && (!ctx.layoutsReady || ctx.isCreatingMap);
   const effectiveColor = getEffectiveLocationColor(node, ctx.groups, ctx.allLocations);
   const rootMapStatusLabel = layout
     ? layout.status === "published"
       ? t("badges.published")
       : t("badges.draft")
-    : t("badges.noMap");
+    : isRootMapPending
+      ? t("badges.loadingMap")
+      : t("badges.noMap");
   const rootMapActionLabel = layout
     ? t("actions.previewMap")
-    : canManageLayouts
-      ? t("actions.createMapForLocation")
-      : t("badges.noMap");
+    : isRootMapPending
+      ? t("actions.loadingMapState")
+      : canManageLayouts
+        ? t("actions.createMapForLocation")
+        : t("badges.noMap");
 
   return (
     <>
@@ -969,13 +993,19 @@ function TreeNodeRow({
                         ctx.onPreviewMap(node);
                         return;
                       }
-                      if (canManageLayouts) {
+                      if (canManageLayouts && ctx.layoutsReady && !ctx.isCreatingMap) {
                         ctx.onCreateMap(node);
                       }
                     }}
-                    disabled={!layout && !canManageLayouts}
+                    disabled={
+                      !layout && (!canManageLayouts || !ctx.layoutsReady || ctx.isCreatingMap)
+                    }
                   >
-                    <MapIcon className="h-3.5 w-3.5" />
+                    {isRootMapPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <MapIcon className="h-3.5 w-3.5" />
+                    )}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -1023,38 +1053,66 @@ function TreeNodeRow({
 
         <RowMenu triggerLabel={node.name} tooltipLabel={t("actions.moreActions")}>
           {isRoot && layout && (
-            <DropdownMenuItem onClick={() => ctx.onOpenEditor(layout.id)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onOpenEditor(layout.id);
+              }}
+            >
               <LayoutGrid className="mr-2 h-4 w-4" />
               {t("actions.openMapEditor")}
             </DropdownMenuItem>
           )}
           {isRoot && !layout && canManageLayouts && (
-            <DropdownMenuItem onClick={() => ctx.onCreateMap(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onCreateMap(node);
+              }}
+            >
               <MapIcon className="mr-2 h-4 w-4" />
               {t("actions.createMapForLocation")}
             </DropdownMenuItem>
           )}
           {(isRoot || isLogicalContainer) && canManage && (
-            <DropdownMenuItem onClick={() => ctx.onCreateGroup(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onCreateGroup(node);
+              }}
+            >
               <Layers className="mr-2 h-4 w-4" />
               {t("groups.createGroup")}
             </DropdownMenuItem>
           )}
           {canManage && (
-            <DropdownMenuItem onClick={() => ctx.onEdit(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onEdit(node);
+              }}
+            >
               <Pencil className="mr-2 h-4 w-4" />
               {t("actions.editLocation", { name: node.name })}
             </DropdownMenuItem>
           )}
           {canManage && (
-            <DropdownMenuItem onClick={() => ctx.onClone(node)}>
+            <DropdownMenuItem
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onClone(node);
+              }}
+            >
               <Copy className="mr-2 h-4 w-4" />
               {t("actions.cloneLocation", { name: node.name })}
             </DropdownMenuItem>
           )}
           {canManage && (
             <DropdownMenuItem
-              onClick={() => ctx.onDelete(node)}
+              onClick={(event) => {
+                event.stopPropagation();
+                ctx.onDelete(node);
+              }}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -1152,13 +1210,17 @@ function RootDragPreview({
 
 export function LocationsClient({ initialLocations, initialGroups }: LocationsClientProps) {
   const t = useTranslations("warehouseLocationsPage");
+  const locale = useLocale();
   const { can } = usePermissions();
   const router = useRouter();
   const activeBranchId = useAppStoreV2((s) => s.activeBranchId);
+  const activeBranch = useAppStoreV2((s) => s.activeBranch);
+  const activeOrg = useAppStoreV2((s) => s.activeOrg);
 
   const canRead = can(WAREHOUSE_LOCATIONS_READ);
   const canManage = can(WAREHOUSE_LOCATIONS_MANAGE);
   const canManageLayouts = can(WAREHOUSE_LAYOUTS_MANAGE);
+  const canPublishLayouts = can(WAREHOUSE_LAYOUTS_PUBLISH);
 
   const { data: locations = initialLocations } = useWarehouseLocationsQuery(
     activeBranchId,
@@ -1168,7 +1230,8 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
     activeBranchId,
     initialGroups
   );
-  const { data: layouts = [] } = useWarehouseLayoutsQuery(activeBranchId);
+  const { data: layouts = [], isLoading: layoutsLoading } =
+    useWarehouseLayoutsQuery(activeBranchId);
 
   const layoutByLocationId = useMemo(
     () =>
@@ -1194,6 +1257,14 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
   const updateGroupMut = useUpdateLocationGroupMutation(activeBranchId);
   const deleteGroupMut = useDeleteLocationGroupMutation(activeBranchId);
   const reorderGroupsMut = useReorderGroupsMutation(activeBranchId);
+  const publicMapsMut = useSetBranchPublicWarehouseMapsMutation();
+  const [publicMapsEnabled, setPublicMapsEnabled] = useState(
+    activeBranch?.public_warehouse_maps_enabled ?? false
+  );
+
+  useEffect(() => {
+    setPublicMapsEnabled(activeBranch?.public_warehouse_maps_enabled ?? false);
+  }, [activeBranch?.id, activeBranch?.public_warehouse_maps_enabled]);
 
   // ── Dialog state ──────────────────────────────────────────────────────────
   const [formOpen, setFormOpen] = useState(false);
@@ -1287,6 +1358,30 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
     void copyToClipboard(path, t("feedback.locationPathCopied"));
   }
 
+  function buildPublicMapsUrl() {
+    if (!activeBranchId || typeof window === "undefined") return null;
+    const normalizedLocale = locale || "en";
+    return `${window.location.origin}/${normalizedLocale}/maps/${activeBranchId}`;
+  }
+
+  async function handleCopyPublicMapsUrl() {
+    const url = buildPublicMapsUrl();
+    if (!url) return;
+    await copyToClipboard(url, t("feedback.publicMapsLinkCopied"));
+  }
+
+  function handleTogglePublicMaps(enabled: boolean) {
+    if (!activeBranchId) return;
+    const previousValue = publicMapsEnabled;
+    setPublicMapsEnabled(enabled);
+    publicMapsMut.mutate(
+      { branchId: activeBranchId, enabled },
+      {
+        onError: () => setPublicMapsEnabled(previousValue),
+      }
+    );
+  }
+
   function handleFormSubmit(data: CreateLocationInput | (UpdateLocationInput & { id: string })) {
     let enriched = data;
     if (!("id" in data)) {
@@ -1330,7 +1425,7 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
         rootLocationId: root?.id ?? null,
         highlightLocationId: null,
         highlightLocationIds,
-        showTree: false,
+        showTree: true,
       });
       return;
     }
@@ -1340,7 +1435,7 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
       rootLocationId: root?.id ?? null,
       highlightLocationId: location.id,
       highlightLocationIds: [location.id],
-      showTree: false,
+      showTree: true,
     });
   }
 
@@ -1462,6 +1557,8 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
     t,
     canManage,
     canManageLayouts,
+    layoutsReady: !layoutsLoading,
+    isCreatingMap: createMapMutation.isPending,
     allLocations: locations,
     groups,
     placedLocationIds,
@@ -1517,12 +1614,56 @@ export function LocationsClient({ initialLocations, initialGroups }: LocationsCl
           <h1 className="text-2xl font-bold tracking-tight">{t("header.title")}</h1>
           <p className="text-sm text-muted-foreground">{t("header.description")}</p>
         </div>
-        {canManage && (
-          <Button onClick={handleCreate} size="sm">
-            <MapPin className="mr-2 h-4 w-4" />
-            {t("actions.addLocation")}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {canPublishLayouts && activeBranchId && (
+            <div className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">{t("publicMaps.title")}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {publicMapsEnabled ? t("publicMaps.enabled") : t("publicMaps.disabled")}
+                  </span>
+                </div>
+              </div>
+              <Switch
+                checked={publicMapsEnabled}
+                onCheckedChange={handleTogglePublicMaps}
+                disabled={publicMapsMut.isPending}
+                aria-label={t("publicMaps.toggle")}
+              />
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={!publicMapsEnabled}
+                        onClick={() => void handleCopyPublicMapsUrl()}
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {publicMapsEnabled
+                      ? t("publicMaps.copyLink")
+                      : t("publicMaps.copyLinkDisabled")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
+
+          {canManage && (
+            <Button onClick={handleCreate} size="sm">
+              <MapPin className="mr-2 h-4 w-4" />
+              {t("actions.addLocation")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Content */}

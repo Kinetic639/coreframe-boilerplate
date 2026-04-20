@@ -350,7 +350,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     intent: "CREATE",
     description: "A new role was created",
     metadataSchema: z.object({
-      role_id: z.string().uuid().optional(),
+      role_id: z.string().optional(),
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} created role {{entity}}",
@@ -374,7 +374,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     intent: "UPDATE",
     description: "A role was updated",
     metadataSchema: z.object({
-      role_id: z.string().uuid().optional(),
+      role_id: z.string().optional(),
       role_name: z.string(),
       updated_fields: z.array(z.string()).optional(),
     }),
@@ -399,7 +399,7 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     intent: "DELETE",
     description: "A role was deleted",
     metadataSchema: z.object({
-      role_id: z.string().uuid().optional(),
+      role_id: z.string().optional(),
       role_name: z.string(),
     }),
     summaryTemplate: "{{actor}} deleted role {{entity}}",

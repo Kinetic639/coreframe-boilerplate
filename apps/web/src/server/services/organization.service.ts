@@ -1192,6 +1192,7 @@ export interface OrgBranch {
   organization_id: string;
   name: string;
   slug: string | null;
+  public_warehouse_maps_enabled?: boolean;
   created_at: string | null;
   deleted_at: string | null;
 }
@@ -1208,7 +1209,9 @@ export class OrgBranchesService {
   ): Promise<ServiceResult<OrgBranch[]>> {
     const { data, error } = await supabase
       .from("branches")
-      .select("id, organization_id, name, slug, created_at, deleted_at")
+      .select(
+        "id, organization_id, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
+      )
       .eq("organization_id", orgId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
@@ -1229,7 +1232,9 @@ export class OrgBranchesService {
         name: input.name,
         slug: input.slug ?? null,
       })
-      .select("id, organization_id, name, slug, created_at, deleted_at")
+      .select(
+        "id, organization_id, name, slug, public_warehouse_maps_enabled, created_at, deleted_at"
+      )
       .maybeSingle();
 
     if (error) return { success: false, error: error.message };

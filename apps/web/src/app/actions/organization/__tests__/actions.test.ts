@@ -38,6 +38,10 @@ vi.mock("@/server/guards/entitlements-guards", () => ({
   mapEntitlementError: vi.fn().mockReturnValue(null),
 }));
 
+vi.mock("@/server/services/event.service", () => ({
+  eventService: { emit: vi.fn().mockResolvedValue({ success: true }) },
+}));
+
 vi.mock("@/server/services/email.service", () => {
   function EmailServiceMock() {}
   EmailServiceMock.prototype.sendInvitationEmailWithTemplate = vi

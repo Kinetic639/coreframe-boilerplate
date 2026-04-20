@@ -690,6 +690,7 @@ export function MapEditor({
       color?: string | null;
       group_id?: string | null;
       inherit_group_color?: boolean;
+      elevation_level?: number;
     }
   ) => {
     updateLocMut.mutate(

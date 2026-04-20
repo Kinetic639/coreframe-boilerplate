@@ -64,7 +64,10 @@ import { usePermissions } from "@/hooks/v2/use-permissions";
 import {
   listInvitationsAction,
   createInvitationAction,
+  cancelInvitationAction,
+  resendInvitationAction,
 } from "@/app/actions/organization/invitations";
+import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +90,55 @@ function setupPermissions(canCreate = true) {
     getSnapshot: vi.fn(),
   } as unknown as ReturnType<typeof usePermissions>);
 }
+
+const sampleInvitation: OrgInvitation = {
+  id: "inv-1",
+  organization_id: "org-1",
+  email: "pending@example.com",
+  token: "token-1",
+  invited_by: "u-1",
+  status: "pending",
+  role_summary: "Branch Viewer - Warsaw Branch",
+  expires_at: "2026-12-01T00:00:00.000Z",
+  created_at: "2026-11-01T00:00:00.000Z",
+  updated_at: null,
+};
+
+const acceptedInvitation: OrgInvitation = {
+  ...sampleInvitation,
+  id: "inv-2",
+  email: "accepted@example.com",
+  status: "accepted",
+  role_summary: "Org Admin",
+  expires_at: null,
+};
+
+const branchRole: OrgRole = {
+  id: "r-branch",
+  organization_id: "org-1",
+  name: "Branch Viewer",
+  description: "Read-only branch access",
+  permission_slugs: [],
+  scope_type: "branch",
+  is_basic: false,
+  deleted_at: null,
+};
+
+const bothScopeRole: OrgRole = {
+  ...branchRole,
+  id: "r-both",
+  name: "Flexible Role",
+  scope_type: "both",
+};
+
+const sampleBranch: OrgBranch = {
+  id: "b-1",
+  organization_id: "org-1",
+  name: "Warsaw Branch",
+  slug: "warsaw",
+  created_at: null,
+  deleted_at: null,
+};
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -327,5 +379,170 @@ describe("InvitationsClient", () => {
       ).toBeInTheDocument()
     );
     expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+  });
+
+  it("renders invitation rows with summary, expiry, and pending action buttons", () => {
+    setupPermissions(true);
+    render(
+      <InvitationsClient
+        initialInvitations={[sampleInvitation, acceptedInvitation]}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    expect(screen.getByText("pending@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Branch Viewer - Warsaw Branch")).toBeInTheDocument();
+    expect(screen.getByText(/Expires:/i)).toBeInTheDocument();
+    expect(screen.getByTitle("Resend")).toBeInTheDocument();
+    expect(screen.getByTitle("Cancel invitation")).toBeInTheDocument();
+
+    expect(screen.getByText("accepted@example.com")).toBeInTheDocument();
+    expect(screen.getByText("accepted")).toBeInTheDocument();
+    expect(screen.queryAllByTitle("Resend")).toHaveLength(1);
+    expect(screen.queryAllByTitle("Cancel invitation")).toHaveLength(1);
+  });
+
+  it("calls cancel and resend actions for pending invitations", async () => {
+    setupPermissions(true);
+    vi.mocked(cancelInvitationAction).mockResolvedValue({ success: true, data: undefined });
+    vi.mocked(resendInvitationAction).mockResolvedValue({
+      success: true,
+      data: "ok",
+      emailDelivered: true,
+    });
+
+    render(
+      <InvitationsClient
+        initialInvitations={[sampleInvitation]}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    fireEvent.click(screen.getByTitle("Resend"));
+    fireEvent.click(screen.getByTitle("Cancel invitation"));
+
+    await waitFor(() =>
+      expect(resendInvitationAction).toHaveBeenCalledWith({ invitationId: "inv-1" })
+    );
+    await waitFor(() =>
+      expect(cancelInvitationAction).toHaveBeenCalledWith({ invitationId: "inv-1" })
+    );
+  });
+
+  it("creates branch-scoped assignments for selected branch roles", async () => {
+    setupPermissions(true);
+    vi.mocked(createInvitationAction).mockResolvedValue({
+      success: true,
+      data: { id: "inv-branch" } as never,
+      emailDelivered: true,
+    });
+    vi.mocked(listInvitationsAction).mockResolvedValue({ success: true, data: [] });
+
+    render(
+      <InvitationsClient
+        initialInvitations={[]}
+        initialRoles={[branchRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "branch@example.com" },
+    });
+    fireEvent.click(screen.getByLabelText(/branch viewer/i));
+    fireEvent.click(screen.getByLabelText(/warsaw branch/i));
+    fireEvent.click(screen.getByRole("button", { name: /send invite/i }));
+
+    await waitFor(() =>
+      expect(createInvitationAction).toHaveBeenCalledWith({
+        email: "branch@example.com",
+        role_assignments: [{ role_id: "r-branch", scope: "branch", scope_id: "b-1" }],
+      })
+    );
+  });
+
+  it("shows branch validation and does not submit when branch role has no branches selected", async () => {
+    setupPermissions(true);
+    render(
+      <InvitationsClient
+        initialInvitations={[]}
+        initialRoles={[branchRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "missing-branch@example.com" },
+    });
+    fireEvent.click(screen.getByLabelText(/branch viewer/i));
+
+    expect(screen.getByText(/select at least one branch/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /send invite/i }));
+    await waitFor(() => expect(createInvitationAction).toHaveBeenCalledTimes(0));
+  });
+
+  it("lets both-scoped roles switch to branch mode and shows empty branch state", async () => {
+    setupPermissions(true);
+    render(
+      <InvitationsClient
+        initialInvitations={[]}
+        initialRoles={[bothScopeRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByLabelText(/flexible role/i));
+    fireEvent.click(screen.getByRole("button", { name: /^Branch$/i }));
+
+    expect(screen.getByText(/no branches available/i)).toBeInTheDocument();
+  });
+
+  it("resets dialog fields when reopened", async () => {
+    setupPermissions(true);
+    render(
+      <InvitationsClient
+        initialInvitations={[]}
+        initialRoles={[branchRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "reset@example.com" },
+    });
+    fireEvent.click(screen.getByLabelText(/branch viewer/i));
+    fireEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /invite member/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    expect(screen.getByLabelText(/email address/i)).toHaveValue("");
+    expect(screen.getByLabelText(/branch viewer/i)).not.toBeChecked();
   });
 });

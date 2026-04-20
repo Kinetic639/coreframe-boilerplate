@@ -51,6 +51,7 @@ export function TextInput({
       <Controller
         name={name}
         control={control}
+        defaultValue=""
         render={({ field }) => (
           <div className="relative flex items-center">
             {prefix && (

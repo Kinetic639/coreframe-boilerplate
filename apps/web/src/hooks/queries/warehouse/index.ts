@@ -36,6 +36,7 @@ import {
   upsertOneShapeAction,
   deleteShapeAction,
 } from "@/app/actions/warehouse/shapes";
+import { setBranchPublicWarehouseMapsAction } from "@/app/actions/warehouse/public-maps";
 import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import type {
   WarehouseLayout,
@@ -770,6 +771,21 @@ export function useDeleteShapeMutation(layoutId: string | null | undefined) {
     },
     onError: (err: Error) => {
       toast.error(err.message || t("shapeDeleteFailed"));
+    },
+  });
+}
+
+export function useSetBranchPublicWarehouseMapsMutation() {
+  const t = useTranslations("warehouseLocationsPage");
+
+  return useMutation({
+    mutationFn: async (input: { branchId: string; enabled: boolean }) =>
+      unwrapSR((await setBranchPublicWarehouseMapsAction(input)) as SR<{ enabled: boolean }>),
+    onSuccess: ({ enabled }) => {
+      toast.success(enabled ? t("feedback.publicMapsEnabled") : t("feedback.publicMapsDisabled"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("feedback.publicMapsToggleFailed"));
     },
   });
 }

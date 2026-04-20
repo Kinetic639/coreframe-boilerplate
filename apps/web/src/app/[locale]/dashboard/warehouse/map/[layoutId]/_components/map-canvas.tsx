@@ -66,6 +66,16 @@ function getRotationOffsets(
   };
 }
 
+function getShapeElevationLevel(shape: WarehouseLayoutShape, locations?: WarehouseLocation[]) {
+  if ((shape.projection ?? "top_down") !== "top_down") return 1;
+  if (shape.shape_type !== "location" || !shape.location_id) return 1;
+
+  return Math.max(
+    1,
+    locations?.find((location) => location.id === shape.location_id)?.elevation_level ?? 1
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface MapCanvasProps {
@@ -558,7 +568,10 @@ export function MapCanvas({
             {/* Shapes sorted by z_index */}
             {(() => {
               const sortedShapes = [...shapes].sort(
-                (a, b) => a.z_index - b.z_index || a.sort_order - b.sort_order
+                (a, b) =>
+                  a.z_index - b.z_index ||
+                  getShapeElevationLevel(a, locations) - getShapeElevationLevel(b, locations) ||
+                  a.sort_order - b.sort_order
               );
               const multiSelectedShapes =
                 selectedIds.length > 1

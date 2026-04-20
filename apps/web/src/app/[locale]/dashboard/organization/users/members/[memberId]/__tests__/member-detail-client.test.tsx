@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -48,12 +49,18 @@ vi.mock("react-toastify", () => ({
 
 import { MemberDetailClient } from "../_components/member-detail-client";
 import { usePermissions } from "@/hooks/v2/use-permissions";
+import {
+  assignRoleToUserAction,
+  createRoleAction,
+  removeRoleFromUserAction,
+} from "@/app/actions/organization/roles";
 import type {
   OrgMember,
   OrgMemberAccess,
   OrgRole,
   OrgBranch,
 } from "@/server/services/organization.service";
+import { toast } from "react-toastify";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -151,6 +158,20 @@ const sampleBranch: OrgBranch = {
   slug: "warsaw",
   created_at: null,
   deleted_at: null,
+};
+
+const branchOnlyRole: OrgRole = {
+  ...sampleRole,
+  id: "r-branch",
+  name: "Branch Manager",
+  scope_type: "branch",
+};
+
+const bothScopeRole: OrgRole = {
+  ...sampleRole,
+  id: "r-both",
+  name: "Flexible",
+  scope_type: "both",
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -386,5 +407,231 @@ describe("MemberDetailClient", () => {
     expect(screen.queryByText("invitations.read")).not.toBeInTheDocument();
     expect(screen.queryByText("invitations.create")).not.toBeInTheDocument();
     expect(screen.queryByText("invitations.cancel")).not.toBeInTheDocument();
+  });
+
+  it("renders unauthorized state when read permission is missing", () => {
+    setupPermissions(false, false);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    expect(screen.getByText("Unauthorized.")).toBeInTheDocument();
+  });
+
+  it("shows member info fields in the info tab", async () => {
+    setupPermissions(true);
+    const user = userEvent.setup();
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    await user.click(screen.getByRole("tab", { name: /info/i }));
+    await waitFor(() => expect(screen.getByText("Email")).toBeInTheDocument());
+
+    const infoPanel = screen.getByRole("tabpanel", { name: /info/i });
+    expect(within(infoPanel).getByText("alice@example.com")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("Status")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("active")).toBeInTheDocument();
+    expect(within(infoPanel).getByText("Joined")).toBeInTheDocument();
+    expect(within(infoPanel).getByText(/\d{1,2}\/\d{1,2}\/2024/)).toBeInTheDocument();
+  });
+
+  it("shows org/branch scope toggle for roles that support both scopes", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[bothScopeRole]}
+        initialBranches={[sampleBranch]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText("Flexible"));
+
+    expect(await screen.findByRole("button", { name: /organization/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /branch/i })).toBeInTheDocument();
+  });
+
+  it("shows no branches available when adding a branch-scoped role without branches", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[branchOnlyRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Branch Manager"));
+
+    expect(await screen.findByText(/no branches available/i)).toBeInTheDocument();
+  });
+
+  it("shows an error when saving a branch-scoped role without selecting a branch", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[branchOnlyRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Branch Manager"));
+    fireEvent.click(screen.getByRole("button", { name: /^assign$/i }));
+
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Select a branch");
+    expect(assignRoleToUserAction).not.toHaveBeenCalled();
+  });
+
+  it("assigns an org-scoped role and refreshes on success", async () => {
+    setupPermissions(true);
+    vi.mocked(assignRoleToUserAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[sampleRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Editor"));
+    fireEvent.click(screen.getByRole("button", { name: /^assign$/i }));
+
+    await waitFor(() => {
+      expect(assignRoleToUserAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        roleId: "r-1",
+        scope: "org",
+        scopeId: undefined,
+      });
+    });
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Role assigned");
+  });
+
+  it("removes an assignment and reports success", async () => {
+    setupPermissions(true);
+    vi.mocked(removeRoleFromUserAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={accessWithOrgRole}
+        initialRoles={[sampleRole]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    const editorRow = screen.getByText("Editor").closest(".rounded-lg.border");
+    expect(editorRow).not.toBeNull();
+    fireEvent.click(within(editorRow as HTMLElement).getByRole("button"));
+
+    await waitFor(() => {
+      expect(removeRoleFromUserAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        roleId: "r-1",
+        scope: "org",
+        scopeId: "org-1",
+      });
+    });
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Role removed");
+  });
+
+  it("creates a custom access role and assigns it when permissions are selected", async () => {
+    setupPermissions(true);
+    vi.mocked(createRoleAction).mockResolvedValue({
+      success: true,
+      data: { id: "custom-role-1" },
+    } as never);
+    vi.mocked(assignRoleToUserAction).mockResolvedValue({
+      success: true,
+      data: undefined,
+    } as never);
+
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /custom access/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("checkbox", { name: /view members/i }));
+    fireEvent.click(screen.getByRole("button", { name: /grant access/i }));
+
+    await waitFor(() => {
+      expect(createRoleAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scope_type: "org",
+          permission_slugs: ["members.read"],
+        })
+      );
+      expect(assignRoleToUserAction).toHaveBeenCalledWith({
+        userId: "u-1",
+        roleId: "custom-role-1",
+      });
+    });
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Custom access granted");
+  });
+
+  it("blocks custom access save when no permissions are selected", async () => {
+    setupPermissions(true);
+    render(
+      <MemberDetailClient
+        member={sampleMember}
+        initialAccess={emptyAccess}
+        initialRoles={[]}
+        initialBranches={[]}
+      />,
+      { wrapper: createWrapper() }
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /custom access/i }));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /grant access/i })).toBeDisabled();
+
+    expect(vi.mocked(toast.error)).not.toHaveBeenCalled();
+    expect(createRoleAction).not.toHaveBeenCalled();
   });
 });

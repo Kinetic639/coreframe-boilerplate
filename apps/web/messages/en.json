@@ -484,7 +484,8 @@
     "badges": {
       "published": "Published",
       "draft": "Draft",
-      "noMap": "No map"
+      "noMap": "No map",
+      "loadingMap": "Loading map…"
     },
     "actions": {
       "addLocation": "Add Location",
@@ -495,6 +496,7 @@
       "copyLocationCode": "Copy location code",
       "copyLocationPath": "Copy location path",
       "previewMap": "Preview map",
+      "loadingMapState": "Loading map…",
       "previewGroupOnMap": "Preview group on map",
       "openMapEditor": "Open map editor",
       "createMapForLocation": "Create map for this location",
@@ -516,7 +518,19 @@
     "feedback": {
       "locationCodeCopied": "Location code {code} copied to clipboard.",
       "locationPathCopied": "Location path copied to clipboard.",
-      "copyFailed": "Failed to copy to clipboard."
+      "copyFailed": "Failed to copy to clipboard.",
+      "publicMapsEnabled": "Public map preview enabled.",
+      "publicMapsDisabled": "Public map preview disabled.",
+      "publicMapsToggleFailed": "Could not update public map preview settings.",
+      "publicMapsLinkCopied": "Public map link copied to clipboard."
+    },
+    "publicMaps": {
+      "title": "Public preview",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "toggle": "Toggle public warehouse maps",
+      "copyLink": "Copy public link",
+      "copyLinkDisabled": "Enable public preview to copy the link"
     },
     "tree": {
       "collapse": "Collapse",
@@ -559,6 +573,7 @@
         "roomWidth": "Room width (m)",
         "roomLength": "Room length (m)",
         "elevationStart": "Elevation start (m)",
+        "elevationLevel": "Elevation level",
         "storageMode": "Storage mode",
         "allowTopStorage": "Allow top storage"
       },
@@ -577,6 +592,7 @@
         "allowTopStorage": "Allow storage above the nominal top of this unit.",
         "allowTopStorageTopDown": "Enable this when stock may be placed on top of the rack or cabinet.",
         "layoutRoot": "This is the root map location. Its width and length define the layout canvas for the whole warehouse or room.",
+        "elevationLevel": "Higher elevation levels render above lower ones in the top-down map view.",
         "inheritTopDownParentColor": "Use the selected container or parent location color for this top-down unit.",
         "inheritParentColor": "Use the selected parent unit's color for this front segment.",
         "inheritTopStorageParentColor": "Use the selected top-down unit's color for this top storage segment.",
@@ -651,26 +667,89 @@
       }
     }
   },
+  "publicWarehouseMapsPage": {
+    "title": "Warehouse maps",
+    "description": "Browse published warehouse layouts for this branch.",
+    "layoutSelectLabel": "Layout",
+    "layoutSelectPlaceholder": "Select a layout",
+    "globalSearch": {
+      "placeholder": "Search all branch locations...",
+      "clear": "Clear location search",
+      "noResults": "No matching branch locations found."
+    },
+    "emptyTitle": "No public layouts available",
+    "emptyDescription": "This branch has not published any warehouse layouts yet.",
+    "selectionCleared": "Click a location on the map to inspect its front view.",
+    "colorMode": {
+      "showColors": "Show colors",
+      "showMonochrome": "Show monochromatic view"
+    }
+  },
   "warehouseMapDialog": {
     "title": "Warehouse Map",
+    "backgroundLabels": {
+      "topDown": "Top-down View",
+      "front": "Front View"
+    },
     "tree": {
-      "title": "Locations",
-      "description": "Click to highlight on map",
       "empty": "No locations on this layout yet.",
-      "legendPlaced": "Placed on canvas",
-      "legendUnplaced": "Not yet placed",
-      "onCanvas": "On canvas",
-      "highlighted": "Highlighted"
+      "searchPlaceholder": "Search locations...",
+      "clearSearch": "Clear search",
+      "noResults": "No matching locations found.",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "collapseAll": "Collapse all",
+      "expandAll": "Expand all"
     },
     "actions": {
       "openEditor": "Open editor",
+      "copy": "Copy",
+      "copied": "Copied",
+      "showTree": "Show locations tree",
+      "hideTree": "Hide locations tree",
       "showColors": "Show colors",
-      "monochromaticView": "Monochromatic view"
+      "monochromaticView": "Monochromatic view",
+      "enterFullscreen": "Enter fullscreen",
+      "exitFullscreen": "Exit fullscreen"
     },
     "states": {
       "noBranch": "Select a branch to view the warehouse map.",
       "loadError": "Failed to load the warehouse map. Please try again.",
       "noPublishedLayout": "No published layout for this branch yet."
+    },
+    "info": {
+      "topDownTitle": "Top-down details",
+      "frontTitle": "Front view details",
+      "empty": "Nothing selected yet.",
+      "emptyTopDown": "Select a location in the tree or on the top-down map to preview its details.",
+      "emptyFront": "Select a location that has front segments to preview their details here.",
+      "fields": {
+        "code": "Code",
+        "description": "Description",
+        "dimensions": "Dimensions",
+        "width": "Width",
+        "depth": "Depth",
+        "height": "Height",
+        "selectionCount": "{count, plural, one {# location selected} other {# locations selected}}"
+      },
+      "metrics": {
+        "width": "Width",
+        "depth": "Depth",
+        "height": "Height"
+      },
+      "roles": {
+        "logical": "Logical location",
+        "layoutRoot": "Root map location",
+        "topDownUnit": "Top-down unit",
+        "frontSegment": "Front segment",
+        "topStorageSegment": "Top storage"
+      },
+      "multiple": {
+        "topDownSelection": "{count, plural, one {Top-down selection} other {Top-down selection}}",
+        "frontSelection": "{count, plural, one {Front selection} other {Front selection}}",
+        "oneDescription": "1 selected location has a description.",
+        "manyDescriptions": "{count} selected locations have descriptions."
+      }
     }
   },
   "warehouseMapListPage": {
@@ -892,7 +971,8 @@
       "gridSize": "Grid size",
       "width": "Width",
       "depth": "Depth",
-      "height": "Height"
+      "height": "Height",
+      "elevationLevel": "Elevation level"
     },
     "placeholders": {
       "locationName": "Location name",
@@ -903,7 +983,8 @@
     },
     "help": {
       "locationCode": "Letters, numbers, hyphens, underscores",
-      "inheritGroupColor": "Use the selected group's color for this location."
+      "inheritGroupColor": "Use the selected group's color for this location.",
+      "elevationLevel": "Higher elevation levels render above lower ones in the top-down map."
     },
     "alignment": {
       "position": "{vertical} {horizontal}",
@@ -1199,7 +1280,11 @@
         "emptyTitle": "Select a top-down storage unit",
         "emptyDescription": "Choose a rack, cabinet, shelf block, or other top-down unit to inspect its front view.",
         "noFrontViewTitle": "No front view yet",
-        "noFrontViewDescription": "Add front-segment children or front-elevation shapes to this location to populate the vertical view."
+        "noFrontViewDescription": "Add front-segment children or front-elevation shapes to this location to populate the vertical view.",
+        "actions": {
+          "collapse": "Collapse front view",
+          "expand": "Expand front view"
+        }
       }
     }
   },

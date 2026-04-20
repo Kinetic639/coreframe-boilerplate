@@ -7,6 +7,7 @@ export interface BranchDataV2 {
   name: string;
   organization_id: string;
   slug: string | null;
+  public_warehouse_maps_enabled?: boolean;
   created_at: string;
 }
 
