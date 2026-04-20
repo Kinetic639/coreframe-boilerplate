@@ -15,7 +15,7 @@ import {
   type ExtractedFileData,
 } from "@/server/services/wdd-matcher.service";
 import { exportCsvSchema } from "@/lib/validations/wdd-matcher";
-import { parsePdfAutoV2 } from "@/lib/tools/svwms-wdd-matcher/parser_v2";
+import { parsePdfAutoV3 } from "@/lib/tools/svwms-wdd-matcher/parser_v3";
 import { runWddEnrichment, toMatchSummary } from "@/lib/tools/svwms-wdd-matcher/matcher";
 import { buildCsvString } from "@/lib/tools/svwms-wdd-matcher/csv-exporter";
 
@@ -177,9 +177,9 @@ export async function uploadAndParseFileAction(
     // Parse PDF and auto-detect role in a single pass.
     // pdfjs detaches the ArrayBuffer after first use, so detection and parsing
     // cannot be done in two separate calls on the same buffer.
-    let parseResult: Awaited<ReturnType<typeof parsePdfAutoV2>>;
+    let parseResult: Awaited<ReturnType<typeof parsePdfAutoV3>>;
     try {
-      parseResult = await parsePdfAutoV2(fileBytes);
+      parseResult = await parsePdfAutoV3(fileBytes);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Parse failed";
       // Register + mark failed so the session knows this file errored
