@@ -5,6 +5,14 @@ import {
   type WarehouseLocationGroup,
 } from "./location-tree";
 
+interface FrontElevationIndexes {
+  locationMap: Map<string, WarehouseLocation>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  topDownShapeByLocationId: Map<string, WarehouseLayoutShape>;
+  explicitShapesByAnchorId: Map<string, WarehouseLayoutShape[]>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+}
+
 function withAlpha(hexColor: string, alphaHex: string) {
   if (!hexColor.startsWith("#")) return hexColor;
   const normalized =
@@ -18,13 +26,13 @@ function createDerivedFrontShape(
   location: WarehouseLocation,
   parentWidth: number,
   autoY: number,
-  groups: WarehouseLocationGroup[],
-  locations: WarehouseLocation[]
+  indexes: FrontElevationIndexes
 ): WarehouseLayoutShape {
   const width = Math.max(0.01, parentWidth);
   const height = Math.max(0.01, location.physical_height_m ?? 1);
   const y = Math.max(0, autoY);
-  const color = getEffectiveLocationColor(location, groups, locations) ?? "#10b981";
+  const color =
+    getEffectiveLocationColor(location, indexes.groupMap, indexes.locationMap) ?? "#10b981";
   const isTopStorageSegment = (location.map_role ?? "logical") === "top_storage_segment";
 
   return {
@@ -56,6 +64,64 @@ function createDerivedFrontShape(
   };
 }
 
+function buildFrontElevationIndexes(
+  layout: WarehouseLayoutWithShapes,
+  locations: WarehouseLocation[],
+  locationGroups: WarehouseLocationGroup[]
+): FrontElevationIndexes {
+  const locationMap = new Map(locations.map((location) => [location.id, location]));
+  const childrenByParentId = new Map<string, WarehouseLocation[]>();
+
+  for (const location of locations) {
+    if (!location.parent_id) continue;
+    const siblings = childrenByParentId.get(location.parent_id);
+    if (siblings) {
+      siblings.push(location);
+    } else {
+      childrenByParentId.set(location.parent_id, [location]);
+    }
+  }
+
+  const topDownShapeByLocationId = new Map<string, WarehouseLayoutShape>();
+  const explicitShapesByAnchorId = new Map<string, WarehouseLayoutShape[]>();
+
+  for (const shape of layout.shapes) {
+    if (shape.deleted_at) continue;
+
+    if (
+      shape.projection !== "front_elevation" &&
+      shape.shape_type === "location" &&
+      shape.location_id
+    ) {
+      topDownShapeByLocationId.set(shape.location_id, shape);
+      continue;
+    }
+
+    if (shape.projection === "front_elevation" && shape.anchor_location_id) {
+      const shapes = explicitShapesByAnchorId.get(shape.anchor_location_id);
+      if (shapes) {
+        shapes.push(shape);
+      } else {
+        explicitShapesByAnchorId.set(shape.anchor_location_id, [shape]);
+      }
+    }
+  }
+
+  for (const shapes of explicitShapesByAnchorId.values()) {
+    shapes.sort(
+      (left, right) => left.z_index - right.z_index || left.sort_order - right.sort_order
+    );
+  }
+
+  return {
+    locationMap,
+    childrenByParentId,
+    topDownShapeByLocationId,
+    explicitShapesByAnchorId,
+    groupMap: new Map(locationGroups.map((group) => [group.id, group])),
+  };
+}
+
 export function buildFrontElevationLayout(params: {
   layout: WarehouseLayoutWithShapes;
   locations: WarehouseLocation[];
@@ -63,31 +129,16 @@ export function buildFrontElevationLayout(params: {
   anchorLocationId: string;
 }): WarehouseLayoutWithShapes | null {
   const { layout, locations, locationGroups, anchorLocationId } = params;
-  const anchorLocation = locations.find((location) => location.id === anchorLocationId);
+  const indexes = buildFrontElevationIndexes(layout, locations, locationGroups);
+  const anchorLocation = indexes.locationMap.get(anchorLocationId);
   if (!anchorLocation) return null;
 
-  const explicitShapes = layout.shapes
-    .filter(
-      (shape) =>
-        shape.projection === "front_elevation" &&
-        shape.anchor_location_id === anchorLocationId &&
-        !shape.deleted_at
-    )
-    .sort((left, right) => left.z_index - right.z_index || left.sort_order - right.sort_order);
-
-  const topDownAnchorShape =
-    layout.shapes.find(
-      (shape) =>
-        shape.projection !== "front_elevation" &&
-        shape.location_id === anchorLocationId &&
-        shape.shape_type === "location" &&
-        !shape.deleted_at
-    ) ?? null;
+  const explicitShapes = indexes.explicitShapesByAnchorId.get(anchorLocationId) ?? [];
+  const topDownAnchorShape = indexes.topDownShapeByLocationId.get(anchorLocationId) ?? null;
 
   const canvasWidth =
     anchorLocation.physical_width_m ?? topDownAnchorShape?.width ?? explicitShapes[0]?.width ?? 2;
-  const derivedChildren = locations
-    .filter((location) => location.parent_id === anchorLocationId)
+  const derivedChildren = (indexes.childrenByParentId.get(anchorLocationId) ?? [])
     .filter(
       (location) =>
         location.map_role === "front_segment" ||
@@ -134,7 +185,7 @@ export function buildFrontElevationLayout(params: {
   const totalChildrenHeight = childHeights.reduce((sum, height) => sum + height, 0);
   let nextY = Math.max(0, canvasHeight - totalChildrenHeight);
   const derivedShapes = children.map((child) => {
-    const shape = createDerivedFrontShape(child, canvasWidth, nextY, locationGroups, locations);
+    const shape = createDerivedFrontShape(child, canvasWidth, nextY, indexes);
     nextY += Math.max(0.01, child.physical_height_m ?? 1);
     return shape;
   });
@@ -163,7 +214,7 @@ export function buildCombinedFrontElevationLayout(params: {
   const { layout, locations, locationGroups, anchorLocationIds, gapM = 0 } = params;
   const uniqueAnchorIds = [...new Set(anchorLocationIds.filter(Boolean))];
   const headerHeight = 0.52;
-  const anchorLocationMap = new Map(locations.map((l) => [l.id, l]));
+  const indexes = buildFrontElevationIndexes(layout, locations, locationGroups);
   if (uniqueAnchorIds.length === 0) {
     return null;
   }
@@ -196,17 +247,12 @@ export function buildCombinedFrontElevationLayout(params: {
   let nextX = 0;
   const stitchedShapes = partialLayouts.flatMap((partialLayout, index) => {
     const anchorId = uniqueAnchorIds[index];
-    const anchorLocation = anchorLocationMap.get(anchorId);
+    const anchorLocation = indexes.locationMap.get(anchorId);
     const anchorColor = anchorLocation
-      ? (getEffectiveLocationColor(anchorLocation, locationGroups, locations) ?? "#64748b")
+      ? (getEffectiveLocationColor(anchorLocation, indexes.groupMap, indexes.locationMap) ??
+        "#64748b")
       : "#64748b";
-    const topDownShape = layout.shapes.find(
-      (s) =>
-        s.projection !== "front_elevation" &&
-        s.location_id === anchorId &&
-        s.shape_type === "location" &&
-        !s.deleted_at
-    );
+    const topDownShape = indexes.topDownShapeByLocationId.get(anchorId);
     const effectiveWidth =
       anchorLocation?.physical_width_m ?? topDownShape?.width ?? partialLayout.canvas_width_m;
     const isNarrow = effectiveWidth <= 0.2;

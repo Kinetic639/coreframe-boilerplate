@@ -30,6 +30,33 @@ function withAlpha(color: string, alphaHex: string) {
   return normalized.length === 7 ? `${normalized}${alphaHex}` : normalized;
 }
 
+function blendHex(colorA: string, colorB: string, weight = 0.5) {
+  if (!colorA.startsWith("#") || !colorB.startsWith("#")) return colorA;
+
+  const normalize = (value: string) =>
+    value.length === 4
+      ? `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`
+      : value;
+
+  const a = normalize(colorA);
+  const b = normalize(colorB);
+  if (a.length !== 7 || b.length !== 7) return colorA;
+
+  const mix = (start: number, end: number) =>
+    Math.round(start + (end - start) * weight)
+      .toString(16)
+      .padStart(2, "0");
+
+  const ar = parseInt(a.slice(1, 3), 16);
+  const ag = parseInt(a.slice(3, 5), 16);
+  const ab = parseInt(a.slice(5, 7), 16);
+  const br = parseInt(b.slice(1, 3), 16);
+  const bg = parseInt(b.slice(3, 5), 16);
+  const bb = parseInt(b.slice(5, 7), 16);
+
+  return `#${mix(ar, br)}${mix(ag, bg)}${mix(ab, bb)}`;
+}
+
 function getRotationOffsets(
   width: number,
   height: number,
@@ -56,15 +83,21 @@ function getRotationOffsets(
   };
 }
 
-function getShapeElevationLevel(shape: WarehouseLayoutShape, locations?: WarehouseLocation[]) {
+function getShapeElevationLevel(
+  shape: WarehouseLayoutShape,
+  locationById: Map<string, WarehouseLocation>
+) {
   if ((shape.projection ?? "top_down") !== "top_down") return 1;
   if (shape.shape_type !== "location" || !shape.location_id) return 1;
 
-  return Math.max(
-    1,
-    locations?.find((location) => location.id === shape.location_id)?.elevation_level ?? 1
-  );
+  return Math.max(1, locationById.get(shape.location_id)?.elevation_level ?? 1);
 }
+
+type ProjectionShapeRecord = {
+  shape: WarehouseLayoutShape;
+  elevationLevel: number;
+  bounds: { minX: number; maxX: number; minY: number; maxY: number };
+};
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -120,11 +153,13 @@ export function WarehouseMapViewer({
   const [dimensions, setDimensions] = React.useState({ width: 600, height: 400 });
   const [zoom, setZoom] = React.useState(1);
   const [pan, setPan] = React.useState({ x: 40, y: 40 });
-  const [tick, setTick] = React.useState(0); // drives smooth highlight pulse animation
   const [hoveredLocationId, setHoveredLocationId] = React.useState<string | null>(null);
-  const [mousePos, setMousePos] = React.useState<{ x: number; y: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = React.useState<{ x: number; y: number } | null>(null);
   const hasUserAdjustedCameraRef = React.useRef(false);
   const lastAutoFitKeyRef = React.useRef<string | null>(null);
+  const resizeFrameRef = React.useRef<number | null>(null);
+  const tooltipFrameRef = React.useRef<number | null>(null);
+  const lastTooltipPosRef = React.useRef<{ x: number; y: number } | null>(null);
   const effectiveHighlightIds = React.useMemo(() => {
     if (highlightLocationIds && highlightLocationIds.length > 0) {
       return [...new Set(highlightLocationIds)];
@@ -213,23 +248,46 @@ export function WarehouseMapViewer({
       themeSecondary,
     ]
   );
-  const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
-  const projectionShapes = React.useMemo(
-    () =>
-      layout.shapes.filter(
-        (shape) => (shape.projection ?? "top_down") === projection && !shape.deleted_at
-      ),
-    [layout.shapes, projection]
+  const locationById = React.useMemo(
+    () => new Map((locations ?? []).map((location) => [location.id, location])),
+    [locations]
   );
+  const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
+  const projectionShapeRecords = React.useMemo<ProjectionShapeRecord[]>(
+    () =>
+      layout.shapes
+        .filter((shape) => (shape.projection ?? "top_down") === projection && !shape.deleted_at)
+        .map((shape) => {
+          const offsets = getRotationOffsets(shape.width, shape.height, shape.rotation);
+          return {
+            shape,
+            elevationLevel: getShapeElevationLevel(shape, locationById),
+            bounds: {
+              minX: shape.x + offsets.minX,
+              maxX: shape.x + offsets.maxX,
+              minY: shape.y + offsets.minY,
+              maxY: shape.y + offsets.maxY,
+            },
+          };
+        }),
+    [layout.shapes, locationById, projection]
+  );
+  const combinedHeaderTooltipByLocationId = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of projectionShapeRecords) {
+      const { shape } = record;
+      if (shape.id.startsWith("combined:header-bg:") && shape.location_id && shape.label) {
+        map.set(shape.location_id, shape.label);
+      }
+    }
+    return map;
+  }, [projectionShapeRecords]);
   const narrowHeaderTooltip = React.useMemo(() => {
     if (!hoveredLocationId) return null;
-    const bg = projectionShapes.find(
-      (s) => s.id === `combined:header-bg:${hoveredLocationId}` && s.label !== null
-    );
-    return bg?.label ?? null;
-  }, [hoveredLocationId, projectionShapes]);
+    return combinedHeaderTooltipByLocationId.get(hoveredLocationId) ?? null;
+  }, [combinedHeaderTooltipByLocationId, hoveredLocationId]);
   const contentBounds = React.useMemo(() => {
-    if (projectionShapes.length === 0) {
+    if (projectionShapeRecords.length === 0) {
       return {
         minX: 0,
         minY: 0,
@@ -238,26 +296,10 @@ export function WarehouseMapViewer({
       };
     }
 
-    const minX = Math.min(
-      ...projectionShapes.map(
-        (shape) => shape.x + getRotationOffsets(shape.width, shape.height, shape.rotation).minX
-      )
-    );
-    const minY = Math.min(
-      ...projectionShapes.map(
-        (shape) => shape.y + getRotationOffsets(shape.width, shape.height, shape.rotation).minY
-      )
-    );
-    const maxX = Math.max(
-      ...projectionShapes.map(
-        (shape) => shape.x + getRotationOffsets(shape.width, shape.height, shape.rotation).maxX
-      )
-    );
-    const maxY = Math.max(
-      ...projectionShapes.map(
-        (shape) => shape.y + getRotationOffsets(shape.width, shape.height, shape.rotation).maxY
-      )
-    );
+    const minX = Math.min(...projectionShapeRecords.map((record) => record.bounds.minX));
+    const minY = Math.min(...projectionShapeRecords.map((record) => record.bounds.minY));
+    const maxX = Math.max(...projectionShapeRecords.map((record) => record.bounds.maxX));
+    const maxY = Math.max(...projectionShapeRecords.map((record) => record.bounds.maxY));
 
     return {
       minX: Math.min(0, minX),
@@ -265,18 +307,38 @@ export function WarehouseMapViewer({
       maxX: Math.max(layout.canvas_width_m, maxX),
       maxY: Math.max(layout.canvas_height_m, maxY),
     };
-  }, [layout.canvas_height_m, layout.canvas_width_m, projectionShapes]);
+  }, [layout.canvas_height_m, layout.canvas_width_m, projectionShapeRecords]);
 
   // ── Resize observer ────────────────────────────────────────────────────────
   React.useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    const syncDimensions = () => {
+      const next = { width: el.offsetWidth, height: el.offsetHeight };
+      setDimensions((current) =>
+        current.width === next.width && current.height === next.height ? current : next
+      );
+    };
     const obs = new ResizeObserver(() => {
-      setDimensions({ width: el.offsetWidth, height: el.offsetHeight });
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        resizeFrameRef.current = null;
+        syncDimensions();
+      });
     });
     obs.observe(el);
-    setDimensions({ width: el.offsetWidth, height: el.offsetHeight });
-    return () => obs.disconnect();
+    syncDimensions();
+    return () => {
+      obs.disconnect();
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      if (tooltipFrameRef.current !== null) {
+        cancelAnimationFrame(tooltipFrameRef.current);
+      }
+    };
   }, []);
 
   React.useEffect(() => {
@@ -284,13 +346,6 @@ export function WarehouseMapViewer({
     hasUserAdjustedCameraRef.current = false;
     lastAutoFitKeyRef.current = null;
   }, [viewportResetKey]);
-
-  // ── Pulse animation for highlighted shape ─────────────────────────────────
-  React.useEffect(() => {
-    if (!hasHighlights) return;
-    const id = setInterval(() => setTick((t) => t + 1), 50);
-    return () => clearInterval(id);
-  }, [hasHighlights]);
 
   // ── Fit whole canvas to viewport (runs on mount + resize) ─────────────────
   const fitCanvas = React.useCallback(
@@ -313,15 +368,18 @@ export function WarehouseMapViewer({
 
   const autoFitKey = React.useMemo(
     () =>
-      JSON.stringify({
-        layoutId: layout.id,
+      [
+        layout.id,
         projection,
-        width: dimensions.width,
-        height: dimensions.height,
-        canvasWidth: layout.canvas_width_m,
-        canvasHeight: layout.canvas_height_m,
-        bounds: contentBounds,
-      }),
+        dimensions.width,
+        dimensions.height,
+        layout.canvas_width_m,
+        layout.canvas_height_m,
+        contentBounds.minX,
+        contentBounds.minY,
+        contentBounds.maxX,
+        contentBounds.maxY,
+      ].join(":"),
     [
       contentBounds,
       dimensions.height,
@@ -339,8 +397,7 @@ export function WarehouseMapViewer({
     if (lastAutoFitKeyRef.current === autoFitKey) return;
 
     const layoutChanged =
-      lastAutoFitKeyRef.current === null ||
-      !lastAutoFitKeyRef.current.includes(`"layoutId":"${layout.id}"`);
+      lastAutoFitKeyRef.current === null || !lastAutoFitKeyRef.current.startsWith(`${layout.id}:`);
     if (layoutChanged) {
       hasUserAdjustedCameraRef.current = false;
     }
@@ -355,31 +412,15 @@ export function WarehouseMapViewer({
   // ── Auto-pan to highlighted shape (only when autoPanToHighlight=true) ──────
   React.useEffect(() => {
     if (!autoPanToHighlight || effectiveHighlightIds.length === 0 || dimensions.width === 0) return;
-    const highlighted = projectionShapes.filter(
-      (shape) => shape.location_id && highlightIdSet.has(shape.location_id)
+    const highlighted = projectionShapeRecords.filter(
+      (record) => record.shape.location_id && highlightIdSet.has(record.shape.location_id)
     );
     if (highlighted.length === 0) return;
     const margin = 8;
-    const minX = Math.min(
-      ...highlighted.map(
-        (shape) => shape.x + getRotationOffsets(shape.width, shape.height, shape.rotation).minX
-      )
-    );
-    const minY = Math.min(
-      ...highlighted.map(
-        (shape) => shape.y + getRotationOffsets(shape.width, shape.height, shape.rotation).minY
-      )
-    );
-    const maxX = Math.max(
-      ...highlighted.map(
-        (shape) => shape.x + getRotationOffsets(shape.width, shape.height, shape.rotation).maxX
-      )
-    );
-    const maxY = Math.max(
-      ...highlighted.map(
-        (shape) => shape.y + getRotationOffsets(shape.width, shape.height, shape.rotation).maxY
-      )
-    );
+    const minX = Math.min(...highlighted.map((record) => record.bounds.minX));
+    const minY = Math.min(...highlighted.map((record) => record.bounds.minY));
+    const maxX = Math.max(...highlighted.map((record) => record.bounds.maxX));
+    const maxY = Math.max(...highlighted.map((record) => record.bounds.maxY));
     const targetX = Math.max(0, minX - margin);
     const targetY = Math.max(0, minY - margin);
     const targetW = maxX - minX + margin * 2;
@@ -397,7 +438,13 @@ export function WarehouseMapViewer({
       x: dimensions.width / 2 - (targetX + targetW / 2) * newZoom * METER_TO_PIXEL,
       y: dimensions.height / 2 - (targetY + targetH / 2) * newZoom * METER_TO_PIXEL,
     });
-  }, [autoPanToHighlight, effectiveHighlightIds, highlightIdSet, dimensions, projectionShapes]);
+  }, [
+    autoPanToHighlight,
+    effectiveHighlightIds,
+    highlightIdSet,
+    dimensions,
+    projectionShapeRecords,
+  ]);
 
   // ── Zoom on wheel (viewer is interactive) ─────────────────────────────────
   const handleWheel = (e: any) => {
@@ -423,36 +470,40 @@ export function WarehouseMapViewer({
   };
 
   // ── Shape rendering ───────────────────────────────────────────────────────
-  const monoFill = themeMuted || themeCard || canvasBg;
-  const monoStroke = themeBorder || canvasBorder;
+  const monoFill = React.useMemo(
+    () =>
+      isDark
+        ? blendHex(themeMutedForeground || themeBorder || "#94a3b8", canvasBg, 0.72)
+        : blendHex(themeBorder || themeMuted || "#cbd5e1", canvasBg, 0.28),
+    [canvasBg, isDark, themeBorder, themeMuted, themeMutedForeground]
+  );
+  const monoStroke = themeMutedForeground || themeBorder || canvasBorder;
   const isMonoActive = monochromaticHighlight;
-  const pulsePhase = (Math.sin(tick / 3) + 1) / 2;
-  const sortedShapes = React.useMemo(() => {
-    const base = [...layout.shapes]
-      .sort(
-        (a, b) =>
-          a.z_index - b.z_index ||
-          getShapeElevationLevel(a, locations) - getShapeElevationLevel(b, locations) ||
-          a.sort_order - b.sort_order
-      )
-      .filter((shape) => (shape.projection ?? "top_down") === projection);
+  const sortedShapeRecords = React.useMemo(() => {
+    const base = [...projectionShapeRecords].sort(
+      (a, b) =>
+        a.shape.z_index - b.shape.z_index ||
+        a.elevationLevel - b.elevationLevel ||
+        a.shape.sort_order - b.shape.sort_order
+    );
     if (!hasHighlights) return base;
 
-    const highlighted: WarehouseLayoutShape[] = [];
-    const normal: WarehouseLayoutShape[] = [];
+    const highlighted: ProjectionShapeRecord[] = [];
+    const normal: ProjectionShapeRecord[] = [];
 
-    for (const shape of base) {
-      if (shape.location_id && highlightIdSet.has(shape.location_id)) {
-        highlighted.push(shape);
+    for (const record of base) {
+      if (record.shape.location_id && highlightIdSet.has(record.shape.location_id)) {
+        highlighted.push(record);
       } else {
-        normal.push(shape);
+        normal.push(record);
       }
     }
 
     return [...normal, ...highlighted];
-  }, [layout.shapes, hasHighlights, highlightIdSet, locations, projection]);
+  }, [projectionShapeRecords, hasHighlights, highlightIdSet]);
 
-  const renderShape = (shape: WarehouseLayoutShape) => {
+  const renderShape = (record: ProjectionShapeRecord) => {
+    const { shape } = record;
     const defaults = shapeDefaults[shape.shape_type];
     const style = shape.style as ShapeStyle | null;
     const isCombinedHeaderBackground = shape.id.startsWith("combined:header-bg:");
@@ -462,7 +513,7 @@ export function WarehouseMapViewer({
     const locColor =
       shape.shape_type === "location" && shape.location_id
         ? (() => {
-            const location = locations?.find((l) => l.id === shape.location_id);
+            const location = locationById.get(shape.location_id);
             return location ? getEffectiveLocationColor(location, locationGroups, locations) : null;
           })()
         : null;
@@ -486,7 +537,7 @@ export function WarehouseMapViewer({
       !isMonoActive && hasHighlights && !isHighlighted && !isCombinedHeaderShape;
     const contentOpacity = isMonoActive
       ? !isHighlighted
-        ? 0.38
+        ? 0.58
         : 1
       : isHeaderDimmed
         ? 0.55
@@ -508,23 +559,25 @@ export function WarehouseMapViewer({
     const effectiveStroke = isMonoActive
       ? isHighlighted
         ? stroke
-        : monoStroke
+        : withAlpha(monoStroke, "99")
       : isHeaderDimmed
         ? monoStroke
         : isCombinedHeaderBackground && isHighlighted
           ? themePrimary || stroke
           : isHighlighted
             ? themePrimary || stroke
-            : stroke;
+            : isColorModeDimmed
+              ? withAlpha(stroke, "AA")
+              : stroke;
     // Smooth pulse only in normal (non-mono) mode
-    const pulseStrokeWidth = isCombinedHeaderBackground
+    const primaryStrokeWidth = isCombinedHeaderBackground
       ? isHighlighted
         ? sw * 2.25
         : isHeaderHovered
           ? sw * 1.5
           : sw
       : !isMonoActive && isHighlighted
-        ? sw * (2.15 + pulsePhase * 1.35)
+        ? sw * 2.75
         : sw;
     const highlightHaloStrokeWidth =
       !isMonoActive && isHighlighted && !isCombinedHeaderBackground ? sw * 4.5 : 0;
@@ -620,6 +673,7 @@ export function WarehouseMapViewer({
             strokeWidth={highlightHaloStrokeWidth}
             cornerRadius={(style?.cornerRadius ?? 0) / (zoom * METER_TO_PIXEL)}
             listening={false}
+            perfectDrawEnabled={false}
           />
         ) : null}
         <Rect
@@ -627,17 +681,17 @@ export function WarehouseMapViewer({
           height={shape.height}
           fill={effectiveFill}
           stroke={effectiveStroke}
-          strokeWidth={pulseStrokeWidth}
+          strokeWidth={primaryStrokeWidth}
           cornerRadius={(style?.cornerRadius ?? 0) / (zoom * METER_TO_PIXEL)}
           shadowBlur={
             isCombinedHeaderBackground
               ? isHighlighted
-                ? 0.22 + pulsePhase * 0.12
+                ? 0.28
                 : isHeaderHovered
                   ? 0.18
                   : 0
               : isHighlighted && !isMonoActive
-                ? 0.32 + pulsePhase * 0.22
+                ? 0.44
                 : 0
           }
           shadowColor={
@@ -647,6 +701,7 @@ export function WarehouseMapViewer({
                 : "rgba(15,23,42,0.16)"
               : withAlpha(themePrimary || stroke, isHighlighted ? "66" : "00")
           }
+          perfectDrawEnabled={false}
         />
         {shape.label &&
           shape.shape_type !== "wall" &&
@@ -680,6 +735,7 @@ export function WarehouseMapViewer({
                 wrap="none"
                 ellipsis={false}
                 listening={false}
+                perfectDrawEnabled={false}
               />
             </Group>
           ) : (
@@ -697,6 +753,7 @@ export function WarehouseMapViewer({
                     : themeMutedForeground || themeForeground || "#475569"
               }
               listening={false}
+              perfectDrawEnabled={false}
             />
           ))}
       </Group>
@@ -713,10 +770,27 @@ export function WarehouseMapViewer({
       ref={containerRef}
       className={`relative w-full h-full ${className}`}
       onMouseMove={(e) => {
+        if (!hoveredLocationId) return;
         const rect = containerRef.current?.getBoundingClientRect();
-        if (rect) setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        if (!rect) return;
+        const next = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const previous = lastTooltipPosRef.current;
+        if (previous && previous.x === next.x && previous.y === next.y) return;
+        lastTooltipPosRef.current = next;
+        if (tooltipFrameRef.current !== null) return;
+        tooltipFrameRef.current = requestAnimationFrame(() => {
+          tooltipFrameRef.current = null;
+          setTooltipPos(lastTooltipPosRef.current);
+        });
       }}
-      onMouseLeave={() => setMousePos(null)}
+      onMouseLeave={() => {
+        lastTooltipPosRef.current = null;
+        if (tooltipFrameRef.current !== null) {
+          cancelAnimationFrame(tooltipFrameRef.current);
+          tooltipFrameRef.current = null;
+        }
+        setTooltipPos(null);
+      }}
     >
       {viewBackgroundLabel?.trim() ? (
         <div className="pointer-events-none absolute inset-0 z-0 flex items-end justify-end overflow-hidden p-3">
@@ -753,7 +827,7 @@ export function WarehouseMapViewer({
               }
             }}
           >
-            <Layer>
+            <Layer listening={false}>
               {/* Canvas background */}
               <Rect
                 x={0}
@@ -763,17 +837,18 @@ export function WarehouseMapViewer({
                 fill={canvasBg}
                 stroke={canvasBorder}
                 strokeWidth={1.5 / (zoom * METER_TO_PIXEL)}
+                perfectDrawEnabled={false}
               />
-
-              {sortedShapes.map(renderShape)}
             </Layer>
+
+            <Layer>{sortedShapeRecords.map(renderShape)}</Layer>
           </Stage>
         </div>
       )}
-      {narrowHeaderTooltip && mousePos && (
+      {narrowHeaderTooltip && tooltipPos && (
         <div
           className="pointer-events-none absolute z-50 rounded border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
-          style={{ left: mousePos.x + 12, top: mousePos.y - 28 }}
+          style={{ left: tooltipPos.x + 12, top: tooltipPos.y - 28 }}
         >
           {narrowHeaderTooltip}
         </div>

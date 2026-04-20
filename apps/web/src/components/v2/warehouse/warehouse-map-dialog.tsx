@@ -51,6 +51,17 @@ import { usePublishedLayoutQuery } from "@/hooks/queries/warehouse";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
 import {
+  buildChildrenByParentId,
+  buildGroupMap,
+  buildGroupsByParentId,
+  buildLocationCodePath,
+  buildLocationMap,
+  buildMembersByGroupId,
+  deriveWarehousePreviewSelectionState,
+  getAncestorIds,
+  getDescendantLocationIds,
+} from "@/lib/warehouse/map-preview";
+import {
   getEffectiveLocationColor,
   type WarehouseLocation,
   type WarehouseLocationGroup,
@@ -74,100 +85,6 @@ const WarehouseMapViewer = dynamic(
     ),
   }
 );
-
-function buildLocationMap(locations: WarehouseLocation[]) {
-  return new Map(locations.map((location) => [location.id, location]));
-}
-
-function findNearestLogicalContainerAncestor(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>
-) {
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current?.parent_id) {
-    current = locationMap.get(current.parent_id) ?? null;
-    if ((current?.map_role ?? "logical") === "logical") {
-      return current;
-    }
-  }
-
-  return null;
-}
-
-function getDescendantTopDownUnitIds(
-  containerId: string,
-  locations: WarehouseLocation[],
-  locationMap: Map<string, WarehouseLocation>
-) {
-  const topDownIds: string[] = [];
-  const queue = locations.filter((location) => location.parent_id === containerId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if ((current.map_role ?? "logical") === "top_down_unit") {
-      topDownIds.push(current.id);
-    }
-
-    for (const child of locations) {
-      if (child.parent_id === current.id) {
-        queue.push(child);
-      }
-    }
-  }
-
-  return topDownIds.filter((topDownId) => {
-    const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
-    return nearestContainer?.id === containerId;
-  });
-}
-
-function getAncestorIds(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>,
-  stopAtId?: string | null
-) {
-  const ancestorIds: string[] = [];
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current?.parent_id) {
-    if (current.parent_id === stopAtId) break;
-    ancestorIds.push(current.parent_id);
-    current = locationMap.get(current.parent_id) ?? null;
-  }
-
-  return ancestorIds;
-}
-
-function getDescendantLocationIds(locationId: string, locations: WarehouseLocation[]) {
-  const descendantIds: string[] = [];
-  const queue = locations.filter((location) => location.parent_id === locationId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    descendantIds.push(current.id);
-    queue.push(...locations.filter((location) => location.parent_id === current.id));
-  }
-
-  return descendantIds;
-}
-
-function buildLocationCodePath(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>,
-  stopAtId?: string | null
-) {
-  const path: string[] = [];
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current) {
-    path.unshift(current.code?.trim() || current.name);
-    if (!current.parent_id || current.id === stopAtId) break;
-    current = locationMap.get(current.parent_id) ?? null;
-  }
-
-  return path.join("/");
-}
 
 function formatMeters(value: number | null | undefined) {
   if (value === null || value === undefined) return null;
@@ -420,8 +337,11 @@ function MapInfoDrawer({
 
 function TreeLocationRow({
   location,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -432,8 +352,11 @@ function TreeLocationRow({
   t,
 }: {
   location: WarehouseLocation;
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -444,8 +367,8 @@ function TreeLocationRow({
   t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const children = allLocations.filter((entry) => entry.parent_id === location.id);
-  const myGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
+  const children = childrenByParentId.get(location.id) ?? [];
+  const myGroups = groupsByParentId.get(location.id) ?? [];
   const hasChildren = children.length > 0 || myGroups.length > 0;
   const isSelectable = selectableLocationIds.has(location.id);
   const effectiveExpanded =
@@ -495,7 +418,7 @@ function TreeLocationRow({
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
           style={{
             backgroundColor:
-              getEffectiveLocationColor(location, locationGroups, allLocations) ?? "#10b981",
+              getEffectiveLocationColor(location, groupMap, locationMap) ?? "#10b981",
           }}
         />
 
@@ -517,8 +440,11 @@ function TreeLocationRow({
       {effectiveExpanded && (
         <TreeItems
           parentId={location.id}
-          allLocations={allLocations}
-          locationGroups={locationGroups}
+          locationMap={locationMap}
+          groupMap={groupMap}
+          childrenByParentId={childrenByParentId}
+          groupsByParentId={groupsByParentId}
+          membersByGroupId={membersByGroupId}
           selectableLocationIds={selectableLocationIds}
           highlightedIds={highlightedIds}
           onSelectIds={onSelectIds}
@@ -536,8 +462,11 @@ function TreeLocationRow({
 function TreeGroupRow({
   group,
   members,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -549,8 +478,11 @@ function TreeGroupRow({
 }: {
   group: WarehouseLocationGroup;
   members: WarehouseLocation[];
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -623,8 +555,11 @@ function TreeGroupRow({
           <TreeLocationRow
             key={member.id}
             location={member}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -641,8 +576,11 @@ function TreeGroupRow({
 
 function TreeItems({
   parentId,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -653,8 +591,11 @@ function TreeItems({
   t,
 }: {
   parentId: string | null | undefined;
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -664,17 +605,13 @@ function TreeItems({
   depth: number;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const myGroups = locationGroups
-    .filter((group) => group.parent_location_id === (parentId ?? null))
-    .sort(
-      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
-    );
+  const myGroups = [...(groupsByParentId.get(parentId ?? null) ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+  );
   const knownGroupIds = new Set(myGroups.map((group) => group.id));
-  const children = allLocations
-    .filter((location) => location.parent_id === (parentId ?? null))
-    .sort(
-      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
-    );
+  const children = [...(childrenByParentId.get(parentId ?? "") ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+  );
   const groupedChildIds = new Set(
     children
       .filter((location) => location.group_id && knownGroupIds.has(location.group_id))
@@ -686,8 +623,8 @@ function TreeItems({
       kind: "group" as const,
       group,
       sortOrder: group.sort_order,
-      isSelectable: children.some(
-        (location) => location.group_id === group.id && selectableLocationIds.has(location.id)
+      isSelectable: (membersByGroupId.get(group.id) ?? []).some((location) =>
+        selectableLocationIds.has(location.id)
       ),
     })),
     ...ungroupedChildren.map((location) => ({
@@ -711,8 +648,11 @@ function TreeItems({
             key={item.group.id}
             group={item.group}
             members={children.filter((location) => location.group_id === item.group.id)}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -726,8 +666,11 @@ function TreeItems({
           <TreeLocationRow
             key={item.location.id}
             location={item.location}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -764,31 +707,44 @@ function TreePanel({
   onToggleVisibility?: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const allChildrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(locations),
+    [locations]
+  );
   // BFS descendants of root (or all if no root scoping)
   const descendants = React.useMemo(() => {
     if (!rootLocationId) return locations;
     const result: WarehouseLocation[] = [];
     const visited = new Set<string>();
-    const queue = locations.filter((l) => l.parent_id === rootLocationId);
+    const queue = [...(allChildrenByParentId.get(rootLocationId) ?? [])];
     while (queue.length > 0) {
       const loc = queue.shift()!;
       if (visited.has(loc.id)) continue;
       visited.add(loc.id);
       result.push(loc);
-      locations.filter((l) => l.parent_id === loc.id).forEach((l) => queue.push(l));
+      const children = allChildrenByParentId.get(loc.id);
+      if (children?.length) {
+        queue.push(...children);
+      }
     }
     return result;
-  }, [locations, rootLocationId]);
+  }, [allChildrenByParentId, locations, rootLocationId]);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [expandMode, setExpandMode] = React.useState<"auto" | "all" | "collapsed">("auto");
   const locationMap = React.useMemo(() => buildLocationMap(descendants), [descendants]);
+  const childrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(descendants),
+    [descendants]
+  );
+  const membersByGroupId = React.useMemo(() => buildMembersByGroupId(descendants), [descendants]);
+  const descendantParentIds = React.useMemo(
+    () => new Set(descendants.map((location) => location.parent_id).filter(Boolean)),
+    [descendants]
+  );
   const searchableGroups = React.useMemo(
-    () =>
-      locationGroups.filter((group) =>
-        descendants.some((location) => location.parent_id === group.parent_location_id)
-      ),
-    [descendants, locationGroups]
+    () => locationGroups.filter((group) => descendantParentIds.has(group.parent_location_id)),
+    [descendantParentIds, locationGroups]
   );
   const selectableLocationIds = React.useMemo(() => {
     const previewableIds = new Set(
@@ -806,14 +762,14 @@ function TreePanel({
 
     for (const location of descendants) {
       if ((location.map_role ?? "logical") !== "logical") continue;
-      const descendantIds = getDescendantLocationIds(location.id, descendants);
+      const descendantIds = getDescendantLocationIds(location.id, childrenByParentId);
       if (descendantIds.some((id) => previewableIds.has(id))) {
         previewableIds.add(location.id);
       }
     }
 
     return previewableIds;
-  }, [descendants, layout.root_location_id, locations, rootLocationId]);
+  }, [childrenByParentId, descendants, layout.root_location_id, locations, rootLocationId]);
 
   const visibleLocationIds = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -832,7 +788,7 @@ function TreePanel({
 
     for (const group of searchableGroups) {
       if (group.name.toLowerCase().includes(query)) {
-        const members = descendants.filter((location) => location.group_id === group.id);
+        const members = membersByGroupId.get(group.id) ?? [];
         members.forEach((member) => {
           visibleIds.add(member.id);
           getAncestorIds(member.id, locationMap, rootLocationId ?? null).forEach((id) =>
@@ -843,7 +799,7 @@ function TreePanel({
     }
 
     return visibleIds;
-  }, [descendants, locationMap, rootLocationId, searchQuery, searchableGroups]);
+  }, [descendants, locationMap, membersByGroupId, rootLocationId, searchQuery, searchableGroups]);
 
   const visibleGroups = React.useMemo(
     () =>
@@ -851,11 +807,11 @@ function TreePanel({
         const query = searchQuery.trim().toLowerCase();
         if (!query) return true;
         if (group.name.toLowerCase().includes(query)) return true;
-        return descendants.some(
-          (location) => location.group_id === group.id && visibleLocationIds.has(location.id)
+        return (membersByGroupId.get(group.id) ?? []).some((location) =>
+          visibleLocationIds.has(location.id)
         );
       }),
-    [descendants, searchQuery, searchableGroups, visibleLocationIds]
+    [membersByGroupId, searchQuery, searchableGroups, visibleLocationIds]
   );
 
   const autoExpandedLocationIds = React.useMemo(() => {
@@ -874,9 +830,7 @@ function TreePanel({
     const ids = new Set<string>();
     const isSearching = searchQuery.trim().length > 0;
     for (const group of visibleGroups) {
-      const memberIds = descendants
-        .filter((location) => location.group_id === group.id)
-        .map((location) => location.id);
+      const memberIds = (membersByGroupId.get(group.id) ?? []).map((location) => location.id);
       if (
         memberIds.some(
           (id) => highlightedIds.includes(id) || (isSearching && visibleLocationIds.has(id))
@@ -886,15 +840,32 @@ function TreePanel({
       }
     }
     return ids;
-  }, [descendants, highlightedIds, searchQuery, visibleGroups, visibleLocationIds]);
+  }, [highlightedIds, membersByGroupId, searchQuery, visibleGroups, visibleLocationIds]);
 
   const filteredDescendants = React.useMemo(
     () => descendants.filter((location) => visibleLocationIds.has(location.id)),
     [descendants, visibleLocationIds]
   );
+  const renderLocationMap = React.useMemo(
+    () => buildLocationMap(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderChildrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderMembersByGroupId = React.useMemo(
+    () => buildMembersByGroupId(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderGroupMap = React.useMemo(() => buildGroupMap(visibleGroups), [visibleGroups]);
+  const renderGroupsByParentId = React.useMemo(
+    () => buildGroupsByParentId(visibleGroups),
+    [visibleGroups]
+  );
 
   return (
-    <div className="w-56 border-r bg-background flex flex-col shrink-0 overflow-hidden">
+    <div className="h-full w-56 border-r bg-background flex flex-col shrink-0 overflow-hidden">
       <div className="px-3 py-2.5 border-b bg-muted/50 shrink-0">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -950,8 +921,11 @@ function TreePanel({
         ) : (
           <TreeItems
             parentId={rootLocationId}
-            allLocations={filteredDescendants}
-            locationGroups={visibleGroups}
+            locationMap={renderLocationMap}
+            groupMap={renderGroupMap}
+            childrenByParentId={renderChildrenByParentId}
+            groupsByParentId={renderGroupsByParentId}
+            membersByGroupId={renderMembersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -1086,15 +1060,21 @@ export function WarehouseMapDialog({
     isError,
   } = usePublishedLayoutQuery(open ? activeBranchId : null, rootLocationId);
 
+  const locationMap = React.useMemo(
+    () => (locations ? buildLocationMap(locations) : new Map<string, WarehouseLocation>()),
+    [locations]
+  );
+  const childrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(locations ?? []),
+    [locations]
+  );
   const hasTreeAvailable = (showTree ?? !!locations) && !!layout;
   const resolvedRootLocationName = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id) return null;
-    return locations.find((location) => location.id === layout.root_location_id)?.name ?? null;
-  }, [layout?.root_location_id, locations]);
+    if (!layout?.root_location_id) return null;
+    return locationMap.get(layout.root_location_id)?.name ?? null;
+  }, [layout?.root_location_id, locationMap]);
   const highlightedLocationBreadcrumbs = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id || !highlightedId) return [];
-
-    const locationMap = buildLocationMap(locations);
+    if (!layout?.root_location_id || !highlightedId) return [];
     const breadcrumbs: string[] = [];
     let current = locationMap.get(highlightedId) ?? null;
 
@@ -1105,15 +1085,11 @@ export function WarehouseMapDialog({
     }
 
     return breadcrumbs;
-  }, [highlightedId, layout?.root_location_id, locations]);
+  }, [highlightedId, layout?.root_location_id, locationMap]);
   const highlightedLocationCodePath = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id || !highlightedId) return null;
-    return buildLocationCodePath(
-      highlightedId,
-      buildLocationMap(locations),
-      layout.root_location_id
-    );
-  }, [highlightedId, layout?.root_location_id, locations]);
+    if (!layout?.root_location_id || !highlightedId) return null;
+    return buildLocationCodePath(highlightedId, locationMap, layout.root_location_id);
+  }, [highlightedId, layout?.root_location_id, locationMap]);
   React.useEffect(() => {
     setDidCopyPath(false);
   }, [highlightedLocationCodePath]);
@@ -1124,133 +1100,26 @@ export function WarehouseMapDialog({
       setIsTreeVisible(true);
     }
   }, [open]);
-  const selectedTopDownFocusIds = React.useMemo(() => {
-    if (!locations) return [];
-
-    const locationMap = buildLocationMap(locations);
-    return [
-      ...new Set(
-        highlightedIds
-          .map((id) => {
-            const location = locationMap.get(id);
-            if (!location) return null;
-            if ((location.map_role ?? "logical") === "top_down_unit") return location.id;
-            if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
-              return location.parent_id ?? null;
-            }
-            if ((location.map_role ?? "logical") === "logical") {
-              const containerTopDownIds = getDescendantTopDownUnitIds(id, locations, locationMap);
-              return containerTopDownIds;
-            }
-            return null;
-          })
-          .flat()
-          .filter(Boolean)
-      ),
-    ] as string[];
-  }, [highlightedIds, locations]);
-  const frontStageAnchorIds = React.useMemo(() => {
-    if (!locations) return [];
-
-    const locationMap = buildLocationMap(locations);
-    const expandedAnchorIds = selectedTopDownFocusIds.flatMap((topDownId) => {
-      const topDownLocation = locationMap.get(topDownId);
-      if (!topDownLocation?.group_id) return [topDownId];
-
-      return locations
-        .filter(
-          (location) =>
-            (location.map_role ?? "logical") === "top_down_unit" &&
-            location.group_id === topDownLocation.group_id
-        )
-        .map((location) => location.id);
-    });
-
-    const containerExpandedAnchorIds = expandedAnchorIds.flatMap((topDownId) => {
-      const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
-      if (!nearestContainer) return [topDownId];
-
-      const containerTopDownIds = getDescendantTopDownUnitIds(
-        nearestContainer.id,
-        locations,
-        locationMap
-      );
-      return containerTopDownIds.length > 0 ? containerTopDownIds : [topDownId];
-    });
-
-    return [...new Set(containerExpandedAnchorIds)];
-  }, [locations, selectedTopDownFocusIds]);
-  const frontHighlightIds = React.useMemo(() => {
-    if (!locations) return [];
-    const locationMap = buildLocationMap(locations);
-    const explicitFrontSelections = highlightedIds.filter((id) =>
-      ["front_segment", "top_storage_segment"].includes(locationMap.get(id)?.map_role ?? "logical")
-    );
-
-    if (explicitFrontSelections.length > 0) {
-      return [...new Set(explicitFrontSelections)];
-    }
-
-    const highlightParentIds =
-      highlightedIds.length === 1 ? selectedTopDownFocusIds : frontStageAnchorIds;
-
-    return locations
-      .filter(
-        (location) =>
-          highlightParentIds.includes(location.parent_id ?? "") &&
-          ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-      )
-      .map((location) => location.id);
-  }, [frontStageAnchorIds, highlightedIds, locations, selectedTopDownFocusIds]);
+  const {
+    selectedTopDownFocusIds,
+    frontStageAnchorIds,
+    frontHighlightIds,
+    topDownInfoLocations,
+    frontInfoLocations,
+  } = React.useMemo(
+    () =>
+      deriveWarehousePreviewSelectionState({
+        highlightedIds,
+        locations: locations ?? [],
+        locationMap,
+        childrenByParentId,
+      }),
+    [childrenByParentId, highlightedIds, locationMap, locations]
+  );
   const frontAnchorLocationId = React.useMemo(
     () => (frontStageAnchorIds.length === 1 ? frontStageAnchorIds[0] : null),
     [frontStageAnchorIds]
   );
-  const locationMap = React.useMemo(
-    () => (locations ? buildLocationMap(locations) : new Map<string, WarehouseLocation>()),
-    [locations]
-  );
-  const topDownInfoLocations = React.useMemo(() => {
-    if (!locations || highlightedIds.length === 0) return [];
-
-    const explicitSelections = highlightedIds
-      .map((id) => locationMap.get(id) ?? null)
-      .filter((location): location is WarehouseLocation => !!location);
-
-    const topDownSelections = explicitSelections.filter(
-      (location) => (location.map_role ?? "logical") === "top_down_unit"
-    );
-    if (topDownSelections.length > 0) return topDownSelections;
-
-    const frontSelections = explicitSelections.filter((location) =>
-      ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-    if (frontSelections.length > 0) {
-      return selectedTopDownFocusIds
-        .map((id) => locationMap.get(id) ?? null)
-        .filter((location): location is WarehouseLocation => !!location);
-    }
-
-    return explicitSelections;
-  }, [highlightedIds, locationMap, locations, selectedTopDownFocusIds]);
-  const frontInfoLocations = React.useMemo(() => {
-    if (!locations || highlightedIds.length === 0) return [];
-
-    const explicitSelections = highlightedIds
-      .map((id) => locationMap.get(id) ?? null)
-      .filter((location): location is WarehouseLocation => !!location);
-
-    const explicitFrontSelections = explicitSelections.filter((location) =>
-      ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-    if (explicitFrontSelections.length > 0) return explicitFrontSelections;
-
-    return locations.filter(
-      (location) =>
-        frontStageAnchorIds.includes(location.parent_id ?? "") &&
-        ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-  }, [frontStageAnchorIds, highlightedIds, locationMap, locations]);
   const topDownInfoSummary = React.useMemo(
     () =>
       summarizeLocationSelection(
@@ -1428,11 +1297,11 @@ export function WarehouseMapDialog({
               {hasTreeAvailable && (
                 <div
                   className={cn(
-                    "shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+                    "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
                     isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
                   )}
                 >
-                  <div className="w-56">
+                  <div className="h-full w-56">
                     <TreePanel
                       layout={layout}
                       locations={locations ?? []}
