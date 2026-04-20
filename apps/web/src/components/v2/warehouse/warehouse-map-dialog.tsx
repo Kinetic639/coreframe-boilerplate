@@ -194,7 +194,7 @@ function summarizeLocationSelection(
   };
 }
 
-function MapInfoDrawer({
+const MapInfoDrawer = React.memo(function MapInfoDrawer({
   title,
   emptyLabel,
   summary,
@@ -331,7 +331,7 @@ function MapInfoDrawer({
       </div>
     </div>
   );
-}
+});
 
 // ─── Location tree (same pattern as MapPreview) ───────────────────────────────
 
@@ -1141,13 +1141,18 @@ export function WarehouseMapDialog({
     [frontInfoLocations, locationMap, t]
   );
 
-  const handleShapeClick = (shape: WarehouseLayoutShape) => {
+  const handleShapeClick = React.useCallback((shape: WarehouseLayoutShape) => {
     if (shape.location_id) {
       setHighlightedIds((prev) =>
         prev.length === 1 && prev[0] === shape.location_id ? [] : [shape.location_id]
       );
     }
-  };
+  }, []);
+  const handleTreeSelection = React.useCallback((ids: string[]) => {
+    setHighlightedIds((prev) =>
+      prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+    );
+  }, []);
 
   const handleCopyHighlightedLocationPath = React.useCallback(async () => {
     if (!highlightedLocationCodePath) return;
@@ -1159,6 +1164,26 @@ export function WarehouseMapDialog({
       setDidCopyPath(false);
     }
   }, [highlightedLocationCodePath]);
+  const topDownInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={t("info.topDownTitle")}
+        emptyLabel={t("info.emptyTopDown")}
+        summary={topDownInfoSummary}
+      />
+    ),
+    [t, topDownInfoSummary]
+  );
+  const frontInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={t("info.frontTitle")}
+        emptyLabel={t("info.emptyFront")}
+        summary={frontInfoSummary}
+      />
+    ),
+    [frontInfoSummary, t]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1308,13 +1333,7 @@ export function WarehouseMapDialog({
                       locationGroups={locationGroups ?? []}
                       rootLocationId={rootLocationId}
                       highlightedIds={highlightedIds}
-                      onSelectIds={(ids) =>
-                        setHighlightedIds((prev) =>
-                          prev.length === ids.length && ids.every((id) => prev.includes(id))
-                            ? []
-                            : ids
-                        )
-                      }
+                      onSelectIds={handleTreeSelection}
                       onToggleVisibility={() => setIsTreeVisible(false)}
                       t={t}
                     />
@@ -1412,11 +1431,7 @@ export function WarehouseMapDialog({
                     </div>
                   </div>
 
-                  <MapInfoDrawer
-                    title={t("info.topDownTitle")}
-                    emptyLabel={t("info.emptyTopDown")}
-                    summary={topDownInfoSummary}
-                  />
+                  {topDownInfoRail}
                 </div>
 
                 {locations && (
@@ -1436,13 +1451,7 @@ export function WarehouseMapDialog({
                     collapsible
                     collapsed={isFrontViewCollapsed}
                     onCollapsedChange={setIsFrontViewCollapsed}
-                    rightRail={
-                      <MapInfoDrawer
-                        title={t("info.frontTitle")}
-                        emptyLabel={t("info.emptyFront")}
-                        summary={frontInfoSummary}
-                      />
-                    }
+                    rightRail={frontInfoRail}
                   />
                 )}
               </div>

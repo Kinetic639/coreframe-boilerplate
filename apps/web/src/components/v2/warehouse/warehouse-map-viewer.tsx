@@ -134,7 +134,7 @@ export interface WarehouseMapViewerProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function WarehouseMapViewer({
+export const WarehouseMapViewer = React.memo(function WarehouseMapViewer({
   layout,
   projection = "top_down",
   viewBackgroundLabel,
@@ -859,4 +859,4 @@ export function WarehouseMapViewer({
       )}
     </div>
   );
-}
+});

@@ -140,7 +140,7 @@ function summarizeLocationSelection(
   };
 }
 
-function MapInfoDrawer({
+const MapInfoDrawer = React.memo(function MapInfoDrawer({
   title,
   emptyLabel,
   summary,
@@ -275,7 +275,7 @@ function MapInfoDrawer({
       </div>
     </div>
   );
-}
+});
 
 function TreeLocationRow({
   location,
@@ -1083,9 +1083,7 @@ export function PublicWarehouseMapsPageClient({
   );
   const orderedFrontStageAnchorIds = React.useMemo(
     () =>
-      selectedLayout
-        ? orderTopDownAnchorIdsByLayoutShapes(frontStageAnchorIds, selectedLayout, locationMap)
-        : [],
+      selectedLayout ? orderTopDownAnchorIdsByLayoutShapes(frontStageAnchorIds, locationMap) : [],
     [frontStageAnchorIds, locationMap, selectedLayout]
   );
   const frontAnchorLocationId = React.useMemo(
@@ -1153,6 +1151,11 @@ export function PublicWarehouseMapsPageClient({
       setDidCopyPath(false);
     }
   }, [highlightedLocationCodePath]);
+  const handleTreeSelection = React.useCallback((ids: string[]) => {
+    setHighlightedIds((prev) =>
+      prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+    );
+  }, []);
   const handleGlobalSearchSelect = React.useCallback(
     (layoutId: string, locationId: string) => {
       setIsFrontViewCollapsed(false);
@@ -1166,6 +1169,26 @@ export function PublicWarehouseMapsPageClient({
       setIsGlobalSearchOpen(false);
     },
     [selectedLayoutId]
+  );
+  const topDownInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={dialogT("info.topDownTitle")}
+        emptyLabel={dialogT("info.emptyTopDown")}
+        summary={topDownInfoSummary}
+      />
+    ),
+    [dialogT, topDownInfoSummary]
+  );
+  const frontInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={dialogT("info.frontTitle")}
+        emptyLabel={dialogT("info.emptyFront")}
+        summary={frontInfoSummary}
+      />
+    ),
+    [dialogT, frontInfoSummary]
   );
 
   if (!selectedLayout) {
@@ -1348,11 +1371,7 @@ export function PublicWarehouseMapsPageClient({
                 locationGroups={locationGroups}
                 rootLocationId={selectedLayout.root_location_id}
                 highlightedIds={highlightedIds}
-                onSelectIds={(ids) =>
-                  setHighlightedIds((prev) =>
-                    prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
-                  )
-                }
+                onSelectIds={handleTreeSelection}
                 onToggleVisibility={() => setIsTreeVisible(false)}
                 t={dialogT}
               />
@@ -1444,11 +1463,7 @@ export function PublicWarehouseMapsPageClient({
                 </div>
               </div>
 
-              <MapInfoDrawer
-                title={dialogT("info.topDownTitle")}
-                emptyLabel={dialogT("info.emptyTopDown")}
-                summary={topDownInfoSummary}
-              />
+              {topDownInfoRail}
             </div>
 
             <WarehouseFrontElevationPanel
@@ -1467,13 +1482,7 @@ export function PublicWarehouseMapsPageClient({
               collapsed={isFrontViewCollapsed}
               onCollapsedChange={setIsFrontViewCollapsed}
               className="min-h-0 shrink-0"
-              rightRail={
-                <MapInfoDrawer
-                  title={dialogT("info.frontTitle")}
-                  emptyLabel={dialogT("info.emptyFront")}
-                  summary={frontInfoSummary}
-                />
-              }
+              rightRail={frontInfoRail}
             />
           </div>
         </div>

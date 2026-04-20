@@ -45,7 +45,7 @@ interface WarehouseFrontElevationPanelProps {
   onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-export function WarehouseFrontElevationPanel({
+export const WarehouseFrontElevationPanel = React.memo(function WarehouseFrontElevationPanel({
   layout,
   locations,
   locationGroups,
@@ -171,4 +171,4 @@ export function WarehouseFrontElevationPanel({
       </div>
     </section>
   );
-}
+});

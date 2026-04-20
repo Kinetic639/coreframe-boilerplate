@@ -1,5 +1,4 @@
 import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
-import type { WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 
 export function buildLocationMap(locations: WarehouseLocation[]) {
   return new Map(locations.map((location) => [location.id, location]));
@@ -280,33 +279,15 @@ export function deriveWarehousePreviewSelectionState({
 
 export function orderTopDownAnchorIdsByLayoutShapes(
   anchorIds: string[],
-  layout: WarehouseLayoutWithShapes,
   locationMap: Map<string, WarehouseLocation>
 ) {
-  const topDownShapeByLocationId = new Map(
-    layout.shapes
-      .filter(
-        (shape) =>
-          (shape.projection ?? "top_down") !== "front_elevation" &&
-          shape.shape_type === "location" &&
-          !!shape.location_id &&
-          !shape.deleted_at
-      )
-      .map((shape) => [shape.location_id!, shape] as const)
-  );
-
   return [...anchorIds].sort((leftId, rightId) => {
-    const leftShape = topDownShapeByLocationId.get(leftId);
-    const rightShape = topDownShapeByLocationId.get(rightId);
-    const leftX = leftShape?.x ?? 0;
-    const rightX = rightShape?.x ?? 0;
-    if (leftX !== rightX) return leftX - rightX;
-
     const leftLocation = locationMap.get(leftId);
     const rightLocation = locationMap.get(rightId);
     return (
       (leftLocation?.sort_order ?? 0) - (rightLocation?.sort_order ?? 0) ||
-      (leftLocation?.name ?? "").localeCompare(rightLocation?.name ?? "")
+      (leftLocation?.name ?? "").localeCompare(rightLocation?.name ?? "") ||
+      leftId.localeCompare(rightId)
     );
   });
 }
