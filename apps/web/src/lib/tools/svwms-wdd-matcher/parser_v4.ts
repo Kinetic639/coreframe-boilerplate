@@ -1,18 +1,18 @@
 /**
- * SVWMS WDD Matcher — Block Template Parser V3
+ * SVWMS WDD Matcher — Block Template Parser V4
  *
- * This parser treats the PDFs as a generated document family with a fixed
- * grammar instead of trying to salvage free text after the fact.
- *
- * Core principles:
- * - detect logical blocks first (`WDD/...`, `ZW/...`)
- * - parse headers from nearby structured lines
- * - detect table headers explicitly
- * - reconstruct rows from column ownership + anchor product codes
- * - keep lossless per-row cell provenance for debugging
+ * Complete refactor of V3 with:
+ * - Signed IDP extraction (handles "- 1,00" two-token form)
+ * - Split document brand vs warehouse section fields
+ * - Normalized + raw block headers
+ * - Lossless per-row token storage (rawTokens, rawRowText)
+ * - Validation layer (parserQuality, parserStatus)
+ * - Layered architecture: Extraction → Structural → Semantic → Validation → Output
  */
 
-export interface TokenV3 {
+// ─── Exported primitive types ────────────────────────────────────────────────
+
+export interface TokenV4 {
   text: string;
   page: number;
   x0: number;
@@ -23,10 +23,136 @@ export interface TokenV3 {
   height: number;
 }
 
+export interface CellFragmentV4 {
+  text: string;
+  column: ColumnName;
+  x0: number;
+  x1: number;
+  y: number;
+  page: number;
+}
+
+export interface RawTokenV4 {
+  text: string;
+  x: number;
+  y: number;
+  column: ColumnName;
+}
+
+// ─── Semantic type aliases ────────────────────────────────────────────────────
+
+/** Brand detected from dealer header text ("Dealer Seat", "Body Center", etc.) */
+export type DocumentBrand = "Seat" | "VW" | "Skoda" | "BC" | "unknown";
+
+/** Logical order family derived from section kind + warehouse code + source role */
+export type LogicalOrderFamily = "wdd" | "mirror" | "bc_direct" | "standard";
+
+/** Signed direction of the IDP value: positive = goods in, negative = correction */
+export type MovementDirection = "in" | "correction";
+
+/** Overall parse confidence level */
+export type ParserStatus = "ok" | "warning" | "error";
+
+// ─── Line-level output ────────────────────────────────────────────────────────
+
+export interface ParsedLineV4 {
+  lineNumber: number;
+  lp: number | null;
+  productCode: string | null;
+  productName: string | null;
+  /** Absolute quantity (= idpAbs); retained for backward-compat alias */
+  quantity: number | null;
+  unit: string | null;
+  location: string | null;
+  /** Structured column-delimited text: "lp=1 | code=... | name=... | ..." */
+  rawText: string | null;
+  /** Lossless space-joined tokens in reading order (for full provenance) */
+  rawRowText: string;
+  rawTokens: RawTokenV4[];
+  rawNameFragments: string[];
+  rawLocationFragments: string[];
+  pageNumber: number | null;
+  operationCode: string | null;
+  iz: number | null;
+  iw: number | null;
+  ir: number | null;
+  inz: number | null;
+  /** Raw IDP cell text before sign-aware parsing */
+  idpRaw: string;
+  /** Signed IDP value; negative = correction movement */
+  idpValue: number | null;
+  /** Absolute (unsigned) IDP value */
+  idpAbs: number | null;
+  movementDirection: MovementDirection | null;
+  rawCells: CellFragmentV4[];
+  nameSource: "name_zone" | "name_col_only" | "empty";
+  warnings: string[];
+}
+
+// ─── Block-level output ───────────────────────────────────────────────────────
+
+export interface ParsedBlockV4 {
+  blockIndex: number;
+  blockType: "wdd_reconciliation" | "direct_order" | "brand_order" | "wdd_source";
+  sourceRole: "bc" | "brand";
+  sectionKind: "wdd" | "zw" | "unknown";
+  candidateKind: "wdd_reconciliation" | "direct_order" | "brand_order" | "wdd_source" | "mirror";
+  isExcluded: false;
+  /** Normalized header (leading ordinal prefix stripped from WDD headers) */
+  header: string | null;
+  /** Raw header before normalization */
+  headerRaw: string | null;
+  /** Same as header — normalized form */
+  headerNormalized: string | null;
+  /** Human warehouse label from Magazyn line or WAREHOUSE_MAP (backward compat) */
+  warehouseSection: string | null;
+  /** Numeric warehouse code e.g. "415" */
+  warehouseCode: string | null;
+  /** = warehouseCode (explicit alias) */
+  warehouseSectionCode: string | null;
+  /** Warehouse label extracted from Magazyn line (parenthetical) or WAREHOUSE_MAP */
+  warehouseSectionLabel: string | null;
+  /** Backward-compat alias for warehouseSectionLabel */
+  brandLabel: string | null;
+  /** Authoritative brand from dealer header text */
+  documentBrand: DocumentBrand;
+  /** Order family classification */
+  logicalOrderFamily: LogicalOrderFamily;
+  pageNumber: number | null;
+  metadata: Record<string, unknown>;
+  lines: ParsedLineV4[];
+}
+
+// ─── Document-level output ────────────────────────────────────────────────────
+
+export interface ParserQuality {
+  confidenceScore: number;
+  detectedRows: number;
+  totalCollectedTokens: number;
+  totalAssignedTokens: number;
+  unassignedRatio: number;
+  correctionCount: number;
+  incompleteRowCount: number;
+  duplicateLpCount: number;
+  lpGapCount: number;
+  negativeIdpParseFailures: number;
+  warnings: string[];
+  stats: Record<string, number>;
+}
+
+export interface ParseResultV4 {
+  detectedRole: "bc" | "brand";
+  blocks: ParsedBlockV4[];
+  parserQuality: ParserQuality;
+  parserStatus: ParserStatus;
+}
+
+// ─── Internal types ───────────────────────────────────────────────────────────
+
 interface VisualRow {
   page: number;
   y: number;
-  tokens: TokenV3[];
+  tokens: TokenV4[];
   text: string;
 }
 
@@ -44,57 +170,6 @@ interface ColumnBands {
 }
 
 type ColumnName = keyof ColumnBands | "unclassified";
-
-export interface CellFragmentV3 {
-  text: string;
-  column: ColumnName;
-  x0: number;
-  x1: number;
-  y: number;
-  page: number;
-}
-
-export interface ParsedLineV3 {
-  lineNumber: number;
-  productCode: string | null;
-  productName: string | null;
-  quantity: number | null;
-  unit: string | null;
-  location: string | null;
-  rawText: string | null;
-  rawNameFragments: string[];
-  rawLocationFragments: string[];
-  pageNumber: number | null;
-  operationCode: string | null;
-  iz: number | null;
-  iw: number | null;
-  ir: number | null;
-  inz: number | null;
-  rawCells: CellFragmentV3[];
-  nameSource: "name_zone" | "name_col_only" | "empty";
-  warnings: string[];
-}
-
-export interface ParsedBlockV3 {
-  blockIndex: number;
-  blockType: "wdd_reconciliation" | "direct_order" | "brand_order" | "wdd_source";
-  sourceRole: "bc" | "brand";
-  sectionKind: "wdd" | "zw" | "unknown";
-  candidateKind: "wdd_reconciliation" | "direct_order" | "brand_order" | "wdd_source" | "mirror";
-  isExcluded: false;
-  header: string | null;
-  warehouseSection: string | null;
-  warehouseCode: string | null;
-  brandLabel: string | null;
-  pageNumber: number | null;
-  metadata: Record<string, unknown>;
-  lines: ParsedLineV3[];
-}
-
-export interface ParseResultV3 {
-  detectedRole: "bc" | "brand";
-  blocks: ParsedBlockV3[];
-}
 
 interface BlockStart {
   idx: number;
@@ -115,7 +190,7 @@ interface RowBand {
   bottomY: number;
 }
 
-interface RawTableRow {
+interface RawTableRowV4 {
   codeText: string | null;
   lpText: string | null;
   nameFragments: string[];
@@ -124,13 +199,23 @@ interface RawTableRow {
   iw: number | null;
   ir: number | null;
   inz: number | null;
-  idp: number | null;
+  /** Raw IDP cell text (all tokens joined) — NOT yet parsed; preserves sign */
+  idpRawText: string;
   opText: string | null;
   pageNumber: number | null;
-  rawCells: CellFragmentV3[];
+  rawCells: CellFragmentV4[];
   nameSource: "name_zone" | "name_col_only" | "empty";
   warnings: string[];
 }
+
+interface RawTableResultV4 {
+  rows: RawTableRowV4[];
+  correctionCount: number;
+  totalCollected: number;
+  totalAssigned: number;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const PRODUCT_CODE_RE = /^([0-9][0-9A-Z]{4,}|[A-Z]{1,4}[0-9][0-9A-Z]{3,})$/;
 const VIN_RE = /\b([A-HJ-NPR-Z0-9]{17})\b/i;
@@ -160,17 +245,10 @@ const DEFAULT_BANDS: ColumnBands = {
   op: [562, 900],
 };
 
+// ─── Layer 1: Utility functions ───────────────────────────────────────────────
+
 function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
-}
-
-function detectWarehouseSection(text: string): string | null {
-  const match = text.match(/\b(115|315|415|515)\b/);
-  return match ? match[1] : null;
-}
-
-function warehouseToBrand(section: string | null): string | null {
-  return section ? (WAREHOUSE_MAP[section] ?? null) : null;
 }
 
 function isVin(value: string): boolean {
@@ -182,8 +260,7 @@ function isProductCode(value: string): boolean {
   return PRODUCT_CODE_RE.test(token) && !isVin(token);
 }
 
-// Decimal quantities (e.g. "0,00", "1.00", "-0,05") and bare sign characters.
-// Used to distinguish real numeric column values from misassigned location codes.
+/** Matches decimal quantities ("0,00", "1.05", "-0,05") and bare sign characters. */
 function isDecimalToken(text: string): boolean {
   const v = text.trim();
   return /^[-–+]?[\d]+[.,][\d]+$/.test(v) || /^[-–+]$/.test(v);
@@ -196,6 +273,23 @@ function extractLastDecimal(value: string): number | null {
   const parsed = Number.parseFloat(raw);
   return Number.isFinite(parsed) ? parsed : null;
 }
+
+function parseLp(text: string | null): number | null {
+  if (!text) return null;
+  const n = Number.parseInt(text.trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function detectWarehouseSection(text: string): string | null {
+  const match = text.match(/\b(115|315|415|515)\b/);
+  return match ? match[1] : null;
+}
+
+function warehouseToBrand(section: string | null): string | null {
+  return section ? (WAREHOUSE_MAP[section] ?? null) : null;
+}
+
+// ─── Layer 2: Structural classifiers ─────────────────────────────────────────
 
 function isPageFooterRow(text: string): boolean {
   return /^Strona\b/i.test(text);
@@ -219,10 +313,7 @@ function isLegendRow(text: string): boolean {
   );
 }
 
-// --- Structural classifiers (block grammar) ---
-
 function isTimestampLine(text: string): boolean {
-  // Matches "D3110 - 15.04.2026 09:11:40" style lines
   return /^[A-Z]\d{3,4}\s*[-–]\s*\d{2}\.\d{2}\.\d{4}/i.test(text);
 }
 
@@ -272,7 +363,7 @@ function isStructuralHeaderRow(text: string): boolean {
     /^33\s+Skoda$/i.test(text) ||
     /^BRA_SKO\b/i.test(text) ||
     /^WAJ_SEA\b/i.test(text) ||
-    // Note: ^VGP\b intentionally removed — VGP is a client org abbreviation
+    // Note: ^VGP\b intentionally omitted — VGP is a client org abbreviation
     /^NIE ZMIENIAC\b/i.test(text) ||
     isDateStampRow(text) ||
     isPageFooterRow(text) ||
@@ -302,7 +393,127 @@ function cleanGroupName(text: string): string | null {
   return normalized || null;
 }
 
-async function extractTokens(buffer: ArrayBuffer): Promise<TokenV3[]> {
+// ─── Layer 3: Semantic functions (V4-new) ─────────────────────────────────────
+
+/**
+ * Parse the raw IDP cell text with sign preservation.
+ * Handles the two-token PDF form "- 1,00" (sign token + digit token joined by space)
+ * as well as the single-token form "-1,00".
+ */
+function extractSignedIdp(raw: string): {
+  raw: string;
+  value: number | null;
+  abs: number | null;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) return { raw: trimmed, value: null, abs: null };
+
+  // Two-token form: "- 1,00" or "– 1,00" (sign separated from digits by whitespace)
+  const splitMatch = trimmed.match(/^([-–+])\s+([\d]+[,.][\d]+)$/);
+  if (splitMatch) {
+    const sign = splitMatch[1] === "+" ? 1 : -1;
+    const absVal = Number.parseFloat(splitMatch[2].replace(",", "."));
+    if (Number.isFinite(absVal)) {
+      return { raw: trimmed, value: sign * absVal, abs: absVal };
+    }
+  }
+
+  // Single-token form: "-1,00" or "+1,00" or "1,00"
+  const directMatch = trimmed.match(/^([-–+]?)([\d]+[,.][\d]+)$/);
+  if (directMatch) {
+    const sign = directMatch[1] === "-" || directMatch[1] === "–" ? -1 : 1;
+    const absVal = Number.parseFloat(directMatch[2].replace(",", "."));
+    if (Number.isFinite(absVal)) {
+      return { raw: trimmed, value: sign * absVal, abs: absVal };
+    }
+  }
+
+  // Multi-value fallback: use last decimal, preserve sign if a standalone "-" precedes it
+  const decimalMatches = trimmed.match(DECIMAL_RE);
+  if (decimalMatches?.length) {
+    const lastDecStr = decimalMatches[decimalMatches.length - 1];
+    const parsed = Number.parseFloat(lastDecStr.replace(",", "."));
+    if (Number.isFinite(parsed)) {
+      const beforeDec = trimmed.substring(0, trimmed.lastIndexOf(lastDecStr));
+      const hasLeadingMinus =
+        /[-–]/.test(beforeDec) && !decimalMatches.some((m) => m.startsWith("-"));
+      const value = hasLeadingMinus && parsed >= 0 ? -parsed : parsed;
+      return { raw: trimmed, value, abs: Math.abs(value) };
+    }
+  }
+
+  return { raw: trimmed, value: null, abs: null };
+}
+
+function computeMovementDirection(idpValue: number | null): MovementDirection | null {
+  if (idpValue === null) return null;
+  return idpValue < 0 ? "correction" : "in";
+}
+
+/**
+ * Detect the authoritative document brand from the first 20 header rows.
+ * Scans for "Dealer Seat", "Dealer VW", "Dealer Skoda", "Body Center" patterns.
+ */
+function detectDocumentBrand(rows: VisualRow[]): DocumentBrand {
+  for (const row of rows.slice(0, 20)) {
+    if (/Dealer\s+Seat/i.test(row.text)) return "Seat";
+    if (/Dealer\s+VW/i.test(row.text)) return "VW";
+    if (/Dealer\s+Skoda/i.test(row.text)) return "Skoda";
+    if (/Body\s*Center/i.test(row.text)) return "BC";
+  }
+  return "unknown";
+}
+
+/**
+ * Extract numeric warehouse code and human label from a "Magazyn N (label)" line.
+ * Falls back to WAREHOUSE_MAP if only the code number is found.
+ */
+function extractWarehouseSectionInfo(rows: VisualRow[]): {
+  code: string | null;
+  label: string | null;
+} {
+  for (const row of rows) {
+    const full = row.text.match(/Magazyn\s+(\d+)\s*\(([^)]+)\)/i);
+    if (full) return { code: full[1], label: full[2].trim().toLowerCase() };
+    const codeOnly = row.text.match(/Magazyn\s+(\d{3})\b/i);
+    if (codeOnly) {
+      return {
+        code: codeOnly[1],
+        label: WAREHOUSE_MAP[codeOnly[1]] ?? null,
+      };
+    }
+    for (const token of row.tokens) {
+      const code = detectWarehouseSection(token.text);
+      if (code) return { code, label: WAREHOUSE_MAP[code] ?? null };
+    }
+  }
+  return { code: null, label: null };
+}
+
+function computeLogicalOrderFamily(
+  sectionKind: "wdd" | "zw" | "unknown",
+  warehouseCode: string | null,
+  sourceRole: "bc" | "brand"
+): LogicalOrderFamily {
+  if (sectionKind === "wdd") return "wdd";
+  if (warehouseCode === "415") return "mirror";
+  if (sourceRole === "bc") return "bc_direct";
+  return "standard";
+}
+
+/**
+ * Normalize a block header string:
+ * strips leading ordinal prefix on WDD/ZW headers ("2 WDD/..." → "WDD/...").
+ */
+function normalizeBlockHeader(raw: string | null): string | null {
+  if (!raw) return null;
+  const normalized = raw.replace(/^\d+\.?\s+(?=WDD\/|ZW\/)/i, "").trim();
+  return normalized || raw;
+}
+
+// ─── Layer 1: Token extraction ────────────────────────────────────────────────
+
+async function extractTokens(buffer: ArrayBuffer): Promise<TokenV4[]> {
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
@@ -311,7 +522,7 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV3[]> {
     isEvalSupported: false,
   }).promise;
 
-  const tokens: TokenV3[] = [];
+  const tokens: TokenV4[] = [];
 
   for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber += 1) {
     const page = await doc.getPage(pageNumber);
@@ -340,8 +551,10 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV3[]> {
   return tokens;
 }
 
-function buildRows(tokens: TokenV3[]): VisualRow[] {
-  const buckets = new Map<string, TokenV3[]>();
+// ─── Layer 1: Row building ────────────────────────────────────────────────────
+
+function buildRows(tokens: TokenV4[]): VisualRow[] {
+  const buckets = new Map<string, TokenV4[]>();
 
   for (const token of tokens) {
     const yBucket = Math.round(token.y1 / 2) * 2;
@@ -378,6 +591,8 @@ function buildRows(tokens: TokenV3[]): VisualRow[] {
   rows.sort((a, b) => (a.page !== b.page ? a.page - b.page : b.y - a.y));
   return rows;
 }
+
+// ─── Layer 1: Band detection ──────────────────────────────────────────────────
 
 function detectBandsFromHeaderRow(row: VisualRow): ColumnBands {
   const findToken = (matcher: RegExp) =>
@@ -422,13 +637,11 @@ function detectBandsFromHeaderRow(row: VisualRow): ColumnBands {
 
 function detectBandsByPage(rows: VisualRow[]): Map<number, ColumnBands> {
   const result = new Map<number, ColumnBands>();
-
   for (const row of rows) {
     if (!result.has(row.page) && isTableHeaderRow(row.text)) {
       result.set(row.page, detectBandsFromHeaderRow(row));
     }
   }
-
   return result;
 }
 
@@ -439,16 +652,16 @@ function bandsForPage(page: number, bandMap: Map<number, ColumnBands>): ColumnBa
   let best: ColumnBands = DEFAULT_BANDS;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const [bandPage, bands] of bandMap.entries()) {
-    const distance = Math.abs(bandPage - page);
-    if (distance < bestDistance) {
-      bestDistance = distance;
+    const dist = Math.abs(bandPage - page);
+    if (dist < bestDistance) {
+      bestDistance = dist;
       best = bands;
     }
   }
   return best;
 }
 
-function assignColumn(token: TokenV3, bands: ColumnBands): ColumnName {
+function assignColumn(token: TokenV4, bands: ColumnBands): ColumnName {
   const centerX = (token.x0 + token.x1) / 2;
   for (const column of Object.keys(bands) as (keyof ColumnBands)[]) {
     const [from, to] = bands[column];
@@ -456,6 +669,8 @@ function assignColumn(token: TokenV3, bands: ColumnBands): ColumnName {
   }
   return "unclassified";
 }
+
+// ─── Layer 2: Document structure detection ────────────────────────────────────
 
 function detectRole(rows: VisualRow[]): "bc" | "brand" {
   const fullText = rows.map((row) => row.text).join("\n");
@@ -493,20 +708,82 @@ function findBlockStarts(rows: VisualRow[], role: "bc" | "brand"): BlockStart[] 
     }
   }
 
-  return role === "brand" ? starts.filter((start) => start.sectionKind === "zw") : starts;
+  return role === "brand" ? starts.filter((s) => s.sectionKind === "zw") : starts;
 }
 
-function findNearestBackward(
-  rows: VisualRow[],
-  start: number,
-  radius: number,
-  matcher: (row: VisualRow) => boolean
-): { row: VisualRow; index: number } | null {
-  for (let index = start - 1; index >= Math.max(0, start - radius); index -= 1) {
-    if (matcher(rows[index])) return { row: rows[index], index };
+// ─── Layer 2: Block region helpers ───────────────────────────────────────────
+
+function splitBlockRegions(blockRows: VisualRow[]): {
+  headerRows: VisualRow[];
+  tableHeaderRow: VisualRow | null;
+  tableBodyRows: VisualRow[];
+} {
+  for (let idx = 0; idx < Math.min(blockRows.length, 30); idx += 1) {
+    if (isTableHeaderRow(blockRows[idx].text)) {
+      return {
+        headerRows: blockRows.slice(0, idx),
+        tableHeaderRow: blockRows[idx],
+        tableBodyRows: blockRows.slice(idx + 1),
+      };
+    }
   }
-  return null;
+  return { headerRows: blockRows, tableHeaderRow: null, tableBodyRows: [] };
 }
+
+/**
+ * Find pre-header rows strictly bounded by the previous block's trigger row.
+ */
+function findPreHeaderRows(
+  rows: VisualRow[],
+  blockStartIdx: number,
+  prevBlockStartIdx: number
+): VisualRow[] {
+  const lowerBound = prevBlockStartIdx + 1;
+  let blwkIdx = -1;
+
+  for (let i = blockStartIdx - 1; i >= lowerBound; i -= 1) {
+    const text = rows[i].text;
+    if (ZW_NUMBER_RE.test(text) || WDD_NUMBER_RE.test(text)) break;
+    if (BLWK_RE.test(text)) {
+      blwkIdx = i;
+      break;
+    }
+  }
+
+  if (blwkIdx < 0) return [];
+  return rows.slice(blwkIdx, blockStartIdx);
+}
+
+/**
+ * Build the deterministic header string for a block.
+ * Checks both forward (lower y) and backward (higher y) neighbors for VIN+ZL.
+ */
+function buildBlockHeader(
+  triggerRow: VisualRow,
+  preHeaderRows: VisualRow[],
+  postTriggerRows: VisualRow[]
+): string {
+  const text = triggerRow.text;
+  if (VIN_RE.test(text) && ZL_NUMBER_RE.test(text)) return text;
+
+  for (let i = 0; i < Math.min(4, postTriggerRows.length); i += 1) {
+    const row = postTriggerRows[i];
+    if (VIN_RE.test(row.text) || ZL_NUMBER_RE.test(row.text)) {
+      return normalizeText(`${text} ${row.text}`);
+    }
+  }
+
+  for (let i = preHeaderRows.length - 1; i >= Math.max(0, preHeaderRows.length - 3); i -= 1) {
+    const pre = preHeaderRows[i];
+    if (VIN_RE.test(pre.text) || ZL_NUMBER_RE.test(pre.text)) {
+      return normalizeText(`${pre.text} ${text}`);
+    }
+  }
+
+  return text;
+}
+
+// ─── Layer 2: Header metadata extractors ─────────────────────────────────────
 
 function extractHeaderValue(rows: VisualRow[], matcher: RegExp): string | null {
   for (const row of rows) {
@@ -552,23 +829,6 @@ function extractZl(rows: VisualRow[]): string | null {
   return null;
 }
 
-function extractClientName(contextRows: VisualRow[]): string | null {
-  const parts: string[] = [];
-
-  for (const row of contextRows) {
-    const text = row.text;
-    if (!isLikelyClientLine(text)) continue;
-    parts.push(text);
-    if (parts.length >= 2) break;
-  }
-
-  if (!parts.length) return null;
-  return normalizeText(parts.join(" "))
-    .replace(/\s+Blacharnia\s+D\d+\b.*$/i, "")
-    .replace(/\s+2\.\s*Zam[oó]wienie.*$/i, "")
-    .trim();
-}
-
 function extractGroupName(rows: VisualRow[]): string | null {
   for (let index = rows.length - 1; index >= 0; index -= 1) {
     const text = rows[index].text;
@@ -580,110 +840,8 @@ function extractGroupName(rows: VisualRow[]): string | null {
   return null;
 }
 
-function findTableHeaderIndex(blockRows: VisualRow[]): number {
-  for (let index = 0; index < Math.min(blockRows.length, 30); index += 1) {
-    if (isTableHeaderRow(blockRows[index].text)) return index;
-  }
-  return -1;
-}
-
-// --- Block region splitting ---
-
-function splitBlockRegions(blockRows: VisualRow[]): {
-  headerRows: VisualRow[];
-  tableHeaderRow: VisualRow | null;
-  tableBodyRows: VisualRow[];
-} {
-  const idx = findTableHeaderIndex(blockRows);
-  if (idx < 0) {
-    return { headerRows: blockRows, tableHeaderRow: null, tableBodyRows: [] };
-  }
-  return {
-    headerRows: blockRows.slice(0, idx),
-    tableHeaderRow: blockRows[idx],
-    tableBodyRows: blockRows.slice(idx + 1),
-  };
-}
-
-// Find the highest-priority header row: VIN+ZL+ZW > ZL+ZW > ZW only
-function findBestHeaderRow(rows: VisualRow[]): VisualRow | null {
-  for (const row of rows) {
-    if (ZW_NUMBER_RE.test(row.text) && ZL_NUMBER_RE.test(row.text) && VIN_RE.test(row.text)) {
-      return row;
-    }
-  }
-  for (const row of rows) {
-    if (ZW_NUMBER_RE.test(row.text) && ZL_NUMBER_RE.test(row.text)) return row;
-  }
-  for (const row of rows) {
-    if (ZW_NUMBER_RE.test(row.text)) return row;
-  }
-  return null;
-}
-
-/**
- * Find rows that belong to this block's pre-header (BLWK + client + timestamp + title),
- * bounded strictly by the previous block's trigger row so we never cross block boundaries.
- */
-function findPreHeaderRows(
-  rows: VisualRow[],
-  blockStartIdx: number,
-  prevBlockStartIdx: number
-): VisualRow[] {
-  const lowerBound = prevBlockStartIdx + 1;
-  let blwkIdx = -1;
-
-  for (let i = blockStartIdx - 1; i >= lowerBound; i -= 1) {
-    const text = rows[i].text;
-    // Stop immediately if we hit a block boundary marker
-    if (ZW_NUMBER_RE.test(text) || WDD_NUMBER_RE.test(text)) break;
-    if (BLWK_RE.test(text)) {
-      blwkIdx = i;
-      break;
-    }
-  }
-
-  if (blwkIdx < 0) return [];
-  return rows.slice(blwkIdx, blockStartIdx);
-}
-
-/**
- * Build the deterministic header string for a block.
- * If the trigger row already contains VIN+ZL, use it directly.
- * VIN+ZL may land at a slightly different y-bucket than ZW (adjacent y → different buckets),
- * so we check both directions: last few preHeaderRows (higher y = before trigger) and
- * first few postTriggerRows (lower y = after trigger).
- */
-function buildBlockHeader(
-  triggerRow: VisualRow,
-  preHeaderRows: VisualRow[],
-  postTriggerRows: VisualRow[]
-): string {
-  const text = triggerRow.text;
-  if (VIN_RE.test(text) && ZL_NUMBER_RE.test(text)) {
-    return text; // trigger row already has all three
-  }
-  // Look forward first (VIN/ZL at slightly lower y than ZW)
-  for (let i = 0; i < Math.min(4, postTriggerRows.length); i += 1) {
-    const row = postTriggerRows[i];
-    if (VIN_RE.test(row.text) || ZL_NUMBER_RE.test(row.text)) {
-      return normalizeText(`${text} ${row.text}`);
-    }
-  }
-  // Look backward (VIN/ZL at slightly higher y than ZW, or in pre-header)
-  for (let i = preHeaderRows.length - 1; i >= Math.max(0, preHeaderRows.length - 3); i -= 1) {
-    const pre = preHeaderRows[i];
-    if (VIN_RE.test(pre.text) || ZL_NUMBER_RE.test(pre.text)) {
-      return normalizeText(`${pre.text} ${text}`);
-    }
-  }
-  return text;
-}
-
 /**
  * Extract client name from block-local header rows, supporting multi-line names.
- * Collects consecutive qualifying lines (e.g. "Volkswagen Financial Services" +
- * "Polska Sp. z o.o. (439)") and stops at the first structural break.
  */
 function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null {
   const parts: string[] = [];
@@ -693,7 +851,6 @@ function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null
     const text = row.text;
     if (text.length < 2) continue;
 
-    // Stop at any structural row; if already collecting, we have what we need
     if (isTableHeaderRow(text)) {
       if (collecting) break;
       continue;
@@ -712,7 +869,6 @@ function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null
     }
     if (/^\d+$/.test(text.trim())) continue;
 
-    // BLWK and client name sometimes appear on the same physical row
     if (BLWK_RE.test(text)) {
       const withoutBlwk = text.replace(BLWK_RE, "").trim();
       if (withoutBlwk.length >= 2 && /[A-Za-zĄĆĘŁŃÓŚŹŻąćęłńóśźż]{2,}/.test(withoutBlwk)) {
@@ -736,16 +892,18 @@ function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null
   );
 }
 
+// ─── Layer 2: Table body parsing ──────────────────────────────────────────────
+
 /**
- * Build raw table rows from already-sliced table body rows (no header row included).
- * Hard stop conditions prevent next-block tokens from leaking into the current block's rows.
+ * Build raw table rows from already-sliced table body rows.
+ * Returns structured result with stats for the validation layer.
  */
-function buildRawTableRows(
+function buildRawTableRowsV4(
   tableBodyRows: VisualRow[],
   bandMap: Map<number, ColumnBands>
-): RawTableRow[] {
+): RawTableResultV4 {
   const collected: Array<{
-    token: TokenV3;
+    token: TokenV4;
     page: number;
     y: number;
     column: ColumnName;
@@ -756,8 +914,7 @@ function buildRawTableRows(
     const text = row.text;
     if (!text) continue;
     if (isTableHeaderRow(text)) continue;
-    // BLWK marks the next block's header — every row after it (client name, timestamp,
-    // block title, phone) belongs to the next block, so stop collecting entirely.
+    // Hard stop: BLWK marks the next block's header — stop collecting to prevent spillover.
     if (BLWK_RE.test(text)) break;
     if (WDD_NUMBER_RE.test(text) || ZW_NUMBER_RE.test(text)) continue;
     if (isBlockTitleLine(text) || isTimestampLine(text)) continue;
@@ -777,12 +934,15 @@ function buildRawTableRows(
     }
   }
 
-  if (!collected.length) return [];
+  const totalCollected = collected.length;
 
-  // Correction pass: non-decimal tokens whose center-x landed in the `inz` band but
-  // whose x0 is past the inz midpoint are almost certainly location codes (e.g. "S8",
-  // "R15C", "8", "NA") shifted left by PDF rendering variance near the inz/location
-  // boundary. Reassign them to `location` so the numeric column stays clean.
+  if (!collected.length) {
+    return { rows: [], correctionCount: 0, totalCollected: 0, totalAssigned: 0 };
+  }
+
+  // Correction pass: non-decimal tokens in inz band past the midpoint are location codes
+  // (e.g. "S8", "R15C", "NA") shifted by PDF rendering variance. Reassign to location.
+  let correctionCount = 0;
   for (const entry of collected) {
     if (entry.column !== "inz") continue;
     const v = entry.token.text.trim();
@@ -792,9 +952,11 @@ function buildRawTableRows(
     if (entry.token.x0 >= inzMid) {
       entry.column = "location";
       entry.corrected = true;
+      correctionCount += 1;
     }
   }
 
+  // Anchor detection: product-code tokens define row boundaries
   const anchorBuckets = new Map<string, Anchor>();
   for (const entry of collected) {
     if (entry.column !== "code") continue;
@@ -810,49 +972,50 @@ function buildRawTableRows(
   const anchors = [...anchorBuckets.values()].sort((a, b) =>
     a.page !== b.page ? a.page - b.page : b.y - a.y
   );
-  if (!anchors.length) return [];
+  if (!anchors.length) {
+    return { rows: [], correctionCount, totalCollected, totalAssigned: 0 };
+  }
 
   const rowBands: RowBand[] = anchors.map((anchor, index) => {
     let previousY: number | null = null;
-    for (let pointer = index - 1; pointer >= 0; pointer -= 1) {
-      if (anchors[pointer].page === anchor.page) {
-        previousY = anchors[pointer].y;
+    for (let p = index - 1; p >= 0; p -= 1) {
+      if (anchors[p].page === anchor.page) {
+        previousY = anchors[p].y;
         break;
       }
     }
-
     let nextY: number | null = null;
-    for (let pointer = index + 1; pointer < anchors.length; pointer += 1) {
-      if (anchors[pointer].page === anchor.page) {
-        nextY = anchors[pointer].y;
+    for (let p = index + 1; p < anchors.length; p += 1) {
+      if (anchors[p].page === anchor.page) {
+        nextY = anchors[p].y;
         break;
       }
     }
-
     return {
       page: anchor.page,
-      // ±30 gives headroom for 3-line wrapped names; midpoint formula handles dense rows
       topY: previousY == null ? anchor.y + 30 : (previousY + anchor.y) / 2,
       bottomY: nextY == null ? anchor.y - 30 : (anchor.y + nextY) / 2,
     };
   });
 
-  const rowCells = anchors.map(() => new Map<ColumnName, TokenV3[]>());
-  const rawCells = anchors.map(() => [] as CellFragmentV3[]);
+  const rowCells = anchors.map(() => new Map<ColumnName, TokenV4[]>());
+  const rawCells = anchors.map(() => [] as CellFragmentV4[]);
 
   function findBandIndex(page: number, y: number): number {
-    for (let index = 0; index < rowBands.length; index += 1) {
-      const band = rowBands[index];
-      if (band.page === page && y > band.bottomY && y <= band.topY) return index;
+    for (let i = 0; i < rowBands.length; i += 1) {
+      const band = rowBands[i];
+      if (band.page === page && y > band.bottomY && y <= band.topY) return i;
     }
     return -1;
   }
 
   const correctedBandIndices = new Set<number>();
+  let totalAssigned = 0;
 
   for (const entry of collected) {
     const bandIndex = findBandIndex(entry.page, entry.y);
     if (bandIndex < 0) continue;
+    totalAssigned += 1;
     const byColumn = rowCells[bandIndex];
     const items = byColumn.get(entry.column) ?? [];
     items.push(entry.token);
@@ -868,14 +1031,14 @@ function buildRawTableRows(
     if (entry.corrected) correctedBandIndices.add(bandIndex);
   }
 
-  function sortCellTokens(tokens: TokenV3[]): TokenV3[] {
+  function sortCellTokens(tokens: TokenV4[]): TokenV4[] {
     return [...tokens].sort((a, b) => (Math.abs(b.y1 - a.y1) > 2 ? b.y1 - a.y1 : a.x0 - b.x0));
   }
 
-  function cellText(cells: Map<ColumnName, TokenV3[]>, column: ColumnName): string {
+  function cellText(cells: Map<ColumnName, TokenV4[]>, column: ColumnName): string {
     return normalizeText(
       sortCellTokens(cells.get(column) ?? [])
-        .map((token) => token.text.trim())
+        .map((t) => t.text.trim())
         .join(" ")
     );
   }
@@ -889,19 +1052,14 @@ function buildRawTableRows(
     return output;
   }
 
-  // Columns that form the "name zone": tokens whose center-x falls in either the
-  // code band or name band, excluding product codes. Using column assignment (center-x
-  // based) captures name words that PDF rendered slightly left of the Nazwa column
-  // (common in Seat/Skoda PDFs with wider fonts). Tokens are sorted top-to-bottom
-  // then left-to-right so multi-line names assemble in correct reading order regardless
-  // of which column band individual lines fell into.
+  // Name zone: code-band + name-band tokens (excluding product codes), sorted top→bottom, left→right.
   const NAME_ZONE_COLS = new Set<ColumnName>(["code", "name"]);
-  const rows: RawTableRow[] = [];
+  const rows: RawTableRowV4[] = [];
 
   for (let index = 0; index < anchors.length; index += 1) {
     const cells = rowCells[index];
-    const codeToken = sortCellTokens(cells.get("code") ?? []).find((token) =>
-      isProductCode(token.text.toUpperCase())
+    const codeToken = sortCellTokens(cells.get("code") ?? []).find((t) =>
+      isProductCode(t.text.toUpperCase())
     );
     if (!codeToken) continue;
 
@@ -915,22 +1073,23 @@ function buildRawTableRows(
       })
       .sort((a, b) => (Math.abs(b.y - a.y) > 2 ? b.y - a.y : a.x0 - b.x0));
 
-    const nameFragments = dedupFragments(
-      nameZoneCells.map((cell) => cell.text.trim()).filter(Boolean)
-    );
-
-    const hasCodeBandInName = nameZoneCells.some((cell) => cell.column === "code");
-    const nameSource: RawTableRow["nameSource"] =
+    const nameFragments = dedupFragments(nameZoneCells.map((c) => c.text.trim()).filter(Boolean));
+    const hasCodeBandInName = nameZoneCells.some((c) => c.column === "code");
+    const nameSource: RawTableRowV4["nameSource"] =
       nameFragments.length === 0 ? "empty" : hasCodeBandInName ? "name_zone" : "name_col_only";
+
     const warnings: string[] = [];
     if (hasCodeBandInName) warnings.push("name_includes_code_band_tokens");
     if (correctedBandIndices.has(index)) warnings.push("location_corrected_from_inz");
 
     const locationFragments = dedupFragments(
       sortCellTokens(cells.get("location") ?? [])
-        .map((token) => token.text.trim())
+        .map((t) => t.text.trim())
         .filter(Boolean)
     );
+
+    // Store raw IDP cell text for sign-preserving semantic parsing
+    const idpRawText = cellText(cells, "idp");
 
     rows.push({
       codeText: codeToken.text.trim().toUpperCase(),
@@ -941,7 +1100,7 @@ function buildRawTableRows(
       iw: extractLastDecimal(cellText(cells, "iw")),
       ir: extractLastDecimal(cellText(cells, "ir")),
       inz: extractLastDecimal(cellText(cells, "inz")),
-      idp: extractLastDecimal(cellText(cells, "idp")),
+      idpRawText,
       opText: cellText(cells, "op") || null,
       pageNumber: anchors[index].page,
       rawCells: rawCells[index],
@@ -950,16 +1109,19 @@ function buildRawTableRows(
     });
   }
 
-  return rows;
+  return { rows, correctionCount, totalCollected, totalAssigned };
 }
 
-function buildParsedLines(rawRows: RawTableRow[]): ParsedLineV3[] {
+// ─── Layer 3: Semantic output assembly ───────────────────────────────────────
+
+function buildParsedLinesV4(rawRows: RawTableRowV4[]): ParsedLineV4[] {
   return rawRows.map((row, index) => {
-    // Build per-column text map from raw cells (top-to-bottom, left-to-right within a line)
+    // Build per-column text map from raw cells (top-to-bottom, left-to-right within line)
     const colMap = new Map<string, string[]>();
-    for (const cell of [...row.rawCells].sort((a, b) =>
+    const sortedCells = [...row.rawCells].sort((a, b) =>
       Math.abs(b.y - a.y) > 2 ? b.y - a.y : a.x0 - b.x0
-    )) {
+    );
+    for (const cell of sortedCells) {
       const items = colMap.get(cell.column) ?? [];
       items.push(cell.text);
       colMap.set(cell.column, items);
@@ -976,18 +1138,35 @@ function buildParsedLines(rawRows: RawTableRow[]): ParsedLineV3[] {
       `ir=${getCellText("ir")}`,
       `inz=${getCellText("inz")}`,
       `location=${row.locationFragments.join(" ")}`,
-      `idp=${getCellText("idp")}`,
+      `idp=${row.idpRawText}`,
       `op=${getCellText("op")}`,
     ].join(" | ");
 
+    // Lossless token list sorted top-to-bottom, left-to-right
+    const rawTokens: RawTokenV4[] = sortedCells.map((cell) => ({
+      text: cell.text,
+      x: cell.x0,
+      y: cell.y,
+      column: cell.column,
+    }));
+
+    // Lossless space-joined string (full provenance, no column structure)
+    const rawRowText = rawTokens.map((t) => t.text).join(" ");
+
+    // Sign-preserving IDP parsing
+    const idp = extractSignedIdp(row.idpRawText);
+
     return {
       lineNumber: index + 1,
+      lp: parseLp(row.lpText),
       productCode: row.codeText,
       productName: normalizeText(row.nameFragments.join(" ")) || null,
-      quantity: row.idp,
+      quantity: idp.abs,
       unit: null,
       location: normalizeText(row.locationFragments.join(" ")) || null,
       rawText,
+      rawRowText,
+      rawTokens,
       rawNameFragments: [...row.nameFragments],
       rawLocationFragments: [...row.locationFragments],
       pageNumber: row.pageNumber,
@@ -996,6 +1175,10 @@ function buildParsedLines(rawRows: RawTableRow[]): ParsedLineV3[] {
       iw: row.iw,
       ir: row.ir,
       inz: row.inz,
+      idpRaw: idp.raw,
+      idpValue: idp.value,
+      idpAbs: idp.abs,
+      movementDirection: computeMovementDirection(idp.value),
       rawCells: row.rawCells,
       nameSource: row.nameSource,
       warnings: row.warnings,
@@ -1003,39 +1186,131 @@ function buildParsedLines(rawRows: RawTableRow[]): ParsedLineV3[] {
   });
 }
 
-function parseBcBlock(
+// ─── Layer 4: Validation ──────────────────────────────────────────────────────
+
+function computeParserQuality(
+  rows: ParsedLineV4[],
+  totalCollected: number,
+  totalAssigned: number,
+  correctionCount: number
+): ParserQuality {
+  const detectedRows = rows.length;
+  const unassignedRatio =
+    totalCollected > 0 ? (totalCollected - totalAssigned) / totalCollected : 0;
+
+  const incompleteRowCount = rows.filter((r) => !r.productCode || !r.productName).length;
+
+  const lpNumbers = rows.map((r) => r.lp).filter((lp): lp is number => lp !== null);
+  const lpSet = new Set(lpNumbers);
+  const duplicateLpCount = lpNumbers.length - lpSet.size;
+
+  let lpGapCount = 0;
+  if (lpNumbers.length > 1) {
+    const sorted = [...lpNumbers].sort((a, b) => a - b);
+    for (let i = 1; i < sorted.length; i += 1) {
+      if (sorted[i] - sorted[i - 1] > 1) lpGapCount += 1;
+    }
+  }
+
+  // Count rows where raw text suggests a negative sign but parsing yielded null
+  const negativeIdpParseFailures = rows.filter(
+    (r) => /[-–]/.test(r.idpRaw) && r.idpValue === null
+  ).length;
+
+  let score = 1.0;
+  score -= unassignedRatio * 0.3;
+  score -= (incompleteRowCount / Math.max(1, detectedRows)) * 0.2;
+  score -= Math.min(0.2, duplicateLpCount * 0.05);
+  score -= Math.min(0.15, lpGapCount * 0.05);
+  score -= Math.min(0.15, negativeIdpParseFailures * 0.1);
+  score = Math.max(0, Math.min(1, score));
+
+  const warnings: string[] = [];
+  if (unassignedRatio > 0.2) warnings.push("high_unassigned_token_ratio");
+  if (incompleteRowCount > 0) warnings.push("incomplete_rows_detected");
+  if (duplicateLpCount > 0) warnings.push("duplicate_lp_numbers");
+  if (lpGapCount > 0) warnings.push("lp_sequence_gaps");
+  if (negativeIdpParseFailures > 0) warnings.push("negative_idp_parse_failures");
+  if (correctionCount > 0) warnings.push("column_corrections_applied");
+
+  return {
+    confidenceScore: score,
+    detectedRows,
+    totalCollectedTokens: totalCollected,
+    totalAssignedTokens: totalAssigned,
+    unassignedRatio,
+    correctionCount,
+    incompleteRowCount,
+    duplicateLpCount,
+    lpGapCount,
+    negativeIdpParseFailures,
+    warnings,
+    stats: {
+      detectedRows,
+      totalCollectedTokens: totalCollected,
+      totalAssignedTokens: totalAssigned,
+      correctionCount,
+      incompleteRowCount,
+      duplicateLpCount,
+      lpGapCount,
+    },
+  };
+}
+
+function computeParserStatus(quality: ParserQuality): ParserStatus {
+  if (quality.negativeIdpParseFailures > 0) return "error";
+  if (quality.detectedRows === 0 && quality.totalCollectedTokens > 20) return "error";
+  if (quality.confidenceScore < 0.5) return "error";
+  if (quality.confidenceScore < 0.8 || quality.warnings.length > 0) return "warning";
+  return "ok";
+}
+
+// ─── Layer 5: Block parsers ───────────────────────────────────────────────────
+
+function parseBcBlockV4(
   rows: VisualRow[],
   blockStart: BlockStart,
   blockRows: VisualRow[],
   bandMap: Map<number, ColumnBands>,
   blockIndex: number,
   prevBlockStartIdx: number
-): ParsedBlockV3 {
+): { block: ParsedBlockV4; tableResult: RawTableResultV4 } {
   const { headerRows, tableBodyRows } = splitBlockRegions(blockRows);
   const preHeaderRows = findPreHeaderRows(rows, blockStart.idx, prevBlockStartIdx);
   const allHeaderRows = [...preHeaderRows, ...headerRows];
 
-  const warehouseSection = extractWarehouse(allHeaderRows);
+  const warehouseInfo = extractWarehouseSectionInfo(allHeaderRows);
+  const warehouseSection = warehouseInfo.code ?? extractWarehouse(allHeaderRows);
   const brandLabel = warehouseToBrand(warehouseSection);
-  const lines = buildParsedLines(buildRawTableRows(tableBodyRows, bandMap));
+  const documentBrand = detectDocumentBrand(allHeaderRows);
+
+  const tableResult = buildRawTableRowsV4(tableBodyRows, bandMap);
+  const lines = buildParsedLinesV4(tableResult.rows);
 
   if (blockStart.sectionKind === "zw") {
     const triggerRow = rows[blockStart.idx];
-    const postTriggerNeighbors = headerRows.slice(1, 5); // headerRows[0] is the trigger row
-    const header = buildBlockHeader(triggerRow, preHeaderRows, postTriggerNeighbors);
+    const postTriggerNeighbors = headerRows.slice(1, 5);
+    const headerRaw = buildBlockHeader(triggerRow, preHeaderRows, postTriggerNeighbors);
+    const headerNormalized = normalizeBlockHeader(headerRaw);
     const vinSearchRows = [triggerRow, ...postTriggerNeighbors, ...preHeaderRows.slice(-4)];
 
-    return {
+    const block: ParsedBlockV4 = {
       blockIndex,
       blockType: "direct_order",
       sourceRole: "bc",
       sectionKind: "zw",
       candidateKind: "direct_order",
       isExcluded: false,
-      header,
-      warehouseSection,
+      header: headerNormalized,
+      headerRaw,
+      headerNormalized,
+      warehouseSection: warehouseInfo.label ?? brandLabel,
       warehouseCode: warehouseSection,
+      warehouseSectionCode: warehouseSection,
+      warehouseSectionLabel: warehouseInfo.label,
       brandLabel,
+      documentBrand,
+      logicalOrderFamily: computeLogicalOrderFamily("zw", warehouseSection, "bc"),
       pageNumber: blockRows[0]?.page ?? null,
       metadata: {
         bc_internal_zw: true,
@@ -1048,21 +1323,30 @@ function parseBcBlock(
       },
       lines,
     };
+    return { block, tableResult };
   }
 
   const beforeRows = rows.slice(Math.max(0, blockStart.idx - 8), blockStart.idx);
+  const headerRaw = blockStart.triggerText;
+  const headerNormalized = normalizeBlockHeader(headerRaw);
 
-  return {
+  const block: ParsedBlockV4 = {
     blockIndex,
     blockType: "wdd_reconciliation",
     sourceRole: "bc",
     sectionKind: "wdd",
     candidateKind: "wdd_reconciliation",
     isExcluded: false,
-    header: blockStart.triggerText,
-    warehouseSection,
+    header: headerNormalized,
+    headerRaw,
+    headerNormalized,
+    warehouseSection: warehouseInfo.label ?? brandLabel,
     warehouseCode: warehouseSection,
+    warehouseSectionCode: warehouseSection,
+    warehouseSectionLabel: warehouseInfo.label,
     brandLabel,
+    documentBrand,
+    logicalOrderFamily: computeLogicalOrderFamily("wdd", warehouseSection, "bc"),
     pageNumber: blockRows[0]?.page ?? null,
     metadata: {
       wdd_number: extractHeaderValue(allHeaderRows, WDD_NUMBER_RE),
@@ -1071,61 +1355,61 @@ function parseBcBlock(
     },
     lines,
   };
+  return { block, tableResult };
 }
 
-function parseBrandBlock(
+function parseBrandBlockV4(
   rows: VisualRow[],
   blockStart: BlockStart,
   blockRows: VisualRow[],
   bandMap: Map<number, ColumnBands>,
   blockIndex: number,
   prevBlockStartIdx: number
-): ParsedBlockV3 {
-  // Pre-header: BLWK + client + timestamp + block title rows before the ZW trigger,
-  // strictly bounded by the previous block's trigger row index.
+): { block: ParsedBlockV4; tableResult: RawTableResultV4 } {
   const preHeaderRows = findPreHeaderRows(rows, blockStart.idx, prevBlockStartIdx);
-
-  // Split blockRows (starting at ZW trigger) at the table header line.
   const { headerRows: postTriggerHeaderRows, tableBodyRows } = splitBlockRegions(blockRows);
-
-  // All header-region rows for this block (never includes table body or other blocks).
   const allHeaderRows = [...preHeaderRows, ...postTriggerHeaderRows];
 
-  const warehouseSection = extractWarehouse(allHeaderRows);
+  const warehouseInfo = extractWarehouseSectionInfo(allHeaderRows);
+  const warehouseSection = warehouseInfo.code ?? extractWarehouse(allHeaderRows);
   const brandLabel = warehouseToBrand(warehouseSection);
-  const candidateKind: ParsedBlockV3["candidateKind"] =
+  const documentBrand = detectDocumentBrand(allHeaderRows);
+
+  const candidateKind: ParsedBlockV4["candidateKind"] =
     warehouseSection === "415" ? "mirror" : "brand_order";
 
-  // Deterministic header: prefer full VIN+ZL+ZW line; combine if split across adjacent rows.
-  // postTriggerHeaderRows[0] is the trigger row itself; [1..] are rows between trigger and table.
   const triggerRow = rows[blockStart.idx];
   const postTriggerNeighbors = postTriggerHeaderRows.slice(1, 5);
-  const header = buildBlockHeader(triggerRow, preHeaderRows, postTriggerNeighbors);
+  const headerRaw = buildBlockHeader(triggerRow, preHeaderRows, postTriggerNeighbors);
+  const headerNormalized = normalizeBlockHeader(headerRaw);
 
-  // VIN/ZL/ZW: check trigger row, adjacent post-trigger rows (lower y = after trigger in sort),
-  // and last few pre-header rows (higher y = before trigger). Never reaches previous block.
   const vinSearchRows = [triggerRow, ...postTriggerNeighbors, ...preHeaderRows.slice(-4)];
   const zw_number = extractHeaderValue(vinSearchRows, ZW_NUMBER_RE) ?? blockStart.markerValue;
   const zl_number = extractZl(vinSearchRows);
   const vin = extractVin(vinSearchRows);
-
   const order_number = extractBlwk(preHeaderRows);
   const client_name = extractClientLineFromHeaderRows(allHeaderRows);
 
-  // Table rows parsed only from tableBodyRows — never from header region.
-  const lines = buildParsedLines(buildRawTableRows(tableBodyRows, bandMap));
+  const tableResult = buildRawTableRowsV4(tableBodyRows, bandMap);
+  const lines = buildParsedLinesV4(tableResult.rows);
 
-  return {
+  const block: ParsedBlockV4 = {
     blockIndex,
     blockType: "brand_order",
     sourceRole: "brand",
     sectionKind: "zw",
     candidateKind,
     isExcluded: false,
-    header,
-    warehouseSection,
+    header: headerNormalized,
+    headerRaw,
+    headerNormalized,
+    warehouseSection: warehouseInfo.label ?? brandLabel,
     warehouseCode: warehouseSection,
+    warehouseSectionCode: warehouseSection,
+    warehouseSectionLabel: warehouseInfo.label,
     brandLabel,
+    documentBrand,
+    logicalOrderFamily: computeLogicalOrderFamily("zw", warehouseSection, "brand"),
     pageNumber: blockRows[0]?.page ?? null,
     metadata: {
       zw_number,
@@ -1137,16 +1421,23 @@ function parseBrandBlock(
     },
     lines,
   };
+  return { block, tableResult };
 }
 
-export async function parsePdfAutoV3(buffer: ArrayBuffer): Promise<ParseResultV3> {
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
+export async function parsePdfAutoV4(buffer: ArrayBuffer): Promise<ParseResultV4> {
   const tokens = await extractTokens(buffer);
   const rows = buildRows(tokens);
   const bandMap = detectBandsByPage(rows);
   const detectedRole = detectRole(rows);
   const starts = findBlockStarts(rows, detectedRole);
 
-  const blocks: ParsedBlockV3[] = [];
+  let totalCollected = 0;
+  let totalAssigned = 0;
+  let totalCorrected = 0;
+
+  const blocks: ParsedBlockV4[] = [];
 
   for (let index = 0; index < starts.length; index += 1) {
     const start = starts[index];
@@ -1155,12 +1446,25 @@ export async function parsePdfAutoV3(buffer: ArrayBuffer): Promise<ParseResultV3
     const blockRows = rows.slice(start.idx, end);
     if (!blockRows.length) continue;
 
-    blocks.push(
+    const { block, tableResult } =
       detectedRole === "bc"
-        ? parseBcBlock(rows, start, blockRows, bandMap, index, prevBlockStartIdx)
-        : parseBrandBlock(rows, start, blockRows, bandMap, index, prevBlockStartIdx)
-    );
+        ? parseBcBlockV4(rows, start, blockRows, bandMap, index, prevBlockStartIdx)
+        : parseBrandBlockV4(rows, start, blockRows, bandMap, index, prevBlockStartIdx);
+
+    blocks.push(block);
+    totalCollected += tableResult.totalCollected;
+    totalAssigned += tableResult.totalAssigned;
+    totalCorrected += tableResult.correctionCount;
   }
 
-  return { detectedRole, blocks };
+  const allLines = blocks.flatMap((b) => b.lines);
+  const parserQuality = computeParserQuality(
+    allLines,
+    totalCollected,
+    totalAssigned,
+    totalCorrected
+  );
+  const parserStatus = computeParserStatus(parserQuality);
+
+  return { detectedRole, blocks, parserQuality, parserStatus };
 }
