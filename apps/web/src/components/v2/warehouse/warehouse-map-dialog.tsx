@@ -52,8 +52,11 @@ import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
 import {
   buildChildrenByParentId,
+  buildGroupMap,
+  buildGroupsByParentId,
   buildLocationCodePath,
   buildLocationMap,
+  buildMembersByGroupId,
   deriveWarehousePreviewSelectionState,
   getAncestorIds,
   getDescendantLocationIds,
@@ -334,8 +337,11 @@ function MapInfoDrawer({
 
 function TreeLocationRow({
   location,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -346,8 +352,11 @@ function TreeLocationRow({
   t,
 }: {
   location: WarehouseLocation;
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -358,8 +367,8 @@ function TreeLocationRow({
   t: ReturnType<typeof useTranslations>;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const children = allLocations.filter((entry) => entry.parent_id === location.id);
-  const myGroups = locationGroups.filter((group) => group.parent_location_id === location.id);
+  const children = childrenByParentId.get(location.id) ?? [];
+  const myGroups = groupsByParentId.get(location.id) ?? [];
   const hasChildren = children.length > 0 || myGroups.length > 0;
   const isSelectable = selectableLocationIds.has(location.id);
   const effectiveExpanded =
@@ -409,7 +418,7 @@ function TreeLocationRow({
           className="w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
           style={{
             backgroundColor:
-              getEffectiveLocationColor(location, locationGroups, allLocations) ?? "#10b981",
+              getEffectiveLocationColor(location, groupMap, locationMap) ?? "#10b981",
           }}
         />
 
@@ -431,8 +440,11 @@ function TreeLocationRow({
       {effectiveExpanded && (
         <TreeItems
           parentId={location.id}
-          allLocations={allLocations}
-          locationGroups={locationGroups}
+          locationMap={locationMap}
+          groupMap={groupMap}
+          childrenByParentId={childrenByParentId}
+          groupsByParentId={groupsByParentId}
+          membersByGroupId={membersByGroupId}
           selectableLocationIds={selectableLocationIds}
           highlightedIds={highlightedIds}
           onSelectIds={onSelectIds}
@@ -450,8 +462,11 @@ function TreeLocationRow({
 function TreeGroupRow({
   group,
   members,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -463,8 +478,11 @@ function TreeGroupRow({
 }: {
   group: WarehouseLocationGroup;
   members: WarehouseLocation[];
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -537,8 +555,11 @@ function TreeGroupRow({
           <TreeLocationRow
             key={member.id}
             location={member}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -555,8 +576,11 @@ function TreeGroupRow({
 
 function TreeItems({
   parentId,
-  allLocations,
-  locationGroups,
+  locationMap,
+  groupMap,
+  childrenByParentId,
+  groupsByParentId,
+  membersByGroupId,
   selectableLocationIds,
   highlightedIds,
   onSelectIds,
@@ -567,8 +591,11 @@ function TreeItems({
   t,
 }: {
   parentId: string | null | undefined;
-  allLocations: WarehouseLocation[];
-  locationGroups: WarehouseLocationGroup[];
+  locationMap: Map<string, WarehouseLocation>;
+  groupMap: Map<string, WarehouseLocationGroup>;
+  childrenByParentId: Map<string, WarehouseLocation[]>;
+  groupsByParentId: Map<string | null, WarehouseLocationGroup[]>;
+  membersByGroupId: Map<string, WarehouseLocation[]>;
   selectableLocationIds: Set<string>;
   highlightedIds: string[];
   onSelectIds: (ids: string[]) => void;
@@ -578,17 +605,13 @@ function TreeItems({
   depth: number;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const myGroups = locationGroups
-    .filter((group) => group.parent_location_id === (parentId ?? null))
-    .sort(
-      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
-    );
+  const myGroups = [...(groupsByParentId.get(parentId ?? null) ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+  );
   const knownGroupIds = new Set(myGroups.map((group) => group.id));
-  const children = allLocations
-    .filter((location) => location.parent_id === (parentId ?? null))
-    .sort(
-      (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
-    );
+  const children = [...(childrenByParentId.get(parentId ?? "") ?? [])].sort(
+    (left, right) => left.sort_order - right.sort_order || left.name.localeCompare(right.name)
+  );
   const groupedChildIds = new Set(
     children
       .filter((location) => location.group_id && knownGroupIds.has(location.group_id))
@@ -600,8 +623,8 @@ function TreeItems({
       kind: "group" as const,
       group,
       sortOrder: group.sort_order,
-      isSelectable: children.some(
-        (location) => location.group_id === group.id && selectableLocationIds.has(location.id)
+      isSelectable: (membersByGroupId.get(group.id) ?? []).some((location) =>
+        selectableLocationIds.has(location.id)
       ),
     })),
     ...ungroupedChildren.map((location) => ({
@@ -625,8 +648,11 @@ function TreeItems({
             key={item.group.id}
             group={item.group}
             members={children.filter((location) => location.group_id === item.group.id)}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -640,8 +666,11 @@ function TreeItems({
           <TreeLocationRow
             key={item.location.id}
             location={item.location}
-            allLocations={allLocations}
-            locationGroups={locationGroups}
+            locationMap={locationMap}
+            groupMap={groupMap}
+            childrenByParentId={childrenByParentId}
+            groupsByParentId={groupsByParentId}
+            membersByGroupId={membersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}
@@ -708,12 +737,14 @@ function TreePanel({
     () => buildChildrenByParentId(descendants),
     [descendants]
   );
+  const membersByGroupId = React.useMemo(() => buildMembersByGroupId(descendants), [descendants]);
+  const descendantParentIds = React.useMemo(
+    () => new Set(descendants.map((location) => location.parent_id).filter(Boolean)),
+    [descendants]
+  );
   const searchableGroups = React.useMemo(
-    () =>
-      locationGroups.filter((group) =>
-        descendants.some((location) => location.parent_id === group.parent_location_id)
-      ),
-    [descendants, locationGroups]
+    () => locationGroups.filter((group) => descendantParentIds.has(group.parent_location_id)),
+    [descendantParentIds, locationGroups]
   );
   const selectableLocationIds = React.useMemo(() => {
     const previewableIds = new Set(
@@ -757,7 +788,7 @@ function TreePanel({
 
     for (const group of searchableGroups) {
       if (group.name.toLowerCase().includes(query)) {
-        const members = descendants.filter((location) => location.group_id === group.id);
+        const members = membersByGroupId.get(group.id) ?? [];
         members.forEach((member) => {
           visibleIds.add(member.id);
           getAncestorIds(member.id, locationMap, rootLocationId ?? null).forEach((id) =>
@@ -768,7 +799,7 @@ function TreePanel({
     }
 
     return visibleIds;
-  }, [descendants, locationMap, rootLocationId, searchQuery, searchableGroups]);
+  }, [descendants, locationMap, membersByGroupId, rootLocationId, searchQuery, searchableGroups]);
 
   const visibleGroups = React.useMemo(
     () =>
@@ -776,11 +807,11 @@ function TreePanel({
         const query = searchQuery.trim().toLowerCase();
         if (!query) return true;
         if (group.name.toLowerCase().includes(query)) return true;
-        return descendants.some(
-          (location) => location.group_id === group.id && visibleLocationIds.has(location.id)
+        return (membersByGroupId.get(group.id) ?? []).some((location) =>
+          visibleLocationIds.has(location.id)
         );
       }),
-    [descendants, searchQuery, searchableGroups, visibleLocationIds]
+    [membersByGroupId, searchQuery, searchableGroups, visibleLocationIds]
   );
 
   const autoExpandedLocationIds = React.useMemo(() => {
@@ -799,9 +830,7 @@ function TreePanel({
     const ids = new Set<string>();
     const isSearching = searchQuery.trim().length > 0;
     for (const group of visibleGroups) {
-      const memberIds = descendants
-        .filter((location) => location.group_id === group.id)
-        .map((location) => location.id);
+      const memberIds = (membersByGroupId.get(group.id) ?? []).map((location) => location.id);
       if (
         memberIds.some(
           (id) => highlightedIds.includes(id) || (isSearching && visibleLocationIds.has(id))
@@ -811,11 +840,28 @@ function TreePanel({
       }
     }
     return ids;
-  }, [descendants, highlightedIds, searchQuery, visibleGroups, visibleLocationIds]);
+  }, [highlightedIds, membersByGroupId, searchQuery, visibleGroups, visibleLocationIds]);
 
   const filteredDescendants = React.useMemo(
     () => descendants.filter((location) => visibleLocationIds.has(location.id)),
     [descendants, visibleLocationIds]
+  );
+  const renderLocationMap = React.useMemo(
+    () => buildLocationMap(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderChildrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderMembersByGroupId = React.useMemo(
+    () => buildMembersByGroupId(filteredDescendants),
+    [filteredDescendants]
+  );
+  const renderGroupMap = React.useMemo(() => buildGroupMap(visibleGroups), [visibleGroups]);
+  const renderGroupsByParentId = React.useMemo(
+    () => buildGroupsByParentId(visibleGroups),
+    [visibleGroups]
   );
 
   return (
@@ -875,8 +921,11 @@ function TreePanel({
         ) : (
           <TreeItems
             parentId={rootLocationId}
-            allLocations={filteredDescendants}
-            locationGroups={visibleGroups}
+            locationMap={renderLocationMap}
+            groupMap={renderGroupMap}
+            childrenByParentId={renderChildrenByParentId}
+            groupsByParentId={renderGroupsByParentId}
+            membersByGroupId={renderMembersByGroupId}
             selectableLocationIds={selectableLocationIds}
             highlightedIds={highlightedIds}
             onSelectIds={onSelectIds}

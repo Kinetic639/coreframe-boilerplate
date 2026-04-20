@@ -1,4 +1,4 @@
-import type { WarehouseLocation } from "@/lib/warehouse/location-tree";
+import type { WarehouseLocation, WarehouseLocationGroup } from "@/lib/warehouse/location-tree";
 import type { WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 
 export function buildLocationMap(locations: WarehouseLocation[]) {
@@ -15,6 +15,42 @@ export function buildChildrenByParentId(locations: WarehouseLocation[]) {
       siblings.push(location);
     } else {
       map.set(location.parent_id, [location]);
+    }
+  }
+
+  return map;
+}
+
+export function buildGroupsByParentId(groups: WarehouseLocationGroup[]) {
+  const map = new Map<string | null, WarehouseLocationGroup[]>();
+
+  for (const group of groups) {
+    const key = group.parent_location_id ?? null;
+    const siblings = map.get(key);
+    if (siblings) {
+      siblings.push(group);
+    } else {
+      map.set(key, [group]);
+    }
+  }
+
+  return map;
+}
+
+export function buildGroupMap(groups: WarehouseLocationGroup[]) {
+  return new Map(groups.map((group) => [group.id, group]));
+}
+
+export function buildMembersByGroupId(locations: WarehouseLocation[]) {
+  const map = new Map<string, WarehouseLocation[]>();
+
+  for (const location of locations) {
+    if (!location.group_id) continue;
+    const members = map.get(location.group_id);
+    if (members) {
+      members.push(location);
+    } else {
+      map.set(location.group_id, [location]);
     }
   }
 
@@ -127,6 +163,30 @@ export function deriveWarehousePreviewSelectionState({
   locationMap: Map<string, WarehouseLocation>;
   childrenByParentId: Map<string, WarehouseLocation[]>;
 }) {
+  const topDownUnitIdsByGroupId = new Map<string, string[]>();
+  const frontLocationsByParentId = new Map<string, WarehouseLocation[]>();
+
+  for (const location of locations) {
+    if ((location.map_role ?? "logical") === "top_down_unit" && location.group_id) {
+      const grouped = topDownUnitIdsByGroupId.get(location.group_id);
+      if (grouped) {
+        grouped.push(location.id);
+      } else {
+        topDownUnitIdsByGroupId.set(location.group_id, [location.id]);
+      }
+    }
+
+    if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
+      const parentId = location.parent_id ?? "";
+      const siblings = frontLocationsByParentId.get(parentId);
+      if (siblings) {
+        siblings.push(location);
+      } else {
+        frontLocationsByParentId.set(parentId, [location]);
+      }
+    }
+  }
+
   const selectedTopDownFocusIds = [
     ...new Set(
       highlightedIds
@@ -152,13 +212,7 @@ export function deriveWarehousePreviewSelectionState({
       selectedTopDownFocusIds.flatMap((topDownId) => {
         const topDownLocation = locationMap.get(topDownId);
         const groupedIds = topDownLocation?.group_id
-          ? locations
-              .filter(
-                (location) =>
-                  (location.map_role ?? "logical") === "top_down_unit" &&
-                  location.group_id === topDownLocation.group_id
-              )
-              .map((location) => location.id)
+          ? (topDownUnitIdsByGroupId.get(topDownLocation.group_id) ?? [])
           : [topDownId];
 
         return groupedIds.flatMap((candidateTopDownId) => {
@@ -185,16 +239,10 @@ export function deriveWarehousePreviewSelectionState({
   const frontHighlightIds =
     explicitFrontSelections.length > 0
       ? [...new Set(explicitFrontSelections)]
-      : locations
-          .filter((location) =>
-            (highlightedIds.length === 1 ? selectedTopDownFocusIds : frontStageAnchorIds).includes(
-              location.parent_id ?? ""
-            )
-          )
-          .filter((location) =>
-            ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-          )
-          .map((location) => location.id);
+      : (highlightedIds.length === 1 ? selectedTopDownFocusIds : frontStageAnchorIds).flatMap(
+          (parentId) =>
+            (frontLocationsByParentId.get(parentId) ?? []).map((location) => location.id)
+        );
 
   const explicitSelections = highlightedIds
     .map((id) => locationMap.get(id) ?? null)
@@ -219,11 +267,7 @@ export function deriveWarehousePreviewSelectionState({
   const frontInfoLocations =
     frontSelections.length > 0
       ? frontSelections
-      : locations.filter(
-          (location) =>
-            frontStageAnchorIds.includes(location.parent_id ?? "") &&
-            ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-        );
+      : frontStageAnchorIds.flatMap((parentId) => frontLocationsByParentId.get(parentId) ?? []);
 
   return {
     selectedTopDownFocusIds,
