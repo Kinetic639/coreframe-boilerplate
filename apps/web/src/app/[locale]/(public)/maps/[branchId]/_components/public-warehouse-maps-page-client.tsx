@@ -1187,55 +1187,61 @@ export function PublicWarehouseMapsPageClient({
           <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
             {branch.name}
           </h1>
-          {(highlightedLocationBreadcrumbs.length > 0 || highlightedLocationCodePath) && (
-            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="min-w-0 truncate">
-                <span className="font-semibold text-foreground/90">
-                  {resolvedRootLocationName ?? selectedLayout.name}
+          <div className="mt-1 flex min-h-[1.25rem] min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {highlightedLocationBreadcrumbs.length > 0 || highlightedLocationCodePath ? (
+              <>
+                <span className="min-w-0 truncate">
+                  <span className="font-semibold text-foreground/90">
+                    {resolvedRootLocationName ?? selectedLayout.name}
+                  </span>
+                  {highlightedLocationBreadcrumbs.length > 0 ? (
+                    <span>{` / ${highlightedLocationBreadcrumbs.join(" / ")}`}</span>
+                  ) : null}
                 </span>
-                {highlightedLocationBreadcrumbs.length > 0 ? (
-                  <span>{` / ${highlightedLocationBreadcrumbs.join(" / ")}`}</span>
-                ) : null}
+                {highlightedLocationCodePath && (
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={handleCopyHighlightedLocationPath}
+                          className="min-w-0 max-w-56 shrink cursor-pointer text-left transition-colors hover:text-foreground"
+                        >
+                          <span className="relative block overflow-hidden whitespace-nowrap">
+                            <span
+                              className={cn(
+                                "block truncate transition-all duration-200",
+                                didCopyPath
+                                  ? "translate-y-[-120%] opacity-0"
+                                  : "translate-y-0 opacity-100"
+                              )}
+                            >
+                              ({highlightedLocationCodePath})
+                            </span>
+                            <span
+                              className={cn(
+                                "absolute inset-0 truncate text-emerald-600 transition-all duration-200",
+                                didCopyPath
+                                  ? "translate-y-0 opacity-100"
+                                  : "translate-y-[120%] opacity-0"
+                              )}
+                            >
+                              {dialogT("actions.copied")}
+                            </span>
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>{dialogT("actions.copy")}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </>
+            ) : (
+              <span className="invisible select-none">
+                {resolvedRootLocationName ?? selectedLayout.name}
               </span>
-              {highlightedLocationCodePath && (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={handleCopyHighlightedLocationPath}
-                        className="min-w-0 max-w-56 shrink cursor-pointer text-left transition-colors hover:text-foreground"
-                      >
-                        <span className="relative block overflow-hidden whitespace-nowrap">
-                          <span
-                            className={cn(
-                              "block truncate transition-all duration-200",
-                              didCopyPath
-                                ? "translate-y-[-120%] opacity-0"
-                                : "translate-y-0 opacity-100"
-                            )}
-                          >
-                            ({highlightedLocationCodePath})
-                          </span>
-                          <span
-                            className={cn(
-                              "absolute inset-0 truncate text-emerald-600 transition-all duration-200",
-                              didCopyPath
-                                ? "translate-y-0 opacity-100"
-                                : "translate-y-[120%] opacity-0"
-                            )}
-                          >
-                            {dialogT("actions.copied")}
-                          </span>
-                        </span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{dialogT("actions.copy")}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">

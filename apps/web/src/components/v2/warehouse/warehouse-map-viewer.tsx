@@ -252,6 +252,19 @@ export function WarehouseMapViewer({
     () => new Map((locations ?? []).map((location) => [location.id, location])),
     [locations]
   );
+  const groupById = React.useMemo(
+    () => new Map((locationGroups ?? []).map((group) => [group.id, group])),
+    [locationGroups]
+  );
+  const effectiveLocationColorById = React.useMemo(() => {
+    const map = new Map<string, string | null>();
+
+    for (const location of locations ?? []) {
+      map.set(location.id, getEffectiveLocationColor(location, groupById, locationById));
+    }
+
+    return map;
+  }, [groupById, locationById, locations]);
   const hasMeasuredViewport = dimensions.width > 0 && dimensions.height > 0;
   const projectionShapeRecords = React.useMemo<ProjectionShapeRecord[]>(
     () =>
@@ -512,10 +525,7 @@ export function WarehouseMapViewer({
     // Prefer live location color, then persisted shape.style, then default
     const locColor =
       shape.shape_type === "location" && shape.location_id
-        ? (() => {
-            const location = locationById.get(shape.location_id);
-            return location ? getEffectiveLocationColor(location, locationGroups, locations) : null;
-          })()
+        ? (effectiveLocationColorById.get(shape.location_id) ?? null)
         : null;
     const fill = locColor ? locationColorToFill(locColor) : (style?.fill ?? defaults.fill);
     const stroke = locColor ?? style?.stroke ?? defaults.stroke;
@@ -760,11 +770,6 @@ export function WarehouseMapViewer({
     );
   };
 
-  const backgroundLabelClassName = React.useMemo(() => {
-    if (!viewBackgroundLabel?.trim()) return null;
-    return null;
-  }, [viewBackgroundLabel]);
-
   return (
     <div
       ref={containerRef}
@@ -796,8 +801,7 @@ export function WarehouseMapViewer({
         <div className="pointer-events-none absolute inset-0 z-0 flex items-end justify-end overflow-hidden p-3">
           <span
             className={cn(
-              "select-none text-right text-[11px] font-semibold uppercase tracking-[0.18em]",
-              backgroundLabelClassName
+              "select-none text-right text-[11px] font-semibold uppercase tracking-[0.18em]"
             )}
             style={{
               color: themeMutedForeground || canvasBorder,
