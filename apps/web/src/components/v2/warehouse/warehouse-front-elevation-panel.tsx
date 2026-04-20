@@ -74,16 +74,16 @@ export function WarehouseFrontElevationPanel({
     [anchorLocationId, anchorLocationIds]
   );
 
-  const anchorLocation = React.useMemo(
-    () => locations.find((location) => location.id === anchorLocationId) ?? null,
-    [anchorLocationId, locations]
+  const locationById = React.useMemo(
+    () => new Map(locations.map((location) => [location.id, location])),
+    [locations]
   );
   const anchorLocations = React.useMemo(
     () =>
       effectiveAnchorLocationIds
-        .map((id) => locations.find((location) => location.id === id) ?? null)
+        .map((id) => locationById.get(id) ?? null)
         .filter((location): location is WarehouseLocation => !!location),
-    [effectiveAnchorLocationIds, locations]
+    [effectiveAnchorLocationIds, locationById]
   );
 
   const frontLayout = React.useMemo(() => {

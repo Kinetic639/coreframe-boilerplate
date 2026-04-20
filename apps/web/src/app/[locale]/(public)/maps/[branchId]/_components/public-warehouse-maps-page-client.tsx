@@ -836,7 +836,7 @@ function TreePanel({
   );
 
   return (
-    <div className="flex w-56 shrink-0 flex-col overflow-hidden border-r bg-background">
+    <div className="flex h-full w-56 shrink-0 flex-col overflow-hidden border-r bg-background">
       <div className="shrink-0 border-b bg-muted/50 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -977,12 +977,29 @@ export function PublicWarehouseMapsPageClient({
   const globalSearchBlurTimeoutRef = React.useRef<number | null>(null);
   const searchNavigationTargetRef = React.useRef<string | null>(null);
 
+  const locationMap = React.useMemo(() => buildLocationMap(locations), [locations]);
+  const layoutById = React.useMemo(
+    () => new Map(layouts.map((layout) => [layout.id, layout])),
+    [layouts]
+  );
+  const childrenByParentId = React.useMemo(() => {
+    const map = new Map<string, WarehouseLocation[]>();
+    for (const location of locations) {
+      if (!location.parent_id) continue;
+      const siblings = map.get(location.parent_id);
+      if (siblings) {
+        siblings.push(location);
+      } else {
+        map.set(location.parent_id, [location]);
+      }
+    }
+    return map;
+  }, [locations]);
   const selectedLayout = React.useMemo(
     () => layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0] ?? null,
     [layouts, selectedLayoutId]
   );
   const highlightedId = highlightedIds.length === 1 ? highlightedIds[0] : null;
-  const locationMap = React.useMemo(() => buildLocationMap(locations), [locations]);
   const locationLayoutMap = React.useMemo(() => {
     const map = new Map<string, string>();
 
@@ -990,19 +1007,28 @@ export function PublicWarehouseMapsPageClient({
       if (!layout.root_location_id) continue;
       map.set(layout.root_location_id, layout.id);
 
-      const queue = locations.filter((location) => location.parent_id === layout.root_location_id);
+      const queue = [...(childrenByParentId.get(layout.root_location_id) ?? [])];
       while (queue.length > 0) {
         const current = queue.shift()!;
         if (map.has(current.id)) continue;
         map.set(current.id, layout.id);
-        locations
-          .filter((location) => location.parent_id === current.id)
-          .forEach((location) => queue.push(location));
+        const children = childrenByParentId.get(current.id);
+        if (children?.length) {
+          queue.push(...children);
+        }
       }
     }
 
     return map;
-  }, [layouts, locations]);
+  }, [childrenByParentId, layouts]);
+  const rootLocationNameByLayoutId = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const layout of layouts) {
+      if (!layout.root_location_id) continue;
+      map.set(layout.id, locationMap.get(layout.root_location_id)?.name ?? layout.name);
+    }
+    return map;
+  }, [layouts, locationMap]);
   const globalSearchResults = React.useMemo(() => {
     const query = globalSearchQuery.trim().toLowerCase();
     if (!query) return [];
@@ -1011,10 +1037,8 @@ export function PublicWarehouseMapsPageClient({
       .filter((location) => locationLayoutMap.has(location.id))
       .map((location) => {
         const layoutId = locationLayoutMap.get(location.id)!;
-        const layout = layouts.find((entry) => entry.id === layoutId) ?? null;
-        const rootLocationName = layout?.root_location_id
-          ? (locationMap.get(layout.root_location_id)?.name ?? layout.name)
-          : (layout?.name ?? null);
+        const layout = layoutById.get(layoutId) ?? null;
+        const rootLocationName = rootLocationNameByLayoutId.get(layoutId) ?? layout?.name ?? "";
         const breadcrumbPath = buildLocationCodePath(
           location.id,
           locationMap,
@@ -1048,13 +1072,18 @@ export function PublicWarehouseMapsPageClient({
         );
       })
       .slice(0, 8);
-  }, [globalSearchQuery, layouts, locationLayoutMap, locationMap, locations]);
+  }, [
+    globalSearchQuery,
+    layoutById,
+    locationLayoutMap,
+    locationMap,
+    locations,
+    rootLocationNameByLayoutId,
+  ]);
   const resolvedRootLocationName = React.useMemo(() => {
     if (!selectedLayout?.root_location_id) return null;
-    return (
-      locations.find((location) => location.id === selectedLayout.root_location_id)?.name ?? null
-    );
-  }, [locations, selectedLayout?.root_location_id]);
+    return locationMap.get(selectedLayout.root_location_id)?.name ?? null;
+  }, [locationMap, selectedLayout?.root_location_id]);
   const highlightedLocationBreadcrumbs = React.useMemo(() => {
     if (!selectedLayout?.root_location_id || !highlightedId) return [];
 
@@ -1453,11 +1482,11 @@ export function PublicWarehouseMapsPageClient({
         <div className="relative flex h-full overflow-hidden">
           <div
             className={cn(
-              "shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+              "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
               isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
             )}
           >
-            <div className="w-56">
+            <div className="h-full w-56">
               <TreePanel
                 layout={selectedLayout}
                 locations={locations}

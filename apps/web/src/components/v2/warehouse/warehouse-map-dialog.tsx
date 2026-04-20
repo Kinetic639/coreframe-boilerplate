@@ -894,7 +894,7 @@ function TreePanel({
   );
 
   return (
-    <div className="w-56 border-r bg-background flex flex-col shrink-0 overflow-hidden">
+    <div className="h-full w-56 border-r bg-background flex flex-col shrink-0 overflow-hidden">
       <div className="px-3 py-2.5 border-b bg-muted/50 shrink-0">
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
@@ -1086,15 +1086,17 @@ export function WarehouseMapDialog({
     isError,
   } = usePublishedLayoutQuery(open ? activeBranchId : null, rootLocationId);
 
+  const locationMap = React.useMemo(
+    () => (locations ? buildLocationMap(locations) : new Map<string, WarehouseLocation>()),
+    [locations]
+  );
   const hasTreeAvailable = (showTree ?? !!locations) && !!layout;
   const resolvedRootLocationName = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id) return null;
-    return locations.find((location) => location.id === layout.root_location_id)?.name ?? null;
-  }, [layout?.root_location_id, locations]);
+    if (!layout?.root_location_id) return null;
+    return locationMap.get(layout.root_location_id)?.name ?? null;
+  }, [layout?.root_location_id, locationMap]);
   const highlightedLocationBreadcrumbs = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id || !highlightedId) return [];
-
-    const locationMap = buildLocationMap(locations);
+    if (!layout?.root_location_id || !highlightedId) return [];
     const breadcrumbs: string[] = [];
     let current = locationMap.get(highlightedId) ?? null;
 
@@ -1105,15 +1107,11 @@ export function WarehouseMapDialog({
     }
 
     return breadcrumbs;
-  }, [highlightedId, layout?.root_location_id, locations]);
+  }, [highlightedId, layout?.root_location_id, locationMap]);
   const highlightedLocationCodePath = React.useMemo(() => {
-    if (!locations || !layout?.root_location_id || !highlightedId) return null;
-    return buildLocationCodePath(
-      highlightedId,
-      buildLocationMap(locations),
-      layout.root_location_id
-    );
-  }, [highlightedId, layout?.root_location_id, locations]);
+    if (!layout?.root_location_id || !highlightedId) return null;
+    return buildLocationCodePath(highlightedId, locationMap, layout.root_location_id);
+  }, [highlightedId, layout?.root_location_id, locationMap]);
   React.useEffect(() => {
     setDidCopyPath(false);
   }, [highlightedLocationCodePath]);
@@ -1127,7 +1125,6 @@ export function WarehouseMapDialog({
   const selectedTopDownFocusIds = React.useMemo(() => {
     if (!locations) return [];
 
-    const locationMap = buildLocationMap(locations);
     return [
       ...new Set(
         highlightedIds
@@ -1148,11 +1145,10 @@ export function WarehouseMapDialog({
           .filter(Boolean)
       ),
     ] as string[];
-  }, [highlightedIds, locations]);
+  }, [highlightedIds, locationMap, locations]);
   const frontStageAnchorIds = React.useMemo(() => {
     if (!locations) return [];
 
-    const locationMap = buildLocationMap(locations);
     const expandedAnchorIds = selectedTopDownFocusIds.flatMap((topDownId) => {
       const topDownLocation = locationMap.get(topDownId);
       if (!topDownLocation?.group_id) return [topDownId];
@@ -1179,10 +1175,9 @@ export function WarehouseMapDialog({
     });
 
     return [...new Set(containerExpandedAnchorIds)];
-  }, [locations, selectedTopDownFocusIds]);
+  }, [locationMap, locations, selectedTopDownFocusIds]);
   const frontHighlightIds = React.useMemo(() => {
     if (!locations) return [];
-    const locationMap = buildLocationMap(locations);
     const explicitFrontSelections = highlightedIds.filter((id) =>
       ["front_segment", "top_storage_segment"].includes(locationMap.get(id)?.map_role ?? "logical")
     );
@@ -1201,14 +1196,10 @@ export function WarehouseMapDialog({
           ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
       )
       .map((location) => location.id);
-  }, [frontStageAnchorIds, highlightedIds, locations, selectedTopDownFocusIds]);
+  }, [frontStageAnchorIds, highlightedIds, locationMap, locations, selectedTopDownFocusIds]);
   const frontAnchorLocationId = React.useMemo(
     () => (frontStageAnchorIds.length === 1 ? frontStageAnchorIds[0] : null),
     [frontStageAnchorIds]
-  );
-  const locationMap = React.useMemo(
-    () => (locations ? buildLocationMap(locations) : new Map<string, WarehouseLocation>()),
-    [locations]
   );
   const topDownInfoLocations = React.useMemo(() => {
     if (!locations || highlightedIds.length === 0) return [];
@@ -1428,11 +1419,11 @@ export function WarehouseMapDialog({
               {hasTreeAvailable && (
                 <div
                   className={cn(
-                    "shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+                    "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
                     isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
                   )}
                 >
-                  <div className="w-56">
+                  <div className="h-full w-56">
                     <TreePanel
                       layout={layout}
                       locations={locations ?? []}
