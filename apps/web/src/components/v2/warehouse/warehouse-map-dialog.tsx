@@ -194,7 +194,7 @@ function summarizeLocationSelection(
   };
 }
 
-function MapInfoDrawer({
+const MapInfoDrawer = React.memo(function MapInfoDrawer({
   title,
   emptyLabel,
   summary,
@@ -331,7 +331,7 @@ function MapInfoDrawer({
       </div>
     </div>
   );
-}
+});
 
 // ─── Location tree (same pattern as MapPreview) ───────────────────────────────
 
@@ -688,7 +688,7 @@ function TreeItems({
 
 // ─── Tree panel ───────────────────────────────────────────────────────────────
 
-function TreePanel({
+const TreePanel = React.memo(function TreePanel({
   layout,
   locations,
   locationGroups,
@@ -978,7 +978,7 @@ function TreePanel({
       </div>
     </div>
   );
-}
+});
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -1006,6 +1006,215 @@ export interface WarehouseMapDialogProps {
   /** Show an "Open in Editor" button linking to /dashboard/warehouse/map. */
   showEditorLink?: boolean;
 }
+
+const DialogPreviewBody = React.memo(function DialogPreviewBody({
+  activeBranchId,
+  isLoading,
+  isError,
+  layout,
+  hasTreeAvailable,
+  locations,
+  locationGroups,
+  rootLocationId,
+  highlightedIds,
+  highlightedId,
+  selectedTopDownFocusIds,
+  frontAnchorLocationId,
+  frontStageAnchorIds,
+  frontHighlightIds,
+  isMonochrome,
+  isFrontViewCollapsed,
+  isTreeVisible,
+  onTreeSelection,
+  onHideTree,
+  onShowTree,
+  onClearSelection,
+  onToggleMonochrome,
+  onShapeClick,
+  onFrontViewCollapsedChange,
+  topDownInfoRail,
+  frontInfoRail,
+  t,
+}: {
+  activeBranchId: string | null;
+  isLoading: boolean;
+  isError: boolean;
+  layout: WarehouseLayoutWithShapes | null | undefined;
+  hasTreeAvailable: boolean;
+  locations?: WarehouseLocation[];
+  locationGroups?: WarehouseLocationGroup[];
+  rootLocationId?: string | null;
+  highlightedIds: string[];
+  highlightedId: string | null;
+  selectedTopDownFocusIds: string[];
+  frontAnchorLocationId: string | null;
+  frontStageAnchorIds: string[];
+  frontHighlightIds: string[];
+  isMonochrome: boolean;
+  isFrontViewCollapsed: boolean;
+  isTreeVisible: boolean;
+  onTreeSelection: (ids: string[]) => void;
+  onHideTree: () => void;
+  onShowTree: () => void;
+  onClearSelection: () => void;
+  onToggleMonochrome: () => void;
+  onShapeClick: (shape: WarehouseLayoutShape) => void;
+  onFrontViewCollapsedChange: (collapsed: boolean) => void;
+  topDownInfoRail: React.ReactNode;
+  frontInfoRail: React.ReactNode;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  if (!activeBranchId) {
+    return <EmptyState icon="branch" message={t("states.noBranch")} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return <EmptyState icon="error" message={t("states.loadError")} />;
+  }
+
+  if (!layout) {
+    return <EmptyState icon="map" message={t("states.noPublishedLayout")} />;
+  }
+
+  return (
+    <>
+      {hasTreeAvailable && (
+        <div
+          className={cn(
+            "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+            isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
+          )}
+        >
+          <div className="h-full w-56">
+            <TreePanel
+              layout={layout}
+              locations={locations ?? []}
+              locationGroups={locationGroups ?? []}
+              rootLocationId={rootLocationId}
+              highlightedIds={highlightedIds}
+              onSelectIds={onTreeSelection}
+              onToggleVisibility={onHideTree}
+              t={t}
+            />
+          </div>
+        </div>
+      )}
+
+      <div
+        className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{
+          gridTemplateRows: locations
+            ? isFrontViewCollapsed
+              ? "minmax(0,1fr) 2.25rem"
+              : "minmax(0,1fr) clamp(16rem,38%,24rem)"
+            : "minmax(0,1fr)",
+        }}
+      >
+        <div className="flex min-h-0 flex-1 overflow-hidden" onClick={onClearSelection}>
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            {hasTreeAvailable && !isTreeVisible && (
+              <div className="pointer-events-auto absolute left-3 top-3 z-30 animate-in fade-in-0 slide-in-from-left-2 duration-200">
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg border-border/70 bg-background/90 shadow-sm backdrop-blur-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onShowTree();
+                        }}
+                      >
+                        <PanelLeftOpen className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("actions.showTree")}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+            {highlightedIds.length > 0 && (
+              <div
+                className={cn(
+                  "pointer-events-auto absolute top-3 z-30 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm transition-[left] duration-300 ease-out",
+                  hasTreeAvailable && !isTreeVisible ? "left-14" : "left-3"
+                )}
+              >
+                <button
+                  type="button"
+                  title={isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleMonochrome();
+                  }}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
+                    !isMonochrome
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <Palette className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="h-full w-full" onClick={(event) => event.stopPropagation()}>
+              <WarehouseMapViewer
+                layout={layout}
+                viewBackgroundLabel={t("backgroundLabels.topDown")}
+                locations={locations}
+                locationGroups={locationGroups}
+                highlightLocationId={highlightedId}
+                highlightLocationIds={
+                  selectedTopDownFocusIds.length > 0 ? selectedTopDownFocusIds : highlightedIds
+                }
+                autoPanToHighlight={false}
+                monochromaticHighlight={isMonochrome}
+                viewportResetKey={`${layout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:top`}
+                onShapeClick={hasTreeAvailable ? onShapeClick : undefined}
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+
+          {topDownInfoRail}
+        </div>
+
+        {locations && (
+          <WarehouseFrontElevationPanel
+            layout={layout}
+            locations={locations}
+            locationGroups={locationGroups ?? []}
+            viewBackgroundLabel={t("backgroundLabels.front")}
+            anchorLocationId={frontAnchorLocationId}
+            anchorLocationIds={frontStageAnchorIds}
+            highlightLocationIds={frontHighlightIds}
+            headerActiveLocationIds={selectedTopDownFocusIds}
+            monochromaticHighlight={isMonochrome}
+            onShapeClick={hasTreeAvailable ? onShapeClick : undefined}
+            className="min-h-0 shrink-0"
+            viewportResetKey={`${layout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:${frontStageAnchorIds.join(",")}:front`}
+            collapsible
+            collapsed={isFrontViewCollapsed}
+            onCollapsedChange={onFrontViewCollapsedChange}
+            rightRail={frontInfoRail}
+          />
+        )}
+      </div>
+    </>
+  );
+});
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -1141,13 +1350,30 @@ export function WarehouseMapDialog({
     [frontInfoLocations, locationMap, t]
   );
 
-  const handleShapeClick = (shape: WarehouseLayoutShape) => {
+  const handleShapeClick = React.useCallback((shape: WarehouseLayoutShape) => {
     if (shape.location_id) {
       setHighlightedIds((prev) =>
         prev.length === 1 && prev[0] === shape.location_id ? [] : [shape.location_id]
       );
     }
-  };
+  }, []);
+  const handleTreeSelection = React.useCallback((ids: string[]) => {
+    setHighlightedIds((prev) =>
+      prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+    );
+  }, []);
+  const handleClearSelection = React.useCallback(() => {
+    setHighlightedIds([]);
+  }, []);
+  const handleHideTree = React.useCallback(() => {
+    setIsTreeVisible(false);
+  }, []);
+  const handleShowTree = React.useCallback(() => {
+    setIsTreeVisible(true);
+  }, []);
+  const handleToggleMonochrome = React.useCallback(() => {
+    setIsMonochrome((value) => !value);
+  }, []);
 
   const handleCopyHighlightedLocationPath = React.useCallback(async () => {
     if (!highlightedLocationCodePath) return;
@@ -1159,6 +1385,26 @@ export function WarehouseMapDialog({
       setDidCopyPath(false);
     }
   }, [highlightedLocationCodePath]);
+  const topDownInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={t("info.topDownTitle")}
+        emptyLabel={t("info.emptyTopDown")}
+        summary={topDownInfoSummary}
+      />
+    ),
+    [t, topDownInfoSummary]
+  );
+  const frontInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={t("info.frontTitle")}
+        emptyLabel={t("info.emptyFront")}
+        summary={frontInfoSummary}
+      />
+    ),
+    [frontInfoSummary, t]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1278,176 +1524,35 @@ export function WarehouseMapDialog({
 
         {/* Body */}
         <div className="relative flex flex-1 overflow-hidden">
-          {!activeBranchId && <EmptyState icon="branch" message={t("states.noBranch")} />}
-
-          {activeBranchId && isLoading && (
-            <div className="flex h-full w-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {activeBranchId && isError && <EmptyState icon="error" message={t("states.loadError")} />}
-
-          {activeBranchId && !isLoading && !isError && !layout && (
-            <EmptyState icon="map" message={t("states.noPublishedLayout")} />
-          )}
-
-          {activeBranchId && layout && (
-            <>
-              {hasTreeAvailable && (
-                <div
-                  className={cn(
-                    "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
-                    isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
-                  )}
-                >
-                  <div className="h-full w-56">
-                    <TreePanel
-                      layout={layout}
-                      locations={locations ?? []}
-                      locationGroups={locationGroups ?? []}
-                      rootLocationId={rootLocationId}
-                      highlightedIds={highlightedIds}
-                      onSelectIds={(ids) =>
-                        setHighlightedIds((prev) =>
-                          prev.length === ids.length && ids.every((id) => prev.includes(id))
-                            ? []
-                            : ids
-                        )
-                      }
-                      onToggleVisibility={() => setIsTreeVisible(false)}
-                      t={t}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Map area */}
-              <div
-                className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
-                style={{
-                  gridTemplateRows: locations
-                    ? isFrontViewCollapsed
-                      ? "minmax(0,1fr) 2.25rem"
-                      : "minmax(0,1fr) clamp(16rem,38%,24rem)"
-                    : "minmax(0,1fr)",
-                }}
-              >
-                <div
-                  className="flex min-h-0 flex-1 overflow-hidden"
-                  onClick={() => setHighlightedIds([])}
-                >
-                  {/* Vertical control bar — top-left overlay, shown only when something is highlighted */}
-                  <div className="relative min-w-0 flex-1 overflow-hidden">
-                    {hasTreeAvailable && !isTreeVisible && (
-                      <div className="pointer-events-auto absolute left-3 top-3 z-30 animate-in fade-in-0 slide-in-from-left-2 duration-200">
-                        <TooltipProvider delayDuration={100}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 rounded-lg border-border/70 bg-background/90 shadow-sm backdrop-blur-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsTreeVisible(true);
-                                }}
-                              >
-                                <PanelLeftOpen className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{t("actions.showTree")}</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    )}
-                    {highlightedIds.length > 0 && (
-                      <div
-                        className={cn(
-                          "pointer-events-auto absolute top-3 z-30 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm transition-[left] duration-300 ease-out",
-                          hasTreeAvailable && !isTreeVisible ? "left-14" : "left-3"
-                        )}
-                      >
-                        <button
-                          type="button"
-                          title={
-                            isMonochrome ? t("actions.showColors") : t("actions.monochromaticView")
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMonochrome((v) => !v);
-                          }}
-                          className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
-                            !isMonochrome
-                              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                              : "text-muted-foreground"
-                          )}
-                        >
-                          <Palette className="h-4 w-4" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Canvas — stopPropagation so clicks inside don't clear highlight via the outer div */}
-                    <div className="h-full w-full" onClick={(e) => e.stopPropagation()}>
-                      <WarehouseMapViewer
-                        layout={layout}
-                        viewBackgroundLabel={t("backgroundLabels.topDown")}
-                        locations={locations}
-                        locationGroups={locationGroups}
-                        highlightLocationId={highlightedId}
-                        highlightLocationIds={
-                          selectedTopDownFocusIds.length > 0
-                            ? selectedTopDownFocusIds
-                            : highlightedIds
-                        }
-                        autoPanToHighlight={false}
-                        monochromaticHighlight={isMonochrome}
-                        viewportResetKey={`${layout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:top`}
-                        onShapeClick={hasTreeAvailable ? handleShapeClick : undefined}
-                        className="h-full w-full"
-                      />
-                    </div>
-                  </div>
-
-                  <MapInfoDrawer
-                    title={t("info.topDownTitle")}
-                    emptyLabel={t("info.emptyTopDown")}
-                    summary={topDownInfoSummary}
-                  />
-                </div>
-
-                {locations && (
-                  <WarehouseFrontElevationPanel
-                    layout={layout}
-                    locations={locations}
-                    locationGroups={locationGroups ?? []}
-                    viewBackgroundLabel={t("backgroundLabels.front")}
-                    anchorLocationId={frontAnchorLocationId}
-                    anchorLocationIds={frontStageAnchorIds}
-                    highlightLocationIds={frontHighlightIds}
-                    headerActiveLocationIds={selectedTopDownFocusIds}
-                    monochromaticHighlight={isMonochrome}
-                    onShapeClick={hasTreeAvailable ? handleShapeClick : undefined}
-                    className="min-h-0 shrink-0"
-                    viewportResetKey={`${layout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:${frontStageAnchorIds.join(",")}:front`}
-                    collapsible
-                    collapsed={isFrontViewCollapsed}
-                    onCollapsedChange={setIsFrontViewCollapsed}
-                    rightRail={
-                      <MapInfoDrawer
-                        title={t("info.frontTitle")}
-                        emptyLabel={t("info.emptyFront")}
-                        summary={frontInfoSummary}
-                      />
-                    }
-                  />
-                )}
-              </div>
-            </>
-          )}
+          <DialogPreviewBody
+            activeBranchId={activeBranchId}
+            isLoading={isLoading}
+            isError={isError}
+            layout={layout}
+            hasTreeAvailable={hasTreeAvailable}
+            locations={locations}
+            locationGroups={locationGroups}
+            rootLocationId={rootLocationId}
+            highlightedIds={highlightedIds}
+            highlightedId={highlightedId}
+            selectedTopDownFocusIds={selectedTopDownFocusIds}
+            frontAnchorLocationId={frontAnchorLocationId}
+            frontStageAnchorIds={frontStageAnchorIds}
+            frontHighlightIds={frontHighlightIds}
+            isMonochrome={isMonochrome}
+            isFrontViewCollapsed={isFrontViewCollapsed}
+            isTreeVisible={isTreeVisible}
+            onTreeSelection={handleTreeSelection}
+            onHideTree={handleHideTree}
+            onShowTree={handleShowTree}
+            onClearSelection={handleClearSelection}
+            onToggleMonochrome={handleToggleMonochrome}
+            onShapeClick={handleShapeClick}
+            onFrontViewCollapsedChange={setIsFrontViewCollapsed}
+            topDownInfoRail={topDownInfoRail}
+            frontInfoRail={frontInfoRail}
+            t={t}
+          />
         </div>
       </DialogContent>
     </Dialog>

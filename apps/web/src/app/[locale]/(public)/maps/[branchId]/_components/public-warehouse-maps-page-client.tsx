@@ -140,7 +140,7 @@ function summarizeLocationSelection(
   };
 }
 
-function MapInfoDrawer({
+const MapInfoDrawer = React.memo(function MapInfoDrawer({
   title,
   emptyLabel,
   summary,
@@ -275,7 +275,7 @@ function MapInfoDrawer({
       </div>
     </div>
   );
-}
+});
 
 function TreeLocationRow({
   location,
@@ -630,7 +630,7 @@ function TreeItems({
   );
 }
 
-function TreePanel({
+const TreePanel = React.memo(function TreePanel({
   layout,
   locations,
   locationGroups,
@@ -918,7 +918,7 @@ function TreePanel({
       </div>
     </div>
   );
-}
+});
 
 export interface PublicWarehouseMapsPageClientProps {
   branch: {
@@ -930,6 +930,374 @@ export interface PublicWarehouseMapsPageClientProps {
   locations: WarehouseLocation[];
   locationGroups: WarehouseLocationGroup[];
 }
+
+const PublicMapsHeader = React.memo(function PublicMapsHeader({
+  branchName,
+  resolvedRootLocationName,
+  selectedLayoutName,
+  highlightedLocationBreadcrumbs,
+  highlightedLocationCodePath,
+  didCopyPath,
+  onCopyHighlightedLocationPath,
+  dialogT,
+  globalSearchQuery,
+  onGlobalSearchQueryChange,
+  onGlobalSearchFocus,
+  onGlobalSearchBlur,
+  onClearGlobalSearch,
+  isGlobalSearchOpen,
+  globalSearchResults,
+  onGlobalSearchSelect,
+  layoutOptions,
+  selectedLayoutId,
+  onSelectedLayoutIdChange,
+  t,
+}: {
+  branchName: string;
+  resolvedRootLocationName: string | null;
+  selectedLayoutName: string;
+  highlightedLocationBreadcrumbs: string[];
+  highlightedLocationCodePath: string | null;
+  didCopyPath: boolean;
+  onCopyHighlightedLocationPath: () => void;
+  dialogT: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
+  globalSearchQuery: string;
+  onGlobalSearchQueryChange: (value: string) => void;
+  onGlobalSearchFocus: () => void;
+  onGlobalSearchBlur: () => void;
+  onClearGlobalSearch: () => void;
+  isGlobalSearchOpen: boolean;
+  globalSearchResults: Array<{
+    location: WarehouseLocation;
+    layoutId: string;
+    layoutName: string;
+    rootLocationName: string;
+    breadcrumbPath: string;
+  }>;
+  onGlobalSearchSelect: (layoutId: string, locationId: string) => void;
+  layoutOptions: Array<{ id: string; name: string }>;
+  selectedLayoutId: string;
+  onSelectedLayoutIdChange: (value: string) => void;
+  t: ReturnType<typeof useTranslations<"publicWarehouseMapsPage">>;
+}) {
+  return (
+    <div className="relative z-[5] flex shrink-0 flex-col gap-1 overflow-visible rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
+      <div className="min-w-0">
+        <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">{branchName}</h1>
+        <div className="mt-1 flex min-h-[1.25rem] min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {highlightedLocationBreadcrumbs.length > 0 || highlightedLocationCodePath ? (
+            <>
+              <span className="min-w-0 truncate">
+                <span className="font-semibold text-foreground/90">
+                  {resolvedRootLocationName ?? selectedLayoutName}
+                </span>
+                {highlightedLocationBreadcrumbs.length > 0 ? (
+                  <span>{` / ${highlightedLocationBreadcrumbs.join(" / ")}`}</span>
+                ) : null}
+              </span>
+              {highlightedLocationCodePath && (
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={onCopyHighlightedLocationPath}
+                        className="min-w-0 max-w-56 shrink cursor-pointer text-left transition-colors hover:text-foreground"
+                      >
+                        <span className="relative block overflow-hidden whitespace-nowrap">
+                          <span
+                            className={cn(
+                              "block truncate transition-all duration-200",
+                              didCopyPath
+                                ? "translate-y-[-120%] opacity-0"
+                                : "translate-y-0 opacity-100"
+                            )}
+                          >
+                            ({highlightedLocationCodePath})
+                          </span>
+                          <span
+                            className={cn(
+                              "absolute inset-0 truncate text-emerald-600 transition-all duration-200",
+                              didCopyPath
+                                ? "translate-y-0 opacity-100"
+                                : "translate-y-[120%] opacity-0"
+                            )}
+                          >
+                            {dialogT("actions.copied")}
+                          </span>
+                        </span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{dialogT("actions.copy")}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </>
+          ) : (
+            <span className="invisible select-none">
+              {resolvedRootLocationName ?? selectedLayoutName}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">
+        <div className="relative z-[15] w-full overflow-visible md:w-80">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={globalSearchQuery}
+            onChange={(event) => onGlobalSearchQueryChange(event.target.value)}
+            onFocus={onGlobalSearchFocus}
+            onBlur={onGlobalSearchBlur}
+            placeholder={t("globalSearch.placeholder")}
+            className="h-8 rounded-lg pl-8 pr-8 text-xs"
+          />
+          {globalSearchQuery.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onClearGlobalSearch}
+              aria-label={t("globalSearch.clear")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
+            <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-[25] overflow-hidden rounded-lg border bg-popover shadow-2xl">
+              {globalSearchResults.length > 0 ? (
+                <div className="max-h-80 overflow-y-auto p-1">
+                  {globalSearchResults.map((result) => (
+                    <button
+                      key={result.location.id}
+                      type="button"
+                      className="flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => onGlobalSearchSelect(result.layoutId, result.location.id)}
+                    >
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {result.location.name}
+                        {result.location.code ? (
+                          <span className="ml-1 font-mono text-[11px] font-normal text-muted-foreground">
+                            ({result.location.code})
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {result.breadcrumbPath}
+                        {result.rootLocationName ? ` (${result.rootLocationName})` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  {t("globalSearch.noResults")}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="w-full md:w-64 md:max-w-full">
+          <Select value={selectedLayoutId} onValueChange={onSelectedLayoutIdChange}>
+            <SelectTrigger className="h-8 rounded-lg">
+              <SelectValue placeholder={t("layoutSelectPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {layoutOptions.map((layout) => (
+                <SelectItem key={layout.id} value={layout.id}>
+                  {layout.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const PublicMapsBody = React.memo(function PublicMapsBody({
+  selectedLayout,
+  locations,
+  locationGroups,
+  highlightedIds,
+  highlightedId,
+  selectedTopDownFocusIds,
+  frontAnchorLocationId,
+  orderedFrontStageAnchorIds,
+  frontHighlightIds,
+  isMonochrome,
+  isFrontViewCollapsed,
+  isTreeVisible,
+  onTreeSelection,
+  onHideTree,
+  onShowTree,
+  onClearSelection,
+  onToggleMonochrome,
+  onShapeClick,
+  onFrontViewCollapsedChange,
+  topDownInfoRail,
+  frontInfoRail,
+  dialogT,
+}: {
+  selectedLayout: WarehouseLayoutWithShapes;
+  locations: WarehouseLocation[];
+  locationGroups: WarehouseLocationGroup[];
+  highlightedIds: string[];
+  highlightedId: string | null;
+  selectedTopDownFocusIds: string[];
+  frontAnchorLocationId: string | null;
+  orderedFrontStageAnchorIds: string[];
+  frontHighlightIds: string[];
+  isMonochrome: boolean;
+  isFrontViewCollapsed: boolean;
+  isTreeVisible: boolean;
+  onTreeSelection: (ids: string[]) => void;
+  onHideTree: () => void;
+  onShowTree: () => void;
+  onClearSelection: () => void;
+  onToggleMonochrome: () => void;
+  onShapeClick: (shape: WarehouseLayoutShape) => void;
+  onFrontViewCollapsedChange: (collapsed: boolean) => void;
+  topDownInfoRail: React.ReactNode;
+  frontInfoRail: React.ReactNode;
+  dialogT: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
+}) {
+  return (
+    <div className="relative z-0 min-h-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-sm">
+      <div className="relative flex h-full overflow-hidden">
+        <div
+          className={cn(
+            "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
+            isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
+          )}
+        >
+          <div className="h-full w-56">
+            <TreePanel
+              layout={selectedLayout}
+              locations={locations}
+              locationGroups={locationGroups}
+              rootLocationId={selectedLayout.root_location_id}
+              highlightedIds={highlightedIds}
+              onSelectIds={onTreeSelection}
+              onToggleVisibility={onHideTree}
+              t={dialogT}
+            />
+          </div>
+        </div>
+
+        <div
+          className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{
+            gridTemplateRows: isFrontViewCollapsed
+              ? "minmax(0,1fr) 2.25rem"
+              : "minmax(0,1fr) clamp(16rem,38%,24rem)",
+          }}
+        >
+          <div className="flex min-h-0 flex-1 overflow-hidden" onClick={onClearSelection}>
+            <div className="relative min-w-0 flex-1 overflow-hidden">
+              {!isTreeVisible && (
+                <div className="pointer-events-auto absolute left-3 top-3 z-30 animate-in fade-in-0 slide-in-from-left-2 duration-200">
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg border-border/70 bg-background/90 shadow-sm backdrop-blur-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onShowTree();
+                          }}
+                        >
+                          <PanelLeftOpen className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{dialogT("actions.showTree")}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+              {highlightedIds.length > 0 && (
+                <div
+                  className={cn(
+                    "pointer-events-auto absolute top-3 z-30 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm transition-[left] duration-300 ease-out",
+                    !isTreeVisible ? "left-14" : "left-3"
+                  )}
+                >
+                  <button
+                    type="button"
+                    title={
+                      isMonochrome
+                        ? dialogT("actions.showColors")
+                        : dialogT("actions.monochromaticView")
+                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleMonochrome();
+                    }}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
+                      !isMonochrome
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <Palette className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="h-full w-full" onClick={(event) => event.stopPropagation()}>
+                <WarehouseMapViewer
+                  layout={selectedLayout}
+                  viewBackgroundLabel={dialogT("backgroundLabels.topDown")}
+                  locations={locations}
+                  locationGroups={locationGroups}
+                  highlightLocationId={highlightedId}
+                  highlightLocationIds={
+                    selectedTopDownFocusIds.length > 0 ? selectedTopDownFocusIds : highlightedIds
+                  }
+                  autoPanToHighlight={false}
+                  monochromaticHighlight={isMonochrome}
+                  viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:top`}
+                  onShapeClick={onShapeClick}
+                  className="h-full w-full"
+                />
+              </div>
+            </div>
+
+            {topDownInfoRail}
+          </div>
+
+          <WarehouseFrontElevationPanel
+            layout={selectedLayout}
+            locations={locations}
+            locationGroups={locationGroups}
+            viewBackgroundLabel={dialogT("backgroundLabels.front")}
+            anchorLocationId={frontAnchorLocationId}
+            anchorLocationIds={orderedFrontStageAnchorIds}
+            highlightLocationIds={frontHighlightIds}
+            headerActiveLocationIds={selectedTopDownFocusIds}
+            monochromaticHighlight={isMonochrome}
+            onShapeClick={onShapeClick}
+            viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:${orderedFrontStageAnchorIds.join(",")}:front`}
+            collapsible
+            collapsed={isFrontViewCollapsed}
+            onCollapsedChange={onFrontViewCollapsedChange}
+            className="min-h-0 shrink-0"
+            rightRail={frontInfoRail}
+          />
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export function PublicWarehouseMapsPageClient({
   branch,
@@ -1083,9 +1451,7 @@ export function PublicWarehouseMapsPageClient({
   );
   const orderedFrontStageAnchorIds = React.useMemo(
     () =>
-      selectedLayout
-        ? orderTopDownAnchorIdsByLayoutShapes(frontStageAnchorIds, selectedLayout, locationMap)
-        : [],
+      selectedLayout ? orderTopDownAnchorIdsByLayoutShapes(frontStageAnchorIds, locationMap) : [],
     [frontStageAnchorIds, locationMap, selectedLayout]
   );
   const frontAnchorLocationId = React.useMemo(
@@ -1143,6 +1509,9 @@ export function PublicWarehouseMapsPageClient({
       prev.length === 1 && prev[0] === shape.location_id ? [] : [shape.location_id]
     );
   }, []);
+  const handleClearSelection = React.useCallback(() => {
+    setHighlightedIds([]);
+  }, []);
   const handleCopyHighlightedLocationPath = React.useCallback(async () => {
     if (!highlightedLocationCodePath) return;
     try {
@@ -1153,6 +1522,36 @@ export function PublicWarehouseMapsPageClient({
       setDidCopyPath(false);
     }
   }, [highlightedLocationCodePath]);
+  const handleTreeSelection = React.useCallback((ids: string[]) => {
+    setHighlightedIds((prev) =>
+      prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
+    );
+  }, []);
+  const handleHideTree = React.useCallback(() => {
+    setIsTreeVisible(false);
+  }, []);
+  const handleShowTree = React.useCallback(() => {
+    setIsTreeVisible(true);
+  }, []);
+  const handleToggleMonochrome = React.useCallback(() => {
+    setIsMonochrome((value) => !value);
+  }, []);
+  const handleGlobalSearchQueryChange = React.useCallback((value: string) => {
+    setGlobalSearchQuery(value);
+    setIsGlobalSearchOpen(true);
+  }, []);
+  const handleGlobalSearchFocus = React.useCallback(() => {
+    setIsGlobalSearchOpen(true);
+  }, []);
+  const handleGlobalSearchBlur = React.useCallback(() => {
+    globalSearchBlurTimeoutRef.current = window.setTimeout(() => {
+      setIsGlobalSearchOpen(false);
+    }, 120);
+  }, []);
+  const handleClearGlobalSearch = React.useCallback(() => {
+    setGlobalSearchQuery("");
+    setIsGlobalSearchOpen(false);
+  }, []);
   const handleGlobalSearchSelect = React.useCallback(
     (layoutId: string, locationId: string) => {
       setIsFrontViewCollapsed(false);
@@ -1166,6 +1565,26 @@ export function PublicWarehouseMapsPageClient({
       setIsGlobalSearchOpen(false);
     },
     [selectedLayoutId]
+  );
+  const topDownInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={dialogT("info.topDownTitle")}
+        emptyLabel={dialogT("info.emptyTopDown")}
+        summary={topDownInfoSummary}
+      />
+    ),
+    [dialogT, topDownInfoSummary]
+  );
+  const frontInfoRail = React.useMemo(
+    () => (
+      <MapInfoDrawer
+        title={dialogT("info.frontTitle")}
+        emptyLabel={dialogT("info.emptyFront")}
+        summary={frontInfoSummary}
+      />
+    ),
+    [dialogT, frontInfoSummary]
   );
 
   if (!selectedLayout) {
@@ -1182,296 +1601,53 @@ export function PublicWarehouseMapsPageClient({
 
   return (
     <div className="flex h-[calc(100vh-12.5rem)] min-h-[640px] w-full flex-col gap-2 self-stretch overflow-hidden">
-      <div className="relative z-[80] flex shrink-0 flex-col gap-1 overflow-visible rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">
-            {branch.name}
-          </h1>
-          {(highlightedLocationBreadcrumbs.length > 0 || highlightedLocationCodePath) && (
-            <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="min-w-0 truncate">
-                <span className="font-semibold text-foreground/90">
-                  {resolvedRootLocationName ?? selectedLayout.name}
-                </span>
-                {highlightedLocationBreadcrumbs.length > 0 ? (
-                  <span>{` / ${highlightedLocationBreadcrumbs.join(" / ")}`}</span>
-                ) : null}
-              </span>
-              {highlightedLocationCodePath && (
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={handleCopyHighlightedLocationPath}
-                        className="min-w-0 max-w-56 shrink cursor-pointer text-left transition-colors hover:text-foreground"
-                      >
-                        <span className="relative block overflow-hidden whitespace-nowrap">
-                          <span
-                            className={cn(
-                              "block truncate transition-all duration-200",
-                              didCopyPath
-                                ? "translate-y-[-120%] opacity-0"
-                                : "translate-y-0 opacity-100"
-                            )}
-                          >
-                            ({highlightedLocationCodePath})
-                          </span>
-                          <span
-                            className={cn(
-                              "absolute inset-0 truncate text-emerald-600 transition-all duration-200",
-                              didCopyPath
-                                ? "translate-y-0 opacity-100"
-                                : "translate-y-[120%] opacity-0"
-                            )}
-                          >
-                            {dialogT("actions.copied")}
-                          </span>
-                        </span>
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>{dialogT("actions.copy")}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-          )}
-        </div>
+      <PublicMapsHeader
+        branchName={branch.name}
+        resolvedRootLocationName={resolvedRootLocationName}
+        selectedLayoutName={selectedLayout.name}
+        highlightedLocationBreadcrumbs={highlightedLocationBreadcrumbs}
+        highlightedLocationCodePath={highlightedLocationCodePath}
+        didCopyPath={didCopyPath}
+        onCopyHighlightedLocationPath={handleCopyHighlightedLocationPath}
+        dialogT={dialogT}
+        globalSearchQuery={globalSearchQuery}
+        onGlobalSearchQueryChange={handleGlobalSearchQueryChange}
+        onGlobalSearchFocus={handleGlobalSearchFocus}
+        onGlobalSearchBlur={handleGlobalSearchBlur}
+        onClearGlobalSearch={handleClearGlobalSearch}
+        isGlobalSearchOpen={isGlobalSearchOpen}
+        globalSearchResults={globalSearchResults}
+        onGlobalSearchSelect={handleGlobalSearchSelect}
+        layoutOptions={layouts.map((layout) => ({ id: layout.id, name: layout.name }))}
+        selectedLayoutId={selectedLayout.id}
+        onSelectedLayoutIdChange={setSelectedLayoutId}
+        t={t}
+      />
 
-        <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">
-          <div className="relative z-[90] w-full md:w-80 overflow-visible">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={globalSearchQuery}
-              onChange={(event) => {
-                setGlobalSearchQuery(event.target.value);
-                setIsGlobalSearchOpen(true);
-              }}
-              onFocus={() => setIsGlobalSearchOpen(true)}
-              onBlur={() => {
-                globalSearchBlurTimeoutRef.current = window.setTimeout(() => {
-                  setIsGlobalSearchOpen(false);
-                }, 120);
-              }}
-              placeholder={t("globalSearch.placeholder")}
-              className="h-8 rounded-lg pl-8 pr-8 text-xs"
-            />
-            {globalSearchQuery.length > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 text-muted-foreground"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setGlobalSearchQuery("");
-                  setIsGlobalSearchOpen(false);
-                }}
-                aria-label={t("globalSearch.clear")}
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-            {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
-              <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-[120] overflow-hidden rounded-lg border bg-popover shadow-2xl">
-                {globalSearchResults.length > 0 ? (
-                  <div className="max-h-80 overflow-y-auto p-1">
-                    {globalSearchResults.map((result) => (
-                      <button
-                        key={result.location.id}
-                        type="button"
-                        className="flex w-full flex-col rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() =>
-                          handleGlobalSearchSelect(result.layoutId, result.location.id)
-                        }
-                      >
-                        <span className="truncate text-xs font-medium text-foreground">
-                          {result.location.name}
-                          {result.location.code ? (
-                            <span className="ml-1 font-mono text-[11px] font-normal text-muted-foreground">
-                              ({result.location.code})
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="truncate text-[11px] text-muted-foreground">
-                          {result.breadcrumbPath}
-                          {result.rootLocationName ? ` (${result.rootLocationName})` : ""}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    {t("globalSearch.noResults")}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="w-full md:w-64 md:max-w-full">
-            <Select value={selectedLayout.id} onValueChange={setSelectedLayoutId}>
-              <SelectTrigger className="h-8 rounded-lg">
-                <SelectValue placeholder={t("layoutSelectPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {layouts.map((layout) => (
-                  <SelectItem key={layout.id} value={layout.id}>
-                    {layout.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative z-0 min-h-0 flex-1 overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="relative flex h-full overflow-hidden">
-          <div
-            className={cn(
-              "h-full shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-out",
-              isTreeVisible ? "w-56 opacity-100" : "w-0 opacity-0"
-            )}
-          >
-            <div className="h-full w-56">
-              <TreePanel
-                layout={selectedLayout}
-                locations={locations}
-                locationGroups={locationGroups}
-                rootLocationId={selectedLayout.root_location_id}
-                highlightedIds={highlightedIds}
-                onSelectIds={(ids) =>
-                  setHighlightedIds((prev) =>
-                    prev.length === ids.length && ids.every((id) => prev.includes(id)) ? [] : ids
-                  )
-                }
-                onToggleVisibility={() => setIsTreeVisible(false)}
-                t={dialogT}
-              />
-            </div>
-          </div>
-
-          <div
-            className="grid min-w-0 flex-1 overflow-hidden transition-[grid-template-rows] duration-300 ease-in-out"
-            style={{
-              gridTemplateRows: isFrontViewCollapsed
-                ? "minmax(0,1fr) 2.25rem"
-                : "minmax(0,1fr) clamp(16rem,38%,24rem)",
-            }}
-          >
-            <div
-              className="flex min-h-0 flex-1 overflow-hidden"
-              onClick={() => setHighlightedIds([])}
-            >
-              <div className="relative min-w-0 flex-1 overflow-hidden">
-                {!isTreeVisible && (
-                  <div className="pointer-events-auto absolute left-3 top-3 z-30 animate-in fade-in-0 slide-in-from-left-2 duration-200">
-                    <TooltipProvider delayDuration={100}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg border-border/70 bg-background/90 shadow-sm backdrop-blur-sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setIsTreeVisible(true);
-                            }}
-                          >
-                            <PanelLeftOpen className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>{dialogT("actions.showTree")}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                )}
-                {highlightedIds.length > 0 && (
-                  <div
-                    className={cn(
-                      "pointer-events-auto absolute top-3 z-30 flex flex-col gap-1 rounded-lg border bg-background/90 p-1 shadow-sm backdrop-blur-sm transition-[left] duration-300 ease-out",
-                      !isTreeVisible ? "left-14" : "left-3"
-                    )}
-                  >
-                    <button
-                      type="button"
-                      title={
-                        isMonochrome
-                          ? dialogT("actions.showColors")
-                          : dialogT("actions.monochromaticView")
-                      }
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setIsMonochrome((value) => !value);
-                      }}
-                      className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-muted",
-                        !isMonochrome
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Palette className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-
-                <div className="h-full w-full" onClick={(event) => event.stopPropagation()}>
-                  <WarehouseMapViewer
-                    layout={selectedLayout}
-                    viewBackgroundLabel={dialogT("backgroundLabels.topDown")}
-                    locations={locations}
-                    locationGroups={locationGroups}
-                    highlightLocationId={highlightedId}
-                    highlightLocationIds={
-                      selectedTopDownFocusIds.length > 0 ? selectedTopDownFocusIds : highlightedIds
-                    }
-                    autoPanToHighlight={false}
-                    monochromaticHighlight={isMonochrome}
-                    viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:top`}
-                    onShapeClick={handleShapeClick}
-                    className="h-full w-full"
-                  />
-                </div>
-              </div>
-
-              <MapInfoDrawer
-                title={dialogT("info.topDownTitle")}
-                emptyLabel={dialogT("info.emptyTopDown")}
-                summary={topDownInfoSummary}
-              />
-            </div>
-
-            <WarehouseFrontElevationPanel
-              layout={selectedLayout}
-              locations={locations}
-              locationGroups={locationGroups}
-              viewBackgroundLabel={dialogT("backgroundLabels.front")}
-              anchorLocationId={frontAnchorLocationId}
-              anchorLocationIds={orderedFrontStageAnchorIds}
-              highlightLocationIds={frontHighlightIds}
-              headerActiveLocationIds={selectedTopDownFocusIds}
-              monochromaticHighlight={isMonochrome}
-              onShapeClick={handleShapeClick}
-              viewportResetKey={`${selectedLayout.id}:${isFrontViewCollapsed ? "collapsed" : "expanded"}:${orderedFrontStageAnchorIds.join(",")}:front`}
-              collapsible
-              collapsed={isFrontViewCollapsed}
-              onCollapsedChange={setIsFrontViewCollapsed}
-              className="min-h-0 shrink-0"
-              rightRail={
-                <MapInfoDrawer
-                  title={dialogT("info.frontTitle")}
-                  emptyLabel={dialogT("info.emptyFront")}
-                  summary={frontInfoSummary}
-                />
-              }
-            />
-          </div>
-        </div>
-      </div>
+      <PublicMapsBody
+        selectedLayout={selectedLayout}
+        locations={locations}
+        locationGroups={locationGroups}
+        highlightedIds={highlightedIds}
+        highlightedId={highlightedId}
+        selectedTopDownFocusIds={selectedTopDownFocusIds}
+        frontAnchorLocationId={frontAnchorLocationId}
+        orderedFrontStageAnchorIds={orderedFrontStageAnchorIds}
+        frontHighlightIds={frontHighlightIds}
+        isMonochrome={isMonochrome}
+        isFrontViewCollapsed={isFrontViewCollapsed}
+        isTreeVisible={isTreeVisible}
+        onTreeSelection={handleTreeSelection}
+        onHideTree={handleHideTree}
+        onShowTree={handleShowTree}
+        onClearSelection={handleClearSelection}
+        onToggleMonochrome={handleToggleMonochrome}
+        onShapeClick={handleShapeClick}
+        onFrontViewCollapsedChange={setIsFrontViewCollapsed}
+        topDownInfoRail={topDownInfoRail}
+        frontInfoRail={frontInfoRail}
+        dialogT={dialogT}
+      />
     </div>
   );
 }
