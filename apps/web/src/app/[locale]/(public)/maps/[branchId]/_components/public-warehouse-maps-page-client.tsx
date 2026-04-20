@@ -981,7 +981,7 @@ const PublicMapsHeader = React.memo(function PublicMapsHeader({
   t: ReturnType<typeof useTranslations<"publicWarehouseMapsPage">>;
 }) {
   return (
-    <div className="relative z-[80] flex shrink-0 flex-col gap-1 overflow-visible rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
+    <div className="relative z-[5] flex shrink-0 flex-col gap-1 overflow-visible rounded-xl border bg-background/90 px-3 py-2 shadow-sm backdrop-blur-sm md:flex-row md:items-center md:justify-between">
       <div className="min-w-0">
         <h1 className="truncate text-sm font-semibold tracking-tight md:text-base">{branchName}</h1>
         <div className="mt-1 flex min-h-[1.25rem] min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -1042,7 +1042,7 @@ const PublicMapsHeader = React.memo(function PublicMapsHeader({
       </div>
 
       <div className="flex w-full flex-col gap-2 md:w-auto md:min-w-[32rem] md:flex-row md:items-center md:justify-end">
-        <div className="relative z-[90] w-full overflow-visible md:w-80">
+        <div className="relative z-[15] w-full overflow-visible md:w-80">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={globalSearchQuery}
@@ -1066,7 +1066,7 @@ const PublicMapsHeader = React.memo(function PublicMapsHeader({
             </Button>
           )}
           {isGlobalSearchOpen && globalSearchQuery.trim().length > 0 && (
-            <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-[120] overflow-hidden rounded-lg border bg-popover shadow-2xl">
+            <div className="absolute inset-x-0 top-[calc(100%+0.375rem)] z-[25] overflow-hidden rounded-lg border bg-popover shadow-2xl">
               {globalSearchResults.length > 0 ? (
                 <div className="max-h-80 overflow-y-auto p-1">
                   {globalSearchResults.map((result) => (
