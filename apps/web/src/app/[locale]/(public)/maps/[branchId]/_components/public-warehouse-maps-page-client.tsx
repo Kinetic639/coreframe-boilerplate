@@ -32,6 +32,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { resolveLocationMapContext } from "@/lib/warehouse/map-context";
 import {
+  buildChildrenByParentId,
+  buildLocationCodePath,
+  buildLocationMap,
+  deriveWarehousePreviewSelectionState,
+  getAncestorIds,
+  getDescendantLocationIds,
+  orderTopDownAnchorIdsByLayoutShapes,
+} from "@/lib/warehouse/map-preview";
+import {
   getEffectiveLocationColor,
   type WarehouseLocation,
   type WarehouseLocationGroup,
@@ -39,100 +48,6 @@ import {
 import type { WarehouseLayoutShape, WarehouseLayoutWithShapes } from "@/lib/warehouse/layouts";
 import { WarehouseMapViewer } from "@/components/v2/warehouse/warehouse-map-viewer";
 import { WarehouseFrontElevationPanel } from "@/components/v2/warehouse/warehouse-front-elevation-panel";
-
-function buildLocationMap(locations: WarehouseLocation[]) {
-  return new Map(locations.map((location) => [location.id, location]));
-}
-
-function findNearestLogicalContainerAncestor(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>
-) {
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current?.parent_id) {
-    current = locationMap.get(current.parent_id) ?? null;
-    if ((current?.map_role ?? "logical") === "logical") {
-      return current;
-    }
-  }
-
-  return null;
-}
-
-function getDescendantTopDownUnitIds(
-  containerId: string,
-  locations: WarehouseLocation[],
-  locationMap: Map<string, WarehouseLocation>
-) {
-  const topDownIds: string[] = [];
-  const queue = locations.filter((location) => location.parent_id === containerId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if ((current.map_role ?? "logical") === "top_down_unit") {
-      topDownIds.push(current.id);
-    }
-
-    for (const child of locations) {
-      if (child.parent_id === current.id) {
-        queue.push(child);
-      }
-    }
-  }
-
-  return topDownIds.filter((topDownId) => {
-    const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
-    return nearestContainer?.id === containerId;
-  });
-}
-
-function getAncestorIds(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>,
-  stopAtId?: string | null
-) {
-  const ancestorIds: string[] = [];
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current?.parent_id) {
-    if (current.parent_id === stopAtId) break;
-    ancestorIds.push(current.parent_id);
-    current = locationMap.get(current.parent_id) ?? null;
-  }
-
-  return ancestorIds;
-}
-
-function getDescendantLocationIds(locationId: string, locations: WarehouseLocation[]) {
-  const descendantIds: string[] = [];
-  const queue = locations.filter((location) => location.parent_id === locationId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    descendantIds.push(current.id);
-    queue.push(...locations.filter((location) => location.parent_id === current.id));
-  }
-
-  return descendantIds;
-}
-
-function buildLocationCodePath(
-  locationId: string,
-  locationMap: Map<string, WarehouseLocation>,
-  stopAtId?: string | null
-) {
-  const path: string[] = [];
-  let current = locationMap.get(locationId) ?? null;
-
-  while (current) {
-    path.unshift(current.code?.trim() || current.name);
-    if (!current.parent_id || current.id === stopAtId) break;
-    current = locationMap.get(current.parent_id) ?? null;
-  }
-
-  return path.join("/");
-}
 
 function formatMeters(value: number | null | undefined) {
   if (value === null || value === undefined) return null;
@@ -705,26 +620,35 @@ function TreePanel({
   onToggleVisibility?: () => void;
   t: ReturnType<typeof useTranslations<"warehouseMapDialog">>;
 }) {
+  const allChildrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(locations),
+    [locations]
+  );
   const descendants = React.useMemo(() => {
     if (!rootLocationId) return locations;
     const result: WarehouseLocation[] = [];
     const visited = new Set<string>();
-    const queue = locations.filter((location) => location.parent_id === rootLocationId);
+    const queue = [...(allChildrenByParentId.get(rootLocationId) ?? [])];
     while (queue.length > 0) {
       const location = queue.shift()!;
       if (visited.has(location.id)) continue;
       visited.add(location.id);
       result.push(location);
-      locations
-        .filter((child) => child.parent_id === location.id)
-        .forEach((child) => queue.push(child));
+      const children = allChildrenByParentId.get(location.id);
+      if (children?.length) {
+        queue.push(...children);
+      }
     }
     return result;
-  }, [locations, rootLocationId]);
+  }, [allChildrenByParentId, locations, rootLocationId]);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [expandMode, setExpandMode] = React.useState<"auto" | "all" | "collapsed">("auto");
   const locationMap = React.useMemo(() => buildLocationMap(descendants), [descendants]);
+  const childrenByParentId = React.useMemo(
+    () => buildChildrenByParentId(descendants),
+    [descendants]
+  );
   const searchableGroups = React.useMemo(
     () =>
       locationGroups.filter((group) =>
@@ -748,14 +672,14 @@ function TreePanel({
 
     for (const location of descendants) {
       if ((location.map_role ?? "logical") !== "logical") continue;
-      const descendantIds = getDescendantLocationIds(location.id, descendants);
+      const descendantIds = getDescendantLocationIds(location.id, childrenByParentId);
       if (descendantIds.some((id) => previewableIds.has(id))) {
         previewableIds.add(location.id);
       }
     }
 
     return previewableIds;
-  }, [descendants, layout.root_location_id, locations, rootLocationId]);
+  }, [childrenByParentId, descendants, layout.root_location_id, locations, rootLocationId]);
 
   const visibleLocationIds = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -983,17 +907,7 @@ export function PublicWarehouseMapsPageClient({
     [layouts]
   );
   const childrenByParentId = React.useMemo(() => {
-    const map = new Map<string, WarehouseLocation[]>();
-    for (const location of locations) {
-      if (!location.parent_id) continue;
-      const siblings = map.get(location.parent_id);
-      if (siblings) {
-        siblings.push(location);
-      } else {
-        map.set(location.parent_id, [location]);
-      }
-    }
-    return map;
+    return buildChildrenByParentId(locations);
   }, [locations]);
   const selectedLayout = React.useMemo(
     () => layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0] ?? null,
@@ -1102,147 +1016,33 @@ export function PublicWarehouseMapsPageClient({
     if (!selectedLayout?.root_location_id || !highlightedId) return null;
     return buildLocationCodePath(highlightedId, locationMap, selectedLayout.root_location_id);
   }, [highlightedId, locationMap, selectedLayout?.root_location_id]);
-  const selectedTopDownFocusIds = React.useMemo(() => {
-    return [
-      ...new Set(
-        highlightedIds
-          .map((id) => {
-            const location = locationMap.get(id);
-            if (!location) return null;
-            if ((location.map_role ?? "logical") === "top_down_unit") return location.id;
-            if (["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")) {
-              return location.parent_id ?? null;
-            }
-            if ((location.map_role ?? "logical") === "logical") {
-              const containerTopDownIds = getDescendantTopDownUnitIds(id, locations, locationMap);
-              return containerTopDownIds;
-            }
-            return null;
-          })
-          .flat()
-          .filter(Boolean)
-      ),
-    ] as string[];
-  }, [highlightedIds, locationMap, locations]);
-  const frontStageAnchorIds = React.useMemo(() => {
-    const expandedAnchorIds = selectedTopDownFocusIds.flatMap((topDownId) => {
-      const topDownLocation = locationMap.get(topDownId);
-      if (!topDownLocation?.group_id) return [topDownId];
-
-      return locations
-        .filter(
-          (location) =>
-            (location.map_role ?? "logical") === "top_down_unit" &&
-            location.group_id === topDownLocation.group_id
-        )
-        .map((location) => location.id);
-    });
-
-    const containerExpandedAnchorIds = expandedAnchorIds.flatMap((topDownId) => {
-      const nearestContainer = findNearestLogicalContainerAncestor(topDownId, locationMap);
-      if (!nearestContainer) return [topDownId];
-
-      const containerTopDownIds = getDescendantTopDownUnitIds(
-        nearestContainer.id,
+  const {
+    selectedTopDownFocusIds,
+    frontStageAnchorIds,
+    frontHighlightIds,
+    topDownInfoLocations,
+    frontInfoLocations,
+  } = React.useMemo(
+    () =>
+      deriveWarehousePreviewSelectionState({
+        highlightedIds,
         locations,
-        locationMap
-      );
-      return containerTopDownIds.length > 0 ? containerTopDownIds : [topDownId];
-    });
-
-    return [...new Set(containerExpandedAnchorIds)];
-  }, [locationMap, locations, selectedTopDownFocusIds]);
-  const orderedFrontStageAnchorIds = React.useMemo(() => {
-    const topDownShapeByLocationId = new Map(
-      selectedLayout.shapes
-        .filter(
-          (shape) =>
-            (shape.projection ?? "top_down") !== "front_elevation" &&
-            shape.shape_type === "location" &&
-            !!shape.location_id &&
-            !shape.deleted_at
-        )
-        .map((shape) => [shape.location_id!, shape] as const)
-    );
-
-    return [...frontStageAnchorIds].sort((leftId, rightId) => {
-      const leftShape = topDownShapeByLocationId.get(leftId);
-      const rightShape = topDownShapeByLocationId.get(rightId);
-      const leftX = leftShape?.x ?? 0;
-      const rightX = rightShape?.x ?? 0;
-      if (leftX !== rightX) return rightX - leftX;
-
-      const leftLocation = locationMap.get(leftId);
-      const rightLocation = locationMap.get(rightId);
-      return (
-        (leftLocation?.sort_order ?? 0) - (rightLocation?.sort_order ?? 0) ||
-        (leftLocation?.name ?? "").localeCompare(rightLocation?.name ?? "")
-      );
-    });
-  }, [frontStageAnchorIds, locationMap, selectedLayout.shapes]);
-  const frontHighlightIds = React.useMemo(() => {
-    const explicitFrontSelections = highlightedIds.filter((id) =>
-      ["front_segment", "top_storage_segment"].includes(locationMap.get(id)?.map_role ?? "logical")
-    );
-
-    if (explicitFrontSelections.length > 0) return [...new Set(explicitFrontSelections)];
-
-    const highlightParentIds =
-      highlightedIds.length === 1 ? selectedTopDownFocusIds : frontStageAnchorIds;
-
-    return locations
-      .filter(
-        (location) =>
-          highlightParentIds.includes(location.parent_id ?? "") &&
-          ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-      )
-      .map((location) => location.id);
-  }, [frontStageAnchorIds, highlightedIds, locationMap, locations, selectedTopDownFocusIds]);
+        locationMap,
+        childrenByParentId,
+      }),
+    [childrenByParentId, highlightedIds, locationMap, locations]
+  );
+  const orderedFrontStageAnchorIds = React.useMemo(
+    () =>
+      selectedLayout
+        ? orderTopDownAnchorIdsByLayoutShapes(frontStageAnchorIds, selectedLayout, locationMap)
+        : [],
+    [frontStageAnchorIds, locationMap, selectedLayout]
+  );
   const frontAnchorLocationId = React.useMemo(
     () => (orderedFrontStageAnchorIds.length === 1 ? orderedFrontStageAnchorIds[0] : null),
     [orderedFrontStageAnchorIds]
   );
-  const topDownInfoLocations = React.useMemo(() => {
-    if (highlightedIds.length === 0) return [];
-
-    const explicitSelections = highlightedIds
-      .map((id) => locationMap.get(id) ?? null)
-      .filter((location): location is WarehouseLocation => !!location);
-
-    const topDownSelections = explicitSelections.filter(
-      (location) => (location.map_role ?? "logical") === "top_down_unit"
-    );
-    if (topDownSelections.length > 0) return topDownSelections;
-
-    const frontSelections = explicitSelections.filter((location) =>
-      ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-    if (frontSelections.length > 0) {
-      return selectedTopDownFocusIds
-        .map((id) => locationMap.get(id) ?? null)
-        .filter((location): location is WarehouseLocation => !!location);
-    }
-
-    return explicitSelections;
-  }, [highlightedIds, locationMap, selectedTopDownFocusIds]);
-  const frontInfoLocations = React.useMemo(() => {
-    if (highlightedIds.length === 0) return [];
-
-    const explicitSelections = highlightedIds
-      .map((id) => locationMap.get(id) ?? null)
-      .filter((location): location is WarehouseLocation => !!location);
-
-    const explicitFrontSelections = explicitSelections.filter((location) =>
-      ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-    if (explicitFrontSelections.length > 0) return explicitFrontSelections;
-
-    return locations.filter(
-      (location) =>
-        frontStageAnchorIds.includes(location.parent_id ?? "") &&
-        ["front_segment", "top_storage_segment"].includes(location.map_role ?? "logical")
-    );
-  }, [frontStageAnchorIds, highlightedIds, locationMap, locations]);
   const topDownInfoSummary = React.useMemo(
     () =>
       summarizeLocationSelection(
