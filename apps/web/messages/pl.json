@@ -2115,11 +2115,14 @@
         "results": {
           "session": "Sesja",
           "exportCsv": "Eksportuj CSV",
+          "exportEnhancedPdf": "Pobierz rozszerzony PDF",
           "newUpload": "Nowe wgranie",
           "exactMatches": "dokładne",
           "partialMatches": "częściowe",
           "unmatched": "niedopasowane WDD",
           "unmatchedOrders": "niedopasowane zamówienia",
+          "totalScope": "{total} bloków WDD do dopasowania",
+          "directOrdersNote": "{count} bezpośrednich zleceń (pominięte w dopasowaniu)",
           "empty": "Nie znaleziono bloków WDD. Upewnij się, że wgrany był co najmniej jeden plik BC.",
           "columns": {
             "wddNumber": "Nr WDD",
@@ -2147,13 +2150,16 @@
         },
         "matchType": {
           "exact": "Dokładne",
+          "subset": "Podzbiór",
           "partial": "Częściowe",
+          "ambiguous": "Niejednoznaczne",
           "unmatched_bc": "Brak dopasowania",
           "unmatched_brand": "Brak WDD"
         },
         "toasts": {
           "matchingComplete": "Dopasowanie zakończone",
-          "exportSuccess": "Pobrano CSV"
+          "exportSuccess": "Pobrano CSV",
+          "enhancedPdfSuccess": "Pobrano rozszerzony PDF"
         },
         "extractionReview": {
           "title": "Podgląd ekstrakcji",

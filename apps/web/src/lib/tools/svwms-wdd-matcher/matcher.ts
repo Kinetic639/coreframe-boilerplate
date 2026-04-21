@@ -39,6 +39,8 @@ export interface EnrichSummary {
   ambiguous: number;
   unmatched_bc: number;
   unmatched_brand: number;
+  total_wdd_blocks: number;
+  direct_orders: number;
 }
 
 export interface EnrichResult {
@@ -171,11 +173,17 @@ export function runWddEnrichment(
     ambiguous: 0,
     unmatched_bc: 0,
     unmatched_brand: 0,
+    total_wdd_blocks: 0,
+    direct_orders: 0,
   };
 
   // Partition blocks
   const wddBlocks = blocks.filter((b) => b.block_type === "wdd_reconciliation" && !b.is_excluded);
   const orderBlocks = blocks.filter((b) => b.block_type === "brand_order" && !b.is_excluded);
+  const directOrderBlocks = blocks.filter((b) => b.block_type === "direct_order" && !b.is_excluded);
+
+  summary.total_wdd_blocks = wddBlocks.length;
+  summary.direct_orders = directOrderBlocks.length;
 
   // Track which ORDER blocks were matched (for unmatched_brand output)
   const matchedOrderIds = new Set<string>();
@@ -401,11 +409,11 @@ export function runWddEnrichment(
 export function toMatchSummary(summary: EnrichSummary): MatchSummary {
   return {
     exact_block_matches: summary.exact,
-    // subset + partial + ambiguous all go into "partial" for the summary display
     partial_block_matches: summary.subset + summary.partial + summary.ambiguous,
     unmatched_bc: summary.unmatched_bc,
     unmatched_brand: summary.unmatched_brand,
-    // Lines matched = not tracked at block-match stage; set to 0
     total_lines_matched: 0,
+    total_wdd_blocks: summary.total_wdd_blocks,
+    direct_orders: summary.direct_orders,
   };
 }
