@@ -307,6 +307,7 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV3[]> {
     (globalThis as any).DOMMatrix = class DOMMatrix {};
   }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
     disableWorker: true,
