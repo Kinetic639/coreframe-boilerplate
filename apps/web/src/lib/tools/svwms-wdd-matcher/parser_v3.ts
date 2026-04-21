@@ -307,7 +307,13 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV3[]> {
     (globalThis as any).DOMMatrix = class DOMMatrix {};
   }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    const { createRequire } = await import("node:module");
+    const workerPath = createRequire(import.meta.url).resolve(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs"
+    );
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
+  }
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
     disableWorker: true,
