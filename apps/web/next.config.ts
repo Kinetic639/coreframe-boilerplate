@@ -27,9 +27,11 @@ const nextConfig = {
       },
     ];
   },
+  serverExternalPackages: ["pdfjs-dist", "pdfjs-dist/legacy/build/pdf.mjs"],
   experimental: {
     serverActions: {
-      allowedOrigins: ["localhost:3000"]
+      allowedOrigins: ["localhost:3000"],
+      bodySizeLimit: "50mb",
     },
     // Memory optimizations for Codespaces
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],

@@ -113,6 +113,16 @@ export const EVENTS_ORG_SENSITIVE_READ = "events.org_sensitive.read" as const;
 export const PERMISSION_TOOLS_READ = "tools.read" as const;
 export const PERMISSION_TOOLS_MANAGE = "tools.manage" as const;
 
+// WDD Matcher Permissions (org-scoped — SVWMS WDD Matcher tool)
+// wdd_matcher.read   — view sessions, blocks, matches (org_owner + org_member)
+// wdd_matcher.upload — create sessions, upload/parse PDFs, run matching (org_owner + org_member)
+// wdd_matcher.review — approve/reject block pairs and line matches (org_owner + org_member)
+// wdd_matcher.approve — final session sign-off (org_owner only)
+export const PERMISSION_WDD_MATCHER_READ = "wdd_matcher.read" as const;
+export const PERMISSION_WDD_MATCHER_UPLOAD = "wdd_matcher.upload" as const;
+export const PERMISSION_WDD_MATCHER_REVIEW = "wdd_matcher.review" as const;
+export const PERMISSION_WDD_MATCHER_APPROVE = "wdd_matcher.approve" as const;
+
 // Superadmin Permissions (global scope, super-admin only)
 export const SUPERADMIN_WILDCARD = "superadmin.*" as const;
 export const SUPERADMIN_ADMIN_READ = "superadmin.admin.read" as const;
@@ -163,6 +173,10 @@ export type PermissionSlug =
   | typeof EVENTS_ORG_SENSITIVE_READ
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
+  | typeof PERMISSION_WDD_MATCHER_READ
+  | typeof PERMISSION_WDD_MATCHER_UPLOAD
+  | typeof PERMISSION_WDD_MATCHER_REVIEW
+  | typeof PERMISSION_WDD_MATCHER_APPROVE
   | typeof SUPERADMIN_WILDCARD
   | typeof SUPERADMIN_ADMIN_READ
   | typeof SUPERADMIN_PLANS_READ
@@ -212,6 +226,10 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   EVENTS_ORG_SENSITIVE_READ,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
+  PERMISSION_WDD_MATCHER_READ,
+  PERMISSION_WDD_MATCHER_UPLOAD,
+  PERMISSION_WDD_MATCHER_REVIEW,
+  PERMISSION_WDD_MATCHER_APPROVE,
   SUPERADMIN_WILDCARD,
   SUPERADMIN_ADMIN_READ,
   SUPERADMIN_PLANS_READ,

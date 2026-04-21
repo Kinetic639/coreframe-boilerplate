@@ -2127,6 +2127,137 @@
         "searchTools": "Search tools",
         "toolCard": "{name} tool card",
         "viewDetail": "View {name} details"
+      },
+      "wddMatcher": {
+        "title": "SVWMS WDD Matcher",
+        "subtitle": "Drop BC and brand order PDFs — parts are matched automatically.",
+        "uploadZone": {
+          "title": "Drop PDF files here or click to browse",
+          "subtitle": "BC dispatch files and brand order PDFs — file type is auto-detected",
+          "processing": "Processing files…",
+          "process": "Process {count, plural, one {# file} other {# files}}"
+        },
+        "processing": {
+          "title": "Processing…",
+          "subtitle": "Uploading, parsing and matching your PDFs. This may take a moment."
+        },
+        "results": {
+          "session": "Session",
+          "exportCsv": "Export CSV",
+          "newUpload": "New Upload",
+          "exactMatches": "exact",
+          "partialMatches": "partial",
+          "unmatched": "unmatched WDD",
+          "unmatchedOrders": "unmatched orders",
+          "empty": "No WDD blocks found. Make sure at least one BC file was included.",
+          "columns": {
+            "wddNumber": "WDD #",
+            "groupName": "Group",
+            "parts": "Parts",
+            "orderNumber": "Order #",
+            "zwNumber": "ZW #",
+            "zlNumber": "ZL #",
+            "client": "Client",
+            "confidence": "Confidence",
+            "status": "Status"
+          }
+        },
+        "history": {
+          "title": "Recent uploads",
+          "summary": "{exact} exact · {partial} partial · {unmatched} unmatched"
+        },
+        "status": {
+          "pending": "Pending",
+          "processing": "Processing",
+          "ready_for_review": "Ready",
+          "approved": "Approved",
+          "rejected": "Rejected",
+          "failed": "Failed"
+        },
+        "matchType": {
+          "exact": "Exact",
+          "partial": "Partial",
+          "unmatched_bc": "No match",
+          "unmatched_brand": "No WDD"
+        },
+        "toasts": {
+          "matchingComplete": "Matching complete",
+          "exportSuccess": "CSV downloaded"
+        },
+        "extractionReview": {
+          "title": "Extraction Preview",
+          "summary": "{files} files · {blocks} blocks · {lines} positions",
+          "runMatching": "Run Matching",
+          "copyJson": "Copy JSON",
+          "downloadJson": "Download JSON",
+          "tabs": {
+            "list": "List",
+            "diagnostics": "Diagnostics"
+          },
+          "noFiles": "No files found for this session.",
+          "parseError": "Parse error",
+          "fileStats": "{blocks} blocks · {lines} positions",
+          "excluded": "excluded",
+          "noBlocks": "No blocks detected in this file.",
+          "excludedLabel": "excluded",
+          "positions": "positions",
+          "noLines": "No positions extracted for this block.",
+          "headerData": "Extracted header data",
+          "headerFields": {
+            "header": "Header",
+            "headerRaw": "Raw header",
+            "headerNormalized": "Normalized header",
+            "wddNumber": "WDD number",
+            "zwNumber": "ZW number",
+            "zlNumber": "ZL number",
+            "orderNumber": "Order number",
+            "client": "Client",
+            "clientShort": "Client",
+            "group": "Group",
+            "groupNormalized": "Normalized group",
+            "groupShort": "Group",
+            "groupSource": "Group source",
+            "shipment": "Shipment",
+            "warehouse": "Warehouse",
+            "whShort": "WH",
+            "documentBrand": "Document brand",
+            "logicalFamily": "Logical family",
+            "parts": "Parts"
+          },
+          "columns": {
+            "code": "Product Code",
+            "name": "Description",
+            "qty": "Qty (IDP)"
+          },
+          "validation": {
+            "status": {
+              "trusted": "OK",
+              "review": "Review",
+              "failed": "Failed",
+              "unknown": "No data"
+            }
+          },
+          "diagnostics": {
+            "files": "Files",
+            "blocks": "Blocks",
+            "blocksShort": "blocks",
+            "lines": "Lines",
+            "trustedReviewFailed": "OK / review / failed",
+            "filterBlocks": "Show blocks",
+            "noBlocksForFilter": "No blocks match the selected filters.",
+            "coverage": "coverage",
+            "unassignedTokens": "unassigned tokens",
+            "parseError": "Parse error",
+            "fileProblems": "File problems",
+            "blockProblems": "Block problems",
+            "blocksPreview": "Blocks",
+            "lineProblems": "Line problems",
+            "moreProblems": "more problems"
+          }
+        },
+        "errors": {
+          "noFilesProcessed": "No files could be processed"
+        }
       }
     }
   },
