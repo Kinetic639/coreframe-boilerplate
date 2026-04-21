@@ -793,6 +793,10 @@ function tokenCoverage(totalCollectedTokens: number, totalAssignedTokens: number
 // ─── Layer 1: Token extraction ────────────────────────────────────────────────
 
 async function extractTokens(buffer: ArrayBuffer): Promise<TokenV4[]> {
+  // DOMMatrix is a browser API; polyfill the minimal stub needed by pdfjs-dist in Node.js.
+  if (typeof (globalThis as any).DOMMatrix === "undefined") {
+    (globalThis as any).DOMMatrix = class DOMMatrix {};
+  }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),

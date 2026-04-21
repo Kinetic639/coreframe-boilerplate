@@ -276,6 +276,9 @@ function isLocationLike(s: string): boolean {
  * ========================================================== */
 
 async function extractTokens(buffer: ArrayBuffer): Promise<Token[]> {
+  if (typeof (globalThis as any).DOMMatrix === "undefined") {
+    (globalThis as any).DOMMatrix = class DOMMatrix {};
+  }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
 
   const doc = await pdfjsLib.getDocument({
