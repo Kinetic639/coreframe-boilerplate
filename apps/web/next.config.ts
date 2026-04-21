@@ -30,8 +30,12 @@ const nextConfig = {
   serverExternalPackages: ["pdfjs-dist", "pdfjs-dist/legacy/build/pdf.mjs"],
   // Ensure pdfjs worker file is included in Vercel/Lambda serverless bundle.
   // pdf.worker.mjs is never statically imported so output-file-tracing misses it.
+  // The pnpm glob covers the deep node_modules/.pnpm/... path used in pnpm workspaces.
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/**": [
+      "./node_modules/.pnpm/**/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
   },
   experimental: {
     serverActions: {
