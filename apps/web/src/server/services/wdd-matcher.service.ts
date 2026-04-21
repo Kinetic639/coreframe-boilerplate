@@ -147,6 +147,8 @@ export interface MatchSummary {
   unmatched_bc: number;
   unmatched_brand: number;
   total_lines_matched: number;
+  total_wdd_blocks: number;
+  direct_orders: number;
 }
 
 export interface ExtractedBlockData {
@@ -157,6 +159,27 @@ export interface ExtractedBlockData {
 export interface ExtractedFileData {
   file: WddMatcherSessionFile;
   blocks: ExtractedBlockData[];
+}
+
+export interface PdfLineData {
+  productCode: string | null;
+  productName: string | null;
+  quantity: number | null;
+  unit: string | null;
+}
+
+export interface PdfBlockData {
+  isDirect: boolean;
+  wddNumber: string | null;
+  groupName: string | null;
+  orderNumber: string | null;
+  zlNumber: string | null;
+  zwNumber: string | null;
+  clientName: string | null;
+  vin: string | null;
+  matchType: BlockMatchType;
+  confidence: number;
+  lines: PdfLineData[];
 }
 
 export interface ExportRow {
@@ -873,6 +896,123 @@ export class WddMatcherService {
     }
 
     return { success: true, data: results };
+  }
+
+  static async getEnhancedPdfData(
+    supabase: SupabaseClient,
+    sessionId: string,
+    orgId: string
+  ): Promise<ServiceResult<PdfBlockData[]>> {
+    // Fetch matches + all blocks in parallel
+    const [matchesRes, blocksRes] = await Promise.all([
+      supabase
+        .from("wdd_matcher_block_matches")
+        .select("*")
+        .eq("session_id", sessionId)
+        .eq("organization_id", orgId),
+      supabase
+        .from("wdd_matcher_blocks")
+        .select("*")
+        .eq("session_id", sessionId)
+        .eq("organization_id", orgId),
+    ]);
+    if (matchesRes.error) return { success: false, error: normalizeDbError(matchesRes.error) };
+    if (blocksRes.error) return { success: false, error: normalizeDbError(blocksRes.error) };
+
+    const blockMap = new Map((blocksRes.data ?? []).map((b) => [b.id as string, b]));
+
+    // Identify direct_order blocks and WDD bc_block_ids that appear in matches
+    const directBlocks = (blocksRes.data ?? []).filter(
+      (b) => b.block_type === "direct_order" && !b.is_excluded
+    );
+    const wddBlockIds = (matchesRes.data ?? [])
+      .filter((bm) => bm.bc_block_id)
+      .map((bm) => bm.bc_block_id as string);
+
+    // Fetch lines for all relevant blocks in one query
+    const allBlockIds = [...new Set([...wddBlockIds, ...directBlocks.map((b) => b.id as string)])];
+    const linesRes =
+      allBlockIds.length > 0
+        ? await supabase
+            .from("wdd_matcher_lines")
+            .select("*")
+            .in("block_id", allBlockIds)
+            .eq("organization_id", orgId)
+            .order("line_number", { ascending: true })
+        : { data: [], error: null };
+    if (linesRes.error) return { success: false, error: normalizeDbError(linesRes.error) };
+
+    const linesByBlock = new Map<string, WddMatcherLine[]>();
+    for (const line of linesRes.data ?? []) {
+      const arr = linesByBlock.get(line.block_id as string) ?? [];
+      arr.push(line as WddMatcherLine);
+      linesByBlock.set(line.block_id as string, arr);
+    }
+
+    const toLines = (blockId: string): PdfLineData[] =>
+      (linesByBlock.get(blockId) ?? []).map((l) => ({
+        productCode: l.product_code,
+        productName: l.product_name,
+        quantity: l.quantity,
+        unit: l.unit,
+      }));
+
+    // ── Direct order blocks (no matching needed — metadata is self-contained) ──
+    const directPdfBlocks: PdfBlockData[] = directBlocks.map((b) => {
+      const m = (b.metadata ?? {}) as Record<string, unknown>;
+      return {
+        isDirect: true,
+        wddNumber: null,
+        groupName: null,
+        orderNumber: (m.order_number as string) ?? null,
+        zlNumber: (m.zl_number as string) ?? null,
+        zwNumber: (m.zw_number as string) ?? null,
+        clientName: (m.client_name as string) ?? null,
+        vin: (m.vin as string) ?? null,
+        matchType: "unmatched_bc" as BlockMatchType,
+        confidence: 0,
+        lines: toLines(b.id as string),
+      };
+    });
+
+    // ── Matched WDD blocks ────────────────────────────────────────────────────
+    const wddPdfBlocks: PdfBlockData[] = [];
+    for (const bm of matchesRes.data ?? []) {
+      if (!bm.bc_block_id) continue;
+      const wddBlock = blockMap.get(bm.bc_block_id as string);
+      if (!wddBlock || wddBlock.block_type !== "wdd_reconciliation") continue;
+
+      const wddMeta = (wddBlock.metadata ?? {}) as Record<string, unknown>;
+      const orderBlock = bm.brand_block_id ? blockMap.get(bm.brand_block_id as string) : null;
+      const orderMeta = orderBlock ? ((orderBlock.metadata ?? {}) as Record<string, unknown>) : {};
+
+      wddPdfBlocks.push({
+        isDirect: false,
+        wddNumber: (wddMeta.wdd_number as string) ?? null,
+        groupName: (wddMeta.group_name as string) ?? null,
+        orderNumber: (orderMeta.order_number as string) ?? null,
+        zlNumber: (orderMeta.zl_number as string) ?? null,
+        zwNumber: (orderMeta.zw_number as string) ?? null,
+        clientName: (orderMeta.client_name as string) ?? null,
+        vin: (orderMeta.vin as string) ?? null,
+        matchType: bm.block_match_type as BlockMatchType,
+        confidence: (bm.block_confidence as number) ?? 0,
+        lines: toLines(bm.bc_block_id as string),
+      });
+    }
+
+    // Sort WDD blocks by the numeric part of wdd_number ascending ("WDD/875/..." → 875)
+    wddPdfBlocks.sort((a, b) => {
+      const num = (s: string | null) => {
+        if (!s) return Infinity;
+        const m = s.match(/\/(\d+)/);
+        return m ? parseInt(m[1], 10) : Infinity;
+      };
+      return num(a.wddNumber) - num(b.wddNumber);
+    });
+
+    // Direct orders first, then sorted WDD blocks
+    return { success: true, data: [...directPdfBlocks, ...wddPdfBlocks] };
   }
 
   static async getExportRows(

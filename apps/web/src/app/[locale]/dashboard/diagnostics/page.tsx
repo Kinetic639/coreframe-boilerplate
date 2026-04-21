@@ -6,6 +6,52 @@ import { usePermissions } from "@/hooks/v2/use-permissions";
 import { PageHeaderV2 } from "@/components/v2/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PermissionDebugPanel } from "@/components/v2/debug/permission-debug-panel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { toast } from "react-toastify";
+
+function ToastTestPanel() {
+  const [message, setMessage] = useState(
+    "This is a test toast message with some details: ERR_CODE_4291"
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Toast Copy Feature Test</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Message to show in toast</label>
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Enter toast message..."
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => toast.success(message)}>
+            Success
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => toast.error(message)}>
+            Error
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => toast.info(message)}>
+            Info
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => toast.warning(message)}>
+            Warning
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Fire a toast, then click the <strong>copy icon</strong> (📋) next to the ✕ button. The
+          message text should be copied to your clipboard.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function DiagnosticsPage() {
   const appStore = useAppStoreV2();
@@ -20,6 +66,8 @@ export default function DiagnosticsPage() {
         title="Diagnostics"
         description="System diagnostics — permission system, context state, and architecture validation"
       />
+
+      <ToastTestPanel />
 
       <PermissionDebugPanel />
 

@@ -11,18 +11,16 @@ function ToastCloseButton({ closeToast }: { closeToast?: () => void }) {
 
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    // react-toastify v11 removed .Toastify__toast-body — the message is now a plain
-    // classless <div> that's a direct child of .Toastify__toast, sitting between the
-    // icon div (.Toastify__toast-icon) and our close-button div (which contains buttons).
+    // react-toastify v11: the message is rendered directly as a React text node
+    // (a DOM TEXT_NODE), not wrapped in any element. Walk childNodes to collect it.
     const toastEl = (e.currentTarget as HTMLElement).closest(".Toastify__toast");
-    const directDivs = toastEl ? Array.from(toastEl.querySelectorAll(":scope > div")) : [];
-    const messageDiv = directDivs.find(
-      (div) =>
-        !div.className &&
-        !div.querySelector("button") &&
-        !div.querySelector(".Toastify__toast-icon")
-    );
-    const text = messageDiv?.textContent?.trim() ?? "";
+    let text = "";
+    toastEl?.childNodes.forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent ?? "";
+      }
+    });
+    text = text.trim();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);

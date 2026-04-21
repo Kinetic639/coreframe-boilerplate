@@ -2144,11 +2144,14 @@
         "results": {
           "session": "Session",
           "exportCsv": "Export CSV",
+          "exportEnhancedPdf": "Download Enhanced PDF",
           "newUpload": "New Upload",
           "exactMatches": "exact",
           "partialMatches": "partial",
           "unmatched": "unmatched WDD",
           "unmatchedOrders": "unmatched orders",
+          "totalScope": "{total} WDD blocks to match",
+          "directOrdersNote": "{count} direct orders (excluded from matching)",
           "empty": "No WDD blocks found. Make sure at least one BC file was included.",
           "columns": {
             "wddNumber": "WDD #",
@@ -2176,13 +2179,16 @@
         },
         "matchType": {
           "exact": "Exact",
+          "subset": "Subset",
           "partial": "Partial",
+          "ambiguous": "Ambiguous",
           "unmatched_bc": "No match",
           "unmatched_brand": "No WDD"
         },
         "toasts": {
           "matchingComplete": "Matching complete",
-          "exportSuccess": "CSV downloaded"
+          "exportSuccess": "CSV downloaded",
+          "enhancedPdfSuccess": "Enhanced PDF downloaded"
         },
         "extractionReview": {
           "title": "Extraction Preview",

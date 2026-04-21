@@ -1,10 +1,24 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Download, UploadCloud, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  UploadCloud,
+  CheckCircle2,
+  HelpCircle,
+  XCircle,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSessionResultsQuery, useExportCsvMutation } from "@/hooks/queries/tools/wdd-matcher";
-import type { WddMatcherSession } from "@/server/services/wdd-matcher.service";
+import {
+  useSessionResultsQuery,
+  useExportCsvMutation,
+  useEnhancedPdfDataMutation,
+} from "@/hooks/queries/tools/wdd-matcher";
+import { PdfPreviewDialog } from "@/components/tools/svwms-wdd-matcher/pdf-preview-dialog";
+import type { WddMatcherSession, PdfBlockData } from "@/server/services/wdd-matcher.service";
 import type { BlockMatchType } from "@/lib/validations/wdd-matcher";
 
 interface ResultsViewProps {
@@ -17,7 +31,16 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
   const { data: results, isLoading } = useSessionResultsQuery(session.id);
   const exportCsv = useExportCsvMutation(session.id);
 
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [pdfBlocks, setPdfBlocks] = useState<PdfBlockData[] | null>(null);
+  const fetchPdfData = useEnhancedPdfDataMutation((blocks) => {
+    setPdfBlocks(blocks);
+    setPreviewOpen(true);
+  });
+
   const summary = session.match_summary as Record<string, number> | null;
+  const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
+  const directOrders = summary?.direct_orders ?? 0;
 
   const exact = results?.filter((r) => r.matchType === "exact").length ?? 0;
   const subset = results?.filter((r) => r.matchType === "subset").length ?? 0;
@@ -35,6 +58,19 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
           <h2 className="text-xl font-semibold">{session.name}</h2>
         </div>
         <div className="flex gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPdfData.mutate(session.id)}
+            disabled={fetchPdfData.isPending || isLoading}
+          >
+            {fetchPdfData.isPending ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-1.5 h-4 w-4" />
+            )}
+            {t("results.exportEnhancedPdf")}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -68,6 +104,18 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
           />
         )}
       </div>
+
+      {/* Scope line */}
+      {totalWddBlocks > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {t("results.totalScope", { total: totalWddBlocks })}
+          </span>
+          {directOrders > 0 && (
+            <span>{t("results.directOrdersNote", { count: directOrders })}</span>
+          )}
+        </div>
+      )}
 
       {/* Table */}
       {isLoading ? (
@@ -125,6 +173,14 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
           </table>
         </div>
       )}
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blocks={pdfBlocks}
+        sessionName={session.name}
+        sessionId={session.id}
+      />
     </div>
   );
 }

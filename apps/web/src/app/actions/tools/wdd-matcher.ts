@@ -13,6 +13,7 @@ import {
   type WddMatcherLine,
   type WddMatchResultEntry,
   type ExtractedFileData,
+  type PdfBlockData,
 } from "@/server/services/wdd-matcher.service";
 import { exportCsvSchema } from "@/lib/validations/wdd-matcher";
 import { parsePdfAutoV4 } from "@/lib/tools/svwms-wdd-matcher/parser_v4";
@@ -434,6 +435,23 @@ export async function runMatchingAction(
     await WddMatcherService.updateMatchSummary(supabase, sessionId, orgId, summary);
 
     return { success: true, data: summary };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unexpected error" };
+  }
+}
+
+export async function getEnhancedPdfDataAction(
+  sessionId: string
+): Promise<ActionResult<PdfBlockData[]>> {
+  try {
+    const { supabase, user, context } = await getAuthedContext();
+    if (!user) return { success: false, error: "Unauthenticated" };
+    const orgId = context?.app.activeOrgId;
+    if (!orgId) return { success: false, error: "No active organisation" };
+    if (!checkPermission(context.user.permissionSnapshot, PERMISSION_WDD_MATCHER_READ))
+      return { success: false, error: "Unauthorized" };
+
+    return await WddMatcherService.getEnhancedPdfData(supabase, sessionId, orgId);
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unexpected error" };
   }

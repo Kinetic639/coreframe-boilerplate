@@ -11,6 +11,7 @@ import {
   uploadAndParseFileAction,
   runMatchingAction,
   exportCsvAction,
+  getEnhancedPdfDataAction,
 } from "@/app/actions/tools/wdd-matcher";
 import type {
   WddMatcherSession,
@@ -106,6 +107,20 @@ export function useRunMatchingMutation(onComplete?: () => void) {
       toast.success(t("toasts.matchingComplete"));
       onComplete?.();
     },
+    onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useEnhancedPdfDataMutation(
+  onData: (blocks: import("@/server/services/wdd-matcher.service").PdfBlockData[]) => void
+) {
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const result = await getEnhancedPdfDataAction(sessionId);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: onData,
     onError: (err: Error) => toast.error(err.message),
   });
 }
