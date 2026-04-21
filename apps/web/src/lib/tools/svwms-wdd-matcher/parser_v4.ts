@@ -799,7 +799,13 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV4[]> {
   }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
   // Blank workerSrc so pdfjs skips the fake-worker file lookup entirely (serverless-safe).
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    const { createRequire } = await import("node:module");
+    const workerPath = createRequire(import.meta.url).resolve(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs"
+    );
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
+  }
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
     disableWorker: true,

@@ -9,14 +9,30 @@ import "react-toastify/dist/ReactToastify.css";
 function ToastCloseButton({ closeToast }: { closeToast?: () => void }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
     const toastEl = (e.currentTarget as HTMLElement).closest(".Toastify__toast");
-    const text = toastEl?.querySelector(".Toastify__toast-body")?.textContent?.trim() ?? "";
+    const bodyEl = toastEl?.querySelector(".Toastify__toast-body");
+    // The message text lives in a plain div inside the body.
+    // The icon div contains an SVG — skip it by finding the child with no SVG descendant.
+    const children = bodyEl ? Array.from(bodyEl.children) : [];
+    const textEl = children.find((el) => !el.querySelector("svg")) ?? bodyEl;
+    const text = textEl?.textContent?.trim() ?? "";
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for non-HTTPS / restricted contexts
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
