@@ -2160,6 +2160,11 @@
           "summary": "{files} pliki · {blocks} bloki · {lines} pozycje",
           "runMatching": "Uruchom dopasowanie",
           "copyJson": "Kopiuj JSON",
+          "downloadJson": "Pobierz JSON",
+          "tabs": {
+            "list": "Lista",
+            "diagnostics": "Diagnostyka"
+          },
           "noFiles": "Brak plików dla tej sesji.",
           "parseError": "Błąd parsowania",
           "fileStats": "{blocks} bloków · {lines} pozycji",
@@ -2168,10 +2173,57 @@
           "excludedLabel": "wykluczone",
           "positions": "pozycji",
           "noLines": "Brak wyekstrahowanych pozycji dla tego bloku.",
+          "headerData": "Wyodrębnione dane nagłówka",
+          "headerFields": {
+            "header": "Nagłówek",
+            "headerRaw": "Surowy nagłówek",
+            "headerNormalized": "Znormalizowany nagłówek",
+            "wddNumber": "Numer WDD",
+            "zwNumber": "Numer ZW",
+            "zlNumber": "Numer ZL",
+            "orderNumber": "Numer zamówienia",
+            "client": "Klient",
+            "clientShort": "Klient",
+            "group": "Grupa",
+            "groupNormalized": "Grupa znormalizowana",
+            "groupShort": "Grupa",
+            "groupSource": "Źródło grupy",
+            "shipment": "Wysyłka",
+            "warehouse": "Magazyn",
+            "whShort": "Mag.",
+            "documentBrand": "Marka dokumentu",
+            "logicalFamily": "Rodzina logiczna",
+            "parts": "Pozycje"
+          },
           "columns": {
             "code": "Nr katalogowy",
             "name": "Nazwa towaru",
             "qty": "Ilość (IDP)"
+          },
+          "validation": {
+            "status": {
+              "trusted": "OK",
+              "review": "Do sprawdzenia",
+              "failed": "Błąd",
+              "unknown": "Brak danych"
+            }
+          },
+          "diagnostics": {
+            "files": "Pliki",
+            "blocks": "Bloki",
+            "blocksShort": "bloków",
+            "lines": "Pozycje",
+            "trustedReviewFailed": "OK / sprawdź / błąd",
+            "filterBlocks": "Pokaż bloki",
+            "noBlocksForFilter": "Brak bloków dla wybranych filtrów.",
+            "coverage": "pokrycie",
+            "unassignedTokens": "nieprzypisanych tokenów",
+            "parseError": "Błąd parsowania",
+            "fileProblems": "Problemy pliku",
+            "blockProblems": "Problemy bloków",
+            "blocksPreview": "Bloki",
+            "lineProblems": "Problemy pozycji",
+            "moreProblems": "kolejnych problemów"
           }
         },
         "errors": {

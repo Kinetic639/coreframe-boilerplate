@@ -225,23 +225,56 @@ export async function uploadAndParseFileAction(
     }
 
     // Persist blocks
-    const blockInserts = parseResult.blocks.map((b) => ({
-      sessionFileId: fileRecord.id,
-      blockIndex: b.blockIndex,
-      blockType: b.blockType as
-        | "wdd_reconciliation"
-        | "direct_order"
-        | "brand_order"
-        | "wdd_source",
-      header: b.header,
-      warehouseSection: b.warehouseSection,
-      brandLabel: b.brandLabel,
-      fromSection: null,
-      toSection: null,
-      isExcluded: false as const,
-      pageNumber: b.pageNumber,
-      metadata: b.metadata,
-    }));
+    const blockInserts = parseResult.blocks.map((b, index) => {
+      const fileLevelMetadata =
+        index === 0
+          ? {
+              file_parser_quality: parseResult.parserQuality,
+              file_parser_status: parseResult.parserStatus,
+              file_validation: parseResult.fileValidation,
+            }
+          : {};
+
+      return {
+        sessionFileId: fileRecord.id,
+        blockIndex: b.blockIndex,
+        blockType: b.blockType as
+          | "wdd_reconciliation"
+          | "direct_order"
+          | "brand_order"
+          | "wdd_source",
+        header: b.header,
+        warehouseSection: b.warehouseSection,
+        brandLabel: b.warehouseFamilyAlias,
+        fromSection: null,
+        toSection: null,
+        isExcluded: false as const,
+        pageNumber: b.pageNumber,
+        metadata: {
+          ...b.metadata,
+          ...fileLevelMetadata,
+          header_raw: b.headerRaw,
+          header_normalized: b.headerNormalized,
+          warehouse_code: b.warehouseCode,
+          warehouse_section_code: b.warehouseSectionCode,
+          warehouse_section_label: b.warehouseSectionLabel,
+          warehouse_family_alias: b.warehouseFamilyAlias,
+          document_brand: b.documentBrand,
+          logical_order_family: b.logicalOrderFamily,
+          group_name_normalized: b.groupNameNormalized,
+          shipment_code: b.shipmentCode,
+          group_source_label: b.groupSourceLabel,
+          parser_quality: b.parserQuality,
+          parser_status: b.parserStatus,
+          block_validation: b.blockValidation,
+          logical_order_key: b.logicalOrderKey,
+          reconstructed_block: b.reconstructedBlock,
+          reconstruction_sources: b.reconstructionSources,
+          requires_manual_review: b.requiresManualReview,
+          manual_review_reasons: b.manualReviewReasons,
+        },
+      };
+    });
 
     const blocksResult = await WddMatcherService.insertBlocks(
       supabase,
@@ -267,11 +300,52 @@ export async function uploadAndParseFileAction(
         lineNumber: l.lineNumber,
         productCode: l.productCode,
         productName: l.productName,
-        quantity: l.quantity,
+        quantity: l.quantityAbs,
         unit: l.unit,
         location: l.location,
         rawText: l.rawText,
         pageNumber: l.pageNumber,
+        metadata: {
+          lp: l.lp,
+          product_code_kind: l.productCodeKind,
+          quantity_abs: l.quantityAbs,
+          quantity_signed: l.quantitySigned,
+          quantity_legacy: l.quantity,
+          idp_raw: l.idpRaw,
+          idp_value: l.idpValue,
+          idp_abs: l.idpAbs,
+          movement_direction: l.movementDirection,
+          operation_code: l.operationCode,
+          iz: l.iz,
+          iw: l.iw,
+          ir: l.ir,
+          inz: l.inz,
+          raw_row_text: l.rawRowText,
+          raw_tokens: l.rawTokens,
+          assigned_raw_row_text: l.assignedRawRowText,
+          assigned_raw_tokens: l.assignedRawTokens,
+          all_row_text_in_band: l.allRowTextInBand,
+          all_row_tokens_in_band: l.allRowTokensInBand,
+          raw_name_fragments: l.rawNameFragments,
+          raw_location_fragments: l.rawLocationFragments,
+          raw_cells: l.rawCells,
+          corrections: l.corrections,
+          name_source: l.nameSource,
+          row_confidence: l.rowConfidence,
+          has_orphan_tokens: l.hasOrphanTokens,
+          unassigned_tokens_near_row: l.unassignedTokensNearRow,
+          name_looks_truncated: l.nameLooksTruncated,
+          has_suspicious_location: l.hasSuspiciousLocation,
+          suspicious_location_reason: l.suspiciousLocationReason,
+          was_duplicate_reconciled: l.wasDuplicateReconciled,
+          reconciled_from_block_index: l.reconciledFromBlockIndex,
+          reconciled_from_block_header: l.reconciledFromBlockHeader,
+          reconciled_from_page_number: l.reconciledFromPageNumber,
+          reconciled_from_logical_order_family: l.reconciledFromLogicalOrderFamily,
+          reconciled_from_operation_code: l.reconciledFromOperationCode,
+          line_validation: l.lineValidation,
+          warnings: l.warnings,
+        },
       }));
 
       const linesResult = await WddMatcherService.insertLines(

@@ -2189,6 +2189,11 @@
           "summary": "{files} files · {blocks} blocks · {lines} positions",
           "runMatching": "Run Matching",
           "copyJson": "Copy JSON",
+          "downloadJson": "Download JSON",
+          "tabs": {
+            "list": "List",
+            "diagnostics": "Diagnostics"
+          },
           "noFiles": "No files found for this session.",
           "parseError": "Parse error",
           "fileStats": "{blocks} blocks · {lines} positions",
@@ -2197,10 +2202,57 @@
           "excludedLabel": "excluded",
           "positions": "positions",
           "noLines": "No positions extracted for this block.",
+          "headerData": "Extracted header data",
+          "headerFields": {
+            "header": "Header",
+            "headerRaw": "Raw header",
+            "headerNormalized": "Normalized header",
+            "wddNumber": "WDD number",
+            "zwNumber": "ZW number",
+            "zlNumber": "ZL number",
+            "orderNumber": "Order number",
+            "client": "Client",
+            "clientShort": "Client",
+            "group": "Group",
+            "groupNormalized": "Normalized group",
+            "groupShort": "Group",
+            "groupSource": "Group source",
+            "shipment": "Shipment",
+            "warehouse": "Warehouse",
+            "whShort": "WH",
+            "documentBrand": "Document brand",
+            "logicalFamily": "Logical family",
+            "parts": "Parts"
+          },
           "columns": {
             "code": "Product Code",
             "name": "Description",
             "qty": "Qty (IDP)"
+          },
+          "validation": {
+            "status": {
+              "trusted": "OK",
+              "review": "Review",
+              "failed": "Failed",
+              "unknown": "No data"
+            }
+          },
+          "diagnostics": {
+            "files": "Files",
+            "blocks": "Blocks",
+            "blocksShort": "blocks",
+            "lines": "Lines",
+            "trustedReviewFailed": "OK / review / failed",
+            "filterBlocks": "Show blocks",
+            "noBlocksForFilter": "No blocks match the selected filters.",
+            "coverage": "coverage",
+            "unassignedTokens": "unassigned tokens",
+            "parseError": "Parse error",
+            "fileProblems": "File problems",
+            "blockProblems": "Block problems",
+            "blocksPreview": "Blocks",
+            "lineProblems": "Line problems",
+            "moreProblems": "more problems"
           }
         },
         "errors": {

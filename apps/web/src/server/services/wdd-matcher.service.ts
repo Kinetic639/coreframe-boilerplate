@@ -218,6 +218,7 @@ export interface LineInsertInput {
   location: string | null;
   rawText: string | null;
   pageNumber: number | null;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BlockMatchInsertInput {
@@ -509,6 +510,7 @@ export class WddMatcherService {
       location: l.location,
       raw_text: l.rawText,
       page_number: l.pageNumber,
+      metadata: l.metadata ?? {},
     }));
 
     // Insert in chunks of 500 to avoid request size limits
