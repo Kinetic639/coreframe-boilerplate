@@ -1,9 +1,63 @@
 "use client";
 
+import { Check, Copy, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+function ToastCloseButton({ closeToast }: { closeToast?: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const toastEl = (e.currentTarget as HTMLElement).closest(".Toastify__toast");
+    const text = toastEl?.querySelector(".Toastify__toast-body")?.textContent?.trim() ?? "";
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+      <button
+        onClick={handleCopy}
+        title="Copy message"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "2px 4px",
+          opacity: 0.6,
+          display: "flex",
+          alignItems: "center",
+        }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.6")}
+      >
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+      </button>
+      <button
+        onClick={closeToast}
+        title="Close"
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: "2px 4px",
+          opacity: 0.6,
+          display: "flex",
+          alignItems: "center",
+        }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = "1")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = "0.6")}
+      >
+        <X size={13} />
+      </button>
+    </div>
+  );
+}
 
 /**
  * Theme-aware ToastContainer that automatically adapts to the user's selected theme
@@ -25,12 +79,13 @@ export function ToastContainerThemed() {
       autoClose={2500}
       hideProgressBar={false}
       newestOnTop={false}
-      closeOnClick
+      closeOnClick={false}
       rtl={false}
       pauseOnFocusLoss
       draggable
       pauseOnHover
       theme={mounted ? (activeTheme === "dark" ? "dark" : "light") : "light"}
+      closeButton={ToastCloseButton}
       style={{
         padding: "10px 14px",
         minHeight: "auto",
