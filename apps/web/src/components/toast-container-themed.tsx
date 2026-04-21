@@ -11,28 +11,26 @@ function ToastCloseButton({ closeToast }: { closeToast?: () => void }) {
 
   const handleCopy = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    // react-toastify v11 removed .Toastify__toast-body — the message is now a plain
+    // classless <div> that's a direct child of .Toastify__toast, sitting between the
+    // icon div (.Toastify__toast-icon) and our close-button div (which contains buttons).
     const toastEl = (e.currentTarget as HTMLElement).closest(".Toastify__toast");
-    const bodyEl = toastEl?.querySelector(".Toastify__toast-body");
-    // The message text lives in a plain div inside the body.
-    // The icon div contains an SVG — skip it by finding the child with no SVG descendant.
-    const children = bodyEl ? Array.from(bodyEl.children) : [];
-    const textEl = children.find((el) => !el.querySelector("svg")) ?? bodyEl;
-    const text = textEl?.textContent?.trim() ?? "";
+    const directDivs = toastEl ? Array.from(toastEl.querySelectorAll(":scope > div")) : [];
+    const messageDiv = directDivs.find(
+      (div) =>
+        !div.className &&
+        !div.querySelector("button") &&
+        !div.querySelector(".Toastify__toast-icon")
+    );
+    const text = messageDiv?.textContent?.trim() ?? "";
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Fallback for non-HTTPS / restricted contexts
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.cssText = "position:fixed;top:-9999px;opacity:0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
+      // ignore — clipboard not available (non-HTTPS, permissions denied, etc.)
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
   };
 
   return (
