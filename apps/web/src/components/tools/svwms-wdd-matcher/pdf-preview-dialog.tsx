@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Download, X } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { PdfBlockData } from "@/server/services/wdd-matcher.service";
@@ -81,18 +81,10 @@ export function PdfPreviewDialog({
       <DialogContent className="flex h-[92vh] max-w-5xl flex-col gap-0 p-0">
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3 shrink-0">
           <DialogTitle className="text-sm font-medium truncate pr-4">{sessionName}</DialogTitle>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 mr-12">
             <Button size="sm" onClick={handleDownload} disabled={!blobUrl}>
               <Download className="mr-1.5 h-4 w-4" />
               Pobierz
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onOpenChange(false)}
-            >
-              <X className="h-4 w-4" />
             </Button>
           </div>
         </DialogHeader>
