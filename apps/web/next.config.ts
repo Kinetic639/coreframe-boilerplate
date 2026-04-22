@@ -1,3 +1,4 @@
+import path from 'path';
 import {NextConfig} from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
@@ -31,6 +32,15 @@ const nextConfig = {
   // Externalize pdfjs-dist so Node.js loads it from node_modules (where
   // pdf.worker.mjs actually exists) rather than bundling it into SSR chunks.
   serverExternalPackages: ["pdfjs-dist", "pdfjs-dist/legacy/build/pdf.mjs"],
+  // Set tracing root to the monorepo root so includes can reach pnpm's virtual store.
+  // Globs in outputFileTracingIncludes are relative to the project root (apps/web),
+  // so ../../ is needed to reach monorepo-level node_modules.
+  outputFileTracingRoot: path.join(__dirname, "../../"),
+  outputFileTracingIncludes: {
+    "/**": [
+      "../../node_modules/.pnpm/pdfjs-dist@*/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    ],
+  },
   experimental: {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
