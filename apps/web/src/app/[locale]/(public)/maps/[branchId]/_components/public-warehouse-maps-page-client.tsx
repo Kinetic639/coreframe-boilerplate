@@ -163,7 +163,7 @@ const MapInfoDrawer = React.memo(function MapInfoDrawer({
       };
   className?: string;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(true);
   const t = useTranslations("warehouseMapDialog");
 
   return (
@@ -1311,7 +1311,7 @@ export function PublicWarehouseMapsPageClient({
   const [highlightedIds, setHighlightedIds] = React.useState<string[]>([]);
   const [isMonochrome, setIsMonochrome] = React.useState(true);
   const [didCopyPath, setDidCopyPath] = React.useState(false);
-  const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(false);
+  const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(true);
   const [isTreeVisible, setIsTreeVisible] = React.useState(true);
   const [globalSearchQuery, setGlobalSearchQuery] = React.useState("");
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = React.useState(false);
@@ -1458,6 +1458,11 @@ export function PublicWarehouseMapsPageClient({
     () => (orderedFrontStageAnchorIds.length === 1 ? orderedFrontStageAnchorIds[0] : null),
     [orderedFrontStageAnchorIds]
   );
+  React.useEffect(() => {
+    if (frontStageAnchorIds.length > 0) {
+      setIsFrontViewCollapsed(false);
+    }
+  }, [frontStageAnchorIds]);
   const topDownInfoSummary = React.useMemo(
     () =>
       summarizeLocationSelection(
