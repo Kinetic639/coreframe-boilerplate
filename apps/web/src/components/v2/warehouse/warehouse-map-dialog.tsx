@@ -217,7 +217,7 @@ const MapInfoDrawer = React.memo(function MapInfoDrawer({
       };
   className?: string;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(true);
   const t = useTranslations("warehouseMapDialog");
 
   return (
@@ -1245,7 +1245,7 @@ export function WarehouseMapDialog({
   const [isMonochrome, setIsMonochrome] = React.useState(true);
   const [didCopyPath, setDidCopyPath] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(false);
+  const [isFrontViewCollapsed, setIsFrontViewCollapsed] = React.useState(true);
   const [isTreeVisible, setIsTreeVisible] = React.useState(true);
   const highlightedId = highlightedIds.length === 1 ? highlightedIds[0] : null;
 
@@ -1259,7 +1259,7 @@ export function WarehouseMapDialog({
           : []
     );
     setIsMonochrome(true);
-    setIsFrontViewCollapsed(false);
+    setIsFrontViewCollapsed(true);
     setIsTreeVisible(true);
   }, [highlightLocationId, highlightLocationIds, open]);
 
@@ -1329,6 +1329,12 @@ export function WarehouseMapDialog({
     () => (frontStageAnchorIds.length === 1 ? frontStageAnchorIds[0] : null),
     [frontStageAnchorIds]
   );
+  // Auto-expand the front view panel when the selected location has front view content
+  React.useEffect(() => {
+    if (frontStageAnchorIds.length > 0) {
+      setIsFrontViewCollapsed(false);
+    }
+  }, [frontStageAnchorIds]);
   const topDownInfoSummary = React.useMemo(
     () =>
       summarizeLocationSelection(
