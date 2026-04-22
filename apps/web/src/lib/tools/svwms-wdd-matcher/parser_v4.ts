@@ -798,13 +798,13 @@ async function extractTokens(buffer: ArrayBuffer): Promise<TokenV4[]> {
     (globalThis as any).DOMMatrix = class DOMMatrix {};
   }
   const pdfjsLib = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as any;
-  // Blank workerSrc so pdfjs skips the fake-worker file lookup entirely (serverless-safe).
+  // new URL(specifier, import.meta.url) is statically analyzable by @vercel/nft,
+  // which causes the worker file to be included in the Lambda bundle automatically.
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    const { createRequire } = await import("node:module");
-    const workerPath = createRequire(import.meta.url).resolve(
-      "pdfjs-dist/legacy/build/pdf.worker.mjs"
-    );
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/legacy/build/pdf.worker.mjs",
+      import.meta.url
+    ).toString();
   }
   const doc = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
