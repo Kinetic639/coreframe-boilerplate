@@ -1,15 +1,37 @@
-import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font, pdf } from "@react-pdf/renderer";
 import type { PdfBlockData } from "@/server/services/wdd-matcher.service";
 
-function shortId(value: string | null): string {
-  if (!value) return "-";
-  const parts = value.split("/");
-  return parts.slice(0, 2).join("/");
+let _fontsRegistered = false;
+function ensureFonts() {
+  if (_fontsRegistered) return;
+  const base = `${window.location.origin}/api/fonts`;
+  Font.register({
+    family: "Roboto",
+    fonts: [
+      { src: `${base}?name=Roboto-Regular.ttf`, fontWeight: 400 },
+      { src: `${base}?name=Roboto-Bold.ttf`, fontWeight: 700 },
+    ],
+  });
+  Font.registerHyphenationCallback((word) => [word]);
+  _fontsRegistered = true;
+}
+
+// Returns { prefix: "ZLEC/", number: "168237" } from "ZLEC/168237/26/3332"
+function splitId(value: string | null): { prefix: string; number: string } {
+  if (!value) return { prefix: "", number: "-" };
+  const slash = value.indexOf("/");
+  if (slash === -1) return { prefix: "", number: value };
+  const prefix = value.slice(0, slash + 1);
+  const rest = value.slice(slash + 1);
+  const secondSlash = rest.indexOf("/");
+  const number = secondSlash === -1 ? rest : rest.slice(0, secondSlash);
+  return { prefix, number };
 }
 
 const S = StyleSheet.create({
   page: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     fontSize: 9,
     paddingTop: 20,
     paddingBottom: 28,
@@ -38,8 +60,15 @@ const S = StyleSheet.create({
     alignItems: "flex-end",
     marginBottom: 6,
   },
-  idText: {
-    fontFamily: "Helvetica-Bold",
+  idPrefix: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 9,
+    marginBottom: 6,
+  },
+  idNumber: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
     fontSize: 42,
     lineHeight: 1,
   },
@@ -54,15 +83,18 @@ const S = StyleSheet.create({
     gap: 2,
   },
   metaLabel: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     fontSize: 8,
   },
   metaValue: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Roboto",
+    fontWeight: 700,
     fontSize: 8,
   },
   matchStatus: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     fontSize: 7,
     marginTop: 2,
   },
@@ -85,15 +117,18 @@ const S = StyleSheet.create({
     paddingHorizontal: 10,
   },
   headText: {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Roboto",
+    fontWeight: 700,
     fontSize: 7,
   },
   cellText: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     fontSize: 8,
   },
   noLines: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     paddingVertical: 6,
     paddingHorizontal: 10,
     fontSize: 8,
@@ -106,7 +141,8 @@ const S = StyleSheet.create({
   colUnit: { width: "8%", textAlign: "right" },
 
   pageNumber: {
-    fontFamily: "Helvetica",
+    fontFamily: "Roboto",
+    fontWeight: 400,
     position: "absolute",
     bottom: 10,
     right: 20,
@@ -115,35 +151,43 @@ const S = StyleSheet.create({
 });
 
 const MATCH_LABELS: Record<string, string> = {
-  exact: "Dokladne",
+  exact: "Dokładne",
   subset: "Podzbiór",
-  partial: "Czesciowe",
+  partial: "Częściowe",
   ambiguous: "Niejednoznaczne",
   unmatched_bc: "Brak dopasowania",
   unmatched_brand: "Brak WDD",
 };
 
+function IdDisplay({ value }: { value: string | null }) {
+  const { prefix, number } = splitId(value);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+      {prefix ? <Text style={S.idPrefix}>{prefix}</Text> : null}
+      <Text style={S.idNumber}>{number}</Text>
+    </View>
+  );
+}
+
 function BlockCard({ block }: { block: PdfBlockData }) {
-  const zlShort = shortId(block.zlNumber ?? block.zwNumber);
-  const wddShort = shortId(block.wddNumber);
   const matchLabel = MATCH_LABELS[block.matchType] ?? block.matchType;
 
   return (
     <View style={S.block} wrap={false}>
       <View style={S.header}>
         <View style={S.topRow}>
-          <Text style={S.idText}>{zlShort}</Text>
+          <IdDisplay value={block.zlNumber ?? block.zwNumber} />
           {block.isDirect ? (
-            <Text style={[S.idText, { fontSize: 18 }]}>BEZPOSREDNIE</Text>
+            <Text style={[S.idNumber, { fontSize: 18 }]}>BEZPOŚREDNIE</Text>
           ) : (
-            <Text style={S.idText}>{wddShort}</Text>
+            <IdDisplay value={block.wddNumber} />
           )}
         </View>
 
         <View style={S.metaRow}>
           {block.orderNumber ? (
             <View style={S.metaItem}>
-              <Text style={S.metaLabel}>Zamowienie: </Text>
+              <Text style={S.metaLabel}>Zamówienie: </Text>
               <Text style={S.metaValue}>{block.orderNumber}</Text>
             </View>
           ) : null}
@@ -181,14 +225,14 @@ function BlockCard({ block }: { block: PdfBlockData }) {
       </View>
 
       {block.lines.length === 0 ? (
-        <Text style={S.noLines}>Brak pozycji</Text>
+        <Text style={S.noLines}>Brak pozycji.</Text>
       ) : (
         <>
           <View style={S.tableHead}>
             <Text style={[S.colLp, S.headText]}>Lp.</Text>
             <Text style={[S.colCat, S.headText]}>Nr katalogowy</Text>
-            <Text style={[S.colName, S.headText]}>Nazwa czesci</Text>
-            <Text style={[S.colQty, S.headText]}>Ilosc</Text>
+            <Text style={[S.colName, S.headText]}>Nazwa części</Text>
+            <Text style={[S.colQty, S.headText]}>Ilość</Text>
             <Text style={[S.colUnit, S.headText]}>J.m.</Text>
           </View>
           {block.lines.map((line, i) => (
@@ -219,7 +263,7 @@ export function EnhancedDeliveryDocument({
     <Document title={sessionName} author="SVWMS WDD Matcher">
       <Page size="A4" style={S.page}>
         {blocks.length === 0 ? (
-          <Text style={{ fontSize: 10 }}>Brak blokow WDD do wydruku.</Text>
+          <Text style={{ fontSize: 10 }}>Brak bloków WDD do wydruku.</Text>
         ) : (
           blocks.map((block, idx) => <BlockCard key={idx} block={block} />)
         )}
@@ -237,5 +281,6 @@ export async function generateEnhancedPdfBlob(
   blocks: PdfBlockData[],
   sessionName: string
 ): Promise<Blob> {
+  ensureFonts();
   return pdf(<EnhancedDeliveryDocument blocks={blocks} sessionName={sessionName} />).toBlob();
 }

@@ -3,6 +3,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ["3000-firebase-coreframe-1761721056153.cluster-55m56i2mgjalcvl276gecmncu6.cloudworkstations.dev"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
@@ -27,14 +28,14 @@ const nextConfig = {
       },
     ];
   },
+  // Externalize pdfjs-dist so Node.js loads it from node_modules (where
+  // pdf.worker.mjs actually exists) rather than bundling it into SSR chunks.
   serverExternalPackages: ["pdfjs-dist", "pdfjs-dist/legacy/build/pdf.mjs"],
-  // Ensure pdfjs worker file is included in Vercel/Lambda serverless bundle.
-  // pdf.worker.mjs is never statically imported so output-file-tracing misses it.
-  // The pnpm glob covers the deep node_modules/.pnpm/... path used in pnpm workspaces.
+  // In pnpm workspaces, node_modules lives at the monorepo root (../../ from
+  // apps/web). Include the worker file so Vercel's Lambda can find it.
   outputFileTracingIncludes: {
     "/**": [
-      "./node_modules/.pnpm/**/pdfjs-dist/legacy/build/pdf.worker.mjs",
-      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      "../../node_modules/.pnpm/**/pdfjs-dist/legacy/build/pdf.worker.mjs",
     ],
   },
   experimental: {
@@ -55,6 +56,7 @@ const nextConfig = {
       config.ignoreWarnings = [
         { module: /node_modules\/@supabase\/realtime-js/ },
         { module: /node_modules\/@supabase\/supabase-js/ },
+        { module: /pdfjs-dist/ },
       ];
       // Prevent react-konva / konva from trying to load the 'canvas' npm package
       // server-side. All Konva components use dynamic(..., { ssr: false }) so this is safe.

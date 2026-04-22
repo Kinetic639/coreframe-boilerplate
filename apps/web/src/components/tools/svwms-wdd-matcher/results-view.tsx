@@ -17,7 +17,14 @@ import {
   useExportCsvMutation,
   useEnhancedPdfDataMutation,
 } from "@/hooks/queries/tools/wdd-matcher";
-import { PdfPreviewDialog } from "@/components/tools/svwms-wdd-matcher/pdf-preview-dialog";
+import dynamic from "next/dynamic";
+const PdfPreviewDialog = dynamic(
+  () =>
+    import("@/components/tools/svwms-wdd-matcher/pdf-preview-dialog").then((m) => ({
+      default: m.PdfPreviewDialog,
+    })),
+  { ssr: false, loading: () => null }
+);
 import type { WddMatcherSession, PdfBlockData } from "@/server/services/wdd-matcher.service";
 import type { BlockMatchType } from "@/lib/validations/wdd-matcher";
 
