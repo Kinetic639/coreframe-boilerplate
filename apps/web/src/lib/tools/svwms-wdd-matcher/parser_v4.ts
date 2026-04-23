@@ -91,8 +91,12 @@ export interface BlockParserQuality {
   blockCollectedTokens: number;
   blockAssignedTokens: number;
   blockUnassignedRatio: number;
+  strictProductCodeCount: number;
+  acceptedCatalogTokenCount: number;
+  unrecognizedCodeCandidateCount: number;
   orphanTokenCount: number;
   correctionCount: number;
+  correctionRuleCounts: Record<string, number>;
   incompleteRowCount: number;
   duplicateLpCount: number;
   lpGapCount: number;
@@ -225,6 +229,9 @@ export interface ParserQuality {
   totalCollectedTokens: number;
   totalAssignedTokens: number;
   unassignedRatio: number;
+  strictProductCodeCount: number;
+  acceptedCatalogTokenCount: number;
+  unrecognizedCodeCandidateCount: number;
   correctionCount: number;
   incompleteRowCount: number;
   duplicateLpCount: number;
@@ -1883,6 +1890,21 @@ function computeBlockParserQuality(
   const orphanTokenCount = rows.reduce((sum, row) => sum + row.unassignedTokensNearRow, 0);
   const truncatedNameCount = rows.filter((row) => row.nameLooksTruncated).length;
   const suspiciousLocationCount = rows.filter((row) => row.hasSuspiciousLocation).length;
+  const strictProductCodeCount = rows.filter(
+    (row) => row.productCodeKind === "strict_product_code"
+  ).length;
+  const acceptedCatalogTokenCount = rows.filter(
+    (row) => row.productCodeKind === "accepted_catalog_token"
+  ).length;
+  const unrecognizedCodeCandidateCount = rows.filter(
+    (row) => row.productCodeKind === "unrecognized_code_candidate"
+  ).length;
+  const correctionRuleCounts = rows.reduce<Record<string, number>>((counts, row) => {
+    for (const correction of row.corrections) {
+      counts[correction.rule] = (counts[correction.rule] ?? 0) + 1;
+    }
+    return counts;
+  }, {});
 
   let score = 1;
   score -= blockUnassignedRatio * 0.35;
@@ -1907,6 +1929,8 @@ function computeBlockParserQuality(
   if (negativeIdpParseFailures > 0) warnings.push("negative_idp_parse_failures");
   if (opts.correctionCount > 0) warnings.push("column_corrections_applied");
   if (opts.reconciliationCount > 0) warnings.push("duplicate_order_reconciled");
+  if (acceptedCatalogTokenCount > 0) warnings.push("accepted_catalog_tokens_present");
+  if (unrecognizedCodeCandidateCount > 0) warnings.push("unrecognized_code_candidates_present");
   if (orphanTokenCount > 0) warnings.push("orphan_tokens_detected");
   if (truncatedNameCount > 0) warnings.push("truncated_names_detected");
   if (suspiciousLocationCount > 0) warnings.push("suspicious_locations_detected");
@@ -1918,8 +1942,12 @@ function computeBlockParserQuality(
     blockCollectedTokens: opts.totalCollected,
     blockAssignedTokens: opts.totalAssigned,
     blockUnassignedRatio,
+    strictProductCodeCount,
+    acceptedCatalogTokenCount,
+    unrecognizedCodeCandidateCount,
     orphanTokenCount,
     correctionCount: opts.correctionCount,
+    correctionRuleCounts,
     incompleteRowCount,
     duplicateLpCount,
     lpGapCount,
@@ -1929,11 +1957,20 @@ function computeBlockParserQuality(
       detectedRows,
       blockCollectedTokens: opts.totalCollected,
       blockAssignedTokens: opts.totalAssigned,
+      strictProductCodeCount,
+      acceptedCatalogTokenCount,
+      unrecognizedCodeCandidateCount,
       orphanTokenCount,
       correctionCount: opts.correctionCount,
       incompleteRowCount,
       duplicateLpCount,
       lpGapCount,
+      ...Object.fromEntries(
+        Object.entries(correctionRuleCounts).map(([rule, count]) => [
+          `correctionRule_${rule}`,
+          count,
+        ])
+      ),
     },
   };
 }
@@ -1984,6 +2021,15 @@ function computeParserQuality(
   ).length;
   const truncatedNameCount = rows.filter((row) => row.nameLooksTruncated).length;
   const suspiciousLocationCount = rows.filter((row) => row.hasSuspiciousLocation).length;
+  const strictProductCodeCount = rows.filter(
+    (row) => row.productCodeKind === "strict_product_code"
+  ).length;
+  const acceptedCatalogTokenCount = rows.filter(
+    (row) => row.productCodeKind === "accepted_catalog_token"
+  ).length;
+  const unrecognizedCodeCandidateCount = rows.filter(
+    (row) => row.productCodeKind === "unrecognized_code_candidate"
+  ).length;
 
   let score = 1.0;
   score -= unassignedRatio * 0.3;
@@ -2002,6 +2048,8 @@ function computeParserQuality(
   }
   if (negativeIdpParseFailures > 0) warnings.push("negative_idp_parse_failures");
   if (correctionCount > 0) warnings.push("column_corrections_applied");
+  if (acceptedCatalogTokenCount > 0) warnings.push("accepted_catalog_tokens_present");
+  if (unrecognizedCodeCandidateCount > 0) warnings.push("unrecognized_code_candidates_present");
   if (truncatedNameCount > 0) warnings.push("truncated_names_detected");
   if (suspiciousLocationCount > 0) warnings.push("suspicious_locations_detected");
 
@@ -2011,6 +2059,9 @@ function computeParserQuality(
     totalCollectedTokens: totalCollected,
     totalAssignedTokens: totalAssigned,
     unassignedRatio,
+    strictProductCodeCount,
+    acceptedCatalogTokenCount,
+    unrecognizedCodeCandidateCount,
     correctionCount,
     incompleteRowCount,
     duplicateLpCount,
@@ -2021,6 +2072,9 @@ function computeParserQuality(
       detectedRows,
       totalCollectedTokens: totalCollected,
       totalAssignedTokens: totalAssigned,
+      strictProductCodeCount,
+      acceptedCatalogTokenCount,
+      unrecognizedCodeCandidateCount,
       correctionCount,
       incompleteRowCount,
       duplicateLpCount,
@@ -2032,7 +2086,10 @@ function computeParserQuality(
 }
 
 function computeParserStatus(quality: ParserQuality): ParserStatus {
-  const benignWarnings = new Set(["blocks_with_duplicate_lp_numbers"]);
+  const benignWarnings = new Set([
+    "blocks_with_duplicate_lp_numbers",
+    "accepted_catalog_tokens_present",
+  ]);
   const materialWarnings = quality.warnings.filter((warning) => !benignWarnings.has(warning));
 
   if (quality.negativeIdpParseFailures > 0) return "error";
@@ -2054,8 +2111,14 @@ function computeBlockValidation(args: {
   const hardReasons = new Set<string>();
   const reviewReasons = new Set<string>();
 
-  if (!args.logicalOrderKey) hardReasons.add("missing_logical_order_key");
   if (args.lines.length === 0) hardReasons.add("zero_lines");
+  if (!args.logicalOrderKey) {
+    if (args.lines.length === 0 || args.parserStatus === "error") {
+      hardReasons.add("missing_logical_order_key");
+    } else {
+      reviewReasons.add("missing_logical_order_key");
+    }
+  }
   if (args.parserStatus === "error") hardReasons.add("parser_status_error");
   if (args.parserQuality.warnings.includes("table_header_but_zero_rows")) {
     hardReasons.add("table_header_but_zero_rows");
@@ -2081,6 +2144,12 @@ function computeBlockValidation(args: {
     args.lines.some((line) => line.nameLooksTruncated)
   ) {
     reviewReasons.add("truncated_names_detected");
+  }
+  if (args.parserQuality.acceptedCatalogTokenCount > 0) {
+    reviewReasons.add("accepted_catalog_tokens_present");
+  }
+  if (args.parserQuality.unrecognizedCodeCandidateCount > 0) {
+    reviewReasons.add("unrecognized_code_candidates_present");
   }
   if (args.lines.some((line) => line.corrections.length > 0)) {
     reviewReasons.add("structured_column_corrections_present");
@@ -2154,7 +2223,10 @@ function computeFileValidation(
   const reviewBlocks = blocks.filter((block) => block.blockValidation.status === "review").length;
   const failedBlocks = blocks.filter((block) => block.blockValidation.status === "failed").length;
   const reasons = new Set<string>();
-  const benignFileWarnings = new Set(["blocks_with_duplicate_lp_numbers"]);
+  const benignFileWarnings = new Set([
+    "blocks_with_duplicate_lp_numbers",
+    "accepted_catalog_tokens_present",
+  ]);
   const materialFileWarnings = parserQuality.warnings.filter(
     (warning) => !benignFileWarnings.has(warning)
   );

@@ -14,11 +14,10 @@ import {
   type WddMatchResultEntry,
   type ExtractedFileData,
   type PdfBlockData,
+  type MatchSummary,
 } from "@/server/services/wdd-matcher.service";
 import { exportCsvSchema } from "@/lib/validations/wdd-matcher";
-import { parsePdfAutoV4 } from "@/lib/tools/svwms-wdd-matcher/parser_v4";
-import { runWddEnrichment, toMatchSummary } from "@/lib/tools/svwms-wdd-matcher/matcher";
-import { buildCsvString } from "@/lib/tools/svwms-wdd-matcher/csv-exporter";
+import type { ParseResultV4 } from "@/lib/tools/svwms-wdd-matcher/parser_v4";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,6 +113,7 @@ export async function exportCsvAction(rawInput: unknown): Promise<ActionResult<s
     );
     if (!rowsResult.success) return { success: false, error: errMsg(rowsResult) };
 
+    const { buildCsvString } = await import("@/lib/tools/svwms-wdd-matcher/csv-exporter");
     const csv = buildCsvString(rowsResult.data);
     return { success: true, data: csv };
   } catch {
@@ -178,8 +178,9 @@ export async function uploadAndParseFileAction(
     // Parse PDF and auto-detect role in a single pass.
     // pdfjs detaches the ArrayBuffer after first use, so detection and parsing
     // cannot be done in two separate calls on the same buffer.
-    let parseResult: Awaited<ReturnType<typeof parsePdfAutoV4>>;
+    let parseResult: ParseResultV4;
     try {
+      const { parsePdfAutoV4 } = await import("@/lib/tools/svwms-wdd-matcher/parser_v4");
       parseResult = await parsePdfAutoV4(fileBytes);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Parse failed";
@@ -381,9 +382,7 @@ export async function uploadAndParseFileAction(
  * Run block matching for a session after all files have been uploaded and parsed.
  * Returns a match summary.
  */
-export async function runMatchingAction(
-  sessionId: string
-): Promise<ActionResult<ReturnType<typeof toMatchSummary>>> {
+export async function runMatchingAction(sessionId: string): Promise<ActionResult<MatchSummary>> {
   try {
     const { supabase, user, context } = await getAuthedContext();
     if (!user) return { success: false, error: "Unauthenticated" };
@@ -415,7 +414,10 @@ export async function runMatchingAction(
       }
     }
 
-    // Run WDD enrichment engine
+    // Run WDD enrichment engine. Loaded lazily so the tool route does not pull the
+    // matcher graph into Turbopack until the server action is actually invoked.
+    const { runWddEnrichment, toMatchSummary } =
+      await import("@/lib/tools/svwms-wdd-matcher/matcher");
     const enrichResult = runWddEnrichment(blocksResult.data, linesByBlockId);
 
     // Persist matches

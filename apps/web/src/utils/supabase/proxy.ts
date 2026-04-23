@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { routing } from "@/i18n/routing";
 
+function pathnameWithoutLocale(pathname: string): string {
+  const [, maybeLocale, ...rest] = pathname.split("/");
+  if (routing.locales.includes(maybeLocale as (typeof routing.locales)[number])) {
+    return rest.length > 0 ? `/${rest.join("/")}` : "/";
+  }
+  return pathname;
+}
+
 export const updateSession = async (request: NextRequest) => {
   // This `try/catch` block is only here for the interactive tutorial.
   // Feel free to remove once you have Supabase connected.
@@ -38,8 +46,10 @@ export const updateSession = async (request: NextRequest) => {
     // https://supabase.com/docs/guides/auth/server-side/nextjs
     const user = await supabase.auth.getUser();
 
+    const normalizedPathname = pathnameWithoutLocale(request.nextUrl.pathname);
+
     // dashboard routes
-    if (request.nextUrl.pathname.startsWith("/dashboard") && user.error) {
+    if (normalizedPathname.startsWith("/dashboard") && user.error) {
       // Detect locale from request (fallback to default)
       const locale = request.cookies.get("NEXT_LOCALE")?.value || routing.defaultLocale;
 
@@ -59,7 +69,7 @@ export const updateSession = async (request: NextRequest) => {
       return NextResponse.redirect(signInUrl);
     }
 
-    if (request.nextUrl.pathname === "/" && !user.error) {
+    if (normalizedPathname === "/" && !user.error) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
