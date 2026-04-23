@@ -15,6 +15,10 @@ export const routing = defineRouting({
       en: "/pricing",
       pl: "/cennik",
     },
+    "/tools/svwms-wdd-matcher": {
+      en: "/tools/svwms-wdd-matcher",
+      pl: "/narzedzia/svwms-wdd-matcher",
+    },
 
     // === Admin Panel ===
     "/admin": {

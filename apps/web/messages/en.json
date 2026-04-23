@@ -2137,6 +2137,11 @@
           "processing": "Processing files…",
           "process": "Process {count, plural, one {# file} other {# files}}"
         },
+        "public": {
+          "subtitle": "Temporary public tester for WDD/SVWMS files. No login required and no database session is stored.",
+          "temporaryNotice": "This is a temporary testing page for coworkers. Files are processed only for the current result and do not create an app session.",
+          "diagnosticsNote": "The public tester shows simplified diagnostics. Full validation detail and session history remain in the signed-in version."
+        },
         "processing": {
           "title": "Processing…",
           "subtitle": "Uploading, parsing and matching your PDFs. This may take a moment."
