@@ -2108,6 +2108,11 @@
           "processing": "Przetwarzanie plików…",
           "process": "Przetwórz {count, plural, one {# plik} few {# pliki} other {# plików}}"
         },
+        "public": {
+          "subtitle": "Tymczasowy publiczny tester dla plików WDD/SVWMS. Nie wymaga logowania i nie zapisuje danych w bazie.",
+          "temporaryNotice": "To tymczasowa strona testowa dla współpracowników. Pliki są przetwarzane tylko dla bieżącego wyniku i nie tworzą sesji w aplikacji.",
+          "diagnosticsNote": "Publiczny tester pokazuje uproszczoną diagnostykę. Pełna warstwa walidacji i historia sesji zostają w wersji po zalogowaniu."
+        },
         "processing": {
           "title": "Przetwarzanie…",
           "subtitle": "Przesyłanie, parsowanie i dopasowywanie plików PDF. To może chwilę potrwać."
