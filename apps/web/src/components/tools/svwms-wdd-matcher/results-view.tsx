@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Loader2,
   Download,
@@ -16,6 +17,7 @@ import {
   useSessionResultsQuery,
   useExportCsvMutation,
   useEnhancedPdfDataMutation,
+  wddMatcherKeys,
 } from "@/hooks/queries/tools/wdd-matcher";
 import dynamic from "next/dynamic";
 const PdfPreviewDialog = dynamic(
@@ -35,15 +37,56 @@ interface ResultsViewProps {
 
 export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
   const t = useTranslations("modules.tools.wddMatcher");
+  const queryClient = useQueryClient();
   const { data: results, isLoading } = useSessionResultsQuery(session.id);
   const exportCsv = useExportCsvMutation(session.id);
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pdfBlocks, setPdfBlocks] = useState<PdfBlockData[] | null>(null);
+  const [prebuiltPdfUrl, setPrebuiltPdfUrl] = useState<string | null>(null);
+  const [preparingPdfPreview, setPreparingPdfPreview] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const buildPdfPreview = useCallback(
+    async (blocks: PdfBlockData[]) => {
+      if (previewUrlRef.current) return previewUrlRef.current;
+      setPreparingPdfPreview(true);
+      try {
+        const { generateEnhancedPdfBlob } =
+          await import("@/lib/tools/svwms-wdd-matcher/enhanced-delivery-pdf");
+        const blob = await generateEnhancedPdfBlob(blocks, session.name);
+        const url = URL.createObjectURL(blob);
+        previewUrlRef.current = url;
+        setPrebuiltPdfUrl(url);
+        return url;
+      } finally {
+        setPreparingPdfPreview(false);
+      }
+    },
+    [session.name]
+  );
+
   const fetchPdfData = useEnhancedPdfDataMutation((blocks) => {
     setPdfBlocks(blocks);
-    setPreviewOpen(true);
+    void buildPdfPreview(blocks).then(() => {
+      setPreviewOpen(true);
+    });
   });
+
+  useEffect(() => {
+    const cachedBlocks = queryClient.getQueryData<PdfBlockData[]>(
+      wddMatcherKeys.enhancedPdfData(session.id)
+    );
+    if (!cachedBlocks?.length) return;
+    setPdfBlocks(cachedBlocks);
+    void buildPdfPreview(cachedBlocks);
+  }, [buildPdfPreview, queryClient, session.id]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
 
   const summary = session.match_summary as Record<string, number> | null;
   const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
@@ -55,6 +98,15 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
     (results?.filter((r) => r.matchType === "partial" || r.matchType === "ambiguous").length ?? 0) +
     subset;
   const unmatched = results?.filter((r) => r.matchType === "unmatched_bc").length ?? 0;
+
+  const handlePreviewPdf = async () => {
+    if (pdfBlocks?.length) {
+      await buildPdfPreview(pdfBlocks);
+      setPreviewOpen(true);
+      return;
+    }
+    fetchPdfData.mutate(session.id);
+  };
 
   return (
     <div className="space-y-5 p-6">
@@ -68,10 +120,10 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => fetchPdfData.mutate(session.id)}
-            disabled={fetchPdfData.isPending || isLoading}
+            onClick={handlePreviewPdf}
+            disabled={fetchPdfData.isPending || preparingPdfPreview || isLoading}
           >
-            {fetchPdfData.isPending ? (
+            {fetchPdfData.isPending || preparingPdfPreview ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
               <FileText className="mr-1.5 h-4 w-4" />
@@ -185,6 +237,7 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         blocks={pdfBlocks}
+        prebuiltBlobUrl={prebuiltPdfUrl}
         sessionName={session.name}
         sessionId={session.id}
       />
@@ -192,7 +245,7 @@ export function ResultsView({ session, onNewUpload }: ResultsViewProps) {
   );
 }
 
-function SummaryChip({
+export function SummaryChip({
   label,
   value,
   color,
@@ -217,7 +270,7 @@ function SummaryChip({
   );
 }
 
-function MatchTypeBadge({ type }: { type: BlockMatchType }) {
+export function MatchTypeBadge({ type }: { type: BlockMatchType }) {
   const t = useTranslations("modules.tools.wddMatcher.matchType");
   const config: Record<BlockMatchType, { cls: string; icon: React.ReactNode }> = {
     exact: {
@@ -256,7 +309,7 @@ function MatchTypeBadge({ type }: { type: BlockMatchType }) {
   );
 }
 
-function ConfidenceBar({ value }: { value: number }) {
+export function ConfidenceBar({ value }: { value: number }) {
   const color = value >= 90 ? "bg-green-500" : value >= 55 ? "bg-yellow-500" : "bg-red-400";
   return (
     <div className="flex items-center gap-2">

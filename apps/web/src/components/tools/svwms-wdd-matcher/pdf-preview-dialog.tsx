@@ -10,6 +10,7 @@ interface PdfPreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   blocks: PdfBlockData[] | null;
+  prebuiltBlobUrl?: string | null;
   sessionName: string;
   sessionId: string;
 }
@@ -18,6 +19,7 @@ export function PdfPreviewDialog({
   open,
   onOpenChange,
   blocks,
+  prebuiltBlobUrl = null,
   sessionName,
   sessionId,
 }: PdfPreviewDialogProps) {
@@ -29,6 +31,12 @@ export function PdfPreviewDialog({
   // Generate blob whenever dialog opens with fresh data
   useEffect(() => {
     if (!open || !blocks) return;
+    if (prebuiltBlobUrl) {
+      setGenerating(false);
+      setError(null);
+      setBlobUrl(prebuiltBlobUrl);
+      return;
+    }
 
     let cancelled = false;
     setGenerating(true);
@@ -57,16 +65,16 @@ export function PdfPreviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, blocks, sessionName]);
+  }, [open, blocks, prebuiltBlobUrl, sessionName]);
 
   // Revoke URL when dialog closes
   useEffect(() => {
     if (!open && prevBlobUrl.current) {
       URL.revokeObjectURL(prevBlobUrl.current);
       prevBlobUrl.current = null;
-      setBlobUrl(null);
     }
-  }, [open]);
+    if (!open) setBlobUrl(prebuiltBlobUrl);
+  }, [open, prebuiltBlobUrl]);
 
   function handleDownload() {
     if (!blobUrl) return;

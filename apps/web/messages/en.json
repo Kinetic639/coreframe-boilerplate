@@ -2141,10 +2141,34 @@
           "title": "Processing…",
           "subtitle": "Uploading, parsing and matching your PDFs. This may take a moment."
         },
+        "pipeline": {
+          "steps": {
+            "session": {
+              "title": "Uploading and extracting",
+              "description": "Reading PDFs and saving detected blocks and lines."
+            },
+            "extract": {
+              "title": "Uploading and extracting",
+              "description": "Reading PDFs and saving detected blocks and lines."
+            },
+            "preview": {
+              "title": "Loading preview",
+              "description": "Warming the extraction data so the preview opens without a second loader."
+            },
+            "match": {
+              "title": "Automatic matching",
+              "description": "Matching WDD blocks with brand orders in the background."
+            },
+            "pdf": {
+              "title": "Preparing PDF",
+              "description": "Building enhanced PDF preview data before you ask for export."
+            }
+          }
+        },
         "results": {
           "session": "Session",
           "exportCsv": "Export CSV",
-          "exportEnhancedPdf": "Download Enhanced PDF",
+          "exportEnhancedPdf": "PDF Preview",
           "newUpload": "New Upload",
           "exactMatches": "exact",
           "partialMatches": "partial",
@@ -2192,13 +2216,21 @@
         },
         "extractionReview": {
           "title": "Extraction Preview",
+          "back": "Back",
           "summary": "{files} files · {blocks} blocks · {lines} positions",
           "runMatching": "Run Matching",
+          "autoMatching": "Matching in background…",
           "copyJson": "Copy JSON",
+          "download": "Download",
           "downloadJson": "Download JSON",
           "tabs": {
             "list": "List",
+            "results": "Results",
             "diagnostics": "Diagnostics"
+          },
+          "results": {
+            "empty": "Run matching to see results in this tab.",
+            "pending": "Matching is in progress. Results will appear here automatically."
           },
           "noFiles": "No files found for this session.",
           "parseError": "Parse error",

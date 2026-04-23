@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronRight,
@@ -15,12 +17,26 @@ import {
   Check,
   Download,
   XCircle,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTranslations } from "next-intl";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslations } from "next-intl";
+import type { WddMatcherPipelineState } from "./pipeline-progress";
+import { ConfidenceBar, MatchTypeBadge, SummaryChip } from "./results-view";
+import {
+  wddMatcherKeys,
+  useEnhancedPdfDataMutation,
+  useExportCsvMutation,
   useSessionExtractedDataQuery,
+  useSessionResultsQuery,
   useRunMatchingMutation,
 } from "@/hooks/queries/tools/wdd-matcher";
 import { listSessionsAction } from "@/app/actions/tools/wdd-matcher";
@@ -31,7 +47,15 @@ import type {
   WddMatcherSessionFile,
   ExtractedBlockData,
   ExtractedFileData,
+  PdfBlockData,
 } from "@/server/services/wdd-matcher.service";
+const PdfPreviewDialog = dynamic(
+  () =>
+    import("@/components/tools/svwms-wdd-matcher/pdf-preview-dialog").then((m) => ({
+      default: m.PdfPreviewDialog,
+    })),
+  { ssr: false, loading: () => null }
+);
 
 // ---------------------------------------------------------------------------
 // Props
@@ -39,6 +63,8 @@ import type {
 
 interface ExtractionReviewViewProps {
   sessionId: string;
+  pipeline?: WddMatcherPipelineState | null;
+  matchedSession?: WddMatcherSession | null;
   onMatchingComplete: (session: WddMatcherSession) => void;
   onBack: () => void;
 }
@@ -183,17 +209,60 @@ function HeaderDatum({ label, value }: { label: string; value: string | number |
 
 export function ExtractionReviewView({
   sessionId,
+  pipeline,
+  matchedSession,
   onMatchingComplete,
   onBack,
 }: ExtractionReviewViewProps) {
   const t = useTranslations("modules.tools.wddMatcher");
+  const queryClient = useQueryClient();
   const { data: extractedFiles, isLoading, error } = useSessionExtractedDataQuery(sessionId);
+  const { data: results, isLoading: isResultsLoading } = useSessionResultsQuery(
+    matchedSession ? sessionId : null
+  );
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
   const [isRunning, setIsRunning] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState("list");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [pdfBlocks, setPdfBlocks] = useState<PdfBlockData[] | null>(null);
+  const [prebuiltPdfUrl, setPrebuiltPdfUrl] = useState<string | null>(null);
+  const [preparingPdfPreview, setPreparingPdfPreview] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+  const autoOpenedResultsRef = useRef(false);
 
   const runMatching = useRunMatchingMutation();
+  const exportCsv = useExportCsvMutation(sessionId);
+
+  const buildPdfPreview = useCallback(
+    async (blocks: PdfBlockData[]) => {
+      if (previewUrlRef.current) return previewUrlRef.current;
+      setPreparingPdfPreview(true);
+      try {
+        const { generateEnhancedPdfBlob } =
+          await import("@/lib/tools/svwms-wdd-matcher/enhanced-delivery-pdf");
+        const blob = await generateEnhancedPdfBlob(
+          blocks,
+          matchedSession?.name ?? `Sesja ${sessionId}`
+        );
+        const url = URL.createObjectURL(blob);
+        previewUrlRef.current = url;
+        setPrebuiltPdfUrl(url);
+        return url;
+      } finally {
+        setPreparingPdfPreview(false);
+      }
+    },
+    [matchedSession?.name, sessionId]
+  );
+
+  const fetchPdfData = useEnhancedPdfDataMutation((blocks) => {
+    setPdfBlocks(blocks);
+    void buildPdfPreview(blocks).then(() => {
+      setPreviewOpen(true);
+    });
+  });
 
   const toggleFile = useCallback((fileId: string) => {
     setExpandedFiles((prev) => {
@@ -213,6 +282,29 @@ export function ExtractionReviewView({
     });
   }, []);
 
+  useEffect(() => {
+    if (!matchedSession) return;
+    const cachedBlocks = queryClient.getQueryData<PdfBlockData[]>(
+      wddMatcherKeys.enhancedPdfData(sessionId)
+    );
+    if (!cachedBlocks?.length) return;
+    setPdfBlocks(cachedBlocks);
+    void buildPdfPreview(cachedBlocks);
+  }, [buildPdfPreview, matchedSession, queryClient, sessionId]);
+
+  useEffect(() => {
+    if (matchedSession && !autoOpenedResultsRef.current) {
+      autoOpenedResultsRef.current = true;
+      setActiveTab("results");
+    }
+  }, [matchedSession]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
+
   const handleRunMatching = async () => {
     setIsRunning(true);
     try {
@@ -222,10 +314,13 @@ export function ExtractionReviewView({
         const updated = sessionsResult.data.find((s) => s.id === sessionId);
         if (updated) {
           onMatchingComplete(updated);
+          setActiveTab("results");
           return;
         }
       }
-      onMatchingComplete({ id: sessionId } as WddMatcherSession);
+      const fallbackSession = { id: sessionId } as WddMatcherSession;
+      onMatchingComplete(fallbackSession);
+      setActiveTab("results");
     } finally {
       setIsRunning(false);
     }
@@ -254,6 +349,30 @@ export function ExtractionReviewView({
   const totalLines =
     extractedFiles?.reduce((sum, f) => sum + f.blocks.reduce((s, b) => s + b.lines.length, 0), 0) ??
     0;
+  const isAutoRunning = pipeline?.status === "running";
+  const isPdfLoading = fetchPdfData.isPending || preparingPdfPreview;
+  const isDownloadDisabled = isLoading || !extractedFiles?.length;
+  const isRunDisabled =
+    isRunning || isLoading || !extractedFiles?.length || (isAutoRunning && !matchedSession);
+  const summary = matchedSession?.match_summary as Record<string, number> | null;
+  const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
+  const directOrders = summary?.direct_orders ?? 0;
+  const exact = results?.filter((r) => r.matchType === "exact").length ?? 0;
+  const subset = results?.filter((r) => r.matchType === "subset").length ?? 0;
+  const partial =
+    (results?.filter((r) => r.matchType === "partial" || r.matchType === "ambiguous").length ?? 0) +
+    subset;
+  const unmatched = results?.filter((r) => r.matchType === "unmatched_bc").length ?? 0;
+
+  const handlePreviewPdf = async () => {
+    if (!matchedSession) return;
+    if (pdfBlocks?.length) {
+      await buildPdfPreview(pdfBlocks);
+      setPreviewOpen(true);
+      return;
+    }
+    fetchPdfData.mutate(sessionId);
+  };
 
   return (
     <div className="space-y-5 p-6 max-w-4xl mx-auto">
@@ -262,59 +381,99 @@ export function ExtractionReviewView({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Back"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={t("extractionReview.back")}
           >
             <ArrowLeft className="h-5 w-5" />
+            {t("extractionReview.back")}
           </button>
-          <div>
-            <h2 className="text-xl font-semibold">{t("extractionReview.title")}</h2>
-            {!isLoading && extractedFiles && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t("extractionReview.summary", {
-                  files: extractedFiles.length,
-                  blocks: totalBlocks,
-                  lines: totalLines,
-                })}
-              </p>
-            )}
-          </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopyJson}
-            disabled={isLoading || !extractedFiles?.length}
-          >
-            {copied ? (
-              <Check className="mr-1.5 h-4 w-4 text-green-600" />
-            ) : (
-              <Copy className="mr-1.5 h-4 w-4" />
-            )}
-            {t("extractionReview.copyJson")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownloadJson}
-            disabled={isLoading || !extractedFiles?.length}
-          >
-            <Download className="mr-1.5 h-4 w-4" />
-            {t("extractionReview.downloadJson")}
-          </Button>
-          <Button
-            onClick={handleRunMatching}
-            disabled={isRunning || isLoading || !extractedFiles?.length}
-            size="sm"
-          >
-            {isRunning ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Play className="mr-1.5 h-4 w-4" />
-            )}
-            {t("extractionReview.runMatching")}
-          </Button>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 px-0"
+                  onClick={handleCopyJson}
+                  disabled={isDownloadDisabled}
+                  aria-label={t("extractionReview.copyJson")}
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("extractionReview.copyJson")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs"
+                disabled={isDownloadDisabled}
+              >
+                <Download className="mr-1 h-3.5 w-3.5" />
+                {t("extractionReview.download")}
+                <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={handleDownloadJson}>
+                <FileText className="h-4 w-4" />
+                {t("extractionReview.downloadJson")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!matchedSession || exportCsv.isPending}
+                onSelect={() => exportCsv.mutate()}
+              >
+                {exportCsv.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {t("results.exportCsv")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {matchedSession ? (
+            <Button
+              onClick={handlePreviewPdf}
+              disabled={isPdfLoading || isLoading}
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+            >
+              {isPdfLoading ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="mr-1 h-3.5 w-3.5" />
+              )}
+              {t("results.exportEnhancedPdf")}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleRunMatching}
+              disabled={isRunDisabled}
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+            >
+              {isRunning || isAutoRunning ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play className="mr-1 h-3.5 w-3.5" />
+              )}
+              {isAutoRunning
+                ? t("extractionReview.autoMatching")
+                : t("extractionReview.runMatching")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -334,11 +493,23 @@ export function ExtractionReviewView({
           {t("extractionReview.noFiles")}
         </div>
       ) : (
-        <Tabs defaultValue="list" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="list">{t("extractionReview.tabs.list")}</TabsTrigger>
-            <TabsTrigger value="diagnostics">{t("extractionReview.tabs.diagnostics")}</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="list">{t("extractionReview.tabs.list")}</TabsTrigger>
+              <TabsTrigger value="results">{t("extractionReview.tabs.results")}</TabsTrigger>
+              <TabsTrigger value="diagnostics">
+                {t("extractionReview.tabs.diagnostics")}
+              </TabsTrigger>
+            </TabsList>
+            <div className="text-xs text-muted-foreground">
+              {t("extractionReview.summary", {
+                files: extractedFiles.length,
+                blocks: totalBlocks,
+                lines: totalLines,
+              })}
+            </div>
+          </div>
 
           <TabsContent value="list" className="mt-0">
             <div className="rounded-lg border divide-y">
@@ -357,11 +528,119 @@ export function ExtractionReviewView({
             </div>
           </TabsContent>
 
+          <TabsContent value="results" className="mt-0">
+            {!matchedSession ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border py-20 text-muted-foreground">
+                {isAutoRunning ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : (
+                  <HelpCircle className="h-8 w-8" />
+                )}
+                <p className="text-sm">
+                  {isAutoRunning
+                    ? t("extractionReview.results.pending")
+                    : t("extractionReview.results.empty")}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <SummaryChip label={t("results.exactMatches")} value={exact} color="green" />
+                  <SummaryChip label={t("results.partialMatches")} value={partial} color="yellow" />
+                  <SummaryChip label={t("results.unmatched")} value={unmatched} color="red" />
+                  {summary &&
+                    typeof summary.unmatched_brand === "number" &&
+                    summary.unmatched_brand > 0 && (
+                      <SummaryChip
+                        label={t("results.unmatchedOrders")}
+                        value={summary.unmatched_brand}
+                        color="orange"
+                      />
+                    )}
+                </div>
+
+                {totalWddBlocks > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {t("results.totalScope", { total: totalWddBlocks })}
+                    </span>
+                    {directOrders > 0 && (
+                      <span>{t("results.directOrdersNote", { count: directOrders })}</span>
+                    )}
+                  </div>
+                )}
+
+                {isResultsLoading ? (
+                  <div className="flex justify-center py-20">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : !results?.length ? (
+                  <div className="flex flex-col items-center justify-center gap-2 rounded-lg border py-20 text-muted-foreground">
+                    <HelpCircle className="h-8 w-8" />
+                    <p className="text-sm">{t("results.empty")}</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="px-3 py-3 text-left">{t("results.columns.wddNumber")}</th>
+                          <th className="px-3 py-3 text-left">{t("results.columns.zwNumber")}</th>
+                          <th className="px-3 py-3 text-left">{t("results.columns.zlNumber")}</th>
+                          <th className="px-3 py-3 text-left">{t("results.columns.parts")}</th>
+                          <th className="px-3 py-3 text-left">{t("results.columns.confidence")}</th>
+                          <th className="px-3 py-3 text-left">{t("results.columns.status")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {results.map((result, idx) => (
+                          <tr key={idx} className="transition-colors hover:bg-muted/20">
+                            <td className="px-3 py-3 font-mono text-xs">
+                              {result.wdd.wddNumber ?? "—"}
+                            </td>
+                            <td className="px-3 py-3 font-mono text-xs">
+                              {result.order?.zwNumber ?? "—"}
+                            </td>
+                            <td className="px-3 py-3 font-mono text-xs">
+                              {result.order?.zlNumber ?? "—"}
+                            </td>
+                            <td className="px-3 py-3 text-center text-xs">
+                              {result.wdd.partsCount}
+                            </td>
+                            <td className="px-3 py-3">
+                              {result.matchType !== "unmatched_bc" ? (
+                                <ConfidenceBar value={result.confidence} />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              <MatchTypeBadge type={result.matchType} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
           <TabsContent value="diagnostics" className="mt-0">
             <DiagnosticsTab extractedFiles={extractedFiles} t={t} />
           </TabsContent>
         </Tabs>
       )}
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blocks={pdfBlocks}
+        prebuiltBlobUrl={prebuiltPdfUrl}
+        sessionName={matchedSession?.name ?? `Sesja ${sessionId}`}
+        sessionId={sessionId}
+      />
     </div>
   );
 }
@@ -653,7 +932,7 @@ function buildFileDiagnostics({ file, blocks }: ExtractedFileData) {
     }
   }
 
-  const fileStatus =
+  const fileStatus: ValidationInfo["status"] =
     file.parse_error || fileValidation?.status === "failed"
       ? "failed"
       : (fileValidation?.status ??
