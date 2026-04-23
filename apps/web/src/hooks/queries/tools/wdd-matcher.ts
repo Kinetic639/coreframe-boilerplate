@@ -15,8 +15,8 @@ import {
 } from "@/app/actions/tools/wdd-matcher";
 import type {
   WddMatcherSession,
-  WddMatchResultEntry,
   ExtractedFileData,
+  PdfBlockData,
 } from "@/server/services/wdd-matcher.service";
 
 // ---------------------------------------------------------------------------
@@ -29,6 +29,8 @@ export const wddMatcherKeys = {
   results: (sessionId: string) => [...wddMatcherKeys.all, "results", sessionId] as const,
   extractedData: (sessionId: string) =>
     [...wddMatcherKeys.all, "extracted-data", sessionId] as const,
+  enhancedPdfData: (sessionId: string) =>
+    [...wddMatcherKeys.all, "enhanced-pdf-data", sessionId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -111,13 +113,17 @@ export function useRunMatchingMutation(onComplete?: () => void) {
   });
 }
 
-export function useEnhancedPdfDataMutation(
-  onData: (blocks: import("@/server/services/wdd-matcher.service").PdfBlockData[]) => void
-) {
+export function useEnhancedPdfDataMutation(onData: (blocks: PdfBlockData[]) => void) {
+  const qc = useQueryClient();
+
   return useMutation({
     mutationFn: async (sessionId: string) => {
+      const cached = qc.getQueryData<PdfBlockData[]>(wddMatcherKeys.enhancedPdfData(sessionId));
+      if (cached) return cached;
+
       const result = await getEnhancedPdfDataAction(sessionId);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      qc.setQueryData(wddMatcherKeys.enhancedPdfData(sessionId), result.data);
       return result.data;
     },
     onSuccess: onData,

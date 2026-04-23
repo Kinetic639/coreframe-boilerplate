@@ -2,26 +2,50 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Clock, ChevronRight, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Clock } from "lucide-react";
 import { toast } from "react-toastify";
 import { UploadZone } from "./upload-zone";
-import { ResultsView } from "./results-view";
 import { ExtractionReviewView } from "./extraction-review-view";
 import {
+  PIPELINE_STEPS,
+  PipelineProgressOverlay,
+  runningPipeline,
+  type PipelineStepId,
+  type WddMatcherPipelineState,
+} from "./pipeline-progress";
+import {
+  wddMatcherKeys,
   useSessionsQuery,
   useCreateAutoSessionMutation,
   useUploadAndParseFileMutation,
 } from "@/hooks/queries/tools/wdd-matcher";
-import type { WddMatcherSession } from "@/server/services/wdd-matcher.service";
+import {
+  getEnhancedPdfDataAction,
+  getSessionExtractedDataAction,
+  getSessionResultsAction,
+  listSessionsAction,
+  runMatchingAction,
+} from "@/app/actions/tools/wdd-matcher";
+import type {
+  ExtractedFileData,
+  PdfBlockData,
+  WddMatcherSession,
+  WddMatchResultEntry,
+} from "@/server/services/wdd-matcher.service";
 
 // ---------------------------------------------------------------------------
 // View state
 // ---------------------------------------------------------------------------
 
-type View =
-  | { name: "home" }
-  | { name: "extraction-review"; sessionId: string }
-  | { name: "results"; session: WddMatcherSession };
+type View = { name: "home" } | { name: "extraction-review"; sessionId: string };
+
+type ActionResult<T> = { success: true; data: T } | { success: false; error: string };
+
+function unwrap<T>(result: ActionResult<T>): T {
+  if (result.success) return result.data;
+  throw new Error((result as { success: false; error: string }).error);
+}
 
 // ---------------------------------------------------------------------------
 // Root component
@@ -29,9 +53,14 @@ type View =
 
 export function SvwmsWddMatcher() {
   const [view, setView] = useState<View>({ name: "home" });
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [blockingPipeline, setBlockingPipeline] = useState<WddMatcherPipelineState | null>(null);
+  const [backgroundPipeline, setBackgroundPipeline] = useState<WddMatcherPipelineState | null>(
+    null
+  );
+  const [matchedSession, setMatchedSession] = useState<WddMatcherSession | null>(null);
 
   const t = useTranslations("modules.tools.wddMatcher");
+  const queryClient = useQueryClient();
   const { data: sessions } = useSessionsQuery();
 
   const createSession = useCreateAutoSessionMutation((session) => {
@@ -40,13 +69,109 @@ export function SvwmsWddMatcher() {
 
   const uploadAndParse = useUploadAndParseFileMutation();
 
+  const markBlockingStep = useCallback((activeStep: PipelineStepId) => {
+    setBlockingPipeline((prev) => {
+      const completedSteps = prev?.completedSteps ?? [];
+      const previousActive = prev?.activeStep;
+      const nextCompleted =
+        previousActive && !completedSteps.includes(previousActive)
+          ? [...completedSteps, previousActive]
+          : completedSteps;
+
+      return {
+        status: "running",
+        activeStep,
+        completedSteps: nextCompleted,
+        error: null,
+      };
+    });
+  }, []);
+
+  const markBackgroundStep = useCallback((activeStep: PipelineStepId) => {
+    setBackgroundPipeline((prev) => {
+      const completedSteps = prev?.completedSteps ?? ["session", "extract", "preview"];
+      const previousActive = prev?.activeStep;
+      const nextCompleted =
+        previousActive && !completedSteps.includes(previousActive)
+          ? [...completedSteps, previousActive]
+          : completedSteps;
+
+      return {
+        status: "running",
+        activeStep,
+        completedSteps: nextCompleted,
+        error: null,
+      };
+    });
+  }, []);
+
+  const prefetchExtractionPreview = useCallback(
+    async (sessionId: string) => {
+      const extractedFiles = unwrap<ExtractedFileData[]>(
+        await getSessionExtractedDataAction(sessionId)
+      );
+      queryClient.setQueryData(wddMatcherKeys.extractedData(sessionId), extractedFiles);
+      return extractedFiles;
+    },
+    [queryClient]
+  );
+
+  const runBackgroundAutomation = useCallback(
+    async (session: WddMatcherSession) => {
+      const sessionId = session.id;
+      try {
+        setBackgroundPipeline({
+          status: "running",
+          activeStep: "match",
+          completedSteps: ["session", "extract", "preview"],
+          error: null,
+        });
+
+        unwrap(await runMatchingAction(sessionId));
+        const results = unwrap<WddMatchResultEntry[]>(await getSessionResultsAction(sessionId));
+        queryClient.setQueryData(wddMatcherKeys.results(sessionId), results);
+        queryClient.invalidateQueries({ queryKey: wddMatcherKeys.sessions() });
+
+        const sessionsResult = await listSessionsAction();
+        const updatedSessions = sessionsResult.success ? sessionsResult.data : null;
+        if (updatedSessions) queryClient.setQueryData(wddMatcherKeys.sessions(), updatedSessions);
+        const updatedSession = updatedSessions?.find((item) => item.id === sessionId) ?? session;
+        setMatchedSession(updatedSession);
+
+        markBackgroundStep("pdf");
+        const pdfBlocks = unwrap<PdfBlockData[]>(await getEnhancedPdfDataAction(sessionId));
+        queryClient.setQueryData(wddMatcherKeys.enhancedPdfData(sessionId), pdfBlocks);
+
+        setBackgroundPipeline({
+          status: "ready",
+          activeStep: null,
+          completedSteps: PIPELINE_STEPS,
+          error: null,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Background processing failed";
+        setBackgroundPipeline((prev) => ({
+          status: "error",
+          activeStep: prev?.activeStep ?? "match",
+          completedSteps: prev?.completedSteps ?? ["session", "extract", "preview"],
+          error: msg,
+        }));
+        toast.error(msg);
+      }
+    },
+    [markBackgroundStep, queryClient]
+  );
+
   const processFiles = useCallback(
     async (files: File[]) => {
-      setIsProcessing(true);
+      setMatchedSession(null);
+      setBackgroundPipeline(null);
+      setBlockingPipeline(runningPipeline("session"));
       try {
         // 1. Create session
         const sessionResult = await createSession.mutateAsync();
         const sessionId = sessionResult.id;
+        markBlockingStep("extract");
 
         // 2. Upload + parse all files in parallel
         const uploadResults = await Promise.allSettled(
@@ -70,19 +195,42 @@ export function SvwmsWddMatcher() {
           return;
         }
 
-        // 3. Show extraction review — user verifies parsed blocks before matching runs
+        // 3. Warm the extraction query cache before the review screen mounts.
+        markBlockingStep("preview");
+        await prefetchExtractionPreview(sessionId);
+
+        // 4. Show extraction review immediately, then continue matching/PDF prep in background.
         setView({ name: "extraction-review", sessionId });
+        setBlockingPipeline(null);
+        void runBackgroundAutomation(sessionResult);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Processing failed";
+        setBlockingPipeline((prev) => ({
+          status: "error",
+          activeStep: prev?.activeStep ?? "extract",
+          completedSteps: prev?.completedSteps ?? [],
+          error: msg,
+        }));
         toast.error(msg);
       } finally {
-        setIsProcessing(false);
+        setBlockingPipeline((prev) => (prev?.status === "error" ? prev : null));
       }
     },
-    [createSession, uploadAndParse, t]
+    [
+      createSession,
+      markBlockingStep,
+      prefetchExtractionPreview,
+      runBackgroundAutomation,
+      t,
+      uploadAndParse,
+    ]
   );
 
-  const goHome = useCallback(() => setView({ name: "home" }), []);
+  const goHome = useCallback(() => {
+    setView({ name: "home" });
+    setBackgroundPipeline(null);
+    setMatchedSession(null);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Extraction review
@@ -92,18 +240,12 @@ export function SvwmsWddMatcher() {
     return (
       <ExtractionReviewView
         sessionId={view.sessionId}
-        onMatchingComplete={(session) => setView({ name: "results", session })}
+        onMatchingComplete={(session) => setMatchedSession(session)}
         onBack={goHome}
+        pipeline={backgroundPipeline}
+        matchedSession={matchedSession}
       />
     );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Results view
-  // ---------------------------------------------------------------------------
-
-  if (view.name === "results") {
-    return <ResultsView session={view.session} onNewUpload={goHome} />;
   }
 
   // ---------------------------------------------------------------------------
@@ -119,7 +261,7 @@ export function SvwmsWddMatcher() {
       </div>
 
       {/* Upload zone */}
-      <UploadZone onProcess={processFiles} isProcessing={isProcessing} />
+      <UploadZone onProcess={processFiles} isProcessing={blockingPipeline?.status === "running"} />
 
       {/* Past uploads */}
       {sessions && sessions.length > 0 && (
@@ -130,24 +272,18 @@ export function SvwmsWddMatcher() {
               <SessionRow
                 key={session.id}
                 session={session}
-                onClick={() => setView({ name: "results", session })}
+                onClick={() => {
+                  setMatchedSession(session);
+                  setBackgroundPipeline(null);
+                  setView({ name: "extraction-review", sessionId: session.id });
+                }}
               />
             ))}
           </div>
         </div>
       )}
 
-      {isProcessing && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card border rounded-xl shadow-lg p-8 flex flex-col items-center gap-4 max-w-sm mx-auto text-center">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <div>
-              <p className="font-semibold">{t("processing.title")}</p>
-              <p className="text-sm text-muted-foreground mt-1">{t("processing.subtitle")}</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {blockingPipeline && <PipelineProgressOverlay pipeline={blockingPipeline} />}
     </div>
   );
 }

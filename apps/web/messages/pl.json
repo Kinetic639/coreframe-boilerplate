@@ -2112,10 +2112,34 @@
           "title": "Przetwarzanie…",
           "subtitle": "Przesyłanie, parsowanie i dopasowywanie plików PDF. To może chwilę potrwać."
         },
+        "pipeline": {
+          "steps": {
+            "session": {
+              "title": "Wgrywanie i ekstrakcja",
+              "description": "Czytam PDF-y i zapisuję wykryte bloki oraz pozycje."
+            },
+            "extract": {
+              "title": "Wgrywanie i ekstrakcja",
+              "description": "Czytam PDF-y i zapisuję wykryte bloki oraz pozycje."
+            },
+            "preview": {
+              "title": "Ładowanie podglądu",
+              "description": "Dogrzewam dane, żeby ekran ekstrakcji otworzył się bez drugiego loadera."
+            },
+            "match": {
+              "title": "Automatyczne dopasowanie",
+              "description": "Porównuję bloki WDD z zamówieniami w tle."
+            },
+            "pdf": {
+              "title": "Przygotowanie PDF",
+              "description": "Buduję dane do rozszerzonego podglądu, zanim klikniesz eksport."
+            }
+          }
+        },
         "results": {
           "session": "Sesja",
           "exportCsv": "Eksportuj CSV",
-          "exportEnhancedPdf": "Pobierz rozszerzony PDF",
+          "exportEnhancedPdf": "Podgląd PDF",
           "newUpload": "Nowe wgranie",
           "exactMatches": "dokładne",
           "partialMatches": "częściowe",
@@ -2163,13 +2187,21 @@
         },
         "extractionReview": {
           "title": "Podgląd ekstrakcji",
+          "back": "Wróć",
           "summary": "{files} pliki · {blocks} bloki · {lines} pozycje",
           "runMatching": "Uruchom dopasowanie",
+          "autoMatching": "Dopasowanie w tle…",
           "copyJson": "Kopiuj JSON",
+          "download": "Pobierz",
           "downloadJson": "Pobierz JSON",
           "tabs": {
             "list": "Lista",
+            "results": "Wyniki",
             "diagnostics": "Diagnostyka"
+          },
+          "results": {
+            "empty": "Uruchom dopasowanie, aby zobaczyć wyniki w tej zakładce.",
+            "pending": "Dopasowanie trwa. Wyniki pojawią się tutaj automatycznie."
           },
           "noFiles": "Brak plików dla tej sesji.",
           "parseError": "Błąd parsowania",
