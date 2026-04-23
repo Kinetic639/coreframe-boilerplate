@@ -5,12 +5,34 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
+function pathnameWithoutLocale(pathname: string): string {
+  const [, maybeLocale, ...rest] = pathname.split("/");
+  if (routing.locales.includes(maybeLocale as (typeof routing.locales)[number])) {
+    return rest.length > 0 ? `/${rest.join("/")}` : "/";
+  }
+  return pathname;
+}
+
+function needsSupabaseSession(pathname: string): boolean {
+  const normalized = pathnameWithoutLocale(pathname);
+  return (
+    normalized === "/" ||
+    normalized.startsWith("/dashboard") ||
+    normalized.startsWith("/admin") ||
+    normalized.startsWith("/onboarding")
+  );
+}
+
 export async function proxy(request: NextRequest) {
   // Run next-intl middleware first
   const intlResponse = intlMiddleware(request);
 
   // Set pathname header for server components
   intlResponse.headers.set("x-pathname", request.nextUrl.pathname);
+
+  if (!needsSupabaseSession(request.nextUrl.pathname)) {
+    return intlResponse;
+  }
 
   // Run Supabase session proxy on the updated request
   const response = await updateSession(request);
