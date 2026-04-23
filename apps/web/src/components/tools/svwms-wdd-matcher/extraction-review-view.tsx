@@ -394,7 +394,8 @@ export function ExtractionReviewView({
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="sm"
+                  className="h-8 w-8 px-0"
                   onClick={handleCopyJson}
                   disabled={isDownloadDisabled}
                   aria-label={t("extractionReview.copyJson")}
@@ -412,10 +413,15 @@ export function ExtractionReviewView({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isDownloadDisabled}>
-                <Download className="mr-1.5 h-4 w-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs"
+                disabled={isDownloadDisabled}
+              >
+                <Download className="mr-1 h-3.5 w-3.5" />
                 {t("extractionReview.download")}
-                <ChevronDown className="ml-1.5 h-4 w-4" />
+                <ChevronDown className="ml-1 h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -438,20 +444,30 @@ export function ExtractionReviewView({
           </DropdownMenu>
 
           {matchedSession ? (
-            <Button onClick={handlePreviewPdf} disabled={isPdfLoading || isLoading} size="sm">
+            <Button
+              onClick={handlePreviewPdf}
+              disabled={isPdfLoading || isLoading}
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+            >
               {isPdfLoading ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               ) : (
-                <FileText className="mr-1.5 h-4 w-4" />
+                <FileText className="mr-1 h-3.5 w-3.5" />
               )}
               {t("results.exportEnhancedPdf")}
             </Button>
           ) : (
-            <Button onClick={handleRunMatching} disabled={isRunDisabled} size="sm">
+            <Button
+              onClick={handleRunMatching}
+              disabled={isRunDisabled}
+              size="sm"
+              className="h-8 px-2.5 text-xs"
+            >
               {isRunning || isAutoRunning ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Play className="mr-1.5 h-4 w-4" />
+                <Play className="mr-1 h-3.5 w-3.5" />
               )}
               {isAutoRunning
                 ? t("extractionReview.autoMatching")
