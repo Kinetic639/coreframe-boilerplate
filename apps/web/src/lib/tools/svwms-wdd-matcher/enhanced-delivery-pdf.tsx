@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Font, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font, Svg, Path, pdf } from "@react-pdf/renderer";
 import type { PdfBlockData } from "@/server/services/wdd-matcher.service";
 
 let _fontsRegistered = false;
@@ -30,6 +30,7 @@ function splitId(value: string | null): { prefix: string; number: string } {
 
 const S = StyleSheet.create({
   page: {
+    position: "relative",
     fontFamily: "Roboto",
     fontWeight: 400,
     fontSize: 9,
@@ -148,6 +149,35 @@ const S = StyleSheet.create({
     right: 20,
     fontSize: 7,
   },
+  watermark: {
+    position: "absolute",
+    top: 140,
+    left: 72,
+    right: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.08,
+  },
+  watermarkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  watermarkTextWrap: {
+    gap: 4,
+  },
+  watermarkTitle: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 24,
+    letterSpacing: 5,
+    color: "#000000",
+  },
+  watermarkRule: {
+    width: 148,
+    height: 1,
+    backgroundColor: "#000000",
+  },
 });
 
 const MATCH_LABELS: Record<string, string> = {
@@ -165,6 +195,32 @@ function IdDisplay({ value }: { value: string | null }) {
     <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
       {prefix ? <Text style={S.idPrefix}>{prefix}</Text> : null}
       <Text style={S.idNumber}>{number}</Text>
+    </View>
+  );
+}
+
+function PdfBrandWatermark() {
+  return (
+    <View style={S.watermark} fixed>
+      <View style={S.watermarkRow}>
+        <Svg width={64} height={64} viewBox="0 0 56 56">
+          <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
+          <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#5f5f5f" />
+          <Path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#a3a3a3" />
+          <Path
+            d="M14 34 L28 51 L42 34"
+            stroke="#000000"
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+        <View style={S.watermarkTextWrap}>
+          <Text style={S.watermarkTitle}>AMBRA SYSTEM</Text>
+          <View style={S.watermarkRule} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -262,6 +318,7 @@ export function EnhancedDeliveryDocument({
   return (
     <Document title={sessionName} author="SVWMS WDD Matcher">
       <Page size="A4" style={S.page}>
+        <PdfBrandWatermark />
         {blocks.length === 0 ? (
           <Text style={{ fontSize: 10 }}>Brak bloków WDD do wydruku.</Text>
         ) : (

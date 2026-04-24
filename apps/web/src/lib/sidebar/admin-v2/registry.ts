@@ -48,6 +48,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [SUPERADMIN_PRICING_READ],
     },
   },
+  {
+    id: "admin.branding",
+    title: "Branding",
+    iconKey: "development",
+    href: "/admin/branding",
+    match: { startsWith: "/admin/branding" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
 ];
 
 export const ADMIN_FOOTER_NAV_ITEMS: SidebarItem[] = [];
