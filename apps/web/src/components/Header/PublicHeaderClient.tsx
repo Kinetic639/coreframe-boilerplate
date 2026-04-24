@@ -30,7 +30,7 @@ export function PublicHeaderClient({ showPricing = true }: { showPricing?: boole
       {/* Logo */}
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2.5">
-          <BrandLockup size="md" />
+          <BrandLockup size="md" hoverAnimation />
         </Link>
       </div>
 
