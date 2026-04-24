@@ -1,7 +1,7 @@
 <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#B45309" />
   <path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#F59E0B" />
-  <path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#FBBF24" opacity="0.95" />
+  <path d="M28 7.5 L22 20 L28 29 L34 20 Z" fill="#FBBF24" opacity="0.95" />
   <polyline
     points="14,34 28,51 42,34"
     stroke="#FCD34D"
@@ -11,5 +11,5 @@
     fill="none"
     opacity="0.85"
   />
-  <path d="M28 5 L32 11 L28 8 Z" fill="white" opacity="0.45" />
+
 </svg>
