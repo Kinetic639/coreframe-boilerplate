@@ -2,6 +2,7 @@ export { BrandBanner } from "./brand-banner";
 export { BrandLoader, type BrandLoaderVariant } from "./brand-loader";
 export { BrandLockup } from "./brand-lockup";
 export { BrandLogoMark } from "./brand-logo-mark";
+export { BrandLogoMarkHover } from "./brand-logo-mark-hover";
 export {
   BrandStamp,
   BrandStampLockup,

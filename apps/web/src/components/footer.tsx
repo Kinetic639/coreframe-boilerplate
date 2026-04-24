@@ -2,15 +2,15 @@ import { Link } from "@/i18n/navigation";
 import React from "react";
 import { ThemeSwitcher } from "./theme-switcher";
 import LocaleSwitcher from "./LocaleSwitcher";
+import { BrandLockup } from "@/components/branding";
 
 const footer = () => {
   return (
     <footer className="mt-8 border-t bg-accent/30 py-6">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-8 px-4 md:grid-cols-4">
         <div className="col-span-2">
-          <Link href="/" className="mb-4 flex items-baseline text-xl font-bold">
-            <span className="text-primary">Ambra</span>
-            <span className="ml-0.5 text-sm font-medium text-muted-foreground">system</span>
+          <Link href="/" className="mb-4 inline-flex">
+            <BrandLockup size="md" />
           </Link>
           <p className="mb-6 max-w-xs text-sm text-muted-foreground">
             Nowoczesne narzędzie do zarządzania magazynem i inwentarzem dla firm każdej wielkości.
