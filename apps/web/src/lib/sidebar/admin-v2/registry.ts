@@ -58,6 +58,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [SUPERADMIN_ADMIN_READ],
     },
   },
+  {
+    id: "admin.site",
+    title: "Site Settings",
+    iconKey: "settings",
+    href: "/admin/site",
+    match: { startsWith: "/admin/site" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
 ];
 
 export const ADMIN_FOOTER_NAV_ITEMS: SidebarItem[] = [];
