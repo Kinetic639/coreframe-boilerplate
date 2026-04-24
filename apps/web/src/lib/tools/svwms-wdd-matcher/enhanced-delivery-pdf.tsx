@@ -93,13 +93,6 @@ const S = StyleSheet.create({
     fontWeight: 700,
     fontSize: 8,
   },
-  matchStatus: {
-    fontFamily: "Roboto",
-    fontWeight: 400,
-    fontSize: 7,
-    marginTop: 2,
-  },
-
   tableHead: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -149,34 +142,41 @@ const S = StyleSheet.create({
     right: 20,
     fontSize: 7,
   },
-  watermark: {
-    position: "absolute",
-    top: 140,
-    left: 72,
-    right: 72,
-    alignItems: "center",
-    justifyContent: "center",
-    opacity: 0.08,
-  },
-  watermarkRow: {
+  blockFooter: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    justifyContent: "space-between",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#000000",
   },
-  watermarkTextWrap: {
-    gap: 4,
+  footerMatch: {
+    fontFamily: "Roboto",
+    fontWeight: 400,
+    fontSize: 7,
   },
-  watermarkTitle: {
+  footerStamp: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  footerStampText: {
+    marginLeft: 5,
+  },
+  footerStampBrand: {
     fontFamily: "Roboto",
     fontWeight: 700,
-    fontSize: 24,
-    letterSpacing: 5,
-    color: "#000000",
+    fontSize: 7,
+    letterSpacing: 1.2,
   },
-  watermarkRule: {
-    width: 148,
-    height: 1,
-    backgroundColor: "#000000",
+  footerStampSystem: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 4.5,
+    letterSpacing: 1.6,
+    marginTop: -1,
+    color: "#444444",
   },
 });
 
@@ -199,28 +199,56 @@ function IdDisplay({ value }: { value: string | null }) {
   );
 }
 
-function PdfBrandWatermark() {
+function PdfFooterStamp() {
   return (
-    <View style={S.watermark} fixed>
-      <View style={S.watermarkRow}>
-        <Svg width={64} height={64} viewBox="0 0 56 56">
-          <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
-          <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#5f5f5f" />
-          <Path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#a3a3a3" />
-          <Path
-            d="M14 34 L28 51 L42 34"
-            stroke="#000000"
-            strokeWidth={2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            fill="none"
-          />
-        </Svg>
-        <View style={S.watermarkTextWrap}>
-          <Text style={S.watermarkTitle}>AMBRA SYSTEM</Text>
-          <View style={S.watermarkRule} />
-        </View>
+    <View style={S.footerStamp}>
+      <Svg width={18} height={18} viewBox="0 0 56 56">
+        <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
+        <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#000000" />
+        <Path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#ffffff" />
+        <Path
+          d="M10.3 29.6 L13.1 33 M42.9 33 L45.7 29.6"
+          stroke="#000000"
+          strokeWidth={2}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Path
+          d="M14 34 L28 51 L42 34"
+          stroke="#000000"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Path
+          d="M14.4 34.5 L20.9 42.2 M35.1 42.2 L41.6 34.5"
+          stroke="#ffffff"
+          strokeWidth={1.45}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Svg>
+      <View style={S.footerStampText}>
+        <Text style={S.footerStampBrand}>AMBRA</Text>
+        <Text style={S.footerStampSystem}>SYSTEM</Text>
       </View>
+    </View>
+  );
+}
+
+function BlockFooter({ block, matchLabel }: { block: PdfBlockData; matchLabel: string }) {
+  return (
+    <View style={S.blockFooter}>
+      <PdfFooterStamp />
+      {!block.isDirect ? (
+        <Text style={S.footerMatch}>
+          Dopasowanie: {matchLabel} ({block.confidence}%)
+        </Text>
+      ) : (
+        <Text style={S.footerMatch}>Zamówienie bezpośrednie</Text>
+      )}
     </View>
   );
 }
@@ -272,12 +300,6 @@ function BlockCard({ block }: { block: PdfBlockData }) {
             </View>
           ) : null}
         </View>
-
-        {!block.isDirect ? (
-          <Text style={S.matchStatus}>
-            Dopasowanie: {matchLabel} ({block.confidence}%)
-          </Text>
-        ) : null}
       </View>
 
       {block.lines.length === 0 ? (
@@ -304,6 +326,7 @@ function BlockCard({ block }: { block: PdfBlockData }) {
           ))}
         </>
       )}
+      <BlockFooter block={block} matchLabel={matchLabel} />
     </View>
   );
 }
@@ -318,7 +341,6 @@ export function EnhancedDeliveryDocument({
   return (
     <Document title={sessionName} author="SVWMS WDD Matcher">
       <Page size="A4" style={S.page}>
-        <PdfBrandWatermark />
         {blocks.length === 0 ? (
           <Text style={{ fontSize: 10 }}>Brak bloków WDD do wydruku.</Text>
         ) : (

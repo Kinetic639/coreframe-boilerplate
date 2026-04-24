@@ -47,7 +47,7 @@ export function BrandWordmark({
       )}
     >
       <span className={cn("text-foreground", styles.brand)}>
-        <span className="text-amber-600">A</span>mbra
+        <span className="text-amber-500">A</span>mbra
       </span>
       {subtitle ? (
         <span
