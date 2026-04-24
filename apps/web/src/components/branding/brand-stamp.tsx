@@ -55,7 +55,7 @@ function PureBlackWhiteLogo({ size = "md", className }: BrandStampProps) {
     >
       <path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
       <path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#000000" />
-      <path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#ffffff" />
+      <path d="M28 7.5 L22 20 L28 29 L34 20 Z" fill="#ffffff" />
       <path
         d="M10.3 29.6 L13.1 33 M42.9 33 L45.7 29.6"
         stroke="#000000"
