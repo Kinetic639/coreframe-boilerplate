@@ -58,7 +58,7 @@ const materials = [
   { icon: KanbanSquare, title: "Roadmapa", href: "/roadmap" },
 ];
 
-const MobileMenu = () => {
+const MobileMenu = ({ showPricing = true }: { showPricing?: boolean }) => {
   return (
     <div className="border-t bg-background md:hidden">
       <div className="container space-y-4 py-4">
@@ -66,9 +66,11 @@ const MobileMenu = () => {
         <Dropdown title="Rozwiązania" items={solutions} />
         <Dropdown title="Materiały edukacyjne" items={materials} />
 
-        <Button variant="ghost" className="w-full justify-start" asChild>
-          <Link href="/">Cennik</Link>
-        </Button>
+        {showPricing && (
+          <Button variant="ghost" className="w-full justify-start" asChild>
+            <Link href="/pricing">Cennik</Link>
+          </Button>
+        )}
 
         <div className="flex flex-col gap-2 pt-4">
           <Button variant="outline" className="w-full" asChild>

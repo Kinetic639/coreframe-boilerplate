@@ -12,7 +12,7 @@ import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandLockup } from "@/components/branding";
 
-export function PublicHeaderClient() {
+export function PublicHeaderClient({ showPricing = true }: { showPricing?: boolean }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -48,17 +48,19 @@ export function PublicHeaderClient() {
                 activeDropdown={activeDropdown}
                 setActiveDropdown={setActiveDropdown}
               />
-              <li>
-                <Link
-                  href="/pricing"
-                  className={cn(
-                    "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
-                    "text-foreground"
-                  )}
-                >
-                  Cennik
-                </Link>
-              </li>
+              {showPricing && (
+                <li>
+                  <Link
+                    href="/pricing"
+                    className={cn(
+                      "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
+                      "text-foreground"
+                    )}
+                  >
+                    Cennik
+                  </Link>
+                </li>
+              )}
             </NavigationMenuList>
           </NavigationMenu>
         ) : (
@@ -73,15 +75,17 @@ export function PublicHeaderClient() {
                 {label}
               </span>
             ))}
-            <Link
-              href="/pricing"
-              className={cn(
-                "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
-                "text-foreground"
-              )}
-            >
-              Cennik
-            </Link>
+            {showPricing && (
+              <Link
+                href="/pricing"
+                className={cn(
+                  "flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors duration-300 hover:text-primary",
+                  "text-foreground"
+                )}
+              >
+                Cennik
+              </Link>
+            )}
           </nav>
         )}
       </div>
@@ -94,7 +98,7 @@ export function PublicHeaderClient() {
       </div>
 
       {/* Mobile Menu */}
-      {mobileMenuOpen && <MobileMenu />}
+      {mobileMenuOpen && <MobileMenu showPricing={showPricing} />}
     </>
   );
 }

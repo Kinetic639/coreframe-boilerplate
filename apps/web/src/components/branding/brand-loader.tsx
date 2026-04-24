@@ -11,6 +11,7 @@ interface BrandLoaderProps {
   label?: string;
   className?: string;
   showWordmark?: boolean;
+  logoClassName?: string;
 }
 
 interface CrystalLogoProps {
@@ -48,8 +49,7 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
         fill="#FBBF24"
         opacity="0.95"
         animate={{ opacity: [0.4, 1, 0.4], scale: [0.96, 1.04, 0.96] }}
-        transformBox="fill-box"
-        transformOrigin="center"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
         transition={{
           duration: 2.2,
           repeat: Number.POSITIVE_INFINITY,
@@ -153,8 +153,7 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
         fill="#FBBF24"
         opacity="0.95"
         animate={{ opacity: [0.6, 1, 0.6], scale: [0.98, 1.04, 0.98] }}
-        transformBox="fill-box"
-        transformOrigin="center"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
         transition={{
           duration: 1.9,
           repeat: Number.POSITIVE_INFINITY,
@@ -194,10 +193,11 @@ export function BrandLoader({
   label = "Ambra System",
   className,
   showWordmark = true,
+  logoClassName,
 }: BrandLoaderProps) {
   return (
     <div className={cn("flex flex-col items-center gap-4", className)}>
-      <CrystalLogo variant={variant} />
+      <CrystalLogo variant={variant} className={logoClassName} />
       {showWordmark ? <BrandWordmark size="sm" align="center" /> : null}
       {label ? (
         <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
