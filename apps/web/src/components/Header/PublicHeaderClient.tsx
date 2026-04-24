@@ -10,6 +10,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/utils";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLockup } from "@/components/branding";
 
 export function PublicHeaderClient() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,9 +29,8 @@ export function PublicHeaderClient() {
     <>
       {/* Logo */}
       <div className="flex items-center gap-2">
-        <Link href="/" className="flex items-baseline text-xl font-bold">
-          <span className="text-primary">Ambra</span>
-          <span className="ml-0.5 text-sm font-medium text-muted-foreground">system</span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <BrandLockup size="md" />
         </Link>
       </div>
 

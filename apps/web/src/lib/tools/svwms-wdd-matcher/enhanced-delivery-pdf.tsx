@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet, Font, pdf } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Font, Svg, Path, pdf } from "@react-pdf/renderer";
 import type { PdfBlockData } from "@/server/services/wdd-matcher.service";
 
 let _fontsRegistered = false;
@@ -30,6 +30,7 @@ function splitId(value: string | null): { prefix: string; number: string } {
 
 const S = StyleSheet.create({
   page: {
+    position: "relative",
     fontFamily: "Roboto",
     fontWeight: 400,
     fontSize: 9,
@@ -92,13 +93,6 @@ const S = StyleSheet.create({
     fontWeight: 700,
     fontSize: 8,
   },
-  matchStatus: {
-    fontFamily: "Roboto",
-    fontWeight: 400,
-    fontSize: 7,
-    marginTop: 2,
-  },
-
   tableHead: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -148,6 +142,42 @@ const S = StyleSheet.create({
     right: 20,
     fontSize: 7,
   },
+  blockFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#000000",
+  },
+  footerMatch: {
+    fontFamily: "Roboto",
+    fontWeight: 400,
+    fontSize: 7,
+  },
+  footerStamp: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  footerStampText: {
+    marginLeft: 5,
+  },
+  footerStampBrand: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 7,
+    letterSpacing: 1.2,
+  },
+  footerStampSystem: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 4.5,
+    letterSpacing: 1.6,
+    marginTop: -1,
+    color: "#444444",
+  },
 });
 
 const MATCH_LABELS: Record<string, string> = {
@@ -165,6 +195,60 @@ function IdDisplay({ value }: { value: string | null }) {
     <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
       {prefix ? <Text style={S.idPrefix}>{prefix}</Text> : null}
       <Text style={S.idNumber}>{number}</Text>
+    </View>
+  );
+}
+
+function PdfFooterStamp() {
+  return (
+    <View style={S.footerStamp}>
+      <Svg width={18} height={18} viewBox="0 0 56 56">
+        <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
+        <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#000000" />
+        <Path d="M28 5 L22 20 L28 27 L34 20 Z" fill="#ffffff" />
+        <Path
+          d="M10.3 29.6 L13.1 33 M42.9 33 L45.7 29.6"
+          stroke="#000000"
+          strokeWidth={2}
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Path
+          d="M14 34 L28 51 L42 34"
+          stroke="#000000"
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <Path
+          d="M14.4 34.5 L20.9 42.2 M35.1 42.2 L41.6 34.5"
+          stroke="#ffffff"
+          strokeWidth={1.45}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Svg>
+      <View style={S.footerStampText}>
+        <Text style={S.footerStampBrand}>AMBRA</Text>
+        <Text style={S.footerStampSystem}>SYSTEM</Text>
+      </View>
+    </View>
+  );
+}
+
+function BlockFooter({ block, matchLabel }: { block: PdfBlockData; matchLabel: string }) {
+  return (
+    <View style={S.blockFooter}>
+      <PdfFooterStamp />
+      {!block.isDirect ? (
+        <Text style={S.footerMatch}>
+          Dopasowanie: {matchLabel} ({block.confidence}%)
+        </Text>
+      ) : (
+        <Text style={S.footerMatch}>Zamówienie bezpośrednie</Text>
+      )}
     </View>
   );
 }
@@ -216,12 +300,6 @@ function BlockCard({ block }: { block: PdfBlockData }) {
             </View>
           ) : null}
         </View>
-
-        {!block.isDirect ? (
-          <Text style={S.matchStatus}>
-            Dopasowanie: {matchLabel} ({block.confidence}%)
-          </Text>
-        ) : null}
       </View>
 
       {block.lines.length === 0 ? (
@@ -248,6 +326,7 @@ function BlockCard({ block }: { block: PdfBlockData }) {
           ))}
         </>
       )}
+      <BlockFooter block={block} matchLabel={matchLabel} />
     </View>
   );
 }

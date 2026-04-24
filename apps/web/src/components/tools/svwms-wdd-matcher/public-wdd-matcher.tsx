@@ -88,16 +88,10 @@ export function PublicWddMatcher() {
     return (
       <div className="mx-auto max-w-3xl space-y-6 p-6">
         <div className="space-y-2 text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground">
-            Ambra System
-          </p>
           <h1 className="text-3xl font-semibold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("public.subtitle")}</p>
         </div>
         <UploadZone onProcess={processFiles} isProcessing={isProcessing} />
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          {t("public.temporaryNotice")}
-        </div>
       </div>
     );
   }

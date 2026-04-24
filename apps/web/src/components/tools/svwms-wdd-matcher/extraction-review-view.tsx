@@ -354,6 +354,8 @@ export function ExtractionReviewView({
   const isDownloadDisabled = isLoading || !extractedFiles?.length;
   const isRunDisabled =
     isRunning || isLoading || !extractedFiles?.length || (isAutoRunning && !matchedSession);
+  const isPersistenceReady =
+    matchedSession?.status === "ready_for_review" || matchedSession?.status === "approved";
   const summary = matchedSession?.match_summary as Record<string, number> | null;
   const totalWddBlocks = summary?.total_wdd_blocks ?? 0;
   const directOrders = summary?.direct_orders ?? 0;
@@ -430,7 +432,7 @@ export function ExtractionReviewView({
                 {t("extractionReview.downloadJson")}
               </DropdownMenuItem>
               <DropdownMenuItem
-                disabled={!matchedSession || exportCsv.isPending}
+                disabled={!isPersistenceReady || exportCsv.isPending}
                 onSelect={() => exportCsv.mutate()}
               >
                 {exportCsv.isPending ? (
