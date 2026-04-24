@@ -47,6 +47,7 @@ describe("Admin Sidebar SSR Integration", () => {
     expect(findItemById(model, "admin.home")).toBeDefined();
     expect(findItemById(model, "admin.plans")).toBeDefined();
     expect(findItemById(model, "admin.pricing")).toBeDefined();
+    expect(findItemById(model, "admin.branding")).toBeDefined();
   });
 
   // A.3 — Granular permissions gate individual items
@@ -59,6 +60,7 @@ describe("Admin Sidebar SSR Integration", () => {
     expect(findItemById(model, "admin.home")).toBeUndefined(); // requires superadmin.admin.read
     expect(findItemById(model, "admin.plans")).toBeDefined(); // has superadmin.plans.read
     expect(findItemById(model, "admin.pricing")).toBeUndefined(); // requires superadmin.pricing.read
+    expect(findItemById(model, "admin.branding")).toBeUndefined(); // requires superadmin.admin.read
   });
 
   // A.4 — Deny overrides wildcard (deny-first semantics)
@@ -71,6 +73,7 @@ describe("Admin Sidebar SSR Integration", () => {
     expect(findItemById(model, "admin.home")).toBeDefined(); // allowed by superadmin.*
     expect(findItemById(model, "admin.plans")).toBeUndefined(); // denied explicitly
     expect(findItemById(model, "admin.pricing")).toBeDefined(); // allowed by superadmin.*
+    expect(findItemById(model, "admin.branding")).toBeDefined(); // allowed by superadmin.admin.read via wildcard
   });
 
   // A.5 — Model is deterministic (same inputs → identical output)
