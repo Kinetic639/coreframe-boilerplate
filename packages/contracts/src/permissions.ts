@@ -123,6 +123,21 @@ export const PERMISSION_WDD_MATCHER_UPLOAD = "wdd_matcher.upload" as const;
 export const PERMISSION_WDD_MATCHER_REVIEW = "wdd_matcher.review" as const;
 export const PERMISSION_WDD_MATCHER_APPROVE = "wdd_matcher.approve" as const;
 
+// QR Platform Permissions (org+branch-scoped — platform-wide QR identity and label system)
+// qr.*      — wildcard for org_owner; compiler expands to all concrete qr.X slugs
+// qr.read   — view QR codes and their assignments
+// qr.create — generate new QR code records
+// qr.assign — assign/reassign QR codes to targets (compound check with target permission)
+// qr.revoke — permanently revoke QR codes or individual assignments
+// qr.export — download printable label PDFs (operational capability; not seeded to org_member)
+// Seeded in migration 20260423110000_qr_platform_permissions.
+export const QR_WILDCARD = "qr.*" as const;
+export const QR_READ = "qr.read" as const;
+export const QR_CREATE = "qr.create" as const;
+export const QR_ASSIGN = "qr.assign" as const;
+export const QR_REVOKE = "qr.revoke" as const;
+export const QR_EXPORT = "qr.export" as const;
+
 // Superadmin Permissions (global scope, super-admin only)
 export const SUPERADMIN_WILDCARD = "superadmin.*" as const;
 export const SUPERADMIN_ADMIN_READ = "superadmin.admin.read" as const;
@@ -177,6 +192,12 @@ export type PermissionSlug =
   | typeof PERMISSION_WDD_MATCHER_UPLOAD
   | typeof PERMISSION_WDD_MATCHER_REVIEW
   | typeof PERMISSION_WDD_MATCHER_APPROVE
+  | typeof QR_WILDCARD
+  | typeof QR_READ
+  | typeof QR_CREATE
+  | typeof QR_ASSIGN
+  | typeof QR_REVOKE
+  | typeof QR_EXPORT
   | typeof SUPERADMIN_WILDCARD
   | typeof SUPERADMIN_ADMIN_READ
   | typeof SUPERADMIN_PLANS_READ
@@ -230,6 +251,12 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   PERMISSION_WDD_MATCHER_UPLOAD,
   PERMISSION_WDD_MATCHER_REVIEW,
   PERMISSION_WDD_MATCHER_APPROVE,
+  QR_WILDCARD,
+  QR_READ,
+  QR_CREATE,
+  QR_ASSIGN,
+  QR_REVOKE,
+  QR_EXPORT,
   SUPERADMIN_WILDCARD,
   SUPERADMIN_ADMIN_READ,
   SUPERADMIN_PLANS_READ,
