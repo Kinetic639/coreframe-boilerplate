@@ -73,15 +73,16 @@ export function BrandLogoMarkHover({ size = "md", className }: BrandLogoMarkHove
         }
       />
 
-      {/* Base chevron — always visible */}
-      <path
+      {/* Base chevron — full opacity at rest, dims when beacon arms appear */}
+      <motion.path
         d="M14 34 L28 51 L42 34"
         stroke="#FCD34D"
         strokeWidth="2"
         strokeLinejoin="round"
         strokeLinecap="round"
         fill="none"
-        opacity="0.34"
+        animate={hovered ? { opacity: 0.34 } : { opacity: 0.85 }}
+        transition={{ duration: 0.3 }}
       />
 
       {/* Beacon left arm */}
