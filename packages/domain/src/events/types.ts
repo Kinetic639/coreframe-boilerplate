@@ -40,7 +40,8 @@ export type EventCategory =
   | "STATE"
   | "SECURITY"
   | "AUTOMATION"
-  | "WAREHOUSE";
+  | "WAREHOUSE"
+  | "QR";
 
 /**
  * Action classification — WHAT ACTION happened.

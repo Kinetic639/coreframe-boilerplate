@@ -164,7 +164,13 @@ describe("ALL_PERMISSION_SLUGS registry", () => {
   it("wildcard slugs in the registry are explicitly identified (not accidental)", () => {
     const wildcardSlugs = ALL_PERMISSION_SLUGS.filter(isWildcard);
     // Only expected wildcard slugs — if a new wildcard sneaks in, this test fails
-    expect(wildcardSlugs.sort()).toEqual(["account.*", "module.*", "superadmin.*", "warehouse.*"]);
+    expect(wildcardSlugs.sort()).toEqual([
+      "account.*",
+      "module.*",
+      "qr.*",
+      "superadmin.*",
+      "warehouse.*",
+    ]);
   });
 
   it("wildcard slugs are NOT in any gate slug list", () => {

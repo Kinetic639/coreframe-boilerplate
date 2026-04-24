@@ -635,6 +635,101 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
     visibleTo: ["org_member", "org_admin", "auditor"],
     sensitiveFields: [],
   },
+
+  // -------------------------------------------------------------------------
+  // QR Platform module
+  // -------------------------------------------------------------------------
+
+  "qr.code.created": {
+    actionKey: "qr.code.created",
+    moduleSlug: "qr",
+    eventTier: "baseline",
+    category: "QR",
+    intent: "CREATE",
+    i18nKey: "events.qr.code.created",
+    description: "A QR code was created",
+    metadataSchema: z.object({
+      qr_code_id: z.string().uuid(),
+      // First 4 chars only — enough to cross-reference in logs without
+      // exposing the full scannable token.
+      token_prefix: z.string(),
+      label: z.string().nullable().optional(),
+    }),
+    summaryTemplate: "Created QR code {{label}}",
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "qr.code.assigned": {
+    actionKey: "qr.code.assigned",
+    moduleSlug: "qr",
+    eventTier: "baseline",
+    category: "QR",
+    intent: "ASSIGN",
+    i18nKey: "events.qr.code.assigned",
+    description: "A QR code was assigned to a target",
+    metadataSchema: z.object({
+      qr_code_id: z.string().uuid(),
+      target_type: z.string(),
+      target_id: z.string().uuid(),
+      branch_id: z.string().uuid().nullable().optional(),
+    }),
+    summaryTemplate: "Assigned QR code to {{target_type}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "qr.code.revoked": {
+    actionKey: "qr.code.revoked",
+    moduleSlug: "qr",
+    eventTier: "baseline",
+    category: "QR",
+    intent: "DELETE",
+    i18nKey: "events.qr.code.revoked",
+    description: "A QR code was permanently revoked",
+    metadataSchema: z.object({
+      qr_code_id: z.string().uuid(),
+      revocation_reason: z.string().nullable().optional(),
+    }),
+    summaryTemplate: "Revoked QR code",
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "qr.labels.exported": {
+    actionKey: "qr.labels.exported",
+    moduleSlug: "qr",
+    eventTier: "baseline",
+    category: "QR",
+    intent: "SUCCESS",
+    i18nKey: "events.qr.labels.exported",
+    description: "A QR label PDF was exported",
+    metadataSchema: z.object({
+      qr_code_ids: z.array(z.string().uuid()),
+      label_count: z.number().int().positive(),
+      label_size: z.string(),
+      branch_id: z.string().uuid().nullable().optional(),
+    }),
+    summaryTemplate: "Exported {{label_count}} QR labels",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
 };
 
 // ---------------------------------------------------------------------------
