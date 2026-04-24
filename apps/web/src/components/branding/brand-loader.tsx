@@ -11,6 +11,7 @@ interface BrandLoaderProps {
   label?: string;
   className?: string;
   showWordmark?: boolean;
+  logoClassName?: string;
 }
 
 interface CrystalLogoProps {
@@ -44,12 +45,11 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
         }}
       />
       <motion.path
-        d="M28 5 L22 20 L28 27 L34 20 Z"
+        d="M28 7.5 L22 20 L28 29 L34 20 Z"
         fill="#FBBF24"
         opacity="0.95"
         animate={{ opacity: [0.4, 1, 0.4], scale: [0.96, 1.04, 0.96] }}
-        transformBox="fill-box"
-        transformOrigin="center"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
         transition={{
           duration: 2.2,
           repeat: Number.POSITIVE_INFINITY,
@@ -65,13 +65,6 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
         strokeLinecap="round"
         fill="none"
         opacity="0.34"
-      />
-      <motion.path
-        d="M28 5 L32 11 L28 8 Z"
-        fill="white"
-        opacity="0.22"
-        animate={{ opacity: [0.1, 0.32, 0.1] }}
-        transition={{ duration: 1.6, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
       />
     </>
   );
@@ -149,12 +142,11 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
         }}
       />
       <motion.path
-        d="M28 5 L22 20 L28 27 L34 20 Z"
+        d="M28 7.5 L22 20 L28 29 L34 20 Z"
         fill="#FBBF24"
         opacity="0.95"
         animate={{ opacity: [0.6, 1, 0.6], scale: [0.98, 1.04, 0.98] }}
-        transformBox="fill-box"
-        transformOrigin="center"
+        style={{ transformBox: "fill-box", transformOrigin: "center" }}
         transition={{
           duration: 1.9,
           repeat: Number.POSITIVE_INFINITY,
@@ -178,13 +170,6 @@ function CrystalLogo({ variant, className }: CrystalLogoProps) {
           delay: 0.34,
         }}
       />
-      <motion.path
-        d="M28 5 L32 11 L28 8 Z"
-        fill="white"
-        opacity="0.18"
-        animate={{ opacity: [0.08, 0.26, 0.08] }}
-        transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
-      />
     </motion.svg>
   );
 }
@@ -194,10 +179,11 @@ export function BrandLoader({
   label = "Ambra System",
   className,
   showWordmark = true,
+  logoClassName,
 }: BrandLoaderProps) {
   return (
     <div className={cn("flex flex-col items-center gap-4", className)}>
-      <CrystalLogo variant={variant} />
+      <CrystalLogo variant={variant} className={logoClassName} />
       {showWordmark ? <BrandWordmark size="sm" align="center" /> : null}
       {label ? (
         <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">

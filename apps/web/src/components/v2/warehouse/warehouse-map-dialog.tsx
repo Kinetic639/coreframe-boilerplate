@@ -67,6 +67,7 @@ import {
   type WarehouseLocationGroup,
 } from "@/lib/warehouse/location-tree";
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "@/lib/warehouse/layouts";
+import { BrandLoader } from "@/components/branding";
 import { WarehouseFrontElevationPanel } from "./warehouse-front-elevation-panel";
 
 // ─── Viewer is Konva — must be loaded client-side only ───────────────────────
@@ -80,7 +81,7 @@ const WarehouseMapViewer = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <BrandLoader variant="beacon_swap" showWordmark={false} label="" />
       </div>
     ),
   }
@@ -1071,7 +1072,7 @@ const DialogPreviewBody = React.memo(function DialogPreviewBody({
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <BrandLoader variant="beacon_swap" showWordmark={false} label="" />
       </div>
     );
   }

@@ -29,6 +29,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      app_config: {
+        Row: {
+          announcement_banner_enabled: boolean;
+          dev_mode_enabled: boolean;
+          id: number;
+          pricing_page_enabled: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          announcement_banner_enabled?: boolean;
+          dev_mode_enabled?: boolean;
+          id?: number;
+          pricing_page_enabled?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          announcement_banner_enabled?: boolean;
+          dev_mode_enabled?: boolean;
+          id?: number;
+          pricing_page_enabled?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       branches: {
         Row: {
           created_at: string | null;
@@ -36,6 +60,7 @@ export type Database = {
           id: string;
           name: string;
           organization_id: string;
+          public_warehouse_maps_enabled: boolean;
           slug: string | null;
         };
         Insert: {
@@ -44,6 +69,7 @@ export type Database = {
           id?: string;
           name: string;
           organization_id: string;
+          public_warehouse_maps_enabled?: boolean;
           slug?: string | null;
         };
         Update: {
@@ -52,6 +78,7 @@ export type Database = {
           id?: string;
           name?: string;
           organization_id?: string;
+          public_warehouse_maps_enabled?: boolean;
           slug?: string | null;
         };
         Relationships: [
@@ -736,6 +763,138 @@ export type Database = {
           },
           {
             foreignKeyName: "platform_events_organization_id_fk";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      qr_assignments: {
+        Row: {
+          assigned_at: string;
+          assigned_by: string | null;
+          branch_id: string | null;
+          id: string;
+          organization_id: string;
+          qr_code_id: string;
+          revocation_reason: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
+          target_id: string;
+          target_type: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          branch_id?: string | null;
+          id?: string;
+          organization_id: string;
+          qr_code_id: string;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          target_id: string;
+          target_type: string;
+        };
+        Update: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          branch_id?: string | null;
+          id?: string;
+          organization_id?: string;
+          qr_code_id?: string;
+          revocation_reason?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          target_id?: string;
+          target_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qr_assignments_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_assignments_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_assignments_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_assignments_qr_code_id_fkey";
+            columns: ["qr_code_id"];
+            isOneToOne: false;
+            referencedRelation: "qr_codes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_assignments_revoked_by_fkey";
+            columns: ["revoked_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      qr_codes: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          id: string;
+          label: string | null;
+          notes: string | null;
+          organization_id: string;
+          status: string;
+          token: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          label?: string | null;
+          notes?: string | null;
+          organization_id: string;
+          status?: string;
+          token: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          label?: string | null;
+          notes?: string | null;
+          organization_id?: string;
+          status?: string;
+          token?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "qr_codes_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "qr_codes_organization_id_fkey";
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -1935,6 +2094,7 @@ export type Database = {
           created_at: string;
           id: string;
           line_number: number;
+          location: string | null;
           metadata: Json | null;
           organization_id: string;
           page_number: number | null;
@@ -1950,6 +2110,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           line_number: number;
+          location?: string | null;
           metadata?: Json | null;
           organization_id: string;
           page_number?: number | null;
@@ -1965,6 +2126,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           line_number?: number;
+          location?: string | null;
           metadata?: Json | null;
           organization_id?: string;
           page_number?: number | null;
@@ -2263,6 +2425,10 @@ export type Database = {
           p_new_parent_id: string;
           p_org_id: string;
         };
+        Returns: undefined;
+      };
+      set_branch_public_warehouse_maps: {
+        Args: { p_branch_id: string; p_enabled: boolean };
         Returns: undefined;
       };
       soft_delete_warehouse_layout: {

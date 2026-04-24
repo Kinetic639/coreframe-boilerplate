@@ -1,5 +1,6 @@
 import { cn } from "@/utils";
 import { BrandLogoMark } from "./brand-logo-mark";
+import { BrandLogoMarkHover } from "./brand-logo-mark-hover";
 import { BrandWordmark } from "./brand-wordmark";
 
 interface BrandLockupProps {
@@ -8,6 +9,7 @@ interface BrandLockupProps {
   align?: "left" | "center";
   showSubtitle?: boolean;
   showLogo?: boolean;
+  hoverAnimation?: boolean;
 }
 
 const LOGO_SIZE_BY_LOCKUP = {
@@ -30,6 +32,7 @@ export function BrandLockup({
   align = "left",
   showSubtitle = true,
   showLogo = true,
+  hoverAnimation = false,
 }: BrandLockupProps) {
   return (
     <div
@@ -41,7 +44,11 @@ export function BrandLockup({
       )}
     >
       {showLogo ? (
-        <BrandLogoMark size={LOGO_SIZE_BY_LOCKUP[size]} priority={size === "hero"} />
+        hoverAnimation ? (
+          <BrandLogoMarkHover size={LOGO_SIZE_BY_LOCKUP[size]} />
+        ) : (
+          <BrandLogoMark size={LOGO_SIZE_BY_LOCKUP[size]} priority={size === "hero"} />
+        )
       ) : null}
       <BrandWordmark size={size} subtitle={showSubtitle} align={align} />
     </div>

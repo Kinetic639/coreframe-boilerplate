@@ -7,6 +7,7 @@ import { AlertCircle, Check, Copy, Download, FileText, HelpCircle } from "lucide
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { BrandLockup } from "@/components/branding";
 import { UploadZone } from "./upload-zone";
 import { ConfidenceBar, MatchTypeBadge, SummaryChip } from "./results-view";
 import { PdfPreviewDialog } from "./pdf-preview-dialog";
@@ -87,6 +88,9 @@ export function PublicWddMatcher() {
   if (!result) {
     return (
       <div className="mx-auto max-w-3xl space-y-6 p-6">
+        <div className="flex justify-center">
+          <BrandLockup size="hero" />
+        </div>
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-semibold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("public.subtitle")}</p>
