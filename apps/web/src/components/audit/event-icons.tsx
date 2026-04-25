@@ -27,6 +27,7 @@ import {
   RefreshCw,
   Bot,
   Warehouse,
+  QrCode,
   // Intent icons
   PlusCircle,
   Pencil,
@@ -60,6 +61,7 @@ const CATEGORY_ICON_COMPONENTS: Record<EventCategory, LucideIcon> = {
   STATE: RefreshCw,
   AUTOMATION: Bot,
   WAREHOUSE: Warehouse,
+  QR: QrCode,
 };
 
 // ---------------------------------------------------------------------------
