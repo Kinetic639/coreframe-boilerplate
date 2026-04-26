@@ -6,7 +6,8 @@ import { checkPermission } from "@/lib/utils/permissions";
 import { QR_EXPORT } from "@/lib/constants/permissions";
 import { QrCodesService } from "@/server/services/qr.service";
 import type { QrCode } from "@/server/services/qr.service";
-import { generateQrPngDataUrl } from "@/lib/qr/generate";
+import { generateStyledQrPngDataUrl } from "@/lib/qr/generate";
+import type { LabelConfig } from "@/lib/qr/label-config";
 import { generateQrLabelsPdfWithConfig } from "@/server/qr/label-pdf";
 import type { QrLabelPdfItem } from "@/server/qr/label-pdf";
 import { generateZplLabels } from "@/lib/qr/zpl";
@@ -21,6 +22,7 @@ const textLayerSchema = z.object({
   show: z.boolean(),
   size: z.number().min(4).max(24),
   bold: z.boolean(),
+  align: z.enum(["left", "center", "right"]),
 });
 
 const labelConfigSchema = z.object({
@@ -29,8 +31,32 @@ const labelConfigSchema = z.object({
     height: z.number().min(10).max(297),
   }),
   includeLogo: z.boolean(),
+  logoBackgroundStyle: z.enum(["brand", "circle", "square"]),
   qrHeightRatio: z.number().min(0.4).max(0.95),
+  qrStyle: z.object({
+    frameShape: z.enum(["square", "circle"]),
+    dotStyle: z.enum(["square", "dots", "rounded", "classy", "classy-rounded", "extra-rounded"]),
+    cornerSquareStyle: z.enum([
+      "square",
+      "dot",
+      "extra-rounded",
+      "dots",
+      "rounded",
+      "classy",
+      "classy-rounded",
+    ]),
+    cornerDotStyle: z.enum([
+      "dot",
+      "square",
+      "dots",
+      "rounded",
+      "classy",
+      "classy-rounded",
+      "extra-rounded",
+    ]),
+  }),
   showBorder: z.boolean(),
+  textPosition: z.enum(["right", "left", "above", "below"]),
   primaryText: textLayerSchema,
   secondaryText: textLayerSchema,
   tertiaryText: textLayerSchema,
@@ -78,7 +104,43 @@ export async function POST(request: NextRequest) {
     return jsonError(parsed.error.issues[0]?.message ?? "Invalid request.", 400);
   }
 
-  const { qrCodeIds, format, labelConfig, zplSize } = parsed.data;
+  const { qrCodeIds, format, zplSize } = parsed.data;
+  const labelConfig: LabelConfig = {
+    dimension: {
+      width: parsed.data.labelConfig.dimension.width,
+      height: parsed.data.labelConfig.dimension.height,
+    },
+    includeLogo: parsed.data.labelConfig.includeLogo,
+    logoBackgroundStyle: parsed.data.labelConfig.logoBackgroundStyle,
+    qrHeightRatio: parsed.data.labelConfig.qrHeightRatio,
+    qrStyle: {
+      frameShape: parsed.data.labelConfig.qrStyle.frameShape,
+      dotStyle: parsed.data.labelConfig.qrStyle.dotStyle,
+      cornerSquareStyle: parsed.data.labelConfig.qrStyle.cornerSquareStyle,
+      cornerDotStyle: parsed.data.labelConfig.qrStyle.cornerDotStyle,
+    },
+    showBorder: parsed.data.labelConfig.showBorder,
+    textPosition: parsed.data.labelConfig.textPosition,
+    primaryText: {
+      show: parsed.data.labelConfig.primaryText.show,
+      size: parsed.data.labelConfig.primaryText.size,
+      bold: parsed.data.labelConfig.primaryText.bold,
+      align: parsed.data.labelConfig.primaryText.align,
+    },
+    secondaryText: {
+      show: parsed.data.labelConfig.secondaryText.show,
+      size: parsed.data.labelConfig.secondaryText.size,
+      bold: parsed.data.labelConfig.secondaryText.bold,
+      align: parsed.data.labelConfig.secondaryText.align,
+    },
+    tertiaryText: {
+      show: parsed.data.labelConfig.tertiaryText.show,
+      size: parsed.data.labelConfig.tertiaryText.size,
+      bold: parsed.data.labelConfig.tertiaryText.bold,
+      align: parsed.data.labelConfig.tertiaryText.align,
+    },
+    includeTokenPreview: parsed.data.labelConfig.includeTokenPreview,
+  };
 
   // ─── 2. Auth ───────────────────────────────────────────────────────────────
   const context = await loadDashboardContextV2();
@@ -97,20 +159,22 @@ export async function POST(request: NextRequest) {
   // ─── 3. Load + validate QR codes ──────────────────────────────────────────
   const uniqueIds = [...new Set(qrCodeIds)];
 
-  const qrResults = await Promise.all(
-    uniqueIds.map((id) => QrCodesService.getById(supabase, orgId, id))
-  );
-
-  for (let i = 0; i < qrResults.length; i++) {
-    const res = qrResults[i];
-    if (!res.success) return jsonError(`Failed to load QR code ${uniqueIds[i]}.`, 500);
-    if (!res.data) return jsonError(`QR code not found: ${uniqueIds[i]}`, 404);
-    if (res.data.status !== "active") {
-      return jsonError(`QR code is revoked and cannot be exported: ${uniqueIds[i]}`, 400);
-    }
+  const qrResult = await QrCodesService.getByIds(supabase, orgId, uniqueIds);
+  if (!qrResult.success) {
+    return jsonError("Failed to load QR codes.", 500);
   }
 
-  const qrCodes = qrResults.map((r) => (r as { success: true; data: QrCode }).data);
+  const qrById = new Map(qrResult.data.map((qr) => [qr.id, qr] as const));
+  const qrCodes: QrCode[] = [];
+
+  for (const id of uniqueIds) {
+    const qr = qrById.get(id);
+    if (!qr) return jsonError(`QR code not found: ${id}`, 404);
+    if (qr.status !== "active") {
+      return jsonError(`QR code is revoked and cannot be exported: ${id}`, 400);
+    }
+    qrCodes.push(qr);
+  }
 
   // ─── 4. Generate output ────────────────────────────────────────────────────
   try {
@@ -119,7 +183,7 @@ export async function POST(request: NextRequest) {
         qrCodes.map(async (qr) => ({
           qrCodeId: qr.id,
           token: qr.token,
-          qrDataUrl: await generateQrPngDataUrl(qr.token),
+          qrDataUrl: await generateStyledQrPngDataUrl(qr.token, labelConfig.qrStyle),
           primaryText: qr.label ?? "QR Code",
           secondaryText: labelConfig.includeTokenPreview ? qr.token.slice(0, 8) : undefined,
         }))
@@ -151,6 +215,7 @@ export async function POST(request: NextRequest) {
       token: qr.token,
       label: qr.label ?? undefined,
       includeTokenPreview: labelConfig.includeTokenPreview,
+      qrHeightRatio: labelConfig.qrHeightRatio,
     }));
 
     const zpl = generateZplLabels(items, zplSize as ZplLabelSize);

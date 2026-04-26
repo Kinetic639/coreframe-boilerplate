@@ -18,22 +18,42 @@ export interface ZplLabelItem {
   label?: string | null;
   /** When true, first 8 chars of token are printed beneath the QR. */
   includeTokenPreview?: boolean;
+  /** QR size intent shared with the PDF designer (0.4 - 0.95). */
+  qrHeightRatio?: number;
 }
 
 // 203 dpi: 1 mm = 8 dots (203 / 25.4 ≈ 7.992)
 const DOTS_PER_MM = 8;
 
 const SIZE_CONFIG = {
-  "50x30": { widthMm: 50, heightMm: 30, qrMag: 4 },
-  "70x40": { widthMm: 70, heightMm: 40, qrMag: 5 },
+  "50x30": { widthMm: 50, heightMm: 30, defaultQrMag: 4 },
+  "70x40": { widthMm: 70, heightMm: 40, defaultQrMag: 5 },
 } as const;
 
 function mm(value: number): number {
   return Math.round(value * DOTS_PER_MM);
 }
 
+function resolveQrMag(item: ZplLabelItem, size: ZplLabelSize): number {
+  const { widthMm, heightMm, defaultQrMag } = SIZE_CONFIG[size];
+  const ratio = item.qrHeightRatio ?? 0.8;
+  const wDots = mm(widthMm);
+  const hDots = mm(heightMm);
+  const margin = mm(1.5);
+  const minTextWidth = mm(5);
+  const qrGap = mm(2);
+
+  const maxByHeight = Math.max(2, Math.floor((hDots - margin * 2) / 33));
+  const maxByWidth = Math.max(2, Math.floor((wDots - margin * 2 - qrGap - minTextWidth) / 33));
+  const hardMax = Math.max(2, Math.min(maxByHeight, maxByWidth));
+  const targetMag = Math.round(((hDots - margin * 2) * ratio) / 33);
+
+  return Math.max(2, Math.min(hardMax, targetMag || defaultQrMag));
+}
+
 function singleLabel(item: ZplLabelItem, size: ZplLabelSize): string {
-  const { widthMm, heightMm, qrMag } = SIZE_CONFIG[size];
+  const { widthMm, heightMm } = SIZE_CONFIG[size];
+  const qrMag = resolveQrMag(item, size);
   const wDots = mm(widthMm);
   const hDots = mm(heightMm);
 

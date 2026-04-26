@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { generateQrPngDataUrl, generateQrSvgString } from "../generate";
+import { DEFAULT_LABEL_CONFIG } from "../label-config";
+import {
+  generateQrPngDataUrl,
+  generateQrSvgString,
+  generateStyledQrPngDataUrl,
+  generateStyledQrSvgDataUrl,
+} from "../generate";
 
 const SAMPLE_TOKEN = "AbCdEfGhIjKlMnOpQrSt12";
 
@@ -59,5 +65,51 @@ describe("generateQrSvgString", () => {
 
   it("throws a clean error for an empty token", async () => {
     await expect(generateQrSvgString("")).rejects.toThrow("non-empty string");
+  });
+});
+
+describe("generateStyledQrSvgDataUrl", () => {
+  it("returns a data URL with correct SVG prefix", async () => {
+    const result = await generateStyledQrSvgDataUrl(SAMPLE_TOKEN);
+    expect(result).toMatch(/^data:image\/svg\+xml;base64,/);
+  });
+
+  it("produces the same output for the same token", async () => {
+    const a = await generateStyledQrSvgDataUrl(SAMPLE_TOKEN);
+    const b = await generateStyledQrSvgDataUrl(SAMPLE_TOKEN);
+    expect(a).toBe(b);
+  });
+
+  it("throws a clean error for a whitespace-only token", async () => {
+    await expect(generateStyledQrSvgDataUrl("   ")).rejects.toThrow("non-empty string");
+  });
+});
+
+describe("generateStyledQrPngDataUrl", () => {
+  it("returns a data URL with correct PNG prefix", async () => {
+    const result = await generateStyledQrPngDataUrl(SAMPLE_TOKEN, DEFAULT_LABEL_CONFIG.qrStyle);
+    expect(result).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("produces the same output for the same token and style", async () => {
+    const a = await generateStyledQrPngDataUrl(SAMPLE_TOKEN, DEFAULT_LABEL_CONFIG.qrStyle);
+    const b = await generateStyledQrPngDataUrl(SAMPLE_TOKEN, DEFAULT_LABEL_CONFIG.qrStyle);
+    expect(a).toBe(b);
+  });
+
+  it("produces different output for materially different styles", async () => {
+    const a = await generateStyledQrPngDataUrl(SAMPLE_TOKEN, {
+      frameShape: "square",
+      dotStyle: "square",
+      cornerSquareStyle: "square",
+      cornerDotStyle: "square",
+    });
+    const b = await generateStyledQrPngDataUrl(SAMPLE_TOKEN, {
+      frameShape: "circle",
+      dotStyle: "dots",
+      cornerSquareStyle: "extra-rounded",
+      cornerDotStyle: "dot",
+    });
+    expect(a).not.toBe(b);
   });
 });

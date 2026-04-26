@@ -185,6 +185,28 @@ export class QrCodesService {
   }
 
   /**
+   * Batch-load QR codes by id, scoped to the org.
+   * Returns all matching non-deleted rows in one query.
+   */
+  static async getByIds(
+    supabase: SupabaseClient,
+    orgId: string,
+    ids: string[]
+  ): Promise<ServiceResult<QrCode[]>> {
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select("*")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .in("id", ids);
+
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data ?? []) as QrCode[] };
+  }
+
+  /**
    * List all active (non-deleted) QR codes for an org, newest first.
    */
   static async listByOrg(

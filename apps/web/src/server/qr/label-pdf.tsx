@@ -9,11 +9,13 @@ import {
   Image,
   Svg,
   Path,
+  Circle,
+  Rect,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { LabelConfig } from "@/lib/qr/label-config";
-import { computeGrid, GRID_MARGIN_MM } from "@/lib/qr/label-config";
+import { computeGrid, getEffectiveLabelDimension, GRID_MARGIN_MM } from "@/lib/qr/label-config";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -24,7 +26,7 @@ export type QrLabelSize = "50x30" | "70x40" | "a4-grid";
 export interface QrLabelPdfItem {
   qrCodeId: string;
   token: string;
-  /** Pre-generated base64 PNG data URL (`data:image/png;base64,...`) */
+  /** Pre-generated QR image data URL (PNG or SVG) */
   qrDataUrl: string;
   /** Main label line — typically the location name */
   primaryText: string;
@@ -55,16 +57,22 @@ function QrWithLogo({
   dataUrl,
   size,
   includeLogo = true,
+  logoBackgroundStyle = "brand",
 }: {
   dataUrl: string;
   size: number;
   includeLogo?: boolean;
+  logoBackgroundStyle?: LabelConfig["logoBackgroundStyle"];
 }) {
   if (!includeLogo) {
     return <Image style={{ width: size, height: size }} src={dataUrl} />;
   }
-  const logoSize = Math.round(size * 0.28);
-  const offset = (size - logoSize) / 2;
+  const backgroundSize = Math.round(size * 0.3);
+  const backgroundOffset = (size - backgroundSize) / 2;
+  const logoInsetRatio =
+    logoBackgroundStyle === "brand" ? 0.1 : logoBackgroundStyle === "circle" ? 0.19 : 0.18;
+  const logoSize = Math.round(backgroundSize * (1 - logoInsetRatio * 2));
+  const logoOffset = backgroundOffset + (backgroundSize - logoSize) / 2;
 
   return (
     <View style={{ width: size, height: size }}>
@@ -75,22 +83,38 @@ function QrWithLogo({
       <View
         style={{
           position: "absolute",
-          top: offset,
-          left: offset,
+          top: backgroundOffset,
+          left: backgroundOffset,
+          width: backgroundSize,
+          height: backgroundSize,
+        }}
+      >
+        <Svg style={{ width: backgroundSize, height: backgroundSize }} viewBox="0 0 56 56">
+          {logoBackgroundStyle === "brand" ? (
+            <Path
+              d="M28 5 L5 53 L51 53 Z"
+              fill="white"
+              stroke="white"
+              strokeWidth={5}
+              strokeLinejoin="round"
+            />
+          ) : null}
+          {logoBackgroundStyle === "circle" ? <Circle cx="28" cy="28" r="23" fill="white" /> : null}
+          {logoBackgroundStyle === "square" ? (
+            <Rect x="7" y="7" width="42" height="42" rx="5" ry="5" fill="white" />
+          ) : null}
+        </Svg>
+      </View>
+      <View
+        style={{
+          position: "absolute",
+          top: logoOffset,
+          left: logoOffset,
           width: logoSize,
           height: logoSize,
         }}
       >
-        {/* Single SVG: white A-shaped background then logo paths on top */}
         <Svg style={{ width: logoSize, height: logoSize }} viewBox="0 0 56 56">
-          {/* White triangle (A silhouette) with rounded corners — provides background clearance */}
-          <Path
-            d="M28 5 L5 53 L51 53 Z"
-            fill="white"
-            stroke="white"
-            strokeWidth={5}
-            strokeLinejoin="round"
-          />
           <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#000000" />
           <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#000000" />
           <Path d="M28 7.5 L22 20 L28 29 L34 20 Z" fill="#ffffff" />
@@ -324,76 +348,171 @@ interface LabelCellV2Props {
   cellHPt: number;
 }
 
+function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
+  const lines: Array<{
+    key: string;
+    text: string;
+    size: number;
+    weight: "bold" | "normal";
+    color: string;
+    align: "left" | "center" | "right";
+    marginBottom: number;
+  }> = [];
+
+  if (config.primaryText.show && item.primaryText) {
+    lines.push({
+      key: "primary",
+      text: item.primaryText,
+      size: config.primaryText.size,
+      weight: config.primaryText.bold ? "bold" : "normal",
+      color: "#111111",
+      align: config.primaryText.align,
+      marginBottom: mm(0.4),
+    });
+  }
+
+  if (config.secondaryText.show && item.secondaryText) {
+    lines.push({
+      key: "secondary",
+      text: item.secondaryText,
+      size: config.secondaryText.size,
+      weight: config.secondaryText.bold ? "bold" : "normal",
+      color: "#444444",
+      align: config.secondaryText.align,
+      marginBottom: mm(0.3),
+    });
+  }
+
+  if (config.tertiaryText.show && item.tertiaryText) {
+    lines.push({
+      key: "tertiary",
+      text: item.tertiaryText,
+      size: config.tertiaryText.size,
+      weight: config.tertiaryText.bold ? "bold" : "normal",
+      color: "#888888",
+      align: config.tertiaryText.align,
+      marginBottom: mm(0.2),
+    });
+  }
+
+  if (config.includeTokenPreview) {
+    lines.push({
+      key: "token",
+      text: item.token.slice(0, 10),
+      size: 5,
+      weight: "normal",
+      color: "#aaaaaa",
+      align: "left",
+      marginBottom: 0,
+    });
+  }
+
+  return lines;
+}
+
+function estimatePdfTextHeight(lines: Array<{ size: number; marginBottom: number }>) {
+  return lines.reduce((sum, line, index) => {
+    return sum + line.size + (index === lines.length - 1 ? 0 : line.marginBottom);
+  }, 0);
+}
+
 function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
-  const qrSizePt = cellHPt * config.qrHeightRatio;
   const borderStyle = config.showBorder
     ? { borderWidth: 0.5, borderColor: "#cccccc", borderStyle: "solid" as const }
     : {};
+  const paddingPt = mm(1.5);
+  const gapPt = mm(1.5);
+  const innerW = Math.max(0, cellWPt - paddingPt * 2);
+  const innerH = Math.max(0, cellHPt - paddingPt * 2);
+  const lines = getVisibleTextLines(item, config);
+  const hasText = lines.length > 0;
+  const isStacked = config.textPosition === "above" || config.textPosition === "below";
+  const textHeightPt = hasText ? estimatePdfTextHeight(lines) : 0;
+
+  const qrSizePt = hasText
+    ? isStacked
+      ? Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio, innerH - textHeightPt - gapPt))
+      : Math.max(0, Math.min(innerH, innerH * config.qrHeightRatio))
+    : Math.max(0, Math.min(innerW, innerH) * config.qrHeightRatio);
+
+  const textBlock = hasText ? (
+    <View
+      style={{
+        flex: isStacked ? 0 : 1,
+        width: isStacked ? "100%" : undefined,
+        height: isStacked ? Math.max(0, innerH - qrSizePt - gapPt) : undefined,
+        justifyContent: "center",
+      }}
+    >
+      {lines.map((line, index) => (
+        <Text
+          key={line.key}
+          style={{
+            fontSize: line.size,
+            fontWeight: line.weight,
+            color: line.color,
+            textAlign: line.align,
+            marginBottom: index === lines.length - 1 ? 0 : line.marginBottom,
+          }}
+        >
+          {line.text}
+        </Text>
+      ))}
+    </View>
+  ) : null;
+
+  const qrBlock = (
+    <View
+      style={{
+        width: qrSizePt,
+        height: qrSizePt,
+        alignSelf: "center",
+      }}
+    >
+      <QrWithLogo
+        dataUrl={item.qrDataUrl}
+        size={qrSizePt}
+        includeLogo={config.includeLogo}
+        logoBackgroundStyle={config.logoBackgroundStyle}
+      />
+    </View>
+  );
 
   return (
     <View
       style={{
         width: cellWPt,
         height: cellHPt,
-        flexDirection: "row",
+        flexDirection: isStacked ? "column" : "row",
         alignItems: "center",
-        padding: mm(1.5),
+        justifyContent: "center",
+        padding: paddingPt,
         overflow: "hidden",
         ...borderStyle,
       }}
     >
-      <QrWithLogo dataUrl={item.qrDataUrl} size={qrSizePt} includeLogo={config.includeLogo} />
-      <View style={{ flex: 1, marginLeft: mm(1.5), justifyContent: "center" }}>
-        {config.primaryText.show && item.primaryText ? (
-          <Text
-            style={{
-              fontSize: config.primaryText.size,
-              fontWeight: config.primaryText.bold ? "bold" : "normal",
-              color: "#111111",
-              marginBottom: mm(0.4),
-            }}
-          >
-            {item.primaryText}
-          </Text>
-        ) : null}
-        {config.secondaryText.show && item.secondaryText ? (
-          <Text
-            style={{
-              fontSize: config.secondaryText.size,
-              fontWeight: config.secondaryText.bold ? "bold" : "normal",
-              color: "#444444",
-              marginBottom: mm(0.3),
-            }}
-          >
-            {item.secondaryText}
-          </Text>
-        ) : null}
-        {config.tertiaryText.show && item.tertiaryText ? (
-          <Text
-            style={{
-              fontSize: config.tertiaryText.size,
-              fontWeight: config.tertiaryText.bold ? "bold" : "normal",
-              color: "#888888",
-              marginBottom: mm(0.2),
-            }}
-          >
-            {item.tertiaryText}
-          </Text>
-        ) : null}
-        {config.includeTokenPreview ? (
-          <Text style={{ fontSize: 5, color: "#aaaaaa", marginTop: mm(0.5) }}>
-            {item.token.slice(0, 10)}
-          </Text>
-        ) : null}
-      </View>
+      {isStacked ? (
+        <>
+          {config.textPosition === "above" ? textBlock : qrBlock}
+          {hasText ? <View style={{ width: 0, height: gapPt }} /> : null}
+          {config.textPosition === "above" ? qrBlock : textBlock}
+        </>
+      ) : (
+        <>
+          {config.textPosition === "left" ? textBlock : qrBlock}
+          {hasText ? <View style={{ width: gapPt, height: 0 }} /> : null}
+          {config.textPosition === "left" ? qrBlock : textBlock}
+        </>
+      )}
     </View>
   );
 }
 
 function ConfigA4Document({ items, config }: { items: QrLabelPdfItem[]; config: LabelConfig }) {
-  const { cols, perPage } = computeGrid(config.dimension);
-  const cellWPt = mm(config.dimension.width);
-  const cellHPt = mm(config.dimension.height);
+  const effectiveDimension = getEffectiveLabelDimension(config);
+  const { cols, perPage } = computeGrid(effectiveDimension);
+  const cellWPt = mm(effectiveDimension.width);
+  const cellHPt = mm(effectiveDimension.height);
   const marginPt = mm(GRID_MARGIN_MM);
 
   const pages: QrLabelPdfItem[][] = [];

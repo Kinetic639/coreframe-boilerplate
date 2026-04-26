@@ -32,7 +32,7 @@ const {
   mockQrCodesGetById,
   mockQrAssignmentsGetActiveForQr,
   mockGetTargetDescriptor,
-  mockGenerateQrPngDataUrl,
+  mockGenerateStyledQrSvgDataUrl,
   mockGenerateQrLabelsPdf,
   mockEventServiceEmit,
 } = vi.hoisted(() => ({
@@ -41,7 +41,7 @@ const {
   mockQrCodesGetById: vi.fn(),
   mockQrAssignmentsGetActiveForQr: vi.fn(),
   mockGetTargetDescriptor: vi.fn(),
-  mockGenerateQrPngDataUrl: vi.fn(),
+  mockGenerateStyledQrSvgDataUrl: vi.fn(),
   mockGenerateQrLabelsPdf: vi.fn(),
   mockEventServiceEmit: vi.fn(),
 }));
@@ -64,7 +64,7 @@ vi.mock("@/server/qr/target-registry", () => ({
 }));
 
 vi.mock("@/lib/qr/generate", () => ({
-  generateQrPngDataUrl: mockGenerateQrPngDataUrl,
+  generateStyledQrSvgDataUrl: mockGenerateStyledQrSvgDataUrl,
 }));
 
 vi.mock("@/server/qr/label-pdf", () => ({
@@ -156,7 +156,7 @@ function setupHappyPath() {
   mockQrCodesGetById.mockResolvedValue({ success: true, data: makeQrCode() });
   mockQrAssignmentsGetActiveForQr.mockResolvedValue({ success: true, data: makeAssignment() });
   mockGetTargetDescriptor.mockReturnValue(makeDescriptor());
-  mockGenerateQrPngDataUrl.mockResolvedValue(STUB_DATA_URL);
+  mockGenerateStyledQrSvgDataUrl.mockResolvedValue(STUB_DATA_URL);
   mockGenerateQrLabelsPdf.mockResolvedValue(STUB_PDF);
   mockEventServiceEmit.mockResolvedValue({ success: true });
 }
