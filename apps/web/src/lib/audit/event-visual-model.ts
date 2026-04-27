@@ -44,6 +44,7 @@ export const CATEGORY_ICON_MAP: Record<EventCategory, string> = {
   STATE: "refresh-cw",
   AUTOMATION: "bot",
   WAREHOUSE: "warehouse",
+  QR: "qr-code",
 };
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ export const CATEGORY_LABEL_MAP: Record<EventCategory, string> = {
   STATE: "State",
   AUTOMATION: "Automation",
   WAREHOUSE: "Warehouse",
+  QR: "QR Codes",
 };
 
 /** Maps EventIntent → display label. */

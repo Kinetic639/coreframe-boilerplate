@@ -69,6 +69,11 @@ export interface QrCodeWithAssignment {
   assignment: QrAssignment | null;
 }
 
+export interface QrCodeWithStatus extends QrCode {
+  /** Active assignment summary, or null if unassigned. */
+  assignment: { target_type: string; target_id: string } | null;
+}
+
 export interface CreateQrInput {
   label?: string | null;
   notes?: string | null;
@@ -180,6 +185,28 @@ export class QrCodesService {
   }
 
   /**
+   * Batch-load QR codes by id, scoped to the org.
+   * Returns all matching non-deleted rows in one query.
+   */
+  static async getByIds(
+    supabase: SupabaseClient,
+    orgId: string,
+    ids: string[]
+  ): Promise<ServiceResult<QrCode[]>> {
+    if (ids.length === 0) return { success: true, data: [] };
+
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select("*")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .in("id", ids);
+
+    if (error) return { success: false, error: normalizeDbError(error) };
+    return { success: true, data: (data ?? []) as QrCode[] };
+  }
+
+  /**
    * List all active (non-deleted) QR codes for an org, newest first.
    */
   static async listByOrg(
@@ -195,6 +222,48 @@ export class QrCodesService {
 
     if (error) return { success: false, error: normalizeDbError(error) };
     return { success: true, data: (data ?? []) as QrCode[] };
+  }
+
+  /**
+   * List all non-deleted QR codes for an org with active assignment status.
+   * Single query via left join — avoids N+1 on management pages.
+   */
+  static async listWithStatus(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<QrCodeWithStatus[]>> {
+    const { data, error } = await supabase
+      .from("qr_codes")
+      .select(
+        `*, qr_assignments!qr_assignments_qr_code_id_fkey(target_type, target_id, revoked_at)`
+      )
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
+
+    if (error) return { success: false, error: normalizeDbError(error) };
+
+    const rows: QrCodeWithStatus[] = (data ?? []).map((row: any) => {
+      const activeAssignment = Array.isArray(row.qr_assignments)
+        ? ((
+            row.qr_assignments as {
+              target_type: string;
+              target_id: string;
+              revoked_at: string | null;
+            }[]
+          ).find((a) => a.revoked_at === null) ?? null)
+        : null;
+
+      const { qr_assignments: _, ...qr } = row;
+      return {
+        ...(qr as QrCode),
+        assignment: activeAssignment
+          ? { target_type: activeAssignment.target_type, target_id: activeAssignment.target_id }
+          : null,
+      };
+    });
+
+    return { success: true, data: rows };
   }
 
   /**

@@ -1456,6 +1456,224 @@
         "newsHistory": "Historia aktualności"
       }
     },
+    "qr": {
+      "page": {
+        "title": "Kody QR",
+        "description": "Twórz, zarządzaj, podglądaj i eksportuj etykiety z kodami QR"
+      },
+      "management": {
+        "stages": {
+          "select": "Wybór kodów",
+          "design": "Projekt i druk"
+        },
+        "selectedCount": "zaznaczono {count}",
+        "selectHint": "Wybierz co najmniej jeden kod QR, aby przejść dalej",
+        "refresh": "Odśwież",
+        "status": {
+          "assigned": "Przypisany",
+          "unassigned": "Nieprzypisany",
+          "revoked": "Unieważniony"
+        },
+        "filters": {
+          "all": "Wszystkie",
+          "assigned": "Przypisane",
+          "unassigned": "Nieprzypisane",
+          "revoked": "Unieważnione"
+        },
+        "generate": {
+          "prefixLabel": "Prefiks etykiety",
+          "prefixPlaceholder": "np. Półka, Bin, Partia",
+          "countLabel": "Liczba",
+          "submit": "Generuj kody QR",
+          "generating": "Generowanie..."
+        },
+        "selection": {
+          "title": "Lista kodów QR",
+          "description": "Wybierz kody QR, które chcesz zaprojektować i wyeksportować.",
+          "designSelected": "Projektuj wybrane etykiety"
+        },
+        "pagination": {
+          "summary": "Pokazano {from}–{to} z {total}",
+          "previous": "Poprzednia",
+          "next": "Następna",
+          "page": "Strona {current} z {total}"
+        },
+        "table": {
+          "label": "Etykieta",
+          "token": "Token",
+          "statusHeader": "Status",
+          "assignment": "Przypisanie",
+          "created": "Utworzono",
+          "empty": "Brak kodów QR pasujących do bieżącego filtra.",
+          "unlabelled": "Bez etykiety",
+          "unassignedDash": "—",
+          "revoke": "Unieważnij kod QR"
+        },
+        "design": {
+          "title": "Projekt i druk",
+          "description": "Dostosuj wygląd etykiety, podejrzyj ją, a potem eksportuj lub drukuj.",
+          "backToSelection": "Wróć do wyboru"
+        },
+        "revokeDialog": {
+          "title": "Unieważnij kod QR",
+          "description": "Ten kod QR przestanie być ważny i nie będzie można go już eksportować.",
+          "cancel": "Anuluj",
+          "confirm": "Unieważnij"
+        },
+        "toasts": {
+          "created": "Utworzono {count} kod(ów) QR.",
+          "revoked": "Kod QR został unieważniony."
+        }
+      },
+      "previewDialog": {
+        "print": "Drukuj",
+        "download": "Pobierz",
+        "generating": "Generowanie podglądu PDF...",
+        "iframeTitle": "Podgląd PDF etykiet QR"
+      },
+      "designer": {
+        "tabs": {
+          "layout": "Rozmiar i układ etykiety",
+          "qr": "Kod QR",
+          "text": "Warstwy tekstu"
+        },
+        "layout": {
+          "widthMm": "Szerokość (mm)",
+          "heightMm": "Wysokość (mm)",
+          "minWidthError": "Minimalna zalecana szerokość to 20 mm.",
+          "minHeightError": "Minimalna zalecana wysokość to 20 mm.",
+          "zplPreset": "{size} mm",
+          "orientation": "Orientacja",
+          "orientationOptions": {
+            "landscape": "Pozioma",
+            "portrait": "Pionowa"
+          },
+          "textPosition": "Pozycja tekstu",
+          "textPositionOptions": {
+            "right": "Po prawej",
+            "left": "Po lewej",
+            "above": "Na górze",
+            "below": "Na dole"
+          },
+          "labelBorder": "Obramowanie etykiety",
+          "outerPadding": "Padding zewnętrzny",
+          "innerPadding": "Padding wewnętrzny",
+          "ambraFooter": "Stopka Ambra",
+          "edgeGuides": "Linie pomocnicze krawędzi",
+          "edgeGuideThickness": "Grubość linii",
+          "edgeGuideStyle": "Styl linii",
+          "edgeGuideStyleOptions": {
+            "solid": "Ciągła",
+            "dotted": "Kropkowana",
+            "dashed": "Przerywana"
+          },
+          "edgeGuideOpacity": "Przezroczystość linii",
+          "edgeGuideColor": "Kolor linii"
+        },
+        "qr": {
+          "qrSize": "Rozmiar QR",
+          "frameShape": "Kształt ramki QR",
+          "frameShapeOptions": {
+            "square": "Kwadrat",
+            "circle": "Koło"
+          },
+          "bodyStyle": "Styl wnętrza QR",
+          "bodyStyleOptions": {
+            "square": "Kwadrat",
+            "dots": "Kropki",
+            "rounded": "Zaokrąglony",
+            "classy": "Classy",
+            "classy-rounded": "Classy-rounded",
+            "extra-rounded": "Extra-rounded"
+          },
+          "finderOuterStyle": "Styl zewnętrzny znaczników",
+          "finderInnerStyle": "Styl wewnętrzny znaczników",
+          "cornerStyleOptions": {
+            "square": "Kwadrat",
+            "dot": "Kropka",
+            "dots": "Kropki",
+            "rounded": "Zaokrąglony",
+            "classy": "Classy",
+            "classy-rounded": "Classy-rounded",
+            "extra-rounded": "Extra-rounded"
+          },
+          "logoInCenter": "Logo w środku QR",
+          "logoBackground": "Tło logo",
+          "logoBackgroundOptions": {
+            "brand": "Brand",
+            "circle": "Koło",
+            "square": "Kwadrat"
+          }
+        },
+        "text": {
+          "verticalAlignment": "Wyrównanie pionowe",
+          "verticalAlignmentOptions": {
+            "start": "Początek",
+            "center": "Środek",
+            "end": "Koniec"
+          },
+          "layerNames": {
+            "primaryText": "Nazwa etykiety",
+            "secondaryText": "Dodatkowa linia 1",
+            "tertiaryText": "Dodatkowa linia 2",
+            "tokenText": "Token"
+          },
+          "sourceQrLabel": "Z nazwy kodu QR",
+          "sourceQrToken": "Z tokenu QR",
+          "sourceCustom": "Tekst własny",
+          "customLineLabel": "Treść tekstu",
+          "customLinePlaceholder": {
+            "secondaryText": "Wpisz dodatkową linię 1",
+            "tertiaryText": "Wpisz dodatkową linię 2"
+          },
+          "pt": "pt",
+          "bold": "pogrubienie",
+          "reorderLayer": "Zmień kolejność: {layer}",
+          "alignLayer": "Wyrównaj {layer}: {align}",
+          "alignOptions": {
+            "left": "do lewej",
+            "center": "do środka",
+            "right": "do prawej"
+          }
+        },
+        "preview": {
+          "title": "Podgląd",
+          "effectiveLabel": "Efektywna etykieta:",
+          "a4Packing": "Układ A4:",
+          "thermalPreset": "Preset termiczny:",
+          "openLabelPreview": "Otwórz podgląd etykiety",
+          "openPageLayout": "Otwórz układ strony"
+        },
+        "exportBar": {
+          "pdfSummary": "Bieżący projekt PDF mieści {count} etykiet na stronie A4.",
+          "zplSummary": "Bieżący projekt termiczny używa presetu etykiety {size} mm.",
+          "generatingPreview": "Generowanie podglądu...",
+          "exporting": "Eksportowanie...",
+          "previewLabels": "Podgląd {count} etykiet",
+          "exportLabels": "Eksportuj {count} etykiet",
+          "selectCodes": "Wybierz kody, aby kontynuować"
+        },
+        "previewDialogTitle": "Podgląd etykiet QR ({count})",
+        "singleDialog": {
+          "title": "Podgląd pojedynczej etykiety"
+        },
+        "layoutDialog": {
+          "pdfTitle": "Podgląd układu strony",
+          "zplTitle": "Podgląd układu termicznego",
+          "fixedZpl": "Stała etykieta termiczna: {width} × {height} mm"
+        },
+        "zoom": {
+          "fit": "Dopasuj",
+          "label": "Zoom"
+        },
+        "toasts": {
+          "selectOne": "Najpierw wybierz co najmniej jeden kod QR.",
+          "previewReady": "Podgląd gotowy dla {count} etykiet(y).",
+          "exported": "Wyeksportowano {count} etykiet(y).",
+          "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
+        }
+      }
+    },
     "warehouse": {
       "title": "Magazyn",
       "description": "Zarządzanie magazynem i zapasami",
@@ -1638,6 +1856,211 @@
           "templates": "Szablony etykiet",
           "batches": "Partie etykiet",
           "history": "Historia przypisań"
+        },
+        "qr": {
+          "titleSidebar": "Kody QR",
+          "page": {
+            "title": "Kody QR",
+            "description": "Generuj, zarządzaj i eksportuj kody QR jako arkusze PDF z etykietami lub pliki Zebra ZPL."
+          },
+          "previewDialog": {
+            "print": "Drukuj",
+            "download": "Pobierz",
+            "generating": "Generowanie podglądu…",
+            "iframeTitle": "Podgląd PDF etykiet QR"
+          },
+          "management": {
+            "stages": {
+              "select": "1. Wybierz kody",
+              "design": "2. Projektuj i drukuj"
+            },
+            "selectedCount": "{count, plural, one {etykieta wybrana} few {etykiety wybrane} many {etykiet wybranych} other {etykiety wybrane}}",
+            "selectHint": "Najpierw wybierz etykiety, które chcesz wydrukować.",
+            "refresh": "Odśwież listę",
+            "status": {
+              "assigned": "Przypisany",
+              "unassigned": "Nieprzypisany",
+              "revoked": "Unieważniony"
+            },
+            "filters": {
+              "all": "Wszystkie",
+              "assigned": "Przypisane",
+              "unassigned": "Nieprzypisane",
+              "revoked": "Unieważnione"
+            },
+            "generate": {
+              "prefixLabel": "Prefiks etykiety (opcjonalnie)",
+              "prefixPlaceholder": "np. Partia-A",
+              "countLabel": "Liczba (1–50)",
+              "submit": "Generuj",
+              "generating": "Generowanie…"
+            },
+            "selection": {
+              "title": "Wybierz etykiety do druku",
+              "description": "Zacznij od przefiltrowanej listy, a potem przejdź do projektanta etykiet.",
+              "designSelected": "Projektuj wybrane etykiety"
+            },
+            "table": {
+              "label": "Etykieta",
+              "token": "Token",
+              "statusHeader": "Status",
+              "assignment": "Przypisanie",
+              "created": "Utworzono",
+              "empty": "Nie znaleziono kodów QR.",
+              "unlabelled": "bez etykiety",
+              "unassignedDash": "—",
+              "revoke": "Unieważnij kod QR"
+            },
+            "design": {
+              "title": "Projektuj i drukuj etykiety",
+              "description": "Dostosuj układ etykiety, sprawdź podgląd, a następnie otwórz podgląd PDF do druku.",
+              "backToSelection": "Wróć do wyboru"
+            },
+            "revokeDialog": {
+              "title": "Unieważnić kod QR?",
+              "description": "To trwale dezaktywuje kod QR. Wszelkie wydrukowane etykiety z tym tokenem przestaną działać. Tej akcji nie można cofnąć.",
+              "cancel": "Anuluj",
+              "confirm": "Unieważnij"
+            },
+            "toasts": {
+              "created": "{count, plural, one {Utworzono 1 kod QR.} few {Utworzono # kody QR.} many {Utworzono # kodów QR.} other {Utworzono # kodu QR.}}",
+              "revoked": "Kod QR został unieważniony."
+            }
+          },
+          "designer": {
+            "tabs": {
+              "layout": "Rozmiar i układ etykiety",
+              "qr": "Kod QR",
+              "text": "Warstwy tekstu"
+            },
+            "layout": {
+              "widthMm": "Szerokość (mm)",
+              "heightMm": "Wysokość (mm)",
+              "minWidthError": "Minimalna zalecana szerokość to 20 mm.",
+              "minHeightError": "Minimalna zalecana wysokość to 20 mm.",
+              "zplPreset": "{size} mm",
+              "orientation": "Orientacja",
+              "orientationOptions": {
+                "landscape": "Pozioma",
+                "portrait": "Pionowa"
+              },
+              "textPosition": "Pozycja tekstu",
+              "textPositionOptions": {
+                "right": "Prawa",
+                "left": "Lewa",
+                "above": "Nad",
+                "below": "Pod"
+              },
+              "labelBorder": "Obramowanie etykiety",
+              "outerPadding": "Zewnętrzny odstęp",
+              "innerPadding": "Wewnętrzny odstęp",
+              "ambraFooter": "Stopka Ambra",
+              "edgeGuides": "Linie pomocnicze krawędzi",
+              "edgeGuideThickness": "Grubość linii",
+              "edgeGuideStyle": "Styl linii",
+              "edgeGuideStyleOptions": {
+                "solid": "Ciągła",
+                "dotted": "Kropkowana",
+                "dashed": "Przerywana"
+              },
+              "edgeGuideOpacity": "Przezroczystość linii",
+              "edgeGuideColor": "Kolor linii"
+            },
+            "qr": {
+              "qrSize": "Rozmiar QR",
+              "frameShape": "Kształt ramki QR",
+              "frameShapeOptions": {
+                "square": "Kwadrat",
+                "circle": "Koło"
+              },
+              "bodyStyle": "Styl wnętrza QR",
+              "bodyStyleOptions": {
+                "square": "Kwadrat",
+                "dots": "Kropki",
+                "rounded": "Zaokrąglony",
+                "classy": "Classy",
+                "classy-rounded": "Classy-rounded",
+                "extra-rounded": "Mocno zaokrąglony"
+              },
+              "finderOuterStyle": "Styl zewnętrzny znaczników",
+              "finderInnerStyle": "Styl wewnętrzny znaczników",
+              "cornerStyleOptions": {
+                "square": "Kwadrat",
+                "dot": "Kropka",
+                "extra-rounded": "Mocno zaokrąglony",
+                "dots": "Kropki",
+                "rounded": "Zaokrąglony",
+                "classy": "Classy",
+                "classy-rounded": "Classy-rounded"
+              },
+              "logoInCenter": "Logo w środku QR",
+              "logoBackground": "Tło logo",
+              "logoBackgroundOptions": {
+                "brand": "Brand",
+                "circle": "Koło",
+                "square": "Kwadrat"
+              }
+            },
+            "text": {
+              "verticalAlignment": "Wyrównanie pionowe",
+              "verticalAlignmentOptions": {
+                "start": "Start",
+                "center": "Środek",
+                "end": "Koniec"
+              },
+              "layerNames": {
+                "primaryText": "Główna",
+                "secondaryText": "Pomocnicza",
+                "tertiaryText": "Trzecia",
+                "tokenText": "Token"
+              },
+              "pt": "pt",
+              "bold": "pogrubienie",
+              "reorderLayer": "Zmień kolejność warstwy {layer}",
+              "alignLayer": "Wyrównanie tekstu {layer}: {align}",
+              "alignOptions": {
+                "left": "do lewej",
+                "center": "do środka",
+                "right": "do prawej"
+              }
+            },
+            "preview": {
+              "title": "Podgląd",
+              "effectiveLabel": "Efektywna etykieta:",
+              "a4Packing": "Upakowanie A4:",
+              "thermalPreset": "Preset termiczny:",
+              "openLabelPreview": "Otwórz podgląd etykiety",
+              "openPageLayout": "Otwórz układ strony"
+            },
+            "exportBar": {
+              "pdfSummary": "Bieżący projekt PDF mieści {count} etykiet na stronę A4.",
+              "zplSummary": "Bieżący projekt termiczny wyeksportuje Zebra ZPL dla etykiet {size}.",
+              "generatingPreview": "Generowanie podglądu…",
+              "exporting": "Eksportowanie…",
+              "previewLabels": "{count, plural, one {Podgląd 1 etykiety} few {Podgląd # etykiet} many {Podgląd # etykiet} other {Podgląd # etykiety}}",
+              "exportLabels": "{count, plural, one {Eksport 1 etykiety} few {Eksport # etykiet} many {Eksport # etykiet} other {Eksport # etykiety}}",
+              "selectCodes": "Wybierz kody powyżej, aby wyeksportować"
+            },
+            "zoom": {
+              "fit": "Dopasuj",
+              "label": "Zoom"
+            },
+            "singleDialog": {
+              "title": "Podgląd pojedynczej etykiety"
+            },
+            "layoutDialog": {
+              "pdfTitle": "Podgląd układu strony",
+              "zplTitle": "Podgląd arkusza drukarki",
+              "fixedZpl": "Stała etykieta Zebra {width} × {height} mm"
+            },
+            "previewDialogTitle": "Podgląd etykiet QR ({count})",
+            "toasts": {
+              "selectOne": "Wybierz co najmniej jeden kod QR do eksportu.",
+              "previewReady": "{count, plural, one {Przygotowano podgląd dla 1 etykiety.} few {Przygotowano podgląd dla # etykiet.} many {Przygotowano podgląd dla # etykiet.} other {Przygotowano podgląd dla # etykiety.}}",
+              "exported": "{count, plural, one {Wyeksportowano 1 etykietę.} few {Wyeksportowano # etykiety.} many {Wyeksportowano # etykiet.} other {Wyeksportowano # etykiety.}}",
+              "exportFailed": "Eksport nie powiódł się. Spróbuj ponownie."
+            }
+          }
         },
         "alerts": {
           "title": "Alerty Stanów Magazynowych",

@@ -227,6 +227,10 @@ export const routing = defineRouting({
       en: "/dashboard/activity",
       pl: "/dashboard/aktywnosc",
     },
+    "/dashboard/qr": {
+      en: "/dashboard/qr",
+      pl: "/dashboard/kody-qr",
+    },
     "/dashboard/support": {
       en: "/dashboard/support",
       pl: "/dashboard/wsparcie",

@@ -9,6 +9,7 @@ import {
   AUDIT_EVENTS_READ,
   MODULE_WAREHOUSE_ACCESS,
   WAREHOUSE_LOCATIONS_READ,
+  QR_READ,
 } from "@/lib/constants/permissions";
 import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
@@ -300,6 +301,19 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     href: "/dashboard/activity",
     match: { exact: "/dashboard/activity" },
     visibility: {},
+  },
+
+  // QR Codes (always available — no requiresModules gate, permission-only)
+  {
+    id: "qr",
+    title: "QR Codes",
+    titleKey: "modules.qr.titleSidebar",
+    iconKey: "qr-code",
+    href: "/dashboard/qr",
+    match: { startsWith: "/dashboard/qr" },
+    visibility: {
+      requiresPermissions: [QR_READ],
+    },
   },
 
   // Tools (always available — no requiresModules gate, last in main nav)
