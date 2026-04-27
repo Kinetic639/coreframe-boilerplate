@@ -17,6 +17,7 @@ import { eventService } from "@/server/services/event.service";
 export const dynamic = "force-dynamic";
 
 const MAX_IDS = 200;
+const QR_PREVIEW_CONCURRENCY = 8;
 
 const textLayerSchema = z.object({
   show: z.boolean(),
@@ -25,14 +26,20 @@ const textLayerSchema = z.object({
   align: z.enum(["left", "center", "right"]),
 });
 
+const textContentSchema = z.object({
+  secondaryText: z.string().max(120),
+  tertiaryText: z.string().max(120),
+});
+
 const labelConfigSchema = z.object({
   dimension: z.object({
     width: z.number().min(10).max(210),
     height: z.number().min(10).max(297),
   }),
+  orientation: z.enum(["landscape", "portrait"]),
   includeLogo: z.boolean(),
   logoBackgroundStyle: z.enum(["brand", "circle", "square"]),
-  qrHeightRatio: z.number().min(0.4).max(0.95),
+  qrHeightRatio: z.number().min(0.4).max(1),
   qrStyle: z.object({
     frameShape: z.enum(["square", "circle"]),
     dotStyle: z.enum(["square", "dots", "rounded", "classy", "classy-rounded", "extra-rounded"]),
@@ -56,11 +63,28 @@ const labelConfigSchema = z.object({
     ]),
   }),
   showBorder: z.boolean(),
+  outerPaddingMm: z.number().min(0).max(20),
+  innerPaddingMm: z.number().min(0).max(20),
   textPosition: z.enum(["right", "left", "above", "below"]),
+  textVerticalAlign: z.enum(["start", "center", "end"]),
+  textLayerOrder: z
+    .array(z.enum(["primaryText", "secondaryText", "tertiaryText", "tokenText"]))
+    .length(4),
   primaryText: textLayerSchema,
   secondaryText: textLayerSchema,
   tertiaryText: textLayerSchema,
-  includeTokenPreview: z.boolean(),
+  tokenText: textLayerSchema,
+  textContent: textContentSchema,
+  edgeGuides: z.object({
+    show: z.boolean(),
+    thickness: z.number().min(0.1).max(4),
+    style: z.enum(["solid", "dotted", "dashed"]),
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    opacity: z.number().min(0).max(1),
+  }),
+  footer: z.object({
+    show: z.boolean(),
+  }),
 });
 
 const requestSchema = z.object({
@@ -76,6 +100,27 @@ const requestSchema = z.object({
 
 function jsonError(message: string, status: number) {
   return Response.json({ success: false, error: message }, { status });
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const currentIndex = nextIndex++;
+      if (currentIndex >= items.length) return;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
 }
 
 /**
@@ -110,6 +155,7 @@ export async function POST(request: NextRequest) {
       width: parsed.data.labelConfig.dimension.width,
       height: parsed.data.labelConfig.dimension.height,
     },
+    orientation: parsed.data.labelConfig.orientation,
     includeLogo: parsed.data.labelConfig.includeLogo,
     logoBackgroundStyle: parsed.data.labelConfig.logoBackgroundStyle,
     qrHeightRatio: parsed.data.labelConfig.qrHeightRatio,
@@ -120,7 +166,11 @@ export async function POST(request: NextRequest) {
       cornerDotStyle: parsed.data.labelConfig.qrStyle.cornerDotStyle,
     },
     showBorder: parsed.data.labelConfig.showBorder,
+    outerPaddingMm: parsed.data.labelConfig.outerPaddingMm,
+    innerPaddingMm: parsed.data.labelConfig.innerPaddingMm,
     textPosition: parsed.data.labelConfig.textPosition,
+    textVerticalAlign: parsed.data.labelConfig.textVerticalAlign,
+    textLayerOrder: parsed.data.labelConfig.textLayerOrder,
     primaryText: {
       show: parsed.data.labelConfig.primaryText.show,
       size: parsed.data.labelConfig.primaryText.size,
@@ -139,7 +189,26 @@ export async function POST(request: NextRequest) {
       bold: parsed.data.labelConfig.tertiaryText.bold,
       align: parsed.data.labelConfig.tertiaryText.align,
     },
-    includeTokenPreview: parsed.data.labelConfig.includeTokenPreview,
+    tokenText: {
+      show: parsed.data.labelConfig.tokenText.show,
+      size: parsed.data.labelConfig.tokenText.size,
+      bold: parsed.data.labelConfig.tokenText.bold,
+      align: parsed.data.labelConfig.tokenText.align,
+    },
+    textContent: {
+      secondaryText: parsed.data.labelConfig.textContent.secondaryText,
+      tertiaryText: parsed.data.labelConfig.textContent.tertiaryText,
+    },
+    edgeGuides: {
+      show: parsed.data.labelConfig.edgeGuides.show,
+      thickness: parsed.data.labelConfig.edgeGuides.thickness,
+      style: parsed.data.labelConfig.edgeGuides.style,
+      color: parsed.data.labelConfig.edgeGuides.color,
+      opacity: parsed.data.labelConfig.edgeGuides.opacity,
+    },
+    footer: {
+      show: parsed.data.labelConfig.footer.show,
+    },
   };
 
   // ─── 2. Auth ───────────────────────────────────────────────────────────────
@@ -179,14 +248,17 @@ export async function POST(request: NextRequest) {
   // ─── 4. Generate output ────────────────────────────────────────────────────
   try {
     if (format === "pdf") {
-      const items: QrLabelPdfItem[] = await Promise.all(
-        qrCodes.map(async (qr) => ({
+      const items: QrLabelPdfItem[] = await mapWithConcurrency(
+        qrCodes,
+        QR_PREVIEW_CONCURRENCY,
+        async (qr) => ({
           qrCodeId: qr.id,
           token: qr.token,
           qrDataUrl: await generateStyledQrPngDataUrl(qr.token, labelConfig.qrStyle),
           primaryText: qr.label ?? "QR Code",
-          secondaryText: labelConfig.includeTokenPreview ? qr.token.slice(0, 8) : undefined,
-        }))
+          secondaryText: labelConfig.textContent.secondaryText.trim() || undefined,
+          tertiaryText: labelConfig.textContent.tertiaryText.trim() || undefined,
+        })
       );
 
       const buffer = await generateQrLabelsPdfWithConfig(items, labelConfig);
@@ -197,7 +269,7 @@ export async function POST(request: NextRequest) {
         qrCodes,
         format,
         labelConfig.dimension,
-        labelConfig.includeTokenPreview
+        labelConfig.tokenText.show
       );
 
       return new Response(new Uint8Array(buffer), {
@@ -213,12 +285,27 @@ export async function POST(request: NextRequest) {
     // format === "zpl"
     const items: ZplLabelItem[] = qrCodes.map((qr) => ({
       token: qr.token,
-      label: qr.label ?? undefined,
-      includeTokenPreview: labelConfig.includeTokenPreview,
-      qrHeightRatio: labelConfig.qrHeightRatio,
+      primaryText: qr.label ?? "QR Code",
+      secondaryText: labelConfig.textContent.secondaryText.trim() || undefined,
+      tertiaryText: labelConfig.textContent.tertiaryText.trim() || undefined,
     }));
 
-    const zpl = generateZplLabels(items, zplSize as ZplLabelSize);
+    const thermalBaseDimension =
+      zplSize === "50x30" ? { width: 50, height: 30 } : { width: 70, height: 40 };
+
+    const zpl = await generateZplLabels(items, zplSize as ZplLabelSize, {
+      ...labelConfig,
+      dimension: {
+        width:
+          labelConfig.orientation === "portrait"
+            ? thermalBaseDimension.height
+            : thermalBaseDimension.width,
+        height:
+          labelConfig.orientation === "portrait"
+            ? thermalBaseDimension.width
+            : thermalBaseDimension.height,
+      },
+    });
 
     emitExportEvent(
       userId,
@@ -226,7 +313,7 @@ export async function POST(request: NextRequest) {
       qrCodes,
       format,
       labelConfig.dimension,
-      labelConfig.includeTokenPreview
+      labelConfig.tokenText.show
     );
 
     return new Response(new TextEncoder().encode(zpl), {
@@ -249,7 +336,7 @@ function emitExportEvent(
   qrCodes: QrCode[],
   format: string,
   dimension: { width: number; height: number },
-  includeTokenPreview: boolean
+  hasTokenText: boolean
 ) {
   eventService
     .emit({
@@ -263,6 +350,7 @@ function emitExportEvent(
         qr_code_ids: qrCodes.map((q) => q.id),
         label_count: qrCodes.length,
         label_size: `${format}:${dimension.width}x${dimension.height}mm`,
+        token_text_enabled: hasTokenText,
         branch_id: null,
       },
       eventTier: "baseline",

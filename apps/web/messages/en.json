@@ -1501,6 +1501,224 @@
         "newsHistory": "News History"
       }
     },
+    "qr": {
+      "page": {
+        "title": "QR Codes",
+        "description": "Create, manage, preview, and export QR code labels"
+      },
+      "management": {
+        "stages": {
+          "select": "Select codes",
+          "design": "Design & print"
+        },
+        "selectedCount": "{count} selected",
+        "selectHint": "Select one or more QR codes to continue",
+        "refresh": "Refresh",
+        "status": {
+          "assigned": "Assigned",
+          "unassigned": "Unassigned",
+          "revoked": "Revoked"
+        },
+        "filters": {
+          "all": "All",
+          "assigned": "Assigned",
+          "unassigned": "Unassigned",
+          "revoked": "Revoked"
+        },
+        "generate": {
+          "prefixLabel": "Label prefix",
+          "prefixPlaceholder": "e.g. Shelf, Bin, Batch",
+          "countLabel": "Count",
+          "submit": "Generate QR codes",
+          "generating": "Generating..."
+        },
+        "selection": {
+          "title": "QR code list",
+          "description": "Choose the QR codes you want to design and export.",
+          "designSelected": "Design selected labels"
+        },
+        "pagination": {
+          "summary": "Showing {from}–{to} of {total}",
+          "previous": "Previous",
+          "next": "Next",
+          "page": "Page {current} of {total}"
+        },
+        "table": {
+          "label": "Label",
+          "token": "Token",
+          "statusHeader": "Status",
+          "assignment": "Assignment",
+          "created": "Created",
+          "empty": "No QR codes match the current filter.",
+          "unlabelled": "Unlabelled",
+          "unassignedDash": "—",
+          "revoke": "Revoke QR code"
+        },
+        "design": {
+          "title": "Design and print",
+          "description": "Adjust the label appearance, preview it, then export or print.",
+          "backToSelection": "Back to selection"
+        },
+        "revokeDialog": {
+          "title": "Revoke QR code",
+          "description": "This QR code will stop being valid and can no longer be exported.",
+          "cancel": "Cancel",
+          "confirm": "Revoke"
+        },
+        "toasts": {
+          "created": "Created {count} QR code(s).",
+          "revoked": "QR code revoked."
+        }
+      },
+      "previewDialog": {
+        "print": "Print",
+        "download": "Download",
+        "generating": "Generating PDF preview...",
+        "iframeTitle": "QR label PDF preview"
+      },
+      "designer": {
+        "tabs": {
+          "layout": "Label size & layout",
+          "qr": "QR Code",
+          "text": "Text layers"
+        },
+        "layout": {
+          "widthMm": "Width (mm)",
+          "heightMm": "Height (mm)",
+          "minWidthError": "Minimum recommended width is 20 mm.",
+          "minHeightError": "Minimum recommended height is 20 mm.",
+          "zplPreset": "{size} mm",
+          "orientation": "Orientation",
+          "orientationOptions": {
+            "landscape": "Landscape",
+            "portrait": "Portrait"
+          },
+          "textPosition": "Text position",
+          "textPositionOptions": {
+            "right": "Right",
+            "left": "Left",
+            "above": "Above",
+            "below": "Below"
+          },
+          "labelBorder": "Label border",
+          "outerPadding": "Outer padding",
+          "innerPadding": "Inner padding",
+          "ambraFooter": "Ambra footer",
+          "edgeGuides": "Edge guide lines",
+          "edgeGuideThickness": "Line thickness",
+          "edgeGuideStyle": "Line style",
+          "edgeGuideStyleOptions": {
+            "solid": "Solid",
+            "dotted": "Dotted",
+            "dashed": "Dashed"
+          },
+          "edgeGuideOpacity": "Line opacity",
+          "edgeGuideColor": "Line color"
+        },
+        "qr": {
+          "qrSize": "QR size",
+          "frameShape": "QR frame shape",
+          "frameShapeOptions": {
+            "square": "Square",
+            "circle": "Circle"
+          },
+          "bodyStyle": "QR body style",
+          "bodyStyleOptions": {
+            "square": "Square",
+            "dots": "Dots",
+            "rounded": "Rounded",
+            "classy": "Classy",
+            "classy-rounded": "Classy-rounded",
+            "extra-rounded": "Extra-rounded"
+          },
+          "finderOuterStyle": "Finder outer style",
+          "finderInnerStyle": "Finder inner style",
+          "cornerStyleOptions": {
+            "square": "Square",
+            "dot": "Dot",
+            "dots": "Dots",
+            "rounded": "Rounded",
+            "classy": "Classy",
+            "classy-rounded": "Classy-rounded",
+            "extra-rounded": "Extra-rounded"
+          },
+          "logoInCenter": "Logo in QR centre",
+          "logoBackground": "Logo background",
+          "logoBackgroundOptions": {
+            "brand": "Brand",
+            "circle": "Circle",
+            "square": "Square"
+          }
+        },
+        "text": {
+          "verticalAlignment": "Vertical alignment",
+          "verticalAlignmentOptions": {
+            "start": "Start",
+            "center": "Center",
+            "end": "End"
+          },
+          "layerNames": {
+            "primaryText": "Label name",
+            "secondaryText": "Additional line 1",
+            "tertiaryText": "Additional line 2",
+            "tokenText": "Token"
+          },
+          "sourceQrLabel": "From QR label",
+          "sourceQrToken": "From QR token",
+          "sourceCustom": "Custom text",
+          "customLineLabel": "Text content",
+          "customLinePlaceholder": {
+            "secondaryText": "Enter additional line 1",
+            "tertiaryText": "Enter additional line 2"
+          },
+          "pt": "pt",
+          "bold": "bold",
+          "reorderLayer": "Reorder {layer}",
+          "alignLayer": "Align {layer}: {align}",
+          "alignOptions": {
+            "left": "Left",
+            "center": "Center",
+            "right": "Right"
+          }
+        },
+        "preview": {
+          "title": "Preview",
+          "effectiveLabel": "Effective label:",
+          "a4Packing": "A4 packing:",
+          "thermalPreset": "Thermal preset:",
+          "openLabelPreview": "Open label preview",
+          "openPageLayout": "Open page layout"
+        },
+        "exportBar": {
+          "pdfSummary": "Current PDF design fits {count} labels per A4 page.",
+          "zplSummary": "Current thermal design uses the {size} mm label preset.",
+          "generatingPreview": "Generating preview...",
+          "exporting": "Exporting...",
+          "previewLabels": "Preview {count} labels",
+          "exportLabels": "Export {count} labels",
+          "selectCodes": "Select codes to continue"
+        },
+        "previewDialogTitle": "QR label preview ({count})",
+        "singleDialog": {
+          "title": "Single label preview"
+        },
+        "layoutDialog": {
+          "pdfTitle": "Page layout preview",
+          "zplTitle": "Thermal layout preview",
+          "fixedZpl": "Fixed thermal label: {width} × {height} mm"
+        },
+        "zoom": {
+          "fit": "Fit",
+          "label": "Zoom"
+        },
+        "toasts": {
+          "selectOne": "Select at least one QR code first.",
+          "previewReady": "Preview ready for {count} label(s).",
+          "exported": "Exported {count} label(s).",
+          "exportFailed": "Export failed. Please try again."
+        }
+      }
+    },
     "warehouse": {
       "title": "Warehouse",
       "description": "Warehouse and inventory management",
@@ -1683,6 +1901,211 @@
           "templates": "Label Templates",
           "batches": "Label Batches",
           "history": "Assignment History"
+        },
+        "qr": {
+          "titleSidebar": "QR Codes",
+          "page": {
+            "title": "QR Codes",
+            "description": "Generate, manage, and export QR codes as PDF sticker sheets or Zebra ZPL files."
+          },
+          "previewDialog": {
+            "print": "Print",
+            "download": "Download",
+            "generating": "Generating preview…",
+            "iframeTitle": "QR labels PDF preview"
+          },
+          "management": {
+            "stages": {
+              "select": "1. Select codes",
+              "design": "2. Design & print"
+            },
+            "selectedCount": "{count, plural, one {label selected} other {labels selected}}",
+            "selectHint": "Select the labels you want to print first.",
+            "refresh": "Refresh list",
+            "status": {
+              "assigned": "Assigned",
+              "unassigned": "Unassigned",
+              "revoked": "Revoked"
+            },
+            "filters": {
+              "all": "All",
+              "assigned": "Assigned",
+              "unassigned": "Unassigned",
+              "revoked": "Revoked"
+            },
+            "generate": {
+              "prefixLabel": "Label prefix (optional)",
+              "prefixPlaceholder": "e.g. Batch-A",
+              "countLabel": "Count (1–50)",
+              "submit": "Generate",
+              "generating": "Generating…"
+            },
+            "selection": {
+              "title": "Choose the labels to print",
+              "description": "Start with a filtered list, then move into the label designer.",
+              "designSelected": "Design selected labels"
+            },
+            "table": {
+              "label": "Label",
+              "token": "Token",
+              "statusHeader": "Status",
+              "assignment": "Assignment",
+              "created": "Created",
+              "empty": "No QR codes found.",
+              "unlabelled": "unlabelled",
+              "unassignedDash": "—",
+              "revoke": "Revoke QR code"
+            },
+            "design": {
+              "title": "Design and print labels",
+              "description": "Adjust the label layout, check the preview, then open the PDF preview to print.",
+              "backToSelection": "Back to selection"
+            },
+            "revokeDialog": {
+              "title": "Revoke QR code?",
+              "description": "This permanently deactivates the QR code. Any printed labels with this token will no longer resolve. This action cannot be undone.",
+              "cancel": "Cancel",
+              "confirm": "Revoke"
+            },
+            "toasts": {
+              "created": "{count, plural, one {Created 1 QR code.} other {Created # QR codes.}}",
+              "revoked": "QR code revoked."
+            }
+          },
+          "designer": {
+            "tabs": {
+              "layout": "Label size & layout",
+              "qr": "QR Code",
+              "text": "Text layers"
+            },
+            "layout": {
+              "widthMm": "Width (mm)",
+              "heightMm": "Height (mm)",
+              "minWidthError": "Minimum recommended width is 20 mm.",
+              "minHeightError": "Minimum recommended height is 20 mm.",
+              "zplPreset": "{size} mm",
+              "orientation": "Orientation",
+              "orientationOptions": {
+                "landscape": "Landscape",
+                "portrait": "Portrait"
+              },
+              "textPosition": "Text position",
+              "textPositionOptions": {
+                "right": "Right",
+                "left": "Left",
+                "above": "Above",
+                "below": "Below"
+              },
+              "labelBorder": "Label border",
+              "outerPadding": "Outer padding",
+              "innerPadding": "Inner padding",
+              "ambraFooter": "Ambra footer",
+              "edgeGuides": "Edge guide lines",
+              "edgeGuideThickness": "Line thickness",
+              "edgeGuideStyle": "Line style",
+              "edgeGuideStyleOptions": {
+                "solid": "Solid",
+                "dotted": "Dotted",
+                "dashed": "Dashed"
+              },
+              "edgeGuideOpacity": "Line opacity",
+              "edgeGuideColor": "Line color"
+            },
+            "qr": {
+              "qrSize": "QR size",
+              "frameShape": "QR frame shape",
+              "frameShapeOptions": {
+                "square": "Square",
+                "circle": "Circle"
+              },
+              "bodyStyle": "QR body style",
+              "bodyStyleOptions": {
+                "square": "Square",
+                "dots": "Dots",
+                "rounded": "Rounded",
+                "classy": "Classy",
+                "classy-rounded": "Classy-rounded",
+                "extra-rounded": "Extra-rounded"
+              },
+              "finderOuterStyle": "Finder outer style",
+              "finderInnerStyle": "Finder inner style",
+              "cornerStyleOptions": {
+                "square": "Square",
+                "dot": "Dot",
+                "extra-rounded": "Extra-rounded",
+                "dots": "Dots",
+                "rounded": "Rounded",
+                "classy": "Classy",
+                "classy-rounded": "Classy-rounded"
+              },
+              "logoInCenter": "Logo in QR centre",
+              "logoBackground": "Logo background",
+              "logoBackgroundOptions": {
+                "brand": "Brand",
+                "circle": "Circle",
+                "square": "Square"
+              }
+            },
+            "text": {
+              "verticalAlignment": "Vertical alignment",
+              "verticalAlignmentOptions": {
+                "start": "Start",
+                "center": "Center",
+                "end": "End"
+              },
+              "layerNames": {
+                "primaryText": "Primary",
+                "secondaryText": "Secondary",
+                "tertiaryText": "Tertiary",
+                "tokenText": "Token"
+              },
+              "pt": "pt",
+              "bold": "bold",
+              "reorderLayer": "Reorder {layer} layer",
+              "alignLayer": "{layer} text align {align}",
+              "alignOptions": {
+                "left": "left",
+                "center": "center",
+                "right": "right"
+              }
+            },
+            "preview": {
+              "title": "Preview",
+              "effectiveLabel": "Effective label:",
+              "a4Packing": "A4 packing:",
+              "thermalPreset": "Thermal preset:",
+              "openLabelPreview": "Open label preview",
+              "openPageLayout": "Open page layout"
+            },
+            "exportBar": {
+              "pdfSummary": "Current PDF design fits {count} labels per A4 page.",
+              "zplSummary": "Current thermal design will export Zebra ZPL sized for {size} labels.",
+              "generatingPreview": "Generating preview…",
+              "exporting": "Exporting…",
+              "previewLabels": "{count, plural, one {Preview 1 label} other {Preview # labels}}",
+              "exportLabels": "{count, plural, one {Export 1 label} other {Export # labels}}",
+              "selectCodes": "Select codes above to export"
+            },
+            "zoom": {
+              "fit": "Fit",
+              "label": "Zoom"
+            },
+            "singleDialog": {
+              "title": "Single label preview"
+            },
+            "layoutDialog": {
+              "pdfTitle": "Page layout preview",
+              "zplTitle": "Printer sheet preview",
+              "fixedZpl": "Fixed {width} × {height} mm Zebra label"
+            },
+            "previewDialogTitle": "QR labels preview ({count})",
+            "toasts": {
+              "selectOne": "Select at least one QR code to export.",
+              "previewReady": "{count, plural, one {Prepared preview for 1 label.} other {Prepared preview for # labels.}}",
+              "exported": "{count, plural, one {Exported 1 label.} other {Exported # labels.}}",
+              "exportFailed": "Export failed. Please try again."
+            }
+          }
         },
         "alerts": {
           "title": "Stock Alerts",

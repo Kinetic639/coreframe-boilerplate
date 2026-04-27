@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
 import {
   AlignCenter,
@@ -9,9 +10,26 @@ import {
   ChevronUp,
   Download,
   Eye,
+  GripVertical,
   Minus,
   Plus,
 } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,16 +38,22 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DEFAULT_LABEL_CONFIG,
   computeGrid,
+  getAllowedTextPositions,
   getEffectiveLabelDimension,
+  getOrderedTextLayerKeys,
   A4_W_MM,
   A4_H_MM,
   GRID_MARGIN_MM,
 } from "@/lib/qr/label-config";
 import type {
+  EdgeLineStyle,
   LabelConfig,
+  LabelOrientation,
+  LabelTextContentConfig,
   LogoBackgroundStyle,
   QrCornerDotStyle,
   QrCornerSquareStyle,
@@ -37,6 +61,8 @@ import type {
   QrFrameShape,
   TextAlign,
   TextLayerConfig,
+  TextLayerKey,
+  TextVerticalAlign,
   TextPosition,
 } from "@/lib/qr/label-config";
 import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-pdf-preview-dialog";
@@ -45,8 +71,8 @@ import { QrPdfPreviewDialog } from "@/app/[locale]/dashboard/qr/_components/qr-p
 // SVG preview helpers
 // ---------------------------------------------------------------------------
 
-const TEXT_POSITION_OPTIONS: readonly TextPosition[] = ["right", "left", "above", "below"];
 const TEXT_ALIGN_OPTIONS: readonly TextAlign[] = ["left", "center", "right"];
+const ORIENTATION_OPTIONS: readonly LabelOrientation[] = ["landscape", "portrait"];
 const LOGO_BACKGROUND_OPTIONS: readonly LogoBackgroundStyle[] = ["brand", "circle", "square"];
 const QR_FRAME_SHAPE_OPTIONS: readonly QrFrameShape[] = ["square", "circle"];
 const QR_DOT_STYLE_OPTIONS: readonly QrDotStyle[] = [
@@ -75,22 +101,141 @@ const QR_CORNER_DOT_OPTIONS: readonly QrCornerDotStyle[] = [
   "classy-rounded",
   "extra-rounded",
 ];
+const EDGE_LINE_STYLE_OPTIONS: readonly EdgeLineStyle[] = ["solid", "dotted", "dashed"];
 const TEXT_ALIGN_ICONS: Record<TextAlign, typeof AlignLeft> = {
   left: AlignLeft,
   center: AlignCenter,
   right: AlignRight,
+};
+const TEXT_VERTICAL_ALIGN_OPTIONS: readonly TextVerticalAlign[] = ["start", "center", "end"];
+const TEXT_LAYER_META: Record<
+  TextLayerKey,
+  { key: string; label: string; wFrac: number; sizeMul: number; dark: string; dim: string }
+> = {
+  primaryText: {
+    key: "p",
+    label: "Primary",
+    wFrac: 0.82,
+    sizeMul: 0.45,
+    dark: "#0f172a",
+    dim: "#475569",
+  },
+  secondaryText: {
+    key: "s",
+    label: "Secondary",
+    wFrac: 0.62,
+    sizeMul: 0.4,
+    dark: "#475569",
+    dim: "#64748b",
+  },
+  tertiaryText: {
+    key: "t",
+    label: "Tertiary",
+    wFrac: 0.48,
+    sizeMul: 0.38,
+    dark: "#64748b",
+    dim: "#94a3b8",
+  },
+  tokenText: {
+    key: "tok",
+    label: "Token",
+    wFrac: 0.9,
+    sizeMul: 0.32,
+    dark: "#64748b",
+    dim: "#94a3b8",
+  },
 };
 const ZPL_DIMENSIONS = {
   "50x30": { width: 50, height: 30 },
   "70x40": { width: 70, height: 40 },
 } as const;
 
+function orientDimension(
+  dimension: { width: number; height: number },
+  orientation: LabelOrientation
+) {
+  if (orientation === "portrait") {
+    return { width: dimension.height, height: dimension.width };
+  }
+  return dimension;
+}
+
+function getContentInsetPx(config: LabelConfig, scale: number) {
+  const totalPaddingMm = config.innerPaddingMm + (config.showBorder ? config.outerPaddingMm : 0);
+  return totalPaddingMm * scale;
+}
+
+function getPreviewDashArray(style: EdgeLineStyle) {
+  if (style === "dotted") return "1.5 2";
+  if (style === "dashed") return "4 2";
+  return undefined;
+}
+
+function renderWatermarkLogoPreview(x: number, y: number, size: number) {
+  return (
+    <g opacity={0.1}>
+      <path
+        d={`M ${x + size / 2} ${y} L ${x} ${y + size} L ${x + size * 0.2} ${y + size} L ${x + size / 2} ${y + size * 0.48} Z`}
+        fill="#0f172a"
+      />
+      <path
+        d={`M ${x + size / 2} ${y} L ${x + size} ${y + size} L ${x + size * 0.8} ${y + size} L ${x + size / 2} ${y + size * 0.48} Z`}
+        fill="#1e293b"
+      />
+      <path
+        d={`M ${x + size / 2} ${y + size * 0.12} L ${x + size * 0.39} ${y + size * 0.36} L ${x + size / 2} ${y + size * 0.52} L ${x + size * 0.61} ${y + size * 0.36} Z`}
+        fill="#475569"
+      />
+      <path
+        d={`M ${x + size * 0.25} ${y + size * 0.62} L ${x + size / 2} ${y + size * 0.92} L ${x + size * 0.75} ${y + size * 0.62}`}
+        fill="none"
+        stroke="#334155"
+        strokeWidth={Math.max(0.8, size * 0.035)}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
+function renderFooterPreview(
+  layout: {
+    footerX: number;
+    footerY: number;
+    footerW: number;
+    footerH: number;
+    watermarkX: number;
+    watermarkY: number;
+    watermarkSize: number;
+  },
+  showWatermark: boolean
+) {
+  return (
+    <g>
+      {showWatermark && layout.watermarkSize > 0
+        ? renderWatermarkLogoPreview(layout.watermarkX, layout.watermarkY, layout.watermarkSize)
+        : null}
+      {layout.footerH > 0 ? (
+        <text
+          x={layout.footerX + layout.footerW / 2}
+          y={layout.footerY + layout.footerH * 0.7}
+          fontSize={Math.max(3.7, layout.footerH * 0.46)}
+          textAnchor="middle"
+          fill="#64748b"
+        >
+          www.ambra-system.com
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
 function hasVisibleText(config: LabelConfig) {
   return (
     config.primaryText.show ||
     config.secondaryText.show ||
     config.tertiaryText.show ||
-    config.includeTokenPreview
+    config.tokenText.show
   );
 }
 
@@ -99,20 +244,13 @@ function estimatePreviewTextHeight(config: LabelConfig, scale: number) {
     config.primaryText.show ? config.primaryText.size * scale * 0.45 : 0,
     config.secondaryText.show ? config.secondaryText.size * scale * 0.4 : 0,
     config.tertiaryText.show ? config.tertiaryText.size * scale * 0.38 : 0,
+    config.tokenText.show ? config.tokenText.size * scale * 0.32 : 0,
   ].filter(Boolean);
 
-  const tokenHeight = config.includeTokenPreview ? Math.max(0.6, 5 * scale * 0.32) : 0;
   const gap = Math.max(0.6, scale * 1.2);
-  const gapsCount = Math.max(
-    0,
-    visibleLayers.length - 1 + (config.includeTokenPreview && visibleLayers.length > 0 ? 1 : 0)
-  );
+  const gapsCount = Math.max(0, visibleLayers.length - 1);
 
-  return (
-    visibleLayers.reduce((sum, height) => sum + Math.max(0.8, height), 0) +
-    tokenHeight +
-    gapsCount * gap
-  );
+  return visibleLayers.reduce((sum, height) => sum + Math.max(0.8, height), 0) + gapsCount * gap;
 }
 
 function getPreviewLayout(
@@ -120,7 +258,8 @@ function getPreviewLayout(
   cellW: number,
   cellH: number,
   pad: number,
-  scale: number
+  scale: number,
+  showWatermark: boolean
 ): {
   qrX: number;
   qrY: number;
@@ -129,32 +268,63 @@ function getPreviewLayout(
   textY: number;
   textW: number;
   textH: number;
+  footerX: number;
+  footerY: number;
+  footerW: number;
+  footerH: number;
+  watermarkX: number;
+  watermarkY: number;
+  watermarkSize: number;
 } {
   const innerW = Math.max(0, cellW - pad * 2);
   const innerH = Math.max(0, cellH - pad * 2);
   const gap = Math.max(1, Math.min(innerW, innerH) * 0.08);
   const showText = hasVisibleText(config);
+  const footerEnabled = showText && config.footer.show;
+  const footerH = footerEnabled ? Math.max(5, cellH * 0.055) : 0;
+  const watermarkSize =
+    footerEnabled && showWatermark ? Math.max(9, Math.min(innerW, innerH) * 0.145) : 0;
+  const footerGap = footerEnabled ? Math.max(0.8, scale * 0.7) : 0;
 
   if (!showText) {
-    const qrSize = Math.max(0, Math.min(innerW, innerH) * config.qrHeightRatio);
+    const qrSize = Math.max(
+      0,
+      config.orientation === "portrait"
+        ? Math.min(innerH, innerW * config.qrHeightRatio)
+        : Math.min(innerW, innerH * config.qrHeightRatio)
+    );
+    const qrX = pad + (innerW - qrSize) / 2;
+    const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
     return {
-      qrX: pad + (innerW - qrSize) / 2,
-      qrY: pad + (innerH - qrSize) / 2,
+      qrX,
+      qrY,
       qrSize,
       textX: pad,
       textY: pad,
       textW: 0,
       textH: 0,
+      footerX: 0,
+      footerY: 0,
+      footerW: 0,
+      footerH: 0,
+      watermarkX: 0,
+      watermarkY: 0,
+      watermarkSize: 0,
     };
   }
 
-  if (config.textPosition === "above" || config.textPosition === "below") {
-    const neededTextH = estimatePreviewTextHeight(config, scale) + gap;
-    const qrBudget = Math.max(0, innerH - neededTextH);
-    const qrSize = Math.max(0, Math.min(innerW, qrBudget, innerH * config.qrHeightRatio));
-    const textH = Math.max(0, innerH - qrSize - gap);
-    const textY = config.textPosition === "above" ? pad : pad + qrSize + gap;
-    const qrY = config.textPosition === "above" ? pad + textH + gap : pad;
+  if (config.orientation === "portrait") {
+    const textContentH = estimatePreviewTextHeight(config, scale);
+    const textSectionH =
+      textContentH +
+      (footerEnabled
+        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
+        : 0);
+    const qrBudget = Math.max(0, innerH - textSectionH - gap);
+    const qrSize = Math.max(0, Math.min(qrBudget, innerW * config.qrHeightRatio));
+    const qrSectionH = qrSize;
+    const textY = config.textPosition === "above" ? pad : pad + qrSectionH + gap;
+    const qrY = config.textPosition === "above" ? pad + textSectionH + gap : pad;
     return {
       qrX: pad + (innerW - qrSize) / 2,
       qrY,
@@ -162,23 +332,46 @@ function getPreviewLayout(
       textX: pad,
       textY,
       textW: innerW,
-      textH,
+      textH: textContentH,
+      footerX: pad,
+      footerY:
+        textY + textContentH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
+      footerW: innerW,
+      footerH,
+      watermarkX: pad + innerW - watermarkSize,
+      watermarkY: textY + textContentH + footerGap,
+      watermarkSize,
     };
   }
 
-  const qrSize = Math.max(0, Math.min(innerH, innerH * config.qrHeightRatio));
+  const textRegionH = Math.max(
+    0,
+    innerH -
+      (footerEnabled
+        ? footerH + footerGap + (watermarkSize > 0 ? watermarkSize + footerGap : 0)
+        : 0)
+  );
+  const qrSize = Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio));
   const textW = Math.max(0, innerW - qrSize - gap);
   const qrX = config.textPosition === "left" ? pad + textW + gap : pad;
   const textX = config.textPosition === "left" ? pad : pad + qrSize + gap;
+  const qrY = pad + Math.max(0, (innerH - qrSize) / 2);
 
   return {
     qrX,
-    qrY: pad + (innerH - qrSize) / 2,
+    qrY,
     qrSize,
     textX,
     textY: pad,
     textW,
-    textH: innerH,
+    textH: textRegionH,
+    footerX: textX,
+    footerY: pad + textRegionH + footerGap + watermarkSize + (watermarkSize > 0 ? footerGap : 0),
+    footerW: textW,
+    footerH,
+    watermarkX: textX + Math.max(0, textW - watermarkSize),
+    watermarkY: pad + textRegionH + footerGap,
+    watermarkSize,
   };
 }
 
@@ -422,47 +615,30 @@ function buildTextStubs(
   const elems: React.ReactElement[] = [];
   if (textW <= 0 || textH <= 0) return elems;
 
-  const visibleLayers = [
-    {
-      key: "p",
-      cfg: config.primaryText,
-      wFrac: 0.82,
-      sizeMul: 0.45,
-      dark: "#0f172a",
-      dim: "#475569",
-    },
-    {
-      key: "s",
-      cfg: config.secondaryText,
-      wFrac: 0.62,
-      sizeMul: 0.4,
-      dark: "#475569",
-      dim: "#64748b",
-    },
-    {
-      key: "t",
-      cfg: config.tertiaryText,
-      wFrac: 0.48,
-      sizeMul: 0.38,
-      dark: "#64748b",
-      dim: "#94a3b8",
-    },
-  ].filter(({ cfg }) => cfg.show);
-
-  const tokenHeight = config.includeTokenPreview ? Math.max(0.6, 5 * scale * 0.32) : 0;
-  const layerHeights = visibleLayers.map(({ cfg, sizeMul }) =>
+  const allLayers = getOrderedTextLayerKeys(config)
+    .map((layerKey) => {
+      const meta = TEXT_LAYER_META[layerKey];
+      return {
+        ...meta,
+        cfg: config[layerKey],
+      };
+    })
+    .filter(({ cfg }) => cfg.show);
+  const layerHeights = allLayers.map(({ cfg, sizeMul }) =>
     Math.max(0.8, cfg.size * scale * sizeMul)
   );
-  const gapsCount = Math.max(
-    0,
-    visibleLayers.length - 1 + (config.includeTokenPreview && visibleLayers.length > 0 ? 1 : 0)
-  );
+  const gapsCount = Math.max(0, allLayers.length - 1);
   const gap = Math.max(0.6, scale * 1.2);
-  const contentH =
-    layerHeights.reduce((sum, height) => sum + height, 0) + tokenHeight + gapsCount * gap;
-  let y = textY + Math.max(0, (textH - contentH) / 2);
+  const contentH = layerHeights.reduce((sum, height) => sum + height, 0) + gapsCount * gap;
+  const offsetY =
+    config.textVerticalAlign === "start"
+      ? 0
+      : config.textVerticalAlign === "end"
+        ? Math.max(0, textH - contentH)
+        : Math.max(0, (textH - contentH) / 2);
+  let y = textY + offsetY;
 
-  for (const [index, layer] of visibleLayers.entries()) {
+  for (const [index, layer] of allLayers.entries()) {
     const h = layerHeights[index];
     const lineW = getStubWidth(textW, layer.wFrac);
     elems.push(
@@ -479,21 +655,6 @@ function buildTextStubs(
     y += h + gap;
   }
 
-  if (config.includeTokenPreview) {
-    const tokenW = getStubWidth(textW, 0.9);
-    elems.push(
-      <rect
-        key="tok"
-        x={textX}
-        y={y}
-        width={tokenW}
-        height={tokenHeight}
-        fill={active ? "#64748b" : "#94a3b8"}
-        rx={0.3}
-      />
-    );
-  }
-
   return elems;
 }
 
@@ -505,21 +666,22 @@ function renderPageLabelPreview(
   pad: number,
   scale: number
 ) {
-  const layout = getPreviewLayout(config, cellW, cellH, pad, scale);
+  const layout = getPreviewLayout(config, cellW, cellH, pad, scale, true);
   const qrX = layout.qrX;
   const qrY = layout.qrY;
   const logoSz = layout.qrSize * 0.28;
   const lx = qrX + (layout.qrSize - logoSz) / 2;
   const ly = qrY + (layout.qrSize - logoSz) / 2;
+  const borderInset = Math.max(0, config.outerPaddingMm * scale);
 
   return (
     <>
       {config.showBorder && (
         <rect
-          x={0.5}
-          y={0.5}
-          width={cellW - 1}
-          height={cellH - 1}
+          x={borderInset + 0.5}
+          y={borderInset + 0.5}
+          width={Math.max(0, cellW - borderInset * 2 - 1)}
+          height={Math.max(0, cellH - borderInset * 2 - 1)}
           fill="none"
           stroke={active ? "#475569" : "#64748b"}
           strokeWidth={0.5}
@@ -550,12 +712,14 @@ function renderPageLabelPreview(
         layout.textH,
         scale
       )}
+      {config.footer.show ? renderFooterPreview(layout, true) : null}
     </>
   );
 }
 
 const SingleLabelPreviewSvg = memo(function SingleLabelPreviewSvg({
   config,
+  format,
   previewWidth,
   previewHeight,
   renderWidth,
@@ -564,6 +728,7 @@ const SingleLabelPreviewSvg = memo(function SingleLabelPreviewSvg({
   scale,
 }: {
   config: LabelConfig;
+  format: "pdf" | "zpl";
   previewWidth: number;
   previewHeight: number;
   renderWidth: number;
@@ -571,12 +736,20 @@ const SingleLabelPreviewSvg = memo(function SingleLabelPreviewSvg({
   pad: number;
   scale: number;
 }) {
-  const layout = getPreviewLayout(config, previewWidth, previewHeight, pad, scale);
+  const layout = getPreviewLayout(
+    config,
+    previewWidth,
+    previewHeight,
+    pad,
+    scale,
+    format === "pdf"
+  );
   const qrX = layout.qrX;
   const qrY = layout.qrY;
   const logoSz = layout.qrSize * 0.28;
   const lx = qrX + (layout.qrSize - logoSz) / 2;
   const ly = qrY + (layout.qrSize - logoSz) / 2;
+  const borderInset = Math.max(0, config.outerPaddingMm * scale);
 
   return (
     <svg
@@ -591,10 +764,22 @@ const SingleLabelPreviewSvg = memo(function SingleLabelPreviewSvg({
         width={previewWidth - 1}
         height={previewHeight - 1}
         fill="white"
-        stroke={config.showBorder ? "#475569" : "#cbd5e1"}
+        stroke="#cbd5e1"
         strokeWidth={1}
         rx={6}
       />
+      {config.showBorder ? (
+        <rect
+          x={borderInset + 0.5}
+          y={borderInset + 0.5}
+          width={Math.max(0, previewWidth - borderInset * 2 - 1)}
+          height={Math.max(0, previewHeight - borderInset * 2 - 1)}
+          fill="none"
+          stroke="#475569"
+          strokeWidth={1}
+          rx={Math.max(3, 6 - borderInset * 0.2)}
+        />
+      ) : null}
       <rect
         x={qrX}
         y={qrY}
@@ -608,6 +793,7 @@ const SingleLabelPreviewSvg = memo(function SingleLabelPreviewSvg({
         ? renderLogoPreview(config.logoBackgroundStyle, lx, ly, logoSz)
         : null}
       {buildTextStubs(config, true, layout.textX, layout.textY, layout.textW, layout.textH, scale)}
+      {config.footer.show ? renderFooterPreview(layout, format === "pdf") : null}
     </svg>
   );
 });
@@ -618,6 +804,11 @@ const PageLayoutPreviewSvg = memo(function PageLayoutPreviewSvg({
   renderWidth,
   renderHeight,
   marginPx,
+  cellW,
+  cellH,
+  cols,
+  rows,
+  edgeGuides,
   previewCells,
   labelDefs,
 }: {
@@ -626,6 +817,11 @@ const PageLayoutPreviewSvg = memo(function PageLayoutPreviewSvg({
   renderWidth: number;
   renderHeight: number;
   marginPx: number;
+  cellW: number;
+  cellH: number;
+  cols: number;
+  rows: number;
+  edgeGuides: LabelConfig["edgeGuides"];
   previewCells: Array<{ x: number; y: number; active: boolean; idx: number }>;
   labelDefs: { active: React.ReactNode; inactive: React.ReactNode } | null;
 }) {
@@ -653,6 +849,42 @@ const PageLayoutPreviewSvg = memo(function PageLayoutPreviewSvg({
           strokeWidth={0.5}
           strokeDasharray="2 2"
         />
+        {edgeGuides.show ? (
+          <>
+            {Array.from({ length: cols + 1 }, (_, index) => {
+              const x = marginPx + index * cellW;
+              return (
+                <line
+                  key={`guide-v-${index}`}
+                  x1={x}
+                  y1={marginPx}
+                  x2={x}
+                  y2={marginPx + rows * cellH}
+                  stroke={edgeGuides.color}
+                  strokeOpacity={edgeGuides.opacity}
+                  strokeWidth={edgeGuides.thickness}
+                  strokeDasharray={getPreviewDashArray(edgeGuides.style)}
+                />
+              );
+            })}
+            {Array.from({ length: rows + 1 }, (_, index) => {
+              const y = marginPx + index * cellH;
+              return (
+                <line
+                  key={`guide-h-${index}`}
+                  x1={marginPx}
+                  y1={y}
+                  x2={marginPx + cols * cellW}
+                  y2={y}
+                  stroke={edgeGuides.color}
+                  strokeOpacity={edgeGuides.opacity}
+                  strokeWidth={edgeGuides.thickness}
+                  strokeDasharray={getPreviewDashArray(edgeGuides.style)}
+                />
+              );
+            })}
+          </>
+        ) : null}
         <defs>
           <g id="qr-page-label-active">{labelDefs.active}</g>
           <g id="qr-page-label-inactive">{labelDefs.inactive}</g>
@@ -681,6 +913,64 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function EdgeLineStyleIcon({ style }: { style: EdgeLineStyle }) {
+  const common = "h-0.5 w-8 rounded-full";
+
+  if (style === "solid") {
+    return <span aria-hidden className={`${common} bg-current`} />;
+  }
+
+  if (style === "dashed") {
+    return (
+      <span
+        aria-hidden
+        className={`${common} bg-[repeating-linear-gradient(to_right,currentColor_0_8px,transparent_8px_12px)]`}
+      />
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      className={`${common} bg-[repeating-linear-gradient(to_right,currentColor_0_2px,transparent_2px_6px)]`}
+    />
+  );
+}
+
+function isCustomTextLayer(layer: TextLayerKey): layer is "secondaryText" | "tertiaryText" {
+  return layer === "secondaryText" || layer === "tertiaryText";
+}
+
+function SortableTextLayerRow({
+  id,
+  children,
+}: {
+  id: TextLayerKey;
+  children: (dragHandleProps: React.HTMLAttributes<HTMLButtonElement>) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        position: "relative",
+        zIndex: isDragging ? 10 : undefined,
+      }}
+    >
+      {children({
+        ...attributes,
+        ...listeners,
+      } as React.HTMLAttributes<HTMLButtonElement>)}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -688,6 +978,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 interface LabelDesignerProps {
   selectedIds: string[];
   canExport: boolean;
+  format: "pdf" | "zpl";
 }
 
 type PreviewZoom = "fit" | number;
@@ -700,16 +991,17 @@ const MAX_PREVIEW_ZOOM = 2;
 // Component
 // ---------------------------------------------------------------------------
 
-export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
+export function LabelDesigner({ selectedIds, canExport, format }: LabelDesignerProps) {
+  const t = useTranslations("modules.qr.designer");
   const [pdfConfig, setPdfConfig] = useState<LabelConfig>(DEFAULT_LABEL_CONFIG);
   const [zplConfig, setZplConfig] = useState<LabelConfig>({
     ...DEFAULT_LABEL_CONFIG,
     includeLogo: false,
     showBorder: false,
     textPosition: "right",
-    dimension: ZPL_DIMENSIONS["50x30"],
+    dimension: orientDimension(ZPL_DIMENSIONS["50x30"], DEFAULT_LABEL_CONFIG.orientation),
   });
-  const [format, setFormat] = useState<"pdf" | "zpl">("pdf");
+  const [optionsTab, setOptionsTab] = useState<"layout" | "qr" | "text">("layout");
   const [zplSize, setZplSize] = useState<"50x30" | "70x40">("50x30");
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -725,8 +1017,13 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
     width: 0,
     height: 0,
   });
+  const [pdfWidthInput, setPdfWidthInput] = useState(String(DEFAULT_LABEL_CONFIG.dimension.width));
+  const [pdfHeightInput, setPdfHeightInput] = useState(
+    String(DEFAULT_LABEL_CONFIG.dimension.height)
+  );
   const pagePreviewViewportRef = useRef<HTMLDivElement | null>(null);
   const singlePreviewViewportRef = useRef<HTMLDivElement | null>(null);
+  const textLayerSensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
     return () => {
@@ -782,13 +1079,27 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
   }
 
   function setTextLayer(
-    layer: "primaryText" | "secondaryText" | "tertiaryText",
+    layer: "primaryText" | "secondaryText" | "tertiaryText" | "tokenText",
     key: keyof TextLayerConfig,
     value: boolean | number | TextAlign
   ) {
     updateDraftConfig((prev) => ({
       ...prev,
       [layer]: { ...prev[layer], [key]: value },
+    }));
+  }
+
+  function setTextContent(key: keyof LabelTextContentConfig, value: string) {
+    updateDraftConfig((prev) => ({
+      ...prev,
+      textContent: { ...prev.textContent, [key]: value },
+    }));
+  }
+
+  function setTextLayerOrder(order: TextLayerKey[]) {
+    updateDraftConfig((prev) => ({
+      ...prev,
+      textLayerOrder: order,
     }));
   }
 
@@ -801,16 +1112,55 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
       qrStyle: { ...prev.qrStyle, [key]: value },
     }));
   }
+  function handlePdfDimensionInput(field: "width" | "height", value: string) {
+    if (field === "width") setPdfWidthInput(value);
+    else setPdfHeightInput(value);
 
-  function clampDim(val: number, min = 10, max = 210) {
-    return Math.max(min, Math.min(max, val || min));
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || value.trim() === "") return;
+
+    setPdfConfig((prev) => ({
+      ...prev,
+      dimension: {
+        ...prev.dimension,
+        [field]: parsed,
+      },
+    }));
+  }
+
+  function handleOrientationChange(orientation: LabelOrientation) {
+    updateDraftConfig((prev) => ({
+      ...prev,
+      orientation,
+      dimension: {
+        width: prev.dimension.height,
+        height: prev.dimension.width,
+      },
+      textPosition: getAllowedTextPositions(orientation)[0],
+    }));
+
+    if (format === "pdf") {
+      setPdfWidthInput(pdfHeightInput);
+      setPdfHeightInput(pdfWidthInput);
+    }
+  }
+
+  function handleTextLayerDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const currentOrder = getOrderedTextLayerKeys(activeConfig);
+    const oldIndex = currentOrder.indexOf(active.id as TextLayerKey);
+    const newIndex = currentOrder.indexOf(over.id as TextLayerKey);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setTextLayerOrder(arrayMove(currentOrder, oldIndex, newIndex));
   }
 
   // ── export ────────────────────────────────────────────────────────────────
 
   async function handleExport() {
     if (selectedIds.length === 0) {
-      toast.error("Select at least one QR code to export.");
+      toast.error(t("toasts.selectOne"));
       return;
     }
     if (format === "pdf") {
@@ -818,8 +1168,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
     }
     setIsExporting(true);
     try {
-      const labelConfig =
-        format === "zpl" ? { ...zplConfig, dimension: ZPL_DIMENSIONS[zplSize] } : pdfConfig;
+      const labelConfig = format === "zpl" ? zplConfig : pdfConfig;
       const body =
         format === "pdf"
           ? { qrCodeIds: selectedIds, format: "pdf", labelConfig }
@@ -834,7 +1183,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Export failed." }));
         if (format === "pdf") setPreviewOpen(false);
-        toast.error((err as { error?: string }).error ?? "Export failed.");
+        toast.error((err as { error?: string }).error ?? t("toasts.exportFailed"));
         return;
       }
 
@@ -845,9 +1194,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         setPreviewUrl(url);
         setPreviewOpen(true);
-        toast.success(
-          `Prepared preview for ${selectedIds.length} label${selectedIds.length === 1 ? "" : "s"}.`
-        );
+        toast.success(t("toasts.previewReady", { count: selectedIds.length }));
         return;
       }
 
@@ -856,10 +1203,10 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
       a.download = "qr-labels.zpl";
       a.click();
       URL.revokeObjectURL(url);
-      toast.success(`Exported ${selectedIds.length} label${selectedIds.length === 1 ? "" : "s"}.`);
+      toast.success(t("toasts.exported", { count: selectedIds.length }));
     } catch {
       if (format === "pdf") setPreviewOpen(false);
-      toast.error("Export failed. Please try again.");
+      toast.error(t("toasts.exportFailed"));
     } finally {
       setIsExporting(false);
     }
@@ -873,17 +1220,20 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
   const marginPx = GRID_MARGIN_MM * pdfScale;
 
   const activeConfig = useMemo(
-    () =>
-      format === "zpl"
-        ? {
-            ...zplConfig,
-            dimension: ZPL_DIMENSIONS[zplSize],
-            textPosition: "right" as const,
-          }
-        : pdfConfig,
+    () => (format === "zpl" ? zplConfig : pdfConfig),
     [pdfConfig, zplConfig, format, zplSize]
   );
   const deferredPreviewConfig = useDeferredValue(activeConfig);
+  const allowedTextPositions = useMemo(
+    () => getAllowedTextPositions(activeConfig.orientation),
+    [activeConfig.orientation]
+  );
+  const pdfWidthValue = Number(pdfWidthInput);
+  const pdfHeightValue = Number(pdfHeightInput);
+  const pdfWidthInvalid =
+    pdfWidthInput.trim() === "" || !Number.isFinite(pdfWidthValue) || pdfWidthValue < 20;
+  const pdfHeightInvalid =
+    pdfHeightInput.trim() === "" || !Number.isFinite(pdfHeightValue) || pdfHeightValue < 20;
 
   const effectiveDimension = useMemo(
     () => getEffectiveLabelDimension(activeConfig),
@@ -894,7 +1244,6 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
 
   const cellW = effectiveDimension.width * pdfScale;
   const cellH = effectiveDimension.height * pdfScale;
-  const CELL_PAD = Math.max(1, cellH * 0.07);
 
   const filledCount = Math.min(selectedIds.length, grid.perPage);
 
@@ -919,14 +1268,12 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
     180,
     Math.round((effectiveDimension.height / effectiveDimension.width) * THERMAL_BASE_PREVIEW_W)
   );
-  const thermalCellPad = Math.max(6, thermalBasePreviewH * 0.08);
   const SINGLE_LABEL_PREVIEW_W = 420;
   const singleLabelPreviewH = Math.max(
     180,
     Math.round((effectiveDimension.height / effectiveDimension.width) * SINGLE_LABEL_PREVIEW_W)
   );
   const singleLabelScale = SINGLE_LABEL_PREVIEW_W / effectiveDimension.width;
-  const singleLabelPad = Math.max(8, singleLabelPreviewH * 0.08);
   const pagePreviewBaseWidth = format === "pdf" ? PDF_BASE_PREVIEW_W : THERMAL_BASE_PREVIEW_W;
   const pagePreviewBaseHeight = format === "pdf" ? PDF_BASE_PREVIEW_H : thermalBasePreviewH;
   const pageFitScale =
@@ -984,7 +1331,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
               true,
               cellW,
               cellH,
-              CELL_PAD,
+              getContentInsetPx(deferredPreviewConfig, pdfScale),
               pdfScale
             ),
             inactive: renderPageLabelPreview(
@@ -992,12 +1339,12 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
               false,
               cellW,
               cellH,
-              CELL_PAD,
+              getContentInsetPx(deferredPreviewConfig, pdfScale),
               pdfScale
             ),
           }
         : null,
-    [shouldRenderPagePreview, deferredPreviewConfig, cellW, cellH, CELL_PAD, pdfScale]
+    [shouldRenderPagePreview, deferredPreviewConfig, cellW, cellH, pdfScale]
   );
 
   useEffect(() => {
@@ -1040,87 +1387,59 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
 
   return (
     <>
-      <div className="h-full overflow-hidden">
-        <div className="grid h-full gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="min-h-0 overflow-y-auto pr-2">
-            <div className="space-y-4">
-              <div className="rounded-xl border bg-card p-4">
-                <Section title="Output type">
-                  <div className="flex gap-1">
-                    {(["pdf", "zpl"] as const).map((f) => (
-                      <Button
-                        key={f}
-                        size="sm"
-                        variant={format === f ? "default" : "outline"}
-                        onClick={() => setFormat(f)}
-                        className="flex-1 h-9 uppercase text-xs tracking-wide"
-                      >
-                        {f}
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {format === "pdf"
-                      ? "PDF labels are fully custom and auto-packed onto A4. This editor keeps its own settings."
-                      : "ZPL uses fixed thermal label sizes for Zebra printers and keeps its own independent settings."}
-                  </p>
-                </Section>
+      <div className="grid h-full grid-rows-[minmax(0,1fr)_auto] gap-4 overflow-hidden">
+        <div className="grid min-h-0 gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="min-h-0 overflow-hidden rounded-xl border bg-card">
+            <Tabs
+              value={optionsTab}
+              onValueChange={(value) => setOptionsTab(value as "layout" | "qr" | "text")}
+              className="flex h-full min-h-0 flex-col"
+            >
+              <div className="border-b p-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="layout">{t("tabs.layout")}</TabsTrigger>
+                  <TabsTrigger value="qr">{t("tabs.qr")}</TabsTrigger>
+                  <TabsTrigger value="text">{t("tabs.text")}</TabsTrigger>
+                </TabsList>
               </div>
 
-              <div className="rounded-xl border bg-card p-4">
-                <Section title={format === "pdf" ? "Label size" : "Thermal label size"}>
-                  {format === "pdf" ? (
-                    <>
+              <div className="min-h-0 flex-1 overflow-hidden p-4 pt-0">
+                <TabsContent value="layout" className="!mt-0 h-full overflow-y-auto pt-4 pr-2">
+                  <Section title={t("tabs.layout")}>
+                    {format === "pdf" ? (
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Width (mm)</Label>
+                          <Label className="text-xs text-muted-foreground">
+                            {t("layout.widthMm")}
+                          </Label>
                           <Input
                             type="number"
-                            min={10}
-                            max={210}
-                            value={pdfConfig.dimension.width}
-                            onChange={(e) =>
-                              set("dimension", {
-                                ...pdfConfig.dimension,
-                                width: clampDim(Number(e.target.value), 10, 210),
-                              })
-                            }
-                            className="h-9"
+                            inputMode="decimal"
+                            value={pdfWidthInput}
+                            onChange={(e) => handlePdfDimensionInput("width", e.target.value)}
+                            className={`h-9 ${pdfWidthInvalid ? "border-destructive" : ""}`}
                           />
+                          {pdfWidthInvalid ? (
+                            <p className="text-xs text-destructive">{t("layout.minWidthError")}</p>
+                          ) : null}
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Height (mm)</Label>
+                          <Label className="text-xs text-muted-foreground">
+                            {t("layout.heightMm")}
+                          </Label>
                           <Input
                             type="number"
-                            min={10}
-                            max={297}
-                            value={pdfConfig.dimension.height}
-                            onChange={(e) =>
-                              set("dimension", {
-                                ...pdfConfig.dimension,
-                                height: clampDim(Number(e.target.value), 10, 297),
-                              })
-                            }
-                            className="h-9"
+                            inputMode="decimal"
+                            value={pdfHeightInput}
+                            onChange={(e) => handlePdfDimensionInput("height", e.target.value)}
+                            className={`h-9 ${pdfHeightInvalid ? "border-destructive" : ""}`}
                           />
+                          {pdfHeightInvalid ? (
+                            <p className="text-xs text-destructive">{t("layout.minHeightError")}</p>
+                          ) : null}
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground">
-                        <p>
-                          Effective label:{" "}
-                          <span className="font-medium text-foreground">
-                            {effectiveDimension.width} × {effectiveDimension.height} mm
-                          </span>
-                        </p>
-                        <p>
-                          A4 fit:{" "}
-                          <span className="font-medium text-foreground">{grid.perPage}</span>{" "}
-                          labels/page
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <div className="grid grid-cols-2 gap-2">
                         {(["50x30", "70x40"] as const).map((s) => (
                           <Button
@@ -1129,402 +1448,660 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                             variant={zplSize === s ? "default" : "outline"}
                             onClick={() => {
                               setZplSize(s);
-                              setZplConfig((prev) => ({ ...prev, dimension: ZPL_DIMENSIONS[s] }));
+                              setZplConfig((prev) => ({
+                                ...prev,
+                                dimension: orientDimension(ZPL_DIMENSIONS[s], prev.orientation),
+                              }));
                             }}
                             className="h-9 text-xs"
                           >
-                            {s} mm
+                            {t("layout.zplPreset", { size: s })}
                           </Button>
                         ))}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Current thermal preset:{" "}
-                        <span className="font-medium text-foreground">
-                          {ZPL_DIMENSIONS[zplSize].width} × {ZPL_DIMENSIONS[zplSize].height} mm
-                        </span>
-                      </p>
-                    </>
-                  )}
-                </Section>
-              </div>
+                    )}
 
-              <div className="rounded-xl border bg-card p-4">
-                <Section title="QR content">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm">
-                          QR size{" "}
-                          <span className="font-mono text-muted-foreground">
-                            {Math.round(activeConfig.qrHeightRatio * 100)}%
-                          </span>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          {t("layout.orientation")}
                         </Label>
+                        <div className="grid grid-cols-2 gap-1">
+                          {ORIENTATION_OPTIONS.map((orientation) => (
+                            <Button
+                              key={orientation}
+                              size="sm"
+                              variant={
+                                activeConfig.orientation === orientation ? "default" : "outline"
+                              }
+                              onClick={() => handleOrientationChange(orientation)}
+                              className="h-8 text-xs capitalize"
+                            >
+                              {t(`layout.orientationOptions.${orientation}`)}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
-                      <Slider
-                        min={40}
-                        max={95}
-                        step={5}
-                        value={[Math.round(activeConfig.qrHeightRatio * 100)]}
-                        onValueChange={([v]) => set("qrHeightRatio", v / 100)}
-                      />
+
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          {t("layout.textPosition")}
+                        </Label>
+                        <div className="grid grid-cols-2 gap-1">
+                          {allowedTextPositions.map((position) => (
+                            <Button
+                              key={position}
+                              size="sm"
+                              variant={
+                                activeConfig.textPosition === position ? "default" : "outline"
+                              }
+                              onClick={() => set("textPosition", position)}
+                              className="h-8 text-xs capitalize"
+                            >
+                              {t(`layout.textPositionOptions.${position}`)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id={`token-preview-${format}`}
-                        checked={activeConfig.includeTokenPreview}
-                        onCheckedChange={(v) => set("includeTokenPreview", !!v)}
-                      />
-                      <Label htmlFor={`token-preview-${format}`} className="cursor-pointer text-sm">
-                        Token preview
-                      </Label>
+                    <div className="rounded-xl border p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="toggle-border" className="text-sm cursor-pointer">
+                          {t("layout.labelBorder")}
+                        </Label>
+                        <Switch
+                          id="toggle-border"
+                          checked={activeConfig.showBorder}
+                          onCheckedChange={(v) => set("showBorder", v)}
+                        />
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        {activeConfig.showBorder ? (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">
+                              {t("layout.outerPadding")}
+                              <span className="ml-1 font-mono">
+                                {activeConfig.outerPaddingMm.toFixed(1)} mm
+                              </span>
+                            </Label>
+                            <Slider
+                              min={0}
+                              max={10}
+                              step={0.5}
+                              value={[activeConfig.outerPaddingMm]}
+                              onValueChange={([v]) => set("outerPaddingMm", v)}
+                            />
+                          </div>
+                        ) : (
+                          <div />
+                        )}
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("layout.innerPadding")}
+                            <span className="ml-1 font-mono">
+                              {activeConfig.innerPaddingMm.toFixed(1)} mm
+                            </span>
+                          </Label>
+                          <Slider
+                            min={0}
+                            max={10}
+                            step={0.5}
+                            value={[activeConfig.innerPaddingMm]}
+                            onValueChange={([v]) => set("innerPaddingMm", v)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="toggle-footer" className="text-sm cursor-pointer">
+                          {t("layout.ambraFooter")}
+                        </Label>
+                        <Switch
+                          id="toggle-footer"
+                          checked={activeConfig.footer.show}
+                          onCheckedChange={(v) =>
+                            updateDraftConfig((prev) => ({
+                              ...prev,
+                              footer: { ...prev.footer, show: v },
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
 
                     {format === "pdf" ? (
-                      <>
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">QR frame shape</Label>
-                            <div className="grid grid-cols-2 gap-1">
-                              {QR_FRAME_SHAPE_OPTIONS.map((shape) => (
-                                <Button
-                                  key={shape}
-                                  size="sm"
-                                  variant={
-                                    pdfConfig.qrStyle.frameShape === shape ? "default" : "outline"
-                                  }
-                                  onClick={() => setQrStyle("frameShape", shape)}
-                                  className="h-8 text-xs capitalize"
-                                >
-                                  {shape}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">QR body style</Label>
-                            <div className="grid grid-cols-2 gap-1">
-                              {QR_DOT_STYLE_OPTIONS.map((style) => (
-                                <Button
-                                  key={style}
-                                  size="sm"
-                                  variant={
-                                    pdfConfig.qrStyle.dotStyle === style ? "default" : "outline"
-                                  }
-                                  onClick={() => setQrStyle("dotStyle", style)}
-                                  className="h-8 text-xs capitalize"
-                                >
-                                  {style}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
+                      <div className="rounded-xl border p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="toggle-edge-guides" className="text-sm cursor-pointer">
+                            {t("layout.edgeGuides")}
+                          </Label>
+                          <Switch
+                            id="toggle-edge-guides"
+                            checked={activeConfig.edgeGuides.show}
+                            onCheckedChange={(v) =>
+                              updateDraftConfig((prev) => ({
+                                ...prev,
+                                edgeGuides: { ...prev.edgeGuides, show: v },
+                              }))
+                            }
+                          />
                         </div>
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">
-                              Finder outer style
-                            </Label>
-                            <div className="grid grid-cols-2 gap-1">
-                              {QR_CORNER_SQUARE_OPTIONS.map((style) => (
-                                <Button
-                                  key={style}
-                                  size="sm"
-                                  variant={
-                                    pdfConfig.qrStyle.cornerSquareStyle === style
-                                      ? "default"
-                                      : "outline"
+                        {activeConfig.edgeGuides.show ? (
+                          <>
+                            <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  {t("layout.edgeGuideThickness")}
+                                  <span className="ml-1 font-mono">
+                                    {activeConfig.edgeGuides.thickness.toFixed(1)}
+                                  </span>
+                                </Label>
+                                <Slider
+                                  min={0.1}
+                                  max={4}
+                                  step={0.1}
+                                  value={[activeConfig.edgeGuides.thickness]}
+                                  onValueChange={([v]) =>
+                                    updateDraftConfig((prev) => ({
+                                      ...prev,
+                                      edgeGuides: { ...prev.edgeGuides, thickness: v },
+                                    }))
                                   }
-                                  onClick={() => setQrStyle("cornerSquareStyle", style)}
-                                  className="h-8 text-xs capitalize"
-                                >
-                                  {style}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">
-                              Finder inner style
-                            </Label>
-                            <div className="grid grid-cols-2 gap-1">
-                              {QR_CORNER_DOT_OPTIONS.map((style) => (
-                                <Button
-                                  key={style}
-                                  size="sm"
-                                  variant={
-                                    pdfConfig.qrStyle.cornerDotStyle === style
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  onClick={() => setQrStyle("cornerDotStyle", style)}
-                                  className="h-8 text-xs capitalize"
-                                >
-                                  {style}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        These QR controls are stored separately for ZPL, so changing thermal labels
-                        will not alter your PDF label design.
-                      </p>
-                    )}
-                  </div>
-                </Section>
-              </div>
-
-              {format === "pdf" ? (
-                <>
-                  <div className="rounded-xl border bg-card p-4">
-                    <Section title="PDF layout">
-                      <div className="grid gap-4 lg:grid-cols-2">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="toggle-logo" className="text-sm cursor-pointer">
-                              Logo in QR centre
-                            </Label>
-                            <Switch
-                              id="toggle-logo"
-                              checked={pdfConfig.includeLogo}
-                              onCheckedChange={(v) => set("includeLogo", v)}
-                            />
-                          </div>
-                          {pdfConfig.includeLogo && (
-                            <div className="space-y-2">
-                              <Label className="text-xs text-muted-foreground">
-                                Logo background
-                              </Label>
-                              <div className="grid grid-cols-3 gap-1">
-                                {LOGO_BACKGROUND_OPTIONS.map((option) => (
-                                  <Button
-                                    key={option}
-                                    size="sm"
-                                    variant={
-                                      pdfConfig.logoBackgroundStyle === option
-                                        ? "default"
-                                        : "outline"
-                                    }
-                                    onClick={() => set("logoBackgroundStyle", option)}
-                                    className="h-8 text-xs capitalize"
-                                  >
-                                    {option}
-                                  </Button>
-                                ))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  {t("layout.edgeGuideStyle")}
+                                </Label>
+                                <div className="grid grid-cols-3 gap-1">
+                                  {EDGE_LINE_STYLE_OPTIONS.map((style) => (
+                                    <Button
+                                      key={style}
+                                      size="sm"
+                                      variant={
+                                        activeConfig.edgeGuides.style === style
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                      onClick={() =>
+                                        updateDraftConfig((prev) => ({
+                                          ...prev,
+                                          edgeGuides: { ...prev.edgeGuides, style },
+                                        }))
+                                      }
+                                      className="h-8"
+                                      aria-label={t(`layout.edgeGuideStyleOptions.${style}`)}
+                                      title={t(`layout.edgeGuideStyleOptions.${style}`)}
+                                    >
+                                      <EdgeLineStyleIcon style={style} />
+                                    </Button>
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          )}
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="toggle-border" className="text-sm cursor-pointer">
-                              Cell border
-                            </Label>
-                            <Switch
-                              id="toggle-border"
-                              checked={pdfConfig.showBorder}
-                              onCheckedChange={(v) => set("showBorder", v)}
-                            />
+                            <div className="grid gap-4 md:grid-cols-[1fr_110px]">
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  {t("layout.edgeGuideOpacity")}
+                                  <span className="ml-1 font-mono">
+                                    {Math.round(activeConfig.edgeGuides.opacity * 100)}%
+                                  </span>
+                                </Label>
+                                <Slider
+                                  min={0}
+                                  max={1}
+                                  step={0.05}
+                                  value={[activeConfig.edgeGuides.opacity]}
+                                  onValueChange={([v]) =>
+                                    updateDraftConfig((prev) => ({
+                                      ...prev,
+                                      edgeGuides: { ...prev.edgeGuides, opacity: v },
+                                    }))
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  {t("layout.edgeGuideColor")}
+                                </Label>
+                                <Input
+                                  type="color"
+                                  value={activeConfig.edgeGuides.color}
+                                  onChange={(e) =>
+                                    updateDraftConfig((prev) => ({
+                                      ...prev,
+                                      edgeGuides: { ...prev.edgeGuides, color: e.target.value },
+                                    }))
+                                  }
+                                  className="h-9 p-1"
+                                />
+                              </div>
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </Section>
+                </TabsContent>
+
+                <TabsContent value="qr" className="!mt-0 h-full overflow-y-auto pt-4 pr-2">
+                  <Section title={t("tabs.qr")}>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm">
+                            {t("qr.qrSize")}{" "}
+                            <span className="font-mono text-muted-foreground">
+                              {Math.round(activeConfig.qrHeightRatio * 100)}%
+                            </span>
+                          </Label>
+                        </div>
+                        <Slider
+                          min={40}
+                          max={100}
+                          step={5}
+                          value={[Math.round(activeConfig.qrHeightRatio * 100)]}
+                          onValueChange={([v]) => set("qrHeightRatio", v / 100)}
+                        />
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("qr.frameShape")}
+                          </Label>
+                          <div className="grid grid-cols-2 gap-1">
+                            {QR_FRAME_SHAPE_OPTIONS.map((shape) => (
+                              <Button
+                                key={shape}
+                                size="sm"
+                                variant={
+                                  activeConfig.qrStyle.frameShape === shape ? "default" : "outline"
+                                }
+                                onClick={() => setQrStyle("frameShape", shape)}
+                                className="h-8 text-xs capitalize"
+                              >
+                                {t(`qr.frameShapeOptions.${shape}`)}
+                              </Button>
+                            ))}
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Text position</Label>
+                          <Label className="text-xs text-muted-foreground">
+                            {t("qr.bodyStyle")}
+                          </Label>
                           <div className="grid grid-cols-2 gap-1">
-                            {TEXT_POSITION_OPTIONS.map((position) => (
+                            {QR_DOT_STYLE_OPTIONS.map((style) => (
                               <Button
-                                key={position}
+                                key={style}
                                 size="sm"
                                 variant={
-                                  pdfConfig.textPosition === position ? "default" : "outline"
+                                  activeConfig.qrStyle.dotStyle === style ? "default" : "outline"
                                 }
-                                onClick={() => set("textPosition", position)}
+                                onClick={() => setQrStyle("dotStyle", style)}
                                 className="h-8 text-xs capitalize"
                               >
-                                {position}
+                                {t(`qr.bodyStyleOptions.${style}`)}
                               </Button>
                             ))}
                           </div>
                         </div>
                       </div>
-                    </Section>
-                  </div>
 
-                  <div className="rounded-xl border bg-card p-4">
-                    <Section title="Text layers">
-                      <div className="space-y-3">
-                        {(
-                          [
-                            ["primaryText", "Primary"],
-                            ["secondaryText", "Secondary"],
-                            ["tertiaryText", "Tertiary"],
-                          ] as const
-                        ).map(([layer, name]) => {
-                          const cfg = pdfConfig[layer];
-                          return (
-                            <div key={layer} className="rounded-lg border p-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Checkbox
-                                  id={`show-${layer}`}
-                                  checked={cfg.show}
-                                  onCheckedChange={(v) => setTextLayer(layer, "show", !!v)}
-                                />
-                                <Label
-                                  htmlFor={`show-${layer}`}
-                                  className={`w-20 cursor-pointer text-sm ${!cfg.show ? "text-muted-foreground" : ""}`}
-                                >
-                                  {name}
-                                </Label>
-                                <Input
-                                  type="number"
-                                  min={4}
-                                  max={24}
-                                  value={cfg.size}
-                                  onChange={(e) =>
-                                    setTextLayer(
-                                      layer,
-                                      "size",
-                                      Math.max(4, Math.min(24, Number(e.target.value)))
-                                    )
-                                  }
-                                  className="h-8 w-16 text-xs"
-                                  disabled={!cfg.show}
-                                />
-                                <span className="text-xs text-muted-foreground">pt</span>
-                                <Checkbox
-                                  id={`bold-${layer}`}
-                                  checked={cfg.bold}
-                                  onCheckedChange={(v) => setTextLayer(layer, "bold", !!v)}
-                                  disabled={!cfg.show}
-                                />
-                                <Label
-                                  htmlFor={`bold-${layer}`}
-                                  className={`cursor-pointer text-xs ${!cfg.show ? "text-muted-foreground" : ""}`}
-                                >
-                                  bold
-                                </Label>
-                                <div className="ml-auto flex gap-1">
-                                  {TEXT_ALIGN_OPTIONS.map((align) => {
-                                    const Icon = TEXT_ALIGN_ICONS[align];
-                                    return (
-                                      <Button
-                                        key={`${layer}-${align}`}
-                                        size="sm"
-                                        variant={cfg.align === align ? "default" : "outline"}
-                                        onClick={() => setTextLayer(layer, "align", align)}
-                                        className="h-8 w-8 p-0"
-                                        disabled={!cfg.show}
-                                        aria-label={`${name} text align ${align}`}
-                                        title={`${name} text align ${align}`}
-                                      >
-                                        <Icon className="h-3.5 w-3.5" />
-                                      </Button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("qr.finderOuterStyle")}
+                          </Label>
+                          <div className="grid grid-cols-2 gap-1">
+                            {QR_CORNER_SQUARE_OPTIONS.map((style) => (
+                              <Button
+                                key={style}
+                                size="sm"
+                                variant={
+                                  activeConfig.qrStyle.cornerSquareStyle === style
+                                    ? "default"
+                                    : "outline"
+                                }
+                                onClick={() => setQrStyle("cornerSquareStyle", style)}
+                                className="h-8 text-xs capitalize"
+                              >
+                                {t(`qr.cornerStyleOptions.${style}`)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground">
+                            {t("qr.finderInnerStyle")}
+                          </Label>
+                          <div className="grid grid-cols-2 gap-1">
+                            {QR_CORNER_DOT_OPTIONS.map((style) => (
+                              <Button
+                                key={style}
+                                size="sm"
+                                variant={
+                                  activeConfig.qrStyle.cornerDotStyle === style
+                                    ? "default"
+                                    : "outline"
+                                }
+                                onClick={() => setQrStyle("cornerDotStyle", style)}
+                                className="h-8 text-xs capitalize"
+                              >
+                                {t(`qr.cornerStyleOptions.${style}`)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
-                    </Section>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-xl border bg-card p-4">
-                  <Section title="Thermal layout">
-                    <p className="text-sm text-muted-foreground">
-                      ZPL uses its own independent settings and keeps a simpler fixed printer
-                      layout. PDF-only options like free text positioning, logo overlays, and text
-                      layers stay in the PDF editor only.
-                    </p>
-                  </Section>
-                </div>
-              )}
 
-              <div className="rounded-xl border bg-card p-4">
-                <Section title="Export">
-                  <p className="text-sm text-muted-foreground">
-                    {format === "pdf"
-                      ? `Current PDF design fits ${grid.perPage} labels per A4 page.`
-                      : `Current thermal design will export Zebra ZPL sized for ${zplSize} mm labels.`}
-                  </p>
-                  <Button
-                    onClick={handleExport}
-                    disabled={isExporting || !canExport || selectedIds.length === 0}
-                    className="w-full gap-2"
-                  >
-                    {format === "pdf" ? (
-                      <Eye className="h-4 w-4" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                    {isExporting
-                      ? format === "pdf"
-                        ? "Generating preview…"
-                        : "Exporting…"
-                      : selectedIds.length > 0
-                        ? format === "pdf"
-                          ? `Preview ${selectedIds.length} label${selectedIds.length !== 1 ? "s" : ""}`
-                          : `Export ${selectedIds.length} label${selectedIds.length !== 1 ? "s" : ""}`
-                        : "Select codes above to export"}
-                  </Button>
-                </Section>
+                      <div className="rounded-xl border p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="toggle-logo" className="text-sm cursor-pointer">
+                            {t("qr.logoInCenter")}
+                          </Label>
+                          <Switch
+                            id="toggle-logo"
+                            checked={activeConfig.includeLogo}
+                            onCheckedChange={(v) => set("includeLogo", v)}
+                          />
+                        </div>
+                        {activeConfig.includeLogo ? (
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">
+                              {t("qr.logoBackground")}
+                            </Label>
+                            <div className="grid grid-cols-3 gap-1">
+                              {LOGO_BACKGROUND_OPTIONS.map((option) => (
+                                <Button
+                                  key={option}
+                                  size="sm"
+                                  variant={
+                                    activeConfig.logoBackgroundStyle === option
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  onClick={() => set("logoBackgroundStyle", option)}
+                                  className="h-8 text-xs capitalize"
+                                >
+                                  {t(`qr.logoBackgroundOptions.${option}`)}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </Section>
+                </TabsContent>
+
+                <TabsContent value="text" className="!mt-0 h-full overflow-y-auto pt-4 pr-2">
+                  <Section title={t("tabs.text")}>
+                    <div className="space-y-4">
+                      <div className="rounded-xl border p-4 space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          {t("text.verticalAlignment")}
+                        </Label>
+                        <div className="grid grid-cols-3 gap-1">
+                          {TEXT_VERTICAL_ALIGN_OPTIONS.map((align) => (
+                            <Button
+                              key={align}
+                              size="sm"
+                              variant={
+                                activeConfig.textVerticalAlign === align ? "default" : "outline"
+                              }
+                              onClick={() => set("textVerticalAlign", align)}
+                              className="h-8 text-xs capitalize"
+                            >
+                              {t(`text.verticalAlignmentOptions.${align}`)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <DndContext
+                        sensors={textLayerSensors}
+                        collisionDetection={closestCenter}
+                        modifiers={[restrictToVerticalAxis]}
+                        onDragEnd={handleTextLayerDragEnd}
+                      >
+                        <SortableContext
+                          items={getOrderedTextLayerKeys(activeConfig)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-3">
+                            {getOrderedTextLayerKeys(activeConfig).map((layer) => {
+                              const cfg = activeConfig[layer];
+                              const name = t(`text.layerNames.${layer}`);
+                              const customTextValue =
+                                layer === "secondaryText"
+                                  ? activeConfig.textContent.secondaryText
+                                  : layer === "tertiaryText"
+                                    ? activeConfig.textContent.tertiaryText
+                                    : "";
+                              return (
+                                <SortableTextLayerRow key={layer} id={layer}>
+                                  {(dragHandleProps) => (
+                                    <div className="rounded-lg border p-3 space-y-3">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 w-8 cursor-grab p-0 active:cursor-grabbing"
+                                          aria-label={t("text.reorderLayer", { layer: name })}
+                                          title={t("text.reorderLayer", { layer: name })}
+                                          {...dragHandleProps}
+                                        >
+                                          <GripVertical className="h-4 w-4" />
+                                        </Button>
+                                        <Checkbox
+                                          id={`${format}-show-${layer}`}
+                                          checked={cfg.show}
+                                          onCheckedChange={(v) => setTextLayer(layer, "show", !!v)}
+                                        />
+                                        <Label
+                                          htmlFor={`${format}-show-${layer}`}
+                                          className={`min-w-0 flex-1 cursor-pointer text-sm font-medium ${!cfg.show ? "text-muted-foreground" : ""}`}
+                                        >
+                                          {name}
+                                        </Label>
+                                        <span className="text-xs text-muted-foreground">
+                                          {layer === "primaryText"
+                                            ? t("text.sourceQrLabel")
+                                            : layer === "tokenText"
+                                              ? t("text.sourceQrToken")
+                                              : t("text.sourceCustom")}
+                                        </span>
+                                      </div>
+
+                                      {isCustomTextLayer(layer) ? (
+                                        <div className="space-y-1">
+                                          <Label
+                                            htmlFor={`${format}-${layer}-content`}
+                                            className="text-xs text-muted-foreground"
+                                          >
+                                            {t("text.customLineLabel")}
+                                          </Label>
+                                          <Input
+                                            id={`${format}-${layer}-content`}
+                                            value={customTextValue}
+                                            onChange={(e) =>
+                                              setTextContent(
+                                                layer === "secondaryText"
+                                                  ? "secondaryText"
+                                                  : "tertiaryText",
+                                                e.target.value
+                                              )
+                                            }
+                                            placeholder={t(`text.customLinePlaceholder.${layer}`)}
+                                            className="h-9"
+                                          />
+                                        </div>
+                                      ) : null}
+
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          min={4}
+                                          max={24}
+                                          value={cfg.size}
+                                          onChange={(e) =>
+                                            setTextLayer(
+                                              layer,
+                                              "size",
+                                              Math.max(4, Math.min(24, Number(e.target.value)))
+                                            )
+                                          }
+                                          className="h-8 w-16 text-xs"
+                                          disabled={!cfg.show}
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                          {t("text.pt")}
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                          <Checkbox
+                                            id={`${format}-bold-${layer}`}
+                                            checked={cfg.bold}
+                                            onCheckedChange={(v) =>
+                                              setTextLayer(layer, "bold", !!v)
+                                            }
+                                            disabled={!cfg.show}
+                                          />
+                                          <Label
+                                            htmlFor={`${format}-bold-${layer}`}
+                                            className={`cursor-pointer text-xs ${!cfg.show ? "text-muted-foreground" : ""}`}
+                                          >
+                                            {t("text.bold")}
+                                          </Label>
+                                        </div>
+                                        <div className="ml-auto flex gap-1">
+                                          {TEXT_ALIGN_OPTIONS.map((align) => {
+                                            const Icon = TEXT_ALIGN_ICONS[align];
+                                            return (
+                                              <Button
+                                                key={`${format}-${layer}-${align}`}
+                                                size="sm"
+                                                variant={
+                                                  cfg.align === align ? "default" : "outline"
+                                                }
+                                                onClick={() => setTextLayer(layer, "align", align)}
+                                                className="h-8 w-8 p-0"
+                                                disabled={!cfg.show}
+                                                aria-label={t("text.alignLayer", {
+                                                  layer: name,
+                                                  align: t(`text.alignOptions.${align}`),
+                                                })}
+                                                title={t("text.alignLayer", {
+                                                  layer: name,
+                                                  align: t(`text.alignOptions.${align}`),
+                                                })}
+                                              >
+                                                <Icon className="h-3.5 w-3.5" />
+                                              </Button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </SortableTextLayerRow>
+                              );
+                            })}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  </Section>
+                </TabsContent>
               </div>
-            </div>
+            </Tabs>
           </div>
 
           <div className="space-y-4 xl:sticky xl:top-0 xl:self-start">
             <div className="rounded-xl border bg-card p-4">
-              <Section title="Preview">
+              <Section title={t("preview.title")}>
                 <div className="space-y-4">
                   <div className="rounded-2xl border bg-muted/25 p-3">
                     <SingleLabelPreviewSvg
                       config={deferredPreviewConfig}
+                      format={format}
                       previewWidth={SINGLE_LABEL_PREVIEW_W}
                       previewHeight={singleLabelPreviewH}
                       renderWidth={compactSingleRenderWidth}
                       renderHeight={compactSingleRenderHeight}
-                      pad={singleLabelPad}
+                      pad={getContentInsetPx(deferredPreviewConfig, singleLabelScale)}
                       scale={singleLabelScale}
                     />
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <p>
-                      Label size:{" "}
+                      {t("preview.effectiveLabel")}{" "}
                       <span className="font-medium text-foreground">
                         {effectiveDimension.width} × {effectiveDimension.height} mm
                       </span>
                     </p>
                     {format === "pdf" ? (
                       <p>
-                        A4 packing:{" "}
+                        {t("preview.a4Packing")}{" "}
                         <span className="font-medium text-foreground">{grid.perPage}</span>/page
                       </p>
                     ) : (
                       <p>
-                        Thermal preset:{" "}
+                        {t("preview.thermalPreset")}{" "}
                         <span className="font-medium text-foreground">{zplSize} mm</span>
                       </p>
                     )}
                   </div>
                   <div className="grid gap-2">
                     <Button variant="outline" onClick={() => setSinglePreviewOpen(true)}>
-                      Open label preview
+                      {t("preview.openLabelPreview")}
                     </Button>
                     {format === "pdf" && (
                       <Button variant="outline" onClick={() => setLayoutPreviewOpen(true)}>
-                        Open page layout
+                        {t("preview.openPageLayout")}
                       </Button>
                     )}
                   </div>
                 </div>
               </Section>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              {format === "pdf"
+                ? t("exportBar.pdfSummary", { count: grid.perPage })
+                : t("exportBar.zplSummary", { size: zplSize })}
+            </p>
+            <Button
+              onClick={handleExport}
+              disabled={
+                isExporting ||
+                !canExport ||
+                selectedIds.length === 0 ||
+                (format === "pdf" && (pdfWidthInvalid || pdfHeightInvalid))
+              }
+              className="w-full gap-2"
+            >
+              {format === "pdf" ? <Eye className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+              {isExporting
+                ? format === "pdf"
+                  ? t("exportBar.generatingPreview")
+                  : t("exportBar.exporting")
+                : selectedIds.length > 0
+                  ? format === "pdf"
+                    ? t("exportBar.previewLabels", { count: selectedIds.length })
+                    : t("exportBar.exportLabels", { count: selectedIds.length })
+                  : t("exportBar.selectCodes")}
+            </Button>
           </div>
         </div>
       </div>
@@ -1535,14 +2112,14 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
         blobUrl={previewUrl}
         generating={isExporting && format === "pdf"}
         fileName="qr-labels.pdf"
-        title={`QR labels preview (${selectedIds.length})`}
+        title={t("previewDialogTitle", { count: selectedIds.length })}
       />
 
       <Dialog open={singlePreviewOpen} onOpenChange={setSinglePreviewOpen}>
         <DialogContent className="flex h-[min(82vh,760px)] max-w-[min(92vw,900px)] flex-col overflow-hidden p-0">
           <DialogHeader className="border-b px-6 pt-5 pb-3">
             <div className="flex flex-wrap items-end justify-between gap-3 pr-10">
-              <DialogTitle>Single label preview</DialogTitle>
+              <DialogTitle>{t("singleDialog.title")}</DialogTitle>
               <div className="text-sm text-muted-foreground">
                 {effectiveDimension.width} × {effectiveDimension.height} mm
               </div>
@@ -1577,7 +2154,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                     className="h-8 px-2 text-[11px]"
                     onClick={() => setSinglePreviewZoom(option)}
                   >
-                    {option === "fit" ? "Fit" : `${Math.round(option * 100)}%`}
+                    {option === "fit" ? t("zoom.fit") : `${Math.round(option * 100)}%`}
                   </Button>
                 ))}
                 <Button
@@ -1599,7 +2176,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
               </div>
 
               <div className="flex min-w-[220px] items-center gap-2">
-                <span className="text-xs text-muted-foreground">Zoom</span>
+                <span className="text-xs text-muted-foreground">{t("zoom.label")}</span>
                 <Slider
                   min={25}
                   max={200}
@@ -1617,11 +2194,12 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
               <div className="rounded-2xl border bg-card p-4 shadow-sm">
                 <SingleLabelPreviewSvg
                   config={deferredPreviewConfig}
+                  format={format}
                   previewWidth={SINGLE_LABEL_PREVIEW_W}
                   previewHeight={singleLabelPreviewH}
                   renderWidth={singlePreviewRenderWidth}
                   renderHeight={singlePreviewRenderHeight}
-                  pad={singleLabelPad}
+                  pad={getContentInsetPx(deferredPreviewConfig, singleLabelScale)}
                   scale={singleLabelScale}
                 />
               </div>
@@ -1638,7 +2216,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
           <DialogHeader className="border-b px-6 pt-5 pb-3">
             <div className="flex flex-wrap items-end justify-between gap-3 pr-10">
               <DialogTitle>
-                {format === "pdf" ? "Page layout preview" : "Printer sheet preview"}
+                {format === "pdf" ? t("layoutDialog.pdfTitle") : t("layoutDialog.zplTitle")}
               </DialogTitle>
               <div className="text-sm text-muted-foreground">
                 {format === "pdf" ? (
@@ -1655,8 +2233,10 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                   </>
                 ) : (
                   <>
-                    Fixed {ZPL_DIMENSIONS[zplSize].width} × {ZPL_DIMENSIONS[zplSize].height} mm
-                    Zebra label
+                    {t("layoutDialog.fixedZpl", {
+                      width: ZPL_DIMENSIONS[zplSize].width,
+                      height: ZPL_DIMENSIONS[zplSize].height,
+                    })}
                   </>
                 )}
               </div>
@@ -1675,6 +2255,11 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                   renderWidth={pagePreviewRenderWidth}
                   renderHeight={pagePreviewRenderHeight}
                   marginPx={marginPx}
+                  cellW={cellW}
+                  cellH={cellH}
+                  cols={grid.cols}
+                  rows={grid.rows}
+                  edgeGuides={deferredPreviewConfig.edgeGuides}
                   previewCells={shouldRenderPagePreview ? previewCells : []}
                   labelDefs={deferredPageLabelDefs}
                 />
@@ -1712,13 +2297,27 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                         activeConfig,
                         THERMAL_BASE_PREVIEW_W,
                         thermalBasePreviewH,
-                        thermalCellPad,
-                        thermalScale
+                        getContentInsetPx(activeConfig, thermalScale),
+                        thermalScale,
+                        false
                       );
                       const qrX = layout.qrX;
                       const qrY = layout.qrY;
+                      const borderInset = Math.max(0, activeConfig.outerPaddingMm * thermalScale);
                       return (
                         <>
+                          {activeConfig.showBorder ? (
+                            <rect
+                              x={borderInset + 0.5}
+                              y={borderInset + 0.5}
+                              width={Math.max(0, THERMAL_BASE_PREVIEW_W - borderInset * 2 - 1)}
+                              height={Math.max(0, thermalBasePreviewH - borderInset * 2 - 1)}
+                              fill="none"
+                              stroke="#475569"
+                              strokeWidth={1}
+                              rx={3}
+                            />
+                          ) : null}
                           <rect
                             x={qrX}
                             y={qrY}
@@ -1741,6 +2340,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                             layout.textH,
                             thermalScale
                           )}
+                          {activeConfig.footer.show ? renderFooterPreview(layout, false) : null}
                         </>
                       );
                     })()}
@@ -1775,7 +2375,7 @@ export function LabelDesigner({ selectedIds, canExport }: LabelDesignerProps) {
                   className="h-6 px-2 text-[10px]"
                   onClick={() => setPagePreviewZoom("fit")}
                 >
-                  Fit
+                  {t("zoom.fit")}
                 </Button>
 
                 <div className="flex items-center gap-1 rounded-md border bg-background px-1.5">

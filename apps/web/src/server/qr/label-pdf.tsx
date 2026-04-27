@@ -11,11 +11,17 @@ import {
   Path,
   Circle,
   Rect,
+  Line,
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { LabelConfig } from "@/lib/qr/label-config";
-import { computeGrid, getEffectiveLabelDimension, GRID_MARGIN_MM } from "@/lib/qr/label-config";
+import {
+  computeGrid,
+  getEffectiveLabelDimension,
+  getOrderedTextLayerKeys,
+  GRID_MARGIN_MM,
+} from "@/lib/qr/label-config";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -47,7 +53,6 @@ export interface GenerateQrLabelsPdfInput {
 
 /** Convert mm to PDF points (1 mm = 2.83465 pt) */
 const mm = (value: number) => value * 2.83465;
-
 // ---------------------------------------------------------------------------
 // Ambra logo overlay — pure SVG paths from BrandStampPureBw
 // Rendered as a centered circle over the QR image (error correction H handles obscured area).
@@ -359,52 +364,54 @@ function getVisibleTextLines(item: QrLabelPdfItem, config: LabelConfig) {
     marginBottom: number;
   }> = [];
 
-  if (config.primaryText.show && item.primaryText) {
-    lines.push({
-      key: "primary",
-      text: item.primaryText,
-      size: config.primaryText.size,
-      weight: config.primaryText.bold ? "bold" : "normal",
-      color: "#111111",
-      align: config.primaryText.align,
-      marginBottom: mm(0.4),
-    });
-  }
+  for (const layerKey of getOrderedTextLayerKeys(config)) {
+    if (layerKey === "primaryText" && config.primaryText.show && item.primaryText) {
+      lines.push({
+        key: "primary",
+        text: item.primaryText,
+        size: config.primaryText.size,
+        weight: config.primaryText.bold ? "bold" : "normal",
+        color: "#111111",
+        align: config.primaryText.align,
+        marginBottom: mm(0.4),
+      });
+    }
 
-  if (config.secondaryText.show && item.secondaryText) {
-    lines.push({
-      key: "secondary",
-      text: item.secondaryText,
-      size: config.secondaryText.size,
-      weight: config.secondaryText.bold ? "bold" : "normal",
-      color: "#444444",
-      align: config.secondaryText.align,
-      marginBottom: mm(0.3),
-    });
-  }
+    if (layerKey === "secondaryText" && config.secondaryText.show && item.secondaryText) {
+      lines.push({
+        key: "secondary",
+        text: item.secondaryText,
+        size: config.secondaryText.size,
+        weight: config.secondaryText.bold ? "bold" : "normal",
+        color: "#444444",
+        align: config.secondaryText.align,
+        marginBottom: mm(0.3),
+      });
+    }
 
-  if (config.tertiaryText.show && item.tertiaryText) {
-    lines.push({
-      key: "tertiary",
-      text: item.tertiaryText,
-      size: config.tertiaryText.size,
-      weight: config.tertiaryText.bold ? "bold" : "normal",
-      color: "#888888",
-      align: config.tertiaryText.align,
-      marginBottom: mm(0.2),
-    });
-  }
+    if (layerKey === "tertiaryText" && config.tertiaryText.show && item.tertiaryText) {
+      lines.push({
+        key: "tertiary",
+        text: item.tertiaryText,
+        size: config.tertiaryText.size,
+        weight: config.tertiaryText.bold ? "bold" : "normal",
+        color: "#888888",
+        align: config.tertiaryText.align,
+        marginBottom: mm(0.2),
+      });
+    }
 
-  if (config.includeTokenPreview) {
-    lines.push({
-      key: "token",
-      text: item.token.slice(0, 10),
-      size: 5,
-      weight: "normal",
-      color: "#aaaaaa",
-      align: "left",
-      marginBottom: 0,
-    });
+    if (layerKey === "tokenText" && config.tokenText.show) {
+      lines.push({
+        key: "token",
+        text: item.token.slice(0, 10),
+        size: config.tokenText.size,
+        weight: config.tokenText.bold ? "bold" : "normal",
+        color: "#aaaaaa",
+        align: config.tokenText.align,
+        marginBottom: 0,
+      });
+    }
   }
 
   return lines;
@@ -416,32 +423,105 @@ function estimatePdfTextHeight(lines: Array<{ size: number; marginBottom: number
   }, 0);
 }
 
+function getPdfDashArray(style: LabelConfig["edgeGuides"]["style"]) {
+  if (style === "dotted") return "1 2";
+  if (style === "dashed") return "3 2";
+  return undefined;
+}
+
+function LabelFooterUrl({ widthPt, heightPt }: { widthPt: number; heightPt: number }) {
+  return (
+    <View style={{ width: widthPt, height: heightPt, justifyContent: "center" }}>
+      <Text
+        style={{ fontSize: Math.max(4.3, heightPt * 0.46), color: "#666666", textAlign: "center" }}
+      >
+        www.ambra-system.com
+      </Text>
+    </View>
+  );
+}
+
+function LabelWatermarkLogo({ sizePt }: { sizePt: number }) {
+  return (
+    <Svg style={{ width: sizePt, height: sizePt }} viewBox="0 0 56 56">
+      <Path d="M28 5 L5 53 L16 53 L28 29 Z" fill="#0f172a" fillOpacity={0.1} />
+      <Path d="M28 5 L51 53 L40 53 L28 29 Z" fill="#1e293b" fillOpacity={0.1} />
+      <Path d="M28 7.5 L22 20 L28 29 L34 20 Z" fill="#475569" fillOpacity={0.1} />
+      <Path
+        d="M14 34 L28 51 L42 34"
+        stroke="#334155"
+        strokeOpacity={0.1}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
 function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
-  const borderStyle = config.showBorder
-    ? { borderWidth: 0.5, borderColor: "#cccccc", borderStyle: "solid" as const }
-    : {};
-  const paddingPt = mm(1.5);
+  const contentInsetPt = mm(
+    config.innerPaddingMm + (config.showBorder ? config.outerPaddingMm : 0)
+  );
   const gapPt = mm(1.5);
-  const innerW = Math.max(0, cellWPt - paddingPt * 2);
-  const innerH = Math.max(0, cellHPt - paddingPt * 2);
+  const innerW = Math.max(0, cellWPt - contentInsetPt * 2);
+  const innerH = Math.max(0, cellHPt - contentInsetPt * 2);
   const lines = getVisibleTextLines(item, config);
   const hasText = lines.length > 0;
-  const isStacked = config.textPosition === "above" || config.textPosition === "below";
+  const isStacked = config.orientation === "portrait";
   const textHeightPt = hasText ? estimatePdfTextHeight(lines) : 0;
+  const borderInsetPt = mm(config.outerPaddingMm);
+  const footerEnabled = hasText && config.footer.show;
+  const footerHeightPt = footerEnabled ? Math.max(mm(1.8), cellHPt * 0.055) : 0;
+  const watermarkSizePt = footerEnabled ? Math.max(mm(3.2), Math.min(innerW, innerH) * 0.145) : 0;
+  const footerGapPt = footerEnabled ? mm(0.8) : 0;
+  const textExtraPt = footerEnabled ? footerHeightPt + watermarkSizePt + footerGapPt * 2 : 0;
 
   const qrSizePt = hasText
     ? isStacked
-      ? Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio, innerH - textHeightPt - gapPt))
-      : Math.max(0, Math.min(innerH, innerH * config.qrHeightRatio))
-    : Math.max(0, Math.min(innerW, innerH) * config.qrHeightRatio);
+      ? Math.max(
+          0,
+          Math.min(innerH - textHeightPt - gapPt - textExtraPt, innerW * config.qrHeightRatio)
+        )
+      : Math.max(0, Math.min(innerW, innerH * config.qrHeightRatio))
+    : Math.max(
+        0,
+        isStacked
+          ? Math.min(innerH, innerW * config.qrHeightRatio)
+          : Math.min(innerW, innerH * config.qrHeightRatio)
+      );
+
+  const textRegionHeightPt = isStacked ? textHeightPt : Math.max(0, innerH - textExtraPt);
+
+  const textAreaWidthPt = isStacked ? innerW : Math.max(0, innerW - qrSizePt - gapPt);
+  const textAreaXPt = isStacked
+    ? contentInsetPt
+    : config.textPosition === "left"
+      ? contentInsetPt
+      : contentInsetPt + qrSizePt + gapPt;
+  const textAreaYPt = isStacked
+    ? config.textPosition === "above"
+      ? contentInsetPt
+      : contentInsetPt + qrSizePt + gapPt
+    : contentInsetPt;
+  const footerXPt = textAreaXPt;
+  const footerYPt = textAreaYPt + textRegionHeightPt + footerGapPt + watermarkSizePt + footerGapPt;
+  const watermarkXPt = textAreaXPt + Math.max(0, textAreaWidthPt - watermarkSizePt);
+  const watermarkYPt = textAreaYPt + textRegionHeightPt + footerGapPt;
 
   const textBlock = hasText ? (
     <View
       style={{
         flex: isStacked ? 0 : 1,
         width: isStacked ? "100%" : undefined,
-        height: isStacked ? Math.max(0, innerH - qrSizePt - gapPt) : undefined,
-        justifyContent: "center",
+        height: textRegionHeightPt,
+        justifyContent:
+          config.textVerticalAlign === "start"
+            ? "flex-start"
+            : config.textVerticalAlign === "end"
+              ? "flex-end"
+              : "center",
       }}
     >
       {lines.map((line, index) => (
@@ -486,11 +566,24 @@ function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
         flexDirection: isStacked ? "column" : "row",
         alignItems: "center",
         justifyContent: "center",
-        padding: paddingPt,
+        padding: contentInsetPt,
         overflow: "hidden",
-        ...borderStyle,
       }}
     >
+      {config.showBorder ? (
+        <View
+          style={{
+            position: "absolute",
+            top: borderInsetPt,
+            left: borderInsetPt,
+            width: Math.max(0, cellWPt - borderInsetPt * 2),
+            height: Math.max(0, cellHPt - borderInsetPt * 2),
+            borderWidth: 0.5,
+            borderColor: "#cccccc",
+            borderStyle: "solid",
+          }}
+        />
+      ) : null}
       {isStacked ? (
         <>
           {config.textPosition === "above" ? textBlock : qrBlock}
@@ -504,16 +597,47 @@ function LabelCellV2({ item, config, cellWPt, cellHPt }: LabelCellV2Props) {
           {config.textPosition === "left" ? qrBlock : textBlock}
         </>
       )}
+      {config.footer.show ? (
+        footerEnabled ? (
+          <>
+            <View
+              style={{
+                position: "absolute",
+                left: watermarkXPt,
+                top: watermarkYPt,
+                width: watermarkSizePt,
+                height: watermarkSizePt,
+              }}
+            >
+              <LabelWatermarkLogo sizePt={watermarkSizePt} />
+            </View>
+            <View
+              style={{
+                position: "absolute",
+                left: footerXPt,
+                top: footerYPt,
+                width: textAreaWidthPt,
+                height: footerHeightPt,
+              }}
+            >
+              <LabelFooterUrl widthPt={textAreaWidthPt} heightPt={footerHeightPt} />
+            </View>
+          </>
+        ) : null
+      ) : null}
     </View>
   );
 }
 
 function ConfigA4Document({ items, config }: { items: QrLabelPdfItem[]; config: LabelConfig }) {
   const effectiveDimension = getEffectiveLabelDimension(config);
-  const { cols, perPage } = computeGrid(effectiveDimension);
+  const { cols, rows, perPage } = computeGrid(effectiveDimension);
   const cellWPt = mm(effectiveDimension.width);
   const cellHPt = mm(effectiveDimension.height);
   const marginPt = mm(GRID_MARGIN_MM);
+  const guideDashArray = getPdfDashArray(config.edgeGuides.style);
+  const gridWidthPt = cellWPt * cols;
+  const gridHeightPt = cellHPt * rows;
 
   const pages: QrLabelPdfItem[][] = [];
   for (let i = 0; i < items.length; i += perPage) {
@@ -529,6 +653,51 @@ function ConfigA4Document({ items, config }: { items: QrLabelPdfItem[]; config: 
         }
         return (
           <Page key={pageIdx} size="A4" style={{ flexDirection: "column", padding: marginPt }}>
+            {config.edgeGuides.show ? (
+              <Svg
+                style={{
+                  position: "absolute",
+                  top: marginPt,
+                  left: marginPt,
+                  width: gridWidthPt,
+                  height: gridHeightPt,
+                }}
+                viewBox={`0 0 ${gridWidthPt} ${gridHeightPt}`}
+              >
+                {Array.from({ length: cols + 1 }, (_, index) => {
+                  const x = index * cellWPt;
+                  return (
+                    <Line
+                      key={`v-${index}`}
+                      x1={x}
+                      y1={0}
+                      x2={x}
+                      y2={gridHeightPt}
+                      stroke={config.edgeGuides.color}
+                      strokeOpacity={config.edgeGuides.opacity}
+                      strokeWidth={config.edgeGuides.thickness}
+                      strokeDasharray={guideDashArray}
+                    />
+                  );
+                })}
+                {Array.from({ length: rows + 1 }, (_, index) => {
+                  const y = index * cellHPt;
+                  return (
+                    <Line
+                      key={`h-${index}`}
+                      x1={0}
+                      y1={y}
+                      x2={gridWidthPt}
+                      y2={y}
+                      stroke={config.edgeGuides.color}
+                      strokeOpacity={config.edgeGuides.opacity}
+                      strokeWidth={config.edgeGuides.thickness}
+                      strokeDasharray={guideDashArray}
+                    />
+                  );
+                })}
+              </Svg>
+            ) : null}
             {rowGroups.map((rowItems, rowIdx) => (
               <View key={rowIdx} style={{ flexDirection: "row" }}>
                 {rowItems.map((item) => (

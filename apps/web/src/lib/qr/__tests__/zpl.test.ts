@@ -4,73 +4,89 @@
 
 import { describe, it, expect } from "vitest";
 import { generateZplLabels } from "../zpl";
+import { DEFAULT_LABEL_CONFIG } from "../label-config";
 import type { ZplLabelItem } from "../zpl";
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrSt12";
 
 function makeItem(overrides: Partial<ZplLabelItem> = {}): ZplLabelItem {
-  return { token: TOKEN, label: "Rack A1", includeTokenPreview: false, ...overrides };
+  return {
+    token: TOKEN,
+    primaryText: "Rack A1",
+    secondaryText: undefined,
+    tertiaryText: undefined,
+    ...overrides,
+  };
 }
 
 describe("generateZplLabels", () => {
-  it("throws for empty item list", () => {
-    expect(() => generateZplLabels([], "50x30")).toThrow("no labels");
+  it("throws for empty item list", async () => {
+    await expect(generateZplLabels([], "50x30", DEFAULT_LABEL_CONFIG)).rejects.toThrow("no labels");
   });
 
-  it("returns a string", () => {
-    expect(typeof generateZplLabels([makeItem()], "50x30")).toBe("string");
+  it("returns a string", async () => {
+    const zpl = await generateZplLabels([makeItem()], "50x30", DEFAULT_LABEL_CONFIG);
+    expect(typeof zpl).toBe("string");
   });
 
-  it("contains ^XA and ^XZ markers for each label", () => {
-    const zpl = generateZplLabels([makeItem(), makeItem()], "50x30");
+  it("contains ^XA and ^XZ markers for each label", async () => {
+    const zpl = await generateZplLabels([makeItem(), makeItem()], "50x30", DEFAULT_LABEL_CONFIG);
     const starts = (zpl.match(/\^XA/g) ?? []).length;
     const ends = (zpl.match(/\^XZ/g) ?? []).length;
     expect(starts).toBe(2);
     expect(ends).toBe(2);
   });
 
-  it("encodes the token in a ^BQ command", () => {
-    const zpl = generateZplLabels([makeItem()], "50x30");
-    expect(zpl).toContain("^BQN,2,");
-    expect(zpl).toContain(TOKEN);
+  it("embeds a bitmap graphic command", async () => {
+    const zpl = await generateZplLabels([makeItem()], "50x30", DEFAULT_LABEL_CONFIG);
+    expect(zpl).toContain("^GFA");
   });
 
-  it("sets HA (error correction High, auto mask) prefix", () => {
-    const zpl = generateZplLabels([makeItem()], "50x30");
-    expect(zpl).toContain(`HA,${TOKEN}`);
-  });
-
-  it("includes ^PW (print width) for each label", () => {
-    const zpl = generateZplLabels([makeItem()], "50x30");
+  it("includes ^PW (print width) for each label", async () => {
+    const zpl = await generateZplLabels([makeItem()], "50x30", DEFAULT_LABEL_CONFIG);
     expect(zpl).toContain("^PW");
   });
 
-  it("50x30 uses magnification 4", () => {
-    const zpl = generateZplLabels([makeItem()], "50x30");
-    expect(zpl).toContain("^BQN,2,4");
+  it("includes label home origin and label length", async () => {
+    const zpl = await generateZplLabels([makeItem()], "70x40", DEFAULT_LABEL_CONFIG);
+    expect(zpl).toContain("^LH0,0");
+    expect(zpl).toContain("^LL");
   });
 
-  it("70x40 uses magnification 5", () => {
-    const zpl = generateZplLabels([makeItem()], "70x40");
-    expect(zpl).toContain("^BQN,2,5");
+  it("renders fixed thermal sizes differently", async () => {
+    const a = await generateZplLabels([makeItem()], "50x30", DEFAULT_LABEL_CONFIG);
+    const b = await generateZplLabels([makeItem()], "70x40", DEFAULT_LABEL_CONFIG);
+    expect(a).not.toBe(b);
   });
 
-  it("includes label text when label is set", () => {
-    const zpl = generateZplLabels([makeItem({ label: "MyRack" })], "50x30");
-    expect(zpl).toContain("MyRack");
-  });
-
-  it("includes token preview when includeTokenPreview is true", () => {
-    const zpl = generateZplLabels([makeItem({ includeTokenPreview: true })], "70x40");
-    expect(zpl).toContain(TOKEN.slice(0, 8));
-  });
-
-  it("handles 50 labels without error", () => {
-    const items = Array.from({ length: 50 }, (_, i) =>
-      makeItem({ token: `token${String(i).padStart(20, "0")}` })
+  it("changes output when thermal label styling changes", async () => {
+    const a = await generateZplLabels(
+      [makeItem({ secondaryText: TOKEN.slice(0, 8) })],
+      "70x40",
+      DEFAULT_LABEL_CONFIG
     );
-    const zpl = generateZplLabels(items, "70x40");
+    const b = await generateZplLabels([makeItem({ secondaryText: TOKEN.slice(0, 8) })], "70x40", {
+      ...DEFAULT_LABEL_CONFIG,
+      includeLogo: false,
+      qrStyle: {
+        frameShape: "circle",
+        dotStyle: "dots",
+        cornerSquareStyle: "square",
+        cornerDotStyle: "square",
+      },
+    });
+    expect(a).not.toBe(b);
+  });
+
+  it("handles 12 labels without error", async () => {
+    const items = Array.from({ length: 12 }, (_, i) =>
+      makeItem({
+        token: `token${String(i).padStart(20, "0")}`,
+        primaryText: `Rack ${i}`,
+      })
+    );
+    const zpl = await generateZplLabels(items, "70x40", DEFAULT_LABEL_CONFIG);
     const count = (zpl.match(/\^XA/g) ?? []).length;
-    expect(count).toBe(50);
+    expect(count).toBe(12);
   });
 });

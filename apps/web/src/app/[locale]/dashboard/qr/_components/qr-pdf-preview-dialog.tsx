@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Download, Loader2, Printer } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Download, Printer } from "lucide-react";
+import { BrandLoader } from "@/components/branding";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -22,6 +24,7 @@ export function QrPdfPreviewDialog({
   fileName,
   title,
 }: QrPdfPreviewDialogProps) {
+  const t = useTranslations("modules.qr.previewDialog");
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
@@ -54,20 +57,24 @@ export function QrPdfPreviewDialog({
           <div className="mr-12 flex shrink-0 items-center gap-2">
             <Button size="sm" variant="outline" onClick={handlePrint} disabled={!blobUrl}>
               <Printer className="mr-1.5 h-4 w-4" />
-              Print
+              {t("print")}
             </Button>
             <Button size="sm" onClick={handleDownload} disabled={!blobUrl}>
               <Download className="mr-1.5 h-4 w-4" />
-              Download
+              {t("download")}
             </Button>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden bg-muted/30">
           {generating ? (
-            <div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Generating preview…
+            <div className="flex h-full items-center justify-center">
+              <BrandLoader
+                variant="beacon_swap"
+                label={t("generating")}
+                showWordmark={false}
+                logoClassName="h-20 w-20"
+              />
             </div>
           ) : null}
           {!generating && blobUrl ? (
@@ -75,7 +82,7 @@ export function QrPdfPreviewDialog({
               ref={iframeRef}
               src={blobUrl}
               className="h-full w-full border-0"
-              title="QR labels PDF preview"
+              title={t("iframeTitle")}
             />
           ) : null}
         </div>

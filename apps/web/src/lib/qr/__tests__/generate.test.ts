@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_LABEL_CONFIG } from "../label-config";
 import {
+  buildQrScanUrl,
   generateQrPngDataUrl,
   generateQrSvgString,
   generateStyledQrPngDataUrl,
@@ -12,6 +13,20 @@ import {
 } from "../generate";
 
 const SAMPLE_TOKEN = "AbCdEfGhIjKlMnOpQrSt12";
+
+describe("buildQrScanUrl", () => {
+  it("builds a public QR scan URL from the token", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.ambra-system.com/";
+    expect(buildQrScanUrl(SAMPLE_TOKEN)).toBe(
+      "https://www.ambra-system.com/qr/AbCdEfGhIjKlMnOpQrSt12"
+    );
+  });
+
+  it("encodes URL-unsafe token characters", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.ambra-system.com";
+    expect(buildQrScanUrl("abc/def?ghi")).toBe("https://www.ambra-system.com/qr/abc%2Fdef%3Fghi");
+  });
+});
 
 describe("generateQrPngDataUrl", () => {
   it("returns a data URL with correct prefix", async () => {

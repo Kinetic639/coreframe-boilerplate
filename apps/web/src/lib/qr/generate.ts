@@ -6,9 +6,29 @@ const QR_OPTIONS = {
   margin: 2,
   width: 300,
 };
+const STYLED_QR_PX = 220;
 
 const styledQrSvgDataUrlCache = new Map<string, Promise<string>>();
 const styledQrPngDataUrlCache = new Map<string, Promise<string>>();
+const qrStylingDepsPromise = Promise.all([
+  import("jsdom"),
+  import("canvas"),
+  import("qr-code-styling"),
+]);
+
+function getQrPublicBaseUrl(): string {
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return siteUrl.replace(/\/+$/, "");
+}
+
+export function buildQrScanUrl(token: string): string {
+  if (!token || token.trim().length === 0) {
+    throw new Error("QR token must be a non-empty string.");
+  }
+
+  return `${getQrPublicBaseUrl()}/qr/${encodeURIComponent(token)}`;
+}
 
 /**
  * Generates a base64 data URL for the given QR token.
@@ -19,7 +39,7 @@ export async function generateQrPngDataUrl(token: string): Promise<string> {
   if (!token || token.trim().length === 0) {
     throw new Error("QR token must be a non-empty string.");
   }
-  return QRCode.toDataURL(token, QR_OPTIONS);
+  return QRCode.toDataURL(buildQrScanUrl(token), QR_OPTIONS);
 }
 
 /**
@@ -30,7 +50,7 @@ export async function generateQrSvgString(token: string): Promise<string> {
   if (!token || token.trim().length === 0) {
     throw new Error("QR token must be a non-empty string.");
   }
-  return QRCode.toString(token, { ...QR_OPTIONS, type: "svg" });
+  return QRCode.toString(buildQrScanUrl(token), { ...QR_OPTIONS, type: "svg" });
 }
 
 /**
@@ -87,10 +107,8 @@ export async function generateStyledQrPngDataUrl(
 }
 
 async function buildStyledQrSvgDataUrl(token: string): Promise<string> {
-  const [{ JSDOM }, qrCodeStylingModule] = await Promise.all([
-    import("jsdom"),
-    import("qr-code-styling"),
-  ]);
+  const qrData = buildQrScanUrl(token);
+  const [{ JSDOM }, , qrCodeStylingModule] = await qrStylingDepsPromise;
 
   const QRCodeStyling =
     qrCodeStylingModule.default ??
@@ -105,9 +123,9 @@ async function buildStyledQrSvgDataUrl(token: string): Promise<string> {
   })({
     jsdom: JSDOM,
     type: "svg",
-    width: QR_OPTIONS.width,
-    height: QR_OPTIONS.width,
-    data: token,
+    width: STYLED_QR_PX,
+    height: STYLED_QR_PX,
+    data: qrData,
     margin: 0,
     qrOptions: {
       errorCorrectionLevel: QR_OPTIONS.errorCorrectionLevel,
@@ -139,11 +157,8 @@ async function buildStyledQrSvgDataUrl(token: string): Promise<string> {
 }
 
 async function buildStyledQrPngDataUrl(token: string, qrStyle: QrStyleConfig): Promise<string> {
-  const [{ JSDOM }, canvasModule, qrCodeStylingModule] = await Promise.all([
-    import("jsdom"),
-    import("canvas"),
-    import("qr-code-styling"),
-  ]);
+  const qrData = buildQrScanUrl(token);
+  const [{ JSDOM }, canvasModule, qrCodeStylingModule] = await qrStylingDepsPromise;
 
   const QRCodeStyling =
     qrCodeStylingModule.default ??
@@ -159,9 +174,9 @@ async function buildStyledQrPngDataUrl(token: string, qrStyle: QrStyleConfig): P
     jsdom: JSDOM,
     nodeCanvas: canvasModule,
     type: "canvas",
-    width: QR_OPTIONS.width,
-    height: QR_OPTIONS.width,
-    data: token,
+    width: STYLED_QR_PX,
+    height: STYLED_QR_PX,
+    data: qrData,
     margin: QR_OPTIONS.margin,
     shape: qrStyle.frameShape,
     qrOptions: {
