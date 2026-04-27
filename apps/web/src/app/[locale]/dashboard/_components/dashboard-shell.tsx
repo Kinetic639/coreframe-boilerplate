@@ -195,6 +195,18 @@ const FLYOUT_ROW_H = 30;
 const FLYOUT_CLOSE_DELAY = 140;
 const ROOT_TRANSITION_MS = 145;
 
+const iconHoverSpring = { type: "spring", stiffness: 520, damping: 28, mass: 0.35 } as const;
+
+const flyoutIconHoverVariants: import("framer-motion").Variants = {
+  rest: {
+    scale: 1,
+    transition: iconHoverSpring,
+  },
+  hover: {
+    transition: iconHoverSpring,
+  },
+};
+
 type FlyoutRowRadiusRole = "title" | "item";
 
 type FlyoutRootState = {
@@ -287,7 +299,14 @@ function FlyoutRowContent({
           showChevron && "pr-7"
         )}
       >
-        {showIcon && <Icon className="size-3.5 shrink-0" />}
+        {showIcon && (
+          <motion.span
+            variants={flyoutIconHoverVariants}
+            className="flex size-3.5 shrink-0 items-center justify-center will-change-transform"
+          >
+            <Icon className="size-3.5 shrink-0" />
+          </motion.span>
+        )}
         <span className="min-w-0 flex-1 truncate text-left">{label}</span>
         {item.disabledReason === "coming_soon" && (
           <span className="text-[10px] font-medium">Soon</span>
@@ -324,7 +343,12 @@ function FlyoutRootRowContent({
         className="flex h-full shrink-0 items-center justify-center"
         style={{ width: iconSlotWidth }}
       >
-        <Icon className="size-4 shrink-0" />
+        <motion.span
+          variants={flyoutIconHoverVariants}
+          className="flex size-4 shrink-0 items-center justify-center will-change-transform"
+        >
+          <Icon className="size-4 shrink-0" />
+        </motion.span>
       </span>
       <span
         className={cn(
@@ -373,7 +397,7 @@ function FlyoutRow({
   const className = cn(
     "group relative z-20 flex items-center gap-1.5 px-2.5 text-[13px] leading-none select-none overflow-visible",
     "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
-    stretched ? "shadow-[0_8px_18px_rgba(0,0,0,0.14)]" : "w-full",
+    stretched ? "" : "w-full",
     getFlyoutRowRadius({ role: stretched ? "title" : "item", index, total }),
     routeActive
       ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
@@ -385,27 +409,33 @@ function FlyoutRow({
 
   if (item.href && !hasChildren && !item.disabledReason) {
     return (
-      <Link
-        href={toUnsafeI18nHref(item.href)}
-        className={className}
-        style={{ width: stretched ? FLYOUT_W * 2 : undefined, height: FLYOUT_ROW_H }}
-        onMouseEnter={onMouseEnter}
-      >
-        <FlyoutRowContent item={item} label={label} showChevron={false} expanded={expanded} />
-      </Link>
+      <motion.div initial="rest" animate="rest" whileHover="hover" transition={iconHoverSpring}>
+        <Link
+          href={toUnsafeI18nHref(item.href)}
+          className={className}
+          style={{ width: stretched ? FLYOUT_W * 2 : undefined, height: FLYOUT_ROW_H }}
+          onMouseEnter={onMouseEnter}
+        >
+          <FlyoutRowContent item={item} label={label} showChevron={false} expanded={expanded} />
+        </Link>
+      </motion.div>
     );
   }
 
   return (
-    <button
+    <motion.button
       type="button"
+      initial="rest"
+      animate="rest"
+      whileHover="hover"
+      transition={iconHoverSpring}
       className={className}
       style={{ width: stretched ? FLYOUT_W * 2 : undefined, height: FLYOUT_ROW_H }}
       onMouseEnter={onMouseEnter}
       disabled={!!item.disabledReason && !hasChildren}
     >
       <FlyoutRowContent item={item} label={label} showChevron={hasChildren} expanded={expanded} />
-    </button>
+    </motion.button>
   );
 }
 
@@ -447,7 +477,7 @@ function CollapsedFlyoutLayer({
             initial="initial"
             animate="animate"
             exit="exit"
-            className="pointer-events-auto fixed z-[89] overflow-visible bg-sidebar shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+            className="pointer-events-auto fixed z-[89] overflow-visible bg-sidebar "
             style={{ left: l1ColumnLeft, top: l1ColumnTop, width: FLYOUT_W }}
             onMouseEnter={keepOpen}
             onMouseLeave={() => closeLater(onClose)}
@@ -495,7 +525,7 @@ function CollapsedFlyoutLayer({
                   top: l1ColumnTop + (activeL2Index + 1) * FLYOUT_ROW_H,
                   width: FLYOUT_W,
                 }}
-                className="pointer-events-auto z-[88] bg-sidebar shadow-[0_8px_18px_rgba(0,0,0,0.12)]"
+                className="pointer-events-auto z-[88] bg-sidebar "
                 onMouseEnter={keepOpen}
                 onMouseLeave={() => closeLater(onClose)}
               >
@@ -595,9 +625,13 @@ function NavL1Flyout({
 
   return (
     <SidebarMenuItem className="relative h-8">
-      <div
+      <motion.div
         ref={triggerRef}
         role="button"
+        initial="rest"
+        animate="rest"
+        whileHover="hover"
+        transition={iconHoverSpring}
         tabIndex={0}
         aria-label={label}
         onMouseEnter={openFlyout}
@@ -610,7 +644,7 @@ function NavL1Flyout({
           "transition-[width,background-color,color,border-radius,box-shadow] duration-150 ease-out",
           isOpenish
             ? cn(
-                "fixed justify-start rounded-sm shadow-[0_8px_18px_rgba(0,0,0,0.14)]",
+                "fixed justify-start rounded-sm ",
                 routeActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "bg-muted text-sidebar-foreground"
@@ -641,9 +675,14 @@ function NavL1Flyout({
             expanded={expanded}
           />
         ) : (
-          <Icon className="size-4 shrink-0" />
+          <motion.span
+            variants={flyoutIconHoverVariants}
+            className="flex size-4 shrink-0 items-center justify-center will-change-transform"
+          >
+            <Icon className="size-4 shrink-0" />
+          </motion.span>
         )}
-      </div>
+      </motion.div>
 
       {root && (
         <CollapsedFlyoutLayer
