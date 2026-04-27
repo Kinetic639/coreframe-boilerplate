@@ -15,16 +15,16 @@ export function ToolsUnifiedClient({ initialMyTools, initialCatalog }: ToolsUnif
   const t = useTranslations("modules.tools");
 
   return (
-    <Tabs defaultValue="my-tools">
+    <Tabs defaultValue="all-tools">
       <TabsList>
-        <TabsTrigger value="my-tools">{t("items.myTools")}</TabsTrigger>
         <TabsTrigger value="all-tools">{t("items.allTools")}</TabsTrigger>
+        <TabsTrigger value="my-tools">{t("items.myTools")}</TabsTrigger>
       </TabsList>
-      <TabsContent value="my-tools" className="mt-6">
-        <ToolsMyToolsClient initialMyTools={initialMyTools} initialCatalog={initialCatalog} />
-      </TabsContent>
       <TabsContent value="all-tools" className="mt-6">
         <ToolsCatalogClient initialCatalog={initialCatalog} initialMyTools={initialMyTools} />
+      </TabsContent>
+      <TabsContent value="my-tools" className="mt-6">
+        <ToolsMyToolsClient initialMyTools={initialMyTools} initialCatalog={initialCatalog} />
       </TabsContent>
     </Tabs>
   );

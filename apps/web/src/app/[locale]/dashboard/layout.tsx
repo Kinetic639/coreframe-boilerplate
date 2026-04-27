@@ -13,25 +13,13 @@ import { DashboardV2Providers } from "./_providers";
 import { DashboardShell } from "./_components/dashboard-shell";
 import { DashboardColorThemeLoader } from "./_components/dashboard-color-theme-loader";
 
-// Fixed "All Tools" item always shown last in the tools collapsible group.
-// Points to /dashboard/tools/all (catalog page) not /dashboard/tools (unified page
-// which defaults to My Tools tab) so clicking "All Tools" shows the catalog.
-const TOOLS_ALL_CHILD: SidebarItem = {
-  id: "tools.allTools",
-  title: "All Tools",
-  titleKey: "modules.tools.items.allTools",
-  iconKey: "tools",
-  href: "/dashboard/tools/all",
-  match: { exact: "/dashboard/tools/all" },
-};
-
-// My Tools child — matches the main tools page (/dashboard/tools).
+// Root tools child — matches the main tools page (/dashboard/tools).
 // Added as the first child when pinned tools are injected so the parent
 // group is active whenever the user is on the root tools page.
-const TOOLS_MY_TOOLS_CHILD: SidebarItem = {
-  id: "tools.myTools",
-  title: "My Tools",
-  titleKey: "modules.tools.items.myTools",
+const TOOLS_ROOT_CHILD: SidebarItem = {
+  id: "tools.root",
+  title: "Tools",
+  titleKey: "modules.tools.titleSidebar",
   iconKey: "tools",
   href: "/dashboard/tools",
   match: { exact: "/dashboard/tools" },
@@ -56,8 +44,7 @@ const fetchPinnedToolsForSidebar = cache(async (userId: string) => {
 
 /**
  * Injects pinned tools as children of the "tools" sidebar item, turning it
- * into a collapsible group. Pinned tools appear above the fixed "All Tools"
- * child. Skips silently if the tools item was pruned (no tools.read permission).
+ * into a collapsible group. Skips silently if the tools item was pruned (no tools.read permission).
  */
 async function injectPinnedToolsIntoSidebar(
   model: ReturnType<typeof buildSidebarModel>,
@@ -85,8 +72,8 @@ async function injectPinnedToolsIntoSidebar(
       ...item,
       // Remove href so the L1 item acts as a group trigger, not a link
       href: undefined,
-      // My Tools (root page) first, pinned tools next, "All Tools" browse link always last
-      children: [TOOLS_MY_TOOLS_CHILD, ...pinnedChildren, TOOLS_ALL_CHILD],
+      // Root tools page first, then pinned tools
+      children: [TOOLS_ROOT_CHILD, ...pinnedChildren],
     };
   });
 

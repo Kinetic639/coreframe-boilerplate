@@ -141,6 +141,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         href: "/dashboard/warehouse/inventory",
         match: { startsWith: "/dashboard/warehouse/inventory" },
         children: [
+          /* NOT YET IMPLEMENTED — ruchy magazynowe
           {
             id: "warehouse.inventory.movements",
             title: "Stock Movements",
@@ -149,6 +150,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/inventory/movements",
             match: { startsWith: "/dashboard/warehouse/inventory/movements" },
           },
+          */
           {
             id: "warehouse.items",
             title: "Items",
@@ -169,6 +171,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             },
           },
 
+          /* NOT YET IMPLEMENTED — etykiety i kody
           {
             id: "warehouse.labels",
             title: "Labels & QR",
@@ -177,6 +180,8 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/labels",
             match: { startsWith: "/dashboard/warehouse/labels" },
           },
+          */
+          /* NOT YET IMPLEMENTED — alerty stanów
           {
             id: "warehouse.alerts",
             title: "Stock Alerts",
@@ -185,6 +190,8 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/alerts",
             match: { startsWith: "/dashboard/warehouse/alerts" },
           },
+          */
+          /* NOT YET IMPLEMENTED — korekty stanów
           {
             id: "warehouse.inventory.adjustments",
             title: "Stock Adjustments",
@@ -211,8 +218,10 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
               },
             ],
           },
+          */
         ],
       },
+      /* NOT YET IMPLEMENTED — sprzedaż (cała sekcja)
       {
         id: "warehouse.sales",
         title: "Sales",
@@ -239,6 +248,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           },
         ],
       },
+      */
       {
         id: "warehouse.purchases",
         title: "Purchases",
@@ -247,6 +257,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         href: "/dashboard/warehouse/purchases",
         match: { startsWith: "/dashboard/warehouse/purchases" },
         children: [
+          /* NOT YET IMPLEMENTED — zamówienia zakupu
           {
             id: "warehouse.purchase-orders",
             title: "Purchase Orders",
@@ -255,6 +266,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/purchase-orders",
             match: { startsWith: "/dashboard/warehouse/purchase-orders" },
           },
+          */
           {
             id: "warehouse.deliveries",
             title: "Deliveries",
@@ -271,6 +283,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/suppliers",
             match: { startsWith: "/dashboard/warehouse/suppliers" },
           },
+          /* NOT YET IMPLEMENTED — skanowanie dostawy
           {
             id: "warehouse.scanning.delivery",
             title: "Delivery Scanning",
@@ -279,6 +292,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/scanning/delivery",
             match: { startsWith: "/dashboard/warehouse/scanning/delivery" },
           },
+          */
         ],
       },
       {
@@ -290,17 +304,6 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { startsWith: "/dashboard/warehouse/settings" },
       },
     ],
-  },
-
-  // My Activity (available to any authenticated org member)
-  {
-    id: "activity",
-    title: "My Activity",
-    titleKey: "activityFeed.personalTitle",
-    iconKey: "settings",
-    href: "/dashboard/activity",
-    match: { exact: "/dashboard/activity" },
-    visibility: {},
   },
 
   // QR Codes (always available — no requiresModules gate, permission-only)

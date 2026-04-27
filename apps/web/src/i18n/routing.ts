@@ -245,10 +245,6 @@ export const routing = defineRouting({
       en: "/dashboard/tools",
       pl: "/dashboard/narzedzia",
     },
-    "/dashboard/tools/all": {
-      en: "/dashboard/tools/all",
-      pl: "/dashboard/narzedzia/wszystkie",
-    },
     "/dashboard/tools/[slug]": {
       en: "/dashboard/tools/[slug]",
       pl: "/dashboard/narzedzia/[slug]",
