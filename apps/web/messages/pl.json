@@ -1457,6 +1457,7 @@
       }
     },
     "qr": {
+      "titleSidebar": "Kody QR",
       "page": {
         "title": "Kody QR",
         "description": "Twórz, zarządzaj, podglądaj i eksportuj etykiety z kodami QR"

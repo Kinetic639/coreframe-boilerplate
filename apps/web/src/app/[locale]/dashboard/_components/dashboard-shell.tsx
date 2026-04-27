@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -18,7 +18,9 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NavUser } from "@/components/nav-user";
 import { SidebarBranchSwitcher } from "./sidebar-branch-switcher";
 import { SidebarOrgHeader } from "./sidebar-org-header";
@@ -178,6 +180,173 @@ function NavL2Item({
 }
 
 // ---------------------------------------------------------------------------
+// Collapsed sidebar flyout system — hover-activated cascading panels
+// ---------------------------------------------------------------------------
+
+function useHoverOpen(closeDelay = 150) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const enter = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    setOpen(true);
+  }, []);
+  const leave = useCallback(() => {
+    timer.current = setTimeout(() => setOpen(false), closeDelay);
+  }, [closeDelay]);
+  return { open, setOpen, enter, leave };
+}
+
+function FlyoutLeaf({
+  item,
+  pathname,
+  getLabel,
+}: {
+  item: SidebarItem;
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  const active = item.disabledReason ? false : isItemActive(item, pathname);
+  const Icon = getIconComponent(item.iconKey);
+  const label = getLabel(item);
+  const cls = cn(
+    "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md transition-colors select-none",
+    active
+      ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+    item.disabledReason && "opacity-50 pointer-events-none"
+  );
+  if (!item.href || item.disabledReason) {
+    return (
+      <div className={cls}>
+        <Icon className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{label}</span>
+        {item.disabledReason === "coming_soon" && (
+          <span className="ml-auto text-[10px] font-medium">Soon</span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <Link href={toUnsafeI18nHref(item.href)} className={cls}>
+      <Icon className="size-4 shrink-0" />
+      <span className="flex-1 truncate">{label}</span>
+    </Link>
+  );
+}
+
+function FlyoutL2Group({
+  item,
+  pathname,
+  getLabel,
+  cancelParentClose,
+}: {
+  item: SidebarItem;
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+  cancelParentClose: () => void;
+}) {
+  const { open, setOpen, enter, leave } = useHoverOpen();
+  const active = item.disabledReason ? false : isItemActive(item, pathname);
+  const Icon = getIconComponent(item.iconKey);
+  const label = getLabel(item);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          onMouseEnter={enter}
+          onMouseLeave={leave}
+          className={cn(
+            "flex items-center gap-2 w-full px-2 py-1.5 text-sm rounded-md transition-colors select-none",
+            active
+              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            item.disabledReason && "opacity-50 pointer-events-none"
+          )}
+        >
+          <Icon className="size-4 shrink-0" />
+          <span className="flex-1 truncate text-left">{label}</span>
+          <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="start"
+        sideOffset={4}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onMouseEnter={() => {
+          enter();
+          cancelParentClose();
+        }}
+        onMouseLeave={leave}
+        className="w-44 p-1 bg-sidebar border-sidebar-border shadow-md"
+      >
+        <div className="flex flex-col gap-0.5">
+          {item.children!.map((child) => (
+            <FlyoutLeaf key={child.id} item={child} pathname={pathname} getLabel={getLabel} />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function NavL1Flyout({
+  item,
+  pathname,
+  getLabel,
+}: {
+  item: SidebarItem;
+  pathname: string;
+  getLabel: (item: SidebarItem) => string;
+}) {
+  const { open, setOpen, enter, leave } = useHoverOpen();
+  const active = item.disabledReason ? false : isItemActive(item, pathname);
+  const Icon = getIconComponent(item.iconKey);
+  const label = getLabel(item);
+  return (
+    <SidebarMenuItem>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <SidebarMenuButton isActive={active} onMouseEnter={enter} onMouseLeave={leave}>
+            <Icon />
+            <span>{label}</span>
+          </SidebarMenuButton>
+        </PopoverTrigger>
+        <PopoverContent
+          side="right"
+          align="start"
+          sideOffset={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onMouseEnter={enter}
+          onMouseLeave={leave}
+          className="w-48 p-1 bg-sidebar border-sidebar-border shadow-md"
+        >
+          <div className="px-2 py-1 mb-1 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider border-b border-sidebar-border">
+            {label}
+          </div>
+          <div className="flex flex-col gap-0.5 pt-1">
+            {item.children!.map((child) =>
+              child.children?.length ? (
+                <FlyoutL2Group
+                  key={child.id}
+                  item={child}
+                  pathname={pathname}
+                  getLabel={getLabel}
+                  cancelParentClose={enter}
+                />
+              ) : (
+                <FlyoutLeaf key={child.id} item={child} pathname={pathname} getLabel={getLabel} />
+              )
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </SidebarMenuItem>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // L1 item: top-level — leaf or collapsible group (with L2 children)
 // ---------------------------------------------------------------------------
 function NavL1Item({
@@ -189,6 +358,7 @@ function NavL1Item({
   pathname: string;
   getLabel: (item: SidebarItem) => string;
 }) {
+  const { state: sidebarState } = useSidebar();
   const Icon = getIconComponent(item.iconKey);
   // G2: skip isItemActive computation for disabled items
   const active = item.disabledReason ? false : isItemActive(item, pathname);
@@ -200,6 +370,11 @@ function NavL1Item({
   useEffect(() => {
     if (active) setIsOpen(true);
   }, [active]);
+
+  // When collapsed and item has children, use hover flyout instead of collapsible
+  if (sidebarState === "collapsed" && item.children?.length) {
+    return <NavL1Flyout item={item} pathname={pathname} getLabel={getLabel} />;
+  }
 
   if (!item.children?.length) {
     if (item.disabledReason) {
