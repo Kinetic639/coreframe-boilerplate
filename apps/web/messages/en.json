@@ -1502,6 +1502,7 @@
       }
     },
     "qr": {
+      "titleSidebar": "QR Codes",
       "page": {
         "title": "QR Codes",
         "description": "Create, manage, preview, and export QR code labels"
