@@ -10,11 +10,23 @@ const STYLED_QR_PX = 220;
 
 const styledQrSvgDataUrlCache = new Map<string, Promise<string>>();
 const styledQrPngDataUrlCache = new Map<string, Promise<string>>();
-const qrStylingDepsPromise = Promise.all([
-  import("jsdom"),
-  import("canvas"),
-  import("qr-code-styling"),
-]);
+
+type QrStylingDeps = [
+  typeof import("jsdom"),
+  typeof import("canvas"),
+  typeof import("qr-code-styling"),
+];
+let _qrStylingDepsPromise: Promise<QrStylingDeps> | null = null;
+function getQrStylingDeps(): Promise<QrStylingDeps> {
+  if (!_qrStylingDepsPromise) {
+    _qrStylingDepsPromise = Promise.all([
+      import("jsdom"),
+      import("canvas"),
+      import("qr-code-styling"),
+    ]);
+  }
+  return _qrStylingDepsPromise;
+}
 
 function getQrPublicBaseUrl(): string {
   const siteUrl =
@@ -108,7 +120,7 @@ export async function generateStyledQrPngDataUrl(
 
 async function buildStyledQrSvgDataUrl(token: string): Promise<string> {
   const qrData = buildQrScanUrl(token);
-  const [{ JSDOM }, , qrCodeStylingModule] = await qrStylingDepsPromise;
+  const [{ JSDOM }, , qrCodeStylingModule] = await getQrStylingDeps();
 
   const QRCodeStyling =
     qrCodeStylingModule.default ??
@@ -158,7 +170,7 @@ async function buildStyledQrSvgDataUrl(token: string): Promise<string> {
 
 async function buildStyledQrPngDataUrl(token: string, qrStyle: QrStyleConfig): Promise<string> {
   const qrData = buildQrScanUrl(token);
-  const [{ JSDOM }, canvasModule, qrCodeStylingModule] = await qrStylingDepsPromise;
+  const [{ JSDOM }, canvasModule, qrCodeStylingModule] = await getQrStylingDeps();
 
   const QRCodeStyling =
     qrCodeStylingModule.default ??

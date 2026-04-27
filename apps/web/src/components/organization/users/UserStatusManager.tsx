@@ -27,7 +27,7 @@ import {
   Shield,
   Trash2,
 } from "lucide-react";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { updateUserStatus } from "@/lib/api/user-detail";
 import { useState } from "react";
@@ -197,7 +197,7 @@ export function UserStatusManager({ user, onUpdate }: UserStatusManagerProps) {
               className="w-full"
             >
               {isLoading ? (
-                <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+                <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { LayoutDashboard } from "lucide-react";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
@@ -47,7 +47,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
         <Button onClick={handleLogout} variant="ghost" disabled={isLoggingOut}>
           {isLoggingOut ? (
             <>
-              <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
               {t("loggingOut")}
             </>
           ) : (

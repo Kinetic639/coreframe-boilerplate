@@ -1,4 +1,3 @@
-import { createCanvas, loadImage } from "canvas";
 import type { CanvasRenderingContext2D } from "canvas";
 import type { LabelConfig } from "@/lib/qr/label-config";
 import { getOrderedTextLayerKeys } from "@/lib/qr/label-config";
@@ -326,6 +325,7 @@ function toMonochromeHex(
 }
 
 async function renderLabelGraphic(item: ZplLabelItem, size: ZplLabelSize, config: LabelConfig) {
+  const { createCanvas, loadImage } = await import("canvas");
   const { widthMm, heightMm } = SIZE_CONFIG[size];
   const width = mm(widthMm);
   const height = mm(heightMm);
