@@ -11,7 +11,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useTranslations } from "next-intl";
 import { Eye, EyeOff } from "lucide-react";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 const resetPasswordSchema = z
@@ -122,7 +122,7 @@ export function ResetPasswordForm({ message, mode = "reset" }: ResetPasswordForm
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? (
             <>
-              <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
               {isSet ? t("setPending") : t("pending")}
             </>
           ) : isSet ? (

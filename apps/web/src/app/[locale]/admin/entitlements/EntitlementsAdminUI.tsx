@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { toast } from "react-toastify";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -292,7 +292,7 @@ export function EntitlementsAdminUI({
                     >
                       {loadingAction === `switch-plan-${plan.name}` ? (
                         <>
-                          <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
+                          <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
                           Switching...
                         </>
                       ) : isCurrent ? (
@@ -337,7 +337,7 @@ export function EntitlementsAdminUI({
                       disabled={loadingAction !== null}
                     >
                       {loadingAction === `remove-addon-${addon.module_slug}` ? (
-                        <FancySpinner className="h-4 w-4 shrink-0" />
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
                       ) : (
                         <Trash2 className="h-4 w-4" />
                       )}
@@ -370,7 +370,7 @@ export function EntitlementsAdminUI({
               </Select>
               <Button onClick={addModuleAddon} disabled={loadingAction !== null}>
                 {loadingAction === "add-module-addon" ? (
-                  <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
+                  <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
                 ) : (
                   <Plus className="h-4 w-4 mr-1" />
                 )}
@@ -439,7 +439,7 @@ export function EntitlementsAdminUI({
               />
               <Button onClick={setLimitOverride} disabled={loadingAction !== null}>
                 {loadingAction === "set-limit-override" ? (
-                  <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
+                  <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
                 ) : (
                   <Plus className="h-4 w-4 mr-1" />
                 )}
@@ -463,7 +463,7 @@ export function EntitlementsAdminUI({
         <CardContent>
           <Button variant="destructive" onClick={resetToFree} disabled={loadingAction !== null}>
             {loadingAction === "reset-to-free" ? (
-              <FancySpinner className="mr-1 h-4 w-4 shrink-0" />
+              <Loader2 className="mr-1 h-4 w-4 shrink-0 animate-spin" />
             ) : (
               <RefreshCw className="h-4 w-4 mr-1" />
             )}

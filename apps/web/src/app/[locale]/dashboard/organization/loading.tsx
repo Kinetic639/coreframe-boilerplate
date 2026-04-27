@@ -7,12 +7,12 @@ export default function OrgLoading() {
   const t = useTranslations("common");
 
   return (
-    <div className="flex flex-1 items-center justify-center py-24">
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
       <BrandLoader
         variant="beacon_swap"
         label={t("loading")}
         showWordmark={false}
-        logoClassName="h-32 w-32"
+        logoClassName="h-48 w-48"
       />
     </div>
   );

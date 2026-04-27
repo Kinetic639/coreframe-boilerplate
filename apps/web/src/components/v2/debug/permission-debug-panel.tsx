@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useId } from "react";
 import { useQuery } from "@tanstack/react-query";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import { useUserStoreV2 } from "@/lib/stores/v2/user-store";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import { usePermissions } from "@/hooks/v2/use-permissions";
@@ -342,7 +342,7 @@ export function PermissionDebugPanel() {
                   All Permissions by Scope
                 </h3>
                 {detailedLoading ? (
-                  <FancySpinner className="h-4 w-4 text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
                   <Badge variant="secondary">{detailedPerms?.length ?? 0}</Badge>
                 )}
@@ -350,7 +350,7 @@ export function PermissionDebugPanel() {
               <Separator />
               {detailedLoading ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
-                  <FancySpinner className="mr-2 h-5 w-5 shrink-0" />
+                  <Loader2 className="mr-2 h-5 w-5 shrink-0 animate-spin" />
                   Loading assignment details...
                 </div>
               ) : (

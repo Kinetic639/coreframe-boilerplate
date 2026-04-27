@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Save, Edit2, X, CheckCircle, AlertCircle } from "lucide-react";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import { updateUserProfile } from "@/lib/api/user-detail";
 import type { UserDetailWithAssignments } from "@/lib/api/user-detail";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
@@ -105,7 +105,7 @@ export function UserProfileForm({ user, onUpdate }: UserProfileFormProps) {
                 </Button>
                 <Button size="sm" onClick={handleSave} disabled={!hasChanges || isSaving}>
                   {isSaving ? (
-                    <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+                    <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}

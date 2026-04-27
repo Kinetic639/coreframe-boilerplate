@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import FancySpinner from "@/components/ui/FancySpinner";
+import { Loader2 } from "lucide-react";
 import {
   CheckCircle,
   XCircle,
@@ -329,7 +329,7 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
                       disabled={actionLoading || declineLoading}
                     >
                       {actionLoading ? (
-                        <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+                        <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                       ) : (
                         <CheckCircle className="mr-2 h-4 w-4" />
                       )}
@@ -342,7 +342,7 @@ export function InvitePageClient({ token, preview, userEmail, locale }: InvitePa
                       disabled={actionLoading || declineLoading}
                     >
                       {declineLoading ? (
-                        <FancySpinner className="mr-2 h-4 w-4 shrink-0" />
+                        <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
                       ) : (
                         <XCircle className="mr-2 h-4 w-4" />
                       )}
