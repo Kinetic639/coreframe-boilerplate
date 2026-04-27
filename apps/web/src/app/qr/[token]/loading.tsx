@@ -1,11 +1,14 @@
-import Loader from "@/components/ui/Loader";
+import { BrandLoader } from "@/components/branding";
 
 export default function QRRedirectLoading() {
   return (
-    <Loader
-      fullScreen
-      message="Please wait while we redirect you to the correct page."
-      className="bg-background"
-    />
+    <div className="flex min-h-screen items-center justify-center">
+      <BrandLoader
+        variant="beacon_swap"
+        label="Loading..."
+        showWordmark={false}
+        logoClassName="h-32 w-32"
+      />
+    </div>
   );
 }
