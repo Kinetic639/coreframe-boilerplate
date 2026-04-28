@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, CheckCircle } from "lucide-react";
 import { fetchInvitationByToken, type InvitationWithDetails } from "@/lib/api/invitations";
+import { AuthCard } from "../AuthCard";
 
 const signUpSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -75,91 +76,97 @@ export function SignUpForm({ message, invitationToken }: SignUpFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mx-auto flex min-w-64 max-w-64 flex-col">
-      <h1 className="text-2xl font-medium">{invitation ? t("invitationTitle") : t("title")}</h1>
-      <p className="text-sm text-foreground">
-        {invitation ? (
-          t("invitationDescription")
-        ) : (
-          <>
-            {t("haveAccount")}{" "}
-            <Link className="font-medium text-primary underline" href="/sign-in">
-              {t("signIn")}
-            </Link>
-          </>
-        )}
-      </p>
-
-      {/* Invitation Details */}
-      {invitation && (
-        <Alert className="mt-4">
-          <Mail className="h-4 w-4" />
-          <AlertDescription>
-            <div className="space-y-1">
-              <div className="font-medium">
-                {t("invitationTo")} {invitation.organization?.name}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {t("invitationRole")} {invitation.role?.display_name || invitation.role?.name}
-              </div>
-              {invitation.branch?.name && (
-                <div className="text-sm text-muted-foreground">
-                  {t("invitationBranch")} {invitation.branch.name}
-                </div>
-              )}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {invitationLoading && (
-        <Alert className="mt-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>{t("invitationLoadingDetails")}</AlertDescription>
-        </Alert>
-      )}
-      <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="email">{t("emailLabel")}</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder={t("emailPlaceholder")}
-            {...register("email")}
-            disabled={!!invitation}
-          />
-          {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="firstName">{t("firstNameLabel")}</Label>
-          <Input
-            id="firstName"
-            type="text"
-            placeholder={t("firstNamePlaceholder")}
-            {...register("firstName")}
-          />
-          {errors.firstName && (
-            <p className="text-sm text-destructive">{errors.firstName.message}</p>
+    <AuthCard showImage={true} variant="signup">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex w-full flex-col">
+        <h1 className="text-2xl font-medium">{invitation ? t("invitationTitle") : t("title")}</h1>
+        <p className="text-sm text-foreground">
+          {invitation ? (
+            t("invitationDescription")
+          ) : (
+            <>
+              {t("haveAccount")}{" "}
+              <Link className="font-medium text-primary underline" href="/sign-in">
+                {t("signIn")}
+              </Link>
+            </>
           )}
-        </div>
+        </p>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="lastName">{t("lastNameLabel")}</Label>
-          <Input
-            id="lastName"
-            type="text"
-            placeholder={t("lastNamePlaceholder")}
-            {...register("lastName")}
-          />
-          {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
-        </div>
+        {/* Invitation Details */}
+        {invitation && (
+          <Alert className="mt-4">
+            <Mail className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-1">
+                <div className="font-medium">
+                  {t("invitationTo")} {invitation.organization?.name}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {t("invitationRole")} {invitation.role?.display_name || invitation.role?.name}
+                </div>
+                {invitation.branch?.name && (
+                  <div className="text-sm text-muted-foreground">
+                    {t("invitationBranch")} {invitation.branch.name}
+                  </div>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
-        <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
-          {t("submit")}
-        </SubmitButton>
-        {message && <FormMessage message={message} />}
-      </div>
-    </form>
+        {invitationLoading && (
+          <Alert className="mt-4">
+            <CheckCircle className="h-4 w-4" />
+            <AlertDescription>{t("invitationLoadingDetails")}</AlertDescription>
+          </Alert>
+        )}
+        <div className="mt-4 flex flex-col gap-2 [&>input]:mb-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="email">{t("emailLabel")}</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder={t("emailPlaceholder")}
+              {...register("email")}
+              disabled={!!invitation}
+            />
+            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="firstName">{t("firstNameLabel")}</Label>
+            <Input
+              id="firstName"
+              type="text"
+              placeholder={t("firstNamePlaceholder")}
+              {...register("firstName")}
+            />
+            {errors.firstName && (
+              <p className="text-sm text-destructive">{errors.firstName.message}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="lastName">{t("lastNameLabel")}</Label>
+            <Input
+              id="lastName"
+              type="text"
+              placeholder={t("lastNamePlaceholder")}
+              {...register("lastName")}
+            />
+            {errors.lastName && (
+              <p className="text-sm text-destructive">{errors.lastName.message}</p>
+            )}
+          </div>
+
+          <div className="mt-4">
+            <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+              {t("submit")}
+            </SubmitButton>
+          </div>
+          {message && <FormMessage message={message} />}
+        </div>
+      </form>
+    </AuthCard>
   );
 }

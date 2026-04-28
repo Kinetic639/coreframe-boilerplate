@@ -71,6 +71,14 @@ export function SiteSettingsClient({ initialSettings }: Props) {
         disabled={isPending}
         onToggle={(v) => toggle("pricingPageEnabled", v)}
       />
+      <SettingRow
+        id="registration-enabled"
+        label="New account registration"
+        description="Allow new users to create accounts. When disabled, the registration page redirects to a notice and all sign-up requests are blocked."
+        checked={settings.registrationEnabled}
+        disabled={isPending}
+        onToggle={(v) => toggle("registrationEnabled", v)}
+      />
     </div>
   );
 }

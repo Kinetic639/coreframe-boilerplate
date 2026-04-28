@@ -169,7 +169,8 @@
       "invalidCredentials": "Nieprawidłowe dane logowania",
       "emailRequired": "Email jest wymagany",
       "invalidEmailFormat": "Nieprawidłowy format email",
-      "emailAlreadyRegistered": "Konto z tym adresem email już istnieje. Zaloguj się."
+      "emailAlreadyRegistered": "Konto z tym adresem email już istnieje. Zaloguj się.",
+      "registrationDisabled": "Rejestracja jest obecnie wyłączona."
     },
     "success": {
       "signUpSuccess": "Dziękujemy za rejestrację! Sprawdź swoją skrzynkę email w celu weryfikacji.",
@@ -186,6 +187,13 @@
       "description": "Ten link jest już nieważny. Mógł już zostać użyty lub wygasł.",
       "requestNewLink": "Wyślij nowy link",
       "backToSignIn": "Wróć do logowania"
+    },
+    "registrationDisabled": {
+      "title": "Rejestracja jest wyłączona",
+      "description": "Rejestracja nowych kont jest obecnie wyłączona przez administratora.",
+      "hint": "Jeśli posiadasz link z zaproszeniem, możesz go użyć do utworzenia konta.",
+      "backToSignIn": "Wróć do logowania",
+      "contactAdmin": "Skontaktuj się z administratorem, aby uzyskać dostęp."
     }
   },
   "teams": {

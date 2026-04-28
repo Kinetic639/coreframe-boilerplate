@@ -4,18 +4,20 @@ import type { Database } from "@repo/supabase";
 export interface SiteSettings {
   announcementBannerEnabled: boolean;
   pricingPageEnabled: boolean;
+  registrationEnabled: boolean;
 }
 
 const DEFAULTS: SiteSettings = {
   announcementBannerEnabled: true,
   pricingPageEnabled: true,
+  registrationEnabled: true,
 };
 
 export const SiteSettingsService = {
   async getSettings(supabase: SupabaseClient<Database>): Promise<SiteSettings> {
     const { data, error } = await supabase
       .from("app_config")
-      .select("announcement_banner_enabled, pricing_page_enabled")
+      .select("announcement_banner_enabled, pricing_page_enabled, registration_enabled")
       .eq("id", 1)
       .maybeSingle();
 
@@ -24,6 +26,7 @@ export const SiteSettingsService = {
     return {
       announcementBannerEnabled: data.announcement_banner_enabled,
       pricingPageEnabled: data.pricing_page_enabled,
+      registrationEnabled: data.registration_enabled,
     };
   },
 
@@ -40,6 +43,9 @@ export const SiteSettingsService = {
     }
     if (patch.pricingPageEnabled !== undefined) {
       update.pricing_page_enabled = patch.pricingPageEnabled;
+    }
+    if (patch.registrationEnabled !== undefined) {
+      update.registration_enabled = patch.registrationEnabled;
     }
 
     const { error } = await serviceClient.from("app_config").update(update).eq("id", 1);

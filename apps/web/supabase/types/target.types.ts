@@ -35,6 +35,7 @@ export type Database = {
           dev_mode_enabled: boolean;
           id: number;
           pricing_page_enabled: boolean;
+          registration_enabled: boolean;
           updated_at: string;
         };
         Insert: {
@@ -42,6 +43,7 @@ export type Database = {
           dev_mode_enabled?: boolean;
           id?: number;
           pricing_page_enabled?: boolean;
+          registration_enabled?: boolean;
           updated_at?: string;
         };
         Update: {
@@ -49,6 +51,7 @@ export type Database = {
           dev_mode_enabled?: boolean;
           id?: number;
           pricing_page_enabled?: boolean;
+          registration_enabled?: boolean;
           updated_at?: string;
         };
         Relationships: [];

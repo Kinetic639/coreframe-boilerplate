@@ -36,7 +36,7 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
 
   return (
     <AuthCard showImage={true} variant="signin">
-      <form action={signInAction} className="mx-auto flex min-w-64 max-w-64 flex-col">
+      <form action={signInAction} className="flex w-full flex-col">
         {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
         <h1 className="text-2xl font-medium">{t("title")}</h1>
         <p className="text-sm text-foreground">
@@ -45,7 +45,7 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
             {t("signUp")}
           </Link>
         </p>
-        <div className="mt-8 flex flex-col gap-2 [&>input]:mb-3">
+        <div className="mt-4 flex flex-col gap-2 [&>input]:mb-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="email">{t("emailLabel")}</Label>
             <Input
@@ -73,9 +73,11 @@ export function SignInForm({ message, returnUrl }: SignInFormProps) {
             </Link>
           </div>
 
-          <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
-            {t("submit")}
-          </SubmitButton>
+          <div className="mt-4">
+            <SubmitButton disabled={isSubmitting} pendingText={t("pending")}>
+              {t("submit")}
+            </SubmitButton>
+          </div>
           {message && <FormMessage message={message} />}
         </div>
       </form>
