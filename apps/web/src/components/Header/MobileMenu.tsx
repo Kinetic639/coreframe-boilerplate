@@ -77,7 +77,7 @@ const MobileMenu = ({ showPricing = true }: { showPricing?: boolean }) => {
             <Link href="/sign-in">Zaloguj się</Link>
           </Button>
           <Button className="w-full" asChild>
-            <Link href="/sign-up">Rozpocznij za darmo</Link>
+            <Link href="/sign-up">Zarejestruj się</Link>
           </Button>
         </div>
       </div>
