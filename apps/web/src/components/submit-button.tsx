@@ -18,7 +18,7 @@ export const SubmitButton = ({
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending || disabled}>
+    <Button type="submit" disabled={pending || disabled} className="w-full">
       {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />

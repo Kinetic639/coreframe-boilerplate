@@ -12,7 +12,7 @@ export default function DashboardStartLoading() {
         variant="beacon_swap"
         label={t("loading")}
         showWordmark={false}
-        logoClassName="h-48 w-48"
+        logoClassName="h-[9.6rem] w-[9.6rem]"
       />
     </div>
   );

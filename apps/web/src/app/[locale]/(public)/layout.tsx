@@ -9,7 +9,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
   const settings = await SiteSettingsService.getSettings(createServiceClient());
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="flex min-h-screen min-w-[320px] w-full flex-col">
       <PublicThemeEnforcer />
       {settings.announcementBannerEnabled && (
         <AnnouncementBanner
@@ -19,15 +19,13 @@ export default async function Layout({ children }: { children: React.ReactNode }
         />
       )}
       <PublicHeader showPricing={settings.pricingPageEnabled} />
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-start py-1 lg:py-2">
-        <div className="flex h-full w-full max-w-7xl flex-1 flex-col items-stretch justify-start gap-2 px-3 py-1 lg:px-4 lg:py-2">
+      <main className="flex flex-1 flex-col items-center justify-start py-4 lg:py-8">
+        <div className="flex flex-1 flex-col w-full max-w-7xl items-stretch gap-2 px-4 lg:px-6">
           {children}
         </div>
       </main>
-      <div className="mt-auto">
-        <Footer />
-        <footer className="mx-auto flex w-full items-center justify-center gap-8 border-t py-4 text-center text-xs"></footer>
-      </div>
+      <Footer />
+      <footer className="mx-auto flex w-full items-center justify-center gap-8 border-t py-4 text-center text-xs"></footer>
     </div>
   );
 }

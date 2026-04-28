@@ -169,7 +169,8 @@
       "invalidCredentials": "Invalid login credentials",
       "emailRequired": "Email is required",
       "invalidEmailFormat": "Invalid email format",
-      "emailAlreadyRegistered": "An account with this email already exists. Please sign in."
+      "emailAlreadyRegistered": "An account with this email already exists. Please sign in.",
+      "registrationDisabled": "Registration is currently disabled."
     },
     "success": {
       "signUpSuccess": "Thanks for signing up! Please check your email for a verification link.",
@@ -186,6 +187,13 @@
       "description": "This link is no longer valid. It may have already been used or has expired.",
       "requestNewLink": "Request a new link",
       "backToSignIn": "Back to sign in"
+    },
+    "registrationDisabled": {
+      "title": "Registration is closed",
+      "description": "New account registration is currently disabled by the administrator.",
+      "hint": "If you have an invitation link, you can still use it to create your account.",
+      "backToSignIn": "Back to sign in",
+      "contactAdmin": "Contact the administrator for access."
     }
   },
   "teams": {

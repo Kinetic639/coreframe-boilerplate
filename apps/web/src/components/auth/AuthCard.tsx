@@ -37,10 +37,10 @@ export function AuthCard({
   };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("mx-auto flex w-full max-w-2xl flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <div className="p-6 md:p-8">{children}</div>
+          <div className="p-5 md:p-6">{children}</div>
           {showImage && (
             <div className={cn("relative hidden md:block", gradients[variant].background)}>
               <div className=" absolute inset-0" />

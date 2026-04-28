@@ -7,6 +7,7 @@ import { createServiceClient } from "@/utils/supabase/service";
 import { redirect } from "@/i18n/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { eventService } from "@/server/services/event.service";
+import { SiteSettingsService } from "@/server/services/site-settings.service";
 
 /**
  * Extract IP and user-agent from the current request headers.
@@ -44,6 +45,14 @@ export const signUpAction = async (formData: FormData) => {
 
   if (!email) {
     return encodedRedirect("error", "/sign-up", t("errors.emailPasswordRequired"));
+  }
+
+  // Block registration at the action level — invitation tokens bypass this gate
+  if (!invitationToken) {
+    const settings = await SiteSettingsService.getSettings(createServiceClient());
+    if (!settings.registrationEnabled) {
+      return encodedRedirect("error", "/sign-up", t("errors.registrationDisabled"));
+    }
   }
 
   // Generate a random temporary password — user will set their real password after email confirmation
