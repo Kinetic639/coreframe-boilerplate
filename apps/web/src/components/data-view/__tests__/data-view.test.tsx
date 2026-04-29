@@ -122,8 +122,66 @@ vi.mock("next/navigation", () => ({
   useParams: () => ({}),
 }));
 
+const TEST_TRANSLATIONS: Record<string, string> = {
+  "dataView.columns.manageAria": "Manage columns",
+  "dataView.columns.toggleTitle": "Toggle columns",
+  "dataView.columns.toggleColumnAria": "Toggle column {column}",
+  "dataView.detail.closeAria": "Close detail",
+  "dataView.detail.loadingAria": "Loading details",
+  "dataView.detail.empty": "No item selected",
+  "dataView.toolbar.searchPlaceholder": "Search...",
+  "dataView.toolbar.searchAria": "Search",
+  "dataView.toolbar.closeSearchAria": "Close search",
+  "dataView.toolbar.backToListAria": "Back to full list",
+  "dataView.selection.selectedCount": "{count} selected",
+  "dataView.selection.keepSelected": "Keep selected",
+  "dataView.selection.showAll": "Show all",
+  "dataView.selection.clear": "Clear",
+  "dataView.selection.selectAllRowsAria": "Select all rows on this page",
+  "dataView.selection.selectRowAria": "Select row {rowId}",
+  "dataView.filters.button": "Filters",
+  "dataView.filters.title": "Filters",
+  "dataView.filters.openAria": "Open filters",
+  "dataView.filters.clearAll": "Clear all",
+  "dataView.filters.clearAllLong": "Clear all filters",
+  "dataView.filters.all": "All",
+  "dataView.filters.allForLabel": "All {label}",
+  "dataView.filters.any": "Any",
+  "dataView.filters.yes": "Yes",
+  "dataView.filters.no": "No",
+  "dataView.filters.min": "Min",
+  "dataView.filters.max": "Max",
+  "dataView.filters.from": "From",
+  "dataView.filters.to": "To",
+  "dataView.filters.fromValue": "From {value}",
+  "dataView.filters.toValue": "To {value}",
+  "dataView.filters.textPlaceholder": "Filter by {label}",
+  "dataView.filters.filterByAria": "Filter by {label}",
+  "dataView.filters.clearSingleAria": "Clear {label} filter",
+  "dataView.filters.removeSingleAria": "Remove {label} filter",
+  "dataView.pagination.noSelectedRows": "No selected rows",
+  "dataView.pagination.showingSelected": "Showing {from}–{to} of {count} selected rows",
+  "dataView.pagination.noResults": "No results",
+  "dataView.pagination.showingResults": "Showing {from}–{to} of {count} results",
+  "dataView.pagination.rowsShown": "Rows shown",
+  "dataView.pagination.rowsPerPage": "Rows per page",
+  "dataView.pagination.previousPageAria": "Previous page",
+  "dataView.pagination.nextPageAria": "Next page",
+  "dataView.sidebar.fallbackPrimaryHeader": "Name",
+  "dataView.sidebar.scrollForMore": "Scroll up for more",
+  "dataView.sidebar.loadedCount": "Loaded {loaded} of {total}",
+  "dataView.sidebar.loadingPreviousAria": "Loading previous items",
+  "dataView.sidebar.loadingMoreAria": "Loading more items",
+  "dataView.table.noResults": "No results",
+};
+
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => key,
+  useTranslations: (namespace?: string) => (key: string, values?: Record<string, unknown>) => {
+    const fullKey = namespace ? `${namespace}.${key}` : key;
+    const template = TEST_TRANSLATIONS[fullKey] ?? fullKey;
+    if (!values) return template;
+    return template.replace(/\{(\w+)\}/g, (_, token) => String(values[token] ?? `{${token}}`));
+  },
   useLocale: () => "en",
 }));
 

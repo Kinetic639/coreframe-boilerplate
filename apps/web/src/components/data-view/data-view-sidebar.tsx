@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/utils";
 import {
@@ -20,6 +21,7 @@ export function DataViewSidebar() {
   const { columns, getRowId } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { keepOnlySelected, isRowSelected, selectedRowCount } = useDataViewSelection();
+  const t = useTranslations("dataView");
   const {
     sidebarRows,
     sidebarTotalCount,
@@ -155,7 +157,7 @@ export function DataViewSidebar() {
       data-testid="data-view-sidebar"
     >
       <div className="flex h-12 shrink-0 items-center border-b px-4 text-left align-middle font-medium text-muted-foreground">
-        {primaryColumn?.header ?? "Name"}
+        {primaryColumn?.header ?? t("sidebar.fallbackPrimaryHeader")}
       </div>
 
       <div
@@ -175,9 +177,12 @@ export function DataViewSidebar() {
         {showInfiniteLoading && (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
           <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingPreviousPage ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading previous items" />
+              <Loader2
+                className="h-4 w-4 animate-spin"
+                aria-label={t("sidebar.loadingPreviousAria")}
+              />
             ) : (
-              "Scroll up for more"
+              t("sidebar.scrollForMore")
             )}
           </div>
         ) : null}
@@ -237,9 +242,12 @@ export function DataViewSidebar() {
         {showInfiniteLoading && (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
           <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center justify-center border-t bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingNextPage ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading more items" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-label={t("sidebar.loadingMoreAria")} />
             ) : (
-              `Loaded ${visibleSidebarRows.length} of ${effectiveSidebarTotalCount}`
+              t("sidebar.loadedCount", {
+                loaded: visibleSidebarRows.length,
+                total: effectiveSidebarTotalCount,
+              })
             )}
           </div>
         ) : null}

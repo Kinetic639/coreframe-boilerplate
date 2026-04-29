@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ChevronDown, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,8 @@ function countActiveFilters(filters: Record<string, string | string[] | boolean 
 
 function getFilterValueLabel(
   def: DataViewFilterDef,
-  filters: Record<string, string | string[] | boolean | null>
+  filters: Record<string, string | string[] | boolean | null>,
+  t: ReturnType<typeof useTranslations>
 ): string | null {
   if (def.type === "range") {
     const min = filters[def.minKey];
@@ -47,8 +49,8 @@ function getFilterValueLabel(
     const to = filters[def.toKey];
     if (!from && !to) return null;
     if (from && to) return `${from} – ${to}`;
-    if (from) return `From ${from}`;
-    return `To ${to}`;
+    if (from) return t("filters.fromValue", { value: from });
+    return t("filters.toValue", { value: to as string });
   }
   const val = filters[def.key];
   if (val === null || val === undefined || val === "") return null;
@@ -59,7 +61,7 @@ function getFilterValueLabel(
     }
     return val.join(", ");
   }
-  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (typeof val === "boolean") return val ? t("filters.yes") : t("filters.no");
   if (def.type === "select") {
     return def.options.find((o) => o.value === val)?.label ?? String(val);
   }
@@ -80,10 +82,12 @@ function FilterField({
   def,
   filters,
   onChange,
+  t,
 }: {
   def: DataViewFilterDef;
   filters: Record<string, string | string[] | boolean | null>;
   onChange: (updates: Record<string, string | string[] | boolean | null>) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const value =
     def.type !== "range" && def.type !== "date-range" ? (filters[def.key] ?? null) : null;
@@ -95,7 +99,7 @@ function FilterField({
         <Input
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange({ [def.key]: e.target.value || null })}
-          placeholder={`Filter by ${def.label.toLowerCase()}`}
+          placeholder={t("filters.textPlaceholder", { label: def.label.toLowerCase() })}
           className="h-8"
         />
       </div>
@@ -112,10 +116,10 @@ function FilterField({
           onValueChange={(v) => onChange({ [def.key]: v === "__all__" ? null : v })}
         >
           <SelectTrigger className="h-8">
-            <SelectValue placeholder={`All ${def.label}`} />
+            <SelectValue placeholder={t("filters.allForLabel", { label: def.label })} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All</SelectItem>
+            <SelectItem value="__all__">{t("filters.all")}</SelectItem>
             {def.options.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
@@ -166,9 +170,9 @@ function FilterField({
         <div className="flex gap-2">
           {(
             [
-              { label: "Any", v: null },
-              { label: "Yes", v: true },
-              { label: "No", v: false },
+              { label: t("filters.any"), v: null },
+              { label: t("filters.yes"), v: true },
+              { label: t("filters.no"), v: false },
             ] as { label: string; v: boolean | null }[]
           ).map(({ label, v }) => (
             <Button
@@ -198,7 +202,7 @@ function FilterField({
             onChange={(e) =>
               onChange({ [def.minKey]: e.target.value || null, [def.maxKey]: maxVal || null })
             }
-            placeholder="Min"
+            placeholder={t("filters.min")}
             className="h-8"
             type="number"
           />
@@ -207,7 +211,7 @@ function FilterField({
             onChange={(e) =>
               onChange({ [def.minKey]: minVal || null, [def.maxKey]: e.target.value || null })
             }
-            placeholder="Max"
+            placeholder={t("filters.max")}
             className="h-8"
             type="number"
           />
@@ -229,7 +233,7 @@ function FilterField({
             onChange={(e) =>
               onChange({ [def.fromKey]: e.target.value || null, [def.toKey]: toVal || null })
             }
-            placeholder="From"
+            placeholder={t("filters.from")}
             className="h-8"
             type="date"
           />
@@ -238,7 +242,7 @@ function FilterField({
             onChange={(e) =>
               onChange({ [def.fromKey]: fromVal || null, [def.toKey]: e.target.value || null })
             }
-            placeholder="To"
+            placeholder={t("filters.to")}
             className="h-8"
             type="date"
           />
@@ -259,14 +263,16 @@ function DataViewFilterPill({
   filters,
   onChange,
   onClear,
+  t,
 }: {
   def: DataViewFilterDef;
   filters: Record<string, string | string[] | boolean | null>;
   onChange: (updates: Record<string, string | string[] | boolean | null>) => void;
   onClear: (def: DataViewFilterDef) => void;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const [open, setOpen] = useState(false);
-  const label = getFilterValueLabel(def, filters);
+  const label = getFilterValueLabel(def, filters, t);
   const isActive = label !== null;
 
   return (
@@ -276,7 +282,7 @@ function DataViewFilterPill({
           variant={isActive ? "secondary" : "ghost"}
           size="sm"
           className={cn("h-8 text-xs gap-1 max-w-48", isActive && "pr-1")}
-          aria-label={`Filter by ${def.label}`}
+          aria-label={t("filters.filterByAria", { label: def.label })}
           data-testid={`filter-pill-${def.key}`}
         >
           <span className="truncate font-medium">{def.label}</span>
@@ -297,7 +303,7 @@ function DataViewFilterPill({
                   onClear(def);
                 }
               }}
-              aria-label={`Clear ${def.label} filter`}
+              aria-label={t("filters.clearSingleAria", { label: def.label })}
             >
               <X className="h-3 w-3" />
             </span>
@@ -307,7 +313,7 @@ function DataViewFilterPill({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-60 p-3">
-        <FilterField def={def} filters={filters} onChange={onChange} />
+        <FilterField def={def} filters={filters} onChange={onChange} t={t} />
       </PopoverContent>
     </Popover>
   );
@@ -325,6 +331,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
   const { filters: filterDefs } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const [open, setOpen] = useState(false);
+  const t = useTranslations("dataView");
 
   const activeCount = countActiveFilters(urlState.filters);
 
@@ -365,6 +372,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             filters={urlState.filters}
             onChange={handleFilterChange}
             onClear={clearFilter}
+            t={t}
           />
         ))}
         {activeCount > 0 && (
@@ -374,7 +382,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             className="h-8 text-xs text-muted-foreground"
             onClick={() => urlState.setFilters({})}
           >
-            Clear all
+            {t("filters.clearAll")}
           </Button>
         )}
       </div>
@@ -386,9 +394,14 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
     <div className="flex items-center gap-2 flex-wrap" data-testid="dropdown-filters">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 gap-2" aria-label="Open filters">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-2"
+            aria-label={t("filters.openAria")}
+          >
             <Filter className="h-4 w-4" />
-            <span>Filters</span>
+            <span>{t("filters.button")}</span>
             {activeCount > 0 && (
               <Badge
                 variant="secondary"
@@ -400,13 +413,14 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 space-y-3">
-          <p className="text-sm font-medium text-foreground">Filters</p>
+          <p className="text-sm font-medium text-foreground">{t("filters.title")}</p>
           {filterDefs.map((def) => (
             <FilterField
               key={def.key}
               def={def}
               filters={urlState.filters}
               onChange={handleFilterChange}
+              t={t}
             />
           ))}
           {activeCount > 0 && (
@@ -416,7 +430,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
               className="w-full"
               onClick={() => urlState.setFilters({})}
             >
-              Clear all filters
+              {t("filters.clearAllLong")}
             </Button>
           )}
         </PopoverContent>
@@ -424,7 +438,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
 
       {/* Active chips */}
       {filterDefs.map((def) => {
-        const label = getFilterValueLabel(def, urlState.filters);
+        const label = getFilterValueLabel(def, urlState.filters, t);
         if (!label) return null;
         return (
           <Badge key={def.key} variant="secondary" className="gap-1 pr-1 h-7 text-xs">
@@ -433,7 +447,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             <button
               onClick={() => clearFilter(def)}
               className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
-              aria-label={`Remove ${def.label} filter`}
+              aria-label={t("filters.removeSingleAria", { label: def.label })}
             >
               <X className="h-3 w-3" />
             </button>

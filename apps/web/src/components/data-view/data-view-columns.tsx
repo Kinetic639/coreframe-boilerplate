@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Wrench } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,6 +85,7 @@ export function DataViewColumnManager() {
   const { entity, columns } = useDataViewStatic();
   const { columnVisibility, setColumnVisibility } = useDataViewColumns();
   const [open, setOpen] = useState(false);
+  const t = useTranslations("dataView");
 
   // entity is only needed for the aria-label; visibility comes from context
   void entity;
@@ -95,14 +97,14 @@ export function DataViewColumnManager() {
           variant="ghost"
           size="icon"
           className="h-8 w-8 shrink-0"
-          aria-label="Manage columns"
+          aria-label={t("columns.manageAria")}
         >
           <Wrench className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground mb-2">Toggle columns</p>
+          <p className="text-sm font-medium text-foreground mb-2">{t("columns.toggleTitle")}</p>
           {columns.map((col) => {
             const visible = columnVisibility[col.key] ?? true;
             return (
@@ -113,7 +115,7 @@ export function DataViewColumnManager() {
                 <Checkbox
                   checked={visible}
                   onCheckedChange={(checked) => setColumnVisibility(col.key, !!checked)}
-                  aria-label={`Toggle column ${col.header}`}
+                  aria-label={t("columns.toggleColumnAria", { column: col.header })}
                 />
                 <span className="text-sm">{col.header}</span>
               </label>

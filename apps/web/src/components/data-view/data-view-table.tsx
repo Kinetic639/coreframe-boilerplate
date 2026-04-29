@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   useReactTable,
   getCoreRowModel,
@@ -50,6 +51,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
     allCurrentPageRowsSelected,
     someCurrentPageRowsSelected,
   } = useDataViewSelection();
+  const t = useTranslations("dataView");
   const containerRef = useRef<HTMLDivElement>(null);
   const scrolledHighlightKeyRef = useRef<string | null>(null);
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
@@ -185,7 +187,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                             : false
                       }
                       onCheckedChange={() => toggleSelectAllCurrentPage()}
-                      aria-label="Select all rows on page"
+                      aria-label={t("selection.selectAllRowsAria")}
                     />
                   </div>
                 </TableHead>
@@ -259,7 +261,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                 colSpan={totalColumnCount}
                 className="text-center text-muted-foreground py-10"
               >
-                No results found.
+                {t("table.noResults")}
               </TableCell>
             </TableRow>
           ) : (
@@ -299,7 +301,7 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                         <Checkbox
                           checked={isRowSelected(rowId)}
                           onCheckedChange={() => toggleRowSelected(rowId)}
-                          aria-label={`Select row ${rowId}`}
+                          aria-label={t("selection.selectRowAria", { rowId })}
                           data-testid={`row-select-${rowId}`}
                         />
                       </div>

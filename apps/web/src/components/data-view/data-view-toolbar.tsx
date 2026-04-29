@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { Filter, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
   } = useDataViewSelection();
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations("dataView");
 
   useEffect(() => {
     if (mode === "compact") setSearchOpen(false);
@@ -69,15 +71,15 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
               value={urlState.search}
               onChange={handleSearchChange}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search..."
+              placeholder={t("toolbar.searchPlaceholder")}
               className="h-9 w-44 pl-8 pr-8 text-sm"
-              aria-label="Search"
+              aria-label={t("toolbar.searchAria")}
               data-testid="search-input"
             />
             <button
               onClick={() => setSearchOpen(false)}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="Close search"
+              aria-label={t("toolbar.closeSearchAria")}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -96,7 +98,7 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
               size="icon"
               className="h-9 w-9 shrink-0"
               onClick={() => setSearchOpen(true)}
-              aria-label="Search"
+              aria-label={t("toolbar.searchAria")}
               data-testid="search-icon-button"
             >
               <Search className="h-4 w-4" />
@@ -115,7 +117,9 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
         <div className="flex-1" />
         {selectedRowCount > 0 ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{selectedRowCount} selected</span>
+            <span className="text-xs text-muted-foreground">
+              {t("selection.selectedCount", { count: selectedRowCount })}
+            </span>
             {keepOnlySelected ? (
               <Button
                 variant="secondary"
@@ -123,7 +127,7 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
                 className="h-8 text-xs"
                 onClick={disableKeepOnlySelected}
               >
-                Show all
+                {t("selection.showAll")}
               </Button>
             ) : (
               <Button
@@ -132,11 +136,11 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
                 className="h-8 text-xs"
                 onClick={enableKeepOnlySelected}
               >
-                Keep selected
+                {t("selection.keepSelected")}
               </Button>
             )}
             <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearSelectedRows}>
-              Clear
+              {t("selection.clear")}
             </Button>
           </div>
         ) : null}
@@ -154,11 +158,11 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
         className="h-9 gap-1.5 text-xs shrink-0"
         onClick={() => void closeDetail()}
         disabled={isClosingDetail}
-        aria-label="Back to full list"
+        aria-label={t("toolbar.backToListAria")}
         data-testid="back-to-list-button"
       >
         <Filter className="h-3.5 w-3.5" />
-        <span>Filters</span>
+        <span>{t("filters.button")}</span>
       </Button>
     </div>
   );
@@ -166,13 +170,14 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
 
 export function DataViewCloseDetail() {
   const { closeDetail, isClosingDetail } = useDataViewDetail();
+  const t = useTranslations("dataView");
   return (
     <Button
       variant="ghost"
       size="icon"
       onClick={() => void closeDetail()}
       disabled={isClosingDetail}
-      aria-label="Close detail"
+      aria-label={t("detail.closeAria")}
       className="h-8 w-8"
     >
       <X className="h-4 w-4" />
