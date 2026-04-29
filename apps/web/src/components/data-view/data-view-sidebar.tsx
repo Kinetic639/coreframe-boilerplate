@@ -4,7 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/utils";
-import { useDataViewSidebar, useDataViewStatic, useDataViewUrl } from "./use-data-view";
+import {
+  useDataViewSelection,
+  useDataViewSidebar,
+  useDataViewStatic,
+  useDataViewUrl,
+} from "./use-data-view";
 
 const ROW_HEIGHT = 56;
 const LOAD_THRESHOLD = 120;
@@ -14,6 +19,7 @@ const VIRTUALIZATION_THRESHOLD = 30;
 export function DataViewSidebar() {
   const { columns, getRowId } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
+  const { keepOnlySelected, isRowSelected, selectedRowCount } = useDataViewSelection();
   const {
     sidebarRows,
     sidebarTotalCount,
@@ -30,19 +36,31 @@ export function DataViewSidebar() {
   const loadPreviousInFlightRef = useRef(false);
   const seededNeighborsRef = useRef<string | null>(null);
   const primaryColumn = columns[0];
+  const visibleSidebarRows = useMemo(
+    () =>
+      keepOnlySelected ? sidebarRows.filter((row) => isRowSelected(getRowId(row))) : sidebarRows,
+    [getRowId, isRowSelected, keepOnlySelected, sidebarRows]
+  );
+  const effectiveSidebarTotalCount = keepOnlySelected ? selectedRowCount : sidebarTotalCount;
+  const showInfiniteLoading = !keepOnlySelected;
 
   const selectedRowIndex = useMemo(() => {
     if (!urlState.selected) return -1;
-    return sidebarRows.findIndex((row) => getRowId(row) === urlState.selected);
-  }, [sidebarRows, getRowId, urlState.selected]);
-  const shouldVirtualize = sidebarRows.length > VIRTUALIZATION_THRESHOLD;
+    return visibleSidebarRows.findIndex((row) => getRowId(row) === urlState.selected);
+  }, [visibleSidebarRows, getRowId, urlState.selected]);
+  const shouldVirtualize = visibleSidebarRows.length > VIRTUALIZATION_THRESHOLD;
 
   const topInset =
-    sidebarHasPreviousPage || sidebarIsFetchingPreviousPage ? LOAD_INDICATOR_HEIGHT : 0;
-  const bottomInset = sidebarHasNextPage || sidebarIsFetchingNextPage ? LOAD_INDICATOR_HEIGHT : 0;
+    showInfiniteLoading && (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage)
+      ? LOAD_INDICATOR_HEIGHT
+      : 0;
+  const bottomInset =
+    showInfiniteLoading && (sidebarHasNextPage || sidebarIsFetchingNextPage)
+      ? LOAD_INDICATOR_HEIGHT
+      : 0;
 
   const rowVirtualizer = useVirtualizer({
-    count: sidebarRows.length,
+    count: visibleSidebarRows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 8,
@@ -92,7 +110,7 @@ export function DataViewSidebar() {
   }, [fetchSidebarNextPage, sidebarHasNextPage, sidebarIsFetchingNextPage]);
 
   useEffect(() => {
-    if (!urlState.selected) return;
+    if (!urlState.selected || keepOnlySelected) return;
 
     const seedKey = JSON.stringify([
       urlState.selected,
@@ -112,6 +130,7 @@ export function DataViewSidebar() {
       }
     })();
   }, [
+    keepOnlySelected,
     loadNextPage,
     sidebarHasNextPage,
     urlState.filters,
@@ -153,7 +172,7 @@ export function DataViewSidebar() {
           }
         }}
       >
-        {sidebarHasPreviousPage || sidebarIsFetchingPreviousPage ? (
+        {showInfiniteLoading && (sidebarHasPreviousPage || sidebarIsFetchingPreviousPage) ? (
           <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingPreviousPage ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading previous items" />
@@ -166,7 +185,7 @@ export function DataViewSidebar() {
         {shouldVirtualize ? (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
             {virtualRows.map((virtualRow) => {
-              const row = sidebarRows[virtualRow.index];
+              const row = visibleSidebarRows[virtualRow.index];
               if (!row) return null;
 
               const rowId = getRowId(row);
@@ -192,7 +211,7 @@ export function DataViewSidebar() {
             })}
           </div>
         ) : (
-          sidebarRows.map((row) => {
+          visibleSidebarRows.map((row) => {
             const rowId = getRowId(row);
             const isSelected = urlState.selected === rowId;
 
@@ -215,12 +234,12 @@ export function DataViewSidebar() {
           })
         )}
 
-        {sidebarHasNextPage || sidebarIsFetchingNextPage ? (
+        {showInfiniteLoading && (sidebarHasNextPage || sidebarIsFetchingNextPage) ? (
           <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center justify-center border-t bg-background text-xs text-muted-foreground">
             {sidebarIsFetchingNextPage ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-label="Loading more items" />
             ) : (
-              `Loaded ${sidebarRows.length} of ${sidebarTotalCount}`
+              `Loaded ${visibleSidebarRows.length} of ${effectiveSidebarTotalCount}`
             )}
           </div>
         ) : null}
