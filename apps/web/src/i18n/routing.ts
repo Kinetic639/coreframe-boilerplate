@@ -311,6 +311,10 @@ export const routing = defineRouting({
       en: "/auth-code-error",
       pl: "/blad-uwierzytelniania",
     },
+    "/registration-disabled": {
+      en: "/registration-disabled",
+      pl: "/rejestracja-wylaczona",
+    },
   },
 });
 
