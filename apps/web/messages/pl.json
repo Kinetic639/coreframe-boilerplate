@@ -2,6 +2,127 @@
   "HomePage": {
     "title": "Siema siema"
   },
+  "dataView": {
+    "columns": {
+      "manageAria": "Zarządzaj kolumnami",
+      "toggleTitle": "Pokaż lub ukryj kolumny",
+      "toggleColumnAria": "Przełącz kolumnę {column}"
+    },
+    "detail": {
+      "closeAria": "Zamknij szczegóły",
+      "loadingAria": "Ładowanie szczegółów",
+      "empty": "Nie wybrano elementu"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Szukaj...",
+      "searchAria": "Szukaj",
+      "closeSearchAria": "Zamknij wyszukiwanie",
+      "backToListAria": "Wróć do pełnej listy"
+    },
+    "selection": {
+      "selectedCount": "Wybrano: {count}",
+      "keepSelected": "Zostaw wybrane",
+      "showAll": "Pokaż wszystko",
+      "clear": "Wyczyść",
+      "selectAllRowsAria": "Zaznacz wszystkie wiersze na tej stronie",
+      "selectRowAria": "Zaznacz wiersz {rowId}"
+    },
+    "filters": {
+      "button": "Filtry",
+      "title": "Filtry",
+      "openAria": "Otwórz filtry",
+      "clearAll": "Wyczyść wszystko",
+      "clearAllLong": "Wyczyść wszystkie filtry",
+      "all": "Wszystkie",
+      "allForLabel": "Wszystkie: {label}",
+      "any": "Dowolne",
+      "yes": "Tak",
+      "no": "Nie",
+      "min": "Min",
+      "max": "Max",
+      "from": "Od",
+      "to": "Do",
+      "fromValue": "Od {value}",
+      "toValue": "Do {value}",
+      "textPlaceholder": "Filtruj po: {label}",
+      "filterByAria": "Filtruj po: {label}",
+      "clearSingleAria": "Wyczyść filtr: {label}",
+      "removeSingleAria": "Usuń filtr: {label}"
+    },
+    "pagination": {
+      "noSelectedRows": "Brak zaznaczonych wierszy",
+      "showingSelected": "Pokazano {from}–{to} z {count} zaznaczonych wierszy",
+      "noResults": "Brak wyników",
+      "showingResults": "Pokazano {from}–{to} z {count} wyników",
+      "rowsShown": "Pokazane wiersze",
+      "rowsPerPage": "Wierszy na stronę",
+      "previousPageAria": "Poprzednia strona",
+      "nextPageAria": "Następna strona"
+    },
+    "sidebar": {
+      "fallbackPrimaryHeader": "Nazwa",
+      "scrollForMore": "Przewiń w górę po więcej",
+      "loadedCount": "Załadowano {loaded} z {total}",
+      "loadingPreviousAria": "Ładowanie poprzednich elementów",
+      "loadingMoreAria": "Ładowanie kolejnych elementów"
+    },
+    "table": {
+      "noResults": "Brak wyników"
+    }
+  },
+  "dataViewDemo": {
+    "page": {
+      "title": "Demo DataView",
+      "description": "Generyczny obszar master-detail. Stan sterowany przez URL z nuqs, cache przez TanStack Query i animacje przejścia szczegółów przez Framer Motion."
+    },
+    "columns": {
+      "product": "Produkt",
+      "category": "Kategoria",
+      "supplier": "Dostawca",
+      "status": "Status",
+      "stock": "Stan",
+      "location": "Lokalizacja",
+      "price": "Cena",
+      "updatedAt": "Aktualizacja"
+    },
+    "filters": {
+      "catalog": "Katalog",
+      "category": "Kategoria",
+      "supplier": "Dostawca",
+      "status": "Status",
+      "price": "Cena",
+      "updatedAt": "Aktualizacja",
+      "inStock": "Na stanie"
+    },
+    "detail": {
+      "category": "Kategoria",
+      "supplier": "Dostawca",
+      "location": "Lokalizacja",
+      "price": "Cena",
+      "stock": "Stan",
+      "stockUnits": "{count} szt.",
+      "barcode": "Kod kreskowy",
+      "receivedAt": "Przyjęto",
+      "updatedAt": "Aktualizacja"
+    },
+    "status": {
+      "active": "Aktywny",
+      "draft": "Szkic",
+      "discontinued": "Wycofany"
+    },
+    "categories": {
+      "powerTools": "Elektronarzędzia",
+      "storage": "Przechowywanie",
+      "furniture": "Meble",
+      "measurement": "Pomiary",
+      "handTools": "Narzędzia ręczne",
+      "safetyEquipment": "BHP",
+      "electrical": "Elektryka",
+      "fasteners": "Elementy złączne",
+      "warehouse": "Magazyn",
+      "lighting": "Oświetlenie"
+    }
+  },
   "PreferencesPage": {
     "title": "Preferencje",
     "description": "Zarządzaj preferencjami konta i ustawieniami",

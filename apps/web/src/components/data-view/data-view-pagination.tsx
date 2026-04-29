@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,7 @@ export function DataViewPagination() {
   const { clearReturnHighlight, returnHighlightId } = useDataViewDetail();
   const { keepOnlySelected, selectedRowCount } = useDataViewSelection();
   const { totalCount, page, pageSize } = listData;
+  const t = useTranslations("dataView");
 
   const totalPages = keepOnlySelected ? 1 : Math.max(1, Math.ceil(totalCount / pageSize));
   const pageDisplay = keepOnlySelected ? 1 : page;
@@ -51,11 +53,15 @@ export function DataViewPagination() {
       <p className="text-muted-foreground" data-testid="pagination-info">
         {keepOnlySelected
           ? selectedRowCount === 0
-            ? "No selected rows"
-            : `Showing ${from}-${to} of ${selectedRowCount} selected row${selectedRowCount === 1 ? "" : "s"}`
+            ? t("pagination.noSelectedRows")
+            : t("pagination.showingSelected", {
+                from,
+                to,
+                count: selectedRowCount,
+              })
           : totalCount === 0
-            ? "No results"
-            : `Showing ${from}–${to} of ${totalCount} results`}
+            ? t("pagination.noResults")
+            : t("pagination.showingResults", { from, to, count: totalCount })}
       </p>
 
       <div className="flex items-center gap-3">
@@ -63,14 +69,18 @@ export function DataViewPagination() {
         <div className="flex items-center gap-2">
           {keepOnlySelected ? (
             <>
-              <span className="text-muted-foreground hidden sm:inline">Rows shown</span>
+              <span className="text-muted-foreground hidden sm:inline">
+                {t("pagination.rowsShown")}
+              </span>
               <div className="flex h-8 min-w-16 items-center justify-center rounded-md border border-input bg-background px-3 text-sm text-foreground">
                 {selectedRowCount}
               </div>
             </>
           ) : (
             <>
-              <span className="text-muted-foreground hidden sm:inline">Rows per page</span>
+              <span className="text-muted-foreground hidden sm:inline">
+                {t("pagination.rowsPerPage")}
+              </span>
               <Select
                 value={String(pageSize)}
                 onValueChange={(v) => {
@@ -78,7 +88,7 @@ export function DataViewPagination() {
                   urlState.setPageSize(Number(v));
                 }}
               >
-                <SelectTrigger className="h-8 w-16" aria-label="Rows per page">
+                <SelectTrigger className="h-8 w-16" aria-label={t("pagination.rowsPerPage")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -104,7 +114,7 @@ export function DataViewPagination() {
               urlState.setPage(page - 1);
             }}
             disabled={!canPrev || keepOnlySelected}
-            aria-label="Previous page"
+            aria-label={t("pagination.previousPageAria")}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -120,7 +130,7 @@ export function DataViewPagination() {
               urlState.setPage(page + 1);
             }}
             disabled={!canNext || keepOnlySelected}
-            aria-label="Next page"
+            aria-label={t("pagination.nextPageAria")}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

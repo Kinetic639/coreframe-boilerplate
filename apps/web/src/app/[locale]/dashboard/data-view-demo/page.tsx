@@ -6,6 +6,7 @@
  */
 
 import React from "react";
+import { getTranslations } from "next-intl/server";
 import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
 import { DataViewDemoClient } from "./data-view-demo-client";
 import { resolveDemoProductPage } from "./actions";
@@ -17,6 +18,7 @@ type PageProps = {
 
 export default async function DataViewDemoPage({ searchParams }: PageProps) {
   const params = await searchParams;
+  const t = await getTranslations("dataViewDemo.page");
   const urlState = parseDataViewSearchParams(params);
 
   const filteredRows = filterAndSortProducts(ALL_PRODUCTS, {
@@ -30,11 +32,8 @@ export default async function DataViewDemoPage({ searchParams }: PageProps) {
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">DataView Demo</h1>
-        <p className="text-sm text-muted-foreground">
-          Generic Master–Detail workspace. URL-driven state via nuqs, TanStack Query for caching,
-          Framer Motion for the detail panel animation. Click any row to open details.
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       <div className="flex-1 overflow-hidden">

@@ -2,6 +2,127 @@
   "HomePage": {
     "title": "Hello there"
   },
+  "dataView": {
+    "columns": {
+      "manageAria": "Manage columns",
+      "toggleTitle": "Toggle columns",
+      "toggleColumnAria": "Toggle column {column}"
+    },
+    "detail": {
+      "closeAria": "Close detail",
+      "loadingAria": "Loading details",
+      "empty": "No item selected"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search...",
+      "searchAria": "Search",
+      "closeSearchAria": "Close search",
+      "backToListAria": "Back to full list"
+    },
+    "selection": {
+      "selectedCount": "{count} selected",
+      "keepSelected": "Keep selected",
+      "showAll": "Show all",
+      "clear": "Clear",
+      "selectAllRowsAria": "Select all rows on this page",
+      "selectRowAria": "Select row {rowId}"
+    },
+    "filters": {
+      "button": "Filters",
+      "title": "Filters",
+      "openAria": "Open filters",
+      "clearAll": "Clear all",
+      "clearAllLong": "Clear all filters",
+      "all": "All",
+      "allForLabel": "All {label}",
+      "any": "Any",
+      "yes": "Yes",
+      "no": "No",
+      "min": "Min",
+      "max": "Max",
+      "from": "From",
+      "to": "To",
+      "fromValue": "From {value}",
+      "toValue": "To {value}",
+      "textPlaceholder": "Filter by {label}",
+      "filterByAria": "Filter by {label}",
+      "clearSingleAria": "Clear {label} filter",
+      "removeSingleAria": "Remove {label} filter"
+    },
+    "pagination": {
+      "noSelectedRows": "No selected rows",
+      "showingSelected": "Showing {from}–{to} of {count} selected rows",
+      "noResults": "No results",
+      "showingResults": "Showing {from}–{to} of {count} results",
+      "rowsShown": "Rows shown",
+      "rowsPerPage": "Rows per page",
+      "previousPageAria": "Previous page",
+      "nextPageAria": "Next page"
+    },
+    "sidebar": {
+      "fallbackPrimaryHeader": "Name",
+      "scrollForMore": "Scroll up for more",
+      "loadedCount": "Loaded {loaded} of {total}",
+      "loadingPreviousAria": "Loading previous items",
+      "loadingMoreAria": "Loading more items"
+    },
+    "table": {
+      "noResults": "No results"
+    }
+  },
+  "dataViewDemo": {
+    "page": {
+      "title": "DataView Demo",
+      "description": "Generic master-detail workspace. URL-driven state via nuqs, TanStack Query for caching, and Framer Motion for the detail transition."
+    },
+    "columns": {
+      "product": "Product",
+      "category": "Category",
+      "supplier": "Supplier",
+      "status": "Status",
+      "stock": "Stock",
+      "location": "Location",
+      "price": "Price",
+      "updatedAt": "Updated"
+    },
+    "filters": {
+      "catalog": "Catalog",
+      "category": "Category",
+      "supplier": "Supplier",
+      "status": "Status",
+      "price": "Price",
+      "updatedAt": "Updated",
+      "inStock": "In stock"
+    },
+    "detail": {
+      "category": "Category",
+      "supplier": "Supplier",
+      "location": "Location",
+      "price": "Price",
+      "stock": "Stock",
+      "stockUnits": "{count} units",
+      "barcode": "Barcode",
+      "receivedAt": "Received",
+      "updatedAt": "Updated"
+    },
+    "status": {
+      "active": "Active",
+      "draft": "Draft",
+      "discontinued": "Discontinued"
+    },
+    "categories": {
+      "powerTools": "Power Tools",
+      "storage": "Storage",
+      "furniture": "Furniture",
+      "measurement": "Measurement",
+      "handTools": "Hand Tools",
+      "safetyEquipment": "Safety Equipment",
+      "electrical": "Electrical",
+      "fasteners": "Fasteners",
+      "warehouse": "Warehouse",
+      "lighting": "Lighting"
+    }
+  },
   "PreferencesPage": {
     "title": "Preferences",
     "description": "Manage your account preferences and settings",

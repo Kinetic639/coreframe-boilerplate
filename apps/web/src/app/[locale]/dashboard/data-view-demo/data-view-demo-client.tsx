@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { DataView } from "@/components/data-view/data-view";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
@@ -20,6 +21,19 @@ import {
   type Product,
   type ProductDetail,
 } from "./mock-data";
+
+const CATEGORY_TRANSLATION_KEYS: Record<string, string> = {
+  "Power Tools": "powerTools",
+  Storage: "storage",
+  Furniture: "furniture",
+  Measurement: "measurement",
+  "Hand Tools": "handTools",
+  "Safety Equipment": "safetyEquipment",
+  Electrical: "electrical",
+  Fasteners: "fasteners",
+  Warehouse: "warehouse",
+  Lighting: "lighting",
+};
 
 const STATUS_COLORS: Record<
   Product["status"],
@@ -52,128 +66,144 @@ function ProductMiniature({ product }: { product: Product }) {
   );
 }
 
-const columns: DataViewColumnDef<Product>[] = [
-  {
-    key: "name",
-    header: "Product",
-    accessor: (r) => (
-      <div className="flex min-w-0 items-center gap-3 py-2">
-        <ProductMiniature product={r} />
-        <div className="min-w-0">
-          <div className="truncate font-medium text-foreground">{r.name}</div>
-          <div className="truncate text-xs text-muted-foreground">{r.catalogCode}</div>
+interface DataViewDemoClientProps {
+  initialData: PaginatedResult<Product>;
+  resolveSelectedPage?: (args: {
+    selectedId: string;
+    listParams: DataViewListParams;
+  }) => Promise<number | null>;
+}
+
+export function DataViewDemoClient({ initialData, resolveSelectedPage }: DataViewDemoClientProps) {
+  const t = useTranslations("dataViewDemo");
+  const locale = useLocale();
+  const currencyFormatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "USD",
+  });
+  const columns: DataViewColumnDef<Product>[] = [
+    {
+      key: "name",
+      header: t("columns.product"),
+      accessor: (r) => (
+        <div className="flex min-w-0 items-center gap-3 py-2">
+          <ProductMiniature product={r} />
+          <div className="min-w-0">
+            <div className="truncate font-medium text-foreground">{r.name}</div>
+            <div className="truncate text-xs text-muted-foreground">{r.catalogCode}</div>
+          </div>
         </div>
-      </div>
-    ),
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
-    key: "category",
-    header: "Category",
-    accessor: (r) => r.category,
-    sortable: true,
-    defaultVisible: true,
-    compactLabel: true,
-  },
-  {
-    key: "supplier",
-    header: "Supplier",
-    accessor: (r) => <span className="text-sm text-foreground">{r.supplier}</span>,
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
-    key: "status",
-    header: "Status",
-    accessor: (r) => (
-      <Badge variant={STATUS_COLORS[r.status]} className="capitalize text-xs">
-        {r.status}
-      </Badge>
-    ),
-    defaultVisible: true,
-  },
-  {
-    key: "stock",
-    header: "Stock",
-    accessor: (r) => <span className="tabular-nums text-sm text-foreground">{r.stock}</span>,
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
-    key: "location",
-    header: "Location",
-    accessor: (r) => <span className="text-sm text-muted-foreground">{r.location}</span>,
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
-    key: "price",
-    header: "Price",
-    accessor: (r) => (
-      <span className="tabular-nums">
-        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(r.price)}
-      </span>
-    ),
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
-    key: "updatedAt",
-    header: "Updated",
-    accessor: (r) => <span className="text-muted-foreground text-xs">{r.updatedAt}</span>,
-    sortable: true,
-    defaultVisible: true,
-  },
-];
+      ),
+      sortable: true,
+      defaultVisible: true,
+    },
+    {
+      key: "category",
+      header: t("columns.category"),
+      accessor: (r) => t(`categories.${CATEGORY_TRANSLATION_KEYS[r.category]}`),
+      sortable: true,
+      defaultVisible: true,
+      compactLabel: true,
+    },
+    {
+      key: "supplier",
+      header: t("columns.supplier"),
+      accessor: (r) => <span className="text-sm text-foreground">{r.supplier}</span>,
+      sortable: true,
+      defaultVisible: true,
+    },
+    {
+      key: "status",
+      header: t("columns.status"),
+      accessor: (r) => (
+        <Badge variant={STATUS_COLORS[r.status]} className="capitalize text-xs">
+          {t(`status.${r.status}`)}
+        </Badge>
+      ),
+      defaultVisible: true,
+    },
+    {
+      key: "stock",
+      header: t("columns.stock"),
+      accessor: (r) => <span className="tabular-nums text-sm text-foreground">{r.stock}</span>,
+      sortable: true,
+      defaultVisible: true,
+    },
+    {
+      key: "location",
+      header: t("columns.location"),
+      accessor: (r) => <span className="text-sm text-muted-foreground">{r.location}</span>,
+      sortable: true,
+      defaultVisible: true,
+    },
+    {
+      key: "price",
+      header: t("columns.price"),
+      accessor: (r) => <span className="tabular-nums">{currencyFormatter.format(r.price)}</span>,
+      sortable: true,
+      defaultVisible: true,
+    },
+    {
+      key: "updatedAt",
+      header: t("columns.updatedAt"),
+      accessor: (r) => <span className="text-muted-foreground text-xs">{r.updatedAt}</span>,
+      sortable: true,
+      defaultVisible: true,
+    },
+  ];
 
-const filters: DataViewFilterDef[] = [
-  {
-    type: "text",
-    key: "catalogCode",
-    label: "Catalog",
-  },
-  {
-    type: "select",
-    key: "category",
-    label: "Category",
-    options: PRODUCT_CATEGORIES.map((category) => ({ label: category, value: category })),
-  },
-  {
-    type: "select",
-    key: "supplier",
-    label: "Supplier",
-    options: PRODUCT_SUPPLIERS.map((supplier) => ({ label: supplier, value: supplier })),
-  },
-  {
-    type: "multi-select",
-    key: "status",
-    label: "Status",
-    options: PRODUCT_STATUS_OPTIONS,
-  },
-  {
-    type: "range",
-    key: "priceRange",
-    label: "Price",
-    minKey: "minPrice",
-    maxKey: "maxPrice",
-  },
-  {
-    type: "date-range",
-    key: "updatedRange",
-    label: "Updated",
-    fromKey: "updatedFrom",
-    toKey: "updatedTo",
-  },
-  {
-    type: "boolean",
-    key: "inStock",
-    label: "In stock",
-  },
-];
+  const filters: DataViewFilterDef[] = [
+    {
+      type: "text",
+      key: "catalogCode",
+      label: t("filters.catalog"),
+    },
+    {
+      type: "select",
+      key: "category",
+      label: t("filters.category"),
+      options: PRODUCT_CATEGORIES.map((category) => ({
+        label: t(`categories.${CATEGORY_TRANSLATION_KEYS[category]}`),
+        value: category,
+      })),
+    },
+    {
+      type: "select",
+      key: "supplier",
+      label: t("filters.supplier"),
+      options: PRODUCT_SUPPLIERS.map((supplier) => ({ label: supplier, value: supplier })),
+    },
+    {
+      type: "multi-select",
+      key: "status",
+      label: t("filters.status"),
+      options: PRODUCT_STATUS_OPTIONS.map((option) => ({
+        label: t(`status.${option.value}`),
+        value: option.value,
+      })),
+    },
+    {
+      type: "range",
+      key: "priceRange",
+      label: t("filters.price"),
+      minKey: "minPrice",
+      maxKey: "maxPrice",
+    },
+    {
+      type: "date-range",
+      key: "updatedRange",
+      label: t("filters.updatedAt"),
+      fromKey: "updatedFrom",
+      toKey: "updatedTo",
+    },
+    {
+      type: "boolean",
+      key: "inStock",
+      label: t("filters.inStock"),
+    },
+  ];
 
-function renderDetail(product: ProductDetail) {
-  return (
+  const renderDetail = (product: ProductDetail) => (
     <div className="space-y-5">
       <div className="flex items-start gap-4">
         <ProductMiniature product={product} />
@@ -185,24 +215,19 @@ function renderDetail(product: ProductDetail) {
         </div>
       </div>
       <Badge variant={STATUS_COLORS[product.status]} className="capitalize">
-        {product.status}
+        {t(`status.${product.status}`)}
       </Badge>
       <p className="text-sm text-foreground">{product.description}</p>
       <div className="grid grid-cols-2 gap-3 text-sm">
         {[
-          ["Category", product.category],
-          ["Supplier", product.supplier],
-          ["Location", product.location],
-          [
-            "Price",
-            new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-              product.price
-            ),
-          ],
-          ["Stock", `${product.stock} units`],
-          ["Barcode", product.barcode],
-          ["Received", product.receivedAt],
-          ["Updated", product.updatedAt],
+          [t("detail.category"), t(`categories.${CATEGORY_TRANSLATION_KEYS[product.category]}`)],
+          [t("detail.supplier"), product.supplier],
+          [t("detail.location"), product.location],
+          [t("detail.price"), currencyFormatter.format(product.price)],
+          [t("detail.stock"), t("detail.stockUnits", { count: product.stock })],
+          [t("detail.barcode"), product.barcode],
+          [t("detail.receivedAt"), product.receivedAt],
+          [t("detail.updatedAt"), product.updatedAt],
         ].map(([label, value]) => (
           <div key={label}>
             <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
@@ -214,17 +239,7 @@ function renderDetail(product: ProductDetail) {
       </div>
     </div>
   );
-}
 
-interface DataViewDemoClientProps {
-  initialData: PaginatedResult<Product>;
-  resolveSelectedPage?: (args: {
-    selectedId: string;
-    listParams: DataViewListParams;
-  }) => Promise<number | null>;
-}
-
-export function DataViewDemoClient({ initialData, resolveSelectedPage }: DataViewDemoClientProps) {
   return (
     <DataView<Product, ProductDetail>
       entity="demo-products"
