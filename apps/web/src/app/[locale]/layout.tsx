@@ -2,6 +2,7 @@ import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { hasLocale, Locale, NextIntlClientProvider } from "next-intl";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { ReactNode, Suspense } from "react";
 import { routing } from "@/i18n/routing";
 import { getTranslations, setRequestLocale, getMessages } from "next-intl/server";
@@ -52,20 +53,22 @@ export default async function RootLayout({ children, params }: Props) {
   return (
     <html lang={locale} className={geistSans.className} suppressHydrationWarning>
       <body className="bg-background text-foreground">
-        <NextIntlClientProvider messages={messages}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ToastContainerThemed />
-            <Suspense fallback={null}>
-              <ToastListener />
-            </Suspense>
-            {children}
-          </ThemeProvider>
-        </NextIntlClientProvider>
+        <NuqsAdapter>
+          <NextIntlClientProvider messages={messages}>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <ToastContainerThemed />
+              <Suspense fallback={null}>
+                <ToastListener />
+              </Suspense>
+              {children}
+            </ThemeProvider>
+          </NextIntlClientProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );

@@ -331,6 +331,16 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [PERMISSION_TOOLS_READ],
     },
   },
+
+  // DataView Demo — dev/demo page, no permission gate
+  {
+    id: "data-view-demo",
+    title: "DataView Demo",
+    titleKey: "dataViewDemo.titleSidebar",
+    iconKey: "development",
+    href: "/dashboard/data-view-demo",
+    match: { startsWith: "/dashboard/data-view-demo" },
+  },
 ];
 
 /**
