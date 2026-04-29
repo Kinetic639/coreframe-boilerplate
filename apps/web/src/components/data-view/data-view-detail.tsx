@@ -4,27 +4,30 @@ import React from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useDataView } from "./use-data-view";
+import { useDataViewDetail, useDataViewStatic } from "./use-data-view";
 
 export function DataViewDetail() {
-  const { detailData, detailIsLoading, renderDetail, urlState } = useDataView();
+  const { renderDetail } = useDataViewStatic();
+  const { detailData, detailIsLoading, closeDetail, isClosingDetail } = useDataViewDetail();
 
   return (
-    <div className="h-full flex flex-col border-l overflow-hidden" data-testid="detail-panel">
-      {/* Close button row */}
-      <div className="flex items-center justify-end px-3 py-1.5 border-b shrink-0">
+    <div
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
+      data-testid="detail-panel"
+    >
+      <div className="flex h-12 shrink-0 items-center justify-end border-b px-4">
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
-          onClick={() => urlState.setSelected(null)}
+          className="h-8 w-8"
+          onClick={() => void closeDetail()}
+          disabled={isClosingDetail}
           aria-label="Close detail"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-4">
         {detailIsLoading ? (
           <div className="space-y-3" aria-label="Loading detail">

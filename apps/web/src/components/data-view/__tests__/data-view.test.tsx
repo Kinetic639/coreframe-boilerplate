@@ -386,6 +386,30 @@ describe("T-DV-CLOSE: clearing selected returns to full table mode", () => {
       expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
     });
   });
+
+  it("prefers the loaded sidebar position when closing detail", async () => {
+    const resolveSelectedPage = vi.fn(async () => 3);
+
+    renderDataView({ resolveSelectedPage }, { selected: "p1", page: "1" });
+    await waitFor(() => screen.getByTestId("detail-panel"));
+
+    fireEvent.click(screen.getByTestId("back-to-list-button"));
+
+    await waitFor(() => {
+      expect(resolveSelectedPage).toHaveBeenCalledWith({
+        selectedId: "p1",
+        listParams: {
+          search: "",
+          sort: null,
+          page: 1,
+          pageSize: 50,
+          filters: {},
+        },
+      });
+      expect(mockPush).toHaveBeenCalledWith(expect.stringContaining("page=1"));
+      expect(mockPush).toHaveBeenCalledWith(expect.not.stringContaining("selected=p1"));
+    });
+  });
 });
 
 describe("T-DV-SIDEBAR: compact sidebar appears when item is selected", () => {
@@ -398,17 +422,20 @@ describe("T-DV-SIDEBAR: compact sidebar appears when item is selected", () => {
   it("renders sidebar items when selected", async () => {
     renderDataView({}, { selected: "p1" });
     await waitFor(() => {
-      // Sidebar uses data-testid="sidebar-item-<id>"
+      expect(screen.getByTestId("data-view-sidebar")).toBeInTheDocument();
       expect(screen.getByTestId("sidebar-item-p1")).toBeInTheDocument();
       expect(screen.getByTestId("sidebar-item-p2")).toBeInTheDocument();
       expect(screen.getByTestId("sidebar-item-p3")).toBeInTheDocument();
     });
   });
 
-  it("does NOT show main table when detail is open", async () => {
+  it("shows only the primary column table when detail is open", async () => {
     renderDataView({}, { selected: "p1" });
     await waitFor(() => {
-      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(screen.getByTestId("data-view-sidebar")).toBeInTheDocument();
+      expect(screen.getByText("Name")).toBeInTheDocument();
+      expect(screen.queryByText("Category")).not.toBeInTheDocument();
+      expect(screen.queryByText("Price")).not.toBeInTheDocument();
     });
   });
 });
@@ -422,6 +449,7 @@ describe("T-DV-SEARCH: changing search resets page to 1", () => {
 
   it("calls replace with page reset when search changes", async () => {
     renderDataView({}, { page: "3" });
+    fireEvent.click(screen.getByTestId("search-icon-button"));
     const input = screen.getByRole("textbox", { name: /search/i });
     fireEvent.change(input, { target: { value: "widget" } });
     await waitFor(() => {
@@ -555,7 +583,8 @@ describe("T-DV-TOOLBAR-LIST: full list mode toolbar", () => {
 
   it("shows full search input in list mode", () => {
     renderDataView();
-    expect(screen.getByRole("textbox", { name: /search/i })).toBeInTheDocument();
+    expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
+    expect(screen.queryByTestId("search-input")).not.toBeInTheDocument();
   });
 
   it("shows inline filter pills in list mode", () => {
@@ -571,9 +600,13 @@ describe("T-DV-TOOLBAR-LIST: full list mode toolbar", () => {
     expect(screen.getByRole("button", { name: /manage columns/i })).toBeInTheDocument();
   });
 
-  it("does NOT show a search icon button in list mode", () => {
+  it("expands search input in list mode after clicking the search icon", async () => {
     renderDataView();
-    expect(screen.queryByTestId("search-icon-button")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("search-icon-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("search-input")).toBeInTheDocument();
+      expect(screen.queryByTestId("search-icon-button")).not.toBeInTheDocument();
+    });
   });
 });
 
@@ -630,8 +663,9 @@ describe("T-DV-TOOLBAR-DETAIL: detail/sidebar mode toolbar", () => {
 
   it("sidebar shows primary column only (no category subtitle)", async () => {
     renderDataView({}, { selected: "p1" });
-    await waitFor(() => screen.getByTestId("sidebar-item-p1"));
-    expect(screen.getByTestId("sidebar-item-p1")).toBeInTheDocument();
+    await waitFor(() => screen.getByTestId("data-view-sidebar"));
+    expect(screen.getByText("Name")).toBeInTheDocument();
+    expect(screen.queryByText("Category")).not.toBeInTheDocument();
   });
 });
 
@@ -649,7 +683,7 @@ describe("T-DV-COLVIS-LIVE: column visibility updates table instantly", () => {
   it("hiding a column removes it from the table immediately", async () => {
     renderDataView();
     // All 3 columns initially visible
-    expect(screen.getByText("Price")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /price/i })).toBeInTheDocument();
 
     // Open column manager
     fireEvent.click(screen.getByRole("button", { name: /manage columns/i }));
@@ -661,7 +695,7 @@ describe("T-DV-COLVIS-LIVE: column visibility updates table instantly", () => {
 
     // Price column should disappear immediately (no refresh needed)
     await waitFor(() => {
-      expect(screen.queryByText("Price")).not.toBeInTheDocument();
+      expect(screen.queryByRole("columnheader", { name: /price/i })).not.toBeInTheDocument();
     });
   });
 
@@ -672,7 +706,7 @@ describe("T-DV-COLVIS-LIVE: column visibility updates table instantly", () => {
       JSON.stringify({ name: true, category: true, price: false })
     );
     renderDataView();
-    expect(screen.queryByText("Price")).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /price/i })).not.toBeInTheDocument();
 
     // Open column manager and re-enable Price
     fireEvent.click(screen.getByRole("button", { name: /manage columns/i }));
@@ -681,7 +715,7 @@ describe("T-DV-COLVIS-LIVE: column visibility updates table instantly", () => {
     fireEvent.click(priceCheckbox);
 
     await waitFor(() => {
-      expect(screen.getByText("Price")).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: /price/i })).toBeInTheDocument();
     });
   });
 });

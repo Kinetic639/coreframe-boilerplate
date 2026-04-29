@@ -32,6 +32,7 @@ export function DataView<TListRow, TDetail>({
   queryKey,
   listFetcher,
   detailFetcher,
+  resolveSelectedPage,
   getRowId,
   renderCompactItem,
   renderDetail,
@@ -50,6 +51,7 @@ export function DataView<TListRow, TDetail>({
         queryKey={queryKey}
         listFetcher={listFetcher}
         detailFetcher={detailFetcher}
+        resolveSelectedPage={resolveSelectedPage}
         getRowId={getRowId}
         renderCompactItem={renderCompactItem}
         renderDetail={renderDetail}

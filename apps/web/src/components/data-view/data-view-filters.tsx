@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { useDataView } from "./use-data-view";
+import { useDataViewStatic, useDataViewUrl } from "./use-data-view";
 import type { DataViewFilterDef } from "./data-view.types";
 
 // ---------------------------------------------------------------------------
@@ -322,7 +322,8 @@ interface DataViewFiltersProps {
 }
 
 export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
-  const { filters: filterDefs, urlState } = useDataView();
+  const { filters: filterDefs } = useDataViewStatic();
+  const { urlState } = useDataViewUrl();
   const [open, setOpen] = useState(false);
 
   const activeCount = countActiveFilters(urlState.filters);
@@ -353,7 +354,10 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
   // ── Inline mode: pill per filter, no dropdown wrapper ────────────────────
   if (mode === "inline") {
     return (
-      <div className="flex items-center gap-1.5 flex-wrap" data-testid="inline-filters">
+      <div
+        className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]"
+        data-testid="inline-filters"
+      >
         {filterDefs.map((def) => (
           <DataViewFilterPill
             key={def.key}

@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useDataView } from "./use-data-view";
+import { useDataViewColumns, useDataViewStatic } from "./use-data-view";
 
 function getStorageKey(entity: string) {
   return `data-view:${entity}:columns`;
@@ -81,7 +81,8 @@ export function useColumnVisibility(
 
 /** Column visibility popover — reads shared state from context. */
 export function DataViewColumnManager() {
-  const { entity, columns, columnVisibility, setColumnVisibility } = useDataView();
+  const { entity, columns } = useDataViewStatic();
+  const { columnVisibility, setColumnVisibility } = useDataViewColumns();
   const [open, setOpen] = useState(false);
 
   // entity is only needed for the aria-label; visibility comes from context
@@ -96,7 +97,7 @@ export function DataViewColumnManager() {
           className="h-8 w-8 shrink-0"
           aria-label="Manage columns"
         >
-          <Settings2 className="h-4 w-4" />
+          <Wrench className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56">

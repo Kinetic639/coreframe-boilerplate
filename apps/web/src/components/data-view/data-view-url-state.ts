@@ -53,6 +53,7 @@ export type DataViewUrlStateHook = DataViewUrlState & {
   /** Stable memoized params object — safe to use as TanStack Query key dependency. */
   listParams: DataViewListParams;
   setSelected: (id: string | null) => void;
+  closeDetail: (page?: number) => void;
   setSearch: (search: string) => void;
   setSort: (sort: SortState) => void;
   setPage: (page: number) => void;
@@ -78,6 +79,15 @@ export function useDataViewUrlState(_entity: string): DataViewUrlStateHook {
   const setSelected = useCallback(
     (id: string | null) => {
       void setState({ selected: id ?? "" }, { history: "push" });
+    },
+    [setState]
+  );
+
+  const closeDetail = useCallback(
+    (page?: number) => {
+      void setState(page !== undefined ? { selected: "", page } : { selected: "" }, {
+        history: "push",
+      });
     },
     [setState]
   );
@@ -140,6 +150,7 @@ export function useDataViewUrlState(_entity: string): DataViewUrlStateHook {
     filters: raw.filters,
     listParams,
     setSelected,
+    closeDetail,
     setSearch,
     setSort,
     setPage,

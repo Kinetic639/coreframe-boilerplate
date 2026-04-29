@@ -59,8 +59,17 @@ export type DataViewProps<TListRow, TDetail> = {
   queryKey: string[];
   listFetcher: (params: DataViewListParams) => Promise<PaginatedResult<TListRow>>;
   detailFetcher: (id: string) => Promise<TDetail | null>;
+  resolveSelectedPage?: (args: {
+    selectedId: string;
+    listParams: DataViewListParams;
+  }) => Promise<number | null>;
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
   className?: string;
+};
+
+export type InfinitePaginatedData<T> = {
+  pages: PaginatedResult<T>[];
+  pageParams: number[];
 };
