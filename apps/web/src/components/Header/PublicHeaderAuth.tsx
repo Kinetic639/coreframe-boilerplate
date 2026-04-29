@@ -65,7 +65,7 @@ export function PublicHeaderAuth({ userContext }: PublicHeaderAuthProps) {
         <Link href="/sign-in">Zaloguj się</Link>
       </Button>
       <Button asChild>
-        <Link href="/sign-up">Rozpocznij za darmo</Link>
+        <Link href="/sign-up">Zarejestruj się</Link>
       </Button>
     </>
   );
