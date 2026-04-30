@@ -139,6 +139,11 @@
     --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
     --tracking-normal: 0em;
     --spacing: 0.25rem;
+    --gradient-amber: linear-gradient(135deg, hsl(40 96% 48%) 0%, hsl(22.7273 82.5% 31.3725%) 100%);
+    --gradient-glow: radial-gradient(60% 60% at 50% 0%, hsl(40 96% 48% / 0.18), transparent 70%);
+    --gradient-mesh: radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 48% / 0.12), transparent 60%), radial-gradient(ellipse 60% 50% at 80% 30%, hsl(22.7273 82.5% 31.3725% / 0.08), transparent 60%);
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.04), 0 8px 24px -8px hsl(0 0% 0% / 0.08);
+    --shadow-glow: 0 0 0 1px hsl(40 96% 48% / 0.18), 0 20px 60px -20px hsl(40 96% 48% / 0.45);
   }
 
   .dark {
@@ -174,6 +179,11 @@
     --sidebar-accent-foreground: hsl(48 96.6387% 76.6667%);
     --sidebar-border: hsl(0 0% 25.098%);
     --sidebar-ring: hsl(40 96% 48%);
+    --gradient-amber: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(22 82% 35%) 100%);
+    --gradient-glow: radial-gradient(60% 60% at 50% 0%, hsl(40 96% 52% / 0.22), transparent 70%);
+    --gradient-mesh: radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 52% / 0.15), transparent 60%), radial-gradient(ellipse 60% 50% at 80% 30%, hsl(22 82% 35% / 0.18), transparent 60%);
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3), 0 12px 40px -12px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 0 1px hsl(40 96% 52% / 0.25), 0 20px 60px -20px hsl(40 96% 52% / 0.55);
   }
 
   /* ===== SUNSET THEME (Old Default) ===== */
@@ -1518,5 +1528,64 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  ::selection {
+    background-color: hsl(40 96% 48% / 0.25);
+  }
+}
+
+@layer utilities {
+  .bg-gradient-amber {
+    background-image: var(--gradient-amber);
+  }
+  .bg-gradient-glow {
+    background-image: var(--gradient-glow);
+  }
+  .bg-gradient-mesh {
+    background-image: var(--gradient-mesh);
+  }
+  .text-gradient-amber {
+    background-image: var(--gradient-amber);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .grid-pattern {
+    background-image:
+      linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+  .dot-pattern {
+    background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .marquee {
+    animation: marquee 35s linear infinite;
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .animate-blob {
+    animation: blob 14s ease-in-out infinite;
+  }
+  @keyframes blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(30px, -20px) scale(1.05); }
+    66% { transform: translate(-20px, 20px) scale(0.95); }
+  }
+  .mask-edges {
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
   }
 }
