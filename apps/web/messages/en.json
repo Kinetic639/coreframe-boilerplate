@@ -2857,11 +2857,6 @@
       }
     }
   },
-  "dataViewDemo": {
-    "titleSidebar": "DataView Demo",
-    "title": "DataView Demo",
-    "description": "Generic Master–Detail data workspace demo"
-  },
   "organization": {
     "billing": {
       "title": "Billing & Subscriptions",

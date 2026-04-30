@@ -2828,11 +2828,6 @@
       }
     }
   },
-  "dataViewDemo": {
-    "titleSidebar": "Demo DataView",
-    "title": "Demo DataView",
-    "description": "Demo generycznego widoku danych Master–Detail"
-  },
   "organization": {
     "billing": {
       "title": "Rozliczenia i subskrypcje",
