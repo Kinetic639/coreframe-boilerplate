@@ -1,98 +1,25 @@
-import {
-  ArrowRight,
-  Check,
-  Zap,
-  Search,
-  Shield,
-  BarChart,
-  Smartphone,
-  QrCode,
-  Star,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Link } from "@/i18n/navigation";
 import { generatePublicMetadata } from "@/lib/metadata";
+import { HomeIntro } from "./_components/home-intro";
+import { HomeLogoMarquee, HomeStatsBar } from "./_components/home-stats-marquee";
+import { HomeFeaturesGrid } from "./_components/home-features-grid";
+import { HomeHowItWorks } from "./_components/home-how-it-works";
+import { HomeParallaxImage } from "./_components/home-parallax-image";
+import { HomeStickyText } from "./_components/home-sticky-text";
+import { HomeHorizontalScroll } from "./_components/home-horizontal-scroll";
+import { HomeSplitParallax } from "./_components/home-split-parallax";
+import { HomeStaggerCards } from "./_components/home-stagger-cards";
+import { HomePerspectiveMarquee } from "./_components/home-perspective-marquee";
+import { HomeScrollProgress } from "./_components/home-scroll-progress";
+import { HomeBentoSpotlight } from "./_components/home-bento-spotlight";
+import { HomeSvgPath } from "./_components/home-svg-path";
+import { HomeCardStack } from "./_components/home-card-stack";
+import { HomeTestimonials } from "./_components/home-testimonials";
+import { HomePricingTeaser } from "./_components/home-pricing-teaser";
+import { HomeCTA } from "./_components/home-cta";
 
 type Props = {
   params: Promise<{ locale: string }>;
 };
-
-function DashboardPreviewMock() {
-  return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
-      <div className="flex items-center justify-between border-b border-border bg-muted/60 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full bg-primary/80" />
-          <div className="h-3 w-3 rounded-full bg-primary/50" />
-          <div className="h-3 w-3 rounded-full bg-primary/30" />
-        </div>
-        <div className="rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
-          Ambra Dashboard
-        </div>
-      </div>
-
-      <div className="grid gap-4 bg-background p-4 md:grid-cols-[220px_1fr]">
-        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
-          <div className="h-6 w-28 rounded-md bg-primary/20" />
-          <div className="space-y-2">
-            <div className="h-10 rounded-md bg-background" />
-            <div className="h-10 rounded-md bg-background" />
-            <div className="h-10 rounded-md bg-background" />
-            <div className="h-10 rounded-md bg-background" />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-border bg-primary/10 p-4">
-              <div className="mb-2 h-3 w-20 rounded bg-primary/30" />
-              <div className="h-8 w-16 rounded bg-primary/50" />
-            </div>
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="mb-2 h-3 w-24 rounded bg-muted" />
-              <div className="h-8 w-20 rounded bg-muted/80" />
-            </div>
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="mb-2 h-3 w-16 rounded bg-muted" />
-              <div className="h-8 w-14 rounded bg-muted/80" />
-            </div>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="mb-4 h-4 w-32 rounded bg-muted" />
-              <div className="flex h-48 items-end gap-3">
-                <div className="w-full rounded-t-md bg-primary/25" style={{ height: "45%" }} />
-                <div className="w-full rounded-t-md bg-primary/40" style={{ height: "72%" }} />
-                <div className="w-full rounded-t-md bg-primary/60" style={{ height: "58%" }} />
-                <div className="w-full rounded-t-md bg-primary/80" style={{ height: "88%" }} />
-                <div className="w-full rounded-t-md bg-primary" style={{ height: "66%" }} />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="mb-4 h-4 w-24 rounded bg-muted" />
-              <div className="space-y-3">
-                <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <div className="mb-2 h-3 w-24 rounded bg-primary/40" />
-                  <div className="h-3 w-32 rounded bg-muted" />
-                </div>
-                <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <div className="mb-2 h-3 w-20 rounded bg-primary/30" />
-                  <div className="h-3 w-28 rounded bg-muted" />
-                </div>
-                <div className="rounded-md border border-border bg-muted/30 p-3">
-                  <div className="mb-2 h-3 w-16 rounded bg-primary/20" />
-                  <div className="h-3 w-24 rounded bg-muted" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export async function generateMetadata({ params }: Props) {
   return generatePublicMetadata(params, "metadata.public.home", [
@@ -108,325 +35,27 @@ export async function generateMetadata({ params }: Props) {
   ]);
 }
 
-export default async function Home() {
+export default function Home() {
   return (
-    <main className="min-h-screen">
-      {/* Hero Section */}
-      <section className="px-4 py-16 md:py-24">
-        <div className="container mx-auto w-full max-w-7xl">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-            <div>
-              <h1 className="mb-6 text-4xl font-bold leading-tight md:text-5xl lg:text-6xl">
-                Twój start z <span className="text-primary">SaaS łatwiejszy niż kiedykolwiek</span>
-              </h1>
-              <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-                Ambra to kompletna platforma SaaS do zarządzania magazynem i inwentarzem. System
-                magazynowy, śledzenie produktów, zarządzanie lokalizacjami – wszystko w jednym
-                miejscu.
-              </p>
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <Button size="lg" className="px-8 py-6 text-lg" asChild>
-                  <Link href="/sign-up">
-                    Rozpocznij teraz
-                    <ArrowRight className="ml-2" />
-                  </Link>
-                </Button>
-                <Button variant="outline" size="lg" className="px-8 py-6 text-lg" asChild>
-                  <Link href="/sign-in">
-                    Zobacz demo
-                    <ArrowRight className="ml-2" />
-                  </Link>
-                </Button>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-6">
-                <div className="flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-primary" />
-                  <span>Zarządzanie magazynem</span>
-                </div>
-                <div className="flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-primary" />
-                  <span>Śledzenie produktów i lokalizacji</span>
-                </div>
-                <div className="flex items-center">
-                  <Check className="mr-2 h-5 w-5 text-primary" />
-                  <span>Gotowe do wdrożenia</span>
-                </div>
-              </div>
-            </div>
-            <div className="relative">
-              <div className="absolute -inset-1 rounded-lg bg-gradient-to-r from-primary/50 to-primary/30 opacity-75 blur-lg"></div>
-              <div className="relative overflow-hidden rounded-lg border border-border bg-background shadow-xl">
-                <DashboardPreviewMock />
-              </div>
-              <div className="absolute -bottom-6 -right-6 h-24 w-24 rounded-full bg-primary/20 blur-xl"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-muted/30 px-4 py-16">
-        <div className="container mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">Dlaczego Ambra?</h2>
-            <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
-              Kompleksowe rozwiązanie do zarządzania magazynem z bogatym zestawem funkcji
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Smartphone className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Responsywny UI</h3>
-              <p className="text-muted-foreground">
-                Piękny design oparty na Tailwind CSS, gotowy do użycia na desktopie i mobilkach.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <QrCode className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Kody QR i etykiety</h3>
-              <p className="text-muted-foreground">
-                Generowanie kodów QR dla produktów i lokalizacji. Szybkie skanowanie i
-                identyfikacja.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Zap className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Ruchy magazynowe</h3>
-              <p className="text-muted-foreground">
-                Pełna historia przyjęć, wydań, przesunięć i korekt. Zgodność z polskimi standardami.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Search className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Inwentaryzacja</h3>
-              <p className="text-muted-foreground">
-                System audytów magazynowych z harmonogramem i historią. Automatyczne wykrywanie
-                rozbieżności.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Bezpieczeństwo</h3>
-              <p className="text-muted-foreground">
-                System ról i uprawnień, polityki RLS, tokeny JWT. Pełna kontrola dostępu.
-              </p>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-6 transition-all hover:border-primary/50">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                <BarChart className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mb-2 text-xl font-semibold">Raporty i analizy</h3>
-              <p className="text-muted-foreground">
-                Podgląd stanów magazynowych w czasie rzeczywistym. Analityka i raporty.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Demo App Teaser */}
-      <section className="px-4 py-16 md:py-24">
-        <div className="container mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-            <div>
-              <h2 className="mb-6 text-3xl font-bold md:text-4xl">Wypróbuj naszą aplikację</h2>
-              <p className="mb-8 text-lg text-muted-foreground">
-                Poznaj Ambra w akcji. Nasza intuicyjna aplikacja pozwala na łatwe zarządzanie
-                zasobami, śledzenie stanów magazynowych i optymalizację procesów logistycznych.
-              </p>
-              <ul className="mb-8 space-y-4">
-                <li className="flex items-start">
-                  <div className="mt-1 flex-shrink-0">
-                    <Check className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="ml-3">
-                    <h4 className="text-lg font-semibold">Intuicyjny interfejs</h4>
-                    <p className="text-muted-foreground">
-                      Łatwa nawigacja i przejrzysty układ dla szybkiej pracy
-                    </p>
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <div className="mt-1 flex-shrink-0">
-                    <Check className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="ml-3">
-                    <h4 className="text-lg font-semibold">Zarządzanie produktami</h4>
-                    <p className="text-muted-foreground">
-                      Dodawaj, edytuj i kategoryzuj swoje produkty z wariantami
-                    </p>
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <div className="mt-1 flex-shrink-0">
-                    <Check className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="ml-3">
-                    <h4 className="text-lg font-semibold">Lokalizacje magazynowe</h4>
-                    <p className="text-muted-foreground">
-                      Hierarchiczne drzewo lokalizacji z kodami QR
-                    </p>
-                  </div>
-                </li>
-              </ul>
-              <Button size="lg" className="px-8 py-6 text-lg" asChild>
-                <Link href="/sign-in">
-                  Przejdź do aplikacji
-                  <ArrowRight className="ml-2" />
-                </Link>
-              </Button>
-            </div>
-            <div className="relative">
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/30 to-primary/10 opacity-50 blur-xl"></div>
-              <div className="relative overflow-hidden rounded-lg border border-border bg-background p-4 shadow-xl">
-                <DashboardPreviewMock />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="bg-muted/30 px-4 py-16">
-        <div className="container mx-auto max-w-7xl">
-          <div className="mb-16 text-center">
-            <h2 className="mb-4 text-3xl font-bold md:text-4xl">Co mówią nasi klienci</h2>
-            <p className="mx-auto max-w-2xl text-xl text-muted-foreground">
-              Dołącz do tysięcy zadowolonych klientów, którzy usprawniają swoje procesy magazynowe z
-              Ambra
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {/* Testimonial 1 */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <div className="mb-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-                ))}
-              </div>
-              <p className="mb-6 text-muted-foreground">
-                "Ambra zrewolucjonizowała sposób, w jaki zarządzamy naszym magazynem. Oszczędzamy
-                kilka godzin dziennie na procesach inwentaryzacyjnych."
-              </p>
-              <div className="flex items-center">
-                <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-                  <span className="font-bold text-primary">JN</span>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Jan Nowak</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Kierownik Magazynu, Firma Logistyczna
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Testimonial 2 */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <div className="mb-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-                ))}
-              </div>
-              <p className="mb-6 text-muted-foreground">
-                "Dzięki Ambra zwiększyliśmy dokładność naszego inwentarza o 98%. Funkcja skanowania
-                kodów QR jest nie do przecenienia w naszej codziennej pracy."
-              </p>
-              <div className="flex items-center">
-                <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-                  <span className="font-bold text-primary">AW</span>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Anna Wiśniewska</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Dyrektor Operacyjny, Hurtownia Spożywcza
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Testimonial 3 */}
-            <div className="rounded-lg border border-border bg-background p-6">
-              <div className="mb-4 flex">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-                ))}
-              </div>
-              <p className="mb-6 text-muted-foreground">
-                "Intuicyjność Ambra pozwala nam na szybkie wdrożenie nowych pracowników. Raporty i
-                analizy pomagają nam optymalizować zamawianie towaru."
-              </p>
-              <div className="flex items-center">
-                <div className="mr-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/20">
-                  <span className="font-bold text-primary">PK</span>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Piotr Kowalczyk</h4>
-                  <p className="text-sm text-muted-foreground">Właściciel, Sklep Meblowy</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Partners */}
-      <section className="px-4 py-16">
-        <div className="container mx-auto max-w-7xl">
-          <div className="mb-12 text-center">
-            <h2 className="mb-4 text-2xl font-bold md:text-3xl">Zaufali nam</h2>
-            <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
-              Dołącz do grona naszych zadowolonych klientów z różnych branż
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 items-center justify-items-center gap-6 sm:grid-cols-3 lg:grid-cols-6">
-            {[1, 2, 3, 4, 5, 6].map((partner) => (
-              <div
-                key={partner}
-                className="flex h-16 w-32 items-center justify-center rounded bg-muted/30"
-              >
-                <span className="font-medium text-muted-foreground">Partner {partner}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-primary px-4 py-16 text-primary-foreground">
-        <div className="container mx-auto max-w-7xl">
-          <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
-            <div>
-              <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                Gotowy na rewolucję w zarządzaniu magazynem?
-              </h2>
-              <p className="text-xl opacity-90">
-                Dołącz do Ambra już dziś i zoptymalizuj swoje procesy magazynowe.
-              </p>
-            </div>
-            <Button size="lg" className="px-8 py-6 text-lg shadow-lg" variant="secondary" asChild>
-              <Link href="/sign-up">
-                Rozpocznij za darmo
-                <ArrowRight className="ml-2" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
+    <main className="-mt-4 min-h-screen lg:-mt-8">
+      <HomeIntro />
+      <HomeLogoMarquee />
+      <HomeStatsBar />
+      <HomeFeaturesGrid />
+      <HomeHowItWorks />
+      <HomeParallaxImage />
+      <HomeStickyText />
+      <HomeHorizontalScroll />
+      <HomeSplitParallax />
+      <HomeStaggerCards />
+      <HomePerspectiveMarquee />
+      <HomeScrollProgress />
+      <HomeBentoSpotlight />
+      <HomeSvgPath />
+      <HomeCardStack />
+      <HomeTestimonials />
+      <HomePricingTeaser />
+      <HomeCTA />
     </main>
   );
 }
