@@ -141,7 +141,13 @@
     --spacing: 0.25rem;
     --gradient-amber: linear-gradient(135deg, hsl(40 96% 48%) 0%, hsl(22.7273 82.5% 31.3725%) 100%);
     --gradient-glow: radial-gradient(60% 60% at 50% 0%, hsl(40 96% 48% / 0.18), transparent 70%);
-    --gradient-mesh: radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 48% / 0.12), transparent 60%), radial-gradient(ellipse 60% 50% at 80% 30%, hsl(22.7273 82.5% 31.3725% / 0.08), transparent 60%);
+    --gradient-mesh:
+      radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 48% / 0.12), transparent 60%),
+      radial-gradient(
+        ellipse 60% 50% at 80% 30%,
+        hsl(22.7273 82.5% 31.3725% / 0.08),
+        transparent 60%
+      );
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.04), 0 8px 24px -8px hsl(0 0% 0% / 0.08);
     --shadow-glow: 0 0 0 1px hsl(40 96% 48% / 0.18), 0 20px 60px -20px hsl(40 96% 48% / 0.45);
   }
@@ -181,7 +187,9 @@
     --sidebar-ring: hsl(40 96% 48%);
     --gradient-amber: linear-gradient(135deg, hsl(43 96% 56%) 0%, hsl(22 82% 35%) 100%);
     --gradient-glow: radial-gradient(60% 60% at 50% 0%, hsl(40 96% 52% / 0.22), transparent 70%);
-    --gradient-mesh: radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 52% / 0.15), transparent 60%), radial-gradient(ellipse 60% 50% at 80% 30%, hsl(22 82% 35% / 0.18), transparent 60%);
+    --gradient-mesh:
+      radial-gradient(ellipse 80% 50% at 20% 0%, hsl(40 96% 52% / 0.15), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 30%, hsl(22 82% 35% / 0.18), transparent 60%);
     --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3), 0 12px 40px -12px hsl(0 0% 0% / 0.5);
     --shadow-glow: 0 0 0 1px hsl(40 96% 52% / 0.25), 0 20px 60px -20px hsl(40 96% 52% / 0.55);
   }
@@ -1561,10 +1569,61 @@
   }
   .grid-pattern {
     background-image:
-      linear-gradient(to right, var(--color-border) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+      linear-gradient(to right, hsl(40 96% 48% / 0.34) 1.5px, transparent 1.5px),
+      linear-gradient(to bottom, hsl(40 96% 48% / 0.34) 1.5px, transparent 1.5px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
+  }
+  .home-grid-streak {
+    position: absolute;
+    overflow: hidden;
+    opacity: 1;
+    filter: drop-shadow(0 0 12px hsl(40 96% 48% / 0.82));
+  }
+  .home-grid-streak::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+  .home-grid-streak-x {
+    height: 2px;
+  }
+  .home-grid-streak-x::before {
+    width: 8rem;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(40 96% 48% / 0.05) 10%,
+      hsl(40 96% 48% / 0.22) 24%,
+      hsl(43 96% 62% / 1) 50%,
+      hsl(32 95% 42% / 0.55) 76%,
+      hsl(32 95% 42% / 0.08) 90%,
+      transparent 100%
+    );
+    transform: translateX(-135%) scaleX(0.82);
+    animation: home-grid-current-x var(--streak-duration, 4.8s) linear infinite;
+    animation-delay: var(--streak-delay, 0s);
+  }
+  .home-grid-streak-y {
+    width: 2px;
+  }
+  .home-grid-streak-y::before {
+    height: 8rem;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      hsl(40 96% 48% / 0.05) 10%,
+      hsl(40 96% 48% / 0.2) 24%,
+      hsl(43 96% 62% / 1) 50%,
+      hsl(32 95% 42% / 0.5) 76%,
+      hsl(32 95% 42% / 0.08) 90%,
+      transparent 100%
+    );
+    transform: translateY(-135%) scaleY(0.82);
+    animation: home-grid-current-y var(--streak-duration, 4.8s) linear infinite;
+    animation-delay: var(--streak-delay, 0s);
   }
   .dot-pattern {
     background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
@@ -1574,16 +1633,83 @@
     animation: marquee 35s linear infinite;
   }
   @keyframes marquee {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
   }
   .animate-blob {
     animation: blob 14s ease-in-out infinite;
   }
   @keyframes blob {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(30px, -20px) scale(1.05); }
-    66% { transform: translate(-20px, 20px) scale(0.95); }
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(30px, -20px) scale(1.05);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.95);
+    }
+  }
+  @keyframes home-grid-current-x {
+    0% {
+      opacity: 0;
+      transform: translateX(-135%) scaleX(0.82);
+    }
+    10% {
+      opacity: 0.18;
+      transform: translateX(-92%) scaleX(0.9);
+    }
+    20% {
+      opacity: 0.9;
+      transform: translateX(-45%) scaleX(1);
+    }
+    34% {
+      opacity: 1;
+    }
+    48% {
+      opacity: 0.22;
+      transform: translateX(52%) scaleX(0.94);
+    }
+    58% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(135%) scaleX(0.82);
+    }
+  }
+  @keyframes home-grid-current-y {
+    0% {
+      opacity: 0;
+      transform: translateY(-135%) scaleY(0.82);
+    }
+    10% {
+      opacity: 0.18;
+      transform: translateY(-92%) scaleY(0.9);
+    }
+    20% {
+      opacity: 0.9;
+      transform: translateY(-45%) scaleY(1);
+    }
+    34% {
+      opacity: 1;
+    }
+    48% {
+      opacity: 0.22;
+      transform: translateY(52%) scaleY(0.94);
+    }
+    58% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(135%) scaleY(0.82);
+    }
   }
   .mask-edges {
     mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);

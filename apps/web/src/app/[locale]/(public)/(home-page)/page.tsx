@@ -1,6 +1,5 @@
 import { generatePublicMetadata } from "@/lib/metadata";
 import { HomeIntro } from "./_components/home-intro";
-import { HomeHero } from "./_components/home-hero";
 import { HomeLogoMarquee, HomeStatsBar } from "./_components/home-stats-marquee";
 import { HomeFeaturesGrid } from "./_components/home-features-grid";
 import { HomeHowItWorks } from "./_components/home-how-it-works";
@@ -38,9 +37,8 @@ export async function generateMetadata({ params }: Props) {
 
 export default function Home() {
   return (
-    <main className="min-h-screen">
+    <main className="-mt-4 min-h-screen lg:-mt-8">
       <HomeIntro />
-      <HomeHero />
       <HomeLogoMarquee />
       <HomeStatsBar />
       <HomeFeaturesGrid />
