@@ -10,8 +10,14 @@ import {
   OrgBranchesService,
 } from "@/server/services/organization.service";
 import { InvitationsClient } from "./_components/invitations-client";
+import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
+import { filterSortInvitations, paginateInvitations } from "./_utils/data-view";
 
-export default async function InvitationsPage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function InvitationsPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -23,6 +29,9 @@ export default async function InvitationsPage() {
     });
   }
 
+  const params = await searchParams;
+  const urlState = parseDataViewSearchParams(params);
+
   const supabase = await createClient();
   const [invitationsResult, rolesResult, branchesResult] = await Promise.all([
     OrgInvitationsService.listInvitations(supabase, context.app.activeOrgId),
@@ -30,9 +39,19 @@ export default async function InvitationsPage() {
     OrgBranchesService.listBranches(supabase, context.app.activeOrgId),
   ]);
 
+  const allInvitations = invitationsResult.success ? invitationsResult.data : [];
+
+  const filtered = filterSortInvitations(allInvitations, {
+    search: urlState.search,
+    filters: urlState.filters,
+    sort: urlState.sort,
+  });
+  const initialData = paginateInvitations(filtered, urlState.page, urlState.pageSize);
+
   return (
     <InvitationsClient
-      initialInvitations={invitationsResult.success ? invitationsResult.data : []}
+      initialData={initialData}
+      allInvitations={allInvitations}
       initialRoles={rolesResult.success ? rolesResult.data : []}
       initialBranches={branchesResult.success ? branchesResult.data : []}
     />

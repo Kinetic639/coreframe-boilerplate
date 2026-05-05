@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Mail, Send, X, RefreshCw, Plus, GitBranch, AlertCircle } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { INVITES_CREATE, INVITES_CANCEL } from "@/lib/constants/permissions";
 import {
@@ -29,12 +30,16 @@ import {
 } from "@/hooks/queries/organization";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 import type { OrgInvitation, OrgRole, OrgBranch } from "@/server/services/organization.service";
+import { DataView } from "@/components/data-view/data-view";
+import type {
+  DataViewColumnDef,
+  DataViewFilterDef,
+  DataViewListParams,
+  PaginatedResult,
+} from "@/components/data-view/data-view.types";
+import { filterSortInvitations, paginateInvitations } from "../_utils/data-view";
 
-interface InvitationsClientProps {
-  initialInvitations: OrgInvitation[];
-  initialRoles: OrgRole[];
-  initialBranches: OrgBranch[];
-}
+const INVITATIONS_DV_KEY = ["org-invitations-dataview"];
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -44,42 +49,69 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
   declined: "secondary",
 };
 
+interface InvitationsClientProps {
+  initialData: PaginatedResult<OrgInvitation>;
+  allInvitations: OrgInvitation[];
+  initialRoles: OrgRole[];
+  initialBranches: OrgBranch[];
+}
+
+type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
+
 export function InvitationsClient({
-  initialInvitations,
+  initialData,
+  allInvitations: initialAllInvitations,
   initialRoles,
   initialBranches,
 }: InvitationsClientProps) {
-  const router = useRouter();
-  const { can } = usePermissions();
   const t = useTranslations("adminInvitations");
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
 
   const activeOrgId = useAppStoreV2((s) => s.activeOrgId);
-  const { data: invitations } = useInvitationsQuery(initialInvitations);
+  useInvitationsRealtimeSync(activeOrgId);
+
+  const allRef = useRef(initialAllInvitations);
+  allRef.current = initialAllInvitations;
+
+  const listFetcher = useCallback(
+    async (params: DataViewListParams): Promise<PaginatedResult<OrgInvitation>> => {
+      const filtered = filterSortInvitations(allRef.current, params);
+      return paginateInvitations(filtered, params.page, params.pageSize);
+    },
+    []
+  );
+
+  const detailFetcher = useCallback(
+    async (id: string): Promise<OrgInvitation | null> =>
+      allRef.current.find((i) => i.id === id) ?? null,
+    []
+  );
+
+  // Seed React Query cache for realtime sync
+  useInvitationsQuery(initialAllInvitations);
   const { data: roles } = useRolesQuery(initialRoles);
   const { data: branches } = useBranchesQuery(initialBranches);
+
   const createMutation = useCreateInvitationMutation();
   const cancelMutation = useCancelInvitationMutation();
   const resendMutation = useResendInvitationMutation();
 
-  useInvitationsRealtimeSync(activeOrgId);
-
   const isPending =
     createMutation.isPending || cancelMutation.isPending || resendMutation.isPending;
+  const canCreate = can(INVITES_CREATE);
+  const canCancel = can(INVITES_CANCEL);
 
-  type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
+  const assignableRoles = roles.filter((r) => !r.is_basic && !r.deleted_at);
+  const activeBranches = branches.filter((b) => !b.deleted_at);
 
+  // ── Invite dialog state ───────────────────────────────────────────────────────
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [email, setEmail] = useState("");
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [roleScopeConfigs, setRoleScopeConfigs] = useState<Map<string, RoleScopeConfig>>(new Map());
   const [dialogError, setDialogError] = useState<string | null>(null);
-
-  const canCreate = can(INVITES_CREATE);
-  const canCancel = can(INVITES_CANCEL);
-
-  // Non-basic roles only (org_member/org_owner are assigned automatically)
-  const assignableRoles = roles.filter((r) => !r.is_basic && !r.deleted_at);
-  const activeBranches = branches.filter((b) => !b.deleted_at);
 
   const INVITE_ERROR_KEYS: Record<string, string> = {
     DUPLICATE_PENDING: t("inviteErrors.DUPLICATE_PENDING"),
@@ -89,20 +121,13 @@ export function InvitationsClient({
     UNAUTHORIZED: t("inviteErrors.UNAUTHORIZED"),
     INVALID_EMAIL: t("inviteErrors.INVALID_EMAIL"),
   };
-
-  const mapInviteError = (raw: string): string =>
-    INVITE_ERROR_KEYS[raw] ?? t("inviteErrors.UNKNOWN");
+  const mapInviteError = (raw: string) => INVITE_ERROR_KEYS[raw] ?? t("inviteErrors.UNKNOWN");
 
   const resetDialog = () => {
     setEmail("");
     setSelectedRoleIds([]);
     setRoleScopeConfigs(new Map());
     setDialogError(null);
-  };
-
-  const handleOpenDialog = () => {
-    resetDialog();
-    setShowInviteDialog(true);
   };
 
   const toggleRole = (roleId: string, scopeType: string) => {
@@ -126,12 +151,8 @@ export function InvitationsClient({
   const setRoleScope = (roleId: string, scope: "org" | "branch") => {
     setRoleScopeConfigs((prev) => {
       const next = new Map(prev);
-      const existing = next.get(roleId) ?? { scope: "org" as const, branchIds: [] };
-      next.set(roleId, {
-        ...existing,
-        scope,
-        branchIds: scope === "org" ? [] : existing.branchIds,
-      });
+      const ex = next.get(roleId) ?? { scope: "org" as const, branchIds: [] };
+      next.set(roleId, { ...ex, scope, branchIds: scope === "org" ? [] : ex.branchIds });
       return next;
     });
   };
@@ -139,13 +160,11 @@ export function InvitationsClient({
   const toggleBranchForRole = (roleId: string, branchId: string) => {
     setRoleScopeConfigs((prev) => {
       const next = new Map(prev);
-      const existing = next.get(roleId) ?? { scope: "branch" as const, branchIds: [] };
-      const hasBranch = existing.branchIds.includes(branchId);
+      const ex = next.get(roleId) ?? { scope: "branch" as const, branchIds: [] };
+      const has = ex.branchIds.includes(branchId);
       next.set(roleId, {
-        ...existing,
-        branchIds: hasBranch
-          ? existing.branchIds.filter((id) => id !== branchId)
-          : [...existing.branchIds, branchId],
+        ...ex,
+        branchIds: has ? ex.branchIds.filter((id) => id !== branchId) : [...ex.branchIds, branchId],
       });
       return next;
     });
@@ -154,126 +173,262 @@ export function InvitationsClient({
   const handleInvite = () => {
     if (!email.trim()) return;
     setDialogError(null);
-
-    // Expand branch-scoped roles: one assignment per selected branch
     type RoleAssignment = { role_id: string; scope: "org" | "branch"; scope_id: string | null };
     const role_assignments: RoleAssignment[] | undefined =
       selectedRoleIds.length > 0
         ? selectedRoleIds.flatMap<RoleAssignment>((roleId) => {
             const config = roleScopeConfigs.get(roleId);
-            if (config?.scope === "branch") {
-              return config.branchIds.map((branchId) => ({
+            if (config?.scope === "branch")
+              return config.branchIds.map((bid) => ({
                 role_id: roleId,
                 scope: "branch" as const,
-                scope_id: branchId,
+                scope_id: bid,
               }));
-            }
             return [{ role_id: roleId, scope: "org" as const, scope_id: null }];
           })
         : undefined;
-
     createMutation.mutate(
       { email: email.trim(), role_assignments },
       {
         onSuccess: () => {
           resetDialog();
           setShowInviteDialog(false);
-          router.refresh();
+          void refreshAfterMutation();
         },
-        onError: (err: Error) => {
-          setDialogError(mapInviteError(err.message));
-        },
+        onError: (err: Error) => setDialogError(mapInviteError(err.message)),
       }
     );
   };
 
-  const handleCancel = (invitation: OrgInvitation) => {
-    cancelMutation.mutate({ invitationId: invitation.id });
+  const refreshAfterMutation = async () => {
+    await queryClient.invalidateQueries({ queryKey: INVITATIONS_DV_KEY });
+    router.refresh();
   };
 
-  const handleResend = (invitation: OrgInvitation) => {
-    resendMutation.mutate({ invitationId: invitation.id });
+  const handleCancel = (inv: OrgInvitation) => {
+    cancelMutation.mutate(
+      { invitationId: inv.id },
+      { onSuccess: () => void refreshAfterMutation() }
+    );
   };
+
+  const handleResend = (inv: OrgInvitation) => {
+    resendMutation.mutate(
+      { invitationId: inv.id },
+      { onSuccess: () => void refreshAfterMutation() }
+    );
+  };
+
+  // ── DataView definitions ──────────────────────────────────────────────────────
+  const columns = useMemo<DataViewColumnDef<OrgInvitation>[]>(
+    () => [
+      {
+        key: "email",
+        header: t("columns.email"),
+        accessor: (row) => (
+          <div className="flex items-center gap-2 py-1">
+            <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="truncate font-medium text-foreground">{row.email}</span>
+          </div>
+        ),
+        sortable: true,
+        defaultVisible: true,
+      },
+      {
+        key: "status",
+        header: t("columns.status"),
+        accessor: (row) => (
+          <Badge variant={STATUS_VARIANT[row.status] ?? "outline"} className="text-xs capitalize">
+            {t(`statusLabels.${row.status}` as Parameters<typeof t>[0]) ?? row.status}
+          </Badge>
+        ),
+        sortable: true,
+        defaultVisible: true,
+        compactLabel: true,
+      },
+      {
+        key: "roles",
+        header: t("columns.roles"),
+        accessor: (row) =>
+          row.role_summary ? (
+            <span className="text-xs text-muted-foreground truncate">{row.role_summary}</span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          ),
+        defaultVisible: true,
+      },
+      {
+        key: "expires_at",
+        header: t("columns.expires"),
+        accessor: (row) => (
+          <span className="text-xs text-muted-foreground">
+            {row.expires_at ? new Date(row.expires_at).toLocaleDateString() : "—"}
+          </span>
+        ),
+        sortable: true,
+        defaultVisible: true,
+      },
+    ],
+    [t]
+  );
+
+  const filters = useMemo<DataViewFilterDef[]>(
+    () => [
+      {
+        type: "multi-select",
+        key: "status",
+        label: t("filters.status"),
+        options: [
+          { label: t("statusLabels.pending"), value: "pending" },
+          { label: t("statusLabels.accepted"), value: "accepted" },
+          { label: t("statusLabels.declined"), value: "declined" },
+          { label: t("statusLabels.cancelled"), value: "cancelled" },
+          { label: t("statusLabels.expired"), value: "expired" },
+        ],
+      },
+    ],
+    [t]
+  );
+
+  const renderCompactItem = useCallback(
+    (row: OrgInvitation) => (
+      <div className="flex items-center gap-2 py-0.5">
+        <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate text-sm font-medium">{row.email}</span>
+        <Badge variant={STATUS_VARIANT[row.status] ?? "outline"} className="shrink-0 text-xs">
+          {t(`statusLabels.${row.status}` as Parameters<typeof t>[0]) ?? row.status}
+        </Badge>
+      </div>
+    ),
+    [t]
+  );
+
+  const renderDetail = useCallback(
+    (inv: OrgInvitation) => (
+      <div className="space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border">
+            <Mail className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight break-all">{inv.email}</h2>
+            <Badge
+              variant={STATUS_VARIANT[inv.status] ?? "outline"}
+              className="mt-1 text-xs capitalize"
+            >
+              {t(`statusLabels.${inv.status}` as Parameters<typeof t>[0]) ?? inv.status}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("detail.expires")}
+            </p>
+            <span>{inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : "—"}</span>
+          </div>
+          <div>
+            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("detail.created")}
+            </p>
+            <span>{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}</span>
+          </div>
+          <div className="col-span-2">
+            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("detail.roles")}
+            </p>
+            <span className="text-sm">
+              {inv.role_summary ?? (
+                <span className="text-muted-foreground text-xs">{t("detail.noRoles")}</span>
+              )}
+            </span>
+          </div>
+          <div className="col-span-2">
+            <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("detail.id")}
+            </p>
+            <span className="break-all font-mono text-xs text-muted-foreground">{inv.id}</span>
+          </div>
+        </div>
+
+        {inv.status === "pending" && (canCreate || canCancel) && (
+          <div className="flex gap-2 border-t pt-3">
+            {canCreate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleResend(inv)}
+                disabled={isPending}
+              >
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                {t("actions.resend")}
+              </Button>
+            )}
+            {canCancel && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => handleCancel(inv)}
+                disabled={isPending}
+              >
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                {t("actions.cancel")}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+    ),
+    [t, canCreate, canCancel, isPending]
+  );
 
   return (
-    <div className="space-y-4">
-      {canCreate && (
-        <div className="flex justify-end">
-          <Button onClick={handleOpenDialog} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            {t("inviteMemberButton")}
-          </Button>
+    <>
+      <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{t("dialogTitle")}</h2>
+          </div>
+          {canCreate && (
+            <Button
+              onClick={() => {
+                resetDialog();
+                setShowInviteDialog(true);
+              }}
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t("inviteMemberButton")}
+            </Button>
+          )}
         </div>
-      )}
 
-      {invitations.length === 0 ? (
-        <div className="py-8 text-center text-sm text-muted-foreground">{t("noInvitations")}</div>
-      ) : (
-        <div className="space-y-2">
-          {invitations.map((inv) => {
-            return (
-              <div
-                key={inv.id}
-                className="flex items-center justify-between rounded-lg border px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium">{inv.email}</p>
-                    {inv.role_summary && (
-                      <p className="text-xs text-muted-foreground">{inv.role_summary}</p>
-                    )}
-                    {inv.expires_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {t("expiresLabel")} {new Date(inv.expires_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={STATUS_VARIANT[inv.status] ?? "outline"}>{inv.status}</Badge>
-                  {inv.status === "pending" && (
-                    <>
-                      {canCreate && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          disabled={isPending}
-                          onClick={() => handleResend(inv)}
-                          title={t("resendTitle")}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canCancel && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          disabled={isPending}
-                          onClick={() => handleCancel(inv)}
-                          title={t("cancelTitle")}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-hidden">
+          <DataView<OrgInvitation, OrgInvitation>
+            entity="org-invitations"
+            columns={columns}
+            filters={filters}
+            initialData={initialData}
+            queryKey={INVITATIONS_DV_KEY}
+            listFetcher={listFetcher}
+            detailFetcher={detailFetcher}
+            getRowId={(row) => row.id}
+            renderCompactItem={renderCompactItem}
+            renderDetail={renderDetail}
+            className="h-full"
+          />
         </div>
-      )}
+      </div>
 
+      {/* Invite Dialog */}
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
         <DialogContent className="max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{t("dialogTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Email */}
             <div className="space-y-1">
               <Label htmlFor="invite-email">
                 {t("emailAddressLabel")} <span className="text-destructive">*</span>
@@ -286,13 +441,11 @@ export function InvitationsClient({
                   setEmail(e.target.value);
                   setDialogError(null);
                 }}
-                placeholder="colleague@example.com"
+                placeholder={t("form.emailPlaceholder")}
                 onKeyDown={(e) => e.key === "Enter" && handleInvite()}
                 disabled={isPending}
               />
             </div>
-
-            {/* Role assignments */}
             {assignableRoles.length > 0 && (
               <div className="space-y-2">
                 <Label>{t("rolesLabel")}</Label>
@@ -305,7 +458,6 @@ export function InvitationsClient({
                       isChecked &&
                       (role.scope_type === "branch" ||
                         (role.scope_type === "both" && config?.scope === "branch"));
-
                     return (
                       <div key={role.id} className="space-y-2">
                         <div className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
@@ -325,7 +477,7 @@ export function InvitationsClient({
                                   className="text-xs gap-1 py-0 text-blue-600 border-blue-300"
                                 >
                                   <GitBranch className="h-2.5 w-2.5" />
-                                  branch
+                                  {t("form.scopeBranch")}
                                 </Badge>
                               )}
                               {role.scope_type === "both" && (
@@ -333,7 +485,7 @@ export function InvitationsClient({
                                   variant="outline"
                                   className="text-xs py-0 text-purple-600 border-purple-300"
                                 >
-                                  both
+                                  {t("form.scopeBranch")}/{t("form.scopeOrg")}
                                 </Badge>
                               )}
                             </div>
@@ -342,8 +494,6 @@ export function InvitationsClient({
                             )}
                           </Label>
                         </div>
-
-                        {/* Scope toggle for 'both' roles */}
                         {isChecked && role.scope_type === "both" && (
                           <div className="ml-7 flex gap-1">
                             <Button
@@ -354,7 +504,7 @@ export function InvitationsClient({
                               onClick={() => setRoleScope(role.id, "org")}
                               disabled={isPending}
                             >
-                              Org
+                              {t("form.scopeOrg")}
                             </Button>
                             <Button
                               type="button"
@@ -364,17 +514,15 @@ export function InvitationsClient({
                               onClick={() => setRoleScope(role.id, "branch")}
                               disabled={isPending}
                             >
-                              Branch
+                              {t("form.scopeBranch")}
                             </Button>
                           </div>
                         )}
-
-                        {/* Branch checkboxes for branch-scoped roles */}
                         {showBranchSelector && (
                           <div className="ml-7 space-y-1">
                             {activeBranches.length === 0 ? (
                               <p className="text-xs text-muted-foreground">
-                                No branches available.
+                                {t("form.noBranches")}
                               </p>
                             ) : (
                               activeBranches.map((branch) => (
@@ -395,7 +543,7 @@ export function InvitationsClient({
                               ))
                             )}
                             {config?.branchIds.length === 0 && (
-                              <p className="text-xs text-amber-600">Select at least one branch.</p>
+                              <p className="text-xs text-amber-600">{t("form.selectBranchHint")}</p>
                             )}
                           </div>
                         )}
@@ -427,6 +575,6 @@ export function InvitationsClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

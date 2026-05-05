@@ -11,8 +11,14 @@ import {
   OrgBranchesService,
 } from "@/server/services/organization.service";
 import { MembersClient } from "./_components/members-client";
+import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
+import { filterSortMembers, paginateMembers } from "./_utils/data-view";
 
-export default async function MembersPage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function MembersPage({ searchParams }: PageProps) {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -23,6 +29,9 @@ export default async function MembersPage() {
       locale,
     });
   }
+
+  const params = await searchParams;
+  const urlState = parseDataViewSearchParams(params);
 
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
@@ -36,9 +45,19 @@ export default async function MembersPage() {
       OrgBranchesService.listBranches(supabase, orgId),
     ]);
 
+  const allMembers = membersResult.success ? membersResult.data : [];
+
+  const filtered = filterSortMembers(allMembers, {
+    search: urlState.search,
+    filters: urlState.filters,
+    sort: urlState.sort,
+  });
+  const initialData = paginateMembers(filtered, urlState.page, urlState.pageSize);
+
   return (
     <MembersClient
-      initialMembers={membersResult.success ? membersResult.data : []}
+      initialData={initialData}
+      allMembers={allMembers}
       initialPositions={positionsResult.success ? positionsResult.data : []}
       initialAssignments={assignmentsResult.success ? assignmentsResult.data : []}
       initialRoles={rolesResult.success ? rolesResult.data : []}

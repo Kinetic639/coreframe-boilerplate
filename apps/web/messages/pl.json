@@ -2729,6 +2729,153 @@
           "save": "Zapisz",
           "create": "Utwórz",
           "saving": "Zapisywanie…"
+        },
+        "columns": {
+          "name": "Nazwa",
+          "scope": "Zakres",
+          "description": "Opis",
+          "permissionCount": "Uprawnienia"
+        },
+        "filters": {
+          "scope": "Zakres",
+          "scopeOptions": {
+            "org": "Organizacja",
+            "branch": "Oddział",
+            "both": "Oba"
+          }
+        },
+        "detail": {
+          "scope": "Zakres",
+          "description": "Opis",
+          "permissions": "Uprawnienia",
+          "id": "ID",
+          "noDescription": "Brak opisu",
+          "noPermissions": "Brak uprawnień"
+        },
+        "actions": {
+          "edit": "Edytuj",
+          "delete": "Usuń"
+        },
+        "permissionGroups": {
+          "organization": "Organizacja",
+          "members": "Członkowie",
+          "invitations": "Zaproszenia",
+          "branchManagement": "Zarządzanie oddziałem",
+          "branches": "Oddziały",
+          "moduleAccess": "Dostęp do modułu",
+          "permissions": {
+            "orgRead": "Podgląd profilu organizacji",
+            "orgUpdate": "Edycja profilu i logo organizacji",
+            "membersRead": "Podgląd listy członków",
+            "membersManage": "Zarządzanie członkami (aktywacja, usuwanie, przypisywanie ról i stanowisk)",
+            "invitesRead": "Podgląd zaproszeń",
+            "invitesCreate": "Wysyłanie zaproszeń",
+            "invitesCancel": "Anulowanie zaproszeń",
+            "branchRolesManage": "Zarządzanie przypisaniami ról oddziału (delegacja branch managera)",
+            "branchesRead": "Podgląd oddziałów",
+            "branchesCreate": "Tworzenie oddziałów",
+            "branchesUpdate": "Edycja oddziałów",
+            "branchesDelete": "Usuwanie oddziałów",
+            "moduleOrgManagementAccess": "Dostęp do modułu zarządzania organizacją"
+          }
+        }
+      },
+      "members": {
+        "title": "Członkowie",
+        "description": "Zarządzaj członkami organizacji, ich rolami i stanowiskami",
+        "unknown": "Nieznany",
+        "columns": {
+          "member": "Członek",
+          "status": "Status",
+          "roles": "Role",
+          "position": "Stanowisko",
+          "joined": "Dołączył"
+        },
+        "filters": {
+          "status": "Status"
+        },
+        "statusOptions": {
+          "active": "Aktywny",
+          "inactive": "Nieaktywny"
+        },
+        "detail": {
+          "email": "E-mail",
+          "status": "Status",
+          "joined": "Dołączył",
+          "roles": "Role",
+          "position": "Stanowisko",
+          "noRoles": "Brak przypisanych ról",
+          "noPosition": "Brak stanowiska",
+          "viewDetails": "Zobacz pełny profil"
+        },
+        "actions": {
+          "activate": "Aktywuj",
+          "deactivate": "Dezaktywuj",
+          "manageRoles": "Zarządzaj rolami",
+          "assignPosition": "Przypisz stanowisko",
+          "changePosition": "Zmień stanowisko",
+          "removeMember": "Usuń członka",
+          "viewDetails": "Zobacz szczegóły członka"
+        },
+        "manageRolesDialog": {
+          "title": "Zarządzaj rolami",
+          "noRoles": "Brak dostępnych ról.",
+          "noBranches": "Brak dostępnych oddziałów.",
+          "selectBranchHint": "Wybierz co najmniej jeden oddział.",
+          "scopeOrg": "Org",
+          "scopeBranch": "Oddział",
+          "systemBadge": "systemowa",
+          "cancel": "Anuluj",
+          "save": "Zapisz",
+          "saving": "Zapisywanie…"
+        },
+        "assignPositionDialog": {
+          "titleAssign": "Przypisz stanowisko",
+          "titleChange": "Zmień stanowisko",
+          "placeholder": "Wybierz stanowisko…",
+          "removeHint": "Zostaw puste, aby usunąć obecne stanowisko.",
+          "cancel": "Anuluj",
+          "save": "Zapisz",
+          "saving": "Zapisywanie…"
+        },
+        "toasts": {
+          "activated": "Członek aktywowany",
+          "deactivated": "Członek dezaktywowany",
+          "positionAssigned": "Stanowisko przypisane",
+          "positionRemoved": "Stanowisko usunięte",
+          "rolesUpdated": "Role zaktualizowane"
+        }
+      },
+      "positions": {
+        "title": "Stanowiska",
+        "description": "Zarządzaj stanowiskami w organizacji",
+        "createButton": "Utwórz stanowisko",
+        "empty": "Brak stanowisk.",
+        "columns": {
+          "name": "Nazwa",
+          "description": "Opis"
+        },
+        "detail": {
+          "name": "Nazwa",
+          "description": "Opis",
+          "id": "ID",
+          "noDescription": "Brak opisu"
+        },
+        "actions": {
+          "edit": "Edytuj",
+          "delete": "Usuń"
+        },
+        "dialog": {
+          "titleCreate": "Utwórz stanowisko",
+          "titleEdit": "Edytuj stanowisko",
+          "name": "Nazwa",
+          "namePlaceholder": "Tytuł stanowiska",
+          "description": "Opis",
+          "descriptionPlaceholder": "Opcjonalny opis",
+          "cancel": "Anuluj",
+          "saving": "Zapisywanie…",
+          "create": "Utwórz",
+          "save": "Zapisz"
         }
       }
     },
@@ -4301,7 +4448,44 @@
     "inviteSentSuccess": "Zaproszenie zostało wysłane",
     "resendSuccess": "Zaproszenie zostało wysłane ponownie",
     "emailDeliveryWarning": "Zaproszenie zostało utworzone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
-    "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie."
+    "emailResendWarning": "Zaproszenie zostało odświeżone, ale wiadomość e-mail nie mogła zostać dostarczona. Udostępnij link do zaproszenia ręcznie.",
+    "columns": {
+      "email": "E-mail",
+      "status": "Status",
+      "roles": "Role",
+      "expires": "Wygasa"
+    },
+    "filters": {
+      "status": "Status"
+    },
+    "statusLabels": {
+      "pending": "Oczekujące",
+      "accepted": "Zaakceptowane",
+      "declined": "Odrzucone",
+      "cancelled": "Anulowane",
+      "expired": "Wygasłe"
+    },
+    "detail": {
+      "email": "E-mail",
+      "status": "Status",
+      "expires": "Wygasa",
+      "roles": "Role",
+      "id": "ID",
+      "noRoles": "Brak przypisanych ról",
+      "invitedBy": "Zaproszony przez",
+      "created": "Utworzono"
+    },
+    "actions": {
+      "resend": "Wyślij ponownie",
+      "cancel": "Anuluj zaproszenie"
+    },
+    "form": {
+      "emailPlaceholder": "kolega@example.com",
+      "noBranches": "Brak dostępnych oddziałów.",
+      "selectBranchHint": "Wybierz co najmniej jeden oddział.",
+      "scopeOrg": "Org",
+      "scopeBranch": "Oddział"
+    }
   },
   "events": {
     "auth": {
