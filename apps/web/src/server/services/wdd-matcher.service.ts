@@ -162,21 +162,34 @@ export interface ExtractedFileData {
 }
 
 export interface PdfLineData {
+  lp: number | null;
   productCode: string | null;
   productName: string | null;
+  iz: number | null;
+  iw: number | null;
+  ir: number | null;
+  inz: number | null;
+  location: string | null;
   quantity: number | null;
+  idpRaw: string | null;
   unit: string | null;
+  operationCode: string | null;
 }
 
 export interface PdfBlockData {
   isDirect: boolean;
+  headerText: string | null;
   wddNumber: string | null;
   groupName: string | null;
   orderNumber: string | null;
   zlNumber: string | null;
   zwNumber: string | null;
   clientName: string | null;
+  manualNote: string | null;
   vin: string | null;
+  warehouseCode: string | null;
+  warehouseLabel: string | null;
+  documentBrand: string | null;
   matchType: BlockMatchType;
   confidence: number;
   lines: PdfLineData[];
@@ -950,25 +963,41 @@ export class WddMatcherService {
     }
 
     const toLines = (blockId: string): PdfLineData[] =>
-      (linesByBlock.get(blockId) ?? []).map((l) => ({
-        productCode: l.product_code,
-        productName: l.product_name,
-        quantity: l.quantity,
-        unit: l.unit,
-      }));
+      (linesByBlock.get(blockId) ?? []).map((l) => {
+        const meta = (l.metadata ?? {}) as Record<string, unknown>;
+        return {
+          lp: typeof meta.lp === "number" ? meta.lp : l.line_number,
+          productCode: l.product_code,
+          productName: l.product_name,
+          iz: typeof meta.iz === "number" ? meta.iz : null,
+          iw: typeof meta.iw === "number" ? meta.iw : null,
+          ir: typeof meta.ir === "number" ? meta.ir : null,
+          inz: typeof meta.inz === "number" ? meta.inz : null,
+          location: l.location,
+          quantity: l.quantity,
+          idpRaw: typeof meta.idp_raw === "string" ? meta.idp_raw : null,
+          unit: l.unit,
+          operationCode: typeof meta.operation_code === "string" ? meta.operation_code : null,
+        };
+      });
 
     // ── Direct order blocks (no matching needed — metadata is self-contained) ──
     const directPdfBlocks: PdfBlockData[] = directBlocks.map((b) => {
       const m = (b.metadata ?? {}) as Record<string, unknown>;
       return {
         isDirect: true,
+        headerText: (b.block_header_text as string) ?? null,
         wddNumber: null,
         groupName: null,
         orderNumber: (m.order_number as string) ?? null,
         zlNumber: (m.zl_number as string) ?? null,
         zwNumber: (m.zw_number as string) ?? null,
         clientName: (m.client_name as string) ?? null,
+        manualNote: (m.manual_note as string) ?? null,
         vin: (m.vin as string) ?? null,
+        warehouseCode: (m.warehouse_code as string) ?? null,
+        warehouseLabel: (m.warehouse_section_label as string) ?? null,
+        documentBrand: (m.document_brand as string) ?? null,
         matchType: "unmatched_bc" as BlockMatchType,
         confidence: 0,
         lines: toLines(b.id as string),
@@ -988,13 +1017,23 @@ export class WddMatcherService {
 
       wddPdfBlocks.push({
         isDirect: false,
+        headerText: (wddBlock.block_header_text as string) ?? null,
         wddNumber: (wddMeta.wdd_number as string) ?? null,
         groupName: (wddMeta.group_name as string) ?? null,
         orderNumber: (orderMeta.order_number as string) ?? null,
         zlNumber: (orderMeta.zl_number as string) ?? null,
         zwNumber: (orderMeta.zw_number as string) ?? null,
         clientName: (orderMeta.client_name as string) ?? null,
+        manualNote: (orderMeta.manual_note as string) ?? null,
         vin: (orderMeta.vin as string) ?? null,
+        warehouseCode:
+          (orderMeta.warehouse_code as string) ?? (wddMeta.warehouse_code as string) ?? null,
+        warehouseLabel:
+          (orderMeta.warehouse_section_label as string) ??
+          (wddMeta.warehouse_section_label as string) ??
+          null,
+        documentBrand:
+          (orderMeta.document_brand as string) ?? (wddMeta.document_brand as string) ?? null,
         matchType: bm.block_match_type as BlockMatchType,
         confidence: (bm.block_confidence as number) ?? 0,
         lines: toLines(bm.bc_block_id as string),

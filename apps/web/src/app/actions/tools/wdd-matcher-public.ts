@@ -34,6 +34,11 @@ function metadataString(metadata: Record<string, unknown>, key: string): string 
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+function metadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -128,6 +133,10 @@ function toLineRecord(args: {
     page_number: args.line.pageNumber,
     metadata: {
       lp: args.line.lp,
+      iz: args.line.iz,
+      iw: args.line.iw,
+      ir: args.line.ir,
+      inz: args.line.inz,
       quantity_signed: args.line.quantitySigned,
       idp_raw: args.line.idpRaw,
       movement_direction: args.line.movementDirection,
@@ -181,12 +190,23 @@ function buildResultEntries(
   }
 
   const toPdfLines = (blockId: string): PdfLineData[] =>
-    (linesByBlockId.get(blockId) ?? []).map((line) => ({
-      productCode: line.product_code,
-      productName: line.product_name,
-      quantity: line.quantity,
-      unit: line.unit,
-    }));
+    (linesByBlockId.get(blockId) ?? []).map((line) => {
+      const metadata = line.metadata;
+      return {
+        lp: metadataNumber(metadata, "lp") ?? line.line_number,
+        productCode: line.product_code,
+        productName: line.product_name,
+        iz: metadataNumber(metadata, "iz"),
+        iw: metadataNumber(metadata, "iw"),
+        ir: metadataNumber(metadata, "ir"),
+        inz: metadataNumber(metadata, "inz"),
+        location: line.location,
+        quantity: line.quantity,
+        idpRaw: metadataString(metadata, "idp_raw"),
+        unit: line.unit,
+        operationCode: metadataString(metadata, "operation_code"),
+      };
+    });
 
   const directPdfBlocks: PdfBlockData[] = blocks
     .filter((block) => block.block_type === "direct_order" && !block.is_excluded)
@@ -194,13 +214,18 @@ function buildResultEntries(
       const metadata = block.metadata;
       return {
         isDirect: true,
+        headerText: block.block_header_text,
         wddNumber: null,
         groupName: null,
         orderNumber: metadataString(metadata, "order_number"),
         zlNumber: metadataString(metadata, "zl_number"),
         zwNumber: metadataString(metadata, "zw_number"),
         clientName: metadataString(metadata, "client_name"),
+        manualNote: metadataString(metadata, "manual_note"),
         vin: metadataString(metadata, "vin"),
+        warehouseCode: metadataString(metadata, "warehouse_code"),
+        warehouseLabel: metadataString(metadata, "warehouse_section_label"),
+        documentBrand: metadataString(metadata, "document_brand"),
         matchType: "unmatched_bc" as BlockMatchType,
         confidence: 0,
         lines: toPdfLines(block.id),
@@ -216,13 +241,22 @@ function buildResultEntries(
     return [
       {
         isDirect: false,
+        headerText: wddBlock.block_header_text,
         wddNumber: metadataString(wddMeta, "wdd_number"),
         groupName: metadataString(wddMeta, "group_name"),
         orderNumber: metadataString(orderMeta, "order_number"),
         zlNumber: metadataString(orderMeta, "zl_number"),
         zwNumber: metadataString(orderMeta, "zw_number"),
         clientName: metadataString(orderMeta, "client_name"),
+        manualNote: metadataString(orderMeta, "manual_note"),
         vin: metadataString(orderMeta, "vin"),
+        warehouseCode:
+          metadataString(orderMeta, "warehouse_code") ?? metadataString(wddMeta, "warehouse_code"),
+        warehouseLabel:
+          metadataString(orderMeta, "warehouse_section_label") ??
+          metadataString(wddMeta, "warehouse_section_label"),
+        documentBrand:
+          metadataString(orderMeta, "document_brand") ?? metadataString(wddMeta, "document_brand"),
         matchType: match.blockMatchType,
         confidence: match.blockConfidence,
         lines: toPdfLines(wddBlock.id),
