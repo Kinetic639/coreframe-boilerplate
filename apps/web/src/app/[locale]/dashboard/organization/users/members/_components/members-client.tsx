@@ -1,17 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -27,19 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  MoreHorizontal,
-  UserCheck,
-  UserX,
-  Trash2,
-  Briefcase,
-  Shield,
-  Eye,
-  GitBranch,
-} from "lucide-react";
+import { UserCheck, UserX, Trash2, Briefcase, Shield, ExternalLink, GitBranch } from "lucide-react";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/v2/use-permissions";
 import { MEMBERS_MANAGE } from "@/lib/constants/permissions";
 import {
@@ -64,39 +50,68 @@ import type {
   OrgRole,
   OrgBranch,
 } from "@/server/services/organization.service";
+import { DataView } from "@/components/data-view/data-view";
+import type {
+  DataViewColumnDef,
+  DataViewFilterDef,
+  DataViewListParams,
+  PaginatedResult,
+} from "@/components/data-view/data-view.types";
+import { filterSortMembers, paginateMembers } from "../_utils/data-view";
+
+const MEMBERS_DV_KEY = ["org-members-dataview"];
 
 interface MembersClientProps {
-  initialMembers: OrgMember[];
+  initialData: PaginatedResult<OrgMember>;
+  allMembers: OrgMember[];
   initialPositions: OrgPosition[];
   initialAssignments: OrgPositionAssignment[];
   initialRoles: OrgRole[];
   initialBranches: OrgBranch[];
 }
 
-// Per-role scope configuration in the manage dialog
-type RoleScopeConfig = {
-  scope: "org" | "branch";
-  branchIds: string[];
-};
+type RoleScopeConfig = { scope: "org" | "branch"; branchIds: string[] };
 
 export function MembersClient({
-  initialMembers,
+  initialData,
+  allMembers: initialAllMembers,
   initialPositions,
   initialAssignments,
   initialRoles,
   initialBranches,
 }: MembersClientProps) {
+  const t = useTranslations("modules.organizationManagement.members");
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { can } = usePermissions();
   const activeOrgId = useAppStoreV2((s) => s.activeOrgId);
 
   useMembersRealtimeSync(activeOrgId);
 
-  const { data: members } = useMembersQuery(initialMembers);
+  const allRef = useRef(initialAllMembers);
+  allRef.current = initialAllMembers;
+
+  const listFetcher = useCallback(
+    async (params: DataViewListParams): Promise<PaginatedResult<OrgMember>> => {
+      const filtered = filterSortMembers(allRef.current, params);
+      return paginateMembers(filtered, params.page, params.pageSize);
+    },
+    []
+  );
+
+  const detailFetcher = useCallback(
+    async (id: string): Promise<OrgMember | null> =>
+      allRef.current.find((m) => m.user_id === id) ?? null,
+    []
+  );
+
   const { data: positions } = usePositionsQuery(initialPositions);
   const { data: assignments } = useAssignmentsQuery(initialAssignments);
   const { data: availableRoles } = useRolesQuery(initialRoles);
   const { data: branches } = useBranchesQuery(initialBranches);
+
+  // Keep members cache seeded (for reactivity after mutations via existing hooks)
+  useMembersQuery(initialAllMembers);
 
   const statusMutation = useUpdateMemberStatusMutation();
   const removeMutation = useRemoveMemberMutation();
@@ -113,46 +128,51 @@ export function MembersClient({
     assignPositionMutation.isPending ||
     removePositionMutation.isPending;
 
-  // Position assign dialog
-  const [assignPositionMember, setAssignPositionMember] = useState<OrgMember | null>(null);
-  const [selectedPositionId, setSelectedPositionId] = useState<string>("");
+  const canManage = can(MEMBERS_MANAGE);
 
-  // Role assign dialog
+  // Derived maps
+  const positionByUser = useMemo(
+    () => new Map(assignments.filter((a) => !a.deleted_at).map((a) => [a.user_id, a])),
+    [assignments]
+  );
+  const branchNameMap = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
+
+  // ── Dialog state ─────────────────────────────────────────────────────────────
+  const [assignPositionMember, setAssignPositionMember] = useState<OrgMember | null>(null);
+  const [selectedPositionId, setSelectedPositionId] = useState("");
   const [assignRoleMember, setAssignRoleMember] = useState<OrgMember | null>(null);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [roleScopeConfigs, setRoleScopeConfigs] = useState<Map<string, RoleScopeConfig>>(new Map());
 
-  const canManage = can(MEMBERS_MANAGE);
+  const refreshAfterMutation = async () => {
+    await queryClient.invalidateQueries({ queryKey: MEMBERS_DV_KEY });
+    router.refresh();
+  };
 
-  // Position map: userId → assignment
-  const positionByUser = new Map(
-    assignments.filter((a) => !a.deleted_at).map((a) => [a.user_id, a])
-  );
-
-  // Branch name lookup for role badge display
-  const branchNameMap = new Map(branches.map((b) => [b.id, b.name]));
-
+  // ── Status toggle ─────────────────────────────────────────────────────────────
   const handleStatusToggle = (member: OrgMember) => {
     const newStatus = member.status === "active" ? "inactive" : "active";
     statusMutation.mutate(
       { userId: member.user_id, status: newStatus },
       {
         onSuccess: () => {
-          toast.success(`Member ${newStatus === "active" ? "activated" : "deactivated"}`);
-          router.refresh();
+          toast.success(newStatus === "active" ? t("toasts.activated") : t("toasts.deactivated"));
+          void refreshAfterMutation();
         },
       }
     );
   };
 
   const handleRemove = (member: OrgMember) => {
-    removeMutation.mutate({ userId: member.user_id }, { onSuccess: () => router.refresh() });
+    removeMutation.mutate(
+      { userId: member.user_id },
+      { onSuccess: () => void refreshAfterMutation() }
+    );
   };
 
-  // Position assignment
+  // ── Position dialog ───────────────────────────────────────────────────────────
   const openAssignPosition = (member: OrgMember) => {
-    const existing = positionByUser.get(member.user_id);
-    setSelectedPositionId(existing?.position_id ?? "");
+    setSelectedPositionId(positionByUser.get(member.user_id)?.position_id ?? "");
     setAssignPositionMember(member);
   };
 
@@ -164,43 +184,37 @@ export function MembersClient({
       return;
     }
     try {
-      if (existing) {
-        await removePositionMutation.mutateAsync({ assignmentId: existing.id });
-      }
+      if (existing) await removePositionMutation.mutateAsync({ assignmentId: existing.id });
       if (selectedPositionId) {
         await assignPositionMutation.mutateAsync({
           userId: assignPositionMember.user_id,
           positionId: selectedPositionId,
         });
-        toast.success("Position assigned");
+        toast.success(t("toasts.positionAssigned"));
       } else {
-        toast.success("Position removed");
+        toast.success(t("toasts.positionRemoved"));
       }
       setAssignPositionMember(null);
-      router.refresh();
+      void refreshAfterMutation();
     } catch {
-      // error toast handled by hook's onError
       setAssignPositionMember(null);
     }
   };
 
-  // Role assignment — scope-aware
+  // ── Role dialog ───────────────────────────────────────────────────────────────
   const openAssignRoles = (member: OrgMember) => {
-    // Unique role IDs (same role may be assigned to multiple branches)
     const uniqueRoleIds = [...new Set(member.roles.map((r) => r.id))];
     setSelectedRoleIds(uniqueRoleIds);
-
-    // Initialize scope configs from actual assignment data (org + branch)
     const initConfigs = new Map<string, RoleScopeConfig>();
-    for (const roleEntry of member.roles) {
-      const existing = initConfigs.get(roleEntry.id);
-      if (roleEntry.scope === "branch") {
-        initConfigs.set(roleEntry.id, {
+    for (const r of member.roles) {
+      const existing = initConfigs.get(r.id);
+      if (r.scope === "branch") {
+        initConfigs.set(r.id, {
           scope: "branch",
-          branchIds: [...(existing?.branchIds ?? []), roleEntry.scope_id],
+          branchIds: [...(existing?.branchIds ?? []), r.scope_id],
         });
       } else if (!existing) {
-        initConfigs.set(roleEntry.id, { scope: "org", branchIds: [] });
+        initConfigs.set(r.id, { scope: "org", branchIds: [] });
       }
     }
     setRoleScopeConfigs(initConfigs);
@@ -216,28 +230,20 @@ export function MembersClient({
           return next;
         });
         return prev.filter((id) => id !== roleId);
-      } else {
-        // Add with default scope config
-        const defaultScope: "org" | "branch" = scopeType === "branch" ? "branch" : "org";
-        setRoleScopeConfigs((cfg) => {
-          const next = new Map(cfg);
-          next.set(roleId, { scope: defaultScope, branchIds: [] });
-          return next;
-        });
-        return [...prev, roleId];
       }
+      const defaultScope: "org" | "branch" = scopeType === "branch" ? "branch" : "org";
+      setRoleScopeConfigs((cfg) =>
+        new Map(cfg).set(roleId, { scope: defaultScope, branchIds: [] })
+      );
+      return [...prev, roleId];
     });
   };
 
   const setRoleScope = (roleId: string, scope: "org" | "branch") => {
     setRoleScopeConfigs((prev) => {
       const next = new Map(prev);
-      const existing = next.get(roleId) ?? { scope: "org", branchIds: [] };
-      next.set(roleId, {
-        ...existing,
-        scope,
-        branchIds: scope === "org" ? [] : existing.branchIds,
-      });
+      const ex = next.get(roleId) ?? { scope: "org", branchIds: [] };
+      next.set(roleId, { ...ex, scope, branchIds: scope === "org" ? [] : ex.branchIds });
       return next;
     });
   };
@@ -245,13 +251,11 @@ export function MembersClient({
   const toggleBranchForRole = (roleId: string, branchId: string) => {
     setRoleScopeConfigs((prev) => {
       const next = new Map(prev);
-      const existing = next.get(roleId) ?? { scope: "branch", branchIds: [] };
-      const hasBranch = existing.branchIds.includes(branchId);
+      const ex = next.get(roleId) ?? { scope: "branch", branchIds: [] };
+      const has = ex.branchIds.includes(branchId);
       next.set(roleId, {
-        ...existing,
-        branchIds: hasBranch
-          ? existing.branchIds.filter((id) => id !== branchId)
-          : [...existing.branchIds, branchId],
+        ...ex,
+        branchIds: has ? ex.branchIds.filter((id) => id !== branchId) : [...ex.branchIds, branchId],
       });
       return next;
     });
@@ -259,156 +263,160 @@ export function MembersClient({
 
   const handleSaveRoles = async () => {
     if (!assignRoleMember) return;
-    // All unique role IDs currently assigned (org + branch)
-    const currentRoleIds = [...new Set(assignRoleMember.roles.map((r) => r.id))];
-    // Roles unchecked — remove ALL their assignments
-    const toRemoveRoles = currentRoleIds.filter((id) => !selectedRoleIds.includes(id));
-    // Roles newly checked — create fresh assignments
-    const toAddRoles = selectedRoleIds.filter((id) => !currentRoleIds.includes(id));
-    // Roles that stay selected — reconcile scope/branch changes
-    const toUpdateRoles = selectedRoleIds.filter((id) => currentRoleIds.includes(id));
-
-    let changed = toAddRoles.length > 0 || toRemoveRoles.length > 0;
-
+    const currentIds = [...new Set(assignRoleMember.roles.map((r) => r.id))];
+    const toRemove = currentIds.filter((id) => !selectedRoleIds.includes(id));
+    const toAdd = selectedRoleIds.filter((id) => !currentIds.includes(id));
+    const toUpdate = selectedRoleIds.filter((id) => currentIds.includes(id));
+    let changed = toAdd.length > 0 || toRemove.length > 0;
     try {
-      // Remove all assignments for unchecked roles (by actual scope + scopeId)
-      for (const roleId of toRemoveRoles) {
-        const roleAssignments = assignRoleMember.roles.filter((r) => r.id === roleId);
-        for (const assignment of roleAssignments) {
+      for (const roleId of toRemove) {
+        for (const a of assignRoleMember.roles.filter((r) => r.id === roleId)) {
           await removeRoleMutation.mutateAsync({
             userId: assignRoleMember.user_id,
             roleId,
-            scope: assignment.scope,
-            scopeId: assignment.scope_id,
+            scope: a.scope,
+            scopeId: a.scope_id,
           });
         }
       }
-
-      // Reconcile scope/branch changes for roles that remain selected
-      for (const roleId of toUpdateRoles) {
+      for (const roleId of toUpdate) {
         const config = roleScopeConfigs.get(roleId);
         if (!config) continue;
-
-        const currentAssignments = assignRoleMember.roles.filter((r) => r.id === roleId);
-        const currentOrgAssignment = currentAssignments.find((a) => a.scope === "org");
-        const currentBranchScopeIds = currentAssignments
-          .filter((a) => a.scope === "branch")
-          .map((a) => a.scope_id);
-
+        const current = assignRoleMember.roles.filter((r) => r.id === roleId);
+        const currentOrg = current.find((a) => a.scope === "org");
+        const currentBranchIds = current.filter((a) => a.scope === "branch").map((a) => a.scope_id);
         if (config.scope === "org") {
-          // Desired: org-scoped — remove any branch assignments, ensure org assignment exists
-          for (const branchId of currentBranchScopeIds) {
+          for (const bid of currentBranchIds) {
             changed = true;
             await removeRoleMutation.mutateAsync({
               userId: assignRoleMember.user_id,
               roleId,
               scope: "branch",
-              scopeId: branchId,
+              scopeId: bid,
             });
           }
-          if (!currentOrgAssignment) {
+          if (!currentOrg) {
             changed = true;
             await assignRoleMutation.mutateAsync({ userId: assignRoleMember.user_id, roleId });
           }
         } else {
-          // Desired: branch-scoped — remove org assignment if present, diff branches
-          if (currentOrgAssignment) {
+          if (currentOrg) {
             changed = true;
             await removeRoleMutation.mutateAsync({
               userId: assignRoleMember.user_id,
               roleId,
               scope: "org",
-              scopeId: currentOrgAssignment.scope_id,
+              scopeId: currentOrg.scope_id,
             });
           }
-          const branchesToAdd = config.branchIds.filter(
-            (id) => !currentBranchScopeIds.includes(id)
-          );
-          const branchesToRemove = currentBranchScopeIds.filter(
-            (id) => !config.branchIds.includes(id)
-          );
-          for (const branchId of branchesToRemove) {
+          for (const bid of currentBranchIds.filter((id) => !config.branchIds.includes(id))) {
             changed = true;
             await removeRoleMutation.mutateAsync({
               userId: assignRoleMember.user_id,
               roleId,
               scope: "branch",
-              scopeId: branchId,
+              scopeId: bid,
             });
           }
-          for (const branchId of branchesToAdd) {
+          for (const bid of config.branchIds.filter((id) => !currentBranchIds.includes(id))) {
             changed = true;
             await assignRoleMutation.mutateAsync({
               userId: assignRoleMember.user_id,
               roleId,
               scope: "branch",
-              scopeId: branchId,
+              scopeId: bid,
             });
           }
         }
       }
-
-      // Add new role assignments
-      for (const roleId of toAddRoles) {
+      for (const roleId of toAdd) {
         const config = roleScopeConfigs.get(roleId);
         if (!config) continue;
-
         if (config.scope === "branch") {
-          if (config.branchIds.length === 0) continue; // skip if no branch selected
-          for (const scopeId of config.branchIds) {
+          if (!config.branchIds.length) continue;
+          for (const bid of config.branchIds)
             await assignRoleMutation.mutateAsync({
               userId: assignRoleMember.user_id,
               roleId,
               scope: "branch",
-              scopeId,
+              scopeId: bid,
             });
-          }
         } else {
           await assignRoleMutation.mutateAsync({ userId: assignRoleMember.user_id, roleId });
         }
       }
-
-      if (changed) toast.success("Roles updated");
+      if (changed) toast.success(t("toasts.rolesUpdated"));
       setAssignRoleMember(null);
-      router.refresh();
+      void refreshAfterMutation();
     } catch {
-      // error toast handled by hook's onError
       setAssignRoleMember(null);
     }
   };
 
+  // ── Helpers ───────────────────────────────────────────────────────────────────
   const getInitials = (m: OrgMember) => {
-    if (m.user_first_name && m.user_last_name) {
+    if (m.user_first_name && m.user_last_name)
       return `${m.user_first_name[0]}${m.user_last_name[0]}`.toUpperCase();
-    }
     return (m.user_email ?? "?")[0].toUpperCase();
   };
 
-  if (members.length === 0) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">No members found.</div>;
-  }
+  const displayName = (m: OrgMember) =>
+    m.user_first_name || m.user_last_name
+      ? `${m.user_first_name ?? ""} ${m.user_last_name ?? ""}`.trim()
+      : (m.user_email ?? t("unknown"));
 
-  return (
-    <>
-      <div className="space-y-2">
-        {members.map((member) => {
-          const posAssignment = positionByUser.get(member.user_id);
-
-          // Group roles for badge display — collect branch names for branch-scoped entries
-          const roleBadgeMap = new Map<
-            string,
-            { id: string; name: string; scope: string; branchNames: string[] }
-          >();
-          for (const r of member.roles) {
-            const existing = roleBadgeMap.get(r.id);
-            if (existing) {
+  // ── DataView definitions ──────────────────────────────────────────────────────
+  const columns = useMemo<DataViewColumnDef<OrgMember>[]>(
+    () => [
+      {
+        key: "member",
+        header: t("columns.member"),
+        accessor: (row) => (
+          <div className="flex items-center gap-3 py-1">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarImage src={row.user_avatar_url ?? undefined} />
+              <AvatarFallback className="text-xs">{getInitials(row)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{displayName(row)}</p>
+              {(row.user_first_name || row.user_last_name) && (
+                <p className="truncate text-xs text-muted-foreground">{row.user_email}</p>
+              )}
+            </div>
+          </div>
+        ),
+        sortable: true,
+        defaultVisible: true,
+      },
+      {
+        key: "status",
+        header: t("columns.status"),
+        accessor: (row) => (
+          <Badge
+            variant={row.status === "active" ? "default" : "secondary"}
+            className="text-xs capitalize"
+          >
+            {row.status === "active" ? t("statusOptions.active") : t("statusOptions.inactive")}
+          </Badge>
+        ),
+        sortable: true,
+        defaultVisible: true,
+        compactLabel: true,
+      },
+      {
+        key: "roles",
+        header: t("columns.roles"),
+        accessor: (row) => {
+          const unique = new Map<string, { name: string; scope: string; branchNames: string[] }>();
+          for (const r of row.roles) {
+            const ex = unique.get(r.id);
+            if (ex) {
               if (r.scope === "branch") {
-                const bName = branchNameMap.get(r.scope_id);
-                if (bName) existing.branchNames.push(bName);
+                const n = branchNameMap.get(r.scope_id);
+                if (n) ex.branchNames.push(n);
               }
             } else {
-              roleBadgeMap.set(r.id, {
-                id: r.id,
+              unique.set(r.id, {
                 name: r.name,
                 scope: r.scope,
                 branchNames:
@@ -420,126 +428,295 @@ export function MembersClient({
               });
             }
           }
-          const roleList = [...roleBadgeMap.values()];
-
+          const list = [...unique.values()];
+          if (!list.length) return <span className="text-xs text-muted-foreground">—</span>;
           return (
-            <div
-              key={member.id}
-              className="flex items-center justify-between rounded-lg border px-4 py-3"
-            >
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={member.user_avatar_url ?? undefined} />
-                  <AvatarFallback className="text-xs">{getInitials(member)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium">
-                    {member.user_first_name || member.user_last_name
-                      ? `${member.user_first_name ?? ""} ${member.user_last_name ?? ""}`.trim()
-                      : (member.user_email ?? "Unknown")}
-                  </p>
-                  {(member.user_first_name || member.user_last_name) && (
-                    <p className="text-xs text-muted-foreground">{member.user_email}</p>
-                  )}
-                  {(roleList.length > 0 || posAssignment?.position_name) && (
-                    <div className="flex flex-wrap items-center gap-1 mt-1">
-                      {roleList.map((role) => (
-                        <Badge
-                          key={role.id}
-                          variant="secondary"
-                          className="text-xs gap-1 py-0 max-w-xs"
-                        >
-                          <Shield className="h-2.5 w-2.5 shrink-0" />
-                          <span>{role.name}</span>
-                          {role.scope === "branch" && role.branchNames.length > 0 && (
-                            <span className="opacity-60 font-normal truncate">
-                              · {role.branchNames.join(", ")}
-                            </span>
-                          )}
-                        </Badge>
-                      ))}
-                      {posAssignment?.position_name && (
-                        <Badge variant="outline" className="text-xs gap-1 py-0">
-                          <Briefcase className="h-2.5 w-2.5" />
-                          {posAssignment.position_name}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant={member.status === "active" ? "default" : "secondary"}>
-                  {member.status}
+            <div className="flex flex-wrap gap-1">
+              {list.slice(0, 2).map((role, i) => (
+                <Badge key={i} variant="secondary" className="text-xs gap-1 py-0">
+                  <Shield className="h-2.5 w-2.5 shrink-0" />
+                  <span className="truncate max-w-[80px]">{role.name}</span>
                 </Badge>
-                <Link
-                  href={{
-                    pathname: "/dashboard/organization/users/members/[memberId]",
-                    params: { memberId: member.user_id },
-                  }}
-                  className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title="View member details"
-                >
-                  <Eye className="h-4 w-4" />
-                </Link>
-                {canManage && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isPending}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleStatusToggle(member)}>
-                        {member.status === "active" ? (
-                          <>
-                            <UserX className="h-4 w-4 mr-2" />
-                            Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            Activate
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openAssignRoles(member)}>
-                        <Shield className="h-4 w-4 mr-2" />
-                        Manage Roles
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openAssignPosition(member)}>
-                        <Briefcase className="h-4 w-4 mr-2" />
-                        {posAssignment ? "Change Position" : "Assign Position"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => handleRemove(member)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Remove Member
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              ))}
+              {list.length > 2 && (
+                <Badge variant="secondary" className="text-xs py-0">
+                  +{list.length - 2}
+                </Badge>
+              )}
             </div>
           );
-        })}
+        },
+        defaultVisible: true,
+      },
+      {
+        key: "position",
+        header: t("columns.position"),
+        accessor: (row) => {
+          const pos = positionByUser.get(row.user_id);
+          return pos?.position_name ? (
+            <Badge variant="outline" className="text-xs gap-1 py-0">
+              <Briefcase className="h-2.5 w-2.5" />
+              {pos.position_name}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          );
+        },
+        defaultVisible: true,
+      },
+      {
+        key: "joined",
+        header: t("columns.joined"),
+        accessor: (row) => (
+          <span className="text-xs text-muted-foreground">
+            {row.joined_at ? new Date(row.joined_at).toLocaleDateString() : "—"}
+          </span>
+        ),
+        sortable: true,
+        defaultVisible: true,
+      },
+    ],
+    [t, positionByUser, branchNameMap]
+  );
+
+  const filters = useMemo<DataViewFilterDef[]>(
+    () => [
+      {
+        type: "select",
+        key: "status",
+        label: t("filters.status"),
+        options: [
+          { label: t("statusOptions.active"), value: "active" },
+          { label: t("statusOptions.inactive"), value: "inactive" },
+        ],
+      },
+    ],
+    [t]
+  );
+
+  const renderCompactItem = useCallback(
+    (row: OrgMember) => (
+      <div className="flex items-center gap-2 py-0.5">
+        <Avatar className="h-5 w-5 shrink-0">
+          <AvatarImage src={row.user_avatar_url ?? undefined} />
+          <AvatarFallback className="text-[10px]">{getInitials(row)}</AvatarFallback>
+        </Avatar>
+        <span className="truncate text-sm font-medium">{displayName(row)}</span>
+      </div>
+    ),
+    [positionByUser, branchNameMap]
+  );
+
+  const renderDetail = useCallback(
+    (member: OrgMember) => {
+      const posAssignment = positionByUser.get(member.user_id);
+      const uniqueRoles = new Map<string, { name: string; scope: string; branchNames: string[] }>();
+      for (const r of member.roles) {
+        const ex = uniqueRoles.get(r.id);
+        if (ex) {
+          if (r.scope === "branch") {
+            const n = branchNameMap.get(r.scope_id);
+            if (n) ex.branchNames.push(n);
+          }
+        } else {
+          uniqueRoles.set(r.id, {
+            name: r.name,
+            scope: r.scope,
+            branchNames:
+              r.scope === "branch"
+                ? branchNameMap.get(r.scope_id)
+                  ? [branchNameMap.get(r.scope_id)!]
+                  : []
+                : [],
+          });
+        }
+      }
+      const roleList = [...uniqueRoles.values()];
+
+      return (
+        <div className="space-y-5">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarImage src={member.user_avatar_url ?? undefined} />
+              <AvatarFallback>{getInitials(member)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold leading-tight">{displayName(member)}</h2>
+              <p className="text-sm text-muted-foreground">{member.user_email}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("detail.status")}
+              </p>
+              <Badge
+                variant={member.status === "active" ? "default" : "secondary"}
+                className="text-xs capitalize"
+              >
+                {member.status === "active"
+                  ? t("statusOptions.active")
+                  : t("statusOptions.inactive")}
+              </Badge>
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("detail.joined")}
+              </p>
+              <span>
+                {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : "—"}
+              </span>
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("detail.position")}
+              </p>
+              {posAssignment?.position_name ? (
+                <Badge variant="outline" className="text-xs gap-1 py-0">
+                  <Briefcase className="h-2.5 w-2.5" />
+                  {posAssignment.position_name}
+                </Badge>
+              ) : (
+                <span className="text-muted-foreground text-xs">{t("detail.noPosition")}</span>
+              )}
+            </div>
+            <div>
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {t("detail.email")}
+              </p>
+              <span className="text-xs break-all">{member.user_email}</span>
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("detail.roles")}
+            </p>
+            {roleList.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{t("detail.noRoles")}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {roleList.map((role, i) => (
+                  <Badge key={i} variant="secondary" className="text-xs gap-1 py-0">
+                    <Shield className="h-2.5 w-2.5 shrink-0" />
+                    <span>{role.name}</span>
+                    {role.scope === "branch" && role.branchNames.length > 0 && (
+                      <span className="opacity-60 font-normal">
+                        · {role.branchNames.join(", ")}
+                      </span>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5 border-t pt-3">
+            <Link
+              href={{
+                pathname: "/dashboard/organization/users/members/[memberId]",
+                params: { memberId: member.user_id },
+              }}
+              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              {t("detail.viewDetails")}
+            </Link>
+          </div>
+
+          {canManage && (
+            <div className="flex flex-wrap gap-2 border-t pt-3">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleStatusToggle(member)}
+                disabled={isPending}
+              >
+                {member.status === "active" ? (
+                  <>
+                    <UserX className="mr-1.5 h-3.5 w-3.5" />
+                    {t("actions.deactivate")}
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                    {t("actions.activate")}
+                  </>
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openAssignRoles(member)}
+                disabled={isPending}
+              >
+                <Shield className="mr-1.5 h-3.5 w-3.5" />
+                {t("actions.manageRoles")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openAssignPosition(member)}
+                disabled={isPending}
+              >
+                <Briefcase className="mr-1.5 h-3.5 w-3.5" />
+                {posAssignment ? t("actions.changePosition") : t("actions.assignPosition")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => handleRemove(member)}
+                disabled={isPending}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {t("actions.removeMember")}
+              </Button>
+            </div>
+          )}
+        </div>
+      );
+    },
+    [t, canManage, isPending, positionByUser, branchNameMap]
+  );
+
+  return (
+    <>
+      <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">{t("title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <DataView<OrgMember, OrgMember>
+            entity="org-members"
+            columns={columns}
+            filters={filters}
+            initialData={initialData}
+            queryKey={MEMBERS_DV_KEY}
+            listFetcher={listFetcher}
+            detailFetcher={detailFetcher}
+            getRowId={(row) => row.user_id}
+            renderCompactItem={renderCompactItem}
+            renderDetail={renderDetail}
+            className="h-full"
+          />
+        </div>
       </div>
 
-      {/* Manage Roles Dialog — scope-aware */}
+      {/* Manage Roles Dialog */}
       <Dialog
         open={assignRoleMember !== null}
         onOpenChange={(open) => !open && setAssignRoleMember(null)}
       >
         <DialogContent className="max-w-md" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Manage Roles</DialogTitle>
+            <DialogTitle>{t("manageRolesDialog.title")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-1 py-2 max-h-80 overflow-y-auto pr-1">
             {availableRoles.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No roles available.</p>
+              <p className="text-sm text-muted-foreground">{t("manageRolesDialog.noRoles")}</p>
             ) : (
               availableRoles.map((role) => {
                 const isChecked = selectedRoleIds.includes(role.id);
@@ -548,7 +725,6 @@ export function MembersClient({
                   isChecked &&
                   (role.scope_type === "branch" ||
                     (role.scope_type === "both" && config?.scope === "branch"));
-
                 return (
                   <div key={role.id} className="space-y-2">
                     <div className="flex items-start gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
@@ -569,7 +745,7 @@ export function MembersClient({
                           <span className="text-sm font-medium">{role.name}</span>
                           {role.is_basic && (
                             <Badge variant="secondary" className="text-xs">
-                              system
+                              {t("manageRolesDialog.systemBadge")}
                             </Badge>
                           )}
                           {role.scope_type === "branch" && (
@@ -578,7 +754,7 @@ export function MembersClient({
                               className="text-xs gap-1 py-0 text-blue-600 border-blue-300"
                             >
                               <GitBranch className="h-2.5 w-2.5" />
-                              branch
+                              {t("manageRolesDialog.scopeBranch")}
                             </Badge>
                           )}
                           {role.scope_type === "both" && (
@@ -586,7 +762,7 @@ export function MembersClient({
                               variant="outline"
                               className="text-xs py-0 text-purple-600 border-purple-300"
                             >
-                              both
+                              {t("manageRolesDialog.scopeBranch")}/{t("manageRolesDialog.scopeOrg")}
                             </Badge>
                           )}
                         </div>
@@ -595,8 +771,6 @@ export function MembersClient({
                         )}
                       </Label>
                     </div>
-
-                    {/* Scope toggle for 'both' roles */}
                     {isChecked && role.scope_type === "both" && (
                       <div className="ml-7 flex gap-1">
                         <Button
@@ -607,7 +781,7 @@ export function MembersClient({
                           onClick={() => setRoleScope(role.id, "org")}
                           disabled={isPending}
                         >
-                          Org
+                          {t("manageRolesDialog.scopeOrg")}
                         </Button>
                         <Button
                           type="button"
@@ -617,16 +791,16 @@ export function MembersClient({
                           onClick={() => setRoleScope(role.id, "branch")}
                           disabled={isPending}
                         >
-                          Branch
+                          {t("manageRolesDialog.scopeBranch")}
                         </Button>
                       </div>
                     )}
-
-                    {/* Branch multiselect for branch-scoped roles */}
                     {showBranchSelector && (
                       <div className="ml-7 space-y-1">
                         {branches.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No branches available.</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("manageRolesDialog.noBranches")}
+                          </p>
                         ) : (
                           branches.map((branch) => (
                             <div key={branch.id} className="flex items-center gap-2">
@@ -646,7 +820,9 @@ export function MembersClient({
                           ))
                         )}
                         {config?.branchIds.length === 0 && (
-                          <p className="text-xs text-amber-600">Select at least one branch.</p>
+                          <p className="text-xs text-amber-600">
+                            {t("manageRolesDialog.selectBranchHint")}
+                          </p>
                         )}
                       </div>
                     )}
@@ -661,10 +837,10 @@ export function MembersClient({
               onClick={() => setAssignRoleMember(null)}
               disabled={isPending}
             >
-              Cancel
+              {t("manageRolesDialog.cancel")}
             </Button>
             <Button onClick={handleSaveRoles} disabled={isPending}>
-              {isPending ? "Saving…" : "Save"}
+              {isPending ? t("manageRolesDialog.saving") : t("manageRolesDialog.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -679,14 +855,14 @@ export function MembersClient({
           <DialogHeader>
             <DialogTitle>
               {positionByUser.get(assignPositionMember?.user_id ?? "")
-                ? "Change Position"
-                : "Assign Position"}
+                ? t("assignPositionDialog.titleChange")
+                : t("assignPositionDialog.titleAssign")}
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <Select value={selectedPositionId} onValueChange={setSelectedPositionId}>
               <SelectTrigger>
-                <SelectValue placeholder="Select a position…" />
+                <SelectValue placeholder={t("assignPositionDialog.placeholder")} />
               </SelectTrigger>
               <SelectContent>
                 {positions.map((pos) => (
@@ -698,7 +874,7 @@ export function MembersClient({
             </Select>
             {positionByUser.get(assignPositionMember?.user_id ?? "") && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Leave unselected to remove the current position.
+                {t("assignPositionDialog.removeHint")}
               </p>
             )}
           </div>
@@ -708,10 +884,10 @@ export function MembersClient({
               onClick={() => setAssignPositionMember(null)}
               disabled={isPending}
             >
-              Cancel
+              {t("assignPositionDialog.cancel")}
             </Button>
             <Button onClick={handleAssignPosition} disabled={isPending}>
-              {isPending ? "Saving…" : "Save"}
+              {isPending ? t("assignPositionDialog.saving") : t("assignPositionDialog.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2758,6 +2758,153 @@
           "save": "Save",
           "create": "Create",
           "saving": "Saving…"
+        },
+        "columns": {
+          "name": "Name",
+          "scope": "Scope",
+          "description": "Description",
+          "permissionCount": "Permissions"
+        },
+        "filters": {
+          "scope": "Scope",
+          "scopeOptions": {
+            "org": "Organization",
+            "branch": "Branch",
+            "both": "Both"
+          }
+        },
+        "detail": {
+          "scope": "Scope",
+          "description": "Description",
+          "permissions": "Permissions",
+          "id": "ID",
+          "noDescription": "No description",
+          "noPermissions": "No permissions"
+        },
+        "actions": {
+          "edit": "Edit",
+          "delete": "Delete"
+        },
+        "permissionGroups": {
+          "organization": "Organization",
+          "members": "Members",
+          "invitations": "Invitations",
+          "branchManagement": "Branch Management",
+          "branches": "Branches",
+          "moduleAccess": "Module Access",
+          "permissions": {
+            "orgRead": "View organization profile",
+            "orgUpdate": "Edit organization profile & logo",
+            "membersRead": "View members list",
+            "membersManage": "Manage members (activate, remove, assign roles & positions)",
+            "invitesRead": "View invitations",
+            "invitesCreate": "Send invitations",
+            "invitesCancel": "Cancel invitations",
+            "branchRolesManage": "Manage branch role assignments (branch manager delegation)",
+            "branchesRead": "View branches",
+            "branchesCreate": "Create branches",
+            "branchesUpdate": "Edit branches",
+            "branchesDelete": "Delete branches",
+            "moduleOrgManagementAccess": "Access Organization Management module"
+          }
+        }
+      },
+      "members": {
+        "title": "Members",
+        "description": "Manage organization members, their roles and positions",
+        "unknown": "Unknown",
+        "columns": {
+          "member": "Member",
+          "status": "Status",
+          "roles": "Roles",
+          "position": "Position",
+          "joined": "Joined"
+        },
+        "filters": {
+          "status": "Status"
+        },
+        "statusOptions": {
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "detail": {
+          "email": "Email",
+          "status": "Status",
+          "joined": "Joined",
+          "roles": "Roles",
+          "position": "Position",
+          "noRoles": "No roles assigned",
+          "noPosition": "No position assigned",
+          "viewDetails": "View full profile"
+        },
+        "actions": {
+          "activate": "Activate",
+          "deactivate": "Deactivate",
+          "manageRoles": "Manage Roles",
+          "assignPosition": "Assign Position",
+          "changePosition": "Change Position",
+          "removeMember": "Remove Member",
+          "viewDetails": "View member details"
+        },
+        "manageRolesDialog": {
+          "title": "Manage Roles",
+          "noRoles": "No roles available.",
+          "noBranches": "No branches available.",
+          "selectBranchHint": "Select at least one branch.",
+          "scopeOrg": "Org",
+          "scopeBranch": "Branch",
+          "systemBadge": "system",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving…"
+        },
+        "assignPositionDialog": {
+          "titleAssign": "Assign Position",
+          "titleChange": "Change Position",
+          "placeholder": "Select a position…",
+          "removeHint": "Leave unselected to remove the current position.",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving…"
+        },
+        "toasts": {
+          "activated": "Member activated",
+          "deactivated": "Member deactivated",
+          "positionAssigned": "Position assigned",
+          "positionRemoved": "Position removed",
+          "rolesUpdated": "Roles updated"
+        }
+      },
+      "positions": {
+        "title": "Positions",
+        "description": "Manage job positions for organization members",
+        "createButton": "Create Position",
+        "empty": "No positions found.",
+        "columns": {
+          "name": "Name",
+          "description": "Description"
+        },
+        "detail": {
+          "name": "Name",
+          "description": "Description",
+          "id": "ID",
+          "noDescription": "No description"
+        },
+        "actions": {
+          "edit": "Edit",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "titleCreate": "Create Position",
+          "titleEdit": "Edit Position",
+          "name": "Name",
+          "namePlaceholder": "Position title",
+          "description": "Description",
+          "descriptionPlaceholder": "Optional description",
+          "cancel": "Cancel",
+          "saving": "Saving…",
+          "create": "Create",
+          "save": "Save"
         }
       }
     },
@@ -4327,7 +4474,44 @@
     "inviteSentSuccess": "Invitation sent successfully",
     "resendSuccess": "Invitation resent",
     "emailDeliveryWarning": "Invitation created, but the email could not be delivered. Share the invite link manually.",
-    "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually."
+    "emailResendWarning": "Invitation refreshed, but the email could not be delivered. Share the invite link manually.",
+    "columns": {
+      "email": "Email",
+      "status": "Status",
+      "roles": "Roles",
+      "expires": "Expires"
+    },
+    "filters": {
+      "status": "Status"
+    },
+    "statusLabels": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    },
+    "detail": {
+      "email": "Email",
+      "status": "Status",
+      "expires": "Expires",
+      "roles": "Roles",
+      "id": "ID",
+      "noRoles": "No roles assigned",
+      "invitedBy": "Invited by",
+      "created": "Created"
+    },
+    "actions": {
+      "resend": "Resend",
+      "cancel": "Cancel invitation"
+    },
+    "form": {
+      "emailPlaceholder": "colleague@example.com",
+      "noBranches": "No branches available.",
+      "selectBranchHint": "Select at least one branch.",
+      "scopeOrg": "Org",
+      "scopeBranch": "Branch"
+    }
   },
   "events": {
     "auth": {
