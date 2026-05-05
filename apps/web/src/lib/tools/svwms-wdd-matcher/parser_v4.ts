@@ -508,6 +508,16 @@ function isStructuralHeaderRow(text: string): boolean {
   );
 }
 
+function isInterBlockClientRow(text: string): boolean {
+  return /^\d{3,6}\s+Blacharnia\b/i.test(normalizeText(text));
+}
+
+function isManualInterBlockNoteRow(text: string, nextText: string | null): boolean {
+  const normalized = normalizeText(text);
+  if (!nextText || !isInterBlockClientRow(nextText)) return false;
+  return /^[A-ZĄĆĘŁŃÓŚŹŻ0-9_./-]{2,24}$/i.test(normalized);
+}
+
 function cleanGroupName(text: string): string | null {
   const normalized = normalizeText(text)
     .replace(/\s*-\s*NIE ZMIENIAC.*$/i, "")
@@ -1038,6 +1048,11 @@ function findPreHeaderRows(
       blwkIdx = i;
       break;
     }
+    if (isInterBlockClientRow(text)) {
+      const previousText = rows[i - 1]?.text ?? null;
+      const startIdx = previousText && isManualInterBlockNoteRow(previousText, text) ? i - 1 : i;
+      return rows.slice(startIdx, blockStartIdx);
+    }
   }
 
   if (blwkIdx < 0) return [];
@@ -1140,13 +1155,25 @@ function extractWddGroupName(rows: VisualRow[]): string | null {
 /**
  * Extract client name from block-local header rows, supporting multi-line names.
  */
+function extractManualNoteFromHeaderRows(headerRows: VisualRow[]): string | null {
+  for (let index = 0; index < headerRows.length; index += 1) {
+    const text = headerRows[index].text;
+    const nextText = headerRows[index + 1]?.text ?? null;
+    if (isManualInterBlockNoteRow(text, nextText)) return normalizeText(text);
+  }
+  return null;
+}
+
 function extractClientLineFromHeaderRows(headerRows: VisualRow[]): string | null {
   const parts: string[] = [];
   let collecting = false;
 
-  for (const row of headerRows) {
+  for (let index = 0; index < headerRows.length; index += 1) {
+    const row = headerRows[index];
     const text = row.text;
+    const nextText = headerRows[index + 1]?.text ?? null;
     if (text.length < 2) continue;
+    if (isManualInterBlockNoteRow(text, nextText)) continue;
 
     if (isTableHeaderRow(text)) {
       if (collecting) break;
@@ -1210,12 +1237,15 @@ function buildRawTableRowsV4(
     corrected: boolean;
   }> = [];
 
-  for (const row of tableBodyRows) {
+  for (let rowIndex = 0; rowIndex < tableBodyRows.length; rowIndex += 1) {
+    const row = tableBodyRows[rowIndex];
     const text = row.text;
     if (!text) continue;
+    const nextText = tableBodyRows[rowIndex + 1]?.text ?? null;
     if (isTableHeaderRow(text)) continue;
     // Hard stop: BLWK marks the next block's header — stop collecting to prevent spillover.
     if (BLWK_RE.test(text)) break;
+    if (isInterBlockClientRow(text) || isManualInterBlockNoteRow(text, nextText)) break;
     if (WDD_NUMBER_RE.test(text) || ZW_NUMBER_RE.test(text)) continue;
     if (isBlockTitleLine(text) || isTimestampLine(text)) continue;
     if (isStructuralHeaderRow(text)) continue;
@@ -2303,6 +2333,7 @@ function parseBcBlockV4(
       vin: extractVin(vinSearchRows),
       zl_number: extractZl(vinSearchRows),
       client_name: extractClientLineFromHeaderRows(allHeaderRows),
+      manual_note: extractManualNoteFromHeaderRows(allHeaderRows),
       parts_count: lines.length,
     };
     const headerIssues: string[] = [];
@@ -2517,6 +2548,7 @@ function parseBrandBlockV4(
   const vin = extractVin(vinSearchRows);
   const order_number = extractBlwk(preHeaderRows);
   const client_name = extractClientLineFromHeaderRows(allHeaderRows);
+  const manual_note = extractManualNoteFromHeaderRows(allHeaderRows);
 
   const tableResult = buildRawTableRowsV4(tableBodyRows, bandMap, tableHeaderRow !== null);
   const parsedLines = buildParsedLinesV4(tableResult.rows);
@@ -2547,6 +2579,7 @@ function parseBrandBlockV4(
       order_number,
       vin,
       client_name,
+      manual_note,
     } as Record<string, unknown>,
     lines: parsedLines,
   };
@@ -2566,6 +2599,7 @@ function parseBrandBlockV4(
     order_number,
     vin,
     client_name,
+    manual_note,
   });
   const parserQuality = computeBlockParserQuality(lines, {
     hadTableHeader: tableResult.hadTableHeader,
@@ -2592,6 +2626,7 @@ function parseBrandBlockV4(
     order_number,
     vin,
     client_name,
+    manual_note,
     parts_count: lines.length,
     duplicate_order_reconciliation_count: tableResult.reconciliationCount,
     header_raw: headerRaw,
