@@ -5,7 +5,11 @@ import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
 import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
-import { OrgBranchesService, type CreateBranchInput } from "@/server/services/organization.service";
+import {
+  OrgBranchesService,
+  type CreateBranchInput,
+  type OrgBranch,
+} from "@/server/services/organization.service";
 import { eventService } from "@/server/services/event.service";
 import { MODULE_ORGANIZATION_MANAGEMENT } from "@/lib/constants/modules";
 import {
@@ -15,6 +19,11 @@ import {
   BRANCHES_UPDATE,
   BRANCHES_DELETE,
 } from "@/lib/constants/permissions";
+import type { DataViewListParams, PaginatedResult } from "@/components/data-view/data-view.types";
+import {
+  filterSortBranches,
+  paginateBranches,
+} from "@/app/[locale]/dashboard/organization/branches/_utils/branches-data-view";
 
 const createBranchSchema = z.object({
   name: z.string().min(1).max(200),
@@ -234,4 +243,29 @@ export async function deleteBranchAction(rawInput: unknown) {
     if (mapped) return { success: false, error: mapped.message };
     return { success: false, error: "Unexpected error" };
   }
+}
+
+export async function listBranchesForDataViewAction(
+  params: DataViewListParams
+): Promise<PaginatedResult<OrgBranch>> {
+  const empty: PaginatedResult<OrgBranch> = {
+    rows: [],
+    totalCount: 0,
+    page: params.page,
+    pageSize: params.pageSize,
+  };
+
+  const result = await listBranchesAction();
+  if (!result.success) return empty;
+
+  const allBranches = (result as { success: true; data: OrgBranch[] }).data;
+  const filtered = filterSortBranches(allBranches, params);
+  return paginateBranches(filtered, params.page, params.pageSize);
+}
+
+export async function getBranchDetailAction(id: string): Promise<OrgBranch | null> {
+  const result = await listBranchesAction();
+  if (!result.success) return null;
+  const allBranches = (result as { success: true; data: OrgBranch[] }).data;
+  return allBranches.find((b) => b.id === id) ?? null;
 }

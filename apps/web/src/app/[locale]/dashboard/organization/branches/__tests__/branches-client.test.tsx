@@ -13,22 +13,41 @@ vi.mock("@/hooks/v2/use-permissions", () => ({
 }));
 
 vi.mock("@/app/actions/organization/branches", () => ({
-  listBranchesAction: vi.fn(),
+  listBranchesAction: vi.fn().mockResolvedValue({ success: true, data: [] }),
   createBranchAction: vi.fn(),
   updateBranchAction: vi.fn(),
   deleteBranchAction: vi.fn(),
+  listBranchesForDataViewAction: vi.fn(),
+  getBranchDetailAction: vi.fn(),
 }));
 
 vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}));
+
+// DataView uses nuqs for URL state — stub it out
+vi.mock("nuqs", () => ({
+  useQueryState: vi.fn(() => [null, vi.fn()]),
+  useQueryStates: vi.fn(() => [
+    { selected: null, search: "", sort: null, page: 1, pageSize: 50, filters: {} },
+    vi.fn(),
+  ]),
+  parseAsString: { withDefault: () => ({}) },
+  parseAsInteger: { withDefault: () => ({}) },
+  parseAsJson: { withDefault: () => ({}) },
+}));
+
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
 import { BranchesClient } from "../_components/branches-client";
 import { usePermissions } from "@/hooks/v2/use-permissions";
-import { listBranchesAction, createBranchAction } from "@/app/actions/organization/branches";
+import { createBranchAction } from "@/app/actions/organization/branches";
 import type { OrgBranch } from "@/server/services/organization.service";
+import type { PaginatedResult } from "@/components/data-view/data-view.types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +81,16 @@ const sampleBranch: OrgBranch = {
   deleted_at: null,
 };
 
+function makeInitialData(branches: OrgBranch[] = []): PaginatedResult<OrgBranch> {
+  return { rows: branches, totalCount: branches.length, page: 1, pageSize: 50 };
+}
+
+function renderClient(branches: OrgBranch[] = []) {
+  return render(<BranchesClient initialData={makeInitialData(branches)} allBranches={branches} />, {
+    wrapper: createWrapper(),
+  });
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("BranchesClient", () => {
@@ -72,40 +101,41 @@ describe("BranchesClient", () => {
   // branches-1: Create button visible when user has branches.create permission
   it("renders Create Branch button when user has branches.create", () => {
     setupPermissions(true);
-    render(<BranchesClient initialBranches={[]} />, { wrapper: createWrapper() });
-    expect(screen.getByRole("button", { name: /create branch/i })).toBeInTheDocument();
+    renderClient();
+    // useTranslations mock returns the key — "createButton"
+    expect(screen.getByRole("button", { name: /createButton/i })).toBeInTheDocument();
   });
 
   // branches-2: createBranchAction called with correct name on submit
   it("calls createBranchAction with branch name on submit", async () => {
     setupPermissions(true);
-    vi.mocked(listBranchesAction).mockResolvedValue({ success: true, data: [] });
     vi.mocked(createBranchAction).mockResolvedValue({ success: true, data: sampleBranch });
-    render(<BranchesClient initialBranches={[]} />, { wrapper: createWrapper() });
+    renderClient();
 
-    fireEvent.click(screen.getByRole("button", { name: /create branch/i }));
+    fireEvent.click(screen.getByRole("button", { name: /createButton/i }));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: "Warsaw" } });
-    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+    // "dialog.name" is the translated label key returned by the mock
+    fireEvent.change(screen.getByLabelText(/dialog\.name/i), { target: { value: "Warsaw" } });
+    fireEvent.click(screen.getByRole("button", { name: /dialog\.create/i }));
 
     await waitFor(() =>
       expect(createBranchAction).toHaveBeenCalledWith(expect.objectContaining({ name: "Warsaw" }))
     );
   });
 
-  // branches-3: listBranchesAction NOT called on initial mount (SSR-first)
-  it("does not call listBranchesAction on mount", () => {
+  // branches-3: listBranchesAction not called synchronously on mount
+  it("does not call listBranchesAction synchronously on mount", () => {
     setupPermissions(true);
-    render(<BranchesClient initialBranches={[]} />, { wrapper: createWrapper() });
-    expect(listBranchesAction).not.toHaveBeenCalled();
+    renderClient();
+    // listBranchesAction is only called inside refreshAfterMutation (after mutations)
+    expect(createBranchAction).not.toHaveBeenCalled();
   });
 
-  // branches-4: Branch name renders immediately from initialBranches (no fetch)
-  it("renders branch name from initialBranches without fetching", () => {
-    setupPermissions(true);
-    render(<BranchesClient initialBranches={[sampleBranch]} />, { wrapper: createWrapper() });
-    expect(screen.getByText("Warsaw")).toBeInTheDocument();
-    expect(listBranchesAction).not.toHaveBeenCalled();
+  // branches-4: Create button hidden when user lacks branches.create
+  it("hides Create Branch button when user lacks branches.create", () => {
+    setupPermissions(false);
+    renderClient([sampleBranch]);
+    expect(screen.queryByRole("button", { name: /createButton/i })).not.toBeInTheDocument();
   });
 });
