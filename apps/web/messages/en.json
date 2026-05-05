@@ -2693,6 +2693,45 @@
         "billing": "Billing & Subscriptions",
         "branchAccess": "Branch Access"
       },
+      "branches": {
+        "title": "Branches",
+        "description": "Manage your organization branches",
+        "createButton": "Create Branch",
+        "columns": {
+          "name": "Name",
+          "slug": "Slug",
+          "publicMaps": "Public Maps",
+          "created": "Created"
+        },
+        "filters": {
+          "slug": "Slug",
+          "publicMaps": "Public maps",
+          "created": "Created"
+        },
+        "detail": {
+          "slug": "Slug",
+          "publicMaps": "Public Maps",
+          "created": "Created",
+          "id": "ID"
+        },
+        "actions": {
+          "edit": "Edit",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "titleCreate": "Create Branch",
+          "titleEdit": "Edit Branch",
+          "name": "Name",
+          "namePlaceholder": "Branch name",
+          "slug": "Slug",
+          "slugPlaceholder": "branch-slug (optional)",
+          "slugHint": "Lowercase letters, numbers, hyphens only.",
+          "cancel": "Cancel",
+          "saving": "Saving…",
+          "create": "Create",
+          "save": "Save"
+        }
+      },
       "roles": {
         "createButton": "Create Role",
         "noRoles": "No roles found.",

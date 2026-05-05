@@ -2664,6 +2664,45 @@
         "billing": "Rozliczenia i subskrypcje",
         "branchAccess": "Dostęp do oddziałów"
       },
+      "branches": {
+        "title": "Oddziały",
+        "description": "Zarządzaj oddziałami organizacji",
+        "createButton": "Utwórz oddział",
+        "columns": {
+          "name": "Nazwa",
+          "slug": "Slug",
+          "publicMaps": "Publiczne mapy",
+          "created": "Utworzono"
+        },
+        "filters": {
+          "slug": "Slug",
+          "publicMaps": "Publiczne mapy",
+          "created": "Utworzono"
+        },
+        "detail": {
+          "slug": "Slug",
+          "publicMaps": "Publiczne mapy",
+          "created": "Utworzono",
+          "id": "ID"
+        },
+        "actions": {
+          "edit": "Edytuj",
+          "delete": "Usuń"
+        },
+        "dialog": {
+          "titleCreate": "Utwórz oddział",
+          "titleEdit": "Edytuj oddział",
+          "name": "Nazwa",
+          "namePlaceholder": "Nazwa oddziału",
+          "slug": "Slug",
+          "slugPlaceholder": "slug-oddzialu (opcjonalnie)",
+          "slugHint": "Tylko małe litery, cyfry i myślniki.",
+          "cancel": "Anuluj",
+          "saving": "Zapisywanie…",
+          "create": "Utwórz",
+          "save": "Zapisz"
+        }
+      },
       "roles": {
         "createButton": "Utwórz rolę",
         "noRoles": "Brak ról.",
