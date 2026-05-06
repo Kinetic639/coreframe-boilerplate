@@ -1887,6 +1887,19 @@
         "toasts": {
           "created": "Created {count} QR code(s).",
           "revoked": "QR code revoked."
+        },
+        "detail": {
+          "label": "Label",
+          "token": "Token",
+          "status": "Status",
+          "assignment": "Assignment",
+          "created": "Created",
+          "id": "ID",
+          "unlabelled": "Unlabelled",
+          "unassigned": "—",
+          "designButton": "Design {count} selected",
+          "noSelection": "No codes selected",
+          "revokeButton": "Revoke"
         }
       },
       "previewDialog": {
