@@ -1842,6 +1842,19 @@
         "toasts": {
           "created": "Utworzono {count} kod(ów) QR.",
           "revoked": "Kod QR został unieważniony."
+        },
+        "detail": {
+          "label": "Etykieta",
+          "token": "Token",
+          "status": "Status",
+          "assignment": "Przypisanie",
+          "created": "Utworzono",
+          "id": "ID",
+          "unlabelled": "Bez etykiety",
+          "unassigned": "—",
+          "designButton": "Projektuj {count} wybranych",
+          "noSelection": "Brak wybranych kodów",
+          "revokeButton": "Unieważnij"
         }
       },
       "previewDialog": {
