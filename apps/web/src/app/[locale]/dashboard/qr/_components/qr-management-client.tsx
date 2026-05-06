@@ -381,36 +381,13 @@ export function QrManagementClient({
         onValueChange={(v) => setActiveStage(v as "select" | "design")}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+        <div className="flex shrink-0 items-center">
           <TabsList className="grid w-[320px] grid-cols-2">
             <TabsTrigger value="select">{t("stages.select")}</TabsTrigger>
             <TabsTrigger value="design" disabled={!canExport || designIds.length === 0}>
               {t("stages.design")}
             </TabsTrigger>
           </TabsList>
-
-          {/* Always-visible selection action bar */}
-          <div className="flex items-center gap-3">
-            {selectedIds.length > 0 ? (
-              <span className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{selectedIds.length}</span>{" "}
-                {t("selectedCount", { count: selectedIds.length })}
-              </span>
-            ) : (
-              <span className="text-sm text-muted-foreground">{t("selectHint")}</span>
-            )}
-            {canExport && (
-              <Button
-                size="sm"
-                disabled={selectedIds.length === 0}
-                onClick={handleOpenDesign}
-                className="gap-2"
-              >
-                {t("selection.designSelected")}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
         </div>
 
         {/* ── Select tab ────────────────────────────────────────────────────── */}
@@ -460,6 +437,31 @@ export function QrManagementClient({
                 >
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
                 </Button>
+
+                {canExport && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-auto">
+                          <Button
+                            size="sm"
+                            disabled={selectedIds.length === 0}
+                            onClick={handleOpenDesign}
+                            className="gap-2"
+                          >
+                            {selectedIds.length > 0
+                              ? t("selectedCount", { count: selectedIds.length })
+                              : t("selection.designSelected")}
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {selectedIds.length > 0 ? t("selection.designSelected") : t("selectHint")}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
             )}
 
