@@ -29,8 +29,6 @@ export default async function QrCodesPage({ searchParams }: PageProps) {
   });
   const initialData = paginateQrCodes(filtered, urlState.page, urlState.pageSize);
 
-  const snapshot = context?.user.permissionSnapshot ?? { allow: [], deny: [] };
-
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
       <div className="shrink-0">
@@ -38,11 +36,7 @@ export default async function QrCodesPage({ searchParams }: PageProps) {
         <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
-        <QrManagementClient
-          initialData={initialData}
-          allCodes={allCodes}
-          permissionSnapshot={snapshot}
-        />
+        <QrManagementClient initialData={initialData} allCodes={allCodes} />
       </div>
     </div>
   );

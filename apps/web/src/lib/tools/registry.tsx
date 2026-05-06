@@ -26,13 +26,18 @@ const SvwmsWddMatcher = dynamic(
   { ssr: false }
 );
 
+const QrGeneratorTool = dynamic(
+  () => import("@/components/tools/qr-generator").then((m) => m.QrGeneratorTool),
+  { ssr: false }
+);
+
 /**
  * Add entries here as tool UI components are implemented.
  * The key must match the tool's slug in the tools_catalog table.
  */
 const TOOL_REGISTRY: ToolRegistry = {
   "svwms-wdd-matcher": SvwmsWddMatcher,
-  // "qr-generator": QrGeneratorTool,
+  "qr-generator": QrGeneratorTool,
   // "text-converter": TextConverterTool,
 };
 

@@ -21,8 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { QrCodeWithStatus } from "@/server/services/qr.service";
-import type { PermissionSnapshot } from "@/lib/types/permissions";
-import { checkPermission } from "@/lib/utils/permissions";
+import { usePermissions } from "@/hooks/v2/use-permissions";
 import { QR_CREATE, QR_REVOKE, QR_EXPORT } from "@/lib/constants/permissions";
 import { listQrCodesAction } from "@/app/actions/qr/list";
 import { createQrBatchAction } from "@/app/actions/qr/create-batch";
@@ -142,23 +141,19 @@ function QrDetailPanel({ qr, canRevoke, isRevoking, onRevoke, t }: QrDetailPanel
 interface Props {
   initialData: PaginatedResult<QrCodeWithStatus>;
   allCodes: QrCodeWithStatus[];
-  permissionSnapshot: PermissionSnapshot;
 }
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export function QrManagementClient({
-  initialData,
-  allCodes: initialAllCodes,
-  permissionSnapshot,
-}: Props) {
+export function QrManagementClient({ initialData, allCodes: initialAllCodes }: Props) {
   const t = useTranslations("modules.qr.management");
+  const { can } = usePermissions();
 
-  const canCreate = checkPermission(permissionSnapshot, QR_CREATE);
-  const canRevoke = checkPermission(permissionSnapshot, QR_REVOKE);
-  const canExport = checkPermission(permissionSnapshot, QR_EXPORT);
+  const canCreate = can(QR_CREATE);
+  const canRevoke = can(QR_REVOKE);
+  const canExport = can(QR_EXPORT);
 
   const allRef = useRef(initialAllCodes);
   allRef.current = initialAllCodes;

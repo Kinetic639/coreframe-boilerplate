@@ -9,7 +9,6 @@ import {
   AUDIT_EVENTS_READ,
   MODULE_WAREHOUSE_ACCESS,
   WAREHOUSE_LOCATIONS_READ,
-  QR_READ,
 } from "@/lib/constants/permissions";
 import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
@@ -159,17 +158,6 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             href: "/dashboard/warehouse/items",
             match: { startsWith: "/dashboard/warehouse/items" },
           },
-          {
-            id: "warehouse.locations",
-            title: "Locations",
-            titleKey: "modules.warehouse.items.locations",
-            iconKey: "locations",
-            href: "/dashboard/warehouse/locations",
-            match: { startsWith: "/dashboard/warehouse/locations" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
-            },
-          },
 
           /* NOT YET IMPLEMENTED — etykiety i kody
           {
@@ -220,6 +208,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           },
           */
         ],
+      },
+      {
+        id: "warehouse.locations",
+        title: "Locations",
+        titleKey: "modules.warehouse.items.locations",
+        iconKey: "locations",
+        href: "/dashboard/warehouse/locations",
+        match: { startsWith: "/dashboard/warehouse/locations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
+        },
       },
       /* NOT YET IMPLEMENTED — sprzedaż (cała sekcja)
       {
@@ -306,19 +305,6 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     ],
   },
 
-  // QR Codes (always available — no requiresModules gate, permission-only)
-  {
-    id: "qr",
-    title: "QR Codes",
-    titleKey: "modules.qr.titleSidebar",
-    iconKey: "qr-code",
-    href: "/dashboard/qr",
-    match: { startsWith: "/dashboard/qr" },
-    visibility: {
-      requiresPermissions: [QR_READ],
-    },
-  },
-
   // Tools (always available — no requiresModules gate, last in main nav)
   {
     id: "tools",
@@ -330,16 +316,6 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
     visibility: {
       requiresPermissions: [PERMISSION_TOOLS_READ],
     },
-  },
-
-  // DataView Demo — dev/demo page, no permission gate
-  {
-    id: "data-view-demo",
-    title: "DataView Demo",
-    titleKey: "dataViewDemo.titleSidebar",
-    iconKey: "development",
-    href: "/dashboard/data-view-demo",
-    match: { startsWith: "/dashboard/data-view-demo" },
   },
 ];
 
