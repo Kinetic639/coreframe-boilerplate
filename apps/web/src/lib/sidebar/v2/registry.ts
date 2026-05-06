@@ -209,17 +209,7 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           */
         ],
       },
-      {
-        id: "warehouse.locations",
-        title: "Locations",
-        titleKey: "modules.warehouse.items.locations",
-        iconKey: "locations",
-        href: "/dashboard/warehouse/locations",
-        match: { startsWith: "/dashboard/warehouse/locations" },
-        visibility: {
-          requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
-        },
-      },
+
       /* NOT YET IMPLEMENTED — sprzedaż (cała sekcja)
       {
         id: "warehouse.sales",
@@ -293,6 +283,17 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           },
           */
         ],
+      },
+      {
+        id: "warehouse.locations",
+        title: "Locations",
+        titleKey: "modules.warehouse.items.locations",
+        iconKey: "locations",
+        href: "/dashboard/warehouse/locations",
+        match: { startsWith: "/dashboard/warehouse/locations" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_LOCATIONS_READ],
+        },
       },
       {
         id: "warehouse.settings",
