@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useMemo } from "react";
+import React, { createContext, useEffect, useMemo } from "react";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -100,6 +100,7 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
   | "getRowId"
   | "renderCompactItem"
   | "renderDetail"
+  | "onSelectionChange"
 > & {
   children: React.ReactNode;
 };
@@ -116,6 +117,7 @@ export function DataViewProvider<TListRow, TDetail>({
   getRowId,
   renderCompactItem,
   renderDetail,
+  onSelectionChange,
   children,
 }: DataViewProviderProps<TListRow, TDetail>) {
   const urlState = useDataViewUrlState(entity);
@@ -126,6 +128,10 @@ export function DataViewProvider<TListRow, TDetail>({
   );
   const [selectedRowIds, setSelectedRowIds] = React.useState<Record<string, true>>({});
   const [keepOnlySelected, setKeepOnlySelected] = React.useState(false);
+
+  useEffect(() => {
+    onSelectionChange?.(Object.keys(selectedRowIds));
+  }, [selectedRowIds, onSelectionChange]);
 
   const listQuery = useDataViewListQuery<TListRow>({
     queryKey,

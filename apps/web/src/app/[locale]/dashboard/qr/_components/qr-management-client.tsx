@@ -1,10 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ArrowLeft, ArrowRight, QrCode, Plus, Trash2, RefreshCw } from "lucide-react";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { ArrowLeft, QrCode, Plus, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,6 @@ import { listQrCodesAction } from "@/app/actions/qr/list";
 import { createQrBatchAction } from "@/app/actions/qr/create-batch";
 import { revokeQrAction } from "@/app/actions/qr/revoke";
 import { DataView } from "@/components/data-view/data-view";
-import { useDataViewSelection } from "@/components/data-view/use-data-view";
 import type {
   DataViewColumnDef,
   DataViewFilterDef,
@@ -48,30 +47,18 @@ const LabelDesigner = dynamic(
 const QR_DV_KEY = ["qr-codes-dataview"];
 
 // ---------------------------------------------------------------------------
-// Detail panel — rendered inside DataViewProvider so it can read selection
+// Detail panel
 // ---------------------------------------------------------------------------
 
 interface QrDetailPanelProps {
   qr: QrCodeWithStatus;
   canRevoke: boolean;
-  canExport: boolean;
   isRevoking: boolean;
   onRevoke: (id: string) => void;
-  onDesign: (ids: string[]) => void;
   t: ReturnType<typeof useTranslations>;
 }
 
-function QrDetailPanel({
-  qr,
-  canRevoke,
-  canExport,
-  isRevoking,
-  onRevoke,
-  onDesign,
-  t,
-}: QrDetailPanelProps) {
-  const { selectedRowIds, selectedRowCount } = useDataViewSelection();
-
+function QrDetailPanel({ qr, canRevoke, isRevoking, onRevoke, t }: QrDetailPanelProps) {
   const displayStatus = getQrStatus(qr);
   const statusVariant = {
     assigned: "default",
@@ -130,18 +117,8 @@ function QrDetailPanel({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-2 border-t pt-3">
-        {canExport && selectedRowCount > 0 && (
-          <Button
-            size="sm"
-            className="w-full gap-2"
-            onClick={() => onDesign(Object.keys(selectedRowIds))}
-          >
-            {t("detail.designButton", { count: selectedRowCount })}
-          </Button>
-        )}
-        {canRevoke && qr.status === "active" && (
+      {canRevoke && qr.status === "active" && (
+        <div className="border-t pt-3">
           <Button
             size="sm"
             variant="outline"
@@ -152,8 +129,8 @@ function QrDetailPanel({
             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
             {t("detail.revokeButton")}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -186,7 +163,6 @@ export function QrManagementClient({
   const allRef = useRef(initialAllCodes);
   allRef.current = initialAllCodes;
 
-  // Client-side fetcher — zero latency, no server round-trip on filter/sort/page changes
   const listFetcher = useCallback(
     async (params: DataViewListParams): Promise<PaginatedResult<QrCodeWithStatus>> => {
       const filtered = filterSortQrCodes(allRef.current, params);
@@ -200,6 +176,9 @@ export function QrManagementClient({
       allRef.current.find((qr) => qr.id === id) ?? null,
     []
   );
+
+  // External mirror of DataView's selection — updated via onSelectionChange callback
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Generate form
   const [generateCount, setGenerateCount] = useState(1);
@@ -216,15 +195,12 @@ export function QrManagementClient({
   const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const [isRevoking, startRevoke] = useTransition();
 
-  // ── Refresh from server ───────────────────────────────────────────────────────
+  // ── Refresh ───────────────────────────────────────────────────────────────────
   function handleRefresh() {
     startRefresh(async () => {
       const result = await listQrCodesAction();
       if (result.success) {
         allRef.current = result.data;
-        // React Query cache for DataView will re-read from allRef on next render/invalidation
-        // Force a re-render by triggering a page re-render with router.refresh() is optional here
-        // since the DataView will use allRef.current on next listFetcher call
       } else {
         toast.error((result as { success: false; error: string }).error);
       }
@@ -240,7 +216,6 @@ export function QrManagementClient({
       });
       if (result.success) {
         toast.success(t("toasts.created", { count: result.data.length }));
-        // Reload from server and update ref
         const fresh = await listQrCodesAction();
         if (fresh.success) allRef.current = fresh.data;
         setLabelPrefix("");
@@ -252,10 +227,10 @@ export function QrManagementClient({
   }
 
   // ── Design ───────────────────────────────────────────────────────────────────
-  const handleOpenDesign = useCallback((ids: string[]) => {
-    setDesignIds(ids);
+  const handleOpenDesign = useCallback(() => {
+    setDesignIds(selectedIds);
     setActiveStage("design");
-  }, []);
+  }, [selectedIds]);
 
   // ── Revoke ───────────────────────────────────────────────────────────────────
   function handleRevokeConfirm() {
@@ -266,7 +241,6 @@ export function QrManagementClient({
       const result = await revokeQrAction({ qrCodeId: id });
       if (result.success) {
         toast.success(t("toasts.revoked"));
-        // Optimistic local update
         allRef.current = allRef.current.map((qr) =>
           qr.id === id ? { ...qr, status: "revoked" as const, assignment: null } : qr
         );
@@ -385,20 +359,17 @@ export function QrManagementClient({
     [t]
   );
 
-  // renderDetail returns QrDetailPanel — a named component that can use useDataViewSelection()
   const renderDetail = useCallback(
     (qr: QrCodeWithStatus) => (
       <QrDetailPanel
         qr={qr}
         canRevoke={canRevoke}
-        canExport={canExport}
         isRevoking={isRevoking}
         onRevoke={setRevokeTarget}
-        onDesign={handleOpenDesign}
         t={t}
       />
     ),
-    [canRevoke, canExport, isRevoking, handleOpenDesign, t]
+    [canRevoke, isRevoking, t]
   );
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -410,13 +381,36 @@ export function QrManagementClient({
         onValueChange={(v) => setActiveStage(v as "select" | "design")}
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
           <TabsList className="grid w-[320px] grid-cols-2">
             <TabsTrigger value="select">{t("stages.select")}</TabsTrigger>
             <TabsTrigger value="design" disabled={!canExport || designIds.length === 0}>
               {t("stages.design")}
             </TabsTrigger>
           </TabsList>
+
+          {/* Always-visible selection action bar */}
+          <div className="flex items-center gap-3">
+            {selectedIds.length > 0 ? (
+              <span className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{selectedIds.length}</span>{" "}
+                {t("selectedCount", { count: selectedIds.length })}
+              </span>
+            ) : (
+              <span className="text-sm text-muted-foreground">{t("selectHint")}</span>
+            )}
+            {canExport && (
+              <Button
+                size="sm"
+                disabled={selectedIds.length === 0}
+                onClick={handleOpenDesign}
+                className="gap-2"
+              >
+                {t("selection.designSelected")}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* ── Select tab ────────────────────────────────────────────────────── */}
@@ -482,6 +476,7 @@ export function QrManagementClient({
                 getRowId={(row) => row.id}
                 renderCompactItem={renderCompactItem}
                 renderDetail={renderDetail}
+                onSelectionChange={setSelectedIds}
                 className="h-full"
               />
             </div>

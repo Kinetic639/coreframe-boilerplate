@@ -66,6 +66,8 @@ export type DataViewProps<TListRow, TDetail> = {
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
+  /** Called whenever the checkbox selection changes. Receives the current selected row IDs. */
+  onSelectionChange?: (selectedIds: string[]) => void;
   className?: string;
 };
 

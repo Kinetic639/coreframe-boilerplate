@@ -36,6 +36,7 @@ export function DataView<TListRow, TDetail>({
   getRowId,
   renderCompactItem,
   renderDetail,
+  onSelectionChange,
   className,
 }: DataViewProps<TListRow, TDetail>) {
   // Per-mount QueryClient — isolates cache between DataView instances and test renders.
@@ -55,6 +56,7 @@ export function DataView<TListRow, TDetail>({
         getRowId={getRowId}
         renderCompactItem={renderCompactItem}
         renderDetail={renderDetail}
+        onSelectionChange={onSelectionChange}
       >
         <div className={cn("h-full", className)}>
           <DataViewLayout />
