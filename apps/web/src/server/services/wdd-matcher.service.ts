@@ -987,8 +987,8 @@ export class WddMatcherService {
       return {
         isDirect: true,
         headerText: (b.block_header_text as string) ?? null,
-        wddNumber: null,
-        groupName: null,
+        wddNumber: (m.wdd_number as string) ?? null,
+        groupName: (m.group_name as string) ?? null,
         orderNumber: (m.order_number as string) ?? null,
         zlNumber: (m.zl_number as string) ?? null,
         zwNumber: (m.zw_number as string) ?? null,

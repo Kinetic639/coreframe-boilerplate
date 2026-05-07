@@ -49,253 +49,133 @@ const S = StyleSheet.create({
 
   block: {
     marginBottom: 9,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "#8a8a8a",
   },
 
   header: {
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: "#9a9a9a",
-  },
-  headerOrderTitle: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 14,
-    textAlign: "center",
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderBottomStyle: "solid",
-    borderColor: "#9a9a9a",
-    marginBottom: 4,
-  },
-  headerGrid: {
-    flexDirection: "row",
-    minHeight: 62,
-  },
-  headerGridLeft: {
-    width: "23.5%",
-    borderRightWidth: 1,
-    borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
-    paddingVertical: 4,
-    paddingHorizontal: 5,
-  },
-  headerGridMiddle: {
-    width: "47.5%",
-    borderRightWidth: 1,
-    borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
-  },
-  headerGridRight: {
-    width: "29%",
-  },
-  headerGridTop: {
-    minHeight: 40,
-    paddingVertical: 3,
-    paddingHorizontal: 5,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: "#9a9a9a",
+    borderBottomColor: "#8a8a8a",
   },
-  headerGridBottom: {
-    minHeight: 20,
-    paddingVertical: 2,
-    paddingHorizontal: 5,
+  headerDateStrip: {
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#8a8a8a",
+    paddingVertical: 1.5,
+    paddingHorizontal: 8,
   },
-  headerSplitRow: {
+  headerDate: {
+    fontFamily: "Roboto",
+    fontWeight: 400,
+    fontSize: 7,
+    textAlign: "right",
+  },
+  headerIdRow: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: "#9a9a9a",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingTop: 4,
+    paddingBottom: 3,
+    paddingHorizontal: 8,
   },
-  headerSplitCell: {
-    width: "50%",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
+  headerIdBox: {
+    flexGrow: 1,
+    flexBasis: 0,
+    paddingHorizontal: 8,
     borderRightWidth: 1,
     borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
+    borderRightColor: "#8a8a8a",
   },
-  headerSplitCellLast: {
-    width: "50%",
-    paddingVertical: 2,
-    paddingHorizontal: 5,
+  headerIdBoxLast: {
+    borderRightWidth: 0,
   },
-  transferIcon: {
-    position: "absolute",
-    top: 4,
-    left: 4,
-    width: 16,
-    height: 16,
-    backgroundColor: "#000000",
-  },
-  transferIconSlash: {
-    position: "absolute",
-    top: 3,
-    left: 1,
-    width: 20,
-    height: 3,
-    backgroundColor: "#ffffff",
-    transform: "rotate(35deg)",
-  },
-  headerLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
-  },
-  headerBottomLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: "#9a9a9a",
-    minHeight: 16,
-  },
-  headerTitle: {
+  headerIdLabel: {
     fontFamily: "Roboto",
     fontWeight: 700,
-    fontSize: 8.5,
-    textAlign: "center",
+    fontSize: 7,
+    lineHeight: 1,
+  },
+  headerIdNumber: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 36,
+    lineHeight: 1,
+  },
+  headerIdNumberRight: {
+    textAlign: "right",
+  },
+  headerVinRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingBottom: 4,
+  },
+  headerVin: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
+    fontSize: 12,
+  },
+  headerInfoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: "#8a8a8a",
+    paddingVertical: 3,
+    paddingHorizontal: 8,
   },
   headerText: {
     fontFamily: "Roboto",
     fontWeight: 400,
     fontSize: 7.2,
+    lineHeight: 1.2,
   },
   headerRight: {
     fontFamily: "Roboto",
     fontWeight: 700,
     fontSize: 7.2,
     textAlign: "right",
+    lineHeight: 1.2,
   },
-  headerStrong: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 10,
+  headerInfoLeft: {
+    width: "32%",
   },
-  primaryIdBox: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    paddingTop: 8,
-  },
-  primaryIdRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "center",
-  },
-  primaryIdPrefix: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 7,
-    marginBottom: 4,
-  },
-  primaryIdNumber: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 26,
-    lineHeight: 1,
-  },
-  primaryIdSuffix: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 7,
-    marginBottom: 4,
-  },
-  primaryIdFallback: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 19,
-    lineHeight: 1.1,
+  headerInfoMiddle: {
+    width: "34%",
     textAlign: "center",
   },
-  primaryIdNote: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 7,
-    marginTop: 3,
-    textAlign: "center",
-  },
-  headerClient: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 14,
-  },
-  headerOrderNumber: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  headerLeftCol: {
-    width: "24%",
-  },
-  headerMidCol: {
-    width: "48%",
-    textAlign: "center",
-  },
-  headerRightCol: {
-    width: "28%",
+  headerInfoRight: {
+    width: "32%",
     textAlign: "right",
-  },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 2,
-  },
-  metaItem: {
-    flexDirection: "row",
-    gap: 2,
-  },
-  metaLabel: {
-    fontFamily: "Roboto",
-    fontWeight: 400,
-    fontSize: 8,
-  },
-  metaValue: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
-    fontSize: 8,
   },
   tableHead: {
     flexDirection: "row",
-    borderLeftWidth: 1,
-    borderLeftStyle: "solid",
-    borderLeftColor: "#9a9a9a",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: "#9a9a9a",
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: "#9a9a9a",
-    marginTop: 3,
+    borderBottomColor: "#8a8a8a",
     backgroundColor: "#f0f0f0",
   },
   tableRow: {
     flexDirection: "row",
-    borderLeftWidth: 1,
-    borderLeftStyle: "solid",
-    borderLeftColor: "#9a9a9a",
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: "#9a9a9a",
+    borderBottomColor: "#8a8a8a",
   },
   tableCell: {
     paddingVertical: 2,
     paddingHorizontal: 3,
     borderRightWidth: 1,
     borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
+    borderRightColor: "#8a8a8a",
   },
   tableCellCenter: {
     paddingVertical: 2,
     paddingHorizontal: 3,
     borderRightWidth: 1,
     borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
+    borderRightColor: "#8a8a8a",
     textAlign: "center",
   },
   tableCellRight: {
@@ -303,8 +183,11 @@ const S = StyleSheet.create({
     paddingHorizontal: 3,
     borderRightWidth: 1,
     borderRightStyle: "solid",
-    borderRightColor: "#9a9a9a",
+    borderRightColor: "#8a8a8a",
     textAlign: "right",
+  },
+  tableCellLast: {
+    borderRightWidth: 0,
   },
   headText: {
     fontFamily: "Roboto",
@@ -328,6 +211,9 @@ const S = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     fontSize: 8,
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: "#8a8a8a",
   },
 
   checkbox: {
@@ -358,15 +244,16 @@ const S = StyleSheet.create({
 
   pageNumber: {
     fontFamily: "Roboto",
-    fontWeight: 400,
+    fontWeight: 700,
     position: "absolute",
-    bottom: 14,
-    right: 20,
-    width: 70,
-    height: 12,
-    fontSize: 7,
-    lineHeight: 1.2,
+    bottom: 18,
+    right: 16,
+    width: 90,
+    minHeight: 14,
+    fontSize: 8,
+    lineHeight: 1,
     textAlign: "right",
+    color: "#000000",
   },
   blockFooter: {
     flexDirection: "row",
@@ -374,18 +261,6 @@ const S = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 5,
     paddingHorizontal: 10,
-    borderLeftWidth: 1,
-    borderLeftStyle: "solid",
-    borderLeftColor: "#000000",
-    borderRightWidth: 1,
-    borderRightStyle: "solid",
-    borderRightColor: "#000000",
-    borderTopWidth: 1,
-    borderTopStyle: "solid",
-    borderTopColor: "#000000",
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: "#000000",
   },
   footerMatch: {
     fontFamily: "Roboto",
@@ -466,37 +341,34 @@ function documentSubtitle(block: PdfBlockData | undefined): string {
   return `${documentLabel(block)}${warehouseLabel ? `; Magazyn ${warehouseLabel}` : ""}${suffix}`;
 }
 
-function splitPrimaryId(value: string | null): {
-  prefix: string;
-  number: string;
-  suffix: string;
-} | null {
+function mainIdentifierNumber(value: string | null): string | null {
   if (!value) return null;
   const parts = value.split("/");
-  if (parts.length < 2) return { prefix: "", number: value, suffix: "" };
-  return {
-    prefix: `${parts[0]}/`,
-    number: parts[1] ?? "",
-    suffix: parts.length > 2 ? `/${parts.slice(2).join("/")}` : "",
-  };
+  if (parts.length >= 2 && parts[1]) return parts[1];
+  return value.match(/\d+/)?.[0] ?? value;
 }
 
-function PrimaryIdentifier({ value, note }: { value: string | null; note: string | null }) {
-  const split = splitPrimaryId(value);
-  if (!split) return null;
+function HeaderIdBox({
+  label,
+  value,
+  last = false,
+  alignRight = false,
+}: {
+  label: string;
+  value: string | null;
+  last?: boolean;
+  alignRight?: boolean;
+}) {
+  const number = mainIdentifierNumber(value);
 
   return (
-    <View style={S.primaryIdBox}>
-      {split.prefix || split.suffix ? (
-        <View style={S.primaryIdRow}>
-          <Text style={S.primaryIdPrefix}>{split.prefix}</Text>
-          <Text style={S.primaryIdNumber}>{split.number}</Text>
-          <Text style={S.primaryIdSuffix}>{split.suffix}</Text>
-        </View>
-      ) : (
-        <Text style={S.primaryIdFallback}>{split.number}</Text>
-      )}
-      {note ? <Text style={S.primaryIdNote}>{note}</Text> : null}
+    <View style={last ? [S.headerIdBox, S.headerIdBoxLast] : S.headerIdBox}>
+      <Text style={alignRight ? [S.headerIdLabel, S.headerIdNumberRight] : S.headerIdLabel}>
+        {label}
+      </Text>
+      <Text style={alignRight ? [S.headerIdNumber, S.headerIdNumberRight] : S.headerIdNumber}>
+        {number ?? ""}
+      </Text>
     </View>
   );
 }
@@ -569,54 +441,47 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
   const dealerLine = `${documentLabel(block)}${warehouseLabel ? `; Magazyn ${warehouseLabel}` : ""}`;
   const rightTitle = `${sectionTitle}${shopCode ? ` - Blacharnia ${shopCode}` : ""}`;
   const primaryId = block.zlNumber ?? block.orderNumber ?? block.manualNote;
-  const movedBlwk = block.zlNumber ? block.orderNumber : null;
-  const primaryNote = block.zlNumber ? block.manualNote : null;
+  const primaryLabel = block.zlNumber ? "ZL/ZLEC" : block.orderNumber ? "BLWK" : "INFO";
+  const secondaryLeft = [block.clientName, block.manualNote].filter(Boolean).join(" · ");
+  const secondaryMiddle = [dealerLine, block.documentBrand === "BC" ? "31 Audi_BC" : null]
+    .filter(Boolean)
+    .join(" ");
+  const secondaryRight = block.groupName ?? "";
+  const idBoxes: Array<{ label: string; value: string | null; alignRight?: boolean }> = [
+    { label: primaryLabel, value: primaryId },
+    ...(block.zlNumber ? [{ label: "BLWK", value: block.orderNumber }] : []),
+    { label: "ZW", value: block.zwNumber },
+    { label: "WDD", value: block.wddNumber, alignRight: true },
+  ];
 
   return (
     <View style={S.block} wrap={false}>
-      <Text style={S.headerOrderTitle}>{rightTitle}</Text>
-
       <View style={S.header}>
-        <View style={S.headerGrid}>
-          <View style={S.headerGridLeft}>
-            <View style={S.transferIcon}>
-              <View style={S.transferIconSlash} />
-            </View>
-            <PrimaryIdentifier value={primaryId} note={primaryNote} />
-          </View>
-
-          <View style={S.headerGridMiddle}>
-            <View style={S.headerGridTop}>
-              <Text style={S.headerClient}>{block.clientName ?? ""}</Text>
-            </View>
-            <View style={S.headerSplitRow}>
-              <View style={S.headerSplitCell}>
-                <Text style={S.headerText}>{block.vin ?? ""}</Text>
-              </View>
-              <View style={S.headerSplitCellLast}>
-                <Text style={S.headerText}>{movedBlwk ?? ""}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={S.headerGridRight}>
-            <View style={S.headerGridTop}>
-              <Text style={[S.headerText, { textAlign: "right" }]}>{generatedAtLabel}</Text>
-              <Text style={[S.headerStrong, { textAlign: "center", marginTop: 8 }]}>
-                {rightTitle}
-              </Text>
-            </View>
-            <View style={S.headerGridBottom}>
-              <Text style={S.headerOrderNumber}>{block.zwNumber ?? block.wddNumber ?? ""}</Text>
-            </View>
-          </View>
+        <View style={S.headerDateStrip}>
+          <Text style={S.headerDate}>{generatedAtLabel}</Text>
         </View>
 
-        <View style={S.headerBottomLine}>
-          <Text style={[S.headerText, { marginLeft: "47.5%", width: "52.5%", textAlign: "right" }]}>
-            {dealerLine}
-            {block.documentBrand ? ` ${block.documentBrand === "BC" ? "31 Audi_BC" : ""}` : ""}
-          </Text>
+        <View style={S.headerIdRow}>
+          {idBoxes.map((item, index) => (
+            <HeaderIdBox
+              key={`${item.label}-${index}`}
+              label={item.label}
+              value={item.value}
+              last={index === idBoxes.length - 1}
+              alignRight={item.alignRight}
+            />
+          ))}
+        </View>
+
+        <View style={S.headerVinRow}>
+          <Text style={[S.headerVin, { width: "48%" }]}>{block.vin ?? ""}</Text>
+          <Text style={[S.headerRight, { width: "52%", paddingRight: 6 }]}>{rightTitle}</Text>
+        </View>
+
+        <View style={S.headerInfoRow}>
+          <Text style={[S.headerText, S.headerInfoLeft]}>{secondaryLeft}</Text>
+          <Text style={[S.headerText, S.headerInfoMiddle]}>{secondaryMiddle}</Text>
+          <Text style={[S.headerText, S.headerInfoRight]}>{secondaryRight}</Text>
         </View>
       </View>
 
@@ -635,7 +500,7 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
             <Text style={[S.colInz, S.tableCellCenter, S.headText]}>INZ</Text>
             <Text style={[S.colLocation, S.tableCellCenter, S.headText]}>Lokalizacja</Text>
             <Text style={[S.colIdp, S.tableCellCenter, S.headText]}>IDP</Text>
-            <Text style={[S.colOp, S.tableCellCenter, S.headText]}>O</Text>
+            <Text style={[S.colOp, S.tableCellCenter, S.tableCellLast, S.headText]}>O</Text>
           </View>
           {block.lines.map((line, i) => (
             <View key={i} style={S.tableRow}>
@@ -661,7 +526,7 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
               <Text style={[S.colIdp, S.tableCellRight, S.cellTextRight]}>
                 {line.idpRaw ?? formatDecimal(line.quantity)}
               </Text>
-              <Text style={[S.colOp, S.tableCellRight, S.cellTextRight]}>
+              <Text style={[S.colOp, S.tableCellRight, S.tableCellLast, S.cellTextRight]}>
                 {line.operationCode ?? ""}
               </Text>
             </View>
