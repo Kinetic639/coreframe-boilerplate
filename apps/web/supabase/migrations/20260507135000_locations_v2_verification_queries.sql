@@ -14,6 +14,8 @@ DECLARE
   v_duplicate_active_primary_visual_nodes BIGINT := 0;
   v_invalid_location_categories BIGINT := 0;
   v_invalid_visual_roles BIGINT := 0;
+  v_invalid_visual_statuses BIGINT := 0;
+  v_invalid_split_size_modes BIGINT := 0;
 BEGIN
   SELECT COUNT(*) INTO v_old_location_shape_count
   FROM public.warehouse_layout_shapes s
@@ -74,7 +76,13 @@ BEGIN
   FROM public.warehouse_location_visual_nodes n
   WHERE n.visual_role NOT IN ('primary','label','reference','aggregate');
 
-  RETURN jsonb_build_object(
+  SELECT COUNT(*) INTO v_invalid_visual_statuses
+  FROM public.warehouse_location_visual_nodes n
+  WHERE n.status NOT IN ('active','hidden','historical');
+
+  SELECT COUNT(*) INTO v_invalid_split_size_modes
+  FROM public.warehouse_layout_split_nodes sn
+  WHERE sn.size_mode NOT IN ('equal','ratio','fixed','auto');
     'old_location_shape_count', v_old_location_shape_count,
     'new_visual_node_count', v_new_visual_node_count,
     'unmapped_stock_holding_locations', v_unmapped_stock_holding_locations,
@@ -82,7 +90,9 @@ BEGIN
     'storage_capable_parents_with_children', v_storage_capable_parents_with_children,
     'duplicate_active_primary_visual_nodes', v_duplicate_active_primary_visual_nodes,
     'invalid_location_categories', v_invalid_location_categories,
-    'invalid_visual_roles', v_invalid_visual_roles
+    'invalid_visual_roles', v_invalid_visual_roles,
+    'invalid_visual_statuses', v_invalid_visual_statuses,
+    'invalid_split_size_modes', v_invalid_split_size_modes
   );
 END;
 $$;

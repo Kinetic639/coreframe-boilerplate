@@ -43,7 +43,7 @@
 
 - [ ] Not started (intentionally deferred per instruction: start with Phase 0 and Phase 1 only).
 
-## Migration Fix Pass (2026-05-07)
+## Migration Hardening Pass (2026-05-07)
 
 - Strategy: amended original Phase 1 local migrations directly (assumed not applied to shared DB yet).
 - Fixed `location_category` to controlled enum-like set with normalization + CHECK.
@@ -78,3 +78,6 @@
 - Execute `public.verify_locations_v2_migration()` in dev/staging.
 - Confirm zero duplicates/invalid categories/invalid visual roles on real data.
 - Confirm `validate_warehouse_location_archive()` behavior against environments with optional dependency tables.
+
+- manual verification SQL path: `docs/sql/locations-v2-verification.sql`
+- Phase 1 completion status: **not yet complete** until migrations are applied and verification function passes in dev/shared DB.
