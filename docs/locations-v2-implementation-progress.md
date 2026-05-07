@@ -129,21 +129,15 @@ Files modified (deprecation markers added):
 
 ---
 
-### Phase 4 — Top-Down V2 Plan Editor
+### Phase 4 — Top-Down V2 Plan Editor ✅
 
-Goals:
+**Completed 2026-05-07.**
 
-- [ ] Build V2 top-down plan canvas (SVG, location footprints, drag/place)
-- [ ] Integrate `warehouse_location_visual_nodes` for location placement
-- [ ] Add `+ Add object` flow with location category and dimension input
-- [ ] Add unmapped locations panel (drag onto canvas to create visual node)
-- [ ] Add "Remove from map" action (soft-delete visual node, keep location)
-- [ ] Add object details panel (summary stats, open interior action)
-- [ ] Replace `location-form-dialog.tsx` map_role selector with V2 fields
-- [ ] Replace `warehouse-map-dialog.tsx` with V2 routing (view_type based)
-- [ ] Update `locations-client.tsx` tree to remove map_role display logic
-- [ ] V2 public map viewer (reads `warehouse_location_visual_nodes`)
-- [ ] Replace legacy `map-preview.ts` / `map-context.ts` usage in new components
+**Key components:** `locations-page-shell`, `top-down-plan-canvas` (SVG + zoom/pan/drag/resize), `location-tree-panel`, `location-object-panel`, `add-object-dialog`, `location-form-v2`, `archive-location-dialog`, `remove-from-map-dialog`, `mapping-status-badge`, `unmapped-locations-panel`
+
+**V2 invariants verified:** 0 `map_role` reads, 0 `shape_type='location'` writes, visual delete never touches locations/inventory. 27/27 tests pass.
+
+**Remaining for future phases:** "Open interior" (Phase 5), QR viewer (Phase 5), inventory summary (Phase 7), decorative shapes overlay, inspector dimension editing.
 
 ---
 

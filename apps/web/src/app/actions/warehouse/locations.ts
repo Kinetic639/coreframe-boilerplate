@@ -22,6 +22,7 @@ import {
   archiveLocationSchema,
   getLocationMappingStatusSchema,
   updateLocationV2Schema,
+  createLocationV2Schema,
 } from "./schemas";
 import type { UpdateLocationV2Input } from "@/lib/types/warehouse/locations-v2";
 
@@ -504,6 +505,38 @@ export async function updateLocationV2Action(rawInput: unknown) {
       auth.context.app.activeOrgId,
       id,
       fields as UpdateLocationV2Input,
+      userId
+    );
+  } catch (error) {
+    const mapped = mapEntitlementError(error);
+    if (mapped) return { success: false, error: mapped.message };
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function createLocationV2Action(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!checkPermission(auth.context.user.permissionSnapshot, WAREHOUSE_LOCATIONS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+    if (!auth.context.app.activeBranchId) {
+      return { success: false, error: "No active branch — select a branch to create a location" };
+    }
+
+    const parsed = createLocationV2Schema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = auth.context.user.user?.id;
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return WarehouseLocationsService.create(
+      supabase,
+      auth.context.app.activeOrgId,
+      auth.context.app.activeBranchId,
+      parsed.data as import("@/server/services/warehouse-locations.service").CreateLocationInput,
       userId
     );
   } catch (error) {

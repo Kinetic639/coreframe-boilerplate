@@ -62,6 +62,12 @@ export interface CreateLocationInput {
   storage_mode?: string;
   allow_top_storage?: boolean;
   sort_order?: number;
+  // V2 fields (optional for backward compatibility)
+  can_store_inventory?: boolean;
+  location_category?: string;
+  width_mm?: number | null;
+  height_mm?: number | null;
+  depth_mm?: number | null;
 }
 
 export interface UpdateLocationInput {
@@ -270,6 +276,16 @@ export class WarehouseLocationsService {
         sort_order: input.sort_order ?? 0,
         created_by: userId,
         updated_by: userId,
+        // V2 fields
+        ...(input.can_store_inventory !== undefined && {
+          can_store_inventory: input.can_store_inventory,
+        }),
+        ...(input.location_category !== undefined && {
+          location_category: input.location_category,
+        }),
+        ...(input.width_mm !== undefined && { width_mm: input.width_mm }),
+        ...(input.height_mm !== undefined && { height_mm: input.height_mm }),
+        ...(input.depth_mm !== undefined && { depth_mm: input.depth_mm }),
       })
       .select(LOCATION_COLUMNS)
       .single();
