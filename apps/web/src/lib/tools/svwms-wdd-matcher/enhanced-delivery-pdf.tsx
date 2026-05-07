@@ -242,14 +242,16 @@ const S = StyleSheet.create({
   colIdp: { width: "8%" },
   colOp: { width: "3%" },
 
-  pageNumber: {
-    fontFamily: "Roboto",
-    fontWeight: 700,
+  pageNumberWrapper: {
     position: "absolute",
     bottom: 18,
     right: 16,
     width: 90,
     minHeight: 14,
+  },
+  pageNumber: {
+    fontFamily: "Roboto",
+    fontWeight: 700,
     fontSize: 8,
     lineHeight: 1,
     textAlign: "right",
@@ -297,6 +299,26 @@ const S = StyleSheet.create({
     color: "#444444",
   },
 });
+
+// A4 page content height in pt (841.89 - paddingTop 18 - paddingBottom 40)
+const AVAILABLE_PAGE_HEIGHT_PT = 783;
+
+// Approximate rendered heights of block sections (in pt, conservative estimates)
+const BLOCK_HEADER_PT = 95; // dateStrip + idRow + vinRow + infoRow + border
+const BLOCK_TABLE_HEAD_PT = 13;
+const BLOCK_ROW_PT = 13; // per row; slightly over minimum to handle 2-line product names
+const BLOCK_FOOTER_PT = 30;
+const BLOCK_CHROME_PT = 12; // border (top+bottom) + marginBottom
+
+function blockFitsOnPage(lineCount: number): boolean {
+  const height =
+    BLOCK_HEADER_PT +
+    BLOCK_TABLE_HEAD_PT +
+    lineCount * BLOCK_ROW_PT +
+    BLOCK_FOOTER_PT +
+    BLOCK_CHROME_PT;
+  return height <= AVAILABLE_PAGE_HEIGHT_PT;
+}
 
 const MATCH_LABELS: Record<string, string> = {
   exact: "Dokładne",
@@ -414,7 +436,7 @@ function PdfFooterStamp() {
 
 function BlockFooter({ block, matchLabel }: { block: PdfBlockData; matchLabel: string }) {
   return (
-    <View style={S.blockFooter}>
+    <View style={S.blockFooter} wrap={false}>
       <PdfFooterStamp />
       <Text style={S.footerLink}>www.ambra-system.com</Text>
       {!block.isDirect ? (
@@ -454,9 +476,11 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
     { label: "WDD", value: block.wddNumber, alignRight: true },
   ];
 
+  const fits = blockFitsOnPage(block.lines.length);
+
   return (
-    <View style={S.block} wrap={false}>
-      <View style={S.header}>
+    <View style={S.block} wrap={!fits}>
+      <View style={S.header} wrap={false}>
         <View style={S.headerDateStrip}>
           <Text style={S.headerDate}>{generatedAtLabel}</Text>
         </View>
@@ -489,7 +513,7 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
         <Text style={S.noLines}>Brak pozycji.</Text>
       ) : (
         <>
-          <View style={S.tableHead}>
+          <View style={S.tableHead} wrap={false}>
             <Text style={[S.colCheck, S.tableCellCenter, S.headText]}>L</Text>
             <Text style={[S.colLp, S.tableCellCenter, S.headText]}>Lp</Text>
             <Text style={[S.colCat, S.tableCellCenter, S.headText]}>Nr katalogowy</Text>
@@ -503,7 +527,7 @@ function BlockCard({ block, generatedAtLabel }: { block: PdfBlockData; generated
             <Text style={[S.colOp, S.tableCellCenter, S.tableCellLast, S.headText]}>O</Text>
           </View>
           {block.lines.map((line, i) => (
-            <View key={i} style={S.tableRow}>
+            <View key={i} style={S.tableRow} wrap={false}>
               <View style={[S.colCheck, S.tableCellCenter]}>
                 <View style={S.filledCheckbox} />
               </View>
@@ -562,11 +586,12 @@ export function EnhancedDeliveryDocument({
             <BlockCard key={idx} block={block} generatedAtLabel={generatedAtLabel} />
           ))
         )}
-        <Text
-          style={S.pageNumber}
-          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-          fixed
-        />
+        <View style={S.pageNumberWrapper} fixed>
+          <Text
+            style={S.pageNumber}
+            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          />
+        </View>
       </Page>
     </Document>
   );
