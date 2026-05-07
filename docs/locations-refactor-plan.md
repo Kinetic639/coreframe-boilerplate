@@ -12,9 +12,9 @@ Use this section as the master implementation checklist. Each item should be che
 
 ## 0.1 Overall Progress
 
-- [ ] Phase 0 — Architecture approval and implementation safeguards
-- [ ] Phase 1 — Database foundation
-- [ ] Phase 2 — Service/action/hook foundation
+- [x] Phase 0 — Architecture approval and implementation safeguards
+- [x] Phase 1 — Database foundation
+- [x] Phase 2 — Service/action/hook foundation
 - [ ] Phase 3 — Migration backfill and verification
 - [ ] Phase 4 — Simplified locations UI
 - [ ] Phase 5 — Top-down visual plan editor
@@ -24,7 +24,7 @@ Use this section as the master implementation checklist. Each item should be che
 - [ ] Phase 9 — Draft/publish, undo/redo, and layout safety
 - [ ] Phase 10 — Cleanup and deprecation of old concepts
 
-Current implementation status: Not started
+Current implementation status: Phase 2 complete (2026-05-07)
 
 ---
 

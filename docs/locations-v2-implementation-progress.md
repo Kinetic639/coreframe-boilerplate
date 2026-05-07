@@ -40,9 +40,52 @@
 - [ ] Regenerate Supabase types (if/when connected workflow is executed).
 - [x] Run post-apply verification queries against live data. ✅ All metrics clean
 
-## Phase 2+
+## Phase 2 — Service / Action / Hook Foundation ✅
 
-- [ ] Not started (intentionally deferred per instruction: start with Phase 0 and Phase 1 only).
+**Completed 2026-05-07.**
+
+### Files created
+
+| File                                                                            | Purpose                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/types/warehouse/locations-v2.ts`                                       | All V2 TypeScript types — enums, entity interfaces, input types, RPC result types                                                                                 |
+| `src/server/services/warehouse-location-visual-nodes.service.ts`                | Visual nodes service — listByLayout/Location/Context, upsertNode, softDelete, hide, restore, batchUpsert (scoped), softDeleteAllForLocation, getUnmappedLocations |
+| `src/server/services/warehouse-layout-split-nodes.service.ts`                   | Split nodes service — listByLayout/ParentVisualNode, createSplit, resizeSplit, removeSplitNode, linkLocation, unlinkLocation, recalculatePositions (Phase 2 stub) |
+| `src/app/actions/warehouse/location-visual-nodes.ts`                            | Server actions for visual nodes (all 7) under `warehouse.layouts.*` permission gates                                                                              |
+| `src/app/actions/warehouse/split-nodes.ts`                                      | Server actions for split nodes (all 6) under `warehouse.layouts.*` permission gates                                                                               |
+| `src/hooks/queries/warehouse/locations-v2.ts`                                   | React Query hooks for archive validation/mutation, mapping status, update V2 fields                                                                               |
+| `src/hooks/queries/warehouse/location-visual-nodes.ts`                          | React Query hooks for visual node queries and mutations                                                                                                           |
+| `src/hooks/queries/warehouse/split-nodes.ts`                                    | React Query hooks for split node queries and mutations                                                                                                            |
+| `src/server/services/__tests__/warehouse-location-visual-nodes.service.test.ts` | 12 unit tests — scope safety, delete isolation, restore conflict detection                                                                                        |
+| `src/server/services/__tests__/warehouse-layout-split-nodes.service.test.ts`    | 7 unit tests — remove/link/unlink isolation, resize validation, create scope checks                                                                               |
+
+### Files modified
+
+| File                                                 | Changes                                                                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/services/warehouse-locations.service.ts` | Added V2 methods: validateArchive, archiveLocation, getMappingStatus, updateStorageCapability, updateDimensions, updateV2Fields                |
+| `src/app/actions/warehouse/schemas.ts`               | Added V2 Zod schemas: location V2 create/update, archive, mapping status, visual node input/batch/remove, split node create/resize/link/unlink |
+| `src/app/actions/warehouse/locations.ts`             | Added V2 actions: validateArchiveLocationAction, archiveLocationAction, getLocationMappingStatusAction, updateLocationV2Action                 |
+
+### Test results
+
+- 19/19 unit tests pass
+- 0 TypeScript errors in V2 files (20 pre-existing unrelated errors unchanged)
+- 0 ESLint warnings in V2 files
+
+### Architecture invariants enforced
+
+- Visual node deletion never touches `warehouse_locations`
+- Archive blocked if stock/children blockers exist
+- batchUpsert scoped — never silently deletes outside explicit scope
+- Split remove/link/unlink never modifies inventory
+- No `map_role`/`front_segment`/`top_down_unit`/`top_storage_segment` in any V2 public API
+
+### Remaining TODOs before Phase 3
+
+- `recalculatePositions` is a Phase 2 stub (marks cache_valid=false); full recursive geometry calculator is Phase 4+
+- No UI components built (intentional — Phase 4+)
+- No template generator (Phase 7)
 
 ## Migration Hardening Pass (2026-05-07)
 
