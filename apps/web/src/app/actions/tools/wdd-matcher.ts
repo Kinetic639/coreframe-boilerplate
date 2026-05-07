@@ -259,8 +259,8 @@ function buildPreparedResults(
       return {
         isDirect: true,
         headerText: block.block_header_text,
-        wddNumber: null,
-        groupName: null,
+        wddNumber: metadataString(metadata, "wdd_number"),
+        groupName: metadataString(metadata, "group_name"),
         orderNumber: metadataString(metadata, "order_number"),
         zlNumber: metadataString(metadata, "zl_number"),
         zwNumber: metadataString(metadata, "zw_number"),
