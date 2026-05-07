@@ -16,6 +16,8 @@ DECLARE
   v_unmapped_child_count INTEGER := 0;
   v_mapping_status TEXT := 'unmapped';
 BEGIN
+  -- Phase 1 scope: mapping_status is direct-child aware only.
+  -- Descendant-aware storage mapping can be added in a later phase if required.
   SELECT COUNT(*) INTO v_visual_count
   FROM public.warehouse_location_visual_nodes
   WHERE location_id = p_location_id
@@ -98,13 +100,14 @@ DECLARE
   v_blockers JSONB := '[]'::jsonb;
   v_warnings JSONB := '[]'::jsonb;
 BEGIN
-  SELECT COUNT(*), COALESCE(SUM(pls.quantity), 0)
-    INTO v_direct_stock_count, v_direct_stock_qty
-  FROM public.product_location_stock pls
-  WHERE pls.location_id = p_location_id
-    AND COALESCE(pls.quantity, 0) > 0;
+  IF to_regclass('public.product_location_stock') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='product_location_stock' AND column_name='location_id')
+     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='product_location_stock' AND column_name='quantity')
+  THEN
+    EXECUTE 'SELECT COUNT(*), COALESCE(SUM(quantity), 0) FROM public.product_location_stock WHERE location_id = $1 AND COALESCE(quantity, 0) > 0'
+      INTO v_direct_stock_count, v_direct_stock_qty USING p_location_id;
 
-  WITH RECURSIVE descendants AS (
+    WITH RECURSIVE descendants AS (
     SELECT wl.id
     FROM public.warehouse_locations wl
     WHERE wl.parent_id = p_location_id AND wl.deleted_at IS NULL
@@ -114,11 +117,12 @@ BEGIN
     JOIN descendants d ON d.id = wl2.parent_id
     WHERE wl2.deleted_at IS NULL
   )
-  SELECT COUNT(*), COALESCE(SUM(pls.quantity), 0)
-    INTO v_desc_stock_count, v_desc_stock_qty
-  FROM public.product_location_stock pls
-  JOIN descendants d ON d.id = pls.location_id
-  WHERE COALESCE(pls.quantity, 0) > 0;
+    SELECT COUNT(*), COALESCE(SUM(pls.quantity), 0)
+      INTO v_desc_stock_count, v_desc_stock_qty
+    FROM public.product_location_stock pls
+    JOIN descendants d ON d.id = pls.location_id
+    WHERE COALESCE(pls.quantity, 0) > 0;
+  END IF;
 
   SELECT COUNT(*) INTO v_active_children_count
   FROM public.warehouse_locations wl

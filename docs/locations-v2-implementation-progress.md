@@ -81,3 +81,34 @@
 
 - manual verification SQL path: `docs/sql/locations-v2-verification.sql`
 - Phase 1 completion status: **not yet complete** until migrations are applied and verification function passes in dev/shared DB.
+
+## Migration Review Fix Pass (2026-05-07)
+
+- Fixed verification function syntax/return shape in `public.verify_locations_v2_migration()` and ensured JSONB return compiles.
+- Enforced `warehouse_locations.can_store_inventory` as `NOT NULL DEFAULT false` after normalization.
+- Enforced `warehouse_locations.location_category` as `NOT NULL DEFAULT 'custom'` with controlled value constraint.
+- Expanded `warehouse_locations.status` to `active|inactive|archived`, normalized invalid/null to `active`, and enforced NOT NULL + default.
+- Added `updated_at` triggers for:
+  - `warehouse_location_visual_nodes`
+  - `warehouse_layout_split_nodes`
+- Made visual node `depth_mm` nullable with positive check only when provided.
+- Corrected backfill depth logic to use real depth fields only; removed shape-height-as-depth fallback.
+- Added split-node anchoring and geometry support:
+  - `parent_visual_node_id` (ON DELETE CASCADE)
+  - index `wlsn_parent_visual_node_idx`
+  - `calc_z_mm`
+- Hardened archive validation against missing `product_location_stock` table/columns using table+column guards.
+- Added note that mapping-status logic is direct-child aware in Phase 1 (descendant-aware later if needed).
+- Updated manual verification SQL with null/invalid checks for location/visual/split fields.
+
+### Verification assets
+
+- Function: `public.verify_locations_v2_migration()`
+- Manual SQL: `docs/sql/locations-v2-verification.sql`
+
+### Remaining blockers before Phase 1 completion
+
+- Run migrations on dev/shared DB successfully.
+- Execute `SELECT public.verify_locations_v2_migration();` on dev DB and review metrics.
+- Validate optional dependency behavior of archive validation in target schema.
+- Confirm duplicate primary-node handling with real data (no silent delete/remap).
