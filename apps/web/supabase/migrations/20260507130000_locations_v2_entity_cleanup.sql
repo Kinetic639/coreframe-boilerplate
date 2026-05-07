@@ -27,30 +27,52 @@ SET
   depth_mm = COALESCE(depth_mm, CASE WHEN physical_depth_m IS NOT NULL AND physical_depth_m > 0 THEN (physical_depth_m * 1000)::INTEGER END)
 WHERE true;
 
--- Conservative category backfill (do not expose deprecated concepts in new UI).
+-- Controlled V2 categories only.
 UPDATE public.warehouse_locations
-SET location_category = COALESCE(
-  location_category,
-  CASE
-    WHEN top_storage_segment IS NOT NULL THEN 'storage'
-    WHEN map_role IN ('storage', 'rack', 'shelf', 'bin') THEN 'storage'
-    WHEN map_role IN ('receiving', 'dispatch') THEN map_role
-    WHEN map_role IS NOT NULL THEN 'general'
-    ELSE NULL
-  END
-)
-WHERE location_category IS NULL;
+SET location_category = CASE
+  WHEN map_role = 'top_down_unit' THEN 'rack'
+  WHEN map_role = 'front_segment' THEN 'shelf'
+  WHEN map_role = 'top_storage_segment' THEN 'bin'
+  WHEN map_role = 'layout_root' THEN 'area'
+  WHEN map_role = 'logical' THEN 'custom'
+  ELSE 'custom'
+END
+WHERE location_category IS NULL
+   OR location_category NOT IN (
+     'area','zone','room','cabinet','rack','shelf_unit','workbench',
+     'shelf','drawer','bin','box','pallet_position','wall_storage',
+     'receiving','dispatch','quarantine','temporary','custom'
+   );
 
--- Safe default for can_store_inventory only when old role is strongly storage-like.
-UPDATE public.warehouse_locations
+ALTER TABLE public.warehouse_locations
+  DROP CONSTRAINT IF EXISTS warehouse_locations_location_category_valid;
+
+ALTER TABLE public.warehouse_locations
+  ADD CONSTRAINT warehouse_locations_location_category_valid
+  CHECK (
+    location_category IN (
+      'area','zone','room','cabinet','rack','shelf_unit','workbench',
+      'shelf','drawer','bin','box','pallet_position','wall_storage',
+      'receiving','dispatch','quarantine','temporary','custom'
+    )
+  );
+
+-- Conservative can_store_inventory backfill.
+UPDATE public.warehouse_locations wl
 SET can_store_inventory = true
-WHERE can_store_inventory IS NULL
-  AND map_role IN ('storage', 'rack', 'shelf', 'bin', 'slot');
+WHERE wl.deleted_at IS NULL
+  AND wl.can_store_inventory IS NULL
+  AND wl.map_role IN ('front_segment', 'top_storage_segment')
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.warehouse_locations child
+    WHERE child.parent_id = wl.id
+      AND child.deleted_at IS NULL
+  );
 
--- For remaining rows keep explicit false until manually classified.
-UPDATE public.warehouse_locations
+UPDATE public.warehouse_locations wl
 SET can_store_inventory = false
-WHERE can_store_inventory IS NULL;
+WHERE wl.can_store_inventory IS NULL;
 
 CREATE INDEX IF NOT EXISTS wl_status_active_idx
   ON public.warehouse_locations (organization_id, branch_id, status)

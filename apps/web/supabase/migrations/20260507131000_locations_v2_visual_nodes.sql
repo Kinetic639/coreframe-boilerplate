@@ -8,9 +8,10 @@ CREATE TABLE IF NOT EXISTS public.warehouse_location_visual_nodes (
 
   location_id UUID NOT NULL REFERENCES public.warehouse_locations(id) ON DELETE RESTRICT,
   view_type TEXT NOT NULL CHECK (view_type IN ('top_down', 'front', 'interior')),
-  view_context_location_id UUID NULL REFERENCES public.warehouse_locations(id) ON DELETE CASCADE,
-  visual_role TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  view_context_location_id UUID NULL REFERENCES public.warehouse_locations(id) ON DELETE SET NULL,
+  visualization_type TEXT NOT NULL DEFAULT 'rectangle' CHECK (visualization_type IN ('rectangle','cabinet','rack','grid','drawer','bin','zone','custom')),
+  visual_role TEXT NOT NULL DEFAULT 'primary' CHECK (visual_role IN ('primary','label','reference','aggregate')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'hidden', 'historical')),
 
   x_mm INTEGER NOT NULL DEFAULT 0,
   y_mm INTEGER NOT NULL DEFAULT 0,
@@ -31,9 +32,17 @@ CREATE TABLE IF NOT EXISTS public.warehouse_location_visual_nodes (
   deleted_at TIMESTAMPTZ NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS wlvn_active_primary_per_scope_uidx
-  ON public.warehouse_location_visual_nodes (layout_id, view_type, COALESCE(view_context_location_id, '00000000-0000-0000-0000-000000000000'::uuid), location_id)
-  WHERE deleted_at IS NULL AND status = 'active';
+-- NOTE: uniqueness applies to active PRIMARY nodes only.
+CREATE UNIQUE INDEX IF NOT EXISTS wlvn_primary_unique_idx
+  ON public.warehouse_location_visual_nodes (
+    location_id,
+    view_type,
+    COALESCE(layout_id, '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE(view_context_location_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  )
+  WHERE deleted_at IS NULL
+    AND status = 'active'
+    AND visual_role = 'primary';
 
 CREATE INDEX IF NOT EXISTS wlvn_scope_active_idx
   ON public.warehouse_location_visual_nodes (layout_id, view_type, view_context_location_id)
