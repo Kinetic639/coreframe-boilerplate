@@ -36,9 +36,9 @@
 - [x] `locations_v2_mapping_archive_functions` migration created.
 - [x] `locations_v2_backfill_visual_nodes` migration created.
 - [x] `locations_v2_verification_queries` migration created.
-- [ ] Apply migrations to target database.
+- [x] Apply migrations to target database. ✅ Applied 2026-05-07
 - [ ] Regenerate Supabase types (if/when connected workflow is executed).
-- [ ] Run post-apply verification queries against live data.
+- [x] Run post-apply verification queries against live data. ✅ All metrics clean
 
 ## Phase 2+
 
@@ -162,10 +162,93 @@ Files amended directly (not additive fix migrations) — confirmed safe because 
 
 ### Phase 1 readiness
 
-Ready for DB application once team reviews and approves. Phase 1 is **not complete** until:
+✅ **All blockers resolved. Migrations applied to dev DB 2026-05-07. See Dev DB Application section below.**
 
-- [ ] Migrations applied to dev/shared Supabase target DB
-- [ ] `SELECT public.verify_locations_v2_migration();` executed and all metrics reviewed
-- [ ] Zero `null_can_store_inventory`, zero `invalid_location_categories`, zero `invalid_location_status`
-- [ ] `unmapped_stock_holding_locations` and `stock_on_non_storable_locations` reviewed (non-zero is a warning, not a blocker)
-- [ ] `duplicate_active_primary_visual_nodes` = 0 confirmed
+---
+
+## Dev DB Application & Verification (2026-05-07)
+
+### Preflight Schema Inspection
+
+| Check                                          | Result                                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `warehouse_location_visual_nodes`              | Not present — safe to create                                                 |
+| `warehouse_layout_split_nodes`                 | Not present — safe to create                                                 |
+| `inventory_balances`                           | ✅ EXISTS — `location_id`, `on_hand_quantity` confirmed                      |
+| `product_location_stock`                       | Does not exist — stock guards in functions correctly skip                    |
+| `stock_reservations`                           | Does not exist — archive validation correctly skips                          |
+| V2 columns on `warehouse_locations`            | Absent — migrations not previously applied                                   |
+| Live `map_role` distribution                   | `top_down_unit` (36), `front_segment` (17), `logical` (4), `layout_root` (2) |
+| `warehouse_layout_shapes` location-type shapes | 36 (matching 36 top_down_unit locations)                                     |
+
+### Migrations Applied
+
+All 6 migrations applied in order with no errors. Migration 6 required one retry due to a connection timeout (the function was not created on the first attempt; the retry succeeded).
+
+| Migration                                               | Status               |
+| ------------------------------------------------------- | -------------------- |
+| `20260507130000_locations_v2_entity_cleanup`            | ✅ Applied           |
+| `20260507131000_locations_v2_visual_nodes`              | ✅ Applied           |
+| `20260507132000_locations_v2_split_nodes`               | ✅ Applied           |
+| `20260507133000_locations_v2_mapping_archive_functions` | ✅ Applied           |
+| `20260507134000_locations_v2_backfill_visual_nodes`     | ✅ Applied           |
+| `20260507135000_locations_v2_verification_queries`      | ✅ Applied (1 retry) |
+
+### Post-Apply State
+
+- `warehouse_locations`: 59 rows — 17 `can_store_inventory=true` (front_segment leaf nodes), 42 false, 0 NULL
+- `warehouse_location_visual_nodes`: 36 rows — all top_down, all `visualization_type=rack`, all `visual_role=primary`, all `status=active`
+- `warehouse_layout_split_nodes`: 0 rows (empty — no split data yet)
+- `warehouse_layout_shapes`: 42 rows preserved intact (no modification)
+
+### Verification Function Output
+
+```json
+{
+  "old_location_shape_count": 36,
+  "new_visual_node_count": 36,
+  "unmapped_stock_holding_locations": 0,
+  "stock_on_non_storable_locations": 0,
+  "storage_capable_parents_with_children": 0,
+  "duplicate_active_primary_visual_nodes": 0,
+  "invalid_location_categories": 0,
+  "null_can_store_inventory": 0,
+  "invalid_location_status": 0,
+  "invalid_visual_roles": 0,
+  "invalid_visual_statuses": 0,
+  "invalid_split_size_modes": 0
+}
+```
+
+All 12 metrics are at their required values. ✅
+
+### RPC Behavior Verified
+
+**`get_warehouse_location_mapping_status()`**
+
+| Test case                                           | Result                                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `top_down_unit` leaf (has visual node, no children) | `mapping_status: "mapped"`, `is_mapped: true`, `has_top_down: true` ✅              |
+| `front_segment` (no visual node, no children)       | `mapping_status: "unmapped"`, `is_mapped: false` ✅                                 |
+| `layout_root` (no visual node, 1 unmapped child)    | `mapping_status: "unmapped"`, `active_child_count: 1`, `unmapped_child_count: 1` ✅ |
+
+**`validate_warehouse_location_archive()`**
+
+| Test case                                               | Result                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `front_segment` leaf — no stock, no children, no visual | `can_archive: true`, `blockers: []`, `warnings: []` ✅                                                       |
+| `top_down_unit` with children — has visual node         | `can_archive: false`, `blockers: [{active_children, count:1}]`, `warnings: [{has_visual_nodes, count:1}]` ✅ |
+| `top_down_unit` leaf — no children, has visual node     | `can_archive: true`, `blockers: []`, `warnings: [{has_visual_nodes, count:1}]` ✅                            |
+
+### Anomalies / Notes
+
+- **17 `front_segment` locations are unmapped** — expected. These locations existed only in the front-elevation view of the legacy editor and never had `warehouse_layout_shapes` entries. They will be mapped via the V2 interior editor in Phase 4–5.
+- **No duplicate primary visual nodes** — the `NOT EXISTS` guard in the backfill migration worked correctly.
+- **No stock on non-storable locations** — `inventory_balances` has no records pointing to `can_store_inventory=false` locations.
+- **Old `warehouse_layout_shapes` unchanged** — 42 shapes preserved; legacy map editor continues to function.
+
+### Phase 1 Decision
+
+**✅ PHASE 1 COMPLETE AND VERIFIED ON DEV DB**
+
+Phase 2 (service/action/hook layer) may begin.
