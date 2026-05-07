@@ -50,11 +50,21 @@ WHERE p.deleted_at IS NULL AND p.can_store_inventory = true
 GROUP BY p.id, p.name;
 
 -- 7) stock-holding unmapped locations
+-- NOTE: actual deployed stock table is inventory_balances (column: on_hand_quantity).
+-- product_location_stock does not exist in this schema.
 SELECT wl.id, wl.organization_id, wl.branch_id, wl.name
 FROM public.warehouse_locations wl
-JOIN public.product_location_stock pls ON pls.location_id = wl.id AND COALESCE(pls.quantity, 0) > 0
+JOIN public.inventory_balances ib ON ib.location_id = wl.id AND COALESCE(ib.on_hand_quantity, 0) > 0
 LEFT JOIN public.warehouse_location_visual_nodes n
   ON n.location_id = wl.id AND n.deleted_at IS NULL AND n.status = 'active'
 WHERE wl.deleted_at IS NULL
 GROUP BY wl.id
 HAVING COUNT(n.id) = 0;
+
+-- 8) stock on can_store_inventory=false locations
+SELECT wl.id, wl.organization_id, wl.branch_id, wl.name, SUM(ib.on_hand_quantity) AS total_qty
+FROM public.warehouse_locations wl
+JOIN public.inventory_balances ib ON ib.location_id = wl.id
+WHERE wl.deleted_at IS NULL AND wl.can_store_inventory = false
+GROUP BY wl.id, wl.organization_id, wl.branch_id, wl.name
+HAVING SUM(ib.on_hand_quantity) > 0;
