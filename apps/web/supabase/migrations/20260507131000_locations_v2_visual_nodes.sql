@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.warehouse_location_visual_nodes (
   z_mm INTEGER NOT NULL DEFAULT 0,
   width_mm INTEGER NOT NULL CHECK (width_mm > 0),
   height_mm INTEGER NOT NULL CHECK (height_mm > 0),
-  depth_mm INTEGER NOT NULL CHECK (depth_mm > 0),
+  depth_mm INTEGER CHECK (depth_mm IS NULL OR depth_mm > 0),
 
   rotation_deg NUMERIC(8,2) NOT NULL DEFAULT 0,
   style JSONB,
@@ -74,3 +74,14 @@ DROP POLICY IF EXISTS wlvn_delete_deny ON public.warehouse_location_visual_nodes
 CREATE POLICY wlvn_delete_deny
   ON public.warehouse_location_visual_nodes FOR DELETE
   USING (false);
+
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.routines WHERE routine_schema='public' AND routine_name='set_updated_at') THEN
+    DROP TRIGGER IF EXISTS warehouse_location_visual_nodes_updated_at ON public.warehouse_location_visual_nodes;
+    CREATE TRIGGER warehouse_location_visual_nodes_updated_at
+      BEFORE UPDATE ON public.warehouse_location_visual_nodes
+      FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+  END IF;
+END $$;

@@ -51,7 +51,11 @@ SELECT
   0,
   GREATEST((s.width * 1000)::INTEGER, 1),
   GREATEST((COALESCE(wl.physical_height_m, s.height) * 1000)::INTEGER, 1),
-  GREATEST((COALESCE(wl.physical_depth_m, s.height) * 1000)::INTEGER, 1),
+  CASE
+    WHEN wl.physical_depth_m IS NOT NULL AND wl.physical_depth_m > 0 THEN ROUND(wl.physical_depth_m * 1000)::INTEGER
+    WHEN wl.depth_mm IS NOT NULL AND wl.depth_mm > 0 THEN wl.depth_mm
+    ELSE NULL
+  END,
   s.rotation,
   s.style,
   s.z_index,
