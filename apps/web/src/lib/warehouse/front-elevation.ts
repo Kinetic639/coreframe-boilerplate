@@ -1,3 +1,7 @@
+// TODO(locations-v2): Legacy front-elevation rendering path.
+// Computes front/interior view from map_role semantics (front_segment, top_storage_segment).
+// V2 rendering uses warehouse_location_visual_nodes + warehouse_layout_split_nodes instead.
+// Planned removal in Phase 8 once the V2 interior/front editor is complete.
 import type { WarehouseLayoutWithShapes, WarehouseLayoutShape } from "./layouts";
 import {
   getEffectiveLocationColor,

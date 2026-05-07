@@ -15,8 +15,12 @@ Use this section as the master implementation checklist. Each item should be che
 - [x] Phase 0 — Architecture approval and implementation safeguards
 - [x] Phase 1 — Database foundation
 - [x] Phase 2 — Service/action/hook foundation
-- [ ] Phase 3 — Migration backfill and verification
-- [ ] Phase 4 — Simplified locations UI
+- [x] Phase 3 — Legacy isolation + V2 transition (replaces old "Migration backfill" phase — NO backfill)
+- [ ] Phase 4 — Top-down V2 plan editor
+- [ ] Phase 5 — Interior/front-view split editor
+- [ ] Phase 6 — Location generation + templates
+- [ ] Phase 7 — Inventory placement UX + putaway assistance
+- [ ] Phase 8 — Legacy removal + cleanup
 - [ ] Phase 5 — Top-down visual plan editor
 - [ ] Phase 6 — Interior/front-view split editor
 - [ ] Phase 7 — Templates and auto-generation
@@ -24,7 +28,7 @@ Use this section as the master implementation checklist. Each item should be che
 - [ ] Phase 9 — Draft/publish, undo/redo, and layout safety
 - [ ] Phase 10 — Cleanup and deprecation of old concepts
 
-Current implementation status: Phase 2 complete (2026-05-07)
+Current implementation status: Phase 3 complete (2026-05-07) — roadmap rewritten for no-backfill V2 transition
 
 ---
 

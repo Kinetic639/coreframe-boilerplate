@@ -87,6 +87,137 @@
 - No UI components built (intentional — Phase 4+)
 - No template generator (Phase 7)
 
+---
+
+## Revised Roadmap (2026-05-07)
+
+> The original Phase 3 assumed legacy visualization backfill and migration of old `warehouse_layout_shapes` location records into V2. **This has been cancelled.**
+>
+> **Reason:** Legacy visualization data is dev/test data only. The complexity of migrating `map_role`/`front_segment`/`top_down_unit` semantics into V2 split-node topology is not justified. V2 visualization starts fresh.
+
+### Phase 3 — Legacy Isolation + V2 Transition ✅
+
+**Completed 2026-05-07. No code removed — planning and isolation only.**
+
+Goals:
+
+- Rewrite roadmap
+- Inventory all legacy usage
+- Add deprecation markers at architectural boundaries
+- Document V2 rendering rules
+- Define compatibility strategy
+
+Files created:
+
+- `docs/warehouse-locations-legacy-inventory.md` — complete inventory of legacy concepts, categorized by removal timeline
+- `docs/warehouse-locations-v2-rendering-rules.md` — authoritative V2 rendering rules and invariants
+
+Files modified (deprecation markers added):
+
+- `src/lib/warehouse/front-elevation.ts` — `TODO(locations-v2)` marker at top
+- `src/lib/warehouse/map-context.ts` — `TODO(locations-v2)` marker at top
+- `src/server/services/warehouse-layout-shapes.service.ts` — `TODO(locations-v2)` marker in doc comment
+
+**Key decision: NO legacy visual backfill.** Old `warehouse_layout_shapes` with `shape_type='location'` are not migrated into `warehouse_location_visual_nodes`. They remain as-is, serving only the legacy editor.
+
+**Compatibility strategy:**
+
+- Old editor continues reading/writing `warehouse_layout_shapes` — unchanged
+- New V2 code must NEVER write `shape_type='location'` shapes
+- New V2 code must NEVER read `warehouse_layout_shapes` for location rendering decisions
+- Decorative shapes (walls, doors, labels) remain valid in `warehouse_layout_shapes` permanently
+
+---
+
+### Phase 4 — Top-Down V2 Plan Editor
+
+Goals:
+
+- [ ] Build V2 top-down plan canvas (SVG, location footprints, drag/place)
+- [ ] Integrate `warehouse_location_visual_nodes` for location placement
+- [ ] Add `+ Add object` flow with location category and dimension input
+- [ ] Add unmapped locations panel (drag onto canvas to create visual node)
+- [ ] Add "Remove from map" action (soft-delete visual node, keep location)
+- [ ] Add object details panel (summary stats, open interior action)
+- [ ] Replace `location-form-dialog.tsx` map_role selector with V2 fields
+- [ ] Replace `warehouse-map-dialog.tsx` with V2 routing (view_type based)
+- [ ] Update `locations-client.tsx` tree to remove map_role display logic
+- [ ] V2 public map viewer (reads `warehouse_location_visual_nodes`)
+- [ ] Replace legacy `map-preview.ts` / `map-context.ts` usage in new components
+
+---
+
+### Phase 5 — Interior / Front-View Split Editor
+
+Goals:
+
+- [ ] Build interior view route/page
+- [ ] Build split-node renderer (recursive SVG from split tree)
+- [ ] Implement split horizontally / vertically
+- [ ] Implement resize split (size_mode: equal/ratio/fixed/auto)
+- [ ] Implement generate child locations from split grid
+- [ ] Implement link/unlink location to split cell
+- [ ] Implement split removal (visual only; no location archive)
+- [ ] Implement breadcrumb navigation (Garage > C1 > S2 > B3)
+- [ ] Replace `front-elevation.ts` legacy path for front view rendering
+
+---
+
+### Phase 6 — Location Generation + Templates
+
+Goals:
+
+- [ ] Template registry (Cabinet, Rack, Wall Bins, Pallet Rack, Workbench, Custom)
+- [ ] Template picker UI with dimension input
+- [ ] Auto-generate split tree + child locations from template
+- [ ] Naming pattern system (prefix, start number, padding: B01-B50)
+- [ ] Row × column auto-generation dialog
+- [ ] Preview before generation
+- [ ] Default `can_store_inventory` behavior per template level
+
+---
+
+### Phase 7 — Inventory Placement UX + Putaway Assistance
+
+Goals:
+
+- [ ] Stock badge overlay on visual nodes (aggregated child stock counts)
+- [ ] Search → map flow (search item → open location map → highlight bin)
+- [ ] Receiving flow with map (suggested placement highlighted on map)
+- [ ] Unmapped location recovery UX (map editor "unmapped" panel)
+- [ ] Archive location flow with blocker checklist UI
+- [ ] Putaway engine foundation (SKU location rules, priority-based suggestions)
+
+---
+
+### Phase 8 — Legacy Removal + Cleanup
+
+**DO NOT execute before Phase 4–7 are complete.**
+
+Checklist:
+
+- [ ] Remove `map_role` from runtime rendering logic
+- [ ] Remove `front_segment` semantics from services and validation
+- [ ] Remove `top_down_unit` semantics from services and components
+- [ ] Remove `top_storage_segment` semantics
+- [ ] Stop writing `shape_type='location'` shapes from any code path
+- [ ] Remove legacy editor: `map-editor.tsx`, `map-canvas.tsx`, `shape-inspector.tsx`, `location-toolbox.tsx`
+- [ ] Remove `warehouse-map-dialog.tsx` (replace with V2)
+- [ ] Remove `warehouse-map-viewer.tsx` (replace with V2)
+- [ ] Remove `front-elevation.ts`
+- [ ] Remove `map-preview.ts`
+- [ ] Remove `map-context.ts`
+- [ ] Remove `map_role` from `CreateLocationInput` / `UpdateLocationInput`
+- [ ] Remove `locationMapRoleSchema` from `schemas.ts`
+- [ ] Remove `validateFrontSegmentHeight` from `warehouse-locations.service.ts`
+- [ ] Remove `listPlacedLocationIds` (superseded by `getUnmappedLocations`)
+- [ ] Evaluate dropping legacy DB columns: `map_role`, `elevation_level`, `allow_top_storage`, `storage_mode`, `physical_elevation_start_m`
+- [ ] Evaluate dropping `warehouse_layout_shapes.projection`, `warehouse_layout_shapes.anchor_location_id`
+- [ ] Remove `batch_save_warehouse_layout_shapes` RPC if editor replaced
+- [ ] Final cleanup migration to `warehouse_layouts` / `warehouse_layout_shapes`
+
+---
+
 ## Migration Hardening Pass (2026-05-07)
 
 - Strategy: amended original Phase 1 local migrations directly (assumed not applied to shared DB yet).
