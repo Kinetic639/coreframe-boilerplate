@@ -18,7 +18,6 @@ function ensureFonts() {
 
 const S = StyleSheet.create({
   page: {
-    position: "relative",
     fontFamily: "Roboto",
     fontWeight: 400,
     fontSize: 8,
@@ -244,7 +243,7 @@ const S = StyleSheet.create({
 
   pageNumberWrapper: {
     position: "absolute",
-    bottom: 18,
+    top: 797,
     right: 16,
     width: 90,
     minHeight: 14,
