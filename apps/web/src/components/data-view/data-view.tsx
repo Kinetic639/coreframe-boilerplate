@@ -36,6 +36,8 @@ export function DataView<TListRow, TDetail>({
   getRowId,
   renderCompactItem,
   renderExpandedRow,
+  renderRowControl,
+  renderToolbarControls,
   renderDetail,
   onSelectionChange,
   className,
@@ -57,6 +59,8 @@ export function DataView<TListRow, TDetail>({
         getRowId={getRowId}
         renderCompactItem={renderCompactItem}
         renderExpandedRow={renderExpandedRow}
+        renderRowControl={renderRowControl}
+        renderToolbarControls={renderToolbarControls}
         renderDetail={renderDetail}
         onSelectionChange={onSelectionChange}
       >

@@ -37,14 +37,21 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
-  const [productResult, unitsResult, suppliersResult, brandsResult, manufacturersResult] =
-    await Promise.all([
-      InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
-      InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
-      InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
-      InventoryProductsService.listBrands(supabase, context.app.activeOrgId),
-      InventoryProductsService.listManufacturers(supabase, context.app.activeOrgId),
-    ]);
+  const [
+    productResult,
+    unitsResult,
+    suppliersResult,
+    brandsResult,
+    manufacturersResult,
+    customFieldsResult,
+  ] = await Promise.all([
+    InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
+    InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
+    InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
+    InventoryProductsService.listBrands(supabase, context.app.activeOrgId),
+    InventoryProductsService.listManufacturers(supabase, context.app.activeOrgId),
+    InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
+  ]);
 
   if (!productResult.success || !productResult.data) notFound();
 
@@ -55,6 +62,7 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
       suppliers={suppliersResult.success ? suppliersResult.data : []}
       brands={brandsResult.success ? brandsResult.data : []}
       manufacturers={manufacturersResult.success ? manufacturersResult.data : []}
+      customFields={customFieldsResult.success ? customFieldsResult.data : []}
     />
   );
 }

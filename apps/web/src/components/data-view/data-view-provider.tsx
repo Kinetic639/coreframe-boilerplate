@@ -24,6 +24,8 @@ export type DataViewStaticContextValue<TListRow, TDetail> = {
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
   renderExpandedRow?: (row: TListRow) => React.ReactNode;
+  renderRowControl?: (row: TListRow) => React.ReactNode;
+  renderToolbarControls?: () => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
 };
 
@@ -101,6 +103,8 @@ type DataViewProviderProps<TListRow, TDetail> = Pick<
   | "getRowId"
   | "renderCompactItem"
   | "renderExpandedRow"
+  | "renderRowControl"
+  | "renderToolbarControls"
   | "renderDetail"
   | "onSelectionChange"
 > & {
@@ -119,6 +123,8 @@ export function DataViewProvider<TListRow, TDetail>({
   getRowId,
   renderCompactItem,
   renderExpandedRow,
+  renderRowControl,
+  renderToolbarControls,
   renderDetail,
   onSelectionChange,
   children,
@@ -193,9 +199,21 @@ export function DataViewProvider<TListRow, TDetail>({
       getRowId,
       renderCompactItem,
       renderExpandedRow,
+      renderRowControl,
+      renderToolbarControls,
       renderDetail,
     }),
-    [entity, columns, filters, getRowId, renderCompactItem, renderExpandedRow, renderDetail]
+    [
+      entity,
+      columns,
+      filters,
+      getRowId,
+      renderCompactItem,
+      renderExpandedRow,
+      renderRowControl,
+      renderToolbarControls,
+      renderDetail,
+    ]
   );
 
   const urlValue = useMemo<DataViewUrlContextValue>(

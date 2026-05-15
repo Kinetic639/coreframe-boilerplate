@@ -6,6 +6,7 @@ import type { DataViewListParams, PaginatedResult } from "@/components/data-view
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
 
 export type InventoryProductListRow = {
+  row_id: string;
   id: string;
   name: string;
   sku: string;
@@ -20,6 +21,9 @@ export type InventoryProductListRow = {
   tags: string[];
   custom_field_values: Record<string, string>;
   variants: InventoryProductVariantListRow[];
+  is_variant_row?: boolean;
+  variant_id?: string | null;
+  parent_product_name?: string | null;
 };
 
 export type InventoryProductDetail = InventoryProductListRow & {
@@ -59,6 +63,8 @@ export type InventoryProductVariantListRow = {
   on_hand_quantity: number;
   available_quantity: number;
   reorder_point: number | null;
+  option_values: InventoryVariantOptionValue[];
+  custom_field_values: Record<string, string>;
 };
 
 export type InventoryVariantOption = {
@@ -68,6 +74,14 @@ export type InventoryVariantOption = {
   product_name: string;
   unit_id: string;
   unit_code: string;
+};
+
+export type InventoryVariantOptionValue = {
+  option_group_id: string;
+  option_group_name: string;
+  option_value_id: string;
+  value: string;
+  display_order: number;
 };
 
 export type InventoryProductImageRow = {
@@ -99,6 +113,8 @@ export type InventorySkuTemplateRow = {
   rules: unknown[];
   is_default: boolean;
 };
+
+export type ProductCsvImportMode = "create_only" | "skip_existing";
 
 export type InventorySkuCollision = {
   sku: string;
@@ -421,6 +437,8 @@ export class InventoryProductsService {
     orgId: string,
     params: DataViewListParams
   ): Promise<ServiceResult<PaginatedResult<InventoryProductListRow>>> {
+    const groupVariants = params.filters.__group_variants !== false;
+    const isVariantFilter = params.filters.is_variant;
     let query = supabase
       .from("inventory_products")
       .select(PRODUCT_COLUMNS, { count: "exact" })
@@ -465,7 +483,11 @@ export class InventoryProductsService {
 
     const from = (params.page - 1) * params.pageSize;
     const to = from + params.pageSize - 1;
-    const { data, error, count } = await applyProductSort(query, params.sort).range(from, to);
+    const shouldFlattenVariants = !groupVariants;
+    const sortedQuery = applyProductSort(query, params.sort);
+    const { data, error, count } = shouldFlattenVariants
+      ? await sortedQuery
+      : await sortedQuery.range(from, to);
 
     if (error) return { success: false, error: error.message };
 
@@ -473,6 +495,23 @@ export class InventoryProductsService {
     const rows = await InventoryProductsService.enrichProducts(supabase, orgId, products);
     if (!rows.success)
       return { success: false, error: (rows as { success: false; error: string }).error };
+
+    if (shouldFlattenVariants) {
+      const flattened = InventoryProductsService.flattenProductRows(rows.data);
+      const filtered =
+        typeof isVariantFilter === "boolean"
+          ? flattened.filter((row) => Boolean(row.is_variant_row) === isVariantFilter)
+          : flattened;
+      return {
+        success: true,
+        data: {
+          rows: filtered.slice(from, to + 1),
+          totalCount: filtered.length,
+          page: params.page,
+          pageSize: params.pageSize,
+        },
+      };
+    }
 
     return {
       success: true,
@@ -490,11 +529,12 @@ export class InventoryProductsService {
     orgId: string,
     productId: string
   ): Promise<ServiceResult<InventoryProductDetail | null>> {
+    const normalizedProductId = productId.includes("::") ? productId.split("::")[0] : productId;
     const { data, error } = await supabase
       .from("inventory_products")
       .select(PRODUCT_COLUMNS)
       .eq("organization_id", orgId)
-      .eq("id", productId)
+      .eq("id", normalizedProductId)
       .is("deleted_at", null)
       .maybeSingle();
 
@@ -1573,6 +1613,65 @@ export class InventoryProductsService {
     return { success: true, data: data as InventorySkuTemplateRow };
   }
 
+  static async updateSkuTemplate(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      id: string;
+      name: string;
+      description?: string | null;
+      rules: unknown[];
+      is_default?: boolean;
+    },
+    userId: string
+  ): Promise<ServiceResult<InventorySkuTemplateRow>> {
+    const client = supabase as any;
+    if (input.is_default) {
+      const { error: clearError } = await client
+        .from("inventory_sku_templates")
+        .update({ is_default: false, updated_by: userId })
+        .eq("organization_id", orgId)
+        .neq("id", input.id)
+        .is("deleted_at", null);
+      if (clearError) return { success: false, error: clearError.message };
+    }
+    const { data, error } = await client
+      .from("inventory_sku_templates")
+      .update({
+        name: input.name.trim(),
+        description: input.description?.trim() || null,
+        rules: input.rules,
+        is_default: input.is_default ?? false,
+        updated_by: userId,
+      })
+      .eq("organization_id", orgId)
+      .eq("id", input.id)
+      .is("deleted_at", null)
+      .select("id, name, description, rules, is_default")
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as InventorySkuTemplateRow };
+  }
+
+  static async archiveSkuTemplate(
+    supabase: SupabaseClient,
+    orgId: string,
+    templateId: string,
+    userId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("inventory_sku_templates")
+      .update({ deleted_at: new Date().toISOString(), updated_by: userId })
+      .eq("organization_id", orgId)
+      .eq("id", templateId)
+      .is("deleted_at", null)
+      .select("id")
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as { id: string } };
+  }
+
   static async previewProductCsvImport(
     supabase: SupabaseClient,
     orgId: string,
@@ -1657,9 +1756,15 @@ export class InventoryProductsService {
     supabase: SupabaseClient,
     orgId: string,
     csvText: string,
-    userId: string
+    userId: string,
+    mode: ProductCsvImportMode = "create_only"
   ): Promise<
-    ServiceResult<{ imported_products: number; imported_variants: number; job_id: string }>
+    ServiceResult<{
+      imported_products: number;
+      imported_variants: number;
+      skipped_rows: number;
+      job_id: string;
+    }>
   > {
     const preview = await InventoryProductsService.previewProductCsvImport(
       supabase,
@@ -1667,7 +1772,14 @@ export class InventoryProductsService {
       csvText
     );
     if (!preview.success) return { success: false, error: serviceError(preview) };
-    const invalid = preview.data.rows.find((row) => row.errors.length > 0);
+    const invalid = preview.data.rows.find(
+      (row) =>
+        row.errors.length > 0 &&
+        !(
+          mode === "skip_existing" &&
+          row.errors.every((error) => error.startsWith("SKU already exists"))
+        )
+    );
     if (invalid) {
       return {
         success: false,
@@ -1683,7 +1795,7 @@ export class InventoryProductsService {
         import_type: "products",
         status: "processing",
         file_name: "products.csv",
-        summary: { total_rows: preview.data.total_rows },
+        summary: { total_rows: preview.data.total_rows, mode },
         created_by: userId,
       })
       .select("id")
@@ -1711,14 +1823,27 @@ export class InventoryProductsService {
 
     let importedProducts = 0;
     let importedVariants = 0;
+    let skippedRows = 0;
     for (const groupRows of groups.values()) {
-      const first = groupRows[0];
+      const importableRows =
+        mode === "skip_existing"
+          ? groupRows.filter((row) => {
+              const sku = (row.variant_sku || row.sku || row.product_sku || "").toLowerCase();
+              const previewRow = preview.data.rows.find(
+                (item) => item.variant_sku.toLowerCase() === sku
+              );
+              return !previewRow?.errors.some((error) => error.startsWith("SKU already exists"));
+            })
+          : groupRows;
+      skippedRows += groupRows.length - importableRows.length;
+      if (importableRows.length === 0) continue;
+      const first = importableRows[0];
       const productName = first.product_name || first.name || first.item_name || "";
       const unitCode = first.unit_code || first.unit || "";
       const baseUnitId = unitByCode.get(unitCode.toLowerCase());
       if (!baseUnitId) continue;
 
-      const variants = groupRows.map((row) => ({
+      const variants = importableRows.map((row) => ({
         sku: row.variant_sku || row.sku || row.product_sku,
         name: row.variant_name || row.product_name || row.name || row.item_name,
         barcode: row.barcode || null,
@@ -1770,7 +1895,12 @@ export class InventoryProductsService {
       .from("inventory_import_jobs")
       .update({
         status: "completed",
-        summary: { imported_products: importedProducts, imported_variants: importedVariants },
+        summary: {
+          imported_products: importedProducts,
+          imported_variants: importedVariants,
+          skipped_rows: skippedRows,
+          mode,
+        },
         completed_at: new Date().toISOString(),
       })
       .eq("id", (job as { id: string }).id);
@@ -1780,6 +1910,7 @@ export class InventoryProductsService {
       data: {
         imported_products: importedProducts,
         imported_variants: importedVariants,
+        skipped_rows: skippedRows,
         job_id: (job as { id: string }).id,
       },
     };
@@ -2336,6 +2467,47 @@ export class InventoryProductsService {
       : { data: [], error: null };
     if (reorderError) return { success: false, error: reorderError.message };
 
+    const { data: optionLinkData, error: optionLinkError } = variantIds.length
+      ? await client
+          .from("inventory_variant_option_values")
+          .select("variant_id, option_group_id, option_value_id")
+          .eq("organization_id", orgId)
+          .in("variant_id", variantIds)
+      : { data: [], error: null };
+    if (optionLinkError) return { success: false, error: optionLinkError.message };
+
+    const optionGroupIds = [
+      ...new Set(
+        ((optionLinkData ?? []) as Array<{ option_group_id: string }>).map(
+          (row) => row.option_group_id
+        )
+      ),
+    ];
+    const optionValueIds = [
+      ...new Set(
+        ((optionLinkData ?? []) as Array<{ option_value_id: string }>).map(
+          (row) => row.option_value_id
+        )
+      ),
+    ];
+    const { data: optionGroupData, error: optionGroupError } = optionGroupIds.length
+      ? await client
+          .from("inventory_option_groups")
+          .select("id, name, display_order")
+          .eq("organization_id", orgId)
+          .in("id", optionGroupIds)
+      : { data: [], error: null };
+    if (optionGroupError) return { success: false, error: optionGroupError.message };
+
+    const { data: optionValueData, error: optionValueError } = optionValueIds.length
+      ? await client
+          .from("inventory_option_values")
+          .select("id, value, display_order")
+          .eq("organization_id", orgId)
+          .in("id", optionValueIds)
+      : { data: [], error: null };
+    if (optionValueError) return { success: false, error: optionValueError.message };
+
     const { data: tagData, error: tagError } = await client
       .from("inventory_product_tags")
       .select("product_id, inventory_tags(name)")
@@ -2346,16 +2518,19 @@ export class InventoryProductsService {
       );
     if (tagError) return { success: false, error: tagError.message };
 
+    const customFieldScopes = [
+      `product_id.in.(${products.map((product) => product.id).join(",")})`,
+    ];
+    if (variants.length > 0) {
+      customFieldScopes.push(`variant_id.in.(${variants.map((variant) => variant.id).join(",")})`);
+    }
     const { data: customFieldValueData, error: customFieldValueError } = await client
       .from("inventory_custom_field_values")
       .select(
-        "product_id, field_id, value_text, value_number, value_date, value_boolean, value_json"
+        "product_id, variant_id, field_id, value_text, value_number, value_date, value_boolean, value_json"
       )
       .eq("organization_id", orgId)
-      .in(
-        "product_id",
-        products.map((product) => product.id)
-      );
+      .or(customFieldScopes.join(","));
     if (customFieldValueError) return { success: false, error: customFieldValueError.message };
 
     const unitsById = new Map((unitsData ?? []).map((u) => [(u as UnitRow).id, u as UnitRow]));
@@ -2401,6 +2576,36 @@ export class InventoryProductsService {
       }
     }
 
+    const optionGroupsById = new Map(
+      ((optionGroupData ?? []) as Array<{ id: string; name: string; display_order: number }>).map(
+        (group) => [group.id, group]
+      )
+    );
+    const optionValuesById = new Map(
+      ((optionValueData ?? []) as Array<{ id: string; value: string; display_order: number }>).map(
+        (value) => [value.id, value]
+      )
+    );
+    const optionValuesByVariant = new Map<string, InventoryVariantOptionValue[]>();
+    for (const link of (optionLinkData ?? []) as Array<{
+      variant_id: string;
+      option_group_id: string;
+      option_value_id: string;
+    }>) {
+      const group = optionGroupsById.get(link.option_group_id);
+      const value = optionValuesById.get(link.option_value_id);
+      if (!group || !value) continue;
+      const values = optionValuesByVariant.get(link.variant_id) ?? [];
+      values.push({
+        option_group_id: group.id,
+        option_group_name: group.name,
+        option_value_id: value.id,
+        value: value.value,
+        display_order: Number(group.display_order) * 1000 + Number(value.display_order),
+      });
+      optionValuesByVariant.set(link.variant_id, values);
+    }
+
     const tagsByProduct = new Map<string, string[]>();
     for (const row of (tagData ?? []) as Array<{
       product_id: string;
@@ -2412,8 +2617,10 @@ export class InventoryProductsService {
     }
 
     const customFieldsByProduct = new Map<string, Record<string, string>>();
+    const customFieldsByVariant = new Map<string, Record<string, string>>();
     for (const row of (customFieldValueData ?? []) as Array<{
       product_id: string | null;
+      variant_id: string | null;
       field_id: string;
       value_text: string | null;
       value_number: number | string | null;
@@ -2421,10 +2628,16 @@ export class InventoryProductsService {
       value_boolean: boolean | null;
       value_json: unknown;
     }>) {
-      if (!row.product_id) continue;
-      const values = customFieldsByProduct.get(row.product_id) ?? {};
+      if (row.product_id) {
+        const values = customFieldsByProduct.get(row.product_id) ?? {};
+        values[row.field_id] = formatCustomFieldDisplayValue(row);
+        customFieldsByProduct.set(row.product_id, values);
+        continue;
+      }
+      if (!row.variant_id) continue;
+      const values = customFieldsByVariant.get(row.variant_id) ?? {};
       values[row.field_id] = formatCustomFieldDisplayValue(row);
-      customFieldsByProduct.set(row.product_id, values);
+      customFieldsByVariant.set(row.variant_id, values);
     }
 
     return {
@@ -2455,11 +2668,16 @@ export class InventoryProductsService {
               on_hand_quantity: q.onHand,
               available_quantity: q.available,
               reorder_point: reorderByVariant.get(variant.id) ?? null,
+              option_values: (optionValuesByVariant.get(variant.id) ?? []).sort(
+                (a, b) => a.display_order - b.display_order
+              ),
+              custom_field_values: customFieldsByVariant.get(variant.id) ?? {},
             };
           }
         );
 
         return {
+          row_id: product.id,
           id: product.id,
           name: product.name,
           sku: defaultVariant?.sku ?? "",
@@ -2474,9 +2692,35 @@ export class InventoryProductsService {
           tags: tagsByProduct.get(product.id) ?? [],
           custom_field_values: customFieldsByProduct.get(product.id) ?? {},
           variants: enrichedVariants,
+          is_variant_row: false,
+          variant_id: null,
+          parent_product_name: null,
         };
       }),
     };
+  }
+
+  private static flattenProductRows(rows: InventoryProductListRow[]): InventoryProductListRow[] {
+    return rows.flatMap((product) => {
+      if (product.variant_count <= 1) return [{ ...product, row_id: product.id }];
+
+      return product.variants.map((variant) => ({
+        ...product,
+        row_id: `${product.id}::${variant.id}`,
+        name: variant.name,
+        sku: variant.sku,
+        status: variant.status,
+        thumbnail_url: variant.thumbnail_url,
+        variant_count: 1,
+        on_hand_quantity: variant.on_hand_quantity,
+        available_quantity: variant.available_quantity,
+        custom_field_values: variant.custom_field_values,
+        variants: [variant],
+        is_variant_row: true,
+        variant_id: variant.id,
+        parent_product_name: product.name,
+      }));
+    });
   }
 
   private static async resolveProductListFilterProductIds(

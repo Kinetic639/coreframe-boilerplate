@@ -7,6 +7,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import {
   createInventoryBrandAction,
   createInventoryManufacturerAction,
+  setInventoryCustomFieldValueAction,
   updateInventoryProductAction,
   updateInventoryProductImagesAction,
   uploadInventoryItemImageAction,
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
+  InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
   InventoryProductDetail,
   InventoryProductImageRow,
@@ -23,6 +25,7 @@ import { cn } from "@/utils";
 
 type UnitOption = { id: string; code: string; name: string };
 type SupplierOption = { id: string; name: string };
+type CustomFieldTarget = "product" | "variant";
 
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -45,18 +48,59 @@ function numberOrNull(value: FormDataEntryValue | null) {
   return Number.isFinite(number) ? number : null;
 }
 
+function safeParseTokens(value: string) {
+  if (!value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item).trim()).filter(Boolean);
+  } catch {
+    // Legacy comma-separated values are still accepted.
+  }
+  return value
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function customFieldPayload(
+  field: InventoryCustomFieldDefinition,
+  value: string | boolean | string[],
+  target: { product_id?: string | null; variant_id?: string | null }
+) {
+  const base = {
+    field_id: field.id,
+    product_id: target.product_id ?? null,
+    variant_id: target.variant_id ?? null,
+    lot_id: null,
+    serial_id: null,
+  };
+  if (field.field_type === "boolean") return { ...base, value_boolean: Boolean(value) };
+  if (field.field_type === "number") {
+    const number = Number(value);
+    return Number.isFinite(number) ? { ...base, value_number: number } : base;
+  }
+  if (field.field_type === "date") return value ? { ...base, value_date: String(value) } : base;
+  if (field.field_type === "multi_select") {
+    const tokens = Array.isArray(value) ? value : safeParseTokens(String(value));
+    return tokens.length ? { ...base, value_json: tokens } : base;
+  }
+  return value ? { ...base, value_text: String(value) } : base;
+}
+
 export function InventoryProductEditClient({
   product,
   units,
   suppliers,
   brands,
   manufacturers,
+  customFields,
 }: {
   product: InventoryProductDetail;
   units: UnitOption[];
   suppliers: SupplierOption[];
   brands: InventoryMasterDataRow[];
   manufacturers: InventoryMasterDataRow[];
+  customFields: InventoryCustomFieldDefinition[];
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -80,6 +124,39 @@ export function InventoryProductEditClient({
   const [manufacturerOptions, setManufacturerOptions] = useState(manufacturers);
   const [brandDraft, setBrandDraft] = useState("");
   const [manufacturerDraft, setManufacturerDraft] = useState("");
+  const productCustomFields = customFields.filter((field) => field.entity_type === "product");
+  const variantCustomFields = customFields.filter((field) => field.entity_type === "variant");
+  const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(
+      productCustomFields
+        .filter((field) => field.field_type === "multi_select")
+        .map((field) => [field.id, safeParseTokens(product.custom_field_values[field.id] ?? "")])
+    )
+  );
+  const [variantCustomValues, setVariantCustomValues] = useState<
+    Record<string, Record<string, string>>
+  >(() =>
+    Object.fromEntries(
+      product.variants.map((variant) => [variant.id, { ...variant.custom_field_values }])
+    )
+  );
+  const [variantCustomTokens, setVariantCustomTokens] = useState<
+    Record<string, Record<string, string[]>>
+  >(() =>
+    Object.fromEntries(
+      product.variants.map((variant) => [
+        variant.id,
+        Object.fromEntries(
+          variantCustomFields
+            .filter((field) => field.field_type === "multi_select")
+            .map((field) => [
+              field.id,
+              safeParseTokens(variant.custom_field_values[field.id] ?? ""),
+            ])
+        ),
+      ])
+    )
+  );
 
   const primaryImageId = useMemo(
     () => images.find((image) => image.is_primary)?.id ?? images[0]?.id ?? null,
@@ -124,14 +201,52 @@ export function InventoryProductEditClient({
       setMessage(
         result.success ? "Product saved" : "error" in result ? result.error : "Unexpected error"
       );
-      if (result.success) router.refresh();
+      if (!result.success) return;
+
+      for (const field of productCustomFields) {
+        const value =
+          field.field_type === "multi_select"
+            ? (productCustomTokens[field.id] ?? [])
+            : field.field_type === "boolean"
+              ? formData.get(`custom_field_${field.id}`) === "on"
+              : String(formData.get(`custom_field_${field.id}`) ?? "");
+        const customResult = await setInventoryCustomFieldValueAction(
+          customFieldPayload(field, value, { product_id: product.id })
+        );
+        if (!customResult.success) {
+          setMessage("error" in customResult ? customResult.error : "Custom field save failed");
+          return;
+        }
+      }
+
+      for (const variant of product.variants) {
+        for (const field of variantCustomFields) {
+          const value =
+            field.field_type === "multi_select"
+              ? (variantCustomTokens[variant.id]?.[field.id] ?? [])
+              : field.field_type === "boolean"
+                ? variantCustomValues[variant.id]?.[field.id] === "true" ||
+                  variantCustomValues[variant.id]?.[field.id] === "Yes"
+                : (variantCustomValues[variant.id]?.[field.id] ?? "");
+          const customResult = await setInventoryCustomFieldValueAction(
+            customFieldPayload(field, value, { variant_id: variant.id })
+          );
+          if (!customResult.success) {
+            setMessage("error" in customResult ? customResult.error : "Custom field save failed");
+            return;
+          }
+        }
+      }
+
+      router.refresh();
     });
   };
 
   const uploadImages = (files: FileList | null) => {
     if (!files) return;
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
     startTransition(async () => {
-      for (const file of Array.from(files).slice(0, 15 - images.length)) {
+      for (const file of imageFiles.slice(0, 15 - images.length)) {
         const formData = new FormData();
         formData.set("product_id", product.id);
         formData.set("is_primary", String(images.length === 0));
@@ -153,6 +268,12 @@ export function InventoryProductEditClient({
         ]);
       }
     });
+  };
+
+  const handleImageDrop = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    uploadImages(event.dataTransfer.files);
   };
 
   const syncImages = (nextImages: InventoryProductImageRow[]) => {
@@ -354,6 +475,15 @@ export function InventoryProductEditClient({
                 className={cn(textareaClass, "min-h-20")}
               />
             </div>
+            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
+              <label className="pt-2 text-sm">Tags</label>
+              <TagsInput
+                tags={tags}
+                draft={tagDraft}
+                onDraftChange={setTagDraft}
+                onChange={setTags}
+              />
+            </div>
             <label className="flex items-center gap-2 text-sm md:ml-[170px]">
               <input type="checkbox" name="returnable" defaultChecked={product.returnable} />
               Returnable item
@@ -361,7 +491,23 @@ export function InventoryProductEditClient({
           </div>
 
           <div className="grid gap-3">
-            <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+            <label
+              className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+              onDragEnter={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.dataTransfer.dropEffect = "copy";
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDrop={handleImageDrop}
+            >
               <ImageIcon className="mb-2 h-8 w-8" />
               Browse images
               <input
@@ -515,6 +661,93 @@ export function InventoryProductEditClient({
           </div>
         </section>
 
+        {productCustomFields.length > 0 || variantCustomFields.length > 0 ? (
+          <section className="grid gap-4">
+            <div>
+              <h2 className="text-lg font-medium">Custom fields</h2>
+              <p className="text-sm text-muted-foreground">
+                Product fields apply to the item. Variant fields apply to each stock-bearing
+                variant.
+              </p>
+            </div>
+
+            {productCustomFields.length > 0 ? (
+              <div className="grid gap-4 rounded-md border border-border p-4 lg:grid-cols-2">
+                {productCustomFields.map((field) => (
+                  <CustomFieldControl
+                    key={field.id}
+                    field={field}
+                    target="product"
+                    defaultValue={product.custom_field_values[field.id] ?? ""}
+                    tokens={productCustomTokens[field.id] ?? []}
+                    onTokensChange={(tokens) =>
+                      setProductCustomTokens((current) => ({ ...current, [field.id]: tokens }))
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {variantCustomFields.length > 0 ? (
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="whitespace-nowrap px-3 py-2 text-left">Variant</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left">SKU</th>
+                      {variantCustomFields.map((field) => (
+                        <th key={field.id} className="min-w-48 px-3 py-2 text-left">
+                          {field.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {product.variants.map((variant) => (
+                      <tr key={variant.id} className="border-t border-border">
+                        <td className="whitespace-nowrap px-3 py-2 font-medium">{variant.name}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+                          {variant.sku}
+                        </td>
+                        {variantCustomFields.map((field) => (
+                          <td key={field.id} className="px-3 py-2 align-top">
+                            <CustomFieldControl
+                              field={field}
+                              target="variant"
+                              compact
+                              defaultValue={variant.custom_field_values[field.id] ?? ""}
+                              value={variantCustomValues[variant.id]?.[field.id] ?? ""}
+                              tokens={variantCustomTokens[variant.id]?.[field.id] ?? []}
+                              onValueChange={(value) =>
+                                setVariantCustomValues((current) => ({
+                                  ...current,
+                                  [variant.id]: {
+                                    ...(current[variant.id] ?? {}),
+                                    [field.id]: value,
+                                  },
+                                }))
+                              }
+                              onTokensChange={(tokens) =>
+                                setVariantCustomTokens((current) => ({
+                                  ...current,
+                                  [variant.id]: {
+                                    ...(current[variant.id] ?? {}),
+                                    [field.id]: tokens,
+                                  },
+                                }))
+                              }
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="grid gap-4">
             <h2 className="text-lg font-medium">Sales</h2>
@@ -608,35 +841,6 @@ export function InventoryProductEditClient({
             onDraftChange={setManufacturerDraft}
             onCreate={createManufacturer}
           />
-        </section>
-
-        <section className="grid gap-3">
-          <h2 className="text-lg font-medium">Tags</h2>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className="rounded border px-2 py-1 text-sm"
-                onClick={() => setTags((current) => current.filter((item) => item !== tag))}
-              >
-                {tag} <X className="ml-1 inline h-3 w-3" />
-              </button>
-            ))}
-            <Input
-              value={tagDraft}
-              placeholder="Type tag and press Enter"
-              className="h-9 w-64"
-              onChange={(event) => setTagDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                const tag = tagDraft.trim();
-                if (tag && !tags.includes(tag)) setTags((current) => [...current, tag]);
-                setTagDraft("");
-              }}
-            />
-          </div>
         </section>
 
         <section className="grid gap-3">
@@ -814,6 +1018,286 @@ function UnitSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+function CustomFieldControl({
+  field,
+  target,
+  defaultValue = "",
+  value,
+  tokens = [],
+  onValueChange,
+  onTokensChange,
+  compact = false,
+}: {
+  field: InventoryCustomFieldDefinition;
+  target: CustomFieldTarget;
+  defaultValue?: string;
+  value?: string;
+  tokens?: string[];
+  onValueChange?: (value: string) => void;
+  onTokensChange?: (tokens: string[]) => void;
+  compact?: boolean;
+}) {
+  const name = target === "product" ? `custom_field_${field.id}` : undefined;
+  const label = field.is_required ? `${field.name}*` : field.name;
+  const inputValue = value ?? defaultValue;
+
+  if (field.field_type === "boolean") {
+    const checked =
+      target === "variant" ? inputValue === "true" || inputValue === "Yes" : undefined;
+    return (
+      <label className={cn("flex items-center gap-2 text-sm", !compact && "md:col-span-1")}>
+        <input
+          name={name}
+          type="checkbox"
+          defaultChecked={
+            target === "product" ? defaultValue === "Yes" || defaultValue === "true" : undefined
+          }
+          checked={target === "variant" ? checked : undefined}
+          onChange={(event) => onValueChange?.(String(event.target.checked))}
+        />
+        {label}
+      </label>
+    );
+  }
+
+  if (field.field_type === "multi_select") {
+    return (
+      <FieldShell label={label} compact={compact}>
+        <TokenInput
+          value={tokens}
+          onChange={onTokensChange ?? (() => undefined)}
+          placeholder={field.placeholder ?? "Type value and press Enter"}
+          suggestions={field.options}
+          compact={compact}
+        />
+      </FieldShell>
+    );
+  }
+
+  if (field.field_type === "select") {
+    return (
+      <FieldShell label={label} compact={compact}>
+        <select
+          name={name}
+          defaultValue={target === "product" ? defaultValue : undefined}
+          value={target === "variant" ? inputValue : undefined}
+          required={field.is_required}
+          className={cn(selectClass, "w-full pr-9")}
+          onChange={(event) => onValueChange?.(event.target.value)}
+        >
+          <option value="">Select</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </FieldShell>
+    );
+  }
+
+  return (
+    <FieldShell label={label} compact={compact}>
+      <Input
+        name={name}
+        type={
+          field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"
+        }
+        defaultValue={target === "product" ? defaultValue : undefined}
+        value={target === "variant" ? inputValue : undefined}
+        required={field.is_required}
+        placeholder={field.placeholder ?? undefined}
+        className="h-9"
+        onChange={(event) => onValueChange?.(event.target.value)}
+      />
+    </FieldShell>
+  );
+}
+
+function FieldShell({
+  label,
+  compact,
+  children,
+}: {
+  label: string;
+  compact?: boolean;
+  children: React.ReactNode;
+}) {
+  if (compact) return <div className="grid min-w-48 gap-1">{children}</div>;
+  return (
+    <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+      <label className="text-sm">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function TokenInput({
+  value,
+  onChange,
+  placeholder,
+  suggestions = [],
+  compact = false,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+  placeholder?: string;
+  suggestions?: string[];
+  compact?: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const normalized = new Set(value.map((item) => item.toLowerCase()));
+  const availableSuggestions = suggestions.filter(
+    (suggestion) => suggestion.trim() && !normalized.has(suggestion.trim().toLowerCase())
+  );
+  const addTokens = (rawValue: string) => {
+    const nextTokens = rawValue
+      .split(/[,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (nextTokens.length === 0) return;
+    const next = [...value];
+    const seen = new Set(next.map((item) => item.toLowerCase()));
+    for (const token of nextTokens) {
+      const key = token.toLowerCase();
+      if (seen.has(key)) continue;
+      next.push(token);
+      seen.add(key);
+    }
+    onChange(next);
+    setDraft("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div
+        className={cn(
+          "flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring",
+          compact ? "min-w-48" : "w-full"
+        )}
+      >
+        {value.map((token) => (
+          <span
+            key={token}
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs"
+          >
+            {token}
+            <button
+              type="button"
+              className="rounded-sm text-muted-foreground hover:text-destructive"
+              onClick={() => onChange(value.filter((item) => item !== token))}
+              aria-label={`Remove ${token}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          placeholder={value.length === 0 ? placeholder : ""}
+          className="h-7 min-w-32 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => {
+            if (draft.trim()) addTokens(draft);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === "Tab") {
+              if (!draft.trim()) return;
+              event.preventDefault();
+              addTokens(draft);
+            }
+            if (event.key === "Backspace" && !draft && value.length > 0) {
+              onChange(value.slice(0, -1));
+            }
+          }}
+        />
+      </div>
+      {availableSuggestions.length > 0 && !compact ? (
+        <div className="flex flex-wrap gap-1">
+          {availableSuggestions.slice(0, 8).map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => addTokens(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TagsInput({
+  tags,
+  draft,
+  onDraftChange,
+  onChange,
+}: {
+  tags: string[];
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onChange: (value: string[]) => void;
+}) {
+  const addDraft = () => {
+    const nextTags = draft
+      .split(/[,\n]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    if (nextTags.length === 0) return;
+
+    const next = [...tags];
+    const seen = new Set(next.map((tag) => tag.toLowerCase()));
+    for (const tag of nextTags) {
+      const key = tag.toLowerCase();
+      if (seen.has(key)) continue;
+      next.push(tag);
+      seen.add(key);
+    }
+    onChange(next);
+    onDraftChange("");
+  };
+
+  return (
+    <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm focus-within:ring-2 focus-within:ring-ring">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs"
+        >
+          {tag}
+          <button
+            type="button"
+            className="rounded-sm text-muted-foreground hover:text-destructive"
+            onClick={() => onChange(tags.filter((item) => item !== tag))}
+            aria-label={`Remove ${tag}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        placeholder={tags.length === 0 ? "Type tag and press Enter" : ""}
+        className="h-7 min-w-40 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+        onChange={(event) => onDraftChange(event.target.value)}
+        onBlur={addDraft}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            addDraft();
+          }
+          if (event.key === "Backspace" && !draft && tags.length > 0) {
+            onChange(tags.slice(0, -1));
+          }
+        }}
+      />
+    </div>
   );
 }
 

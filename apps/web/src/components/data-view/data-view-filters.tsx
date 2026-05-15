@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -332,8 +332,19 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
   const { urlState } = useDataViewUrl();
   const [open, setOpen] = useState(false);
   const t = useTranslations("dataView");
+  const visibleFilterDefs = useMemo(
+    () => filterDefs.filter((def) => !def.isVisible || def.isVisible(urlState.filters)),
+    [filterDefs, urlState.filters]
+  );
 
-  const activeCount = countActiveFilters(urlState.filters);
+  const visibleFilterKeys = useMemo(
+    () => new Set(visibleFilterDefs.flatMap(getFilterKeys)),
+    [visibleFilterDefs]
+  );
+  const visibleFilters = Object.fromEntries(
+    Object.entries(urlState.filters).filter(([key]) => visibleFilterKeys.has(key))
+  );
+  const activeCount = countActiveFilters(visibleFilters);
 
   const handleFilterChange = useCallback(
     (updates: Record<string, string | string[] | boolean | null>) => {
@@ -356,7 +367,13 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
     [urlState]
   );
 
-  if (filterDefs.length === 0) return null;
+  const clearVisibleFilters = useCallback(() => {
+    const next = { ...urlState.filters };
+    for (const key of visibleFilterKeys) delete next[key];
+    urlState.setFilters(next);
+  }, [urlState, visibleFilterKeys]);
+
+  if (visibleFilterDefs.length === 0) return null;
 
   // ── Inline mode: pill per filter, no dropdown wrapper ────────────────────
   if (mode === "inline") {
@@ -365,7 +382,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
         className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]"
         data-testid="inline-filters"
       >
-        {filterDefs.map((def) => (
+        {visibleFilterDefs.map((def) => (
           <DataViewFilterPill
             key={def.key}
             def={def}
@@ -380,7 +397,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             variant="ghost"
             size="sm"
             className="h-8 text-xs text-muted-foreground"
-            onClick={() => urlState.setFilters({})}
+            onClick={clearVisibleFilters}
           >
             {t("filters.clearAll")}
           </Button>
@@ -414,7 +431,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
         </PopoverTrigger>
         <PopoverContent align="start" className="w-72 space-y-3">
           <p className="text-sm font-medium text-foreground">{t("filters.title")}</p>
-          {filterDefs.map((def) => (
+          {visibleFilterDefs.map((def) => (
             <FilterField
               key={def.key}
               def={def}
@@ -424,12 +441,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
             />
           ))}
           {activeCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              onClick={() => urlState.setFilters({})}
-            >
+            <Button variant="ghost" size="sm" className="w-full" onClick={clearVisibleFilters}>
               {t("filters.clearAllLong")}
             </Button>
           )}
@@ -437,7 +449,7 @@ export function DataViewFilters({ mode = "dropdown" }: DataViewFiltersProps) {
       </Popover>
 
       {/* Active chips */}
-      {filterDefs.map((def) => {
+      {visibleFilterDefs.map((def) => {
         const label = getFilterValueLabel(def, urlState.filters, t);
         if (!label) return null;
         return (

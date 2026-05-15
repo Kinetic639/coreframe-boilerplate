@@ -38,7 +38,7 @@ interface DataViewTableProps {
 }
 
 export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
-  const { columns: colDefs, getRowId, renderExpandedRow } = useDataViewStatic();
+  const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
   const { columnVisibility } = useDataViewColumns();
@@ -313,7 +313,16 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
-                    {showControlColumn ? <TableCell className="h-14 w-12 px-2 py-0" /> : null}
+                    {showControlColumn ? (
+                      <TableCell className="h-14 w-12 px-2 py-0">
+                        <div
+                          className="flex h-full items-center justify-center"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {renderRowControl?.(row.original)}
+                        </div>
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                   {expandedContent ? (
                     <TableRow className="bg-muted/20 hover:bg-muted/20">

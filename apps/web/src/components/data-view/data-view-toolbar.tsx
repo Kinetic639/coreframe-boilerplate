@@ -6,7 +6,12 @@ import { useTranslations } from "next-intl";
 import { Filter, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useDataViewDetail, useDataViewSelection, useDataViewUrl } from "./use-data-view";
+import {
+  useDataViewDetail,
+  useDataViewSelection,
+  useDataViewStatic,
+  useDataViewUrl,
+} from "./use-data-view";
 import { DataViewFilters } from "./data-view-filters";
 
 // Both toolbar variants use this height so the body area never shifts vertically.
@@ -20,6 +25,7 @@ type DataViewToolbarProps = {
 
 export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
   const { urlState } = useDataViewUrl();
+  const { renderToolbarControls } = useDataViewStatic();
   const { closeDetail, isClosingDetail } = useDataViewDetail();
   const {
     selectedRowCount,
@@ -115,6 +121,7 @@ export function DataViewToolbar({ mode = "list" }: DataViewToolbarProps) {
         {searchControl}
         <DataViewFilters mode="inline" />
         <div className="flex-1" />
+        {renderToolbarControls ? renderToolbarControls() : null}
         {selectedRowCount > 0 ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">

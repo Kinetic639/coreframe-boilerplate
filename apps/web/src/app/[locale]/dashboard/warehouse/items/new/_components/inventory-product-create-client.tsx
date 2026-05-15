@@ -13,12 +13,15 @@ import {
   Plus,
   Star,
   Trash2,
+  Wand2,
   X,
 } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
+  archiveInventoryCustomFieldAction,
   assignInventoryVariantGalleryImageAction,
   checkInventorySkuCollisionsAction,
+  createInventoryCustomFieldAction,
   createInventoryBrandAction,
   createEnhancedInventoryProductAction,
   createInventorySkuTemplateAction,
@@ -81,6 +84,7 @@ type CustomFieldOption = {
   field_key: string;
   field_type: "text" | "number" | "date" | "boolean" | "select" | "multi_select";
   is_required: boolean;
+  is_filterable?: boolean;
   options: string[];
   display_order: number;
   section_name?: string | null;
@@ -123,6 +127,15 @@ type SkuRule = {
   length: string;
   letterCase: "upper" | "lower" | "title" | "keep";
   separator: string;
+};
+
+type CustomFieldDraft = {
+  entity_type: "product" | "variant";
+  name: string;
+  field_type: CustomFieldOption["field_type"];
+  is_required: boolean;
+  is_filterable: boolean;
+  options: string[];
 };
 
 type SkuSourceOption = {
@@ -197,6 +210,17 @@ function newSkuRule(patch: Partial<SkuRule> = {}): SkuRule {
     separator: "-",
     ...patch,
   };
+}
+
+function fieldKeyFromName(name: string) {
+  const key = name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return key || `field_${Date.now()}`;
 }
 
 function isSkuRule(value: unknown): value is SkuRule {
@@ -314,6 +338,7 @@ export function InventoryProductCreateClient({
   const [trackInventory, setTrackInventory] = useState(true);
   const [includeOpeningStock, setIncludeOpeningStock] = useState(false);
   const [showSkuModal, setShowSkuModal] = useState(false);
+  const [skuTarget, setSkuTarget] = useState<"simple" | "variants">("variants");
   const [skuRules, setSkuRules] = useState<SkuRule[]>([
     newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
     newSkuRule({ source: "attribute", mode: "first", length: "3", separator: "-" }),
@@ -339,6 +364,17 @@ export function InventoryProductCreateClient({
   );
   const [skuTemplateName, setSkuTemplateName] = useState("");
   const [skuCollisionMessage, setSkuCollisionMessage] = useState<string | null>(null);
+  const [customFieldOptions, setCustomFieldOptions] = useState<CustomFieldOption[]>(customFields);
+  const [showCustomFieldBuilder, setShowCustomFieldBuilder] = useState(false);
+  const [customFieldDraft, setCustomFieldDraft] = useState<CustomFieldDraft>({
+    entity_type: "product",
+    name: "",
+    field_type: "text",
+    is_required: false,
+    is_filterable: true,
+    options: [],
+  });
+  const [customFieldMessage, setCustomFieldMessage] = useState<string | null>(null);
   const [unitConversions, setUnitConversions] = useState<
     Array<{
       id: string;
@@ -349,8 +385,14 @@ export function InventoryProductCreateClient({
     }>
   >([]);
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>({});
-  const productCustomFields = customFields.filter((field) => field.entity_type === "product");
-  const variantCustomFields = customFields.filter((field) => field.entity_type === "variant");
+  const productCustomFields = useMemo(
+    () => customFieldOptions.filter((field) => field.entity_type === "product"),
+    [customFieldOptions]
+  );
+  const variantCustomFields = useMemo(
+    () => customFieldOptions.filter((field) => field.entity_type === "variant"),
+    [customFieldOptions]
+  );
   const groupedProductCustomFields = useMemo(
     () =>
       Object.entries(
@@ -374,6 +416,10 @@ export function InventoryProductCreateClient({
   useEffect(() => {
     setManufacturerOptions(manufacturers);
   }, [manufacturers]);
+
+  useEffect(() => {
+    setCustomFieldOptions(customFields);
+  }, [customFields]);
 
   const activeAttributes = useMemo(
     () =>
@@ -403,20 +449,34 @@ export function InventoryProductCreateClient({
     return Array.from(duplicates.values());
   }, [activeAttributes]);
 
-  const skuSourceOptions = useMemo(
-    () => [
-      { value: "product_name", label: "Item Group Name" },
-      ...activeAttributes.map((attribute) => ({
-        value: `attribute:${attribute.name}`,
-        label: attribute.name,
-      })),
-      { value: "custom", label: "Custom Text" },
-    ],
-    [activeAttributes]
-  );
+  const skuSourceOptions = useMemo(() => {
+    const options: SkuSourceOption[] = [{ value: "product_name", label: "Item Group Name" }];
+    if (skuTarget === "variants") {
+      options.push(
+        ...activeAttributes.map((attribute) => ({
+          value: `attribute:${attribute.name}`,
+          label: attribute.name,
+        }))
+      );
+    }
+    options.push({ value: "custom", label: "Custom Text" });
+    return options;
+  }, [activeAttributes, skuTarget]);
 
-  const openSkuGenerator = () => {
+  const openSkuGenerator = (target: "simple" | "variants" = "variants") => {
+    setSkuTarget(target);
+    setSkuCollisionMessage(null);
     setSkuRules((rules) => {
+      if (target === "simple") {
+        const simpleRules = rules.filter((rule) => rule.source !== "attribute");
+        return simpleRules.length > 0
+          ? simpleRules
+          : [
+              newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
+              newSkuRule({ source: "sequence", mode: "full", length: "", separator: "" }),
+            ];
+      }
+
       const hasUnresolvedAttribute = rules.some(
         (rule) =>
           rule.source === "attribute" &&
@@ -441,14 +501,14 @@ export function InventoryProductCreateClient({
     setShowSkuModal(true);
   };
 
-  const buildSkuForRow = (row: VariantDraftRow, index: number) => {
+  const buildSkuFromOptions = (options: Record<string, string>, index: number) => {
     const parts = skuRules
       .map((rule) => {
         const rawValue =
           rule.source === "product_name"
             ? productName
             : rule.source === "attribute"
-              ? (row.options[rule.attributeName || activeAttributes[0]?.name] ?? "")
+              ? (options[rule.attributeName || activeAttributes[0]?.name] ?? "")
               : rule.source === "sequence"
                 ? String(index + 1)
                 : rule.customText;
@@ -462,7 +522,15 @@ export function InventoryProductCreateClient({
       .join("");
   };
 
-  const skuPreview = variants[0] ? buildSkuForRow(variants[0], 0) : makeSku([productName, "1"]);
+  const buildSkuForRow = (row: VariantDraftRow, index: number) =>
+    buildSkuFromOptions(row.options, index);
+
+  const skuPreview =
+    skuTarget === "simple"
+      ? buildSkuFromOptions({}, 0)
+      : variants[0]
+        ? buildSkuForRow(variants[0], 0)
+        : makeSku([productName, "1"]);
 
   useEffect(() => {
     if (mode === "variants") setProductSku("");
@@ -537,6 +605,12 @@ export function InventoryProductCreateClient({
   };
 
   const applySkuGenerator = () => {
+    if (skuTarget === "simple") {
+      setProductSku(buildSkuFromOptions({}, 0));
+      setShowSkuModal(false);
+      return;
+    }
+
     setVariants((rows) =>
       rows.map((row, index) => ({
         ...row,
@@ -548,7 +622,10 @@ export function InventoryProductCreateClient({
 
   const checkSkuCollisions = async () => {
     setSkuCollisionMessage(null);
-    const skus = variants.map((row) => buildSkuForRow(row, variants.indexOf(row))).filter(Boolean);
+    const skus =
+      skuTarget === "simple"
+        ? [buildSkuFromOptions({}, 0)].filter(Boolean)
+        : variants.map((row, index) => buildSkuForRow(row, index)).filter(Boolean);
     if (skus.length === 0) return;
     const result = await checkInventorySkuCollisionsAction({ skus });
     if (!result.success || !("data" in result)) {
@@ -588,10 +665,12 @@ export function InventoryProductCreateClient({
 
   const addProductImages = (files: FileList | null) => {
     if (!files) return [];
-    const selected = Array.from(files).map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const selected = Array.from(files)
+      .filter((file) => file.type.startsWith("image/"))
+      .map((file) => ({
+        file,
+        preview: URL.createObjectURL(file),
+      }));
     const accepted = selected.slice(0, Math.max(15 - productImages.length, 0));
     if (accepted.length > 0) {
       setProductImages((current) => [...current, ...accepted].slice(0, 15));
@@ -601,6 +680,12 @@ export function InventoryProductCreateClient({
 
   const onProductImages = (files: FileList | null) => {
     addProductImages(files);
+  };
+
+  const handleProductImageDrop = (event: React.DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    addProductImages(event.dataTransfer.files);
   };
 
   const removeProductImage = (preview: string) => {
@@ -754,15 +839,17 @@ export function InventoryProductCreateClient({
               : String(formData.get(`custom_field_${field.id}`) ?? "").trim();
         if (!value) issues.push(`${field.name} is required.`);
       }
-      for (const field of variantCustomFields) {
-        if (!field.is_required) continue;
-        const missingVariant = rows.find((row) => {
-          const rawValue = row.customFields[field.id] ?? "";
-          if (field.field_type === "multi_select") return safeParseTokens(rawValue).length === 0;
-          return !rawValue.trim();
-        });
-        if (missingVariant) {
-          issues.push(`${field.name} is required for every variant.`);
+      if (mode === "variants") {
+        for (const field of variantCustomFields) {
+          if (!field.is_required) continue;
+          const missingVariant = rows.find((row) => {
+            const rawValue = row.customFields[field.id] ?? "";
+            if (field.field_type === "multi_select") return safeParseTokens(rawValue).length === 0;
+            return !rawValue.trim();
+          });
+          if (missingVariant) {
+            issues.push(`${field.name} is required for every variant.`);
+          }
         }
       }
       if (issues.length > 0) {
@@ -782,15 +869,17 @@ export function InventoryProductCreateClient({
       }
 
       const variantCustomFieldValues: CustomFieldPayload[] = [];
-      for (const row of rows) {
-        for (const field of variantCustomFields) {
-          const value = customFieldValue(field, row.customFields[field.id] ?? "");
-          if (value) {
-            variantCustomFieldValues.push({
-              ...value,
-              entity_type: "variant",
-              variant_sku: row.sku,
-            });
+      if (mode === "variants") {
+        for (const row of rows) {
+          for (const field of variantCustomFields) {
+            const value = customFieldValue(field, row.customFields[field.id] ?? "");
+            if (value) {
+              variantCustomFieldValues.push({
+                ...value,
+                entity_type: "variant",
+                variant_sku: row.sku,
+              });
+            }
           }
         }
       }
@@ -944,6 +1033,103 @@ export function InventoryProductCreateClient({
     });
   };
 
+  const createCustomField = () => {
+    const name = customFieldDraft.name.trim();
+    if (!name) {
+      setCustomFieldMessage("Custom field name is required.");
+      return;
+    }
+    if (
+      (customFieldDraft.field_type === "select" ||
+        customFieldDraft.field_type === "multi_select") &&
+      customFieldDraft.options.length === 0
+    ) {
+      setCustomFieldMessage("Select fields need at least one option.");
+      return;
+    }
+
+    setCustomFieldMessage(null);
+    startTransition(async () => {
+      const baseFieldKey = fieldKeyFromName(name);
+      const existingKeys = new Set(
+        customFieldOptions
+          .filter((field) => field.entity_type === customFieldDraft.entity_type)
+          .map((field) => field.field_key.toLowerCase())
+      );
+      let fieldKey = baseFieldKey;
+      let suffix = 2;
+      while (existingKeys.has(fieldKey.toLowerCase())) {
+        fieldKey = `${baseFieldKey}_${suffix}`;
+        suffix += 1;
+      }
+      const result = await createInventoryCustomFieldAction({
+        entity_type: customFieldDraft.entity_type,
+        name,
+        field_key: fieldKey,
+        field_type: customFieldDraft.field_type,
+        is_required: customFieldDraft.is_required,
+        is_filterable: customFieldDraft.is_filterable,
+        options:
+          customFieldDraft.field_type === "select" || customFieldDraft.field_type === "multi_select"
+            ? customFieldDraft.options
+            : [],
+        display_order: customFieldOptions.length + 1,
+      });
+
+      if (!result.success || !("data" in result)) {
+        setCustomFieldMessage("error" in result ? result.error : "Could not create custom field.");
+        return;
+      }
+
+      const createdField: CustomFieldOption = {
+        id: result.data.id,
+        entity_type: customFieldDraft.entity_type,
+        name,
+        field_key: fieldKey,
+        field_type: customFieldDraft.field_type,
+        is_required: customFieldDraft.is_required,
+        is_filterable: customFieldDraft.is_filterable,
+        options:
+          customFieldDraft.field_type === "select" || customFieldDraft.field_type === "multi_select"
+            ? customFieldDraft.options
+            : [],
+        display_order: customFieldOptions.length + 1,
+        section_name: "Custom fields",
+        help_text: null,
+        placeholder: null,
+      };
+
+      setCustomFieldOptions((current) => [...current, createdField]);
+      setCustomFieldDraft({
+        entity_type: customFieldDraft.entity_type,
+        name: "",
+        field_type: "text",
+        is_required: false,
+        is_filterable: true,
+        options: [],
+      });
+      setShowCustomFieldBuilder(false);
+      setCustomFieldMessage(
+        createdField.entity_type === "variant"
+          ? "Variant custom field created. It is available in the variant grid."
+          : "Product custom field created."
+      );
+    });
+  };
+
+  const archiveCustomField = (field: CustomFieldOption) => {
+    setCustomFieldMessage(null);
+    startTransition(async () => {
+      const result = await archiveInventoryCustomFieldAction({ id: field.id });
+      if (!result.success) {
+        setCustomFieldMessage("error" in result ? result.error : "Could not archive field.");
+        return;
+      }
+      setCustomFieldOptions((current) => current.filter((item) => item.id !== field.id));
+      setCustomFieldMessage(`${field.name} archived.`);
+    });
+  };
+
   return (
     <form
       action={createProduct}
@@ -1007,14 +1193,36 @@ export function InventoryProductCreateClient({
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
                 <label className={labelClass}>SKU</label>
                 <div className="grid gap-1">
-                  <Input
-                    name="sku"
-                    value={productSku}
-                    disabled={mode === "variants"}
-                    placeholder={mode === "variants" ? "Variant SKUs are entered below" : undefined}
-                    onChange={(event) => setProductSku(event.target.value)}
-                    className="h-9"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      name="sku"
+                      value={productSku}
+                      disabled={mode === "variants"}
+                      placeholder={
+                        mode === "variants" ? "Variant SKUs are entered below" : undefined
+                      }
+                      onChange={(event) => setProductSku(event.target.value)}
+                      className="h-9"
+                    />
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0"
+                            disabled={mode === "variants"}
+                            onClick={() => openSkuGenerator("simple")}
+                            aria-label="Generate SKU"
+                          >
+                            <Wand2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Generate SKU</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   {mode === "variants" ? (
                     <p className="text-xs text-muted-foreground">
                       Variant items use the SKU from each generated variant row.
@@ -1138,7 +1346,23 @@ export function InventoryProductCreateClient({
               </div>
             </div>
 
-            <label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+            <label
+              className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground transition-colors hover:bg-muted/50"
+              onDragEnter={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.dataTransfer.dropEffect = "copy";
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDrop={handleProductImageDrop}
+            >
               <ImageIcon className="mb-3 h-10 w-10 text-muted-foreground" />
               <span>Drag image(s) here or</span>
               <span className="text-primary">Browse images</span>
@@ -1462,37 +1686,204 @@ export function InventoryProductCreateClient({
 
           <Separator />
 
-          {productCustomFields.length > 0 ? (
-            <>
-              <section className="grid gap-4">
+          <section className="grid gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
                 <h2 className="text-lg font-medium">Custom Fields</h2>
-                {groupedProductCustomFields.map(([section, fields]) => (
-                  <div key={section} className="grid gap-3">
-                    <h3 className="text-sm font-semibold uppercase text-muted-foreground">
-                      {section}
-                    </h3>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      {fields.map((field) => (
-                        <CustomFieldControl
-                          key={field.id}
-                          field={field}
-                          tokens={productCustomTokens[field.id] ?? []}
-                          onTokensChange={(tokens) =>
-                            setProductCustomTokens((current) => ({
-                              ...current,
-                              [field.id]: tokens,
-                            }))
-                          }
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </section>
+                <p className="text-sm text-muted-foreground">
+                  Add typed fields for product or variant-specific data.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowCustomFieldBuilder((value) => !value)}
+              >
+                <Plus className="h-4 w-4" />
+                Add custom field
+              </Button>
+            </div>
 
-              <Separator />
-            </>
-          ) : null}
+            {customFieldMessage ? (
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                {customFieldMessage}
+              </p>
+            ) : null}
+
+            {showCustomFieldBuilder ? (
+              <div className="grid gap-3 rounded-md border border-border bg-muted/20 p-4">
+                <div className="grid gap-3 lg:grid-cols-[1fr_170px_170px]">
+                  <label className="grid gap-1 text-sm">
+                    Field name
+                    <Input
+                      value={customFieldDraft.name}
+                      placeholder="e.g. Warranty months"
+                      className="h-9"
+                      onChange={(event) =>
+                        setCustomFieldDraft((draft) => ({ ...draft, name: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Applies to
+                    <select
+                      value={customFieldDraft.entity_type}
+                      className={cn(selectClass, "pr-9")}
+                      onChange={(event) =>
+                        setCustomFieldDraft((draft) => ({
+                          ...draft,
+                          entity_type: event.target.value as CustomFieldDraft["entity_type"],
+                        }))
+                      }
+                    >
+                      <option value="product">Product</option>
+                      <option value="variant">Variant</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Type
+                    <select
+                      value={customFieldDraft.field_type}
+                      className={cn(selectClass, "pr-9")}
+                      onChange={(event) =>
+                        setCustomFieldDraft((draft) => ({
+                          ...draft,
+                          field_type: event.target.value as CustomFieldDraft["field_type"],
+                          options:
+                            event.target.value === "select" || event.target.value === "multi_select"
+                              ? draft.options
+                              : [],
+                        }))
+                      }
+                    >
+                      <option value="text">Text</option>
+                      <option value="number">Number</option>
+                      <option value="date">Date</option>
+                      <option value="boolean">Checkbox</option>
+                      <option value="select">Single select</option>
+                      <option value="multi_select">Multi select</option>
+                    </select>
+                  </label>
+                </div>
+
+                {customFieldDraft.field_type === "select" ||
+                customFieldDraft.field_type === "multi_select" ? (
+                  <div className="grid gap-1 text-sm">
+                    <span>Options</span>
+                    <TokenInput
+                      value={customFieldDraft.options}
+                      onChange={(options) =>
+                        setCustomFieldDraft((draft) => ({ ...draft, options }))
+                      }
+                      placeholder="Type option and press Enter"
+                    />
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-5 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={customFieldDraft.is_required}
+                        onChange={(event) =>
+                          setCustomFieldDraft((draft) => ({
+                            ...draft,
+                            is_required: event.target.checked,
+                          }))
+                        }
+                      />
+                      Required
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={customFieldDraft.is_filterable}
+                        onChange={(event) =>
+                          setCustomFieldDraft((draft) => ({
+                            ...draft,
+                            is_filterable: event.target.checked,
+                          }))
+                        }
+                      />
+                      Filterable
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCustomFieldBuilder(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="button" size="sm" onClick={createCustomField}>
+                      Create field
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {customFieldOptions.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {customFieldOptions.map((field) => (
+                  <span
+                    key={field.id}
+                    className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1 text-xs"
+                  >
+                    <span className="font-medium">{field.name}</span>
+                    <span className="text-muted-foreground">
+                      {field.entity_type} · {field.field_type.replace("_", " ")}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => archiveCustomField(field)}
+                      aria-label={`Archive ${field.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
+
+            {productCustomFields.length > 0 ? (
+              groupedProductCustomFields.map(([section, fields]) => (
+                <div key={section} className="grid gap-3">
+                  <h3 className="text-sm font-semibold uppercase text-muted-foreground">
+                    {section}
+                  </h3>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {fields.map((field) => (
+                      <CustomFieldControl
+                        key={field.id}
+                        field={field}
+                        tokens={productCustomTokens[field.id] ?? []}
+                        onTokensChange={(tokens) =>
+                          setProductCustomTokens((current) => ({
+                            ...current,
+                            [field.id]: tokens,
+                          }))
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
+                No product custom fields yet. Variant custom fields appear as columns in the variant
+                grid.
+              </p>
+            )}
+          </section>
+
+          <Separator />
 
           <section className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1625,7 +2016,7 @@ export function InventoryProductCreateClient({
                           <button
                             type="button"
                             className="ml-2 text-primary"
-                            onClick={openSkuGenerator}
+                            onClick={() => openSkuGenerator("variants")}
                           >
                             Generate SKU
                           </button>
@@ -1814,7 +2205,9 @@ export function InventoryProductCreateClient({
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-6 py-10">
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-2xl">
             <div className="flex h-14 items-center justify-between border-b border-border px-6">
-              <h2 className="text-xl font-medium">Generate SKU - item</h2>
+              <h2 className="text-xl font-medium">
+                Generate SKU - {skuTarget === "simple" ? "simple item" : "variants"}
+              </h2>
               <button
                 type="button"
                 className="grid h-9 w-9 place-items-center rounded-md text-foreground hover:bg-muted"
@@ -1827,7 +2220,7 @@ export function InventoryProductCreateClient({
             <div className="max-h-[calc(90vh-56px)] overflow-y-auto">
               <div className="grid gap-7 px-6 py-8">
                 <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                  Select attributes that you would like to generate the SKU from
+                  Select fields that you would like to generate the SKU from
                   <span className="grid h-4 w-4 place-items-center rounded-full border border-muted-foreground text-[10px] text-muted-foreground">
                     ?
                   </span>
@@ -2102,25 +2495,27 @@ export function InventoryProductCreateClient({
                   onClick={() =>
                     setSkuRules((rules) => [
                       ...rules,
-                      newSkuRule({
-                        source: "attribute",
-                        attributeName:
-                          activeAttributes.find(
-                            (attribute) =>
-                              !rules.some(
-                                (rule) =>
-                                  rule.source === "attribute" &&
-                                  rule.attributeName === attribute.name
-                              )
-                          )?.name ??
-                          activeAttributes[0]?.name ??
-                          "",
-                      }),
+                      skuTarget === "simple"
+                        ? newSkuRule({ source: "custom", customText: "", separator: "-" })
+                        : newSkuRule({
+                            source: "attribute",
+                            attributeName:
+                              activeAttributes.find(
+                                (attribute) =>
+                                  !rules.some(
+                                    (rule) =>
+                                      rule.source === "attribute" &&
+                                      rule.attributeName === attribute.name
+                                  )
+                              )?.name ??
+                              activeAttributes[0]?.name ??
+                              "",
+                          }),
                     ])
                   }
                 >
                   <Plus className="h-4 w-4" />
-                  Add Attribute
+                  Add Rule
                 </button>
 
                 <div className="grid gap-3">

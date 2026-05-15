@@ -291,6 +291,70 @@ export class InventoryEnterpriseService {
     return { success: true, data: data as { id: string } };
   }
 
+  static async updateVariantDetails(
+    supabase: SupabaseClient,
+    orgId: string,
+    variantId: string,
+    input: {
+      sku: string;
+      name: string;
+      status?: "active" | "archived" | "discontinued";
+      barcode?: string | null;
+      purchase_price?: number | null;
+      sales_price?: number | null;
+      price_currency?: string | null;
+      reorder_point?: number | null;
+      preferred_supplier_id?: string | null;
+      actor_user_id?: string | null;
+    }
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_variants")
+      .update({
+        sku: input.sku.trim(),
+        name: input.name.trim(),
+        status: input.status,
+        barcode: input.barcode?.trim() || null,
+        purchase_price: input.purchase_price,
+        sales_price: input.sales_price,
+        price_currency: input.price_currency,
+        updated_by: input.actor_user_id ?? null,
+      })
+      .eq("organization_id", orgId)
+      .eq("id", variantId)
+      .select("id")
+      .single();
+    if (error) return { success: false, error: errorMessage(error) };
+
+    if (input.reorder_point != null || input.preferred_supplier_id !== undefined) {
+      const client = supabase as any;
+      const { data: existingRule, error: existingError } = await client
+        .from("inventory_reorder_rules")
+        .select("id")
+        .eq("organization_id", orgId)
+        .eq("variant_id", variantId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (existingError) return { success: false, error: errorMessage(existingError) };
+
+      if (existingRule) {
+        const { error: reorderError } = await client
+          .from("inventory_reorder_rules")
+          .update({
+            reorder_point: input.reorder_point ?? 0,
+            preferred_supplier_id: input.preferred_supplier_id ?? null,
+            updated_by: input.actor_user_id ?? null,
+          })
+          .eq("id", (existingRule as { id: string }).id);
+        if (reorderError) return { success: false, error: errorMessage(reorderError) };
+      }
+    }
+
+    return { success: true, data: data as { id: string } };
+  }
+
   static async createLot(
     supabase: SupabaseClient,
     orgId: string,
@@ -579,6 +643,58 @@ export class InventoryEnterpriseService {
         display_order: input.display_order ?? 0,
         created_by: input.actor_user_id ?? null,
       })
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  static async archiveCustomField(
+    supabase: SupabaseClient,
+    orgId: string,
+    fieldId: string,
+    _userId: string | null
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_custom_fields")
+      .update({
+        deleted_at: new Date().toISOString(),
+      })
+      .eq("organization_id", orgId)
+      .eq("id", fieldId)
+      .is("deleted_at", null)
+      .select("id")
+      .single();
+
+    if (error) return { success: false, error: errorMessage(error) };
+    return { success: true, data: data as { id: string } };
+  }
+
+  static async updateCustomField(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      id: string;
+      name: string;
+      is_required?: boolean;
+      is_filterable?: boolean;
+      options?: string[];
+      display_order?: number;
+    }
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { data, error } = await supabase
+      .from("inventory_custom_fields")
+      .update({
+        name: input.name.trim(),
+        is_required: input.is_required ?? false,
+        is_filterable: input.is_filterable ?? false,
+        options: input.options ?? [],
+        display_order: input.display_order ?? 0,
+      })
+      .eq("organization_id", orgId)
+      .eq("id", input.id)
+      .is("deleted_at", null)
       .select("id")
       .single();
 

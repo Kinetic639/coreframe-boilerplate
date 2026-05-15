@@ -295,6 +295,23 @@ export const updateVariantPricingSchema = z.object({
     .optional(),
 });
 
+export const updateInventoryVariantSchema = z.object({
+  variant_id: uuidSchema,
+  sku: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(200),
+  status: z.enum(["active", "archived", "discontinued"]).optional(),
+  barcode: z.string().max(120).nullable().optional(),
+  purchase_price: moneySchema,
+  sales_price: moneySchema,
+  price_currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .nullable()
+    .optional(),
+  reorder_point: z.number().min(0).nullable().optional(),
+  preferred_supplier_id: nullableUuidSchema,
+});
+
 export const createLotSchema = z.object({
   product_id: uuidSchema,
   variant_id: uuidSchema,
@@ -417,6 +434,19 @@ export const createCustomFieldSchema = z.object({
   display_order: z.number().int().optional().default(0),
 });
 
+export const archiveCustomFieldSchema = z.object({
+  id: uuidSchema,
+});
+
+export const updateCustomFieldSchema = z.object({
+  id: uuidSchema,
+  name: z.string().min(1).max(120),
+  is_required: z.boolean().optional().default(false),
+  is_filterable: z.boolean().optional().default(false),
+  options: z.array(z.string().trim().min(1).max(100)).optional().default([]),
+  display_order: z.number().int().optional().default(0),
+});
+
 export const setCustomFieldValueSchema = z.object({
   field_id: uuidSchema,
   product_id: nullableUuidSchema,
@@ -469,6 +499,19 @@ export const createInventorySkuTemplateSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   rules: z.array(z.unknown()).min(1),
   is_default: z.boolean().optional().default(false),
+});
+
+export const updateInventorySkuTemplateSchema = createInventorySkuTemplateSchema.extend({
+  id: uuidSchema,
+});
+
+export const archiveInventorySkuTemplateSchema = z.object({
+  id: uuidSchema,
+});
+
+export const productCsvImportSchema = z.object({
+  csv: z.string().min(1),
+  mode: z.enum(["create_only", "skip_existing"]).optional().default("create_only"),
 });
 
 export const productCsvTextSchema = z.object({

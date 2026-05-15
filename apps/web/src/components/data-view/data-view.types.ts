@@ -12,18 +12,39 @@ export type SortState = {
   direction: "asc" | "desc";
 } | null;
 
+type DataViewFilterVisibility = {
+  isVisible?: (filters: Record<string, string | string[] | boolean | null>) => boolean;
+};
+
 export type DataViewFilterDef =
-  | { type: "text"; key: string; label: string }
-  | { type: "select"; key: string; label: string; options: { label: string; value: string }[] }
-  | {
+  | ({ type: "text"; key: string; label: string } & DataViewFilterVisibility)
+  | ({
+      type: "select";
+      key: string;
+      label: string;
+      options: { label: string; value: string }[];
+    } & DataViewFilterVisibility)
+  | ({
       type: "multi-select";
       key: string;
       label: string;
       options: { label: string; value: string }[];
-    }
-  | { type: "range"; key: string; label: string; minKey: string; maxKey: string }
-  | { type: "boolean"; key: string; label: string }
-  | { type: "date-range"; key: string; label: string; fromKey: string; toKey: string };
+    } & DataViewFilterVisibility)
+  | ({
+      type: "range";
+      key: string;
+      label: string;
+      minKey: string;
+      maxKey: string;
+    } & DataViewFilterVisibility)
+  | ({ type: "boolean"; key: string; label: string } & DataViewFilterVisibility)
+  | ({
+      type: "date-range";
+      key: string;
+      label: string;
+      fromKey: string;
+      toKey: string;
+    } & DataViewFilterVisibility);
 
 export type DataViewUrlState = {
   selected: string | null;
@@ -66,6 +87,8 @@ export type DataViewProps<TListRow, TDetail> = {
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
   renderExpandedRow?: (row: TListRow) => React.ReactNode;
+  renderRowControl?: (row: TListRow) => React.ReactNode;
+  renderToolbarControls?: () => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
   /** Called whenever the checkbox selection changes. Receives the current selected row IDs. */
   onSelectionChange?: (selectedIds: string[]) => void;
