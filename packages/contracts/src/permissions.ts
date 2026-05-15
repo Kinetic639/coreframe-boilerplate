@@ -11,7 +11,8 @@
  * Database Query to Verify:
  * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  *
- * Expected Count: 38 permissions (20 org-scoped + 4 superadmin + 2 module-access + 3 branch-view + 1 branch-management + 2 tools + 1 audit + 2 event-feed + 3 warehouse-layouts)
+ * Expected Count: grows as modules add concrete slugs. Verify against:
+ * SELECT slug FROM permissions WHERE deleted_at IS NULL ORDER BY slug;
  */
 
 // Account Permissions (global scope, system permissions)
@@ -94,6 +95,33 @@ export const WAREHOUSE_LOCATIONS_MANAGE = "warehouse.locations.manage" as const;
 export const WAREHOUSE_LAYOUTS_READ = "warehouse.layouts.read" as const;
 export const WAREHOUSE_LAYOUTS_MANAGE = "warehouse.layouts.manage" as const;
 export const WAREHOUSE_LAYOUTS_PUBLISH = "warehouse.layouts.publish" as const;
+
+// Warehouse Inventory Permissions (org+branch-scoped — Ambra Inventory V2 Phase 1)
+// warehouse.products.read     — list/read inventory products and default variants
+// warehouse.products.manage   — create/update products, variants, units, and movement reasons
+// warehouse.products.archive  — archive products without deleting movement history
+// warehouse.inventory.read    — list/read balances, movement headers, and movement lines
+// warehouse.inventory.operate — create/post normal stock movements
+// warehouse.inventory.adjust  — create/post adjustment movements
+// warehouse.inventory.reverse — reverse posted movements
+// warehouse.settings.manage   — manage inventory settings such as number/SKU sequences
+// Seeded in migration 20260505090000_inventory_phase1_permissions.
+// org_owner is covered by warehouse.* wildcard — do NOT add explicit grants.
+// org_member receives read-only inventory visibility by default.
+export const WAREHOUSE_PRODUCTS_READ = "warehouse.products.read" as const;
+export const WAREHOUSE_PRODUCTS_MANAGE = "warehouse.products.manage" as const;
+export const WAREHOUSE_PRODUCTS_ARCHIVE = "warehouse.products.archive" as const;
+export const WAREHOUSE_INVENTORY_READ = "warehouse.inventory.read" as const;
+export const WAREHOUSE_INVENTORY_OPERATE = "warehouse.inventory.operate" as const;
+export const WAREHOUSE_INVENTORY_ADJUST = "warehouse.inventory.adjust" as const;
+export const WAREHOUSE_INVENTORY_REVERSE = "warehouse.inventory.reverse" as const;
+export const WAREHOUSE_SETTINGS_MANAGE = "warehouse.settings.manage" as const;
+export const WAREHOUSE_PROCUREMENT_READ = "warehouse.procurement.read" as const;
+export const WAREHOUSE_PROCUREMENT_MANAGE = "warehouse.procurement.manage" as const;
+export const WAREHOUSE_PRICING_READ = "warehouse.pricing.read" as const;
+export const WAREHOUSE_PRICING_MANAGE = "warehouse.pricing.manage" as const;
+export const WAREHOUSE_REPORTS_READ = "warehouse.reports.read" as const;
+export const WAREHOUSE_IMPORTS_MANAGE = "warehouse.imports.manage" as const;
 
 // Audit Permissions (org-scoped)
 // audit.events.read — view the full organization audit event log (IP, UA, all metadata)
@@ -183,6 +211,20 @@ export type PermissionSlug =
   | typeof WAREHOUSE_LAYOUTS_READ
   | typeof WAREHOUSE_LAYOUTS_MANAGE
   | typeof WAREHOUSE_LAYOUTS_PUBLISH
+  | typeof WAREHOUSE_PRODUCTS_READ
+  | typeof WAREHOUSE_PRODUCTS_MANAGE
+  | typeof WAREHOUSE_PRODUCTS_ARCHIVE
+  | typeof WAREHOUSE_INVENTORY_READ
+  | typeof WAREHOUSE_INVENTORY_OPERATE
+  | typeof WAREHOUSE_INVENTORY_ADJUST
+  | typeof WAREHOUSE_INVENTORY_REVERSE
+  | typeof WAREHOUSE_SETTINGS_MANAGE
+  | typeof WAREHOUSE_PROCUREMENT_READ
+  | typeof WAREHOUSE_PROCUREMENT_MANAGE
+  | typeof WAREHOUSE_PRICING_READ
+  | typeof WAREHOUSE_PRICING_MANAGE
+  | typeof WAREHOUSE_REPORTS_READ
+  | typeof WAREHOUSE_IMPORTS_MANAGE
   | typeof AUDIT_EVENTS_READ
   | typeof EVENTS_ORG_ACTIVITY_READ
   | typeof EVENTS_ORG_SENSITIVE_READ
@@ -242,6 +284,20 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WAREHOUSE_LAYOUTS_READ,
   WAREHOUSE_LAYOUTS_MANAGE,
   WAREHOUSE_LAYOUTS_PUBLISH,
+  WAREHOUSE_PRODUCTS_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
+  WAREHOUSE_PRODUCTS_ARCHIVE,
+  WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_INVENTORY_OPERATE,
+  WAREHOUSE_INVENTORY_ADJUST,
+  WAREHOUSE_INVENTORY_REVERSE,
+  WAREHOUSE_SETTINGS_MANAGE,
+  WAREHOUSE_PROCUREMENT_READ,
+  WAREHOUSE_PROCUREMENT_MANAGE,
+  WAREHOUSE_PRICING_READ,
+  WAREHOUSE_PRICING_MANAGE,
+  WAREHOUSE_REPORTS_READ,
+  WAREHOUSE_IMPORTS_MANAGE,
   AUDIT_EVENTS_READ,
   EVENTS_ORG_ACTIVITY_READ,
   EVENTS_ORG_SENSITIVE_READ,

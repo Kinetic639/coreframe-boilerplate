@@ -2169,6 +2169,7 @@
         "inventory": {
           "title": "Inwentarz",
           "movements": "Ruchy magazynowe",
+          "transfers": "Przesunięcia między oddziałami",
           "adjustments": {
             "title": "Korekty stanów",
             "single": "Pojedyncza korekta"

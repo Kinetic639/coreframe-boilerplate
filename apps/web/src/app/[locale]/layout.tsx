@@ -1,4 +1,3 @@
-import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
 import { hasLocale, Locale, NextIntlClientProvider } from "next-intl";
@@ -32,11 +31,6 @@ export async function generateMetadata(props: Omit<Props, "children">): Promise<
   };
 }
 
-const geistSans = Geist({
-  display: "swap",
-  subsets: ["latin"],
-});
-
 export default async function RootLayout({ children, params }: Props) {
   // Ensure that the incoming `locale` is valid
   const { locale } = await params;
@@ -51,8 +45,8 @@ export default async function RootLayout({ children, params }: Props) {
   const messages = await getMessages();
 
   return (
-    <html lang={locale} className={geistSans.className} suppressHydrationWarning>
-      <body className="bg-background text-foreground">
+    <html lang={locale} suppressHydrationWarning>
+      <body className="bg-background font-sans text-foreground">
         <NuqsAdapter>
           <NextIntlClientProvider messages={messages}>
             <ThemeProvider

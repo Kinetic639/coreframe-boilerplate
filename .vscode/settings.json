@@ -2,5 +2,6 @@
   "claude.enableAllProjectMcpServers": true,
   "claude.enabledMcpjsonServers": ["context7", "supabase"],
   "claude.disabledMcpjsonServers": [],
-  "claude-code.useTerminal": false
+  "claude-code.useTerminal": false,
+  "git.ignoreLimitWarning": true
 }

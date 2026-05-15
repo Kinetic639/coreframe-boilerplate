@@ -38,7 +38,7 @@ interface DataViewTableProps {
 }
 
 export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
-  const { columns: colDefs, getRowId } = useDataViewStatic();
+  const { columns: colDefs, getRowId, renderExpandedRow, renderRowControl } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { listData, listIsLoading, listIsTransitioning } = useDataViewList();
   const { columnVisibility } = useDataViewColumns();
@@ -269,51 +269,69 @@ export function DataViewTable({ primaryOnly = false }: DataViewTableProps) {
               const rowId = getRowId(row.original);
               const isSelected = urlState.selected === rowId;
               const isReturnHighlight = !isSelected && returnHighlightId === rowId;
+              const expandedContent = !primaryOnly ? renderExpandedRow?.(row.original) : null;
               return (
-                <TableRow
-                  key={rowId}
-                  ref={(node) => {
-                    if (node) {
-                      rowRefs.current.set(rowId, node);
-                    } else {
-                      rowRefs.current.delete(rowId);
-                    }
-                  }}
-                  data-state={isSelected ? "selected" : undefined}
-                  className={cn(
-                    "h-14 cursor-pointer hover:bg-muted/50",
-                    isSelected && "bg-muted",
-                    isReturnHighlight && "bg-muted/50 hover:bg-muted/50 transition-colors"
-                  )}
-                  onClick={() => urlState.setSelected(rowId)}
-                  role="row"
-                  aria-selected={isSelected}
-                  data-row-id={rowId}
-                  data-return-highlight={isReturnHighlight || undefined}
-                  data-testid={`row-${rowId}`}
-                >
-                  {showControlColumn ? (
-                    <TableCell className="h-14 w-12 px-2 py-0">
-                      <div
-                        className="flex h-full items-center justify-center"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <Checkbox
-                          checked={isRowSelected(rowId)}
-                          onCheckedChange={() => toggleRowSelected(rowId)}
-                          aria-label={t("selection.selectRowAria", { rowId })}
-                          data-testid={`row-select-${rowId}`}
-                        />
-                      </div>
-                    </TableCell>
+                <React.Fragment key={rowId}>
+                  <TableRow
+                    ref={(node) => {
+                      if (node) {
+                        rowRefs.current.set(rowId, node);
+                      } else {
+                        rowRefs.current.delete(rowId);
+                      }
+                    }}
+                    data-state={isSelected ? "selected" : undefined}
+                    className={cn(
+                      "h-14 cursor-pointer hover:bg-muted/50",
+                      isSelected && "bg-muted",
+                      isReturnHighlight && "bg-muted/50 hover:bg-muted/50 transition-colors"
+                    )}
+                    onClick={() => urlState.setSelected(rowId)}
+                    role="row"
+                    aria-selected={isSelected}
+                    data-row-id={rowId}
+                    data-return-highlight={isReturnHighlight || undefined}
+                    data-testid={`row-${rowId}`}
+                  >
+                    {showControlColumn ? (
+                      <TableCell className="h-14 w-12 px-2 py-0">
+                        <div
+                          className="flex h-full items-center justify-center"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Checkbox
+                            checked={isRowSelected(rowId)}
+                            onCheckedChange={() => toggleRowSelected(rowId)}
+                            aria-label={t("selection.selectRowAria", { rowId })}
+                            data-testid={`row-select-${rowId}`}
+                          />
+                        </div>
+                      </TableCell>
+                    ) : null}
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="h-14 py-0">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                    {showControlColumn ? (
+                      <TableCell className="h-14 w-12 px-2 py-0">
+                        <div
+                          className="flex h-full items-center justify-center"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          {renderRowControl?.(row.original)}
+                        </div>
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                  {expandedContent ? (
+                    <TableRow className="bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={totalColumnCount} className="p-0">
+                        {expandedContent}
+                      </TableCell>
+                    </TableRow>
                   ) : null}
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="h-14 py-0">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                  {showControlColumn ? <TableCell className="h-14 w-12 px-2 py-0" /> : null}
-                </TableRow>
+                </React.Fragment>
               );
             })
           )}

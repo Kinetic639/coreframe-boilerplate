@@ -8,7 +8,9 @@ import {
   PERMISSION_TOOLS_READ,
   AUDIT_EVENTS_READ,
   MODULE_WAREHOUSE_ACCESS,
+  WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_LOCATIONS_READ,
+  WAREHOUSE_PRODUCTS_READ,
 } from "@/lib/constants/permissions";
 import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
 
@@ -139,8 +141,10 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         iconKey: "warehouse",
         href: "/dashboard/warehouse/inventory",
         match: { startsWith: "/dashboard/warehouse/inventory" },
+        visibility: {
+          requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+        },
         children: [
-          /* NOT YET IMPLEMENTED — ruchy magazynowe
           {
             id: "warehouse.inventory.movements",
             title: "Stock Movements",
@@ -148,8 +152,21 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             iconKey: "warehouse",
             href: "/dashboard/warehouse/inventory/movements",
             match: { startsWith: "/dashboard/warehouse/inventory/movements" },
+            visibility: {
+              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+            },
           },
-          */
+          {
+            id: "warehouse.inventory.transfers",
+            title: "Branch Transfers",
+            titleKey: "modules.warehouse.items.inventory.transfers",
+            iconKey: "warehouse",
+            href: "/dashboard/warehouse/inventory/transfers",
+            match: { startsWith: "/dashboard/warehouse/inventory/transfers" },
+            visibility: {
+              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
+            },
+          },
           {
             id: "warehouse.items",
             title: "Items",
@@ -157,6 +174,9 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             iconKey: "products",
             href: "/dashboard/warehouse/items",
             match: { startsWith: "/dashboard/warehouse/items" },
+            visibility: {
+              requiresPermissions: [WAREHOUSE_PRODUCTS_READ],
+            },
           },
 
           /* NOT YET IMPLEMENTED — etykiety i kody

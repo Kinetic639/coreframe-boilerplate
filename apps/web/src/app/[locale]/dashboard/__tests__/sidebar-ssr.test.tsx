@@ -449,7 +449,13 @@ describe("Sidebar SSR Integration", () => {
       },
       roles: [],
       permissionSnapshot: {
-        allow: ["module.warehouse.access", "warehouse.read", "warehouse.locations.read"],
+        allow: [
+          "module.warehouse.access",
+          "warehouse.read",
+          "warehouse.inventory.read",
+          "warehouse.products.read",
+          "warehouse.locations.read",
+        ],
         deny: [],
       },
     };
@@ -472,24 +478,14 @@ describe("Sidebar SSR Integration", () => {
 
     const warehouseGroup = findItemById(model, "warehouse");
     expect(warehouseGroup).toBeDefined(); // Shown: module entitled
-    // All children visible (no permission gate on skeleton)
+    // Implemented Phase 1 inventory children are visible with exact read permissions.
     expect(findItemById(model, "warehouse.inventory")).toBeDefined();
     expect(findItemById(model, "warehouse.inventory.movements")).toBeDefined();
     expect(findItemById(model, "warehouse.items")).toBeDefined();
     expect(findItemById(model, "warehouse.locations")).toBeDefined();
-    expect(findItemById(model, "warehouse.labels")).toBeDefined();
-    expect(findItemById(model, "warehouse.alerts")).toBeDefined();
-    expect(findItemById(model, "warehouse.inventory.adjustments")).toBeDefined();
-    expect(findItemById(model, "warehouse.audits")).toBeDefined();
-    expect(findItemById(model, "warehouse.adjustments")).toBeDefined();
-    expect(findItemById(model, "warehouse.sales")).toBeDefined();
-    expect(findItemById(model, "warehouse.sales-orders")).toBeDefined();
-    expect(findItemById(model, "warehouse.clients")).toBeDefined();
     expect(findItemById(model, "warehouse.purchases")).toBeDefined();
-    expect(findItemById(model, "warehouse.purchase-orders")).toBeDefined();
     expect(findItemById(model, "warehouse.deliveries")).toBeDefined();
     expect(findItemById(model, "warehouse.suppliers")).toBeDefined();
-    expect(findItemById(model, "warehouse.scanning.delivery")).toBeDefined();
     expect(findItemById(model, "warehouse.settings")).toBeDefined();
   });
 
