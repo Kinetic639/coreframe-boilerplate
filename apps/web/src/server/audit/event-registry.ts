@@ -637,6 +637,117 @@ export const EVENT_REGISTRY: Readonly<Record<string, EventRegistryEntry>> = {
   },
 
   // -------------------------------------------------------------------------
+  // Warehouse module — Inventory
+  // -------------------------------------------------------------------------
+
+  "warehouse.inventory.product.created": {
+    actionKey: "warehouse.inventory.product.created",
+    moduleSlug: "warehouse",
+    eventTier: "baseline",
+    category: "WAREHOUSE",
+    intent: "CREATE",
+    i18nKey: "events.warehouse.inventory.product.created",
+    description: "An inventory product was created",
+    metadataSchema: z.object({
+      product_id: z.string().uuid(),
+      variant_id: z.string().uuid(),
+      sku: z.string(),
+    }),
+    summaryTemplate: "Created inventory product {{sku}}",
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.inventory.product.updated": {
+    actionKey: "warehouse.inventory.product.updated",
+    moduleSlug: "warehouse",
+    eventTier: "baseline",
+    category: "WAREHOUSE",
+    intent: "UPDATE",
+    i18nKey: "events.warehouse.inventory.product.updated",
+    description: "An inventory product was updated",
+    metadataSchema: z.object({
+      product_id: z.string().uuid(),
+      updated_fields: z.array(z.string()).optional(),
+    }),
+    summaryTemplate: "Updated inventory product",
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.inventory.product.archived": {
+    actionKey: "warehouse.inventory.product.archived",
+    moduleSlug: "warehouse",
+    eventTier: "enhanced",
+    category: "WAREHOUSE",
+    intent: "UPDATE",
+    i18nKey: "events.warehouse.inventory.product.archived",
+    description: "An inventory product was archived",
+    metadataSchema: z.object({
+      product_id: z.string().uuid(),
+    }),
+    summaryTemplate: "Archived inventory product",
+    scope: "organization",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.inventory.movement.posted": {
+    actionKey: "warehouse.inventory.movement.posted",
+    moduleSlug: "warehouse",
+    eventTier: "baseline",
+    category: "WAREHOUSE",
+    intent: "CREATE",
+    i18nKey: "events.warehouse.inventory.movement.posted",
+    description: "An inventory movement was posted",
+    metadataSchema: z.object({
+      movement_id: z.string().uuid(),
+      movement_number: z.string(),
+      status: z.string(),
+    }),
+    summaryTemplate: "Posted inventory movement {{movement_number}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  "warehouse.inventory.movement.reversed": {
+    actionKey: "warehouse.inventory.movement.reversed",
+    moduleSlug: "warehouse",
+    eventTier: "enhanced",
+    category: "WAREHOUSE",
+    intent: "UPDATE",
+    i18nKey: "events.warehouse.inventory.movement.reversed",
+    description: "An inventory movement was reversed",
+    metadataSchema: z.object({
+      movement_id: z.string().uuid(),
+      movement_number: z.string(),
+      status: z.string(),
+    }),
+    summaryTemplate: "Reversed inventory movement {{movement_number}}",
+    scope: "branch",
+    actorVisible: true,
+    selfVisible: true,
+    visibilityClass: "org_activity",
+    visibleTo: ["org_member", "org_admin", "auditor"],
+    sensitiveFields: [],
+  },
+
+  // -------------------------------------------------------------------------
   // QR Platform module
   // -------------------------------------------------------------------------
 

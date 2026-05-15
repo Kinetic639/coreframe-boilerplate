@@ -56,6 +56,21 @@ import {
   // Warehouse locations
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_LOCATIONS_MANAGE,
+  // Warehouse inventory phase 1
+  WAREHOUSE_PRODUCTS_READ,
+  WAREHOUSE_PRODUCTS_MANAGE,
+  WAREHOUSE_PRODUCTS_ARCHIVE,
+  WAREHOUSE_INVENTORY_READ,
+  WAREHOUSE_INVENTORY_OPERATE,
+  WAREHOUSE_INVENTORY_ADJUST,
+  WAREHOUSE_INVENTORY_REVERSE,
+  WAREHOUSE_SETTINGS_MANAGE,
+  WAREHOUSE_PROCUREMENT_READ,
+  WAREHOUSE_PROCUREMENT_MANAGE,
+  WAREHOUSE_PRICING_READ,
+  WAREHOUSE_PRICING_MANAGE,
+  WAREHOUSE_REPORTS_READ,
+  WAREHOUSE_IMPORTS_MANAGE,
   // DB RPC gate slugs
   BRANCHES_VIEW_ANY,
   BRANCHES_VIEW_UPDATE_ANY,
@@ -84,6 +99,20 @@ const RLS_GATE_SLUGS = [
   ORG_UPDATE, // org_positions / org_profiles UPDATE policy
   WAREHOUSE_LOCATIONS_READ, // warehouse_locations SELECT policy (wl_select_locations_read)
   WAREHOUSE_LOCATIONS_MANAGE, // warehouse_locations INSERT/UPDATE policies
+  WAREHOUSE_PRODUCTS_READ, // inventory_products/inventory_variants SELECT policies
+  WAREHOUSE_PRODUCTS_MANAGE, // inventory product/unit/reason INSERT/UPDATE policies
+  WAREHOUSE_PRODUCTS_ARCHIVE, // inventory product archive action/RPC gate
+  WAREHOUSE_INVENTORY_READ, // inventory balances/movements SELECT policies
+  WAREHOUSE_INVENTORY_OPERATE, // movement creation/posting policies and RPC gates
+  WAREHOUSE_INVENTORY_ADJUST, // adjustment movement RPC gate
+  WAREHOUSE_INVENTORY_REVERSE, // reversal movement RPC gate
+  WAREHOUSE_SETTINGS_MANAGE, // inventory_settings mutation policy/RPC gate
+  WAREHOUSE_PROCUREMENT_READ, // Phase 2 procurement SELECT policies
+  WAREHOUSE_PROCUREMENT_MANAGE, // Phase 2 procurement write/RPC gates
+  WAREHOUSE_PRICING_READ, // Phase 2 pricing/cost SELECT policies
+  WAREHOUSE_PRICING_MANAGE, // Phase 2 pricing/cost write policies
+  WAREHOUSE_REPORTS_READ, // Phase 3 report, saved export, valuation snapshot policies
+  WAREHOUSE_IMPORTS_MANAGE, // Phase 3 import/export job policies
 ] as const;
 
 /**
@@ -150,6 +179,32 @@ describe("RLS gate slugs — non-wildcard invariant (complete inventory)", () =>
 
   it("WAREHOUSE_LOCATIONS_MANAGE is the exact slug used in wl_insert_manage and wl_update_manage policies", () => {
     expect(WAREHOUSE_LOCATIONS_MANAGE).toBe("warehouse.locations.manage");
+  });
+
+  it("warehouse product inventory slugs match the Phase 1 plan", () => {
+    expect(WAREHOUSE_PRODUCTS_READ).toBe("warehouse.products.read");
+    expect(WAREHOUSE_PRODUCTS_MANAGE).toBe("warehouse.products.manage");
+    expect(WAREHOUSE_PRODUCTS_ARCHIVE).toBe("warehouse.products.archive");
+  });
+
+  it("warehouse stock operation slugs match the Phase 1 plan", () => {
+    expect(WAREHOUSE_INVENTORY_READ).toBe("warehouse.inventory.read");
+    expect(WAREHOUSE_INVENTORY_OPERATE).toBe("warehouse.inventory.operate");
+    expect(WAREHOUSE_INVENTORY_ADJUST).toBe("warehouse.inventory.adjust");
+    expect(WAREHOUSE_INVENTORY_REVERSE).toBe("warehouse.inventory.reverse");
+    expect(WAREHOUSE_SETTINGS_MANAGE).toBe("warehouse.settings.manage");
+  });
+
+  it("warehouse enterprise slugs match the Phase 2 plan", () => {
+    expect(WAREHOUSE_PROCUREMENT_READ).toBe("warehouse.procurement.read");
+    expect(WAREHOUSE_PROCUREMENT_MANAGE).toBe("warehouse.procurement.manage");
+    expect(WAREHOUSE_PRICING_READ).toBe("warehouse.pricing.read");
+    expect(WAREHOUSE_PRICING_MANAGE).toBe("warehouse.pricing.manage");
+  });
+
+  it("warehouse advanced slugs match the Phase 3 plan", () => {
+    expect(WAREHOUSE_REPORTS_READ).toBe("warehouse.reports.read");
+    expect(WAREHOUSE_IMPORTS_MANAGE).toBe("warehouse.imports.manage");
   });
 });
 

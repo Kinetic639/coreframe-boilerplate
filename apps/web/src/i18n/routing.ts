@@ -99,6 +99,10 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/inwentarz/ruchy",
     },
+    "/dashboard/warehouse/inventory/transfers": {
+      en: "/dashboard/warehouse/inventory/transfers",
+      pl: "/dashboard/magazyn/inwentarz/przesuniecia",
+    },
     "/dashboard/warehouse/inventory/adjustments": {
       en: "/dashboard/warehouse/inventory/adjustments",
       pl: "/dashboard/magazyn/inwentarz/korekty",
@@ -106,6 +110,18 @@ export const routing = defineRouting({
     "/dashboard/warehouse/items": {
       en: "/dashboard/warehouse/items",
       pl: "/dashboard/magazyn/produkty",
+    },
+    "/dashboard/warehouse/items/new": {
+      en: "/dashboard/warehouse/items/new",
+      pl: "/dashboard/magazyn/produkty/nowy",
+    },
+    "/dashboard/warehouse/items/[productId]": {
+      en: "/dashboard/warehouse/items/[productId]",
+      pl: "/dashboard/magazyn/produkty/[productId]",
+    },
+    "/dashboard/warehouse/items/[productId]/edit": {
+      en: "/dashboard/warehouse/items/[productId]/edit",
+      pl: "/dashboard/magazyn/produkty/[productId]/edytuj",
     },
     "/dashboard/warehouse/locations": {
       en: "/dashboard/warehouse/locations",

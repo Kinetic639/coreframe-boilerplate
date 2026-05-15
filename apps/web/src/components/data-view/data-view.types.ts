@@ -65,6 +65,7 @@ export type DataViewProps<TListRow, TDetail> = {
   }) => Promise<number | null>;
   getRowId: (row: TListRow) => string;
   renderCompactItem?: (row: TListRow) => React.ReactNode;
+  renderExpandedRow?: (row: TListRow) => React.ReactNode;
   renderDetail: (detail: TDetail) => React.ReactNode;
   /** Called whenever the checkbox selection changes. Receives the current selected row IDs. */
   onSelectionChange?: (selectedIds: string[]) => void;

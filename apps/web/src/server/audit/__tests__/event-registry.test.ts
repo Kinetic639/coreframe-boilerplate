@@ -71,8 +71,8 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
     expect(actionKeys.length).toBeGreaterThan(0);
   });
 
-  it("has exactly the expected 29 entries", () => {
-    expect(actionKeys.length).toBe(29);
+  it("has exactly the expected 34 entries", () => {
+    expect(actionKeys.length).toBe(34);
   });
 
   for (const key of actionKeys) {

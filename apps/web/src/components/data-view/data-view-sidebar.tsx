@@ -18,7 +18,7 @@ const LOAD_INDICATOR_HEIGHT = 40;
 const VIRTUALIZATION_THRESHOLD = 30;
 
 export function DataViewSidebar() {
-  const { columns, getRowId } = useDataViewStatic();
+  const { columns, getRowId, renderCompactItem } = useDataViewStatic();
   const { urlState } = useDataViewUrl();
   const { keepOnlySelected, isRowSelected, selectedRowCount } = useDataViewSelection();
   const t = useTranslations("dataView");
@@ -208,9 +208,13 @@ export function DataViewSidebar() {
                   aria-selected={isSelected}
                   data-testid={`sidebar-item-${rowId}`}
                 >
-                  <span className="block w-full truncate font-medium">
-                    {primaryColumn ? primaryColumn.accessor(row) : rowId}
-                  </span>
+                  {renderCompactItem ? (
+                    renderCompactItem(row)
+                  ) : (
+                    <span className="block w-full truncate font-medium">
+                      {primaryColumn ? primaryColumn.accessor(row) : rowId}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -231,9 +235,13 @@ export function DataViewSidebar() {
                 aria-selected={isSelected}
                 data-testid={`sidebar-item-${rowId}`}
               >
-                <span className="block w-full truncate font-medium">
-                  {primaryColumn ? primaryColumn.accessor(row) : rowId}
-                </span>
+                {renderCompactItem ? (
+                  renderCompactItem(row)
+                ) : (
+                  <span className="block w-full truncate font-medium">
+                    {primaryColumn ? primaryColumn.accessor(row) : rowId}
+                  </span>
+                )}
               </button>
             );
           })

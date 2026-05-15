@@ -49,8 +49,8 @@ function getFilterValueLabel(
     const to = filters[def.toKey];
     if (!from && !to) return null;
     if (from && to) return `${from} – ${to}`;
-    if (from) return t("filters.fromValue", { value: from });
-    return t("filters.toValue", { value: to as string });
+    if (from) return t("filters.fromValue", { value: String(from) });
+    return t("filters.toValue", { value: String(to) });
   }
   const val = filters[def.key];
   if (val === null || val === undefined || val === "") return null;
