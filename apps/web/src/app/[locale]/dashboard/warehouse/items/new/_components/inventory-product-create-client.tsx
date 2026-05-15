@@ -19,6 +19,7 @@ import {
 import { Link, useRouter } from "@/i18n/navigation";
 import {
   archiveInventoryCustomFieldAction,
+  archiveInventorySkuTemplateAction,
   assignInventoryVariantGalleryImageAction,
   checkInventorySkuCollisionsAction,
   createInventoryCustomFieldAction,
@@ -27,6 +28,8 @@ import {
   createInventorySkuTemplateAction,
   createInventoryManufacturerAction,
   createInventoryUnitAction,
+  updateInventoryCustomFieldAction,
+  updateInventorySkuTemplateAction,
   uploadInventoryItemImageAction,
 } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
@@ -366,6 +369,7 @@ export function InventoryProductCreateClient({
   const [skuCollisionMessage, setSkuCollisionMessage] = useState<string | null>(null);
   const [customFieldOptions, setCustomFieldOptions] = useState<CustomFieldOption[]>(customFields);
   const [showCustomFieldBuilder, setShowCustomFieldBuilder] = useState(false);
+  const [editingCustomFieldId, setEditingCustomFieldId] = useState<string | null>(null);
   const [customFieldDraft, setCustomFieldDraft] = useState<CustomFieldDraft>({
     entity_type: "product",
     name: "",
@@ -403,6 +407,10 @@ export function InventoryProductCreateClient({
         }, {})
       ),
     [productCustomFields]
+  );
+  const selectedSkuTemplate = useMemo(
+    () => skuTemplateOptions.find((template) => template.id === selectedSkuTemplateId) ?? null,
+    [selectedSkuTemplateId, skuTemplateOptions]
   );
 
   useEffect(() => {
@@ -661,6 +669,61 @@ export function InventoryProductCreateClient({
     setSelectedSkuTemplateId(result.data.id);
     setSkuTemplateName("");
     setSkuCollisionMessage("SKU template saved.");
+  };
+
+  const updateSkuTemplate = async (makeDefault = false) => {
+    if (!selectedSkuTemplate) {
+      setSkuCollisionMessage("Select a template to update.");
+      return;
+    }
+    const name = skuTemplateName.trim() || selectedSkuTemplate.name;
+    const result = await updateInventorySkuTemplateAction({
+      id: selectedSkuTemplate.id,
+      name,
+      description: selectedSkuTemplate.description,
+      rules: skuRules,
+      is_default: makeDefault || selectedSkuTemplate.is_default,
+    });
+    if (!result.success || !("data" in result)) {
+      setSkuCollisionMessage("error" in result ? result.error : "Template could not be updated.");
+      return;
+    }
+    setSkuTemplateOptions((templates) =>
+      templates.map((template) =>
+        template.id === selectedSkuTemplate.id
+          ? {
+              ...template,
+              name,
+              rules: skuRules,
+              is_default: makeDefault || selectedSkuTemplate.is_default,
+            }
+          : makeDefault
+            ? { ...template, is_default: false }
+            : template
+      )
+    );
+    setSkuTemplateName("");
+    setSkuCollisionMessage(
+      makeDefault ? "SKU template updated and set as default." : "SKU template updated."
+    );
+  };
+
+  const archiveSkuTemplate = async () => {
+    if (!selectedSkuTemplate) {
+      setSkuCollisionMessage("Select a template to archive.");
+      return;
+    }
+    const result = await archiveInventorySkuTemplateAction({ id: selectedSkuTemplate.id });
+    if (!result.success) {
+      setSkuCollisionMessage("error" in result ? result.error : "Template could not be archived.");
+      return;
+    }
+    setSkuTemplateOptions((templates) =>
+      templates.filter((template) => template.id !== selectedSkuTemplate.id)
+    );
+    setSelectedSkuTemplateId("");
+    setSkuTemplateName("");
+    setSkuCollisionMessage("SKU template archived.");
   };
 
   const addProductImages = (files: FileList | null) => {
@@ -1033,7 +1096,7 @@ export function InventoryProductCreateClient({
     });
   };
 
-  const createCustomField = () => {
+  const saveCustomField = () => {
     const name = customFieldDraft.name.trim();
     if (!name) {
       setCustomFieldMessage("Custom field name is required.");
@@ -1050,6 +1113,60 @@ export function InventoryProductCreateClient({
 
     setCustomFieldMessage(null);
     startTransition(async () => {
+      if (editingCustomFieldId) {
+        const result = await updateInventoryCustomFieldAction({
+          id: editingCustomFieldId,
+          name,
+          is_required: customFieldDraft.is_required,
+          is_filterable: customFieldDraft.is_filterable,
+          options:
+            customFieldDraft.field_type === "select" ||
+            customFieldDraft.field_type === "multi_select"
+              ? customFieldDraft.options
+              : [],
+          display_order:
+            customFieldOptions.find((field) => field.id === editingCustomFieldId)?.display_order ??
+            customFieldOptions.length,
+        });
+
+        if (!result.success) {
+          setCustomFieldMessage(
+            "error" in result ? result.error : "Could not update custom field."
+          );
+          return;
+        }
+
+        setCustomFieldOptions((current) =>
+          current.map((field) =>
+            field.id === editingCustomFieldId
+              ? {
+                  ...field,
+                  name,
+                  is_required: customFieldDraft.is_required,
+                  is_filterable: customFieldDraft.is_filterable,
+                  options:
+                    customFieldDraft.field_type === "select" ||
+                    customFieldDraft.field_type === "multi_select"
+                      ? customFieldDraft.options
+                      : [],
+                }
+              : field
+          )
+        );
+        setEditingCustomFieldId(null);
+        setCustomFieldDraft({
+          entity_type: customFieldDraft.entity_type,
+          name: "",
+          field_type: "text",
+          is_required: false,
+          is_filterable: true,
+          options: [],
+        });
+        setShowCustomFieldBuilder(false);
+        setCustomFieldMessage("Custom field updated.");
+        return;
+      }
+
       const baseFieldKey = fieldKeyFromName(name);
       const existingKeys = new Set(
         customFieldOptions
@@ -1114,6 +1231,33 @@ export function InventoryProductCreateClient({
           ? "Variant custom field created. It is available in the variant grid."
           : "Product custom field created."
       );
+    });
+  };
+
+  const editCustomField = (field: CustomFieldOption) => {
+    setEditingCustomFieldId(field.id);
+    setShowCustomFieldBuilder(true);
+    setCustomFieldMessage(null);
+    setCustomFieldDraft({
+      entity_type: field.entity_type === "variant" ? "variant" : "product",
+      name: field.name,
+      field_type: field.field_type,
+      is_required: field.is_required,
+      is_filterable: field.is_filterable ?? false,
+      options: field.options ?? [],
+    });
+  };
+
+  const resetCustomFieldDraft = () => {
+    setEditingCustomFieldId(null);
+    setShowCustomFieldBuilder(false);
+    setCustomFieldDraft({
+      entity_type: "product",
+      name: "",
+      field_type: "text",
+      is_required: false,
+      is_filterable: true,
+      options: [],
     });
   };
 
@@ -1702,7 +1846,7 @@ export function InventoryProductCreateClient({
                 onClick={() => setShowCustomFieldBuilder((value) => !value)}
               >
                 <Plus className="h-4 w-4" />
-                Add custom field
+                {showCustomFieldBuilder ? "Close builder" : "Add custom field"}
               </Button>
             </div>
 
@@ -1731,6 +1875,7 @@ export function InventoryProductCreateClient({
                     <select
                       value={customFieldDraft.entity_type}
                       className={cn(selectClass, "pr-9")}
+                      disabled={!!editingCustomFieldId}
                       onChange={(event) =>
                         setCustomFieldDraft((draft) => ({
                           ...draft,
@@ -1747,6 +1892,7 @@ export function InventoryProductCreateClient({
                     <select
                       value={customFieldDraft.field_type}
                       className={cn(selectClass, "pr-9")}
+                      disabled={!!editingCustomFieldId}
                       onChange={(event) =>
                         setCustomFieldDraft((draft) => ({
                           ...draft,
@@ -1812,16 +1958,11 @@ export function InventoryProductCreateClient({
                     </label>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowCustomFieldBuilder(false)}
-                    >
+                    <Button type="button" variant="ghost" size="sm" onClick={resetCustomFieldDraft}>
                       Cancel
                     </Button>
-                    <Button type="button" size="sm" onClick={createCustomField}>
-                      Create field
+                    <Button type="button" size="sm" onClick={saveCustomField}>
+                      {editingCustomFieldId ? "Update field" : "Create field"}
                     </Button>
                   </div>
                 </div>
@@ -1839,6 +1980,14 @@ export function InventoryProductCreateClient({
                     <span className="text-muted-foreground">
                       {field.entity_type} · {field.field_type.replace("_", " ")}
                     </span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => editCustomField(field)}
+                      aria-label={`Edit ${field.name}`}
+                    >
+                      Edit
+                    </button>
                     <button
                       type="button"
                       className="text-muted-foreground hover:text-destructive"
@@ -2257,6 +2406,35 @@ export function InventoryProductCreateClient({
                   <Button type="button" variant="outline" onClick={checkSkuCollisions}>
                     Check SKUs
                   </Button>
+                  {selectedSkuTemplate ? (
+                    <div className="flex flex-wrap gap-2 md:col-span-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateSkuTemplate()}
+                      >
+                        Update selected template
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => updateSkuTemplate(true)}
+                      >
+                        Set as default
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={archiveSkuTemplate}
+                      >
+                        Archive template
+                      </Button>
+                    </div>
+                  ) : null}
                   {skuCollisionMessage ? (
                     <p className="text-sm text-muted-foreground md:col-span-4">
                       {skuCollisionMessage}

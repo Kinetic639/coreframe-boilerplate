@@ -8,6 +8,7 @@ import {
   createInventoryBrandAction,
   createInventoryManufacturerAction,
   setInventoryCustomFieldValueAction,
+  updateInventoryVariantAction,
   updateInventoryProductAction,
   updateInventoryProductImagesAction,
   uploadInventoryItemImageAction,
@@ -26,6 +27,16 @@ import { cn } from "@/utils";
 type UnitOption = { id: string; code: string; name: string };
 type SupplierOption = { id: string; name: string };
 type CustomFieldTarget = "product" | "variant";
+type VariantDraft = {
+  sku: string;
+  name: string;
+  status: "active" | "archived" | "discontinued";
+  barcode: string;
+  purchase_price: string;
+  sales_price: string;
+  price_currency: string;
+  reorder_point: string;
+};
 
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -124,6 +135,23 @@ export function InventoryProductEditClient({
   const [manufacturerOptions, setManufacturerOptions] = useState(manufacturers);
   const [brandDraft, setBrandDraft] = useState("");
   const [manufacturerDraft, setManufacturerDraft] = useState("");
+  const [variantDrafts, setVariantDrafts] = useState<Record<string, VariantDraft>>(() =>
+    Object.fromEntries(
+      product.variants.map((variant) => [
+        variant.id,
+        {
+          sku: variant.sku,
+          name: variant.name,
+          status: variant.status as VariantDraft["status"],
+          barcode: variant.barcode ?? "",
+          purchase_price: n(variant.purchase_price),
+          sales_price: n(variant.sales_price),
+          price_currency: variant.price_currency ?? "PLN",
+          reorder_point: n(variant.reorder_point),
+        },
+      ])
+    )
+  );
   const productCustomFields = customFields.filter((field) => field.entity_type === "product");
   const variantCustomFields = customFields.filter((field) => field.entity_type === "variant");
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>(() =>
@@ -239,6 +267,37 @@ export function InventoryProductEditClient({
       }
 
       router.refresh();
+    });
+  };
+
+  const updateVariantDraft = (variantId: string, patch: Partial<VariantDraft>) => {
+    setVariantDrafts((drafts) => ({
+      ...drafts,
+      [variantId]: { ...drafts[variantId], ...patch },
+    }));
+  };
+
+  const saveVariant = (variantId: string) => {
+    const draft = variantDrafts[variantId];
+    if (!draft) return;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await updateInventoryVariantAction({
+        variant_id: variantId,
+        sku: draft.sku,
+        name: draft.name,
+        status: draft.status,
+        barcode: draft.barcode.trim() || null,
+        purchase_price: numberOrNull(draft.purchase_price),
+        sales_price: numberOrNull(draft.sales_price),
+        price_currency: draft.price_currency.trim().toUpperCase() || "PLN",
+        reorder_point: numberOrNull(draft.reorder_point),
+        preferred_supplier_id: null,
+      });
+      setMessage(
+        result.success ? "Variant saved" : "error" in result ? result.error : "Variant save failed"
+      );
+      if (result.success) router.refresh();
     });
   };
 
@@ -660,6 +719,148 @@ export function InventoryProductEditClient({
             ) : null}
           </div>
         </section>
+
+        {product.variants.length > 0 ? (
+          <section className="grid gap-4">
+            <div>
+              <h2 className="text-lg font-medium">Variants</h2>
+              <p className="text-sm text-muted-foreground">
+                Edit stock-bearing SKU rows, lifecycle status, prices, and reorder points.
+              </p>
+            </div>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="min-w-[1180px] text-sm">
+                <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Name</th>
+                    <th className="px-3 py-2 text-left">SKU</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Barcode</th>
+                    <th className="px-3 py-2 text-left">Purchase</th>
+                    <th className="px-3 py-2 text-left">Sales</th>
+                    <th className="px-3 py-2 text-left">Currency</th>
+                    <th className="px-3 py-2 text-left">Reorder</th>
+                    <th className="px-3 py-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.variants.map((variant) => {
+                    const draft = variantDrafts[variant.id];
+                    if (!draft) return null;
+                    return (
+                      <tr key={variant.id} className="border-t border-border">
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.name}
+                            className="h-9 min-w-48"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, { name: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.sku}
+                            className="h-9 min-w-40"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, { sku: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={draft.status}
+                            className={cn(selectClass, "min-w-36 pr-9")}
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, {
+                                status: event.target.value as VariantDraft["status"],
+                              })
+                            }
+                          >
+                            <option value="active">Active</option>
+                            <option value="discontinued">Discontinued</option>
+                            <option value="archived">Archived</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.barcode}
+                            className="h-9 min-w-36"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, { barcode: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.purchase_price}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="h-9 min-w-28"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, {
+                                purchase_price: event.target.value,
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.sales_price}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="h-9 min-w-28"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, { sales_price: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.price_currency}
+                            className="h-9 min-w-24 uppercase"
+                            maxLength={3}
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, {
+                                price_currency: event.target.value.toUpperCase(),
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.reorder_point}
+                            type="number"
+                            min="0"
+                            step="1"
+                            className="h-9 min-w-28"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, { reorder_point: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => saveVariant(variant.id)}
+                            disabled={isPending}
+                          >
+                            <Save className="mr-2 h-4 w-4" />
+                            Save
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
 
         {productCustomFields.length > 0 || variantCustomFields.length > 0 ? (
           <section className="grid gap-4">

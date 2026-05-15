@@ -60,6 +60,112 @@ const statusVariant: Record<string, "default" | "secondary" | "destructive" | "o
   discontinued: "destructive",
 };
 
+const importFields = [
+  { key: "product_name", label: "Product name", required: true },
+  { key: "product_sku", label: "Product SKU", required: false },
+  { key: "variant_name", label: "Variant name", required: false },
+  { key: "variant_sku", label: "Variant SKU", required: true },
+  { key: "unit_code", label: "Unit", required: true },
+  { key: "product_type", label: "Type", required: false },
+  { key: "status", label: "Status", required: false },
+  { key: "barcode", label: "Barcode", required: false },
+  { key: "purchase_price", label: "Purchase price", required: false },
+  { key: "sales_price", label: "Sales price", required: false },
+  { key: "reorder_point", label: "Reorder point", required: false },
+  { key: "tags", label: "Tags", required: false },
+  { key: "description", label: "Description", required: false },
+] as const;
+
+type ImportFieldKey = (typeof importFields)[number]["key"];
+type ImportMode = "create_only" | "skip_existing";
+
+function parseCsvLine(line: string) {
+  const cells: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  cells.push(cell);
+  return cells;
+}
+
+function csvCell(value: string) {
+  return /[",\n\r]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+}
+
+function csvLines(csv: string) {
+  return csv
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+}
+
+function normalizedHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const importAliases: Record<ImportFieldKey, string[]> = {
+  product_name: ["productname", "itemname", "name", "nazwa", "nazwatowaru", "towar"],
+  product_sku: ["productsku", "itemsku", "parentsku"],
+  variant_name: ["variantname", "wariant", "variant", "nazwawariantu"],
+  variant_sku: ["variantsku", "sku", "nrkatalogowy", "katalogowy", "kod", "index", "indeks"],
+  unit_code: ["unit", "unitcode", "jm", "jednostka"],
+  product_type: ["type", "producttype", "typ"],
+  status: ["status"],
+  barcode: ["barcode", "kodkreskowy", "ean13"],
+  purchase_price: ["purchaseprice", "costprice", "cost", "cenazakupu"],
+  sales_price: ["salesprice", "sellingprice", "price", "cenasprzedazy"],
+  reorder_point: ["reorderpoint", "minimumstock", "min", "stanminimalny"],
+  tags: ["tags", "tagi"],
+  description: ["description", "opis"],
+};
+
+function autoMapHeaders(headers: string[]) {
+  const normalized = headers.map((header) => ({
+    header,
+    key: normalizedHeader(header),
+  }));
+  return Object.fromEntries(
+    importFields.map((field) => {
+      const match = normalized.find((header) => importAliases[field.key].includes(header.key));
+      return [field.key, match?.header ?? ""];
+    })
+  ) as Record<ImportFieldKey, string>;
+}
+
+function mapCsv(rawCsv: string, mapping: Record<ImportFieldKey, string>) {
+  const lines = csvLines(rawCsv);
+  const headers = parseCsvLine(lines[0] ?? "");
+  const headerIndex = new Map(headers.map((header, index) => [header, index]));
+  const output = [importFields.map((field) => field.key).join(",")];
+  for (const line of lines.slice(1)) {
+    const cells = parseCsvLine(line);
+    output.push(
+      importFields
+        .map((field) => {
+          const source = mapping[field.key];
+          const index = source ? headerIndex.get(source) : undefined;
+          return csvCell(index == null ? "" : (cells[index] ?? ""));
+        })
+        .join(",")
+    );
+  }
+  return output.join("\n");
+}
+
 async function listFetcher(params: DataViewListParams) {
   const result = await listInventoryProductsAction(params);
   if (!result.success || !("data" in result))
@@ -86,6 +192,12 @@ export function InventoryProductsClient({
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importPreview, setImportPreview] = useState<ProductImportPreview | null>(null);
   const [importCsv, setImportCsv] = useState<string | null>(null);
+  const [rawImportCsv, setRawImportCsv] = useState<string | null>(null);
+  const [importHeaders, setImportHeaders] = useState<string[]>([]);
+  const [columnMapping, setColumnMapping] = useState<Record<ImportFieldKey, string>>(() =>
+    autoMapHeaders([])
+  );
+  const [importMode, setImportMode] = useState<ImportMode>("create_only");
   const [isImportPending, startImportTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toggleExpanded = (id: string) => {
@@ -96,6 +208,33 @@ export function InventoryProductsClient({
       return next;
     });
   };
+
+  const previewCsv = (csv: string) => {
+    startImportTransition(async () => {
+      const preview = await previewInventoryProductsCsvImportAction({ csv });
+      if (!preview.success || !("data" in preview)) {
+        setImportMessage("error" in preview ? preview.error : "Import preview failed");
+        return;
+      }
+      setImportPreview(preview.data);
+      setImportCsv(csv);
+      setImportMessage(
+        preview.data.invalid_rows > 0
+          ? `Review ${preview.data.invalid_rows} invalid rows before importing.`
+          : `Preview ready: ${preview.data.valid_rows} rows can be imported.`
+      );
+    });
+  };
+  const canConfirmImport =
+    !!importPreview &&
+    !!importCsv &&
+    (importMode === "create_only"
+      ? importPreview.invalid_rows === 0
+      : importPreview.rows.every(
+          (row) =>
+            row.errors.length === 0 ||
+            row.errors.every((error) => error.toLowerCase().includes("sku already exists"))
+        ));
 
   const columns = useMemo<DataViewColumnDef<InventoryProductListRow>[]>(
     () => [
@@ -270,7 +409,15 @@ export function InventoryProductsClient({
                     setImportPreview(null);
                     setImportCsv(null);
                     const csv = await file.text();
-                    const preview = await previewInventoryProductsCsvImportAction({ csv });
+                    const headers = parseCsvLine(csvLines(csv)[0] ?? "");
+                    const mapping = autoMapHeaders(headers);
+                    const mappedCsv = mapCsv(csv, mapping);
+                    setRawImportCsv(csv);
+                    setImportHeaders(headers);
+                    setColumnMapping(mapping);
+                    const preview = await previewInventoryProductsCsvImportAction({
+                      csv: mappedCsv,
+                    });
                     if (!preview.success || !("data" in preview)) {
                       setImportMessage(
                         "error" in preview ? preview.error : "Import preview failed"
@@ -278,7 +425,7 @@ export function InventoryProductsClient({
                       return;
                     }
                     setImportPreview(preview.data);
-                    setImportCsv(csv);
+                    setImportCsv(mappedCsv);
                     setImportMessage(
                       preview.data.invalid_rows > 0
                         ? `Review ${preview.data.invalid_rows} invalid rows before importing.`
@@ -331,6 +478,9 @@ export function InventoryProductsClient({
                 onClick={() => {
                   setImportPreview(null);
                   setImportCsv(null);
+                  setRawImportCsv(null);
+                  setImportHeaders([]);
+                  setColumnMapping(autoMapHeaders([]));
                   setImportMessage(null);
                 }}
               >
@@ -339,14 +489,17 @@ export function InventoryProductsClient({
               <Button
                 type="button"
                 size="sm"
-                disabled={isImportPending || importPreview.invalid_rows > 0 || !importCsv}
+                disabled={isImportPending || !canConfirmImport}
                 onClick={() => {
                   if (!importCsv) return;
                   startImportTransition(async () => {
-                    const imported = await importInventoryProductsCsvAction({ csv: importCsv });
+                    const imported = await importInventoryProductsCsvAction({
+                      csv: importCsv,
+                      mode: importMode,
+                    });
                     setImportMessage(
                       imported.success && "data" in imported
-                        ? `Imported ${imported.data.imported_products} products and ${imported.data.imported_variants} variants.`
+                        ? `Imported ${imported.data.imported_products} products and ${imported.data.imported_variants} variants. Skipped ${imported.data.skipped_rows ?? 0} rows.`
                         : "error" in imported
                           ? imported.error
                           : "Import failed"
@@ -354,6 +507,9 @@ export function InventoryProductsClient({
                     if (imported.success) {
                       setImportPreview(null);
                       setImportCsv(null);
+                      setRawImportCsv(null);
+                      setImportHeaders([]);
+                      setColumnMapping(autoMapHeaders([]));
                     }
                   });
                 }}
@@ -361,6 +517,61 @@ export function InventoryProductsClient({
                 Confirm import
               </Button>
             </div>
+          </div>
+          <div className="grid gap-3 border-b px-3 py-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+                Import mode
+                <select
+                  value={importMode}
+                  className="h-9 rounded-md border border-input bg-background px-3 pr-9 text-sm text-foreground"
+                  onChange={(event) => setImportMode(event.target.value as ImportMode)}
+                >
+                  <option value="create_only">Stop on duplicate SKUs</option>
+                  <option value="skip_existing">Skip duplicate SKUs</option>
+                </select>
+              </label>
+              {rawImportCsv ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isImportPending}
+                  onClick={() => previewCsv(mapCsv(rawImportCsv, columnMapping))}
+                >
+                  Refresh preview
+                </Button>
+              ) : null}
+            </div>
+            {importHeaders.length > 0 ? (
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {importFields.map((field) => (
+                  <label key={field.key} className="grid gap-1 text-xs">
+                    <span className="font-medium text-muted-foreground">
+                      {field.label}
+                      {field.required ? " *" : ""}
+                    </span>
+                    <select
+                      value={columnMapping[field.key]}
+                      className="h-8 rounded-md border border-input bg-background px-2 pr-8 text-sm text-foreground"
+                      onChange={(event) =>
+                        setColumnMapping((mapping) => ({
+                          ...mapping,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Not mapped</option>
+                      {importHeaders.map((header) => (
+                        <option key={header} value={header}>
+                          {header}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="max-h-72 overflow-auto">
             <table className="min-w-full text-sm">
