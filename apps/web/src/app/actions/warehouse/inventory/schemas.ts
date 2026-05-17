@@ -44,6 +44,10 @@ export const createInventoryProductSchema = z.object({
   sales_description: z.string().max(1000).nullable().optional(),
   purchase_description: z.string().max(1000).nullable().optional(),
   preferred_supplier_id: nullableUuidSchema,
+  sales_account_code: z.string().max(80).nullable().optional(),
+  purchase_account_code: z.string().max(80).nullable().optional(),
+  tax_code: z.string().max(80).nullable().optional(),
+  tax_rate_percent: z.number().min(0).nullable().optional(),
 });
 
 const enhancedAttributeSchema = z.object({
@@ -113,6 +117,24 @@ export const createInventoryUnitSchema = z.object({
   precision: z.number().int().min(0).max(9).optional(),
 });
 
+export const archiveInventoryUnitSchema = getByIdSchema;
+
+export const createInventoryTaxRateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  code: z.string().trim().min(1).max(40),
+  rate_percent: z.number().min(0).max(100),
+  is_default: z.boolean().optional().default(false),
+});
+
+export const archiveInventoryTaxRateSchema = getByIdSchema;
+
+export const createInventoryTagSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  color: z.string().trim().max(40).nullable().optional(),
+});
+
+export const archiveInventoryTagSchema = getByIdSchema;
+
 export const updateInventoryProductSchema = z.object({
   id: uuidSchema,
   name: z.string().min(1).max(200).optional(),
@@ -134,6 +156,10 @@ export const updateInventoryProductSchema = z.object({
   sales_description: z.string().max(1000).nullable().optional(),
   purchase_description: z.string().max(1000).nullable().optional(),
   preferred_supplier_id: nullableUuidSchema,
+  sales_account_code: z.string().max(80).nullable().optional(),
+  purchase_account_code: z.string().max(80).nullable().optional(),
+  tax_code: z.string().max(80).nullable().optional(),
+  tax_rate_percent: z.number().min(0).nullable().optional(),
   tags: z.array(z.string().trim().min(1).max(80)).optional(),
   unit_conversions: z
     .array(
@@ -312,6 +338,18 @@ export const updateInventoryVariantSchema = z.object({
   preferred_supplier_id: nullableUuidSchema,
 });
 
+export const updateInventoryVariantOptionsSchema = z.object({
+  variant_id: uuidSchema,
+  options: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        value: z.string().trim().min(1).max(100),
+      })
+    )
+    .max(12),
+});
+
 export const createLotSchema = z.object({
   product_id: uuidSchema,
   variant_id: uuidSchema,
@@ -417,6 +455,8 @@ export const createUnitConversionSchema = z.object({
   to_unit_id: uuidSchema,
   factor: z.number().positive(),
 });
+
+export const archiveInventoryUnitConversionSchema = getByIdSchema;
 
 export const createProductUnitConversionSchema = createUnitConversionSchema.extend({
   product_id: uuidSchema,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -72,10 +72,13 @@ export function useColumnVisibility(
   }, [entity]);
 
   // Merge with defaults (all visible unless explicitly hidden)
-  const merged = { ...columnVisibility };
-  for (const key of columnKeys) {
-    if (!(key in merged)) merged[key] = true;
-  }
+  const merged = useMemo(() => {
+    const next = { ...columnVisibility };
+    for (const key of columnKeys) {
+      if (!(key in next)) next[key] = true;
+    }
+    return next;
+  }, [columnVisibility, columnKeys]);
 
   return { columnVisibility: merged, setColumnVisibility, resetColumnVisibility };
 }

@@ -18,17 +18,15 @@ import {
 } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
-  archiveInventoryCustomFieldAction,
   archiveInventorySkuTemplateAction,
   assignInventoryVariantGalleryImageAction,
   checkInventorySkuCollisionsAction,
-  createInventoryCustomFieldAction,
   createInventoryBrandAction,
   createEnhancedInventoryProductAction,
+  createInventoryCustomFieldAction,
   createInventorySkuTemplateAction,
   createInventoryManufacturerAction,
   createInventoryUnitAction,
-  updateInventoryCustomFieldAction,
   updateInventorySkuTemplateAction,
   uploadInventoryItemImageAction,
 } from "@/app/actions/warehouse/inventory";
@@ -103,6 +101,14 @@ type SkuTemplateOption = {
   is_default: boolean;
 };
 
+type TaxRateOption = {
+  id: string;
+  name: string;
+  code: string;
+  rate_percent: number;
+  is_default: boolean;
+};
+
 type InventoryProductCreateClientProps = {
   units: UnitOption[];
   suppliers: SupplierOption[];
@@ -113,6 +119,7 @@ type InventoryProductCreateClientProps = {
   brands: MasterDataOption[];
   manufacturers: MasterDataOption[];
   skuTemplates: SkuTemplateOption[];
+  taxRates: TaxRateOption[];
 };
 
 type AttributeDraft = {
@@ -130,15 +137,6 @@ type SkuRule = {
   length: string;
   letterCase: "upper" | "lower" | "title" | "keep";
   separator: string;
-};
-
-type CustomFieldDraft = {
-  entity_type: "product" | "variant";
-  name: string;
-  field_type: CustomFieldOption["field_type"];
-  is_required: boolean;
-  is_filterable: boolean;
-  options: string[];
 };
 
 type SkuSourceOption = {
@@ -196,6 +194,23 @@ const textareaClass =
   "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 const labelClass = "text-sm text-foreground";
 const requiredLabelClass = "text-sm text-destructive";
+const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
+
+type DroppedFileSystemEntry = {
+  isFile: boolean;
+  isDirectory: boolean;
+  file?: (success: (file: File) => void, error?: (error: DOMException) => void) => void;
+  createReader?: () => {
+    readEntries: (
+      success: (entries: DroppedFileSystemEntry[]) => void,
+      error?: (error: DOMException) => void
+    ) => void;
+  };
+};
+
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => DroppedFileSystemEntry | null;
+};
 
 function newAttribute(name = "", values: string[] = []): AttributeDraft {
   return { id: crypto.randomUUID(), name, values };
@@ -320,6 +335,48 @@ function safeParseTokens(value: string) {
     .filter(Boolean);
 }
 
+async function filesFromEntry(entry: DroppedFileSystemEntry): Promise<File[]> {
+  if (entry.isFile && entry.file) {
+    return new Promise((resolve) =>
+      entry.file?.(
+        (file) => resolve([file]),
+        () => resolve([])
+      )
+    );
+  }
+
+  if (!entry.isDirectory || !entry.createReader) return [];
+  const reader = entry.createReader();
+  const files: File[] = [];
+
+  while (true) {
+    const entries = await new Promise<DroppedFileSystemEntry[]>((resolve) =>
+      reader.readEntries(resolve, () => resolve([]))
+    );
+    if (entries.length === 0) break;
+    const nested = await Promise.all(entries.map(filesFromEntry));
+    files.push(...nested.flat());
+  }
+
+  return files;
+}
+
+async function imageFilesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
+  const entries: DroppedFileSystemEntry[] = [];
+  for (const item of Array.from(dataTransfer.items ?? [])) {
+    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
+      | DroppedFileSystemEntry
+      | null
+      | undefined;
+    if (entry) entries.push(entry);
+  }
+
+  if (entries.length === 0) return Array.from(dataTransfer.files ?? []);
+
+  const files = await Promise.all(entries.map(filesFromEntry));
+  return files.flat();
+}
+
 export function InventoryProductCreateClient({
   units,
   suppliers,
@@ -330,6 +387,7 @@ export function InventoryProductCreateClient({
   brands,
   manufacturers,
   skuTemplates,
+  taxRates,
 }: InventoryProductCreateClientProps) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -368,17 +426,6 @@ export function InventoryProductCreateClient({
   const [skuTemplateName, setSkuTemplateName] = useState("");
   const [skuCollisionMessage, setSkuCollisionMessage] = useState<string | null>(null);
   const [customFieldOptions, setCustomFieldOptions] = useState<CustomFieldOption[]>(customFields);
-  const [showCustomFieldBuilder, setShowCustomFieldBuilder] = useState(false);
-  const [editingCustomFieldId, setEditingCustomFieldId] = useState<string | null>(null);
-  const [customFieldDraft, setCustomFieldDraft] = useState<CustomFieldDraft>({
-    entity_type: "product",
-    name: "",
-    field_type: "text",
-    is_required: false,
-    is_filterable: true,
-    options: [],
-  });
-  const [customFieldMessage, setCustomFieldMessage] = useState<string | null>(null);
   const [unitConversions, setUnitConversions] = useState<
     Array<{
       id: string;
@@ -389,13 +436,25 @@ export function InventoryProductCreateClient({
     }>
   >([]);
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>({});
-  const productCustomFields = useMemo(
+  const [selectedProductCustomFieldIds, setSelectedProductCustomFieldIds] = useState<string[]>([]);
+  const [selectedVariantCustomFieldIds, setSelectedVariantCustomFieldIds] = useState<string[]>([]);
+  const allProductCustomFields = useMemo(
     () => customFieldOptions.filter((field) => field.entity_type === "product"),
     [customFieldOptions]
   );
-  const variantCustomFields = useMemo(
+  const allVariantCustomFields = useMemo(
     () => customFieldOptions.filter((field) => field.entity_type === "variant"),
     [customFieldOptions]
+  );
+  const productCustomFields = useMemo(
+    () =>
+      allProductCustomFields.filter((field) => selectedProductCustomFieldIds.includes(field.id)),
+    [allProductCustomFields, selectedProductCustomFieldIds]
+  );
+  const variantCustomFields = useMemo(
+    () =>
+      allVariantCustomFields.filter((field) => selectedVariantCustomFieldIds.includes(field.id)),
+    [allVariantCustomFields, selectedVariantCustomFieldIds]
   );
   const groupedProductCustomFields = useMemo(
     () =>
@@ -412,6 +471,7 @@ export function InventoryProductCreateClient({
     () => skuTemplateOptions.find((template) => template.id === selectedSkuTemplateId) ?? null,
     [selectedSkuTemplateId, skuTemplateOptions]
   );
+  const defaultTaxRate = useMemo(() => taxRates.find((tax) => tax.is_default) ?? null, [taxRates]);
 
   useEffect(() => {
     setUnitOptions(units);
@@ -726,14 +786,20 @@ export function InventoryProductCreateClient({
     setSkuCollisionMessage("SKU template archived.");
   };
 
-  const addProductImages = (files: FileList | null) => {
+  const addProductImages = (files: FileList | File[] | null) => {
     if (!files) return [];
-    const selected = Array.from(files)
-      .filter((file) => file.type.startsWith("image/"))
+    const fileList = Array.from(files);
+    const selected = fileList
+      .filter((file) => file.type.startsWith("image/") && file.size <= MAX_ITEM_IMAGE_BYTES)
       .map((file) => ({
         file,
         preview: URL.createObjectURL(file),
       }));
+    if (
+      fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
+    ) {
+      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+    }
     const accepted = selected.slice(0, Math.max(15 - productImages.length, 0));
     if (accepted.length > 0) {
       setProductImages((current) => [...current, ...accepted].slice(0, 15));
@@ -745,10 +811,10 @@ export function InventoryProductCreateClient({
     addProductImages(files);
   };
 
-  const handleProductImageDrop = (event: React.DragEvent<HTMLElement>) => {
+  const handleProductImageDrop = async (event: React.DragEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    addProductImages(event.dataTransfer.files);
+    addProductImages(await imageFilesFromDataTransfer(event.dataTransfer));
   };
 
   const removeProductImage = (preview: string) => {
@@ -964,6 +1030,10 @@ export function InventoryProductCreateClient({
         sales_description: textOrNull(formData.get("sales_description")),
         purchase_description: textOrNull(formData.get("purchase_description")),
         preferred_supplier_id: textOrNull(formData.get("preferred_supplier_id")),
+        sales_account_code: textOrNull(formData.get("sales_account_code")),
+        purchase_account_code: textOrNull(formData.get("purchase_account_code")),
+        tax_code: textOrNull(formData.get("tax_code")),
+        tax_rate_percent: moneyOrNull(String(formData.get("tax_rate_percent") ?? "")),
         track_inventory: trackInventory,
         opening_location_id: includeOpeningStock
           ? textOrNull(formData.get("opening_location_id"))
@@ -1093,184 +1163,6 @@ export function InventoryProductCreateClient({
         setManufacturerDraft("");
         setShowQuickAddManufacturer(false);
       }
-    });
-  };
-
-  const saveCustomField = () => {
-    const name = customFieldDraft.name.trim();
-    if (!name) {
-      setCustomFieldMessage("Custom field name is required.");
-      return;
-    }
-    if (
-      (customFieldDraft.field_type === "select" ||
-        customFieldDraft.field_type === "multi_select") &&
-      customFieldDraft.options.length === 0
-    ) {
-      setCustomFieldMessage("Select fields need at least one option.");
-      return;
-    }
-
-    setCustomFieldMessage(null);
-    startTransition(async () => {
-      if (editingCustomFieldId) {
-        const result = await updateInventoryCustomFieldAction({
-          id: editingCustomFieldId,
-          name,
-          is_required: customFieldDraft.is_required,
-          is_filterable: customFieldDraft.is_filterable,
-          options:
-            customFieldDraft.field_type === "select" ||
-            customFieldDraft.field_type === "multi_select"
-              ? customFieldDraft.options
-              : [],
-          display_order:
-            customFieldOptions.find((field) => field.id === editingCustomFieldId)?.display_order ??
-            customFieldOptions.length,
-        });
-
-        if (!result.success) {
-          setCustomFieldMessage(
-            "error" in result ? result.error : "Could not update custom field."
-          );
-          return;
-        }
-
-        setCustomFieldOptions((current) =>
-          current.map((field) =>
-            field.id === editingCustomFieldId
-              ? {
-                  ...field,
-                  name,
-                  is_required: customFieldDraft.is_required,
-                  is_filterable: customFieldDraft.is_filterable,
-                  options:
-                    customFieldDraft.field_type === "select" ||
-                    customFieldDraft.field_type === "multi_select"
-                      ? customFieldDraft.options
-                      : [],
-                }
-              : field
-          )
-        );
-        setEditingCustomFieldId(null);
-        setCustomFieldDraft({
-          entity_type: customFieldDraft.entity_type,
-          name: "",
-          field_type: "text",
-          is_required: false,
-          is_filterable: true,
-          options: [],
-        });
-        setShowCustomFieldBuilder(false);
-        setCustomFieldMessage("Custom field updated.");
-        return;
-      }
-
-      const baseFieldKey = fieldKeyFromName(name);
-      const existingKeys = new Set(
-        customFieldOptions
-          .filter((field) => field.entity_type === customFieldDraft.entity_type)
-          .map((field) => field.field_key.toLowerCase())
-      );
-      let fieldKey = baseFieldKey;
-      let suffix = 2;
-      while (existingKeys.has(fieldKey.toLowerCase())) {
-        fieldKey = `${baseFieldKey}_${suffix}`;
-        suffix += 1;
-      }
-      const result = await createInventoryCustomFieldAction({
-        entity_type: customFieldDraft.entity_type,
-        name,
-        field_key: fieldKey,
-        field_type: customFieldDraft.field_type,
-        is_required: customFieldDraft.is_required,
-        is_filterable: customFieldDraft.is_filterable,
-        options:
-          customFieldDraft.field_type === "select" || customFieldDraft.field_type === "multi_select"
-            ? customFieldDraft.options
-            : [],
-        display_order: customFieldOptions.length + 1,
-      });
-
-      if (!result.success || !("data" in result)) {
-        setCustomFieldMessage("error" in result ? result.error : "Could not create custom field.");
-        return;
-      }
-
-      const createdField: CustomFieldOption = {
-        id: result.data.id,
-        entity_type: customFieldDraft.entity_type,
-        name,
-        field_key: fieldKey,
-        field_type: customFieldDraft.field_type,
-        is_required: customFieldDraft.is_required,
-        is_filterable: customFieldDraft.is_filterable,
-        options:
-          customFieldDraft.field_type === "select" || customFieldDraft.field_type === "multi_select"
-            ? customFieldDraft.options
-            : [],
-        display_order: customFieldOptions.length + 1,
-        section_name: "Custom fields",
-        help_text: null,
-        placeholder: null,
-      };
-
-      setCustomFieldOptions((current) => [...current, createdField]);
-      setCustomFieldDraft({
-        entity_type: customFieldDraft.entity_type,
-        name: "",
-        field_type: "text",
-        is_required: false,
-        is_filterable: true,
-        options: [],
-      });
-      setShowCustomFieldBuilder(false);
-      setCustomFieldMessage(
-        createdField.entity_type === "variant"
-          ? "Variant custom field created. It is available in the variant grid."
-          : "Product custom field created."
-      );
-    });
-  };
-
-  const editCustomField = (field: CustomFieldOption) => {
-    setEditingCustomFieldId(field.id);
-    setShowCustomFieldBuilder(true);
-    setCustomFieldMessage(null);
-    setCustomFieldDraft({
-      entity_type: field.entity_type === "variant" ? "variant" : "product",
-      name: field.name,
-      field_type: field.field_type,
-      is_required: field.is_required,
-      is_filterable: field.is_filterable ?? false,
-      options: field.options ?? [],
-    });
-  };
-
-  const resetCustomFieldDraft = () => {
-    setEditingCustomFieldId(null);
-    setShowCustomFieldBuilder(false);
-    setCustomFieldDraft({
-      entity_type: "product",
-      name: "",
-      field_type: "text",
-      is_required: false,
-      is_filterable: true,
-      options: [],
-    });
-  };
-
-  const archiveCustomField = (field: CustomFieldOption) => {
-    setCustomFieldMessage(null);
-    startTransition(async () => {
-      const result = await archiveInventoryCustomFieldAction({ id: field.id });
-      if (!result.success) {
-        setCustomFieldMessage("error" in result ? result.error : "Could not archive field.");
-        return;
-      }
-      setCustomFieldOptions((current) => current.filter((item) => item.id !== field.id));
-      setCustomFieldMessage(`${field.name} archived.`);
     });
   };
 
@@ -1580,6 +1472,50 @@ export function InventoryProductCreateClient({
                 Sales Information
               </h2>
               <Field label="Selling Price" name="sales_price" prefix="PLN" type="number" />
+              <Field label="Sales Account" name="sales_account_code" placeholder="e.g. 700-1" />
+              <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+                <label className="text-sm">Tax rate</label>
+                <select
+                  name="tax_preset"
+                  className={selectClass}
+                  defaultValue={defaultTaxRate?.id ?? ""}
+                  onChange={(event) => {
+                    const selected = taxRates.find((tax) => tax.id === event.currentTarget.value);
+                    const form = event.currentTarget.form;
+                    const codeInput = form?.elements.namedItem(
+                      "tax_code"
+                    ) as HTMLInputElement | null;
+                    const rateInput = form?.elements.namedItem(
+                      "tax_rate_percent"
+                    ) as HTMLInputElement | null;
+                    if (codeInput) codeInput.value = selected?.code ?? "";
+                    if (rateInput) rateInput.value = selected ? String(selected.rate_percent) : "";
+                  }}
+                >
+                  <option value="">No tax preset</option>
+                  {taxRates.map((tax) => (
+                    <option key={tax.id} value={tax.id}>
+                      {tax.name} ({tax.rate_percent}%)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-3 md:grid-cols-[170px_1fr_160px]">
+                <label className="pt-2 text-sm">Tax code / rate</label>
+                <Input
+                  name="tax_code"
+                  placeholder="e.g. VAT23"
+                  defaultValue={defaultTaxRate?.code ?? ""}
+                />
+                <Input
+                  name="tax_rate_percent"
+                  type="number"
+                  step="0.0001"
+                  min={0}
+                  placeholder="%"
+                  defaultValue={defaultTaxRate ? String(defaultTaxRate.rate_percent) : ""}
+                />
+              </div>
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
                 <label className="pt-2 text-sm">Description</label>
                 <textarea name="sales_description" className={cn(textareaClass, "min-h-16")} />
@@ -1591,6 +1527,11 @@ export function InventoryProductCreateClient({
                 Purchase Information
               </h2>
               <Field label="Cost Price" name="purchase_price" prefix="PLN" type="number" />
+              <Field
+                label="Purchase Account"
+                name="purchase_account_code"
+                placeholder="e.g. 330-1"
+              />
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
                 <label className="text-sm">Preferred Vendor</label>
                 <select name="preferred_supplier_id" className={selectClass}>
@@ -1835,171 +1776,62 @@ export function InventoryProductCreateClient({
               <div>
                 <h2 className="text-lg font-medium">Custom Fields</h2>
                 <p className="text-sm text-muted-foreground">
-                  Add typed fields for product or variant-specific data.
+                  Optional fields for this specific product. Definitions are managed in inventory
+                  settings.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setShowCustomFieldBuilder((value) => !value)}
-              >
-                <Plus className="h-4 w-4" />
-                {showCustomFieldBuilder ? "Close builder" : "Add custom field"}
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/dashboard/warehouse/settings">Manage fields</Link>
               </Button>
             </div>
 
-            {customFieldMessage ? (
-              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                {customFieldMessage}
-              </p>
-            ) : null}
-
-            {showCustomFieldBuilder ? (
-              <div className="grid gap-3 rounded-md border border-border bg-muted/20 p-4">
-                <div className="grid gap-3 lg:grid-cols-[1fr_170px_170px]">
-                  <label className="grid gap-1 text-sm">
-                    Field name
-                    <Input
-                      value={customFieldDraft.name}
-                      placeholder="e.g. Warranty months"
-                      className="h-9"
-                      onChange={(event) =>
-                        setCustomFieldDraft((draft) => ({ ...draft, name: event.target.value }))
-                      }
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Applies to
-                    <select
-                      value={customFieldDraft.entity_type}
-                      className={cn(selectClass, "pr-9")}
-                      disabled={!!editingCustomFieldId}
-                      onChange={(event) =>
-                        setCustomFieldDraft((draft) => ({
-                          ...draft,
-                          entity_type: event.target.value as CustomFieldDraft["entity_type"],
-                        }))
-                      }
-                    >
-                      <option value="product">Product</option>
-                      <option value="variant">Variant</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Type
-                    <select
-                      value={customFieldDraft.field_type}
-                      className={cn(selectClass, "pr-9")}
-                      disabled={!!editingCustomFieldId}
-                      onChange={(event) =>
-                        setCustomFieldDraft((draft) => ({
-                          ...draft,
-                          field_type: event.target.value as CustomFieldDraft["field_type"],
-                          options:
-                            event.target.value === "select" || event.target.value === "multi_select"
-                              ? draft.options
-                              : [],
-                        }))
-                      }
-                    >
-                      <option value="text">Text</option>
-                      <option value="number">Number</option>
-                      <option value="date">Date</option>
-                      <option value="boolean">Checkbox</option>
-                      <option value="select">Single select</option>
-                      <option value="multi_select">Multi select</option>
-                    </select>
-                  </label>
-                </div>
-
-                {customFieldDraft.field_type === "select" ||
-                customFieldDraft.field_type === "multi_select" ? (
-                  <div className="grid gap-1 text-sm">
-                    <span>Options</span>
-                    <TokenInput
-                      value={customFieldDraft.options}
-                      onChange={(options) =>
-                        setCustomFieldDraft((draft) => ({ ...draft, options }))
-                      }
-                      placeholder="Type option and press Enter"
-                    />
-                  </div>
-                ) : null}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-5 text-sm">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={customFieldDraft.is_required}
-                        onChange={(event) =>
-                          setCustomFieldDraft((draft) => ({
-                            ...draft,
-                            is_required: event.target.checked,
-                          }))
-                        }
-                      />
-                      Required
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={customFieldDraft.is_filterable}
-                        onChange={(event) =>
-                          setCustomFieldDraft((draft) => ({
-                            ...draft,
-                            is_filterable: event.target.checked,
-                          }))
-                        }
-                      />
-                      Filterable
-                    </label>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={resetCustomFieldDraft}>
-                      Cancel
-                    </Button>
-                    <Button type="button" size="sm" onClick={saveCustomField}>
-                      {editingCustomFieldId ? "Update field" : "Create field"}
-                    </Button>
-                  </div>
-                </div>
+            <div
+              className={cn(
+                "grid gap-3",
+                mode === "variants" ? "md:grid-cols-2" : "md:grid-cols-1"
+              )}
+            >
+              <div className="grid gap-3">
+                <AddCustomFieldSelect
+                  label="Add product field"
+                  fields={allProductCustomFields.filter(
+                    (field) => !selectedProductCustomFieldIds.includes(field.id)
+                  )}
+                  onAdd={(fieldId) =>
+                    setSelectedProductCustomFieldIds((current) => [...current, fieldId])
+                  }
+                />
+                <QuickCreateCustomField
+                  entityType="product"
+                  existingFields={allProductCustomFields}
+                  onCreated={(field) => {
+                    setCustomFieldOptions((current) => [...current, field]);
+                    setSelectedProductCustomFieldIds((current) => [...current, field.id]);
+                  }}
+                />
               </div>
-            ) : null}
-
-            {customFieldOptions.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {customFieldOptions.map((field) => (
-                  <span
-                    key={field.id}
-                    className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 py-1 text-xs"
-                  >
-                    <span className="font-medium">{field.name}</span>
-                    <span className="text-muted-foreground">
-                      {field.entity_type} · {field.field_type.replace("_", " ")}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => editCustomField(field)}
-                      aria-label={`Edit ${field.name}`}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => archiveCustomField(field)}
-                      aria-label={`Archive ${field.name}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : null}
+              {mode === "variants" ? (
+                <div className="grid gap-3">
+                  <AddCustomFieldSelect
+                    label="Add variant column"
+                    fields={allVariantCustomFields.filter(
+                      (field) => !selectedVariantCustomFieldIds.includes(field.id)
+                    )}
+                    onAdd={(fieldId) =>
+                      setSelectedVariantCustomFieldIds((current) => [...current, fieldId])
+                    }
+                  />
+                  <QuickCreateCustomField
+                    entityType="variant"
+                    existingFields={allVariantCustomFields}
+                    onCreated={(field) => {
+                      setCustomFieldOptions((current) => [...current, field]);
+                      setSelectedVariantCustomFieldIds((current) => [...current, field.id]);
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
 
             {productCustomFields.length > 0 ? (
               groupedProductCustomFields.map(([section, fields]) => (
@@ -2026,8 +1858,7 @@ export function InventoryProductCreateClient({
               ))
             ) : (
               <p className="rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
-                No product custom fields yet. Variant custom fields appear as columns in the variant
-                grid.
+                No custom fields selected for this product.
               </p>
             )}
           </section>
@@ -3254,6 +3085,211 @@ function TokenInput({
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AddCustomFieldSelect({
+  label,
+  fields,
+  onAdd,
+}: {
+  label: string;
+  fields: CustomFieldOption[];
+  onAdd: (fieldId: string) => void;
+}) {
+  const [value, setValue] = useState("");
+  return (
+    <div className="grid gap-1 text-sm">
+      <span>{label}</span>
+      <div className="flex gap-2">
+        <select
+          value={value}
+          className={selectClass}
+          onChange={(event) => setValue(event.target.value)}
+        >
+          <option value="">Select field</option>
+          {fields.map((field) => (
+            <option key={field.id} value={field.id}>
+              {field.name} ({field.field_type.replace("_", " ")})
+            </option>
+          ))}
+        </select>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!value}
+          onClick={() => {
+            if (!value) return;
+            onAdd(value);
+            setValue("");
+          }}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function QuickCreateCustomField({
+  entityType,
+  existingFields,
+  onCreated,
+}: {
+  entityType: "product" | "variant";
+  existingFields: CustomFieldOption[];
+  onCreated: (field: CustomFieldOption) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [fieldType, setFieldType] = useState<CustomFieldOption["field_type"]>("text");
+  const [options, setOptions] = useState<string[]>([]);
+  const [isRequired, setIsRequired] = useState(false);
+  const [isFilterable, setIsFilterable] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const needsOptions = fieldType === "select" || fieldType === "multi_select";
+
+  const reset = () => {
+    setName("");
+    setFieldType("text");
+    setOptions([]);
+    setIsRequired(false);
+    setIsFilterable(true);
+    setError(null);
+    setIsOpen(false);
+  };
+
+  const create = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Field name is required.");
+      return;
+    }
+    if (needsOptions && options.length === 0) {
+      setError("Select fields need at least one option.");
+      return;
+    }
+
+    const baseFieldKey = fieldKeyFromName(trimmedName);
+    const existingKeys = new Set(existingFields.map((field) => field.field_key.toLowerCase()));
+    let fieldKey = baseFieldKey;
+    let suffix = 2;
+    while (existingKeys.has(fieldKey.toLowerCase())) {
+      fieldKey = `${baseFieldKey}_${suffix}`;
+      suffix += 1;
+    }
+    const displayOrder = existingFields.length + 1;
+
+    startTransition(async () => {
+      setError(null);
+      const result = await createInventoryCustomFieldAction({
+        entity_type: entityType,
+        name: trimmedName,
+        field_key: fieldKey,
+        field_type: fieldType,
+        is_required: isRequired,
+        is_filterable: isFilterable,
+        options: needsOptions ? options : [],
+        display_order: displayOrder,
+      });
+      if (!result.success || !("data" in result)) {
+        setError("error" in result ? result.error : "Could not create custom field.");
+        return;
+      }
+
+      onCreated({
+        id: result.data.id,
+        entity_type: entityType,
+        name: trimmedName,
+        field_key: fieldKey,
+        field_type: fieldType,
+        is_required: isRequired,
+        is_filterable: isFilterable,
+        options: needsOptions ? options : [],
+        display_order: displayOrder,
+        section_name: "Custom fields",
+        help_text: null,
+        placeholder: null,
+      });
+      reset();
+    });
+  };
+
+  return (
+    <div className="rounded-md border border-dashed border-border p-3 text-sm">
+      {!isOpen ? (
+        <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New {entityType === "product" ? "product field" : "variant column"}
+        </Button>
+      ) : (
+        <div className="grid gap-3">
+          <div className="grid gap-2 sm:grid-cols-[1fr_150px]">
+            <Input
+              value={name}
+              className="h-9"
+              placeholder="Field name"
+              onChange={(event) => setName(event.target.value)}
+            />
+            <select
+              value={fieldType}
+              className={selectClass}
+              onChange={(event) => {
+                const nextType = event.target.value as CustomFieldOption["field_type"];
+                setFieldType(nextType);
+                if (nextType !== "select" && nextType !== "multi_select") setOptions([]);
+              }}
+            >
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="boolean">Checkbox</option>
+              <option value="select">Single select</option>
+              <option value="multi_select">Multi select</option>
+            </select>
+          </div>
+          {needsOptions ? (
+            <TokenInput
+              value={options}
+              onChange={setOptions}
+              placeholder="Type option and press Enter"
+            />
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isRequired}
+                  onChange={(event) => setIsRequired(event.target.checked)}
+                />
+                Required
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isFilterable}
+                  onChange={(event) => setIsFilterable(event.target.checked)}
+                />
+                Filterable
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={reset}>
+                Cancel
+              </Button>
+              <Button type="button" size="sm" onClick={create} disabled={isPending}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create
+              </Button>
+            </div>
+          </div>
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        </div>
+      )}
     </div>
   );
 }

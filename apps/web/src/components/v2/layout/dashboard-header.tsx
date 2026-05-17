@@ -30,7 +30,7 @@ import { HeaderContacts } from "./header-contacts";
  */
 export function DashboardHeaderV2() {
   return (
-    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+    <header className="sticky top-0 z-50 flex h-12 shrink-0 items-center gap-2 bg-muted shadow-sm transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex items-center gap-2 px-6">
         <SidebarTrigger />
         <Separator orientation="vertical" className="mr-2 h-4" />

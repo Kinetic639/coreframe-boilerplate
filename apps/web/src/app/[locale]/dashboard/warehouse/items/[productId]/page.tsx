@@ -139,6 +139,13 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           <div className="grid gap-3 rounded-md border p-4 sm:grid-cols-2">
             <Info label="Brand" value={product.brand_name ?? "Not set"} />
             <Info label="Manufacturer" value={product.manufacturer_name ?? "Not set"} />
+            <Info label="Sales account" value={product.sales_account_code ?? "Not set"} />
+            <Info label="Purchase account" value={product.purchase_account_code ?? "Not set"} />
+            <Info label="Tax code" value={product.tax_code ?? "Not set"} />
+            <Info
+              label="Tax rate"
+              value={product.tax_rate_percent == null ? "Not set" : `${product.tax_rate_percent}%`}
+            />
             <Info
               label="Dimensions"
               value={
@@ -206,7 +213,11 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
           <div className="grid gap-2">
             {product.unit_conversions.map((conversion) => (
               <div key={conversion.id} className="rounded-md bg-muted/30 px-3 py-2 text-sm">
-                {conversion.from_unit_id} {"->"} {conversion.to_unit_id}: {conversion.factor}
+                1 {conversion.from_unit_code || conversion.from_unit_id} = {conversion.factor}{" "}
+                {conversion.to_unit_code || conversion.to_unit_id}
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {conversion.rounding_mode.replace("_", " ")}
+                </span>
               </div>
             ))}
           </div>

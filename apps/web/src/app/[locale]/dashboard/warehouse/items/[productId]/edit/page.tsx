@@ -43,6 +43,7 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
     suppliersResult,
     brandsResult,
     manufacturersResult,
+    taxRatesResult,
     customFieldsResult,
   ] = await Promise.all([
     InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
@@ -50,6 +51,7 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
     InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
     InventoryProductsService.listBrands(supabase, context.app.activeOrgId),
     InventoryProductsService.listManufacturers(supabase, context.app.activeOrgId),
+    InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
   ]);
 
@@ -62,6 +64,7 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
       suppliers={suppliersResult.success ? suppliersResult.data : []}
       brands={brandsResult.success ? brandsResult.data : []}
       manufacturers={manufacturersResult.success ? manufacturersResult.data : []}
+      taxRates={taxRatesResult.success ? taxRatesResult.data : []}
       customFields={customFieldsResult.success ? customFieldsResult.data : []}
     />
   );

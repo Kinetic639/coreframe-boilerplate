@@ -130,11 +130,9 @@ export function DataViewProvider<TListRow, TDetail>({
   children,
 }: DataViewProviderProps<TListRow, TDetail>) {
   const urlState = useDataViewUrlState(entity);
+  const columnKeys = useMemo(() => columns.map((column) => column.key), [columns]);
 
-  const { columnVisibility, setColumnVisibility } = useColumnVisibility(
-    entity,
-    columns.map((c) => c.key)
-  );
+  const { columnVisibility, setColumnVisibility } = useColumnVisibility(entity, columnKeys);
   const [selectedRowIds, setSelectedRowIds] = React.useState<Record<string, true>>({});
   const [keepOnlySelected, setKeepOnlySelected] = React.useState(false);
 
@@ -259,8 +257,8 @@ export function DataViewProvider<TListRow, TDetail>({
   }, []);
 
   const clearSelectedRows = React.useCallback(() => {
-    setSelectedRowIds({});
-    setKeepOnlySelected(false);
+    setSelectedRowIds((current) => (Object.keys(current).length > 0 ? {} : current));
+    setKeepOnlySelected((current) => (current ? false : current));
   }, []);
 
   const toggleSelectAllCurrentPage = React.useCallback(() => {
@@ -326,8 +324,8 @@ export function DataViewProvider<TListRow, TDetail>({
   );
 
   React.useEffect(() => {
-    setSelectedRowIds({});
-    setKeepOnlySelected(false);
+    setSelectedRowIds((current) => (Object.keys(current).length > 0 ? {} : current));
+    setKeepOnlySelected((current) => (current ? false : current));
   }, [
     urlState.search,
     urlState.sort?.field,
