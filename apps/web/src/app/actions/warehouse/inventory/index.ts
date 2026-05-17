@@ -31,6 +31,10 @@ import { InventoryEnterpriseService } from "@/server/services/inventory-enterpri
 import type { DataViewListParams } from "@/components/data-view/data-view.types";
 import {
   archiveInventoryProductSchema,
+  archiveInventoryTagSchema,
+  archiveInventoryTaxRateSchema,
+  archiveInventoryUnitConversionSchema,
+  archiveInventoryUnitSchema,
   addCollectionItemSchema,
   acceptBranchTransferSchema,
   assignInventoryVariantGalleryImageSchema,
@@ -50,6 +54,8 @@ import {
   createInventoryMasterDataSchema,
   createInventoryProductSchema,
   createInventorySkuTemplateSchema,
+  createInventoryTagSchema,
+  createInventoryTaxRateSchema,
   archiveInventorySkuTemplateSchema,
   createInventoryUnitSchema,
   createLotSchema,
@@ -82,6 +88,7 @@ import {
   updateCountLineSchema,
   updateVariantPricingSchema,
   updateInventoryVariantSchema,
+  updateInventoryVariantOptionsSchema,
   updateInventoryProductSchema,
   updateInventoryProductImagesSchema,
   updateCustomFieldSchema,
@@ -228,6 +235,10 @@ export async function createInventoryProductAction(rawInput: unknown) {
         sales_description: parsed.data.sales_description,
         purchase_description: parsed.data.purchase_description,
         preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
       },
       userId
     );
@@ -304,6 +315,10 @@ export async function createEnhancedInventoryProductAction(rawInput: unknown) {
         sales_description: parsed.data.sales_description,
         purchase_description: parsed.data.purchase_description,
         preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
         attributes: (parsed.data.attributes ?? []).map((attribute) => ({
           name: attribute.name!,
           values: attribute.values ?? [],
@@ -551,7 +566,10 @@ export async function previewInventoryProductsCsvImportAction(rawInput: unknown)
   try {
     const auth = await requireWarehouseContext();
     if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE)) {
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) &&
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -573,7 +591,10 @@ export async function importInventoryProductsCsvAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
     if (!auth.success) return auth;
-    if (!hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE)) {
+    if (
+      !hasPermission(auth, WAREHOUSE_IMPORTS_MANAGE) &&
+      !hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)
+    ) {
       return { success: false, error: "Unauthorized" };
     }
 
@@ -698,6 +719,140 @@ export async function createInventoryUnitAction(rawInput: unknown) {
   }
 }
 
+export async function archiveInventoryUnitAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryUnitSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.archiveUnit(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryTaxRateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryTaxRateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.createTaxRate(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name,
+        code: parsed.data.code,
+        rate_percent: parsed.data.rate_percent,
+        is_default: parsed.data.is_default,
+      },
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryTaxRateAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryTaxRateSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.archiveTaxRate(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function createInventoryTagAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = createInventoryTagSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.createTag(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        name: parsed.data.name,
+        color: parsed.data.color,
+      },
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryTagAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE)) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const parsed = archiveInventoryTagSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const supabase = await createClient();
+    return InventoryProductsService.archiveTag(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 export async function createInventoryBrandAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
@@ -787,6 +942,10 @@ export async function updateInventoryProductAction(rawInput: unknown) {
         sales_description: parsed.data.sales_description,
         purchase_description: parsed.data.purchase_description,
         preferred_supplier_id: parsed.data.preferred_supplier_id,
+        sales_account_code: parsed.data.sales_account_code,
+        purchase_account_code: parsed.data.purchase_account_code,
+        tax_code: parsed.data.tax_code,
+        tax_rate_percent: parsed.data.tax_rate_percent,
         tags: parsed.data.tags,
         unit_conversions: parsed.data.unit_conversions?.map((conversion) => ({
           from_unit_id: conversion.from_unit_id!,
@@ -1291,6 +1450,37 @@ export async function updateInventoryVariantAction(rawInput: unknown) {
   }
 }
 
+export async function updateInventoryVariantOptionsAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+    const parsed = updateInventoryVariantOptionsSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+    const supabase = await createClient();
+    const options = (parsed.data.options ?? [])
+      .map((option) => ({
+        name: option.name?.trim() ?? "",
+        value: option.value?.trim() ?? "",
+      }))
+      .filter((option): option is { name: string; value: string } =>
+        Boolean(option.name && option.value)
+      );
+    return InventoryProductsService.replaceVariantOptions(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.variant_id!,
+      options,
+      userId
+    );
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
 export async function createInventoryLotAction(rawInput: unknown) {
   try {
     const auth = await requireWarehouseContext();
@@ -1563,6 +1753,31 @@ export async function createInventoryUnitConversionAction(rawInput: unknown) {
       factor: parsed.data.factor!,
       actor_user_id: userIdFrom(auth),
     });
+  } catch (error) {
+    return mapUnexpected(error);
+  }
+}
+
+export async function archiveInventoryUnitConversionAction(rawInput: unknown) {
+  try {
+    const auth = await requireWarehouseContext();
+    if (!auth.success) return auth;
+    if (!hasPermission(auth, WAREHOUSE_PRODUCTS_MANAGE))
+      return { success: false, error: "Unauthorized" };
+
+    const parsed = archiveInventoryUnitConversionSchema.safeParse(rawInput);
+    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+
+    const userId = userIdFrom(auth);
+    if (!userId) return { success: false, error: "User identity unavailable" };
+
+    const supabase = await createClient();
+    return InventoryProductsService.archiveUnitConversion(
+      supabase,
+      auth.context.app.activeOrgId,
+      parsed.data.id,
+      userId
+    );
   } catch (error) {
     return mapUnexpected(error);
   }

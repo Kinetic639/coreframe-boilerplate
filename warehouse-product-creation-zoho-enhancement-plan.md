@@ -46,9 +46,48 @@ The next highest-impact hardening gaps are:
 
 1. Visual QA in light/dark mode and mobile/desktop widths.
 2. Browser tests around variant generation, image assignment, validation,
-   import/export, SKU templates, validation, and list expansion.
-3. Performance hardening for very large catalogs and import files.
+   import/export, SKU templates, validation, and list expansion. Skipped for
+   now by product direction.
+3. Performance hardening for very large catalogs and import files. Skipped for
+   now by product direction.
 4. Marketplace/channel metadata is intentionally out of MVP scope for now.
+
+### Seven Point Completion Check
+
+As of the current implementation pass, the product/items MVP work is complete
+enough to move into the hardening, improving, testing, and polish phase.
+
+- [x] Import flow final cleanup: dedicated import page, Zoho-like three-step
+      flow, simple-vs-variant import mode, column mapping, SKU/name
+      normalization, unit-column-or-one-unit assignment, quick-add unit and
+      custom fields, editable final preview, preset-aware unit/tax/tag cells,
+      createable tags, duplicate SKU validation, CSV/TSV/XLS/XLSX support, and
+      import job records are implemented.
+- [x] Edit page parity: product edit supports enhanced metadata, images,
+      variant data, variant attributes, tags, custom fields, unit conversions,
+      brand/manufacturer quick-add, preferred vendor, account metadata, and tax
+      presets with manual override.
+- [x] Product detail/card polish: product detail pages and DataView detail
+      panels show gallery imagery, operational metadata, custom fields, tags,
+      unit conversions, and expandable variant rows with variant images,
+      attributes, prices, stock, reorder, and custom-field data. Simple items
+      hide internal base-variant implementation details.
+- [x] Inventory settings completeness: units, unit conversions, metric/imperial
+      presets, tax presets, tags, and custom-field definitions are managed from
+      `/dashboard/warehouse/settings`, with add/remove controls and matching
+      quick-add support where users need it during item creation/import.
+- [x] Images final behavior: create/edit supports product galleries,
+      primary/default image selection, removal, reorder on edit, folder-aware
+      drag-and-drop, and variant gallery assignment without exposing confusing
+      simple-item variant internals.
+- [x] UI polish pass: product creation, import, SKU generation, product list,
+      settings, and detail surfaces now use Ambra theme tokens, compact
+      Zoho-like density, light/dark-safe form controls, centered import steps,
+      and page-mode import layout instead of a dialog shell.
+- [x] Permission/RLS sanity: target Supabase policies for units, unit
+      conversions, tax rates, and tags were checked; the missing unit-conversion
+      manage policy was added, RLS was enabled on the global unit-conversion
+      table, and both migrations were applied to the target project.
 
 ### Done
 
@@ -114,10 +153,19 @@ The next highest-impact hardening gaps are:
 - [x] Added persisted reusable SKU templates and template selection in the SKU
       generator.
 - [x] Added CSV product import preview/import with import job records.
+- [x] Added Excel `.xlsx` / `.xls` import support through the same preview/import
+      workflow.
 - [x] Added CSV product export with export job records.
 - [x] Added multi-image variant gallery assignment during product creation.
+- [x] Added folder-aware drag-and-drop image handling on create/edit image
+      upload areas.
 - [x] Added custom-field section/group metadata and grouped custom-field
       rendering on the create form.
+- [x] Added custom-field administration page for strongly typed product,
+      variant, lot, and serial fields.
+- [x] Added edit-time variant attribute editing.
+- [x] Added lightweight sales account, purchase account, and tax code product
+      metadata for accounting readiness.
 - [x] Added focused migration test coverage for the product creation
       enhancement schema.
 - [x] Added service/action tests for enhanced product creation cleanup and

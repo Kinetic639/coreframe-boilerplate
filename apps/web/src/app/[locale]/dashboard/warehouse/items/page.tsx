@@ -63,10 +63,10 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
             context.user.permissionSnapshot,
             WAREHOUSE_PRODUCTS_MANAGE
           )}
-          canImportProducts={checkPermission(
-            context.user.permissionSnapshot,
-            WAREHOUSE_IMPORTS_MANAGE
-          )}
+          canImportProducts={
+            checkPermission(context.user.permissionSnapshot, WAREHOUSE_IMPORTS_MANAGE) ||
+            checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_MANAGE)
+          }
         />
       </div>
     </div>

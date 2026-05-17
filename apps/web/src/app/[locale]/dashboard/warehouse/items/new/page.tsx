@@ -42,6 +42,7 @@ export default async function WarehouseNewItemPage() {
     brandsResult,
     manufacturersResult,
     skuTemplatesResult,
+    taxRatesResult,
   ] = await Promise.all([
     InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
     InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
@@ -58,6 +59,7 @@ export default async function WarehouseNewItemPage() {
     InventoryProductsService.listBrands(supabase, context.app.activeOrgId),
     InventoryProductsService.listManufacturers(supabase, context.app.activeOrgId),
     InventoryProductsService.listSkuTemplates(supabase, context.app.activeOrgId),
+    InventoryProductsService.listTaxRates(supabase, context.app.activeOrgId),
   ]);
 
   return (
@@ -80,6 +82,7 @@ export default async function WarehouseNewItemPage() {
         brands={brandsResult.success ? brandsResult.data : []}
         manufacturers={manufacturersResult.success ? manufacturersResult.data : []}
         skuTemplates={skuTemplatesResult.success ? skuTemplatesResult.data : []}
+        taxRates={taxRatesResult.success ? taxRatesResult.data : []}
       />
     </div>
   );

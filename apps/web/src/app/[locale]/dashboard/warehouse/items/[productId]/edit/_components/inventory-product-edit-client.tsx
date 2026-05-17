@@ -9,6 +9,7 @@ import {
   createInventoryManufacturerAction,
   setInventoryCustomFieldValueAction,
   updateInventoryVariantAction,
+  updateInventoryVariantOptionsAction,
   updateInventoryProductAction,
   updateInventoryProductImagesAction,
   uploadInventoryItemImageAction,
@@ -21,6 +22,7 @@ import type {
   InventoryProductDetail,
   InventoryProductImageRow,
   InventoryProductUnitConversionRow,
+  InventoryTaxRateRow,
 } from "@/server/services/inventory-products.service";
 import { cn } from "@/utils";
 
@@ -36,12 +38,30 @@ type VariantDraft = {
   sales_price: string;
   price_currency: string;
   reorder_point: string;
+  options_text: string;
 };
 
 const selectClass =
-  "h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "h-9 rounded-md border border-input bg-background px-3 pr-9 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const textareaClass =
   "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
+
+type DroppedFileSystemEntry = {
+  isFile: boolean;
+  isDirectory: boolean;
+  file?: (success: (file: File) => void, error?: (error: DOMException) => void) => void;
+  createReader?: () => {
+    readEntries: (
+      success: (entries: DroppedFileSystemEntry[]) => void,
+      error?: (error: DOMException) => void
+    ) => void;
+  };
+};
+
+type DataTransferItemWithEntry = DataTransferItem & {
+  webkitGetAsEntry?: () => DroppedFileSystemEntry | null;
+};
 
 function n(value: number | null) {
   return value == null ? "" : String(value);
@@ -59,6 +79,22 @@ function numberOrNull(value: FormDataEntryValue | null) {
   return Number.isFinite(number) ? number : null;
 }
 
+function formatVariantOptions(
+  options: InventoryProductDetail["variants"][number]["option_values"]
+) {
+  return options.map((option) => `${option.option_group_name}: ${option.value}`).join(" | ");
+}
+
+function parseVariantOptions(value: string) {
+  return value
+    .split("|")
+    .map((part) => {
+      const [name, ...rest] = part.split(":");
+      return { name: name?.trim() ?? "", value: rest.join(":").trim() };
+    })
+    .filter((option) => option.name && option.value);
+}
+
 function safeParseTokens(value: string) {
   if (!value.trim()) return [];
   try {
@@ -71,6 +107,48 @@ function safeParseTokens(value: string) {
     .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+async function filesFromEntry(entry: DroppedFileSystemEntry): Promise<File[]> {
+  if (entry.isFile && entry.file) {
+    return new Promise((resolve) =>
+      entry.file?.(
+        (file) => resolve([file]),
+        () => resolve([])
+      )
+    );
+  }
+
+  if (!entry.isDirectory || !entry.createReader) return [];
+  const reader = entry.createReader();
+  const files: File[] = [];
+
+  while (true) {
+    const entries = await new Promise<DroppedFileSystemEntry[]>((resolve) =>
+      reader.readEntries(resolve, () => resolve([]))
+    );
+    if (entries.length === 0) break;
+    const nested = await Promise.all(entries.map(filesFromEntry));
+    files.push(...nested.flat());
+  }
+
+  return files;
+}
+
+async function imageFilesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
+  const entries: DroppedFileSystemEntry[] = [];
+  for (const item of Array.from(dataTransfer.items ?? [])) {
+    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
+      | DroppedFileSystemEntry
+      | null
+      | undefined;
+    if (entry) entries.push(entry);
+  }
+
+  if (entries.length === 0) return Array.from(dataTransfer.files ?? []);
+
+  const files = await Promise.all(entries.map(filesFromEntry));
+  return files.flat();
 }
 
 function customFieldPayload(
@@ -104,6 +182,7 @@ export function InventoryProductEditClient({
   suppliers,
   brands,
   manufacturers,
+  taxRates,
   customFields,
 }: {
   product: InventoryProductDetail;
@@ -111,6 +190,7 @@ export function InventoryProductEditClient({
   suppliers: SupplierOption[];
   brands: InventoryMasterDataRow[];
   manufacturers: InventoryMasterDataRow[];
+  taxRates: InventoryTaxRateRow[];
   customFields: InventoryCustomFieldDefinition[];
 }) {
   const router = useRouter();
@@ -148,12 +228,19 @@ export function InventoryProductEditClient({
           sales_price: n(variant.sales_price),
           price_currency: variant.price_currency ?? "PLN",
           reorder_point: n(variant.reorder_point),
+          options_text: formatVariantOptions(variant.option_values),
         },
       ])
     )
   );
   const productCustomFields = customFields.filter((field) => field.entity_type === "product");
   const variantCustomFields = customFields.filter((field) => field.entity_type === "variant");
+  const selectedTaxPresetId =
+    taxRates.find(
+      (tax) =>
+        tax.code === product.tax_code &&
+        Number(tax.rate_percent) === Number(product.tax_rate_percent)
+    )?.id ?? "";
   const [productCustomTokens, setProductCustomTokens] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(
       productCustomFields
@@ -213,6 +300,10 @@ export function InventoryProductEditClient({
         sales_description: textOrNull(formData.get("sales_description")),
         purchase_description: textOrNull(formData.get("purchase_description")),
         preferred_supplier_id: textOrNull(formData.get("preferred_supplier_id")),
+        sales_account_code: textOrNull(formData.get("sales_account_code")),
+        purchase_account_code: textOrNull(formData.get("purchase_account_code")),
+        tax_code: textOrNull(formData.get("tax_code")),
+        tax_rate_percent: numberOrNull(formData.get("tax_rate_percent")),
         tags,
         unit_conversions: unitConversions
           .map((conversion) => ({
@@ -297,13 +388,36 @@ export function InventoryProductEditClient({
       setMessage(
         result.success ? "Variant saved" : "error" in result ? result.error : "Variant save failed"
       );
-      if (result.success) router.refresh();
+      if (!result.success) return;
+
+      const original = product.variants.find((variant) => variant.id === variantId);
+      if (original && draft.options_text.trim() !== formatVariantOptions(original.option_values)) {
+        const optionsResult = await updateInventoryVariantOptionsAction({
+          variant_id: variantId,
+          options: parseVariantOptions(draft.options_text),
+        });
+        if (!optionsResult.success) {
+          setMessage(
+            "error" in optionsResult ? optionsResult.error : "Variant attributes save failed"
+          );
+          return;
+        }
+      }
+      router.refresh();
     });
   };
 
-  const uploadImages = (files: FileList | null) => {
+  const uploadImages = (files: FileList | File[] | null) => {
     if (!files) return;
-    const imageFiles = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const fileList = Array.from(files);
+    const imageFiles = fileList.filter(
+      (file) => file.type.startsWith("image/") && file.size <= MAX_ITEM_IMAGE_BYTES
+    );
+    if (
+      fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
+    ) {
+      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+    }
     startTransition(async () => {
       for (const file of imageFiles.slice(0, 15 - images.length)) {
         const formData = new FormData();
@@ -329,10 +443,10 @@ export function InventoryProductEditClient({
     });
   };
 
-  const handleImageDrop = (event: React.DragEvent<HTMLElement>) => {
+  const handleImageDrop = async (event: React.DragEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    uploadImages(event.dataTransfer.files);
+    uploadImages(await imageFilesFromDataTransfer(event.dataTransfer));
   };
 
   const syncImages = (nextImages: InventoryProductImageRow[]) => {
@@ -373,11 +487,20 @@ export function InventoryProductEditClient({
     });
   };
 
-  const uploadVariantImages = (variantId: string, files: FileList | null) => {
+  const uploadVariantImages = (variantId: string, files: FileList | File[] | null) => {
     if (!files) return;
+    const fileList = Array.from(files);
+    const imageFiles = fileList.filter(
+      (file) => file.type.startsWith("image/") && file.size <= MAX_ITEM_IMAGE_BYTES
+    );
+    if (
+      fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
+    ) {
+      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+    }
     const currentImages = variantImages.filter((image) => image.variant_id === variantId);
     startTransition(async () => {
-      for (const file of Array.from(files).slice(0, 15 - currentImages.length)) {
+      for (const file of imageFiles.slice(0, 15 - currentImages.length)) {
         const formData = new FormData();
         formData.set("product_id", product.id);
         formData.set("variant_id", variantId);
@@ -655,7 +778,26 @@ export function InventoryProductEditClient({
                           <p className="truncate text-sm font-medium">{variant.name}</p>
                           <p className="truncate text-xs text-muted-foreground">{variant.sku}</p>
                         </div>
-                        <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border px-2 text-xs hover:bg-muted">
+                        <label
+                          className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-border px-2 text-xs hover:bg-muted"
+                          onDragEnter={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            event.dataTransfer.dropEffect = "copy";
+                          }}
+                          onDrop={async (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            uploadVariantImages(
+                              variant.id,
+                              await imageFilesFromDataTransfer(event.dataTransfer)
+                            );
+                          }}
+                        >
                           <Plus className="h-3.5 w-3.5" />
                           Add
                           <input
@@ -729,11 +871,12 @@ export function InventoryProductEditClient({
               </p>
             </div>
             <div className="overflow-x-auto rounded-md border border-border">
-              <table className="min-w-[1180px] text-sm">
+              <table className="min-w-[1340px] text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">Name</th>
                     <th className="px-3 py-2 text-left">SKU</th>
+                    <th className="px-3 py-2 text-left">Attributes</th>
                     <th className="px-3 py-2 text-left">Status</th>
                     <th className="px-3 py-2 text-left">Barcode</th>
                     <th className="px-3 py-2 text-left">Purchase</th>
@@ -764,6 +907,18 @@ export function InventoryProductEditClient({
                             className="h-9 min-w-40"
                             onChange={(event) =>
                               updateVariantDraft(variant.id, { sku: event.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <Input
+                            value={draft.options_text}
+                            className="h-9 min-w-60"
+                            placeholder="Color: Red | Size: L"
+                            onChange={(event) =>
+                              updateVariantDraft(variant.id, {
+                                options_text: event.target.value,
+                              })
                             }
                           />
                         </td>
@@ -952,6 +1107,51 @@ export function InventoryProductEditClient({
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="grid gap-4">
             <h2 className="text-lg font-medium">Sales</h2>
+            <FormField
+              label="Sales account"
+              name="sales_account_code"
+              defaultValue={product.sales_account_code ?? ""}
+            />
+            <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+              <label className="text-sm">Tax preset</label>
+              <select
+                defaultValue={selectedTaxPresetId}
+                className={selectClass}
+                onChange={(event) => {
+                  const selected = taxRates.find((tax) => tax.id === event.currentTarget.value);
+                  const form = event.currentTarget.form;
+                  const codeInput = form?.elements.namedItem("tax_code") as HTMLInputElement | null;
+                  const rateInput = form?.elements.namedItem(
+                    "tax_rate_percent"
+                  ) as HTMLInputElement | null;
+
+                  if (codeInput) codeInput.value = selected?.code ?? "";
+                  if (rateInput) rateInput.value = selected ? String(selected.rate_percent) : "";
+                }}
+              >
+                <option value="">No tax preset</option>
+                {taxRates.map((tax) => (
+                  <option key={tax.id} value={tax.id}>
+                    {tax.name} ({tax.rate_percent}%)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+              <label className="text-sm">Tax code</label>
+              <Input name="tax_code" defaultValue={product.tax_code ?? ""} />
+            </div>
+            <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
+              <label className="text-sm">Tax rate %</label>
+              <Input
+                name="tax_rate_percent"
+                type="number"
+                step="0.01"
+                defaultValue={
+                  product.tax_rate_percent == null ? "" : String(product.tax_rate_percent)
+                }
+              />
+            </div>
             <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
               <label className="pt-2 text-sm">Description</label>
               <textarea
@@ -963,6 +1163,11 @@ export function InventoryProductEditClient({
           </div>
           <div className="grid gap-4">
             <h2 className="text-lg font-medium">Purchase</h2>
+            <FormField
+              label="Purchase account"
+              name="purchase_account_code"
+              defaultValue={product.purchase_account_code ?? ""}
+            />
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
               <label className="text-sm">Preferred vendor</label>
               <select

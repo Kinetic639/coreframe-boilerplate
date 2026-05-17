@@ -945,11 +945,13 @@ export function DashboardShell({
         accessibleBranches={accessibleBranches}
         activeBranchId={activeBranchId}
       />
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex h-svh min-h-0 flex-col overflow-hidden">
         <DashboardHeaderV2 />
         <main
           className={
-            flushContent ? "flex flex-col flex-1 overflow-hidden" : "flex-1 overflow-auto p-4 pb-12"
+            flushContent
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "min-h-0 flex-1 overflow-auto p-4 pb-12"
           }
         >
           {children}

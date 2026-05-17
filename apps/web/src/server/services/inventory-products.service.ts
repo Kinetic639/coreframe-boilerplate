@@ -18,6 +18,10 @@ export type InventoryProductListRow = {
   available_quantity: number;
   unit_code: string;
   updated_at: string;
+  sales_account_code: string | null;
+  purchase_account_code: string | null;
+  tax_code: string | null;
+  tax_rate_percent: number | null;
   tags: string[];
   custom_field_values: Record<string, string>;
   variants: InventoryProductVariantListRow[];
@@ -42,6 +46,10 @@ export type InventoryProductDetail = InventoryProductListRow & {
   sales_description: string | null;
   purchase_description: string | null;
   preferred_supplier_id: string | null;
+  sales_account_code: string | null;
+  purchase_account_code: string | null;
+  tax_code: string | null;
+  tax_rate_percent: number | null;
   images: InventoryProductImageRow[];
   unit_conversions: InventoryProductUnitConversionRow[];
   tags: string[];
@@ -101,9 +109,34 @@ export type InventoryProductUnitConversionRow = {
   id: string;
   product_id: string;
   from_unit_id: string;
+  from_unit_code?: string;
   to_unit_id: string;
+  to_unit_code?: string;
   factor: number;
   rounding_mode: "half_up" | "up" | "down";
+};
+
+export type InventoryUnitConversionRow = {
+  id: string;
+  from_unit_id: string;
+  from_unit_code: string;
+  to_unit_id: string;
+  to_unit_code: string;
+  factor: number;
+};
+
+export type InventoryTaxRateRow = {
+  id: string;
+  name: string;
+  code: string;
+  rate_percent: number;
+  is_default: boolean;
+};
+
+export type InventoryTagRow = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 export type InventorySkuTemplateRow = {
@@ -164,6 +197,10 @@ export type CreateInventoryProductInput = {
   sales_description?: string | null;
   purchase_description?: string | null;
   preferred_supplier_id?: string | null;
+  sales_account_code?: string | null;
+  purchase_account_code?: string | null;
+  tax_code?: string | null;
+  tax_rate_percent?: number | null;
 };
 
 export type EnhancedVariantInput = {
@@ -235,6 +272,10 @@ export type UpdateInventoryProductInput = {
   sales_description?: string | null;
   purchase_description?: string | null;
   preferred_supplier_id?: string | null;
+  sales_account_code?: string | null;
+  purchase_account_code?: string | null;
+  tax_code?: string | null;
+  tax_rate_percent?: number | null;
   tags?: string[];
   unit_conversions?: Array<{
     from_unit_id: string;
@@ -286,6 +327,10 @@ type ProductRow = {
   sales_description: string | null;
   purchase_description: string | null;
   preferred_supplier_id: string | null;
+  sales_account_code: string | null;
+  purchase_account_code: string | null;
+  tax_code: string | null;
+  tax_rate_percent: number | null;
   updated_at: string;
 };
 
@@ -302,7 +347,7 @@ type VariantRow = {
   price_currency: string | null;
 };
 
-type UnitRow = {
+export type InventoryUnitRow = {
   id: string;
   code: string;
   name: string;
@@ -315,7 +360,7 @@ type BalanceRow = {
 };
 
 const PRODUCT_COLUMNS =
-  "id, name, description, product_type, status, base_unit_id, default_variant_id, returnable, brand_name, manufacturer_name, length_value, width_value, height_value, dimension_unit, weight_value, weight_unit, sales_description, purchase_description, preferred_supplier_id, updated_at" as const;
+  "id, name, description, product_type, status, base_unit_id, default_variant_id, returnable, brand_name, manufacturer_name, length_value, width_value, height_value, dimension_unit, weight_value, weight_unit, sales_description, purchase_description, preferred_supplier_id, sales_account_code, purchase_account_code, tax_code, tax_rate_percent, updated_at" as const;
 const VARIANT_COLUMNS =
   "id, product_id, sku, name, status, is_default, barcode, purchase_price, sales_price, price_currency" as const;
 const UNIT_COLUMNS = "id, code, name" as const;
@@ -429,6 +474,47 @@ function safeSplitTokens(value: string) {
     .split(/[|,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function skuCollisionFingerprint(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function customFieldInputFromCsv(
+  definition: InventoryCustomFieldDefinition,
+  rawValue: string | undefined,
+  entityType: "product" | "variant",
+  variantSku?: string | null
+): EnhancedCustomFieldValueInput | null {
+  const value = rawValue?.trim() ?? "";
+  if (!value) return null;
+  const input: EnhancedCustomFieldValueInput = {
+    field_id: definition.id,
+    entity_type: entityType,
+    variant_sku: entityType === "variant" ? variantSku : null,
+  };
+  if (definition.field_type === "number") {
+    const number = numberOrNull(value);
+    if (number == null) return null;
+    return { ...input, value_number: number };
+  }
+  if (definition.field_type === "date") {
+    return { ...input, value_date: value };
+  }
+  if (definition.field_type === "boolean") {
+    const normalized = value.toLowerCase();
+    return {
+      ...input,
+      value_boolean: ["true", "1", "yes", "y", "tak"].includes(normalized),
+    };
+  }
+  if (definition.field_type === "multi_select") {
+    return { ...input, value_json: safeSplitTokens(value) };
+  }
+  return { ...input, value_text: value };
 }
 
 export class InventoryProductsService {
@@ -566,6 +652,10 @@ export class InventoryProductsService {
         sales_description: (data as ProductRow).sales_description,
         purchase_description: (data as ProductRow).purchase_description,
         preferred_supplier_id: (data as ProductRow).preferred_supplier_id,
+        sales_account_code: (data as ProductRow).sales_account_code,
+        purchase_account_code: (data as ProductRow).purchase_account_code,
+        tax_code: (data as ProductRow).tax_code,
+        tax_rate_percent: toNullableNumber((data as ProductRow).tax_rate_percent),
         images: await InventoryProductsService.listProductImages(supabase, orgId, productId),
         unit_conversions: await InventoryProductsService.listProductUnitConversions(
           supabase,
@@ -612,6 +702,10 @@ export class InventoryProductsService {
         sales_description: input.sales_description ?? null,
         purchase_description: input.purchase_description ?? null,
         preferred_supplier_id: input.preferred_supplier_id ?? null,
+        sales_account_code: input.sales_account_code?.trim() || null,
+        purchase_account_code: input.purchase_account_code?.trim() || null,
+        tax_code: input.tax_code?.trim() || null,
+        tax_rate_percent: input.tax_rate_percent ?? null,
         updated_by: userId,
       })
       .eq("organization_id", orgId)
@@ -660,6 +754,10 @@ export class InventoryProductsService {
         sales_description: input.sales_description ?? null,
         purchase_description: input.purchase_description ?? null,
         preferred_supplier_id: input.preferred_supplier_id ?? null,
+        sales_account_code: input.sales_account_code ?? null,
+        purchase_account_code: input.purchase_account_code ?? null,
+        tax_code: input.tax_code ?? null,
+        tax_rate_percent: input.tax_rate_percent ?? null,
       },
       p_attributes: input.attributes ?? [],
       p_variants: variants,
@@ -673,6 +771,34 @@ export class InventoryProductsService {
     if (error) return { success: false, error: error.message };
     const created = data as { product_id: string; variant_ids: string[]; sku: string };
     const createdVariantIds = Array.isArray(created.variant_ids) ? created.variant_ids : [];
+
+    if (
+      input.sales_account_code ||
+      input.purchase_account_code ||
+      input.tax_code ||
+      input.tax_rate_percent != null
+    ) {
+      const { error: accountingError } = await supabase
+        .from("inventory_products")
+        .update({
+          sales_account_code: input.sales_account_code?.trim() || null,
+          purchase_account_code: input.purchase_account_code?.trim() || null,
+          tax_code: input.tax_code?.trim() || null,
+          tax_rate_percent: input.tax_rate_percent ?? null,
+          updated_by: userId,
+        })
+        .eq("organization_id", orgId)
+        .eq("id", created.product_id);
+      if (accountingError) {
+        await InventoryProductsService.cleanupFailedEnhancedProductCreate(
+          supabase,
+          orgId,
+          created.product_id,
+          userId
+        );
+        return { success: false, error: accountingError.message };
+      }
+    }
 
     if (input.track_inventory && input.branch_id && input.opening_location_id) {
       const variantsWithIds = variants.length
@@ -914,6 +1040,10 @@ export class InventoryProductsService {
         sales_description: input.sales_description ?? null,
         purchase_description: input.purchase_description ?? null,
         preferred_supplier_id: input.preferred_supplier_id ?? null,
+        sales_account_code: input.sales_account_code?.trim() || null,
+        purchase_account_code: input.purchase_account_code?.trim() || null,
+        tax_code: input.tax_code?.trim() || null,
+        tax_rate_percent: input.tax_rate_percent ?? null,
         updated_by: userId,
       })
       .eq("organization_id", orgId)
@@ -958,6 +1088,69 @@ export class InventoryProductsService {
     return { success: true, data: detail.data };
   }
 
+  static async replaceVariantOptions(
+    supabase: SupabaseClient,
+    orgId: string,
+    variantId: string,
+    options: Array<{ name: string; value: string }>,
+    userId: string
+  ): Promise<ServiceResult<{ variant_id: string }>> {
+    const { data: variant, error: variantError } = await supabase
+      .from("inventory_variants")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("id", variantId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (variantError) return { success: false, error: variantError.message };
+    if (!variant) return { success: false, error: "Variant not found" };
+
+    const attributes = options
+      .map((option) => ({
+        name: option.name.trim(),
+        values: [option.value.trim()],
+      }))
+      .filter((option) => option.name && option.values[0]);
+
+    const attributeValues = await InventoryProductsService.ensureAttributeValues(
+      supabase,
+      orgId,
+      attributes,
+      userId
+    );
+    if (!attributeValues.success) return { success: false, error: serviceError(attributeValues) };
+
+    const optionValueIds = attributes
+      .map((option) =>
+        attributeValues.data.get(`${option.name.toLowerCase()}::${option.values[0].toLowerCase()}`)
+      )
+      .filter((id): id is string => Boolean(id));
+
+    const { error: deleteError } = await supabase
+      .from("inventory_variant_option_values")
+      .delete()
+      .eq("organization_id", orgId)
+      .eq("variant_id", variantId);
+    if (deleteError) return { success: false, error: deleteError.message };
+
+    const optionResult = await InventoryProductsService.setVariantOptionValues(
+      supabase,
+      orgId,
+      variantId,
+      optionValueIds,
+      userId
+    );
+    if (!optionResult.success) return optionResult;
+
+    await supabase
+      .from("inventory_variants")
+      .update({ updated_by: userId })
+      .eq("organization_id", orgId)
+      .eq("id", variantId);
+
+    return { success: true, data: { variant_id: variantId } };
+  }
+
   static async archiveProduct(
     supabase: SupabaseClient,
     orgId: string,
@@ -985,7 +1178,7 @@ export class InventoryProductsService {
   static async listUnits(
     supabase: SupabaseClient,
     orgId: string
-  ): Promise<ServiceResult<UnitRow[]>> {
+  ): Promise<ServiceResult<InventoryUnitRow[]>> {
     const { data, error } = await supabase
       .from("inventory_units")
       .select(UNIT_COLUMNS)
@@ -994,7 +1187,7 @@ export class InventoryProductsService {
       .order("code", { ascending: true });
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data: (data ?? []) as UnitRow[] };
+    return { success: true, data: (data ?? []) as InventoryUnitRow[] };
   }
 
   static async createUnit(
@@ -1002,7 +1195,7 @@ export class InventoryProductsService {
     orgId: string,
     input: CreateInventoryUnitInput,
     userId: string
-  ): Promise<ServiceResult<UnitRow>> {
+  ): Promise<ServiceResult<InventoryUnitRow>> {
     const { data, error } = await supabase
       .from("inventory_units")
       .insert({
@@ -1018,7 +1211,175 @@ export class InventoryProductsService {
       .single();
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data: data as UnitRow };
+    return { success: true, data: data as InventoryUnitRow };
+  }
+
+  static async archiveUnit(
+    supabase: SupabaseClient,
+    orgId: string,
+    unitId: string,
+    userId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const { error } = await supabase
+      .from("inventory_units")
+      .update({ deleted_at: new Date().toISOString(), updated_by: userId })
+      .eq("organization_id", orgId)
+      .eq("id", unitId)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    const client = supabase as any;
+    const { error: conversionError } = await client
+      .from("inventory_unit_conversions")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .or(`from_unit_id.eq.${unitId},to_unit_id.eq.${unitId}`);
+
+    if (conversionError) return { success: false, error: conversionError.message };
+    return { success: true, data: { id: unitId } };
+  }
+
+  static async listUnitConversions(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<InventoryUnitConversionRow[]>> {
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("inventory_unit_conversions")
+      .select(
+        "id, from_unit_id, to_unit_id, factor, from_unit:inventory_units!from_unit_id(code), to_unit:inventory_units!to_unit_id(code)"
+      )
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true });
+
+    if (error) return { success: false, error: error.message };
+    return {
+      success: true,
+      data: (
+        (data ?? []) as Array<{
+          id: string;
+          from_unit_id: string;
+          to_unit_id: string;
+          factor: number | string;
+          from_unit?: { code?: string | null } | null;
+          to_unit?: { code?: string | null } | null;
+        }>
+      ).map((row) => ({
+        id: row.id,
+        from_unit_id: row.from_unit_id,
+        to_unit_id: row.to_unit_id,
+        from_unit_code: row.from_unit?.code ?? "",
+        to_unit_code: row.to_unit?.code ?? "",
+        factor: toNumber(row.factor),
+      })),
+    };
+  }
+
+  static async archiveUnitConversion(
+    supabase: SupabaseClient,
+    orgId: string,
+    conversionId: string,
+    _userId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const client = supabase as any;
+    const { error } = await client
+      .from("inventory_unit_conversions")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .eq("id", conversionId)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: { id: conversionId } };
+  }
+
+  static async listTaxRates(
+    supabase: SupabaseClient,
+    orgId: string
+  ): Promise<ServiceResult<InventoryTaxRateRow[]>> {
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("inventory_tax_rates")
+      .select("id, name, code, rate_percent, is_default")
+      .eq("organization_id", orgId)
+      .is("deleted_at", null)
+      .order("is_default", { ascending: false })
+      .order("rate_percent", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (error) return { success: false, error: error.message };
+    return {
+      success: true,
+      data: ((data ?? []) as Array<InventoryTaxRateRow & { rate_percent: number | string }>).map(
+        (row) => ({
+          ...row,
+          rate_percent: toNumber(row.rate_percent),
+          is_default: Boolean(row.is_default),
+        })
+      ),
+    };
+  }
+
+  static async createTaxRate(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: { name: string; code: string; rate_percent: number; is_default?: boolean },
+    userId: string
+  ): Promise<ServiceResult<InventoryTaxRateRow>> {
+    const client = supabase as any;
+    if (input.is_default) {
+      const { error: clearError } = await client
+        .from("inventory_tax_rates")
+        .update({ is_default: false, updated_by: userId })
+        .eq("organization_id", orgId)
+        .is("deleted_at", null);
+      if (clearError) return { success: false, error: clearError.message };
+    }
+
+    const { data, error } = await client
+      .from("inventory_tax_rates")
+      .insert({
+        organization_id: orgId,
+        name: input.name.trim(),
+        code: input.code.trim().toUpperCase(),
+        rate_percent: input.rate_percent,
+        is_default: input.is_default ?? false,
+        created_by: userId,
+        updated_by: userId,
+      })
+      .select("id, name, code, rate_percent, is_default")
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    const row = data as InventoryTaxRateRow & { rate_percent: number | string };
+    return {
+      success: true,
+      data: {
+        ...row,
+        rate_percent: toNumber(row.rate_percent),
+        is_default: Boolean(row.is_default),
+      },
+    };
+  }
+
+  static async archiveTaxRate(
+    supabase: SupabaseClient,
+    orgId: string,
+    taxRateId: string,
+    userId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const client = supabase as any;
+    const { error } = await client
+      .from("inventory_tax_rates")
+      .update({ deleted_at: new Date().toISOString(), updated_by: userId })
+      .eq("organization_id", orgId)
+      .eq("id", taxRateId)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: { id: taxRateId } };
   }
 
   static async listBrands(
@@ -1139,7 +1500,9 @@ export class InventoryProductsService {
     if (unitsError) return { success: false, error: unitsError.message };
 
     const productsById = new Map(products.map((p) => [p.id, p]));
-    const unitsById = new Map(((unitsData ?? []) as UnitRow[]).map((u) => [u.id, u]));
+    const unitsById = new Map(
+      ((unitsData ?? []) as InventoryUnitRow[]).map((unit) => [unit.id, unit])
+    );
 
     return {
       success: true,
@@ -1229,7 +1592,7 @@ export class InventoryProductsService {
   static async listTags(
     supabase: SupabaseClient,
     orgId: string
-  ): Promise<ServiceResult<Array<{ id: string; name: string; color: string | null }>>> {
+  ): Promise<ServiceResult<InventoryTagRow[]>> {
     const client = supabase as any;
     const { data, error } = await client
       .from("inventory_tags")
@@ -1241,8 +1604,55 @@ export class InventoryProductsService {
     if (error) return { success: false, error: error.message };
     return {
       success: true,
-      data: (data ?? []) as Array<{ id: string; name: string; color: string | null }>,
+      data: (data ?? []) as InventoryTagRow[],
     };
+  }
+
+  static async createTag(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: { name: string; color?: string | null },
+    userId: string
+  ): Promise<ServiceResult<InventoryTagRow>> {
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("inventory_tags")
+      .insert({
+        organization_id: orgId,
+        name: input.name.trim(),
+        color: input.color?.trim() || null,
+        created_by: userId,
+      })
+      .select("id, name, color")
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data as InventoryTagRow };
+  }
+
+  static async archiveTag(
+    supabase: SupabaseClient,
+    orgId: string,
+    tagId: string
+  ): Promise<ServiceResult<{ id: string }>> {
+    const client = supabase as any;
+    const { error: linkError } = await client
+      .from("inventory_product_tags")
+      .delete()
+      .eq("organization_id", orgId)
+      .eq("tag_id", tagId);
+
+    if (linkError) return { success: false, error: linkError.message };
+
+    const { error } = await client
+      .from("inventory_tags")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("organization_id", orgId)
+      .eq("id", tagId)
+      .is("deleted_at", null);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: { id: tagId } };
   }
 
   static async listCustomFields(
@@ -1364,16 +1774,26 @@ export class InventoryProductsService {
     const client = supabase as any;
     const { data } = await client
       .from("inventory_product_unit_conversions")
-      .select("id, product_id, from_unit_id, to_unit_id, factor, rounding_mode")
+      .select(
+        "id, product_id, from_unit_id, to_unit_id, factor, rounding_mode, from_unit:inventory_units!from_unit_id(code), to_unit:inventory_units!to_unit_id(code)"
+      )
       .eq("organization_id", orgId)
       .eq("product_id", productId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true });
 
     return (
-      (data ?? []) as Array<InventoryProductUnitConversionRow & { factor: number | string }>
+      (data ?? []) as Array<
+        InventoryProductUnitConversionRow & {
+          factor: number | string;
+          from_unit?: { code?: string | null } | null;
+          to_unit?: { code?: string | null } | null;
+        }
+      >
     ).map((row) => ({
       ...row,
+      from_unit_code: row.from_unit?.code ?? "",
+      to_unit_code: row.to_unit?.code ?? "",
       factor: toNumber(row.factor),
     }));
   }
@@ -1696,20 +2116,33 @@ export class InventoryProductsService {
     const skuValues = rowObjects
       .map((row) => row.values.variant_sku || row.values.sku || row.values.product_sku || "")
       .filter(Boolean);
-    const [unitsResult, collisionsResult] = await Promise.all([
+    const [unitsResult, collisionsResult, existingVariantsResult] = await Promise.all([
       InventoryProductsService.listUnits(supabase, orgId),
       InventoryProductsService.checkSkuCollisions(supabase, orgId, skuValues),
+      (supabase as any)
+        .from("inventory_variants")
+        .select("sku")
+        .eq("organization_id", orgId)
+        .is("deleted_at", null),
     ]);
     if (!unitsResult.success) return { success: false, error: serviceError(unitsResult) };
     if (!collisionsResult.success) return { success: false, error: serviceError(collisionsResult) };
+    if (existingVariantsResult.error)
+      return { success: false, error: existingVariantsResult.error.message };
 
     const existingUnitCodes = new Set(unitsResult.data.map((unit) => unit.code.toLowerCase()));
     const existingSkus = new Set(
       collisionsResult.data.map((collision) => collision.sku.toLowerCase())
     );
+    const existingSkuFingerprints = new Set(
+      ((existingVariantsResult.data ?? []) as Array<{ sku: string | null }>)
+        .map((variant) => skuCollisionFingerprint(variant.sku))
+        .filter(Boolean)
+    );
     const duplicateSkus = new Set(
       skuValues
-        .map((sku) => sku.toLowerCase())
+        .map((sku) => skuCollisionFingerprint(sku))
+        .filter(Boolean)
         .filter((sku, index, all) => all.indexOf(sku) !== index)
     );
 
@@ -1726,9 +2159,14 @@ export class InventoryProductsService {
       if (!unitCode) errors.push("Missing unit_code");
       if (unitCode && !existingUnitCodes.has(unitCode.toLowerCase()))
         errors.push(`Unknown unit_code: ${unitCode}`);
-      if (variantSku && existingSkus.has(variantSku.toLowerCase()))
+      const variantSkuFingerprint = skuCollisionFingerprint(variantSku);
+      if (
+        variantSku &&
+        (existingSkus.has(variantSku.toLowerCase()) ||
+          existingSkuFingerprints.has(variantSkuFingerprint))
+      )
         errors.push(`SKU already exists: ${variantSku}`);
-      if (variantSku && duplicateSkus.has(variantSku.toLowerCase()))
+      if (variantSku && duplicateSkus.has(variantSkuFingerprint))
         errors.push(`Duplicate SKU in file: ${variantSku}`);
       return {
         row_number,
@@ -1808,6 +2246,21 @@ export class InventoryProductsService {
     const units = await InventoryProductsService.listUnits(supabase, orgId);
     if (!units.success) return { success: false, error: serviceError(units) };
     const unitByCode = new Map(units.data.map((unit) => [unit.code.toLowerCase(), unit.id]));
+    const customFields = await InventoryProductsService.listCustomFields(supabase, orgId, [
+      "product",
+      "variant",
+    ]);
+    if (!customFields.success) return { success: false, error: serviceError(customFields) };
+    const customFieldById = new Map(
+      customFields.data.map((field) => [field.id.toLowerCase(), field])
+    );
+    const customColumns = headers.flatMap((headerName) => {
+      const match = /^custom_(product|variant)_([0-9a-f-]{36})$/i.exec(headerName);
+      if (!match) return [];
+      const definition = customFieldById.get(match[2].toLowerCase());
+      if (!definition || definition.entity_type !== match[1]) return [];
+      return [{ headerName, definition }];
+    });
 
     const groups = new Map<string, Array<Record<string, string>>>();
     for (const record of records) {
@@ -1857,6 +2310,19 @@ export class InventoryProductsService {
         reorder_point: numberOrNull(row.reorder_point),
         options: {},
       }));
+      const productCustomFields = customColumns.flatMap(({ headerName, definition }) => {
+        if (definition.entity_type !== "product") return [];
+        const input = customFieldInputFromCsv(definition, first[headerName], "product");
+        return input ? [input] : [];
+      });
+      const variantCustomFields = importableRows.flatMap((row) => {
+        const variantSku = row.variant_sku || row.sku || row.product_sku;
+        return customColumns.flatMap(({ headerName, definition }) => {
+          if (definition.entity_type !== "variant") return [];
+          const input = customFieldInputFromCsv(definition, row[headerName], "variant", variantSku);
+          return input ? [input] : [];
+        });
+      });
 
       const result = await InventoryProductsService.createEnhancedProduct(
         supabase,
@@ -1870,7 +2336,14 @@ export class InventoryProductsService {
           returnable: (first.returnable || "true").toLowerCase() !== "false",
           brand_name: first.brand || null,
           manufacturer_name: first.manufacturer || null,
+          sales_account_code: first.sales_account_code || first.sales_account || null,
+          purchase_account_code: first.purchase_account_code || first.purchase_account || null,
+          tax_code: first.tax_code || first.tax || null,
+          tax_rate_percent: numberOrNull(
+            first.tax_rate_percent || first.tax_rate || first.vat_rate
+          ),
           tags: safeSplitTokens(first.tags || ""),
+          custom_fields: [...productCustomFields, ...variantCustomFields],
           variants,
           track_inventory: false,
         },
@@ -1953,6 +2426,10 @@ export class InventoryProductsService {
       "barcode",
       "purchase_price",
       "sales_price",
+      "sales_account_code",
+      "purchase_account_code",
+      "tax_code",
+      "tax_rate_percent",
       "reorder_point",
       "tags",
     ];
@@ -1970,6 +2447,10 @@ export class InventoryProductsService {
             variant.barcode ?? "",
             variant.purchase_price ?? "",
             variant.sales_price ?? "",
+            product.sales_account_code ?? "",
+            product.purchase_account_code ?? "",
+            product.tax_code ?? "",
+            product.tax_rate_percent ?? "",
             variant.reorder_point ?? "",
             product.tags.join("|"),
           ]
@@ -2533,7 +3014,9 @@ export class InventoryProductsService {
       .or(customFieldScopes.join(","));
     if (customFieldValueError) return { success: false, error: customFieldValueError.message };
 
-    const unitsById = new Map((unitsData ?? []).map((u) => [(u as UnitRow).id, u as UnitRow]));
+    const unitsById = new Map(
+      (unitsData ?? []).map((unit) => [(unit as InventoryUnitRow).id, unit as InventoryUnitRow])
+    );
     const variantsByProduct = new Map<string, VariantRow[]>();
     for (const variant of variants) {
       const list = variantsByProduct.get(variant.product_id) ?? [];
@@ -2689,6 +3172,10 @@ export class InventoryProductsService {
           available_quantity: quantities.available,
           unit_code: unitsById.get(product.base_unit_id)?.code ?? "",
           updated_at: product.updated_at,
+          sales_account_code: product.sales_account_code,
+          purchase_account_code: product.purchase_account_code,
+          tax_code: product.tax_code,
+          tax_rate_percent: toNullableNumber(product.tax_rate_percent),
           tags: tagsByProduct.get(product.id) ?? [],
           custom_field_values: customFieldsByProduct.get(product.id) ?? {},
           variants: enrichedVariants,
