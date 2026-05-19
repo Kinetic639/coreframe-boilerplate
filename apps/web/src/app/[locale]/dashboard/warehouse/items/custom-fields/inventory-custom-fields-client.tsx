@@ -10,7 +10,7 @@ import {
 } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { InventoryCustomFieldDefinition } from "@/server/services/inventory-products.service";
+import type { InventoryCustomFieldDefinition } from "@/lib/warehouse/inventory-types";
 
 type Draft = {
   id: string | null;

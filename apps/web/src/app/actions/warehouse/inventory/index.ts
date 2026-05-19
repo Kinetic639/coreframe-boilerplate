@@ -1,14 +1,8 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
-import { checkPermission } from "@/lib/utils/permissions";
-import { entitlements, mapEntitlementError } from "@/server/guards/entitlements-guards";
 import { eventService } from "@/server/services/event.service";
-import { MODULE_WAREHOUSE } from "@/lib/constants/modules";
 import {
-  MODULE_WAREHOUSE_ACCESS,
-  WAREHOUSE_READ,
   WAREHOUSE_PRODUCTS_READ,
   WAREHOUSE_PRODUCTS_MANAGE,
   WAREHOUSE_PRODUCTS_ARCHIVE,
@@ -22,13 +16,20 @@ import {
   WAREHOUSE_IMPORTS_MANAGE,
 } from "@/lib/constants/permissions";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
+import { InventoryProductImportsService } from "@/server/services/inventory-product-imports.service";
 import { InventoryBalancesService } from "@/server/services/inventory-balances.service";
-import {
-  InventoryMovementsService,
-  type CreateDraftMovementInput,
-} from "@/server/services/inventory-movements.service";
+import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
 import { InventoryEnterpriseService } from "@/server/services/inventory-enterprise.service";
-import type { DataViewListParams } from "@/components/data-view/data-view.types";
+import type { CreateDraftMovementInput } from "@/lib/warehouse/inventory-types";
+import {
+  hasPermission,
+  mapUnexpected,
+  normalizeListParams,
+  requireActiveBranch,
+  requireWarehouseContext,
+  userIdFrom,
+  type WarehouseAuth,
+} from "./action-context";
 import {
   archiveInventoryProductSchema,
   archiveInventoryTagSchema,
@@ -94,66 +95,6 @@ import {
   updateCustomFieldSchema,
   updateInventorySkuTemplateSchema,
 } from "./schemas";
-
-async function requireWarehouseContext() {
-  await entitlements.requireModuleAccess(MODULE_WAREHOUSE);
-  const context = await loadDashboardContextV2();
-  if (!context?.app.activeOrgId) {
-    return { success: false as const, error: "No active organization" };
-  }
-  if (!checkPermission(context.user.permissionSnapshot, MODULE_WAREHOUSE_ACCESS)) {
-    return { success: false as const, error: "Unauthorized" };
-  }
-  if (!checkPermission(context.user.permissionSnapshot, WAREHOUSE_READ)) {
-    return { success: false as const, error: "Unauthorized" };
-  }
-  return { success: true as const, context };
-}
-
-function hasPermission(auth: Awaited<ReturnType<typeof requireWarehouseContext>>, slug: string) {
-  return auth.success && checkPermission(auth.context.user.permissionSnapshot, slug);
-}
-
-type WarehouseAuth = Extract<
-  Awaited<ReturnType<typeof requireWarehouseContext>>,
-  { success: true }
->;
-
-function requireActiveBranch(auth: WarehouseAuth) {
-  if (!auth.context.app.activeBranchId) {
-    return { success: false as const, error: "No active branch - select a branch" };
-  }
-  return { success: true as const, branchId: auth.context.app.activeBranchId };
-}
-
-function userIdFrom(auth: WarehouseAuth) {
-  return auth.context.user.user?.id ?? null;
-}
-
-function normalizeListParams(data: {
-  search?: string;
-  sort?: { field?: string; direction?: "asc" | "desc" } | null;
-  page?: number;
-  pageSize?: number;
-  filters?: Record<string, string | string[] | boolean | null>;
-}): DataViewListParams {
-  return {
-    search: data.search ?? "",
-    sort:
-      data.sort && data.sort.field && data.sort.direction
-        ? { field: data.sort.field, direction: data.sort.direction }
-        : null,
-    page: data.page ?? 1,
-    pageSize: data.pageSize ?? 50,
-    filters: data.filters ?? {},
-  };
-}
-
-function mapUnexpected(error: unknown) {
-  const mapped = mapEntitlementError(error);
-  if (mapped) return { success: false as const, error: mapped.message };
-  return { success: false as const, error: "Unexpected error" };
-}
 
 export async function listInventoryProductsAction(rawInput: unknown) {
   try {
@@ -577,7 +518,7 @@ export async function previewInventoryProductsCsvImportAction(rawInput: unknown)
     if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
 
     const supabase = await createClient();
-    return InventoryProductsService.previewProductCsvImport(
+    return InventoryProductImportsService.previewProductCsvImport(
       supabase,
       auth.context.app.activeOrgId,
       parsed.data.csv
@@ -604,7 +545,7 @@ export async function importInventoryProductsCsvAction(rawInput: unknown) {
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
-    return InventoryProductsService.importProductsFromCsv(
+    return InventoryProductImportsService.importProductsFromCsv(
       supabase,
       auth.context.app.activeOrgId,
       parsed.data.csv,
@@ -678,7 +619,7 @@ export async function exportInventoryProductsCsvAction() {
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
-    return InventoryProductsService.exportProductsCsv(
+    return InventoryProductImportsService.exportProductsCsv(
       supabase,
       auth.context.app.activeOrgId,
       userId

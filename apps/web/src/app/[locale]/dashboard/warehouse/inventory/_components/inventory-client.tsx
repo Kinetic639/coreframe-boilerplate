@@ -3,18 +3,14 @@
 import { useMemo, useState, useTransition } from "react";
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
-import type {
-  DataViewColumnDef,
-  DataViewListParams,
-  PaginatedResult,
-} from "@/components/data-view/data-view.types";
+import type { DataViewColumnDef, DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   InventoryBalanceDetail,
   InventoryBalanceListRow,
-} from "@/server/services/inventory-balances.service";
-import type { InventoryVariantOption } from "@/server/services/inventory-products.service";
+  InventoryVariantOption,
+} from "@/lib/warehouse/inventory-types";
 import {
   adjustStockAction,
   getInventoryBalanceAction,

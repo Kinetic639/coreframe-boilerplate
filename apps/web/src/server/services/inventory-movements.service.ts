@@ -1,62 +1,21 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DataViewListParams, PaginatedResult } from "@/components/data-view/data-view.types";
+import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import type {
+  CreateDraftMovementInput,
+  InventoryMovementDetail,
+  InventoryMovementLineInput,
+  InventoryMovementListRow,
+} from "@/lib/warehouse/inventory-types";
+export type {
+  CreateDraftMovementInput,
+  InventoryMovementDetail,
+  InventoryMovementLineInput,
+  InventoryMovementListRow,
+} from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
-
-export type InventoryMovementLineInput = {
-  variant_id: string;
-  source_location_id?: string | null;
-  destination_location_id?: string | null;
-  lot_id?: string | null;
-  serial_id?: string | null;
-  unit_id: string;
-  quantity: number;
-  unit_cost?: number | null;
-  total_cost?: number | null;
-  currency?: string | null;
-  note?: string | null;
-};
-
-export type CreateDraftMovementInput = {
-  movement_kind: "receipt" | "issue" | "transfer" | "adjustment" | "opening_balance";
-  adjustment_direction?: "increase" | "decrease" | null;
-  lines: InventoryMovementLineInput[];
-  reason_id?: string | null;
-  note?: string | null;
-  reference_type?: string | null;
-  reference_id?: string | null;
-  idempotency_key?: string | null;
-};
-
-export type InventoryMovementListRow = {
-  id: string;
-  movement_number: string;
-  movement_kind: string;
-  adjustment_direction: string | null;
-  status: string;
-  reference: string | null;
-  line_count: number;
-  product_names: string;
-  created_by: string | null;
-  created_at: string;
-  posted_at: string | null;
-};
-
-export type InventoryMovementDetail = InventoryMovementListRow & {
-  note: string | null;
-  reason_code: string | null;
-  lines: Array<{
-    id: string;
-    sku: string;
-    product_name: string;
-    quantity: number;
-    unit_code: string;
-    source_location_name: string | null;
-    destination_location_name: string | null;
-  }>;
-};
 
 type MovementHeaderRow = {
   id: string;

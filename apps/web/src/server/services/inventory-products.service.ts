@@ -1,311 +1,57 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DataViewListParams, PaginatedResult } from "@/components/data-view/data-view.types";
+import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import type {
+  CreateEnhancedInventoryProductInput,
+  CreateInventoryProductInput,
+  CreateInventoryUnitInput,
+  EnhancedAttributeInput,
+  EnhancedCustomFieldValueInput,
+  EnhancedVariantInput,
+  InventoryCustomFieldDefinition,
+  InventoryMasterDataRow,
+  InventoryProductDetail,
+  InventoryProductImageRow,
+  InventoryProductListRow,
+  InventoryProductUnitConversionRow,
+  InventoryProductVariantListRow,
+  InventorySkuCollision,
+  InventorySkuTemplateRow,
+  InventoryTagRow,
+  InventoryTaxRateRow,
+  InventoryUnitConversionRow,
+  InventoryUnitRow,
+  InventoryVariantOption,
+  InventoryVariantOptionValue,
+  UpdateInventoryProductInput,
+} from "@/lib/warehouse/inventory-types";
+export type {
+  CreateEnhancedInventoryProductInput,
+  CreateInventoryProductInput,
+  CreateInventoryUnitInput,
+  EnhancedAttributeInput,
+  EnhancedCustomFieldValueInput,
+  EnhancedVariantInput,
+  InventoryCustomFieldDefinition,
+  InventoryMasterDataRow,
+  InventoryProductDetail,
+  InventoryProductImageRow,
+  InventoryProductListRow,
+  InventoryProductUnitConversionRow,
+  InventoryProductVariantListRow,
+  InventorySkuCollision,
+  InventorySkuTemplateRow,
+  InventoryTagRow,
+  InventoryTaxRateRow,
+  InventoryUnitConversionRow,
+  InventoryUnitRow,
+  InventoryVariantOption,
+  InventoryVariantOptionValue,
+  UpdateInventoryProductInput,
+} from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
-
-export type InventoryProductListRow = {
-  row_id: string;
-  id: string;
-  name: string;
-  sku: string;
-  product_type: string;
-  status: string;
-  thumbnail_url: string | null;
-  variant_count: number;
-  on_hand_quantity: number;
-  available_quantity: number;
-  unit_code: string;
-  updated_at: string;
-  sales_account_code: string | null;
-  purchase_account_code: string | null;
-  tax_code: string | null;
-  tax_rate_percent: number | null;
-  tags: string[];
-  custom_field_values: Record<string, string>;
-  variants: InventoryProductVariantListRow[];
-  is_variant_row?: boolean;
-  variant_id?: string | null;
-  parent_product_name?: string | null;
-};
-
-export type InventoryProductDetail = InventoryProductListRow & {
-  description: string | null;
-  base_unit_id: string;
-  default_variant_id: string | null;
-  returnable: boolean;
-  brand_name: string | null;
-  manufacturer_name: string | null;
-  length_value: number | null;
-  width_value: number | null;
-  height_value: number | null;
-  dimension_unit: string | null;
-  weight_value: number | null;
-  weight_unit: string | null;
-  sales_description: string | null;
-  purchase_description: string | null;
-  preferred_supplier_id: string | null;
-  sales_account_code: string | null;
-  purchase_account_code: string | null;
-  tax_code: string | null;
-  tax_rate_percent: number | null;
-  images: InventoryProductImageRow[];
-  unit_conversions: InventoryProductUnitConversionRow[];
-  tags: string[];
-  variants: InventoryProductVariantListRow[];
-};
-
-export type InventoryProductVariantListRow = {
-  id: string;
-  product_id: string;
-  sku: string;
-  name: string;
-  status: string;
-  is_default: boolean;
-  barcode: string | null;
-  purchase_price: number | null;
-  sales_price: number | null;
-  price_currency: string | null;
-  thumbnail_url: string | null;
-  on_hand_quantity: number;
-  available_quantity: number;
-  reorder_point: number | null;
-  option_values: InventoryVariantOptionValue[];
-  custom_field_values: Record<string, string>;
-};
-
-export type InventoryVariantOption = {
-  id: string;
-  sku: string;
-  label: string;
-  product_name: string;
-  unit_id: string;
-  unit_code: string;
-};
-
-export type InventoryVariantOptionValue = {
-  option_group_id: string;
-  option_group_name: string;
-  option_value_id: string;
-  value: string;
-  display_order: number;
-};
-
-export type InventoryProductImageRow = {
-  id: string;
-  product_id: string;
-  variant_id: string | null;
-  public_url: string | null;
-  storage_path: string | null;
-  file_name: string | null;
-  content_type: string | null;
-  file_size: number | null;
-  sort_order: number;
-  is_primary: boolean;
-};
-
-export type InventoryProductUnitConversionRow = {
-  id: string;
-  product_id: string;
-  from_unit_id: string;
-  from_unit_code?: string;
-  to_unit_id: string;
-  to_unit_code?: string;
-  factor: number;
-  rounding_mode: "half_up" | "up" | "down";
-};
-
-export type InventoryUnitConversionRow = {
-  id: string;
-  from_unit_id: string;
-  from_unit_code: string;
-  to_unit_id: string;
-  to_unit_code: string;
-  factor: number;
-};
-
-export type InventoryTaxRateRow = {
-  id: string;
-  name: string;
-  code: string;
-  rate_percent: number;
-  is_default: boolean;
-};
-
-export type InventoryTagRow = {
-  id: string;
-  name: string;
-  color: string | null;
-};
-
-export type InventorySkuTemplateRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  rules: unknown[];
-  is_default: boolean;
-};
-
-export type ProductCsvImportMode = "create_only" | "skip_existing";
-
-export type InventorySkuCollision = {
-  sku: string;
-  variant_id: string;
-  product_id: string;
-  product_name: string;
-  variant_name: string;
-};
-
-export type InventoryProductImportPreviewRow = {
-  row_number: number;
-  product_name: string;
-  product_sku: string | null;
-  variant_name: string;
-  variant_sku: string;
-  unit_code: string;
-  errors: string[];
-};
-
-export type InventoryProductImportPreview = {
-  rows: InventoryProductImportPreviewRow[];
-  total_rows: number;
-  valid_rows: number;
-  invalid_rows: number;
-};
-
-export type InventoryMasterDataRow = {
-  id: string;
-  name: string;
-};
-
-export type CreateInventoryProductInput = {
-  name: string;
-  product_type: string;
-  base_unit_id: string;
-  sku?: string | null;
-  description?: string | null;
-  returnable?: boolean;
-  brand_name?: string | null;
-  manufacturer_name?: string | null;
-  length_value?: number | null;
-  width_value?: number | null;
-  height_value?: number | null;
-  dimension_unit?: string | null;
-  weight_value?: number | null;
-  weight_unit?: string | null;
-  sales_description?: string | null;
-  purchase_description?: string | null;
-  preferred_supplier_id?: string | null;
-  sales_account_code?: string | null;
-  purchase_account_code?: string | null;
-  tax_code?: string | null;
-  tax_rate_percent?: number | null;
-};
-
-export type EnhancedVariantInput = {
-  sku: string;
-  name: string;
-  options?: Record<string, string>;
-  option_value_ids?: string[];
-  barcode?: string | null;
-  upc?: string | null;
-  ean?: string | null;
-  isbn?: string | null;
-  mpn?: string | null;
-  purchase_price?: number | null;
-  sales_price?: number | null;
-  price_currency?: string | null;
-  reorder_point?: number | null;
-  opening_quantity?: number | null;
-  opening_unit_cost?: number | null;
-};
-
-export type EnhancedCustomFieldValueInput = {
-  field_id: string;
-  entity_type: "product" | "variant";
-  variant_sku?: string | null;
-  value_text?: string | null;
-  value_number?: number | null;
-  value_date?: string | null;
-  value_boolean?: boolean | null;
-  value_json?: unknown;
-};
-
-export type EnhancedAttributeInput = {
-  name: string;
-  values: string[];
-};
-
-export type CreateEnhancedInventoryProductInput = CreateInventoryProductInput & {
-  attributes?: EnhancedAttributeInput[];
-  variants?: EnhancedVariantInput[];
-  track_inventory?: boolean;
-  opening_location_id?: string | null;
-  branch_id?: string | null;
-  tags?: string[];
-  custom_fields?: EnhancedCustomFieldValueInput[];
-  unit_conversions?: Array<{
-    from_unit_id: string;
-    to_unit_id: string;
-    factor: number;
-    rounding_mode?: "half_up" | "up" | "down";
-  }>;
-};
-
-export type UpdateInventoryProductInput = {
-  id: string;
-  name?: string;
-  description?: string | null;
-  status?: string;
-  product_type?: string;
-  base_unit_id?: string;
-  returnable?: boolean;
-  brand_name?: string | null;
-  manufacturer_name?: string | null;
-  length_value?: number | null;
-  width_value?: number | null;
-  height_value?: number | null;
-  dimension_unit?: string | null;
-  weight_value?: number | null;
-  weight_unit?: string | null;
-  sales_description?: string | null;
-  purchase_description?: string | null;
-  preferred_supplier_id?: string | null;
-  sales_account_code?: string | null;
-  purchase_account_code?: string | null;
-  tax_code?: string | null;
-  tax_rate_percent?: number | null;
-  tags?: string[];
-  unit_conversions?: Array<{
-    from_unit_id: string;
-    to_unit_id: string;
-    factor: number;
-    rounding_mode?: "half_up" | "up" | "down";
-  }>;
-};
-
-export type CreateInventoryUnitInput = {
-  code: string;
-  name: string;
-  unit_kind: string;
-  precision?: number;
-};
-
-export type InventoryCustomFieldDefinition = {
-  id: string;
-  entity_type: "product" | "variant" | "lot" | "serial";
-  name: string;
-  field_key: string;
-  field_type: "text" | "number" | "date" | "boolean" | "select" | "multi_select";
-  is_required: boolean;
-  is_filterable?: boolean;
-  options: string[];
-  display_order: number;
-  section_name?: string | null;
-  help_text?: string | null;
-  placeholder?: string | null;
-};
 
 type ProductRow = {
   id: string;
@@ -347,16 +93,15 @@ type VariantRow = {
   price_currency: string | null;
 };
 
-export type InventoryUnitRow = {
-  id: string;
-  code: string;
-  name: string;
-};
-
 type BalanceRow = {
   variant_id: string;
   on_hand_quantity: number;
   available_quantity: number | null;
+};
+
+type ProductListIndexRow = {
+  product_id: string;
+  variant_id: string;
 };
 
 const PRODUCT_COLUMNS =
@@ -419,104 +164,6 @@ function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
 }
 
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-    if (char === '"' && inQuotes && next === '"') {
-      cell += '"';
-      index += 1;
-      continue;
-    }
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && next === "\n") index += 1;
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = "";
-      continue;
-    }
-    cell += char;
-  }
-
-  row.push(cell);
-  if (row.some((value) => value.trim())) rows.push(row);
-  return rows;
-}
-
-function csvEscape(value: unknown) {
-  const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-}
-
-function numberOrNull(value: string | undefined) {
-  if (!value?.trim()) return null;
-  const number = Number(value.replace(",", "."));
-  return Number.isFinite(number) ? number : null;
-}
-
-function safeSplitTokens(value: string) {
-  return value
-    .split(/[|,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function skuCollisionFingerprint(value: string | null | undefined) {
-  return (value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function customFieldInputFromCsv(
-  definition: InventoryCustomFieldDefinition,
-  rawValue: string | undefined,
-  entityType: "product" | "variant",
-  variantSku?: string | null
-): EnhancedCustomFieldValueInput | null {
-  const value = rawValue?.trim() ?? "";
-  if (!value) return null;
-  const input: EnhancedCustomFieldValueInput = {
-    field_id: definition.id,
-    entity_type: entityType,
-    variant_sku: entityType === "variant" ? variantSku : null,
-  };
-  if (definition.field_type === "number") {
-    const number = numberOrNull(value);
-    if (number == null) return null;
-    return { ...input, value_number: number };
-  }
-  if (definition.field_type === "date") {
-    return { ...input, value_date: value };
-  }
-  if (definition.field_type === "boolean") {
-    const normalized = value.toLowerCase();
-    return {
-      ...input,
-      value_boolean: ["true", "1", "yes", "y", "tak"].includes(normalized),
-    };
-  }
-  if (definition.field_type === "multi_select") {
-    return { ...input, value_json: safeSplitTokens(value) };
-  }
-  return { ...input, value_text: value };
-}
-
 export class InventoryProductsService {
   static async listProducts(
     supabase: SupabaseClient,
@@ -570,10 +217,20 @@ export class InventoryProductsService {
     const from = (params.page - 1) * params.pageSize;
     const to = from + params.pageSize - 1;
     const shouldFlattenVariants = !groupVariants;
+    if (shouldFlattenVariants) {
+      return InventoryProductsService.listUngroupedProductRows(
+        supabase,
+        orgId,
+        params,
+        filteredProductIds.data,
+        from,
+        to,
+        typeof isVariantFilter === "boolean" ? isVariantFilter : null
+      );
+    }
+
     const sortedQuery = applyProductSort(query, params.sort);
-    const { data, error, count } = shouldFlattenVariants
-      ? await sortedQuery
-      : await sortedQuery.range(from, to);
+    const { data, error, count } = await sortedQuery.range(from, to);
 
     if (error) return { success: false, error: error.message };
 
@@ -582,28 +239,119 @@ export class InventoryProductsService {
     if (!rows.success)
       return { success: false, error: (rows as { success: false; error: string }).error };
 
-    if (shouldFlattenVariants) {
-      const flattened = InventoryProductsService.flattenProductRows(rows.data);
-      const filtered =
-        typeof isVariantFilter === "boolean"
-          ? flattened.filter((row) => Boolean(row.is_variant_row) === isVariantFilter)
-          : flattened;
+    return {
+      success: true,
+      data: {
+        rows: rows.data,
+        totalCount: count ?? rows.data.length,
+        page: params.page,
+        pageSize: params.pageSize,
+      },
+    };
+  }
+
+  private static async listUngroupedProductRows(
+    supabase: SupabaseClient,
+    orgId: string,
+    params: DataViewListParams,
+    filteredProductIds: string[] | null,
+    from: number,
+    to: number,
+    isVariantFilter: boolean | null
+  ): Promise<ServiceResult<PaginatedResult<InventoryProductListRow>>> {
+    const client = supabase as any;
+    let indexQuery = client
+      .from("inventory_product_list_rows_v1")
+      .select("product_id, variant_id", { count: "exact" })
+      .eq("organization_id", orgId);
+
+    if (params.search) {
+      indexQuery = indexQuery.ilike("product_name", `%${params.search}%`);
+    }
+
+    const status = params.filters.status;
+    if (typeof status === "string" && status) {
+      indexQuery = indexQuery.eq("status", status);
+    }
+
+    const productType = params.filters.product_type;
+    if (typeof productType === "string" && productType) {
+      indexQuery = indexQuery.eq("product_type", productType);
+    }
+
+    if (filteredProductIds) {
+      indexQuery = indexQuery.in("product_id", filteredProductIds);
+    }
+
+    if (isVariantFilter !== null) {
+      indexQuery = indexQuery.eq("is_variant_row", isVariantFilter);
+    }
+
+    const sortMap: Record<string, string> = {
+      name: "variant_name",
+      sku: "variant_sku",
+      product_type: "product_type",
+      status: "status",
+      updated_at: "updated_at",
+      on_hand_quantity: "updated_at",
+      available_quantity: "updated_at",
+    };
+    const sortField = params.sort?.field ? sortMap[params.sort.field] : "updated_at";
+    const sortAscending = params.sort?.direction === "asc";
+    const {
+      data: indexRowsData,
+      error: indexError,
+      count,
+    } = await indexQuery
+      .order(sortField ?? "updated_at", { ascending: sortAscending })
+      .order("variant_id", { ascending: true })
+      .range(from, to);
+
+    if (indexError) return { success: false, error: indexError.message };
+    const indexRows = (indexRowsData ?? []) as ProductListIndexRow[];
+    if (indexRows.length === 0) {
       return {
         success: true,
         data: {
-          rows: filtered.slice(from, to + 1),
-          totalCount: filtered.length,
+          rows: [],
+          totalCount: count ?? 0,
           page: params.page,
           pageSize: params.pageSize,
         },
       };
     }
 
+    const productIds = [...new Set(indexRows.map((row) => row.product_id))];
+    const { data: productsData, error: productsError } = await supabase
+      .from("inventory_products")
+      .select(PRODUCT_COLUMNS)
+      .eq("organization_id", orgId)
+      .in("id", productIds)
+      .is("deleted_at", null);
+    if (productsError) return { success: false, error: productsError.message };
+
+    const enriched = await InventoryProductsService.enrichProducts(
+      supabase,
+      orgId,
+      (productsData ?? []) as ProductRow[]
+    );
+    if (!enriched.success) return { success: false, error: serviceError(enriched) };
+
+    const flattened = InventoryProductsService.flattenProductRows(enriched.data);
+    const rowsByVariantId = new Map<string, InventoryProductListRow>();
+    for (const row of flattened) {
+      const variantId = row.variant_id ?? row.variants[0]?.id;
+      if (variantId) rowsByVariantId.set(variantId, row);
+    }
+
     return {
       success: true,
       data: {
-        rows: rows.data,
-        totalCount: count ?? rows.data.length,
+        rows: indexRows.flatMap((row) => {
+          const item = rowsByVariantId.get(row.variant_id);
+          return item ? [item] : [];
+        }),
+        totalCount: count ?? indexRows.length,
         page: params.page,
         pageSize: params.pageSize,
       },
@@ -2090,393 +1838,6 @@ export class InventoryProductsService {
       .single();
     if (error) return { success: false, error: error.message };
     return { success: true, data: data as { id: string } };
-  }
-
-  static async previewProductCsvImport(
-    supabase: SupabaseClient,
-    orgId: string,
-    csvText: string
-  ): Promise<ServiceResult<InventoryProductImportPreview>> {
-    const rows = parseCsv(csvText);
-    if (rows.length === 0) {
-      return { success: false, error: "Import file is empty" };
-    }
-
-    const [header, ...records] = rows;
-    const headers = header.map((value) => value.trim().toLowerCase());
-    const rowObjects = records
-      .filter((record) => record.some((value) => value.trim()))
-      .map((record, index) => ({
-        row_number: index + 2,
-        values: Object.fromEntries(
-          headers.map((name, cellIndex) => [name, record[cellIndex]?.trim() ?? ""])
-        ),
-      }));
-
-    const skuValues = rowObjects
-      .map((row) => row.values.variant_sku || row.values.sku || row.values.product_sku || "")
-      .filter(Boolean);
-    const [unitsResult, collisionsResult, existingVariantsResult] = await Promise.all([
-      InventoryProductsService.listUnits(supabase, orgId),
-      InventoryProductsService.checkSkuCollisions(supabase, orgId, skuValues),
-      (supabase as any)
-        .from("inventory_variants")
-        .select("sku")
-        .eq("organization_id", orgId)
-        .is("deleted_at", null),
-    ]);
-    if (!unitsResult.success) return { success: false, error: serviceError(unitsResult) };
-    if (!collisionsResult.success) return { success: false, error: serviceError(collisionsResult) };
-    if (existingVariantsResult.error)
-      return { success: false, error: existingVariantsResult.error.message };
-
-    const existingUnitCodes = new Set(unitsResult.data.map((unit) => unit.code.toLowerCase()));
-    const existingSkus = new Set(
-      collisionsResult.data.map((collision) => collision.sku.toLowerCase())
-    );
-    const existingSkuFingerprints = new Set(
-      ((existingVariantsResult.data ?? []) as Array<{ sku: string | null }>)
-        .map((variant) => skuCollisionFingerprint(variant.sku))
-        .filter(Boolean)
-    );
-    const duplicateSkus = new Set(
-      skuValues
-        .map((sku) => skuCollisionFingerprint(sku))
-        .filter(Boolean)
-        .filter((sku, index, all) => all.indexOf(sku) !== index)
-    );
-
-    const previewRows = rowObjects.map(({ row_number, values }) => {
-      const productName = values.product_name || values.name || values.item_name || "";
-      const productSku = values.product_sku || null;
-      const variantName = values.variant_name || productName;
-      const variantSku = values.variant_sku || values.sku || productSku || "";
-      const unitCode = values.unit_code || values.unit || "";
-      const errors: string[] = [];
-      if (!productName) errors.push("Missing product_name");
-      if (!variantName) errors.push("Missing variant_name");
-      if (!variantSku) errors.push("Missing variant_sku");
-      if (!unitCode) errors.push("Missing unit_code");
-      if (unitCode && !existingUnitCodes.has(unitCode.toLowerCase()))
-        errors.push(`Unknown unit_code: ${unitCode}`);
-      const variantSkuFingerprint = skuCollisionFingerprint(variantSku);
-      if (
-        variantSku &&
-        (existingSkus.has(variantSku.toLowerCase()) ||
-          existingSkuFingerprints.has(variantSkuFingerprint))
-      )
-        errors.push(`SKU already exists: ${variantSku}`);
-      if (variantSku && duplicateSkus.has(variantSkuFingerprint))
-        errors.push(`Duplicate SKU in file: ${variantSku}`);
-      return {
-        row_number,
-        product_name: productName,
-        product_sku: productSku,
-        variant_name: variantName,
-        variant_sku: variantSku,
-        unit_code: unitCode,
-        errors,
-      };
-    });
-
-    return {
-      success: true,
-      data: {
-        rows: previewRows,
-        total_rows: previewRows.length,
-        valid_rows: previewRows.filter((row) => row.errors.length === 0).length,
-        invalid_rows: previewRows.filter((row) => row.errors.length > 0).length,
-      },
-    };
-  }
-
-  static async importProductsFromCsv(
-    supabase: SupabaseClient,
-    orgId: string,
-    csvText: string,
-    userId: string,
-    mode: ProductCsvImportMode = "create_only"
-  ): Promise<
-    ServiceResult<{
-      imported_products: number;
-      imported_variants: number;
-      skipped_rows: number;
-      job_id: string;
-    }>
-  > {
-    const preview = await InventoryProductsService.previewProductCsvImport(
-      supabase,
-      orgId,
-      csvText
-    );
-    if (!preview.success) return { success: false, error: serviceError(preview) };
-    const invalid = preview.data.rows.find(
-      (row) =>
-        row.errors.length > 0 &&
-        !(
-          mode === "skip_existing" &&
-          row.errors.every((error) => error.startsWith("SKU already exists"))
-        )
-    );
-    if (invalid) {
-      return {
-        success: false,
-        error: `Import has validation errors on row ${invalid.row_number}: ${invalid.errors.join(", ")}`,
-      };
-    }
-
-    const client = supabase as any;
-    const { data: job, error: jobError } = await client
-      .from("inventory_import_jobs")
-      .insert({
-        organization_id: orgId,
-        import_type: "products",
-        status: "processing",
-        file_name: "products.csv",
-        summary: { total_rows: preview.data.total_rows, mode },
-        created_by: userId,
-      })
-      .select("id")
-      .single();
-    if (jobError) return { success: false, error: jobError.message };
-
-    const rows = parseCsv(csvText);
-    const [header, ...records] = rows;
-    const headers = header.map((value) => value.trim().toLowerCase());
-    const units = await InventoryProductsService.listUnits(supabase, orgId);
-    if (!units.success) return { success: false, error: serviceError(units) };
-    const unitByCode = new Map(units.data.map((unit) => [unit.code.toLowerCase(), unit.id]));
-    const customFields = await InventoryProductsService.listCustomFields(supabase, orgId, [
-      "product",
-      "variant",
-    ]);
-    if (!customFields.success) return { success: false, error: serviceError(customFields) };
-    const customFieldById = new Map(
-      customFields.data.map((field) => [field.id.toLowerCase(), field])
-    );
-    const customColumns = headers.flatMap((headerName) => {
-      const match = /^custom_(product|variant)_([0-9a-f-]{36})$/i.exec(headerName);
-      if (!match) return [];
-      const definition = customFieldById.get(match[2].toLowerCase());
-      if (!definition || definition.entity_type !== match[1]) return [];
-      return [{ headerName, definition }];
-    });
-
-    const groups = new Map<string, Array<Record<string, string>>>();
-    for (const record of records) {
-      if (!record.some((value) => value.trim())) continue;
-      const row = Object.fromEntries(
-        headers.map((name, cellIndex) => [name, record[cellIndex]?.trim() ?? ""])
-      );
-      const productName = row.product_name || row.name || row.item_name || "";
-      const productSku = row.product_sku || "";
-      const key = `${productSku.toLowerCase()}::${productName.toLowerCase()}`;
-      groups.set(key, [...(groups.get(key) ?? []), row]);
-    }
-
-    let importedProducts = 0;
-    let importedVariants = 0;
-    let skippedRows = 0;
-    for (const groupRows of groups.values()) {
-      const importableRows =
-        mode === "skip_existing"
-          ? groupRows.filter((row) => {
-              const sku = (row.variant_sku || row.sku || row.product_sku || "").toLowerCase();
-              const previewRow = preview.data.rows.find(
-                (item) => item.variant_sku.toLowerCase() === sku
-              );
-              return !previewRow?.errors.some((error) => error.startsWith("SKU already exists"));
-            })
-          : groupRows;
-      skippedRows += groupRows.length - importableRows.length;
-      if (importableRows.length === 0) continue;
-      const first = importableRows[0];
-      const productName = first.product_name || first.name || first.item_name || "";
-      const unitCode = first.unit_code || first.unit || "";
-      const baseUnitId = unitByCode.get(unitCode.toLowerCase());
-      if (!baseUnitId) continue;
-
-      const variants = importableRows.map((row) => ({
-        sku: row.variant_sku || row.sku || row.product_sku,
-        name: row.variant_name || row.product_name || row.name || row.item_name,
-        barcode: row.barcode || null,
-        upc: row.upc || null,
-        ean: row.ean || null,
-        isbn: row.isbn || null,
-        mpn: row.mpn || null,
-        purchase_price: numberOrNull(row.purchase_price || row.cost_price),
-        sales_price: numberOrNull(row.sales_price || row.selling_price),
-        price_currency: row.currency || "PLN",
-        reorder_point: numberOrNull(row.reorder_point),
-        options: {},
-      }));
-      const productCustomFields = customColumns.flatMap(({ headerName, definition }) => {
-        if (definition.entity_type !== "product") return [];
-        const input = customFieldInputFromCsv(definition, first[headerName], "product");
-        return input ? [input] : [];
-      });
-      const variantCustomFields = importableRows.flatMap((row) => {
-        const variantSku = row.variant_sku || row.sku || row.product_sku;
-        return customColumns.flatMap(({ headerName, definition }) => {
-          if (definition.entity_type !== "variant") return [];
-          const input = customFieldInputFromCsv(definition, row[headerName], "variant", variantSku);
-          return input ? [input] : [];
-        });
-      });
-
-      const result = await InventoryProductsService.createEnhancedProduct(
-        supabase,
-        orgId,
-        {
-          name: productName,
-          product_type: first.product_type || "stocked",
-          base_unit_id: baseUnitId,
-          sku: first.product_sku || null,
-          description: first.description || null,
-          returnable: (first.returnable || "true").toLowerCase() !== "false",
-          brand_name: first.brand || null,
-          manufacturer_name: first.manufacturer || null,
-          sales_account_code: first.sales_account_code || first.sales_account || null,
-          purchase_account_code: first.purchase_account_code || first.purchase_account || null,
-          tax_code: first.tax_code || first.tax || null,
-          tax_rate_percent: numberOrNull(
-            first.tax_rate_percent || first.tax_rate || first.vat_rate
-          ),
-          tags: safeSplitTokens(first.tags || ""),
-          custom_fields: [...productCustomFields, ...variantCustomFields],
-          variants,
-          track_inventory: false,
-        },
-        userId
-      );
-      if (!result.success) {
-        await client
-          .from("inventory_import_jobs")
-          .update({
-            status: "failed",
-            error_message: serviceError(result),
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", (job as { id: string }).id);
-        return { success: false, error: serviceError(result) };
-      }
-      importedProducts += 1;
-      importedVariants += result.data.variant_ids.length;
-    }
-
-    await client
-      .from("inventory_import_jobs")
-      .update({
-        status: "completed",
-        summary: {
-          imported_products: importedProducts,
-          imported_variants: importedVariants,
-          skipped_rows: skippedRows,
-          mode,
-        },
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", (job as { id: string }).id);
-
-    return {
-      success: true,
-      data: {
-        imported_products: importedProducts,
-        imported_variants: importedVariants,
-        skipped_rows: skippedRows,
-        job_id: (job as { id: string }).id,
-      },
-    };
-  }
-
-  static async exportProductsCsv(
-    supabase: SupabaseClient,
-    orgId: string,
-    userId: string
-  ): Promise<ServiceResult<{ csv: string; file_name: string; job_id: string }>> {
-    const client = supabase as any;
-    const { data: job, error: jobError } = await client
-      .from("inventory_export_jobs")
-      .insert({
-        organization_id: orgId,
-        export_type: "products",
-        status: "processing",
-        created_by: userId,
-      })
-      .select("id")
-      .single();
-    if (jobError) return { success: false, error: jobError.message };
-
-    const products = await InventoryProductsService.listProducts(supabase, orgId, {
-      search: "",
-      sort: { field: "name", direction: "asc" },
-      page: 1,
-      pageSize: 200,
-      filters: {},
-    });
-    if (!products.success) return { success: false, error: serviceError(products) };
-
-    const header = [
-      "product_name",
-      "product_sku",
-      "product_type",
-      "unit_code",
-      "variant_name",
-      "variant_sku",
-      "barcode",
-      "purchase_price",
-      "sales_price",
-      "sales_account_code",
-      "purchase_account_code",
-      "tax_code",
-      "tax_rate_percent",
-      "reorder_point",
-      "tags",
-    ];
-    const lines = [header.join(",")];
-    for (const product of products.data.rows) {
-      for (const variant of product.variants) {
-        lines.push(
-          [
-            product.name,
-            product.sku,
-            product.product_type,
-            product.unit_code,
-            variant.name,
-            variant.sku,
-            variant.barcode ?? "",
-            variant.purchase_price ?? "",
-            variant.sales_price ?? "",
-            product.sales_account_code ?? "",
-            product.purchase_account_code ?? "",
-            product.tax_code ?? "",
-            product.tax_rate_percent ?? "",
-            variant.reorder_point ?? "",
-            product.tags.join("|"),
-          ]
-            .map(csvEscape)
-            .join(",")
-        );
-      }
-    }
-    const csv = `${lines.join("\n")}\n`;
-    await client
-      .from("inventory_export_jobs")
-      .update({
-        status: "completed",
-        summary: { exported_rows: lines.length - 1 },
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", (job as { id: string }).id);
-
-    return {
-      success: true,
-      data: {
-        csv,
-        file_name: `inventory-products-${new Date().toISOString().slice(0, 10)}.csv`,
-        job_id: (job as { id: string }).id,
-      },
-    };
   }
 
   private static optionValueIdsForVariant(

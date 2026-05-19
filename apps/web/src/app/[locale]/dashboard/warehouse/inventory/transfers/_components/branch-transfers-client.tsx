@@ -11,8 +11,10 @@ import { useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { InventoryBranchTransferListRow } from "@/server/services/inventory-enterprise.service";
-import type { InventoryVariantOption } from "@/server/services/inventory-products.service";
+import type {
+  InventoryBranchTransferListRow,
+  InventoryVariantOption,
+} from "@/lib/warehouse/inventory-types";
 
 type BranchOption = {
   id: string;

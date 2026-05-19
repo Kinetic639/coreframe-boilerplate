@@ -10,7 +10,7 @@ import {
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryProductsService } from "@/server/services/inventory-products.service";
-import { InventoryProductsClient } from "../_components/inventory-products-client";
+import { InventoryProductImportWizard } from "../_components/import-wizard/inventory-product-import-wizard";
 
 export default async function WarehouseItemsImportPage() {
   const locale = await getLocale();
@@ -51,8 +51,7 @@ export default async function WarehouseItemsImportPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 md:p-6">
-      <InventoryProductsClient
-        initialData={{ rows: [], totalCount: 0, page: 1, pageSize: 50 }}
+      <InventoryProductImportWizard
         customFields={customFieldsResult.success ? customFieldsResult.data : []}
         units={unitsResult.success ? unitsResult.data : []}
         taxRates={taxRatesResult.success ? taxRatesResult.data : []}
@@ -62,7 +61,6 @@ export default async function WarehouseItemsImportPage() {
           WAREHOUSE_PRODUCTS_MANAGE
         )}
         canImportProducts={canImportProducts}
-        importOnly
       />
     </div>
   );
