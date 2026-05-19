@@ -8,14 +8,14 @@ import type {
   DataViewFilterDef,
   DataViewListParams,
   PaginatedResult,
-} from "@/components/data-view/data-view.types";
+} from "@/lib/data-view/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   InventoryMovementDetail,
   InventoryMovementListRow,
-} from "@/server/services/inventory-movements.service";
+} from "@/lib/warehouse/inventory-types";
 import {
   getInventoryMovementAction,
   listInventoryMovementsAction,

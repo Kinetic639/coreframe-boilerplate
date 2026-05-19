@@ -1,126 +1,34 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type {
+  BranchTransferLineInput,
+  CreateCustomFieldInput,
+  CreateLotInput,
+  CreateOptionGroupInput,
+  CreateOptionValueInput,
+  CreatePurchaseOrderInput,
+  CreateSerialInput,
+  GenerateVariantInput,
+  InventoryBranchTransferListRow,
+  ReceivePurchaseOrderInput,
+  StockHoldLineInput,
+} from "@/lib/warehouse/inventory-types";
+export type {
+  BranchTransferLineInput,
+  CreateCustomFieldInput,
+  CreateLotInput,
+  CreateOptionGroupInput,
+  CreateOptionValueInput,
+  CreatePurchaseOrderInput,
+  CreateSerialInput,
+  GenerateVariantInput,
+  InventoryBranchTransferListRow,
+  ReceivePurchaseOrderInput,
+  StockHoldLineInput,
+} from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
-
-export type CreateOptionGroupInput = {
-  name: string;
-  display_order?: number;
-  actor_user_id?: string | null;
-};
-
-export type CreateOptionValueInput = {
-  option_group_id: string;
-  value: string;
-  display_order?: number;
-  actor_user_id?: string | null;
-};
-
-export type GenerateVariantInput = {
-  product_id: string;
-  variants: Array<{
-    sku: string;
-    name: string;
-    option_value_ids: string[];
-    barcode?: string | null;
-    purchase_price?: number | null;
-    sales_price?: number | null;
-    price_currency?: string | null;
-  }>;
-  actor_user_id?: string | null;
-};
-
-export type CreateLotInput = {
-  product_id: string;
-  variant_id: string;
-  lot_number: string;
-  manufactured_at?: string | null;
-  expires_at?: string | null;
-  supplier_reference?: string | null;
-  actor_user_id?: string | null;
-};
-
-export type CreateSerialInput = {
-  product_id: string;
-  variant_id: string;
-  serial_number: string;
-  lot_id?: string | null;
-  current_branch_id?: string | null;
-  current_location_id?: string | null;
-  actor_user_id?: string | null;
-};
-
-export type StockHoldLineInput = {
-  variant_id: string;
-  location_id: string;
-  quantity: number;
-  lot_id?: string | null;
-  serial_id?: string | null;
-  reservation_line_id?: string | null;
-};
-
-export type CreatePurchaseOrderInput = {
-  supplier_id: string;
-  expected_delivery_date?: string | null;
-  delivery_location_id?: string | null;
-  currency?: string | null;
-  notes?: string | null;
-  lines: Array<{
-    variant_id: string;
-    unit_id: string;
-    quantity: number;
-    unit_cost?: number | null;
-  }>;
-  actor_user_id?: string | null;
-};
-
-export type ReceivePurchaseOrderInput = {
-  purchase_order_id: string;
-  lines: Array<{
-    purchase_order_line_id: string;
-    quantity: number;
-    destination_location_id?: string | null;
-  }>;
-  actor_user_id?: string | null;
-};
-
-export type InventoryBranchTransferListRow = {
-  id: string;
-  transfer_number: string;
-  source_branch_id: string;
-  source_branch_name: string;
-  destination_branch_id: string;
-  destination_branch_name: string;
-  status: string;
-  line_count: number;
-  notes: string | null;
-  decline_reason: string | null;
-  sent_at: string | null;
-  accepted_at: string | null;
-  declined_at: string | null;
-};
-
-export type BranchTransferLineInput = {
-  variant_id: string;
-  source_location_id: string;
-  lot_id?: string | null;
-  serial_id?: string | null;
-  unit_id: string;
-  quantity: number;
-};
-
-export type CreateCustomFieldInput = {
-  entity_type: "product" | "variant" | "lot" | "serial";
-  name: string;
-  field_key: string;
-  field_type: "text" | "number" | "date" | "boolean" | "select" | "multi_select";
-  is_required?: boolean;
-  is_filterable?: boolean;
-  options?: string[];
-  display_order?: number;
-  actor_user_id?: string | null;
-};
 
 function errorMessage(error: { message?: string } | null | undefined) {
   return error?.message ?? "Unexpected database error";

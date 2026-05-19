@@ -19,7 +19,7 @@ import type {
   InventoryTagRow,
   InventoryTaxRateRow,
   InventoryUnitConversionRow,
-} from "@/server/services/inventory-products.service";
+} from "@/lib/warehouse/inventory-types";
 import { InventoryCustomFieldsClient } from "../items/custom-fields/inventory-custom-fields-client";
 
 type UnitOption = {

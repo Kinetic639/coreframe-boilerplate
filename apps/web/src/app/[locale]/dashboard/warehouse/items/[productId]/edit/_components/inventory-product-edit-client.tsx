@@ -23,7 +23,7 @@ import type {
   InventoryProductImageRow,
   InventoryProductUnitConversionRow,
   InventoryTaxRateRow,
-} from "@/server/services/inventory-products.service";
+} from "@/lib/warehouse/inventory-types";
 import { cn } from "@/utils";
 
 type UnitOption = { id: string; code: string; name: string };

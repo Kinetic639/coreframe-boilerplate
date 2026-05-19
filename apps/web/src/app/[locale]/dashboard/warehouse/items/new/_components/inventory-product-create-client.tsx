@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import {
   ArrowLeft,
-  Check,
   ChevronDown,
-  ChevronsUpDown,
-  Copy,
   ImageIcon,
   PackagePlus,
   Plus,
@@ -23,7 +20,6 @@ import {
   checkInventorySkuCollisionsAction,
   createInventoryBrandAction,
   createEnhancedInventoryProductAction,
-  createInventoryCustomFieldAction,
   createInventorySkuTemplateAction,
   createInventoryManufacturerAction,
   createInventoryUnitAction,
@@ -31,18 +27,52 @@ import {
   uploadInventoryItemImageAction,
 } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/utils";
+import {
+  AddCustomFieldSelect,
+  Cell,
+  CustomFieldControl,
+  Field,
+  HeaderCopyAction,
+  MasterDataField,
+  QuickCreateCustomField,
+  Separator,
+  SkuSourceCombobox,
+  TokenCell,
+  TokenInput,
+  VariantImagePicker,
+} from "./product-create-controls";
+import {
+  labelClass,
+  requiredLabelClass,
+  selectClass,
+  textareaClass,
+} from "./product-create-styles";
+import {
+  MAX_ITEM_IMAGE_BYTES,
+  customFieldValue,
+  imageFilesFromDataTransfer,
+  isSkuRule,
+  makeSku,
+  moneyOrNull,
+  newAttribute,
+  newSkuRule,
+  product,
+  safeParseTokens,
+  textOrNull,
+  transformSkuPart,
+  variantOptionsKey,
+  type AttributeDraft,
+  type CustomFieldOption,
+  type CustomFieldPayload,
+  type ProductImageDraft,
+  type SkuRule,
+  type SkuSourceOption,
+  type UploadedImageRecord,
+  type VariantDraftRow,
+} from "./product-create-utils";
 
 type UnitOption = {
   id: string;
@@ -78,21 +108,6 @@ type MasterDataOption = {
   name: string;
 };
 
-type CustomFieldOption = {
-  id: string;
-  entity_type: "product" | "variant" | "lot" | "serial";
-  name: string;
-  field_key: string;
-  field_type: "text" | "number" | "date" | "boolean" | "select" | "multi_select";
-  is_required: boolean;
-  is_filterable?: boolean;
-  options: string[];
-  display_order: number;
-  section_name?: string | null;
-  help_text?: string | null;
-  placeholder?: string | null;
-};
-
 type SkuTemplateOption = {
   id: string;
   name: string;
@@ -121,261 +136,6 @@ type InventoryProductCreateClientProps = {
   skuTemplates: SkuTemplateOption[];
   taxRates: TaxRateOption[];
 };
-
-type AttributeDraft = {
-  id: string;
-  name: string;
-  values: string[];
-};
-
-type SkuRule = {
-  id: string;
-  source: "product_name" | "attribute" | "sequence" | "custom";
-  attributeName: string;
-  customText: string;
-  mode: "full" | "first" | "last";
-  length: string;
-  letterCase: "upper" | "lower" | "title" | "keep";
-  separator: string;
-};
-
-type SkuSourceOption = {
-  value: string;
-  label: string;
-};
-
-type ProductImageDraft = {
-  file: File;
-  preview: string;
-};
-
-type UploadedImageRecord = {
-  id: string;
-  storage_path: string | null;
-  public_url: string | null;
-  file_name: string | null;
-  content_type: string | null;
-  file_size: number | null;
-};
-
-type VariantDraftRow = {
-  id: string;
-  name: string;
-  sku: string;
-  options: Record<string, string>;
-  barcode: string;
-  upc: string;
-  ean: string;
-  isbn: string;
-  mpn: string;
-  purchase_price: string;
-  sales_price: string;
-  reorder_point: string;
-  opening_quantity: string;
-  opening_unit_cost: string;
-  customFields: Record<string, string>;
-  imagePreviews: string[];
-};
-
-type CustomFieldPayload = {
-  field_id: string;
-  entity_type: "product" | "variant";
-  variant_sku?: string | null;
-  value_text?: string | null;
-  value_number?: number | null;
-  value_date?: string | null;
-  value_boolean?: boolean | null;
-  value_json?: unknown;
-};
-
-const selectClass =
-  "h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const textareaClass =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const labelClass = "text-sm text-foreground";
-const requiredLabelClass = "text-sm text-destructive";
-const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
-
-type DroppedFileSystemEntry = {
-  isFile: boolean;
-  isDirectory: boolean;
-  file?: (success: (file: File) => void, error?: (error: DOMException) => void) => void;
-  createReader?: () => {
-    readEntries: (
-      success: (entries: DroppedFileSystemEntry[]) => void,
-      error?: (error: DOMException) => void
-    ) => void;
-  };
-};
-
-type DataTransferItemWithEntry = DataTransferItem & {
-  webkitGetAsEntry?: () => DroppedFileSystemEntry | null;
-};
-
-function newAttribute(name = "", values: string[] = []): AttributeDraft {
-  return { id: crypto.randomUUID(), name, values };
-}
-
-function newSkuRule(patch: Partial<SkuRule> = {}): SkuRule {
-  return {
-    id: crypto.randomUUID(),
-    source: "attribute",
-    attributeName: "",
-    customText: "",
-    mode: "first",
-    length: "3",
-    letterCase: "upper",
-    separator: "-",
-    ...patch,
-  };
-}
-
-function fieldKeyFromName(name: string) {
-  const key = name
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return key || `field_${Date.now()}`;
-}
-
-function isSkuRule(value: unknown): value is SkuRule {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<SkuRule>;
-  return Boolean(candidate.id && candidate.source && candidate.mode && candidate.letterCase);
-}
-
-function product(values: string[][]) {
-  return values.reduce<string[][]>(
-    (acc, valuesForAttribute) =>
-      acc.flatMap((row) => valuesForAttribute.map((value) => [...row, value])),
-    [[]]
-  );
-}
-
-function moneyOrNull(value: string) {
-  return value.trim() ? Number(value) : null;
-}
-
-function textOrNull(value: FormDataEntryValue | null) {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function customFieldValue(
-  field: CustomFieldOption,
-  value: string | boolean
-): Omit<CustomFieldPayload, "entity_type"> | null {
-  if (field.field_type === "boolean") {
-    return { field_id: field.id, value_boolean: Boolean(value) };
-  }
-  if (field.field_type === "number") {
-    const number = Number(value);
-    return Number.isFinite(number) ? { field_id: field.id, value_number: number } : null;
-  }
-  if (field.field_type === "date") {
-    return value ? { field_id: field.id, value_date: String(value) } : null;
-  }
-  if (field.field_type === "multi_select") {
-    const values = safeParseTokens(String(value));
-    return values.length ? { field_id: field.id, value_json: values } : null;
-  }
-  return String(value).trim() ? { field_id: field.id, value_text: String(value).trim() } : null;
-}
-
-function makeSku(parts: string[]) {
-  return parts
-    .map((part) => part.trim().slice(0, 3).toUpperCase())
-    .filter(Boolean)
-    .join("-");
-}
-
-function variantOptionsKey(options: Record<string, string>) {
-  return Object.entries(options)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([attribute, value]) => `${attribute}:${value}`)
-    .join("|");
-}
-
-function titleCase(value: string) {
-  return value.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function transformSkuPart(value: string, rule: SkuRule) {
-  const trimmed = value.trim();
-  const length = Number(rule.length);
-  const sized =
-    Number.isFinite(length) && length > 0 && rule.mode !== "full"
-      ? rule.mode === "first"
-        ? trimmed.slice(0, length)
-        : trimmed.slice(Math.max(trimmed.length - length, 0))
-      : trimmed;
-
-  if (rule.letterCase === "upper") return sized.toUpperCase();
-  if (rule.letterCase === "lower") return sized.toLowerCase();
-  if (rule.letterCase === "title") return titleCase(sized);
-  return sized;
-}
-
-function safeParseTokens(value: string) {
-  if (!value.trim()) return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item) => String(item).trim()).filter(Boolean);
-    }
-  } catch {
-    // Fall back to splitting pasted legacy comma-separated values.
-  }
-  return value
-    .split(/[,\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-async function filesFromEntry(entry: DroppedFileSystemEntry): Promise<File[]> {
-  if (entry.isFile && entry.file) {
-    return new Promise((resolve) =>
-      entry.file?.(
-        (file) => resolve([file]),
-        () => resolve([])
-      )
-    );
-  }
-
-  if (!entry.isDirectory || !entry.createReader) return [];
-  const reader = entry.createReader();
-  const files: File[] = [];
-
-  while (true) {
-    const entries = await new Promise<DroppedFileSystemEntry[]>((resolve) =>
-      reader.readEntries(resolve, () => resolve([]))
-    );
-    if (entries.length === 0) break;
-    const nested = await Promise.all(entries.map(filesFromEntry));
-    files.push(...nested.flat());
-  }
-
-  return files;
-}
-
-async function imageFilesFromDataTransfer(dataTransfer: DataTransfer): Promise<File[]> {
-  const entries: DroppedFileSystemEntry[] = [];
-  for (const item of Array.from(dataTransfer.items ?? [])) {
-    const entry = (item as DataTransferItemWithEntry).webkitGetAsEntry?.() as
-      | DroppedFileSystemEntry
-      | null
-      | undefined;
-    if (entry) entries.push(entry);
-  }
-
-  if (entries.length === 0) return Array.from(dataTransfer.files ?? []);
-
-  const files = await Promise.all(entries.map(filesFromEntry));
-  return files.flat();
-}
 
 export function InventoryProductCreateClient({
   units,
@@ -531,74 +291,85 @@ export function InventoryProductCreateClient({
     return options;
   }, [activeAttributes, skuTarget]);
 
-  const openSkuGenerator = (target: "simple" | "variants" = "variants") => {
-    setSkuTarget(target);
-    setSkuCollisionMessage(null);
-    setSkuRules((rules) => {
-      if (target === "simple") {
-        const simpleRules = rules.filter((rule) => rule.source !== "attribute");
-        return simpleRules.length > 0
-          ? simpleRules
-          : [
-              newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
-              newSkuRule({ source: "sequence", mode: "full", length: "", separator: "" }),
-            ];
-      }
+  const openSkuGenerator = useCallback(
+    (target: "simple" | "variants" = "variants") => {
+      setSkuTarget(target);
+      setSkuCollisionMessage(null);
+      setSkuRules((rules) => {
+        if (target === "simple") {
+          const simpleRules = rules.filter((rule) => rule.source !== "attribute");
+          return simpleRules.length > 0
+            ? simpleRules
+            : [
+                newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
+                newSkuRule({ source: "sequence", mode: "full", length: "", separator: "" }),
+              ];
+        }
 
-      const hasUnresolvedAttribute = rules.some(
-        (rule) =>
-          rule.source === "attribute" &&
-          !activeAttributes.some((attribute) => attribute.name === rule.attributeName)
-      );
+        const hasUnresolvedAttribute = rules.some(
+          (rule) =>
+            rule.source === "attribute" &&
+            !activeAttributes.some((attribute) => attribute.name === rule.attributeName)
+        );
 
-      if (!hasUnresolvedAttribute) return rules;
+        if (!hasUnresolvedAttribute) return rules;
 
-      return [
-        newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
-        ...activeAttributes.map((attribute) =>
-          newSkuRule({
-            source: "attribute",
-            attributeName: attribute.name,
-            mode: "first",
-            length: "3",
-            separator: "-",
-          })
-        ),
-      ];
-    });
-    setShowSkuModal(true);
-  };
+        return [
+          newSkuRule({ source: "product_name", mode: "first", length: "3", separator: "-" }),
+          ...activeAttributes.map((attribute) =>
+            newSkuRule({
+              source: "attribute",
+              attributeName: attribute.name,
+              mode: "first",
+              length: "3",
+              separator: "-",
+            })
+          ),
+        ];
+      });
+      setShowSkuModal(true);
+    },
+    [activeAttributes]
+  );
 
-  const buildSkuFromOptions = (options: Record<string, string>, index: number) => {
-    const parts = skuRules
-      .map((rule) => {
-        const rawValue =
-          rule.source === "product_name"
-            ? productName
-            : rule.source === "attribute"
-              ? (options[rule.attributeName || activeAttributes[0]?.name] ?? "")
-              : rule.source === "sequence"
-                ? String(index + 1)
-                : rule.customText;
-        const value = transformSkuPart(rawValue, rule);
-        return value ? { value, separator: rule.separator } : null;
-      })
-      .filter((part): part is { value: string; separator: string } => part !== null);
+  const buildSkuFromOptions = useCallback(
+    (options: Record<string, string>, index: number) => {
+      const parts = skuRules
+        .map((rule) => {
+          const rawValue =
+            rule.source === "product_name"
+              ? productName
+              : rule.source === "attribute"
+                ? (options[rule.attributeName || activeAttributes[0]?.name] ?? "")
+                : rule.source === "sequence"
+                  ? String(index + 1)
+                  : rule.customText;
+          const value = transformSkuPart(rawValue, rule);
+          return value ? { value, separator: rule.separator } : null;
+        })
+        .filter((part): part is { value: string; separator: string } => part !== null);
 
-    return parts
-      .map((part, index) => `${part.value}${index < parts.length - 1 ? part.separator : ""}`)
-      .join("");
-  };
+      return parts
+        .map((part, index) => `${part.value}${index < parts.length - 1 ? part.separator : ""}`)
+        .join("");
+    },
+    [activeAttributes, productName, skuRules]
+  );
 
-  const buildSkuForRow = (row: VariantDraftRow, index: number) =>
-    buildSkuFromOptions(row.options, index);
+  const buildSkuForRow = useCallback(
+    (row: VariantDraftRow, index: number) => buildSkuFromOptions(row.options, index),
+    [buildSkuFromOptions]
+  );
 
-  const skuPreview =
-    skuTarget === "simple"
-      ? buildSkuFromOptions({}, 0)
-      : variants[0]
-        ? buildSkuForRow(variants[0], 0)
-        : makeSku([productName, "1"]);
+  const skuPreview = useMemo(
+    () =>
+      skuTarget === "simple"
+        ? buildSkuFromOptions({}, 0)
+        : variants[0]
+          ? buildSkuForRow(variants[0], 0)
+          : makeSku([productName, "1"]),
+    [buildSkuForRow, buildSkuFromOptions, productName, skuTarget, variants]
+  );
 
   useEffect(() => {
     if (mode === "variants") setProductSku("");
@@ -612,9 +383,9 @@ export function InventoryProductCreateClient({
     if (nextRules.length > 0) setSkuRules(nextRules);
   }, [selectedSkuTemplateId, skuTemplateOptions]);
 
-  const updateVariant = (id: string, patch: Partial<VariantDraftRow>) => {
+  const updateVariant = useCallback((id: string, patch: Partial<VariantDraftRow>) => {
     setVariants((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
+  }, []);
 
   useEffect(() => {
     if (mode !== "variants") return;
@@ -663,16 +434,17 @@ export function InventoryProductCreateClient({
     });
   }, [activeAttributes, duplicateAttributeNames, mode, productName]);
 
-  const fillDown = (
-    key: keyof Pick<VariantDraftRow, "purchase_price" | "sales_price" | "reorder_point">
-  ) => {
-    setVariants((rows) => {
-      const first = rows.find((row) => row[key].trim())?.[key] ?? "";
-      return rows.map((row) => ({ ...row, [key]: row[key].trim() ? row[key] : first }));
-    });
-  };
+  const fillDown = useCallback(
+    (key: keyof Pick<VariantDraftRow, "purchase_price" | "sales_price" | "reorder_point">) => {
+      setVariants((rows) => {
+        const first = rows.find((row) => row[key].trim())?.[key] ?? "";
+        return rows.map((row) => ({ ...row, [key]: row[key].trim() ? row[key] : first }));
+      });
+    },
+    []
+  );
 
-  const applySkuGenerator = () => {
+  const applySkuGenerator = useCallback(() => {
     if (skuTarget === "simple") {
       setProductSku(buildSkuFromOptions({}, 0));
       setShowSkuModal(false);
@@ -686,9 +458,9 @@ export function InventoryProductCreateClient({
       }))
     );
     setShowSkuModal(false);
-  };
+  }, [buildSkuForRow, buildSkuFromOptions, skuTarget]);
 
-  const checkSkuCollisions = async () => {
+  const checkSkuCollisions = useCallback(async () => {
     setSkuCollisionMessage(null);
     const skus =
       skuTarget === "simple"
@@ -705,7 +477,7 @@ export function InventoryProductCreateClient({
         ? `Existing SKUs: ${result.data.map((collision) => collision.sku).join(", ")}`
         : "No existing SKU collisions."
     );
-  };
+  }, [buildSkuForRow, buildSkuFromOptions, skuTarget, variants]);
 
   const saveSkuTemplate = async () => {
     const name = skuTemplateName.trim();
@@ -2549,751 +2321,4 @@ export function InventoryProductCreateClient({
       ) : null}
     </form>
   );
-}
-
-function SkuSourceCombobox({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: SkuSourceOption[];
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selectedLabel =
-    options.find((option) => option.value === value)?.label ??
-    (value === "sequence" ? "Sequence" : "Select attribute");
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            "flex h-9 w-full items-center justify-between rounded-md border border-input bg-background pl-3 pr-4 text-left text-sm text-foreground shadow-sm outline-none",
-            open && "ring-2 ring-ring ring-offset-2 ring-offset-background"
-          )}
-        >
-          <span className="truncate">{selectedLabel}</span>
-          <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 text-muted-foreground" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput placeholder="Search" />
-          <CommandList>
-            <CommandEmpty>No attributes found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.label}
-                  onSelect={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
-                  className="h-10"
-                >
-                  <span className="truncate">{option.label}</span>
-                  <Check
-                    className={cn(
-                      "ml-auto h-4 w-4",
-                      option.value === value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function VariantImagePicker({
-  gallery,
-  selectedPreviews,
-  onChange,
-  onClear,
-  onUpload,
-}: {
-  gallery: ProductImageDraft[];
-  selectedPreviews: string[];
-  onChange: (previews: string[]) => void;
-  onClear: () => void;
-  onUpload: (files: FileList | null) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const primaryPreview = gallery[0]?.preview ?? null;
-  const displayPreview = selectedPreviews[0] ?? primaryPreview;
-  const isInherited = selectedPreviews.length === 0 && Boolean(primaryPreview);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/30"
-          aria-label="Choose variant image"
-        >
-          {displayPreview ? (
-            <Image
-              src={displayPreview}
-              alt=""
-              width={36}
-              height={36}
-              unoptimized
-              className="h-full w-full rounded-md object-cover"
-            />
-          ) : (
-            <ImageIcon className="h-4 w-4 text-muted-foreground" />
-          )}
-          {isInherited ? (
-            <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-background bg-primary" />
-          ) : null}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-3">
-        <div className="grid gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">Variant images</p>
-            {selectedPreviews.length > 0 ? (
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-destructive"
-                onClick={onClear}
-              >
-                Use default
-              </button>
-            ) : null}
-          </div>
-
-          {gallery.length > 0 ? (
-            <div className="grid grid-cols-5 gap-2">
-              {gallery.map((image, index) => {
-                const active = selectedPreviews.includes(image.preview);
-                return (
-                  <button
-                    key={image.preview}
-                    type="button"
-                    className={cn(
-                      "relative h-10 w-10 overflow-hidden rounded-md border border-border",
-                      active && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                    )}
-                    onClick={() =>
-                      onChange(
-                        active
-                          ? selectedPreviews.filter((preview) => preview !== image.preview)
-                          : [...selectedPreviews, image.preview]
-                      )
-                    }
-                    aria-label={index === 0 ? "Use default product image" : "Use gallery image"}
-                  >
-                    <Image
-                      src={image.preview}
-                      alt=""
-                      width={40}
-                      height={40}
-                      unoptimized
-                      className="h-full w-full object-cover"
-                    />
-                    {index === 0 ? (
-                      <span className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] leading-3 text-foreground">
-                        Default
-                      </span>
-                    ) : null}
-                    {active ? (
-                      <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-bl bg-primary text-[10px] text-primary-foreground">
-                        {selectedPreviews.indexOf(image.preview) + 1}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-              Upload product images first, then assign one to this variant.
-            </p>
-          )}
-
-          <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border text-sm text-muted-foreground hover:bg-muted/40">
-            <Plus className="h-4 w-4" />
-            Upload to gallery
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => onUpload(event.target.files)}
-            />
-          </label>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function Field({
-  label,
-  name,
-  prefix,
-  type = "text",
-  placeholder,
-  required,
-  list,
-}: {
-  label: string;
-  name: string;
-  prefix?: string;
-  type?: string;
-  placeholder?: string;
-  required?: boolean;
-  list?: string;
-}) {
-  return (
-    <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-      <label className={required || label.endsWith("*") ? requiredLabelClass : labelClass}>
-        {label}
-      </label>
-      <div className="flex">
-        {prefix ? (
-          <span className="flex h-9 items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
-            {prefix}
-          </span>
-        ) : null}
-        <Input
-          name={name}
-          type={type}
-          list={list}
-          placeholder={placeholder}
-          required={required}
-          className={cn("h-9", prefix ? "rounded-l-none" : "")}
-          step={type === "number" ? "0.01" : undefined}
-          min={type === "number" ? "0" : undefined}
-        />
-      </div>
-    </div>
-  );
-}
-
-function MasterDataField({
-  label,
-  name,
-  options,
-  showQuickAdd,
-  draft,
-  onDraftChange,
-  onToggleQuickAdd,
-  onCreate,
-}: {
-  label: string;
-  name: string;
-  options: MasterDataOption[];
-  showQuickAdd: boolean;
-  draft: string;
-  onDraftChange: (value: string) => void;
-  onToggleQuickAdd: () => void;
-  onCreate: () => void;
-}) {
-  return (
-    <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-      <label className="pt-2 text-sm text-foreground">{label}</label>
-      <div className="grid gap-2">
-        <div className="flex gap-2">
-          <Input name={name} list={`${name}-options`} className="h-9" />
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={onToggleQuickAdd}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Add {label.toLowerCase()}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <datalist id={`${name}-options`}>
-          {options.map((option) => (
-            <option key={option.id} value={option.name} />
-          ))}
-        </datalist>
-        {showQuickAdd ? (
-          <div className="flex gap-2">
-            <Input
-              value={draft}
-              placeholder={`New ${label.toLowerCase()}`}
-              className="h-9"
-              onChange={(event) => onDraftChange(event.target.value)}
-            />
-            <Button type="button" variant="outline" size="sm" onClick={onCreate}>
-              Add
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function Cell({
-  value,
-  onChange,
-  type = "text",
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-}) {
-  return (
-    <td className="px-2 py-2">
-      <Input
-        value={value}
-        type={type}
-        min={type === "number" ? "0" : undefined}
-        step={type === "number" ? "0.01" : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9"
-      />
-    </td>
-  );
-}
-
-function HeaderCopyAction({ label, onCopy }: { label: string; onCopy: () => void }) {
-  return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
-      <span>{label}</span>
-      <TooltipProvider delayDuration={150}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 rounded-sm text-muted-foreground hover:text-foreground"
-              aria-label={`Copy ${label} to all rows`}
-              onClick={onCopy}
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Copy to all rows</TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    </div>
-  );
-}
-
-function CustomFieldControl({
-  field,
-  tokens = [],
-  onTokensChange,
-}: {
-  field: CustomFieldOption;
-  tokens?: string[];
-  onTokensChange?: (tokens: string[]) => void;
-}) {
-  const name = `custom_field_${field.id}`;
-  if (field.field_type === "boolean") {
-    return (
-      <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-        <span className={labelClass}>{field.name}</span>
-        <div className="grid gap-1">
-          <label className="flex items-center gap-2 text-sm">
-            <input name={name} type="checkbox" required={field.is_required} />
-            Yes
-          </label>
-          {field.help_text ? (
-            <p className="text-xs text-muted-foreground">{field.help_text}</p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (field.field_type === "select") {
-    return (
-      <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-        <label className={field.is_required ? requiredLabelClass : labelClass}>{field.name}</label>
-        <div className="grid gap-1">
-          <select name={name} required={field.is_required} className={cn(selectClass, "pr-9")}>
-            <option value="">Select</option>
-            {field.options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          {field.help_text ? (
-            <p className="text-xs text-muted-foreground">{field.help_text}</p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  if (field.field_type === "multi_select") {
-    return (
-      <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-        <label className={field.is_required ? requiredLabelClass : labelClass}>{field.name}</label>
-        <div className="grid gap-1">
-          <TokenInput
-            value={tokens}
-            onChange={onTokensChange ?? (() => undefined)}
-            placeholder={field.placeholder ?? "Type value and press Enter"}
-            suggestions={field.options}
-          />
-          {field.help_text ? (
-            <p className="text-xs text-muted-foreground">{field.help_text}</p>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Field
-      label={field.is_required ? `${field.name}*` : field.name}
-      name={name}
-      type={
-        field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"
-      }
-      placeholder={field.placeholder ?? undefined}
-      required={field.is_required}
-    />
-  );
-}
-
-function TokenCell({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
-  return (
-    <td className="min-w-64 px-2 py-2 align-top">
-      <TokenInput value={value} onChange={onChange} placeholder="Enter value" compact />
-    </td>
-  );
-}
-
-function TokenInput({
-  value,
-  onChange,
-  placeholder,
-  suggestions = [],
-  compact = false,
-}: {
-  value: string[];
-  onChange: (value: string[]) => void;
-  placeholder?: string;
-  suggestions?: string[];
-  compact?: boolean;
-}) {
-  const [draft, setDraft] = useState("");
-  const normalized = new Set(value.map((item) => item.toLowerCase()));
-  const availableSuggestions = suggestions.filter(
-    (suggestion) => suggestion.trim() && !normalized.has(suggestion.trim().toLowerCase())
-  );
-
-  const addTokens = (rawValue: string) => {
-    const nextTokens = rawValue
-      .split(/[,\n]/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-    if (nextTokens.length === 0) return;
-
-    const next = [...value];
-    const seen = new Set(next.map((item) => item.toLowerCase()));
-    for (const token of nextTokens) {
-      const key = token.toLowerCase();
-      if (seen.has(key)) continue;
-      next.push(token);
-      seen.add(key);
-    }
-    onChange(next);
-    setDraft("");
-  };
-
-  const removeToken = (token: string) => {
-    onChange(value.filter((item) => item !== token));
-  };
-
-  return (
-    <div className="space-y-2">
-      <div
-        className={cn(
-          "flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 text-sm text-foreground shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-          compact ? "min-w-56" : "w-full"
-        )}
-      >
-        {value.map((token) => (
-          <span
-            key={token}
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-foreground"
-          >
-            {token}
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => removeToken(token)}
-              aria-label={`Remove ${token}`}
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === "Tab") {
-              if (!draft.trim()) return;
-              event.preventDefault();
-              addTokens(draft);
-            }
-            if (event.key === "Backspace" && !draft && value.length > 0) {
-              removeToken(value[value.length - 1]);
-            }
-          }}
-          onBlur={() => {
-            if (draft.trim()) addTokens(draft);
-          }}
-          onPaste={(event) => {
-            const text = event.clipboardData.getData("text");
-            if (!/[,\n]/.test(text)) return;
-            event.preventDefault();
-            addTokens(text);
-          }}
-          className="min-w-36 flex-1 bg-transparent px-1 py-1 outline-none placeholder:text-muted-foreground"
-          placeholder={value.length === 0 ? placeholder : undefined}
-        />
-      </div>
-      {availableSuggestions.length > 0 && !compact ? (
-        <div className="flex flex-wrap gap-1">
-          {availableSuggestions.slice(0, 8).map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => addTokens(suggestion)}
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function AddCustomFieldSelect({
-  label,
-  fields,
-  onAdd,
-}: {
-  label: string;
-  fields: CustomFieldOption[];
-  onAdd: (fieldId: string) => void;
-}) {
-  const [value, setValue] = useState("");
-  return (
-    <div className="grid gap-1 text-sm">
-      <span>{label}</span>
-      <div className="flex gap-2">
-        <select
-          value={value}
-          className={selectClass}
-          onChange={(event) => setValue(event.target.value)}
-        >
-          <option value="">Select field</option>
-          {fields.map((field) => (
-            <option key={field.id} value={field.id}>
-              {field.name} ({field.field_type.replace("_", " ")})
-            </option>
-          ))}
-        </select>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!value}
-          onClick={() => {
-            if (!value) return;
-            onAdd(value);
-            setValue("");
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function QuickCreateCustomField({
-  entityType,
-  existingFields,
-  onCreated,
-}: {
-  entityType: "product" | "variant";
-  existingFields: CustomFieldOption[];
-  onCreated: (field: CustomFieldOption) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [fieldType, setFieldType] = useState<CustomFieldOption["field_type"]>("text");
-  const [options, setOptions] = useState<string[]>([]);
-  const [isRequired, setIsRequired] = useState(false);
-  const [isFilterable, setIsFilterable] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const needsOptions = fieldType === "select" || fieldType === "multi_select";
-
-  const reset = () => {
-    setName("");
-    setFieldType("text");
-    setOptions([]);
-    setIsRequired(false);
-    setIsFilterable(true);
-    setError(null);
-    setIsOpen(false);
-  };
-
-  const create = () => {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError("Field name is required.");
-      return;
-    }
-    if (needsOptions && options.length === 0) {
-      setError("Select fields need at least one option.");
-      return;
-    }
-
-    const baseFieldKey = fieldKeyFromName(trimmedName);
-    const existingKeys = new Set(existingFields.map((field) => field.field_key.toLowerCase()));
-    let fieldKey = baseFieldKey;
-    let suffix = 2;
-    while (existingKeys.has(fieldKey.toLowerCase())) {
-      fieldKey = `${baseFieldKey}_${suffix}`;
-      suffix += 1;
-    }
-    const displayOrder = existingFields.length + 1;
-
-    startTransition(async () => {
-      setError(null);
-      const result = await createInventoryCustomFieldAction({
-        entity_type: entityType,
-        name: trimmedName,
-        field_key: fieldKey,
-        field_type: fieldType,
-        is_required: isRequired,
-        is_filterable: isFilterable,
-        options: needsOptions ? options : [],
-        display_order: displayOrder,
-      });
-      if (!result.success || !("data" in result)) {
-        setError("error" in result ? result.error : "Could not create custom field.");
-        return;
-      }
-
-      onCreated({
-        id: result.data.id,
-        entity_type: entityType,
-        name: trimmedName,
-        field_key: fieldKey,
-        field_type: fieldType,
-        is_required: isRequired,
-        is_filterable: isFilterable,
-        options: needsOptions ? options : [],
-        display_order: displayOrder,
-        section_name: "Custom fields",
-        help_text: null,
-        placeholder: null,
-      });
-      reset();
-    });
-  };
-
-  return (
-    <div className="rounded-md border border-dashed border-border p-3 text-sm">
-      {!isOpen ? (
-        <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          New {entityType === "product" ? "product field" : "variant column"}
-        </Button>
-      ) : (
-        <div className="grid gap-3">
-          <div className="grid gap-2 sm:grid-cols-[1fr_150px]">
-            <Input
-              value={name}
-              className="h-9"
-              placeholder="Field name"
-              onChange={(event) => setName(event.target.value)}
-            />
-            <select
-              value={fieldType}
-              className={selectClass}
-              onChange={(event) => {
-                const nextType = event.target.value as CustomFieldOption["field_type"];
-                setFieldType(nextType);
-                if (nextType !== "select" && nextType !== "multi_select") setOptions([]);
-              }}
-            >
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="date">Date</option>
-              <option value="boolean">Checkbox</option>
-              <option value="select">Single select</option>
-              <option value="multi_select">Multi select</option>
-            </select>
-          </div>
-          {needsOptions ? (
-            <TokenInput
-              value={options}
-              onChange={setOptions}
-              placeholder="Type option and press Enter"
-            />
-          ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isRequired}
-                  onChange={(event) => setIsRequired(event.target.checked)}
-                />
-                Required
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isFilterable}
-                  onChange={(event) => setIsFilterable(event.target.checked)}
-                />
-                Filterable
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={reset}>
-                Cancel
-              </Button>
-              <Button type="button" size="sm" onClick={create} disabled={isPending}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create
-              </Button>
-            </div>
-          </div>
-          {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Separator() {
-  return <div className="border-t border-border" />;
 }

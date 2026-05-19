@@ -1,33 +1,17 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { DataViewListParams, PaginatedResult } from "@/components/data-view/data-view.types";
+import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
+import type {
+  InventoryBalanceDetail,
+  InventoryBalanceListRow,
+} from "@/lib/warehouse/inventory-types";
+export type {
+  InventoryBalanceDetail,
+  InventoryBalanceListRow,
+} from "@/lib/warehouse/inventory-types";
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
-
-export type InventoryBalanceListRow = {
-  id: string;
-  variant_id: string;
-  sku: string;
-  product_name: string;
-  location_name: string;
-  location_code: string | null;
-  on_hand_quantity: number;
-  available_quantity: number;
-  unit_code: string;
-  average_unit_cost: number;
-  total_value: number;
-  currency: string;
-  last_movement_id: string | null;
-  last_movement_number: string | null;
-  last_movement_at: string | null;
-  updated_at: string;
-};
-
-export type InventoryBalanceDetail = InventoryBalanceListRow & {
-  reserved_quantity: number;
-  allocated_quantity: number;
-};
 
 type BalanceRow = {
   id: string;
