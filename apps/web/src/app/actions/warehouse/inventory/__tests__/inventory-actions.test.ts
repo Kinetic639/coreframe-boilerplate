@@ -31,6 +31,9 @@ vi.mock("@/server/services/inventory-products.service", () => ({
     listProducts: vi.fn(),
     getProductDetail: vi.fn(),
     listUnits: vi.fn(),
+    verifyImageTarget: vi.fn(),
+    addImageRecord: vi.fn(),
+    assignExistingImageToVariant: vi.fn(),
   },
 }));
 
@@ -52,6 +55,7 @@ vi.mock("@/server/services/inventory-movements.service", () => ({
 }));
 
 import {
+  assignInventoryVariantGalleryImageAction,
   adjustStockAction,
   createEnhancedInventoryProductAction,
   createInventoryProductAction,
@@ -59,7 +63,9 @@ import {
   receiveStockAction,
   reverseMovementAction,
   transferStockAction,
+  uploadInventoryItemImageAction,
 } from "../index";
+import { createClient } from "@/utils/supabase/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { eventService } from "@/server/services/event.service";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
@@ -82,6 +88,7 @@ const SOURCE_LOCATION_ID = "66666666-6666-4666-8666-666666666666";
 const DESTINATION_LOCATION_ID = "77777777-7777-4777-8777-777777777777";
 const MOVEMENT_ID = "88888888-8888-4888-8888-888888888888";
 const PRODUCT_ID = "99999999-9999-4999-8999-999999999999";
+const IMAGE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const BASE_PERMS = [MODULE_WAREHOUSE_ACCESS, WAREHOUSE_READ];
 
@@ -269,6 +276,110 @@ describe("inventory operation actions", () => {
 
     expect(result.success).toBe(false);
     expect(InventoryMovementsService.createDraftMovement).not.toHaveBeenCalled();
+  });
+});
+
+describe("inventory product image actions", () => {
+  function pngFile(name = "part.png", type = "image/png") {
+    return new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])],
+      name,
+      { type }
+    );
+  }
+
+  function formDataFor(file: File) {
+    const formData = new FormData();
+    formData.set("product_id", PRODUCT_ID);
+    formData.set("file", file);
+    return formData;
+  }
+
+  it("uploadInventoryItemImageAction rejects files whose MIME does not match image bytes", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    const upload = vi.fn();
+    vi.mocked(createClient).mockResolvedValue({
+      storage: { from: vi.fn(() => ({ upload })) },
+    } as never);
+
+    const result = await uploadInventoryItemImageAction(
+      formDataFor(pngFile("fake.jpg", "image/jpeg"))
+    );
+
+    expect(result.success).toBe(false);
+    expect("error" in result ? result.error : "").toContain("does not match");
+    expect(upload).not.toHaveBeenCalled();
+    expect(InventoryProductsService.verifyImageTarget).not.toHaveBeenCalled();
+  });
+
+  it("uploadInventoryItemImageAction removes uploaded storage object when DB record fails", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    vi.mocked(InventoryProductsService.verifyImageTarget).mockResolvedValue({
+      success: true,
+      data: { product_id: PRODUCT_ID, variant_id: null },
+    });
+    vi.mocked(InventoryProductsService.addImageRecord).mockResolvedValue({
+      success: false,
+      error: "db failed",
+    });
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    const getPublicUrl = vi.fn(() => ({ data: { publicUrl: "https://cdn.example/image.png" } }));
+    vi.mocked(createClient).mockResolvedValue({
+      storage: { from: vi.fn(() => ({ upload, remove, getPublicUrl })) },
+    } as never);
+
+    const result = await uploadInventoryItemImageAction(formDataFor(pngFile()));
+
+    expect(result).toEqual({ success: false, error: "db failed" });
+    expect(upload).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledWith([
+      expect.stringContaining(`${ORG_ID}/${PRODUCT_ID}/product/`),
+    ]);
+  });
+
+  it("assignInventoryVariantGalleryImageAction assigns an existing org-owned image by id", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    vi.mocked(createClient).mockResolvedValue({ client: "supabase" } as never);
+    vi.mocked(InventoryProductsService.assignExistingImageToVariant).mockResolvedValue({
+      success: true,
+      data: {
+        id: IMAGE_ID,
+        storage_path: "org/product/image.png",
+        public_url: "https://cdn.example/image.png",
+        file_name: "image.png",
+        content_type: "image/png",
+        file_size: 9,
+      },
+    });
+
+    const result = await assignInventoryVariantGalleryImageAction({
+      product_id: PRODUCT_ID,
+      variant_id: VARIANT_ID,
+      image_id: IMAGE_ID,
+      is_primary: true,
+      sort_order: 2,
+    });
+
+    expect(result.success).toBe(true);
+    expect(InventoryProductsService.assignExistingImageToVariant).toHaveBeenCalledWith(
+      expect.anything(),
+      ORG_ID,
+      expect.objectContaining({
+        product_id: PRODUCT_ID,
+        variant_id: VARIANT_ID,
+        image_id: IMAGE_ID,
+        is_primary: true,
+        sort_order: 2,
+        actor_user_id: USER_ID,
+      })
+    );
   });
 });
 

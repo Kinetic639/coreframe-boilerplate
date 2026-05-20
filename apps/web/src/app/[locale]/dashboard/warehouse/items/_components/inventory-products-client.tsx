@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Download, PackagePlus, Upload } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { DataView } from "@/components/data-view/data-view";
@@ -43,7 +44,7 @@ const INVENTORY_PRODUCTS_QUERY_KEY = ["inventory-products"];
 async function listFetcher(params: DataViewListParams) {
   const result = await listInventoryProductsAction(params);
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
@@ -52,7 +53,7 @@ async function detailFetcher(id: string) {
     id: id.includes("::") ? id.split("::")[0] : id,
   });
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
@@ -62,6 +63,8 @@ export function InventoryProductsClient({
   canManageProducts,
   canImportProducts,
 }: InventoryProductsClientProps) {
+  const t = useTranslations("warehouseInventory.common");
+  const tList = useTranslations("warehouseInventory.list");
   const [expandedProductIds, setExpandedProductIds] = useState<Record<string, true>>({});
   const [listMessage, setListMessage] = useState<string | null>(null);
 
@@ -77,7 +80,7 @@ export function InventoryProductsClient({
   const exportProducts = useCallback(async () => {
     const result = await exportInventoryProductsCsvAction();
     if (!result.success || !("data" in result)) {
-      setListMessage("error" in result ? result.error : "Export failed");
+      setListMessage("error" in result ? result.error : tList("exportFailed"));
       return;
     }
     const blob = new Blob([result.data.csv], { type: "text/csv;charset=utf-8" });
@@ -93,7 +96,7 @@ export function InventoryProductsClient({
     () => [
       {
         key: "name",
-        header: "Product",
+        header: tList("productColumn"),
         accessor: (row) => (
           <div className="min-w-0 py-2">
             <div className="flex min-w-0 items-center gap-3">
@@ -117,7 +120,7 @@ export function InventoryProductsClient({
                   {row.is_variant_row && row.parent_product_name
                     ? `${row.parent_product_name} · ${row.sku}`
                     : row.variant_count > 1
-                      ? `${row.variant_count} variants`
+                      ? t("variantsCount", { count: row.variant_count })
                       : row.sku}
                 </div>
               </div>
@@ -129,14 +132,14 @@ export function InventoryProductsClient({
       },
       {
         key: "product_type",
-        header: "Type",
+        header: t("type"),
         accessor: (row) => <span className="capitalize">{row.product_type.replace("_", " ")}</span>,
         sortable: true,
         defaultVisible: true,
       },
       {
         key: "status",
-        header: "Status",
+        header: t("status"),
         accessor: (row) => (
           <Badge variant={statusVariant[row.status] ?? "outline"}>{row.status}</Badge>
         ),
@@ -145,7 +148,7 @@ export function InventoryProductsClient({
       },
       {
         key: "on_hand_quantity",
-        header: "On hand",
+        header: tList("onHand"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.on_hand_quantity} {row.unit_code}
@@ -156,7 +159,7 @@ export function InventoryProductsClient({
       },
       {
         key: "available_quantity",
-        header: "Available",
+        header: tList("available"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.available_quantity} {row.unit_code}
@@ -167,7 +170,7 @@ export function InventoryProductsClient({
       },
       {
         key: "updated_at",
-        header: "Updated",
+        header: tList("updated"),
         accessor: (row) => (
           <span className="text-xs text-muted-foreground">
             {new Date(row.updated_at).toLocaleString()}
@@ -187,7 +190,7 @@ export function InventoryProductsClient({
         defaultVisible: false,
       })),
     ],
-    [customFields]
+    [customFields, t, tList]
   );
 
   const filters = useMemo<DataViewFilterDef[]>(
@@ -195,7 +198,7 @@ export function InventoryProductsClient({
       {
         type: "select",
         key: "product_type",
-        label: "Type",
+        label: t("type"),
         options: ["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"].map(
           (value) => ({ label: value.replace("_", " "), value })
         ),
@@ -203,13 +206,13 @@ export function InventoryProductsClient({
       {
         type: "select",
         key: "status",
-        label: "Status",
+        label: t("status"),
         options: ["active", "archived", "discontinued"].map((value) => ({ label: value, value })),
       },
       {
         type: "boolean",
         key: "is_variant",
-        label: "Is variant",
+        label: tList("isVariant"),
         isVisible: (filters) => filters.__group_variants === false,
       },
       ...customFields.map<DataViewFilterDef>((field) => ({
@@ -218,7 +221,7 @@ export function InventoryProductsClient({
         label: field.name,
       })),
     ],
-    [customFields]
+    [customFields, t, tList]
   );
 
   const renderCompactItem = useCallback(
@@ -242,7 +245,7 @@ export function InventoryProductsClient({
         <button
           type="button"
           className="grid h-8 w-8 place-items-center rounded hover:bg-muted"
-          aria-label={isExpanded ? "Hide variants" : "Show variants"}
+          aria-label={isExpanded ? tList("hideVariants") : tList("showVariants")}
           aria-expanded={isExpanded}
           onClick={() => toggleExpanded(row.id)}
         >
@@ -254,7 +257,7 @@ export function InventoryProductsClient({
         </button>
       );
     },
-    [expandedProductIds, toggleExpanded]
+    [expandedProductIds, tList, toggleExpanded]
   );
 
   const renderToolbarControls = useCallback(() => <VariantGroupingControl />, []);
@@ -279,25 +282,27 @@ export function InventoryProductsClient({
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" onClick={exportProducts}>
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            {t("exportCsv")}
           </Button>
           {canImportProducts ? (
             <Button asChild variant="outline">
               <Link href="/dashboard/warehouse/items/import">
                 <Upload className="mr-2 h-4 w-4" />
-                Import file
+                {t("importExcel")}
               </Link>
             </Button>
           ) : null}
           {canManageProducts ? (
             <>
               <Button asChild variant="outline">
-                <Link href={"/dashboard/warehouse/items/custom-fields" as any}>Custom fields</Link>
+                <Link href={"/dashboard/warehouse/items/custom-fields" as any}>
+                  {t("customFields")}
+                </Link>
               </Button>
               <Button asChild>
                 <Link href="/dashboard/warehouse/items/new">
                   <PackagePlus className="mr-2 h-4 w-4" />
-                  Create
+                  {t("create")}
                 </Link>
               </Button>
             </>

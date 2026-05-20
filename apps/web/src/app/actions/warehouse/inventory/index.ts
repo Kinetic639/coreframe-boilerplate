@@ -95,6 +95,7 @@ import {
   updateCustomFieldSchema,
   updateInventorySkuTemplateSchema,
 } from "./schemas";
+import { validateInventoryImageFile } from "./image-upload-policy";
 
 export async function listInventoryProductsAction(rawInput: unknown) {
   try {
@@ -350,26 +351,44 @@ export async function uploadInventoryItemImageAction(formData: FormData) {
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const safeName = `${crypto.randomUUID()}.${ext}`;
+    const validation = await validateInventoryImageFile(file);
+    if (!validation.success) return validation;
+
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      auth.context.app.activeOrgId,
+      productId,
+      variantId
+    );
+    if (!target.success) return target;
+
+    const safeName = `${crypto.randomUUID()}.${validation.data.extension}`;
     const path = `${auth.context.app.activeOrgId}/${productId}/${variantId ?? "product"}/${safeName}`;
     const { error: uploadError } = await supabase.storage
       .from("inventory-item-images")
-      .upload(path, file, { upsert: false, contentType: file.type });
+      .upload(path, file, { upsert: false, contentType: validation.data.mime_type });
     if (uploadError) return { success: false, error: uploadError.message };
 
     const { data: urlData } = supabase.storage.from("inventory-item-images").getPublicUrl(path);
-    return InventoryProductsService.addImageRecord(supabase, auth.context.app.activeOrgId, {
-      product_id: productId,
-      variant_id: variantId,
-      storage_path: path,
-      public_url: urlData.publicUrl,
-      file_name: file.name,
-      content_type: file.type,
-      file_size: file.size,
-      is_primary: isPrimary,
-      actor_user_id: userId,
-    });
+    const record = await InventoryProductsService.addImageRecord(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        product_id: productId,
+        variant_id: variantId,
+        storage_path: path,
+        public_url: urlData.publicUrl,
+        file_name: validation.data.file_name,
+        content_type: validation.data.mime_type,
+        file_size: validation.data.file_size,
+        is_primary: isPrimary,
+        actor_user_id: userId,
+      }
+    );
+    if (!record.success) {
+      await supabase.storage.from("inventory-item-images").remove([path]);
+    }
+    return record;
   } catch (error) {
     return mapUnexpected(error);
   }
@@ -390,18 +409,18 @@ export async function assignInventoryVariantGalleryImageAction(rawInput: unknown
     if (!userId) return { success: false, error: "User identity unavailable" };
 
     const supabase = await createClient();
-    return InventoryProductsService.addImageRecord(supabase, auth.context.app.activeOrgId, {
-      product_id: parsed.data.product_id,
-      variant_id: parsed.data.variant_id,
-      storage_path: parsed.data.storage_path ?? null,
-      public_url: parsed.data.public_url ?? null,
-      file_name: parsed.data.file_name ?? null,
-      content_type: parsed.data.content_type ?? null,
-      file_size: parsed.data.file_size ?? null,
-      sort_order: parsed.data.sort_order ?? 0,
-      is_primary: parsed.data.is_primary ?? false,
-      actor_user_id: userId,
-    });
+    return InventoryProductsService.assignExistingImageToVariant(
+      supabase,
+      auth.context.app.activeOrgId,
+      {
+        product_id: parsed.data.product_id,
+        variant_id: parsed.data.variant_id,
+        image_id: parsed.data.image_id,
+        sort_order: parsed.data.sort_order ?? 0,
+        is_primary: parsed.data.is_primary ?? false,
+        actor_user_id: userId,
+      }
+    );
   } catch (error) {
     return mapUnexpected(error);
   }

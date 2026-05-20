@@ -1,5 +1,5 @@
 import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_INVENTORY_OPERATE,
@@ -16,6 +16,7 @@ import { BranchTransfersClient } from "./_components/branch-transfers-client";
 
 export default async function WarehouseBranchTransfersPage() {
   const locale = await getLocale();
+  const t = await getTranslations("warehouseInventory.transfers");
   const context = await loadDashboardContextV2();
 
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -48,10 +49,8 @@ export default async function WarehouseBranchTransfersPage() {
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-bold">Branch transfers</h1>
-        <p className="text-sm text-muted-foreground">
-          Send stock to another branch, then accept or decline it.
-        </p>
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {branchId ? (
@@ -79,7 +78,7 @@ export default async function WarehouseBranchTransfersPage() {
           />
         ) : (
           <div className="rounded-md border p-6 text-sm text-muted-foreground">
-            Select a branch to manage transfers.
+            {t("selectBranch")}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ChevronDown,
@@ -149,6 +150,8 @@ export function InventoryProductCreateClient({
   skuTemplates,
   taxRates,
 }: InventoryProductCreateClientProps) {
+  const t = useTranslations("warehouseInventory.create");
+  const tc = useTranslations("warehouseInventory.common");
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
@@ -220,12 +223,12 @@ export function InventoryProductCreateClient({
     () =>
       Object.entries(
         productCustomFields.reduce<Record<string, CustomFieldOption[]>>((groups, field) => {
-          const key = field.section_name?.trim() || "Custom fields";
+          const key = field.section_name?.trim() || t("customFields");
           groups[key] = [...(groups[key] ?? []), field];
           return groups;
         }, {})
       ),
-    [productCustomFields]
+    [productCustomFields, t]
   );
   const selectedSkuTemplate = useMemo(
     () => skuTemplateOptions.find((template) => template.id === selectedSkuTemplateId) ?? null,
@@ -278,7 +281,7 @@ export function InventoryProductCreateClient({
   }, [activeAttributes]);
 
   const skuSourceOptions = useMemo(() => {
-    const options: SkuSourceOption[] = [{ value: "product_name", label: "Item Group Name" }];
+    const options: SkuSourceOption[] = [{ value: "product_name", label: t("itemGroupName") }];
     if (skuTarget === "variants") {
       options.push(
         ...activeAttributes.map((attribute) => ({
@@ -287,9 +290,9 @@ export function InventoryProductCreateClient({
         }))
       );
     }
-    options.push({ value: "custom", label: "Custom Text" });
+    options.push({ value: "custom", label: t("customText") });
     return options;
-  }, [activeAttributes, skuTarget]);
+  }, [activeAttributes, skuTarget, t]);
 
   const openSkuGenerator = useCallback(
     (target: "simple" | "variants" = "variants") => {
@@ -469,20 +472,20 @@ export function InventoryProductCreateClient({
     if (skus.length === 0) return;
     const result = await checkInventorySkuCollisionsAction({ skus });
     if (!result.success || !("data" in result)) {
-      setSkuCollisionMessage("error" in result ? result.error : "Could not check SKU collisions.");
+      setSkuCollisionMessage("error" in result ? result.error : t("skuCollisionFailed"));
       return;
     }
     setSkuCollisionMessage(
       result.data.length
         ? `Existing SKUs: ${result.data.map((collision) => collision.sku).join(", ")}`
-        : "No existing SKU collisions."
+        : t("noSkuCollisions")
     );
   }, [buildSkuForRow, buildSkuFromOptions, skuTarget, variants]);
 
   const saveSkuTemplate = async () => {
     const name = skuTemplateName.trim();
     if (!name) {
-      setSkuCollisionMessage("Template name is required.");
+      setSkuCollisionMessage(t("templateNameRequired"));
       return;
     }
     const result = await createInventorySkuTemplateAction({
@@ -491,7 +494,7 @@ export function InventoryProductCreateClient({
       is_default: skuTemplateOptions.length === 0,
     });
     if (!result.success || !("data" in result)) {
-      setSkuCollisionMessage("error" in result ? result.error : "Template could not be saved.");
+      setSkuCollisionMessage("error" in result ? result.error : t("templateSaveFailed"));
       return;
     }
     setSkuTemplateOptions((templates) => [
@@ -500,12 +503,12 @@ export function InventoryProductCreateClient({
     ]);
     setSelectedSkuTemplateId(result.data.id);
     setSkuTemplateName("");
-    setSkuCollisionMessage("SKU template saved.");
+    setSkuCollisionMessage(t("templateSaved"));
   };
 
   const updateSkuTemplate = async (makeDefault = false) => {
     if (!selectedSkuTemplate) {
-      setSkuCollisionMessage("Select a template to update.");
+      setSkuCollisionMessage(t("templateSelectUpdate"));
       return;
     }
     const name = skuTemplateName.trim() || selectedSkuTemplate.name;
@@ -517,7 +520,7 @@ export function InventoryProductCreateClient({
       is_default: makeDefault || selectedSkuTemplate.is_default,
     });
     if (!result.success || !("data" in result)) {
-      setSkuCollisionMessage("error" in result ? result.error : "Template could not be updated.");
+      setSkuCollisionMessage("error" in result ? result.error : t("templateUpdateFailed"));
       return;
     }
     setSkuTemplateOptions((templates) =>
@@ -535,19 +538,17 @@ export function InventoryProductCreateClient({
       )
     );
     setSkuTemplateName("");
-    setSkuCollisionMessage(
-      makeDefault ? "SKU template updated and set as default." : "SKU template updated."
-    );
+    setSkuCollisionMessage(makeDefault ? t("templateUpdatedDefault") : t("templateUpdated"));
   };
 
   const archiveSkuTemplate = async () => {
     if (!selectedSkuTemplate) {
-      setSkuCollisionMessage("Select a template to archive.");
+      setSkuCollisionMessage(t("templateSelectArchive"));
       return;
     }
     const result = await archiveInventorySkuTemplateAction({ id: selectedSkuTemplate.id });
     if (!result.success) {
-      setSkuCollisionMessage("error" in result ? result.error : "Template could not be archived.");
+      setSkuCollisionMessage("error" in result ? result.error : t("templateArchiveFailed"));
       return;
     }
     setSkuTemplateOptions((templates) =>
@@ -555,7 +556,7 @@ export function InventoryProductCreateClient({
     );
     setSelectedSkuTemplateId("");
     setSkuTemplateName("");
-    setSkuCollisionMessage("SKU template archived.");
+    setSkuCollisionMessage(t("templateArchived"));
   };
 
   const addProductImages = (files: FileList | File[] | null) => {
@@ -570,7 +571,7 @@ export function InventoryProductCreateClient({
     if (
       fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
     ) {
-      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+      setMessage(t("imageSkipped"));
     }
     const accepted = selected.slice(0, Math.max(15 - productImages.length, 0));
     if (accepted.length > 0) {
@@ -617,7 +618,7 @@ export function InventoryProductCreateClient({
       formData.set("file", image.file);
       const result = await uploadInventoryItemImageAction(formData);
       if (!result.success)
-        throw new Error("error" in result ? result.error : "Image upload failed");
+        throw new Error("error" in result ? result.error : t("imageUploadFailed"));
       if ("data" in result) {
         uploadedByPreview.set(image.preview, result.data as UploadedImageRecord);
       }
@@ -632,16 +633,12 @@ export function InventoryProductCreateClient({
         const result = await assignInventoryVariantGalleryImageAction({
           product_id: productId,
           variant_id: variantId,
-          storage_path: image.storage_path,
-          public_url: image.public_url,
-          file_name: image.file_name,
-          content_type: image.content_type,
-          file_size: image.file_size,
+          image_id: image.id,
           sort_order: imageIndex,
           is_primary: imageIndex === 0,
         });
         if (!result.success)
-          throw new Error("error" in result ? result.error : "Variant image assignment failed");
+          throw new Error("error" in result ? result.error : t("variantImageAssignFailed"));
       }
     }
   };
@@ -656,7 +653,7 @@ export function InventoryProductCreateClient({
       const baseSku = mode === "variants" ? "" : productSku.trim();
       const simpleVariant: VariantDraftRow = {
         id: crypto.randomUUID(),
-        name: itemName || "Default",
+        name: itemName || tc("default"),
         sku: baseSku || makeSku([itemName, "1"]),
         options: {},
         barcode: String(formData.get("barcode") ?? ""),
@@ -674,26 +671,26 @@ export function InventoryProductCreateClient({
       };
 
       const rows = mode === "variants" ? variants : [simpleVariant];
-      if (!itemName) issues.push("Name is required.");
-      if (!baseUnitId) issues.push("Unit is required.");
+      if (!itemName) issues.push(t("nameRequired"));
+      if (!baseUnitId) issues.push(t("unitRequired"));
       if (mode === "variants" && duplicateAttributeNames.length > 0) {
         issues.push(`Variant attributes must be unique: ${duplicateAttributeNames.join(", ")}.`);
       }
       if (mode === "variants" && rows.length === 0) {
-        issues.push("Add at least one complete variant attribute option.");
+        issues.push(t("variantAttributeRequired"));
       }
       const duplicateSku = rows
         .map((row) => row.sku.trim().toLowerCase())
         .filter(Boolean)
         .find((sku, index, all) => all.indexOf(sku) !== index);
       if (duplicateSku) {
-        issues.push("Variant SKUs must be unique before saving.");
+        issues.push(t("variantSkuUnique"));
       }
       if (rows.some((row) => !row.name.trim())) {
-        issues.push("Every generated variant needs an item name.");
+        issues.push(t("variantNameRequired"));
       }
       if (rows.some((row) => !row.sku.trim())) {
-        issues.push("Every generated variant needs a SKU.");
+        issues.push(t("variantSkuRequired"));
       }
       const collisionResult = rows.some((row) => row.sku.trim())
         ? await checkInventorySkuCollisionsAction({
@@ -702,9 +699,7 @@ export function InventoryProductCreateClient({
         : null;
       if (collisionResult && (!collisionResult.success || !("data" in collisionResult))) {
         issues.push(
-          "error" in collisionResult
-            ? collisionResult.error
-            : "Could not check SKU collisions before saving."
+          "error" in collisionResult ? collisionResult.error : t("skuCollisionBeforeSaveFailed")
         );
       } else if (collisionResult && "data" in collisionResult && collisionResult.data.length) {
         issues.push(
@@ -712,7 +707,7 @@ export function InventoryProductCreateClient({
         );
       }
       if (includeOpeningStock && !String(formData.get("opening_location_id") ?? "")) {
-        issues.push("Opening stock requires a destination location.");
+        issues.push(t("openingStockLocation"));
       }
       for (const conversion of unitConversions) {
         const hasAnyValue =
@@ -726,7 +721,7 @@ export function InventoryProductCreateClient({
             !Number.isFinite(factor) ||
             factor <= 0)
         ) {
-          issues.push("Unit conversions require different units and a positive factor.");
+          issues.push(t("unitConversionInvalid"));
           break;
         }
       }
@@ -848,19 +843,19 @@ export function InventoryProductCreateClient({
       });
 
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Unexpected error");
+        setMessage("error" in result ? result.error : tc("unexpectedError"));
         return;
       }
 
       if (!("data" in result)) {
-        setMessage("Unexpected product creation response");
+        setMessage(t("createFailed"));
         return;
       }
 
       try {
         await uploadImages(result.data.product_id, result.data.variant_ids);
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Images could not be saved");
+        setMessage(error instanceof Error ? error.message : t("imageSaveFailed"));
         return;
       }
       router.push("/dashboard/warehouse/items");
@@ -876,7 +871,7 @@ export function InventoryProductCreateClient({
         unit_kind: String(formData.get("unit_kind") ?? "count"),
       });
       setMessage(
-        result.success ? "Unit created" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("unitCreated") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success && "data" in result) {
         setUnitOptions((current) =>
@@ -898,7 +893,11 @@ export function InventoryProductCreateClient({
     startTransition(async () => {
       const result = await createInventoryBrandAction({ name });
       setMessage(
-        result.success ? "Brand created" : "error" in result ? result.error : "Unexpected error"
+        result.success
+          ? t("brandCreated")
+          : "error" in result
+            ? result.error
+            : tc("unexpectedError")
       );
       if (result.success && "data" in result) {
         setBrandOptions((current) =>
@@ -920,10 +919,10 @@ export function InventoryProductCreateClient({
       const result = await createInventoryManufacturerAction({ name });
       setMessage(
         result.success
-          ? "Manufacturer created"
+          ? t("manufacturerCreated")
           : "error" in result
             ? result.error
-            : "Unexpected error"
+            : tc("unexpectedError")
       );
       if (result.success && "data" in result) {
         setManufacturerOptions((current) =>
@@ -945,7 +944,7 @@ export function InventoryProductCreateClient({
     >
       <div className="sticky top-0 z-10 border-b border-border bg-background/95 px-6 py-5 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-normal">New Item</h1>
+          <h1 className="text-2xl font-semibold tracking-normal">{t("title")}</h1>
           <Button asChild variant="ghost" size="icon">
             <Link href="/dashboard/warehouse/items">
               <X className="h-5 w-5" />
@@ -963,7 +962,7 @@ export function InventoryProductCreateClient({
           ) : null}
           {validationIssues.length > 0 ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <p className="font-medium">Fix these fields before saving:</p>
+              <p className="font-medium">{t("fixFields")}</p>
               <ul className="mt-1 list-disc pl-5">
                 {validationIssues.map((issue) => (
                   <li key={issue}>{issue}</li>
@@ -975,21 +974,21 @@ export function InventoryProductCreateClient({
           <section className="grid gap-x-16 gap-y-5 lg:grid-cols-[1fr_360px]">
             <div className="grid gap-4">
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className={labelClass}>Type</label>
+                <label className={labelClass}>{tc("type")}</label>
                 <div className="flex gap-6 text-sm">
                   <label className="flex items-center gap-2">
                     <input type="radio" name="product_type" value="stocked" defaultChecked />
-                    Goods
+                    {t("goods")}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="radio" name="product_type" value="service" />
-                    Service
+                    {t("service")}
                   </label>
                 </div>
               </div>
 
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className={requiredLabelClass}>Name*</label>
+                <label className={requiredLabelClass}>{t("nameLabel")}</label>
                 <Input
                   name="name"
                   value={productName}
@@ -999,16 +998,14 @@ export function InventoryProductCreateClient({
                 />
               </div>
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className={labelClass}>SKU</label>
+                <label className={labelClass}>{tc("sku")}</label>
                 <div className="grid gap-1">
                   <div className="flex gap-2">
                     <Input
                       name="sku"
                       value={productSku}
                       disabled={mode === "variants"}
-                      placeholder={
-                        mode === "variants" ? "Variant SKUs are entered below" : undefined
-                      }
+                      placeholder={mode === "variants" ? t("variantSkuHint") : undefined}
                       onChange={(event) => setProductSku(event.target.value)}
                       className="h-9"
                     />
@@ -1022,25 +1019,23 @@ export function InventoryProductCreateClient({
                             className="h-9 w-9 shrink-0"
                             disabled={mode === "variants"}
                             onClick={() => openSkuGenerator("simple")}
-                            aria-label="Generate SKU"
+                            aria-label={t("generateSku")}
                           >
                             <Wand2 className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Generate SKU</TooltipContent>
+                        <TooltipContent>{t("generateSku")}</TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
                   {mode === "variants" ? (
-                    <p className="text-xs text-muted-foreground">
-                      Variant items use the SKU from each generated variant row.
-                    </p>
+                    <p className="text-xs text-muted-foreground">{t("variantRowsUseSku")}</p>
                   ) : null}
                 </div>
               </div>
 
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className={requiredLabelClass}>Unit*</label>
+                <label className={requiredLabelClass}>{t("unitLabel")}</label>
                 <div className="flex gap-2">
                   <select
                     name="base_unit_id"
@@ -1049,7 +1044,7 @@ export function InventoryProductCreateClient({
                     className={cn(selectClass, "min-w-0 flex-1")}
                     required
                   >
-                    <option value="">Select unit</option>
+                    <option value="">{t("selectUnit")}</option>
                     {unitOptions.map((unit) => (
                       <option key={unit.id} value={unit.id}>
                         {unit.code} - {unit.name}
@@ -1064,14 +1059,14 @@ export function InventoryProductCreateClient({
                           variant="outline"
                           size="icon"
                           className="h-9 w-9"
-                          aria-label="Add unit"
+                          aria-label={t("addUnit")}
                           aria-expanded={showQuickAddUnit}
                           onClick={() => setShowQuickAddUnit((open) => !open)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Add unit</TooltipContent>
+                      <TooltipContent>{t("addUnit")}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -1082,7 +1077,7 @@ export function InventoryProductCreateClient({
                   <span />
                   <div className="grid gap-2 rounded-md border border-border bg-muted/20 p-3 md:grid-cols-[1fr_1fr_150px_auto]">
                     <Input
-                      placeholder="Unit code"
+                      placeholder={t("unitCode")}
                       value={unitDraft.code}
                       onChange={(event) =>
                         setUnitDraft((draft) => ({ ...draft, code: event.target.value }))
@@ -1090,7 +1085,7 @@ export function InventoryProductCreateClient({
                       className="h-9"
                     />
                     <Input
-                      placeholder="Unit name"
+                      placeholder={t("unitName")}
                       value={unitDraft.name}
                       onChange={(event) =>
                         setUnitDraft((draft) => ({ ...draft, name: event.target.value }))
@@ -1124,7 +1119,7 @@ export function InventoryProductCreateClient({
                         createUnit(formData);
                       }}
                     >
-                      Add
+                      {tc("add")}
                     </Button>
                   </div>
                 </div>
@@ -1134,21 +1129,21 @@ export function InventoryProductCreateClient({
                 <span />
                 <label className="flex items-center gap-2 text-sm">
                   <input type="checkbox" name="returnable" defaultChecked />
-                  Returnable Item
+                  {t("returnableItem")}
                 </label>
               </div>
 
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">Description</label>
+                <label className="pt-2 text-sm">{tc("description")}</label>
                 <textarea name="description" className={cn(textareaClass, "min-h-20")} />
               </div>
 
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className={labelClass}>Tags</label>
+                <label className={labelClass}>{tc("tags")}</label>
                 <TokenInput
                   value={tagTokens}
                   onChange={setTagTokens}
-                  placeholder="Type tag and press Enter"
+                  placeholder={t("typeTagEnter")}
                   suggestions={tags.map((tag) => tag.name)}
                 />
               </div>
@@ -1172,9 +1167,9 @@ export function InventoryProductCreateClient({
               onDrop={handleProductImageDrop}
             >
               <ImageIcon className="mb-3 h-10 w-10 text-muted-foreground" />
-              <span>Drag image(s) here or</span>
-              <span className="text-primary">Browse images</span>
-              <span className="mt-3 text-xs">Up to 15 images, 5 MB each.</span>
+              <span>{t("imageDrop")}</span>
+              <span className="text-primary">{tc("browseImages")}</span>
+              <span className="mt-3 text-xs">{t("imageLimit")}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -1207,13 +1202,13 @@ export function InventoryProductCreateClient({
                             index === 0 && "text-primary"
                           )}
                           onClick={() => makePrimaryProductImage(image.preview)}
-                          aria-label="Set primary image"
+                          aria-label={tc("setPrimaryImage")}
                         >
                           <Star className="h-3 w-3" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {index === 0 ? "Primary image" : "Set primary image"}
+                        {index === 0 ? tc("primaryImage") : tc("setPrimaryImage")}
                       </TooltipContent>
                     </Tooltip>
                     <Tooltip>
@@ -1222,12 +1217,12 @@ export function InventoryProductCreateClient({
                           type="button"
                           className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-destructive"
                           onClick={() => removeProductImage(image.preview)}
-                          aria-label="Remove image"
+                          aria-label={tc("removeImage")}
                         >
                           <X className="h-3 w-3" />
                         </button>
                       </TooltipTrigger>
-                      <TooltipContent>Remove image</TooltipContent>
+                      <TooltipContent>{tc("removeImage")}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 </div>
@@ -1241,12 +1236,16 @@ export function InventoryProductCreateClient({
             <div className="grid gap-4">
               <h2 className="flex items-center gap-2 text-lg font-medium">
                 <input type="checkbox" defaultChecked />
-                Sales Information
+                {t("salesInformation")}
               </h2>
-              <Field label="Selling Price" name="sales_price" prefix="PLN" type="number" />
-              <Field label="Sales Account" name="sales_account_code" placeholder="e.g. 700-1" />
+              <Field label={t("sellingPrice")} name="sales_price" prefix="PLN" type="number" />
+              <Field
+                label={t("salesAccount")}
+                name="sales_account_code"
+                placeholder={t("salesAccountPlaceholder")}
+              />
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className="text-sm">Tax rate</label>
+                <label className="text-sm">{t("taxRate")}</label>
                 <select
                   name="tax_preset"
                   className={selectClass}
@@ -1264,7 +1263,7 @@ export function InventoryProductCreateClient({
                     if (rateInput) rateInput.value = selected ? String(selected.rate_percent) : "";
                   }}
                 >
-                  <option value="">No tax preset</option>
+                  <option value="">{t("noTaxPreset")}</option>
                   {taxRates.map((tax) => (
                     <option key={tax.id} value={tax.id}>
                       {tax.name} ({tax.rate_percent}%)
@@ -1273,10 +1272,10 @@ export function InventoryProductCreateClient({
                 </select>
               </div>
               <div className="grid gap-3 md:grid-cols-[170px_1fr_160px]">
-                <label className="pt-2 text-sm">Tax code / rate</label>
+                <label className="pt-2 text-sm">{t("taxCodeRate")}</label>
                 <Input
                   name="tax_code"
-                  placeholder="e.g. VAT23"
+                  placeholder={t("taxCodePlaceholder")}
                   defaultValue={defaultTaxRate?.code ?? ""}
                 />
                 <Input
@@ -1289,25 +1288,25 @@ export function InventoryProductCreateClient({
                 />
               </div>
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">Description</label>
+                <label className="pt-2 text-sm">{tc("description")}</label>
                 <textarea name="sales_description" className={cn(textareaClass, "min-h-16")} />
               </div>
             </div>
             <div className="grid gap-4">
               <h2 className="flex items-center gap-2 text-lg font-medium">
                 <input type="checkbox" defaultChecked />
-                Purchase Information
+                {t("purchaseInformation")}
               </h2>
-              <Field label="Cost Price" name="purchase_price" prefix="PLN" type="number" />
+              <Field label={t("costPrice")} name="purchase_price" prefix="PLN" type="number" />
               <Field
-                label="Purchase Account"
+                label={t("purchaseAccount")}
                 name="purchase_account_code"
-                placeholder="e.g. 330-1"
+                placeholder={t("purchaseAccountPlaceholder")}
               />
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className="text-sm">Preferred Vendor</label>
+                <label className="text-sm">{t("preferredVendor")}</label>
                 <select name="preferred_supplier_id" className={selectClass}>
-                  <option value="">Select vendor</option>
+                  <option value="">{t("selectVendor")}</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.id} value={supplier.id}>
                       {supplier.name}
@@ -1316,7 +1315,7 @@ export function InventoryProductCreateClient({
                 </select>
               </div>
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">Description</label>
+                <label className="pt-2 text-sm">{tc("description")}</label>
                 <textarea name="purchase_description" className={cn(textareaClass, "min-h-16")} />
               </div>
             </div>
@@ -1326,14 +1325,19 @@ export function InventoryProductCreateClient({
 
           <section className="grid gap-4">
             <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Dimensions" name="length_value" placeholder="Length" type="number" />
-              <Field label=" " name="width_value" placeholder="Width" type="number" />
-              <Field label=" " name="height_value" placeholder="Height" type="number" />
-              <Field label="Dimension Unit" name="dimension_unit" placeholder="cm" />
-              <Field label="Weight" name="weight_value" type="number" />
-              <Field label="Weight Unit" name="weight_unit" placeholder="kg" />
+              <Field
+                label={t("dimensions")}
+                name="length_value"
+                placeholder={t("length")}
+                type="number"
+              />
+              <Field label=" " name="width_value" placeholder={t("width")} type="number" />
+              <Field label=" " name="height_value" placeholder={t("height")} type="number" />
+              <Field label={t("dimensionUnit")} name="dimension_unit" placeholder="cm" />
+              <Field label={t("weight")} name="weight_value" type="number" />
+              <Field label={t("weightUnit")} name="weight_unit" placeholder="kg" />
               <MasterDataField
-                label="Manufacturer"
+                label={t("manufacturer")}
                 name="manufacturer_name"
                 options={manufacturerOptions}
                 showQuickAdd={showQuickAddManufacturer}
@@ -1343,7 +1347,7 @@ export function InventoryProductCreateClient({
                 onCreate={createManufacturer}
               />
               <MasterDataField
-                label="Brand"
+                label={t("brand")}
                 name="brand_name"
                 options={brandOptions}
                 showQuickAdd={showQuickAddBrand}
@@ -1356,7 +1360,7 @@ export function InventoryProductCreateClient({
               <Field label="MPN" name="mpn" />
               <Field label="EAN" name="ean" />
               <Field label="ISBN" name="isbn" />
-              <Field label="Barcode" name="barcode" />
+              <Field label={tc("barcode")} name="barcode" />
             </div>
           </section>
 
@@ -1369,29 +1373,29 @@ export function InventoryProductCreateClient({
                 checked={trackInventory}
                 onChange={(event) => setTrackInventory(event.target.checked)}
               />
-              Track Inventory for this item
+              {t("trackInventory")}
             </label>
             <div className="grid gap-4 lg:grid-cols-2">
-              <Field label="Reorder Point" name="reorder_point" type="number" />
+              <Field label={t("reorderPoint")} name="reorder_point" type="number" />
               <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                <label className="text-sm">Opening Stock</label>
+                <label className="text-sm">{t("openingStock")}</label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={includeOpeningStock}
                     onChange={(event) => setIncludeOpeningStock(event.target.checked)}
                   />
-                  Include opening stock
+                  {t("includeOpeningStock")}
                 </label>
               </div>
               {includeOpeningStock ? (
                 <>
-                  <Field label="Opening Stock" name="opening_quantity" type="number" />
-                  <Field label="Rate per Unit" name="opening_unit_cost" type="number" />
+                  <Field label={t("openingStock")} name="opening_quantity" type="number" />
+                  <Field label={t("ratePerUnit")} name="opening_unit_cost" type="number" />
                   <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-                    <label className="text-sm">Location</label>
+                    <label className="text-sm">{tc("location")}</label>
                     <select name="opening_location_id" className={selectClass}>
-                      <option value="">Select location</option>
+                      <option value="">{t("selectLocation")}</option>
                       {locations.map((location) => (
                         <option key={location.id} value={location.id}>
                           {location.code ? `${location.code} - ${location.name}` : location.name}
@@ -1408,7 +1412,7 @@ export function InventoryProductCreateClient({
 
           <section className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-medium">Units</h2>
+              <h2 className="text-lg font-medium">{tc("unit")}</h2>
               <Button
                 type="button"
                 variant="outline"
@@ -1427,16 +1431,16 @@ export function InventoryProductCreateClient({
                 }
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Add conversion
+                {t("addConversion")}
               </Button>
             </div>
             {unitConversions.length > 0 ? (
               <div className="overflow-hidden rounded-md border border-border">
                 <div className="grid grid-cols-[1fr_1fr_160px_160px_44px] bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                  <span>From</span>
-                  <span>To</span>
-                  <span>Factor</span>
-                  <span>Rounding</span>
+                  <span>{t("from")}</span>
+                  <span>{t("to")}</span>
+                  <span>{t("factor")}</span>
+                  <span>{t("rounding")}</span>
                   <span />
                 </div>
                 {unitConversions.map((conversion) => (
@@ -1457,7 +1461,7 @@ export function InventoryProductCreateClient({
                         )
                       }
                     >
-                      <option value="">From unit</option>
+                      <option value="">{t("fromUnit")}</option>
                       {unitOptions.map((unit) => (
                         <option key={unit.id} value={unit.id}>
                           {unit.code}
@@ -1477,7 +1481,7 @@ export function InventoryProductCreateClient({
                         )
                       }
                     >
-                      <option value="">To unit</option>
+                      <option value="">{t("toUnit")}</option>
                       {unitOptions.map((unit) => (
                         <option key={unit.id} value={unit.id}>
                           {unit.code}
@@ -1514,9 +1518,9 @@ export function InventoryProductCreateClient({
                         )
                       }
                     >
-                      <option value="half_up">Half up</option>
-                      <option value="up">Up</option>
-                      <option value="down">Down</option>
+                      <option value="half_up">{t("halfUp")}</option>
+                      <option value="up">{t("up")}</option>
+                      <option value="down">{t("down")}</option>
                     </select>
                     <Button
                       type="button"
@@ -1526,7 +1530,7 @@ export function InventoryProductCreateClient({
                       onClick={() =>
                         setUnitConversions((rows) => rows.filter((row) => row.id !== conversion.id))
                       }
-                      aria-label="Remove unit conversion"
+                      aria-label={t("removeUnitConversion")}
                     >
                       <X className="h-4 w-4 text-destructive" />
                     </Button>
@@ -1534,10 +1538,7 @@ export function InventoryProductCreateClient({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Add alternate units when this item can be purchased, stocked, or counted in
-                different units.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("unitConversionHelp")}</p>
             )}
           </section>
 
@@ -1546,14 +1547,11 @@ export function InventoryProductCreateClient({
           <section className="grid gap-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-medium">Custom Fields</h2>
-                <p className="text-sm text-muted-foreground">
-                  Optional fields for this specific product. Definitions are managed in inventory
-                  settings.
-                </p>
+                <h2 className="text-lg font-medium">{t("customFields")}</h2>
+                <p className="text-sm text-muted-foreground">{t("customFieldsHelp")}</p>
               </div>
               <Button asChild variant="ghost" size="sm">
-                <Link href="/dashboard/warehouse/settings">Manage fields</Link>
+                <Link href="/dashboard/warehouse/settings">{t("manageFields")}</Link>
               </Button>
             </div>
 
@@ -1565,7 +1563,7 @@ export function InventoryProductCreateClient({
             >
               <div className="grid gap-3">
                 <AddCustomFieldSelect
-                  label="Add product field"
+                  label={t("addProductField")}
                   fields={allProductCustomFields.filter(
                     (field) => !selectedProductCustomFieldIds.includes(field.id)
                   )}
@@ -1585,7 +1583,7 @@ export function InventoryProductCreateClient({
               {mode === "variants" ? (
                 <div className="grid gap-3">
                   <AddCustomFieldSelect
-                    label="Add variant column"
+                    label={t("addVariantColumn")}
                     fields={allVariantCustomFields.filter(
                       (field) => !selectedVariantCustomFieldIds.includes(field.id)
                     )}
@@ -1630,7 +1628,7 @@ export function InventoryProductCreateClient({
               ))
             ) : (
               <p className="rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
-                No custom fields selected for this product.
+                {t("noCustomFieldsSelected")}
               </p>
             )}
           </section>
@@ -1640,14 +1638,14 @@ export function InventoryProductCreateClient({
           <section className="grid gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-6">
-                <h2 className="text-lg font-medium">Variants</h2>
+                <h2 className="text-lg font-medium">{tc("variants")}</h2>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="radio"
                     checked={mode === "simple"}
                     onChange={() => setMode("simple")}
                   />
-                  Simple item
+                  {t("simpleItem")}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -1655,7 +1653,7 @@ export function InventoryProductCreateClient({
                     checked={mode === "variants"}
                     onChange={() => setMode("variants")}
                   />
-                  Item with variants
+                  {t("itemWithVariants")}
                 </label>
               </div>
             </div>
@@ -1670,7 +1668,7 @@ export function InventoryProductCreateClient({
                     >
                       <Input
                         list="attribute-options"
-                        placeholder="Attribute"
+                        placeholder={tc("attributes")}
                         value={attribute.name}
                         onChange={(event) =>
                           setAttributes((rows) =>
@@ -1687,7 +1685,7 @@ export function InventoryProductCreateClient({
                             rows.map((row) => (row.id === attribute.id ? { ...row, values } : row))
                           )
                         }
-                        placeholder="Type option and press Enter"
+                        placeholder={t("typeValueEnter")}
                         suggestions={
                           optionGroups
                             .find(
@@ -1711,7 +1709,7 @@ export function InventoryProductCreateClient({
                   ))}
                   {duplicateAttributeNames.length > 0 ? (
                     <p className="text-sm text-destructive md:pl-[260px]">
-                      Attribute names must be unique: {duplicateAttributeNames.join(", ")}
+                      {t("attributeNamesUnique", { names: duplicateAttributeNames.join(", ") })}
                     </p>
                   ) : null}
                   <div>
@@ -1722,21 +1720,21 @@ export function InventoryProductCreateClient({
                       onClick={() => setAttributes((rows) => [...rows, newAttribute()])}
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Attribute
+                      {t("addAttribute")}
                     </Button>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-3 py-3">
                   <div className="text-sm">
-                    Select your Item Type:
+                    {t("selectItemType")}
                     <label className="ml-4">
                       <input
                         type="radio"
                         checked={trackInventory}
                         onChange={() => setTrackInventory(true)}
                       />{" "}
-                      Inventory
+                      {t("inventoryType")}
                     </label>
                     <label className="ml-4">
                       <input
@@ -1744,7 +1742,7 @@ export function InventoryProductCreateClient({
                         checked={!trackInventory}
                         onChange={() => setTrackInventory(false)}
                       />{" "}
-                      Non-Inventory
+                      {t("nonInventoryType")}
                     </label>
                   </div>
                   <label className="flex items-center gap-2 text-sm">
@@ -1753,7 +1751,7 @@ export function InventoryProductCreateClient({
                       checked={includeOpeningStock}
                       onChange={(event) => setIncludeOpeningStock(event.target.checked)}
                     />
-                    Include Opening Stock
+                    {t("includeOpeningStock")}
                   </label>
                 </div>
 
@@ -1761,8 +1759,8 @@ export function InventoryProductCreateClient({
                   <table className="w-full min-w-[1280px] border-collapse text-sm">
                     <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                       <tr className="border-b border-border">
-                        <th className="px-2 py-2 text-left">Image</th>
-                        <th className="px-2 py-2 text-left">Item Name*</th>
+                        <th className="px-2 py-2 text-left">{tc("image")}</th>
+                        <th className="px-2 py-2 text-left">{t("itemName")}</th>
                         <th className="px-2 py-2 text-left">
                           SKU
                           <button
@@ -1770,18 +1768,18 @@ export function InventoryProductCreateClient({
                             className="ml-2 text-primary"
                             onClick={() => openSkuGenerator("variants")}
                           >
-                            Generate SKU
+                            {t("generateSku")}
                           </button>
                         </th>
                         <th className="px-2 py-2 text-left">
                           <HeaderCopyAction
-                            label="Cost Price"
+                            label={t("costPrice")}
                             onCopy={() => fillDown("purchase_price")}
                           />
                         </th>
                         <th className="px-2 py-2 text-left">
                           <HeaderCopyAction
-                            label="Selling Price"
+                            label={t("sellingPrice")}
                             onCopy={() => fillDown("sales_price")}
                           />
                         </th>
@@ -1795,12 +1793,12 @@ export function InventoryProductCreateClient({
                         ))}
                         <th className="px-2 py-2 text-left">
                           <HeaderCopyAction
-                            label="Reorder Point"
+                            label={t("reorderPoint")}
                             onCopy={() => fillDown("reorder_point")}
                           />
                         </th>
                         {includeOpeningStock ? (
-                          <th className="px-2 py-2 text-left">Opening Stock</th>
+                          <th className="px-2 py-2 text-left">{t("openingStock")}</th>
                         ) : null}
                         <th className="w-10" />
                       </tr>
@@ -1958,13 +1956,15 @@ export function InventoryProductCreateClient({
           <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-2xl">
             <div className="flex h-14 items-center justify-between border-b border-border px-6">
               <h2 className="text-xl font-medium">
-                Generate SKU - {skuTarget === "simple" ? "simple item" : "variants"}
+                {skuTarget === "simple"
+                  ? t("generateSkuTitleSimple")
+                  : t("generateSkuTitleVariants")}
               </h2>
               <button
                 type="button"
                 className="grid h-9 w-9 place-items-center rounded-md text-foreground hover:bg-muted"
                 onClick={() => setShowSkuModal(false)}
-                aria-label="Close SKU generator"
+                aria-label={t("closeSkuGenerator")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1972,7 +1972,7 @@ export function InventoryProductCreateClient({
             <div className="max-h-[calc(90vh-56px)] overflow-y-auto">
               <div className="grid gap-7 px-6 py-8">
                 <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                  Select fields that you would like to generate the SKU from
+                  {t("selectSkuFields")}
                   <span className="grid h-4 w-4 place-items-center rounded-full border border-muted-foreground text-[10px] text-muted-foreground">
                     ?
                   </span>
@@ -1980,34 +1980,34 @@ export function InventoryProductCreateClient({
 
                 <div className="grid gap-3 rounded-md border border-border bg-muted/20 p-3 md:grid-cols-[minmax(220px,1fr)_minmax(220px,1fr)_auto_auto] md:items-end">
                   <label className="grid gap-1 text-sm">
-                    Template
+                    {t("template")}
                     <select
                       value={selectedSkuTemplateId}
                       className={cn(selectClass, "pr-9")}
                       onChange={(event) => setSelectedSkuTemplateId(event.target.value)}
                     >
-                      <option value="">Manual rules</option>
+                      <option value="">{t("manualRules")}</option>
                       {skuTemplateOptions.map((template) => (
                         <option key={template.id} value={template.id}>
                           {template.name}
-                          {template.is_default ? " (default)" : ""}
+                          {template.is_default ? t("templateDefaultSuffix") : ""}
                         </option>
                       ))}
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm">
-                    Save current rules
+                    {t("saveCurrentRules")}
                     <Input
                       value={skuTemplateName}
-                      placeholder="Template name"
+                      placeholder={t("templateName")}
                       onChange={(event) => setSkuTemplateName(event.target.value)}
                     />
                   </label>
                   <Button type="button" variant="outline" onClick={saveSkuTemplate}>
-                    Save template
+                    {t("saveTemplate")}
                   </Button>
                   <Button type="button" variant="outline" onClick={checkSkuCollisions}>
-                    Check SKUs
+                    {t("checkSkus")}
                   </Button>
                   {selectedSkuTemplate ? (
                     <div className="flex flex-wrap gap-2 md:col-span-4">
@@ -2017,7 +2017,7 @@ export function InventoryProductCreateClient({
                         size="sm"
                         onClick={() => updateSkuTemplate()}
                       >
-                        Update selected template
+                        {t("updateSelectedTemplate")}
                       </Button>
                       <Button
                         type="button"
@@ -2025,7 +2025,7 @@ export function InventoryProductCreateClient({
                         size="sm"
                         onClick={() => updateSkuTemplate(true)}
                       >
-                        Set as default
+                        {t("setAsDefault")}
                       </Button>
                       <Button
                         type="button"
@@ -2034,7 +2034,7 @@ export function InventoryProductCreateClient({
                         className="text-destructive hover:text-destructive"
                         onClick={archiveSkuTemplate}
                       >
-                        Archive template
+                        {t("archiveTemplate")}
                       </Button>
                     </div>
                   ) : null}
@@ -2047,10 +2047,10 @@ export function InventoryProductCreateClient({
 
                 <div className="grid gap-0">
                   <div className="grid grid-cols-[minmax(180px,1.1fr)_205px_180px_150px_28px] gap-x-3 bg-muted/40 text-xs font-semibold uppercase text-muted-foreground">
-                    <div className="px-3 py-3">Select Attribute</div>
-                    <div className="px-3 py-3">Show</div>
-                    <div className="px-3 py-3">Letter Case</div>
-                    <div className="px-3 py-3">Separator</div>
+                    <div className="px-3 py-3">{t("selectAttribute")}</div>
+                    <div className="px-3 py-3">{t("show")}</div>
+                    <div className="px-3 py-3">{t("letterCase")}</div>
+                    <div className="px-3 py-3">{t("separator")}</div>
                     <div />
                   </div>
 
@@ -2096,7 +2096,7 @@ export function InventoryProductCreateClient({
                           {rule.source === "custom" ? (
                             <Input
                               value={rule.customText}
-                              placeholder="Enter the custom text"
+                              placeholder={t("customText")}
                               className="h-9"
                               onChange={(event) =>
                                 setSkuRules((rules) =>
@@ -2124,9 +2124,9 @@ export function InventoryProductCreateClient({
                                     )
                                   }
                                 >
-                                  <option value="first">First</option>
-                                  <option value="last">Last</option>
-                                  <option value="full">Full</option>
+                                  <option value="first">{t("first")}</option>
+                                  <option value="last">{t("last")}</option>
+                                  <option value="full">{t("full")}</option>
                                 </select>
                                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                               </div>
@@ -2167,10 +2167,10 @@ export function InventoryProductCreateClient({
                                   )
                                 }
                               >
-                                <option value="upper">Upper Case</option>
-                                <option value="lower">Lower Case</option>
-                                <option value="title">Title Case</option>
-                                <option value="keep">Keep Case</option>
+                                <option value="upper">{t("upperCase")}</option>
+                                <option value="lower">{t("lowerCase")}</option>
+                                <option value="title">{t("titleCase")}</option>
+                                <option value="keep">{t("keepCase")}</option>
                               </select>
                               <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             </div>
@@ -2184,7 +2184,7 @@ export function InventoryProductCreateClient({
                                   )
                                 )
                               }
-                              aria-label="Clear letter case"
+                              aria-label={t("clearLetterCase")}
                             >
                               <X className="h-4 w-4" />
                             </button>
@@ -2217,7 +2217,7 @@ export function InventoryProductCreateClient({
                                     )
                                   )
                                 }
-                                aria-label="Clear separator"
+                                aria-label={t("clearSeparator")}
                               >
                                 <X className="h-4 w-4" />
                               </button>
@@ -2240,12 +2240,12 @@ export function InventoryProductCreateClient({
                                       )
                                     )
                                   }
-                                  aria-label="Separator preset"
+                                  aria-label={t("separatorPreset")}
                                 >
                                   <option value="-">-</option>
                                   <option value="_">_</option>
                                   <option value="/">/</option>
-                                  <option value="none">None</option>
+                                  <option value="none">{tc("none")}</option>
                                 </select>
                                 <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                               </div>
@@ -2260,7 +2260,7 @@ export function InventoryProductCreateClient({
                             onClick={() =>
                               setSkuRules((rules) => rules.filter((item) => item.id !== rule.id))
                             }
-                            aria-label="Remove SKU rule"
+                            aria-label={t("removeSkuRule")}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -2296,11 +2296,11 @@ export function InventoryProductCreateClient({
                   }
                 >
                   <Plus className="h-4 w-4" />
-                  Add Rule
+                  {t("addRule")}
                 </button>
 
                 <div className="grid gap-3">
-                  <h3 className="text-base font-medium">SKU Preview</h3>
+                  <h3 className="text-base font-medium">{t("skuPreview")}</h3>
                   <div className="grid min-h-28 place-items-center rounded-md border border-dashed border-amber-500/80 bg-amber-50/70 px-6 py-8 text-center text-2xl font-semibold text-foreground dark:bg-amber-950/20">
                     {skuPreview || "BRA-001"}
                   </div>
@@ -2309,10 +2309,10 @@ export function InventoryProductCreateClient({
 
               <div className="flex gap-3 border-t border-border px-6 py-5">
                 <Button type="button" onClick={applySkuGenerator}>
-                  Generate SKU
+                  {t("generateSkuAction")}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setShowSkuModal(false)}>
-                  Cancel
+                  {tc("cancel")}
                 </Button>
               </div>
             </div>

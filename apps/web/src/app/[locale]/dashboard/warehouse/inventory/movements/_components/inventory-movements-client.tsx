@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { RotateCcw } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
 import type {
@@ -30,14 +31,14 @@ type InventoryMovementsClientProps = {
 async function listFetcher(params: DataViewListParams) {
   const result = await listInventoryMovementsAction(params);
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
 async function detailFetcher(id: string) {
   const result = await getInventoryMovementAction({ id });
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
@@ -52,6 +53,8 @@ export function InventoryMovementsClient({
   initialData,
   canReverse,
 }: InventoryMovementsClientProps) {
+  const t = useTranslations("warehouseInventory.movements");
+  const tc = useTranslations("warehouseInventory.common");
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -59,14 +62,14 @@ export function InventoryMovementsClient({
     () => [
       {
         key: "movement_number",
-        header: "Movement",
+        header: t("movement"),
         accessor: (row) => <span className="font-medium">{row.movement_number}</span>,
         sortable: true,
         defaultVisible: true,
       },
       {
         key: "movement_kind",
-        header: "Kind",
+        header: t("kind"),
         accessor: (row) =>
           row.adjustment_direction
             ? `${row.movement_kind} / ${row.adjustment_direction}`
@@ -76,7 +79,7 @@ export function InventoryMovementsClient({
       },
       {
         key: "status",
-        header: "Status",
+        header: tc("status"),
         accessor: (row) => (
           <Badge variant={statusVariant[row.status] ?? "outline"}>{row.status}</Badge>
         ),
@@ -85,25 +88,25 @@ export function InventoryMovementsClient({
       },
       {
         key: "reference",
-        header: "Reference",
+        header: t("reference"),
         accessor: (row) => row.reference ?? "",
         defaultVisible: true,
       },
       {
         key: "line_count",
-        header: "Lines",
+        header: t("lines"),
         accessor: (row) => <span className="tabular-nums">{row.line_count}</span>,
         defaultVisible: true,
       },
       {
         key: "product_names",
-        header: "Products",
+        header: tc("products"),
         accessor: (row) => <span className="line-clamp-1">{row.product_names}</span>,
         defaultVisible: true,
       },
       {
         key: "posted_at",
-        header: "Posted",
+        header: t("posted"),
         accessor: (row) =>
           row.posted_at ? (
             <span className="text-xs text-muted-foreground">
@@ -116,14 +119,14 @@ export function InventoryMovementsClient({
         defaultVisible: true,
       },
     ],
-    []
+    [t, tc]
   );
 
   const filters: DataViewFilterDef[] = [
     {
       type: "select",
       key: "movement_kind",
-      label: "Kind",
+      label: t("kind"),
       options: ["receipt", "issue", "transfer", "adjustment", "opening_balance"].map((value) => ({
         label: value,
         value,
@@ -132,7 +135,7 @@ export function InventoryMovementsClient({
     {
       type: "select",
       key: "status",
-      label: "Status",
+      label: tc("status"),
       options: ["draft", "posted", "reversed", "cancelled"].map((value) => ({
         label: value,
         value,
@@ -148,7 +151,7 @@ export function InventoryMovementsClient({
         note: String(formData.get("note") ?? "") || null,
       });
       setMessage(
-        result.success ? "Movement reversed" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("reversed") : "error" in result ? result.error : tc("unexpectedError")
       );
     });
   };
@@ -160,11 +163,11 @@ export function InventoryMovementsClient({
           action={reverseMovement}
           className="grid gap-2 border-b pb-4 md:grid-cols-[1fr_1fr_auto]"
         >
-          <Input name="movement_id" placeholder="Movement id" />
-          <Input name="note" placeholder="Reversal note" />
+          <Input name="movement_id" placeholder={t("movementId")} />
+          <Input name="note" placeholder={t("reversalNote")} />
           <Button type="submit" variant="outline" disabled={isPending}>
             <RotateCcw className="mr-2 h-4 w-4" />
-            Reverse
+            {t("reverse")}
           </Button>
         </form>
       ) : null}
@@ -193,8 +196,12 @@ export function InventoryMovementsClient({
                   </div>
                   <div className="text-muted-foreground">
                     {line.quantity} {line.unit_code}
-                    {line.source_location_name ? ` from ${line.source_location_name}` : ""}
-                    {line.destination_location_name ? ` to ${line.destination_location_name}` : ""}
+                    {line.source_location_name
+                      ? ` ${t("from", { location: line.source_location_name })}`
+                      : ""}
+                    {line.destination_location_name
+                      ? ` ${t("to", { location: line.destination_location_name })}`
+                      : ""}
                   </div>
                 </div>
               ))}

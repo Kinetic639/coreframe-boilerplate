@@ -16,23 +16,23 @@ export type ProductImportPreview = {
 };
 
 export const importFields = [
-  { key: "product_name", label: "Product name", required: true },
-  { key: "product_sku", label: "Product SKU", required: false },
-  { key: "variant_name", label: "Variant name", required: false },
-  { key: "variant_sku", label: "Variant SKU", required: true },
-  { key: "unit_code", label: "Unit", required: true },
-  { key: "product_type", label: "Type", required: false },
-  { key: "status", label: "Status", required: false },
-  { key: "barcode", label: "Barcode", required: false },
-  { key: "purchase_price", label: "Purchase price", required: false },
-  { key: "sales_price", label: "Sales price", required: false },
-  { key: "sales_account_code", label: "Sales account", required: false },
-  { key: "purchase_account_code", label: "Purchase account", required: false },
-  { key: "tax_code", label: "Tax code", required: false },
-  { key: "tax_rate_percent", label: "Tax rate", required: false },
-  { key: "reorder_point", label: "Reorder point", required: false },
-  { key: "tags", label: "Tags", required: false },
-  { key: "description", label: "Description", required: false },
+  { key: "product_name", required: true },
+  { key: "product_sku", required: false },
+  { key: "variant_name", required: false },
+  { key: "variant_sku", required: true },
+  { key: "unit_code", required: true },
+  { key: "product_type", required: false },
+  { key: "status", required: false },
+  { key: "barcode", required: false },
+  { key: "purchase_price", required: false },
+  { key: "sales_price", required: false },
+  { key: "sales_account_code", required: false },
+  { key: "purchase_account_code", required: false },
+  { key: "tax_code", required: false },
+  { key: "tax_rate_percent", required: false },
+  { key: "reorder_point", required: false },
+  { key: "tags", required: false },
+  { key: "description", required: false },
 ] as const;
 
 export type ImportFieldKey = (typeof importFields)[number]["key"];
@@ -325,33 +325,22 @@ export function importRowsToCsv(
 
 export async function importFileToCsv(file: File) {
   const lowerName = file.name.toLowerCase();
-  if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    const firstSheetName = workbook.SheetNames[0];
-    const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
-    if (!sheet) throw new Error("Excel file does not contain a worksheet.");
-    const rows = XLSX.utils.sheet_to_json<Array<string | number | boolean | null>>(sheet, {
-      header: 1,
-      blankrows: false,
-      defval: "",
-    });
-    return rows
-      .filter((row) => row.some((cell) => String(cell ?? "").trim()))
-      .map((row) => row.map((cell) => csvCell(String(cell ?? "").trim())).join(","))
-      .join("\n");
+  if (!lowerName.endsWith(".xlsx") && !lowerName.endsWith(".xls")) {
+    throw new Error("unsupported_excel_import_file");
   }
-  if (lowerName.endsWith(".tsv")) {
-    const text = await file.text();
-    return text
-      .split(/\r?\n/)
-      .map((line) =>
-        line
-          .split("\t")
-          .map((cell) => csvCell(cell.trim()))
-          .join(",")
-      )
-      .join("\n");
-  }
-  return file.text();
+
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+  const sheet = firstSheetName ? workbook.Sheets[firstSheetName] : null;
+  if (!sheet) throw new Error("missing_excel_import_worksheet");
+  const rows = XLSX.utils.sheet_to_json<Array<string | number | boolean | null>>(sheet, {
+    header: 1,
+    blankrows: false,
+    defval: "",
+  });
+  return rows
+    .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+    .map((row) => row.map((cell) => csvCell(String(cell ?? "").trim())).join(","))
+    .join("\n");
 }

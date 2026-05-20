@@ -113,3 +113,160 @@ describe("InventoryProductsService.createEnhancedProduct", () => {
     );
   });
 });
+
+describe("InventoryProductsService image ownership helpers", () => {
+  function createImageSupabaseMock(state: {
+    productExists?: boolean;
+    variantExists?: boolean;
+    sourceImage?: Record<string, unknown> | null;
+    insertedImage?: Record<string, unknown>;
+  }) {
+    const operations: Operation[] = [];
+    const client = {
+      from: vi.fn((table: string) => {
+        const chain = {
+          update(payload: Record<string, unknown>) {
+            operations.push({ table, action: "update", payload });
+            return chain;
+          },
+          insert(payload: Record<string, unknown>) {
+            operations.push({ table, action: "insert", payload });
+            return chain;
+          },
+          select() {
+            operations.push({ table, action: "select" });
+            return chain;
+          },
+          eq() {
+            return chain;
+          },
+          is() {
+            return chain;
+          },
+          maybeSingle() {
+            if (table === "inventory_products") {
+              return {
+                data: state.productExists === false ? null : { id: PRODUCT_ID },
+                error: null,
+              };
+            }
+            if (table === "inventory_variants") {
+              return {
+                data: state.variantExists === false ? null : { id: VARIANT_ID },
+                error: null,
+              };
+            }
+            if (table === "inventory_item_images") {
+              return { data: state.sourceImage ?? null, error: null };
+            }
+            return { data: null, error: null };
+          },
+          single() {
+            return {
+              data: state.insertedImage ?? {
+                id: "66666666-6666-4666-8666-666666666666",
+                storage_path: "org/product/image.png",
+                public_url: "https://cdn.example/image.png",
+                file_name: "image.png",
+                content_type: "image/png",
+                file_size: 9,
+              },
+              error: null,
+            };
+          },
+        };
+        return chain;
+      }),
+    };
+    return { client, operations };
+  }
+
+  it("verifyImageTarget rejects a missing product before image records are written", async () => {
+    const supabase = createImageSupabaseMock({ productExists: false });
+
+    const result = await InventoryProductsService.verifyImageTarget(
+      supabase.client as never,
+      ORG_ID,
+      PRODUCT_ID,
+      null
+    );
+
+    expect(result).toEqual({ success: false, error: "Product not found" });
+  });
+
+  it("verifyImageTarget rejects a variant that does not belong to the product", async () => {
+    const supabase = createImageSupabaseMock({ productExists: true, variantExists: false });
+
+    const result = await InventoryProductsService.verifyImageTarget(
+      supabase.client as never,
+      ORG_ID,
+      PRODUCT_ID,
+      VARIANT_ID
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Variant does not belong to this product",
+    });
+  });
+
+  it("addImageRecord clears the previous primary image for the same scope before insert", async () => {
+    const supabase = createImageSupabaseMock({ productExists: true });
+
+    const result = await InventoryProductsService.addImageRecord(supabase.client as never, ORG_ID, {
+      product_id: PRODUCT_ID,
+      storage_path: "org/product/image.png",
+      content_type: "image/png",
+      file_size: 9,
+      is_primary: true,
+      actor_user_id: USER_ID,
+    });
+
+    expect(result.success).toBe(true);
+    expect(supabase.operations).toEqual(
+      expect.arrayContaining([
+        {
+          table: "inventory_item_images",
+          action: "update",
+          payload: { is_primary: false },
+        },
+        expect.objectContaining({
+          table: "inventory_item_images",
+          action: "insert",
+          payload: expect.objectContaining({
+            organization_id: ORG_ID,
+            product_id: PRODUCT_ID,
+            is_primary: true,
+          }),
+        }),
+      ])
+    );
+  });
+
+  it("assignExistingImageToVariant rejects a source image from another variant", async () => {
+    const supabase = createImageSupabaseMock({
+      productExists: true,
+      variantExists: true,
+      sourceImage: {
+        id: "66666666-6666-4666-8666-666666666666",
+        product_id: PRODUCT_ID,
+        variant_id: "77777777-7777-4777-8777-777777777777",
+      },
+    });
+
+    const result = await InventoryProductsService.assignExistingImageToVariant(
+      supabase.client as never,
+      ORG_ID,
+      {
+        product_id: PRODUCT_ID,
+        variant_id: VARIANT_ID,
+        image_id: "66666666-6666-4666-8666-666666666666",
+      }
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: "Source image does not belong to this product gallery",
+    });
+  });
+});

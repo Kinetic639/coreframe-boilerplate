@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
 import { DataView } from "@/components/data-view/data-view";
 import type { DataViewColumnDef, DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
@@ -37,18 +38,21 @@ type InventoryClientProps = {
 async function listFetcher(params: DataViewListParams) {
   const result = await listInventoryBalancesAction(params);
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
 async function detailFetcher(id: string) {
   const result = await getInventoryBalanceAction({ id });
   if (!result.success || !("data" in result))
-    throw new Error("error" in result ? result.error : "Unauthorized");
+    throw new Error("error" in result ? result.error : "unauthorized");
   return result.data;
 }
 
 function VariantFields({ variants }: { variants: InventoryVariantOption[] }) {
+  const t = useTranslations("warehouseInventory.inventory");
+  const tList = useTranslations("warehouseInventory.list");
+  const tc = useTranslations("warehouseInventory.common");
   return (
     <>
       <select
@@ -56,7 +60,7 @@ function VariantFields({ variants }: { variants: InventoryVariantOption[] }) {
         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
         required
       >
-        <option value="">Variant</option>
+        <option value="">{t("variant")}</option>
         {variants.map((variant) => (
           <option key={variant.id} value={variant.id} data-unit-id={variant.unit_id}>
             {variant.label}
@@ -68,7 +72,7 @@ function VariantFields({ variants }: { variants: InventoryVariantOption[] }) {
         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
         required
       >
-        <option value="">Unit</option>
+        <option value="">{tc("unit")}</option>
         {variants.map((variant) => (
           <option key={variant.id} value={variant.unit_id}>
             {variant.sku} / {variant.unit_code}
@@ -111,6 +115,9 @@ export function InventoryClient({
   canOperate,
   canAdjust,
 }: InventoryClientProps) {
+  const t = useTranslations("warehouseInventory.inventory");
+  const tc = useTranslations("warehouseInventory.common");
+  const tList = useTranslations("warehouseInventory.list");
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -118,21 +125,21 @@ export function InventoryClient({
     () => [
       {
         key: "sku",
-        header: "SKU",
+        header: tc("sku"),
         accessor: (row) => <span className="font-medium">{row.sku}</span>,
         sortable: true,
         defaultVisible: true,
       },
       {
         key: "product_name",
-        header: "Product",
+        header: tc("product"),
         accessor: (row) => row.product_name,
         sortable: true,
         defaultVisible: true,
       },
       {
         key: "location_name",
-        header: "Location",
+        header: tc("location"),
         accessor: (row) =>
           row.location_code ? `${row.location_code} - ${row.location_name}` : row.location_name,
         sortable: true,
@@ -140,7 +147,7 @@ export function InventoryClient({
       },
       {
         key: "on_hand_quantity",
-        header: "On hand",
+        header: tList("onHand"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.on_hand_quantity} {row.unit_code}
@@ -151,7 +158,7 @@ export function InventoryClient({
       },
       {
         key: "available_quantity",
-        header: "Available",
+        header: tList("available"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.available_quantity} {row.unit_code}
@@ -162,7 +169,7 @@ export function InventoryClient({
       },
       {
         key: "average_unit_cost",
-        header: "Avg cost",
+        header: t("avgCost"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.average_unit_cost.toFixed(2)} {row.currency}
@@ -173,7 +180,7 @@ export function InventoryClient({
       },
       {
         key: "total_value",
-        header: "Value",
+        header: t("value"),
         accessor: (row) => (
           <span className="tabular-nums">
             {row.total_value.toFixed(2)} {row.currency}
@@ -184,12 +191,12 @@ export function InventoryClient({
       },
       {
         key: "last_movement_number",
-        header: "Last movement",
+        header: t("lastMovement"),
         accessor: (row) => row.last_movement_number ?? "",
         defaultVisible: true,
       },
     ],
-    []
+    [t, tc, tList]
   );
 
   const submitAction = (action: (payload: any) => Promise<any>) => {
@@ -201,7 +208,9 @@ export function InventoryClient({
           ...payload,
           quantity: Number(payload.quantity),
         });
-        setMessage(result.success ? "Stock movement posted" : (result.error ?? "Unexpected error"));
+        setMessage(
+          result.success ? t("stockMovementPosted") : (result.error ?? tc("unexpectedError"))
+        );
       });
     };
   };
@@ -214,74 +223,74 @@ export function InventoryClient({
             <form action={submitAction(receiveStockAction)} className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <ArrowDownToLine className="h-4 w-4" />
-                Receive
+                {t("receive")}
               </div>
               <VariantFields variants={variants} />
               <LocationSelect
                 name="destination_location_id"
                 locations={locations}
-                placeholder="Destination"
+                placeholder={tc("destination")}
               />
               <Input
                 name="quantity"
                 type="number"
                 min="0.000001"
                 step="0.000001"
-                placeholder="Qty"
+                placeholder={tc("qty")}
               />
               <Button type="submit" disabled={isPending}>
-                Post receipt
+                {t("postReceipt")}
               </Button>
             </form>
 
             <form action={submitAction(issueStockAction)} className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <ArrowUpFromLine className="h-4 w-4" />
-                Issue
+                {t("issue")}
               </div>
               <VariantFields variants={variants} />
               <LocationSelect
                 name="source_location_id"
                 locations={locations}
-                placeholder="Source"
+                placeholder={tc("source")}
               />
               <Input
                 name="quantity"
                 type="number"
                 min="0.000001"
                 step="0.000001"
-                placeholder="Qty"
+                placeholder={tc("qty")}
               />
               <Button type="submit" disabled={isPending}>
-                Post issue
+                {t("postIssue")}
               </Button>
             </form>
 
             <form action={submitAction(transferStockAction)} className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <ArrowRightLeft className="h-4 w-4" />
-                Transfer
+                {t("transfer")}
               </div>
               <VariantFields variants={variants} />
               <LocationSelect
                 name="source_location_id"
                 locations={locations}
-                placeholder="Source"
+                placeholder={tc("source")}
               />
               <LocationSelect
                 name="destination_location_id"
                 locations={locations}
-                placeholder="Destination"
+                placeholder={tc("destination")}
               />
               <Input
                 name="quantity"
                 type="number"
                 min="0.000001"
                 step="0.000001"
-                placeholder="Qty"
+                placeholder={tc("qty")}
               />
               <Button type="submit" disabled={isPending}>
-                Post transfer
+                {t("postTransfer")}
               </Button>
             </form>
           </>
@@ -291,21 +300,27 @@ export function InventoryClient({
           <form action={submitAction(adjustStockAction)} className="grid gap-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <SlidersHorizontal className="h-4 w-4" />
-              Adjust
+              {t("adjust")}
             </div>
             <VariantFields variants={variants} />
-            <LocationSelect name="location_id" locations={locations} placeholder="Location" />
+            <LocationSelect name="location_id" locations={locations} placeholder={tc("location")} />
             <select
               name="adjustment_direction"
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               required
             >
-              <option value="increase">increase</option>
-              <option value="decrease">decrease</option>
+              <option value="increase">{t("increase")}</option>
+              <option value="decrease">{t("decrease")}</option>
             </select>
-            <Input name="quantity" type="number" min="0.000001" step="0.000001" placeholder="Qty" />
+            <Input
+              name="quantity"
+              type="number"
+              min="0.000001"
+              step="0.000001"
+              placeholder={tc("qty")}
+            />
             <Button type="submit" disabled={isPending}>
-              Post adjustment
+              {t("postAdjustment")}
             </Button>
           </form>
         ) : null}
@@ -329,29 +344,29 @@ export function InventoryClient({
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Location</p>
+                <p className="text-xs uppercase text-muted-foreground">{tc("location")}</p>
                 <p>{detail.location_name}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Last movement</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("lastMovement")}</p>
                 <p>{detail.last_movement_number ?? ""}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Reserved</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("reserved")}</p>
                 <p>{detail.reserved_quantity}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Allocated</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("allocated")}</p>
                 <p>{detail.allocated_quantity}</p>
               </div>
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Average cost</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("averageCost")}</p>
                 <p>
                   {detail.average_unit_cost.toFixed(2)} {detail.currency}
                 </p>
               </div>
               <div>
-                <p className="text-xs uppercase text-muted-foreground">Total value</p>
+                <p className="text-xs uppercase text-muted-foreground">{t("totalValue")}</p>
                 <p>
                   {detail.total_value.toFixed(2)} {detail.currency}
                 </p>

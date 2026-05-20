@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Send, X } from "lucide-react";
 import {
   acceptInventoryBranchTransferAction,
@@ -50,6 +51,8 @@ export function BranchTransfersClient({
   transfers,
   canOperate,
 }: BranchTransfersClientProps) {
+  const t = useTranslations("warehouseInventory.transfers");
+  const tc = useTranslations("warehouseInventory.common");
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState("");
@@ -73,7 +76,7 @@ export function BranchTransfersClient({
         ],
       });
       setMessage(
-        result.success ? "Transfer sent" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("sent") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success) router.refresh();
     });
@@ -87,7 +90,7 @@ export function BranchTransfersClient({
         destination_location_id: String(formData.get("destination_location_id") ?? ""),
       });
       setMessage(
-        result.success ? "Transfer accepted" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("accepted") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success) router.refresh();
     });
@@ -101,7 +104,7 @@ export function BranchTransfersClient({
         decline_reason: String(formData.get("decline_reason") ?? "") || null,
       });
       setMessage(
-        result.success ? "Transfer declined" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("declined") : "error" in result ? result.error : tc("unexpectedError")
       );
       if (result.success) router.refresh();
     });
@@ -112,17 +115,15 @@ export function BranchTransfersClient({
       {canOperate ? (
         <form action={submitTransfer} className="grid content-start gap-3 rounded-md border p-4">
           <div>
-            <h2 className="font-semibold">Send transfer</h2>
-            <p className="text-sm text-muted-foreground">
-              Stock leaves this branch and waits in transit.
-            </p>
+            <h2 className="font-semibold">{t("sendTransfer")}</h2>
+            <p className="text-sm text-muted-foreground">{t("sendTransferHelp")}</p>
           </div>
           <select
             name="destination_branch_id"
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             required
           >
-            <option value="">Destination branch</option>
+            <option value="">{t("destinationBranch")}</option>
             {destinationBranches.map((branch) => (
               <option key={branch.id} value={branch.id}>
                 {branch.name}
@@ -136,7 +137,7 @@ export function BranchTransfersClient({
             onChange={(event) => setSelectedVariantId(event.target.value)}
             required
           >
-            <option value="">Variant</option>
+            <option value="">{tc("variants")}</option>
             {variants.map((variant) => (
               <option key={variant.id} value={variant.id}>
                 {variant.label}
@@ -146,15 +147,15 @@ export function BranchTransfersClient({
           <input type="hidden" name="unit_id" value={selectedVariant?.unit_id ?? ""} />
           <div className="flex h-10 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
             {selectedVariant
-              ? `Unit: ${selectedVariant.unit_code || "base unit"}`
-              : "Unit follows selected variant"}
+              ? t("unitSelected", { unit: selectedVariant.unit_code || t("unitBase") })
+              : t("unitFollowsVariant")}
           </div>
           <select
             name="source_location_id"
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
             required
           >
-            <option value="">Source location</option>
+            <option value="">{t("sourceLocation")}</option>
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.code ? `${location.code} - ${location.name}` : location.name}
@@ -166,12 +167,12 @@ export function BranchTransfersClient({
             type="number"
             min="0.000001"
             step="0.000001"
-            placeholder="Quantity"
+            placeholder={tc("quantity")}
           />
-          <Input name="notes" placeholder="Notes" />
+          <Input name="notes" placeholder={tc("notes")} />
           <Button type="submit" disabled={isPending}>
             <Send className="mr-2 h-4 w-4" />
-            Send transfer
+            {t("sendTransfer")}
           </Button>
           {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
         </form>
@@ -193,10 +194,15 @@ export function BranchTransfersClient({
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {transfer.source_branch_name} to {transfer.destination_branch_name}
+                    {t("route", {
+                      source: transfer.source_branch_name,
+                      destination: transfer.destination_branch_name,
+                    })}
                   </p>
                 </div>
-                <p className="text-sm text-muted-foreground">{transfer.line_count} lines</p>
+                <p className="text-sm text-muted-foreground">
+                  {tc("linesCount", { count: transfer.line_count })}
+                </p>
               </div>
 
               {transfer.notes ? <p className="text-sm">{transfer.notes}</p> : null}
@@ -213,7 +219,7 @@ export function BranchTransfersClient({
                       className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
                       required
                     >
-                      <option value="">Receive to location</option>
+                      <option value="">{t("receiveToLocation")}</option>
                       {locations.map((location) => (
                         <option key={location.id} value={location.id}>
                           {location.code ? `${location.code} - ${location.name}` : location.name}
@@ -222,15 +228,15 @@ export function BranchTransfersClient({
                     </select>
                     <Button type="submit" disabled={isPending}>
                       <Check className="mr-2 h-4 w-4" />
-                      Accept
+                      {t("accept")}
                     </Button>
                   </form>
                   <form action={declineTransfer} className="flex gap-2">
                     <input type="hidden" name="id" value={transfer.id} />
-                    <Input name="decline_reason" placeholder="Reason" />
+                    <Input name="decline_reason" placeholder={tc("reason")} />
                     <Button type="submit" variant="outline" disabled={isPending}>
                       <X className="mr-2 h-4 w-4" />
-                      Decline
+                      {t("decline")}
                     </Button>
                   </form>
                 </div>
@@ -239,9 +245,7 @@ export function BranchTransfersClient({
           );
         })}
         {transfers.length === 0 ? (
-          <div className="rounded-md border p-6 text-sm text-muted-foreground">
-            No branch transfers yet.
-          </div>
+          <div className="rounded-md border p-6 text-sm text-muted-foreground">{t("empty")}</div>
         ) : null}
       </div>
     </div>

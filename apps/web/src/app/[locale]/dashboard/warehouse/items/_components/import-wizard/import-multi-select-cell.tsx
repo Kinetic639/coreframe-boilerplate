@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function ImportMultiSelectCell({
   className?: string;
   allowCreate?: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.import");
   const [draft, setDraft] = useState("");
   const selected = parseTokenString(value);
   const selectedSet = new Set(selected.map((item) => item.toLowerCase()));
@@ -78,7 +80,7 @@ export function ImportMultiSelectCell({
               ) : null}
             </span>
           ) : (
-            <span className="text-muted-foreground">Select</span>
+            <span className="text-muted-foreground">{t("select")}</span>
           )}
           <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
@@ -88,7 +90,7 @@ export function ImportMultiSelectCell({
           <div className="mb-2">
             <input
               value={draft}
-              placeholder="Type and press Enter"
+              placeholder={t("typeAndPressEnter")}
               className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -119,7 +121,7 @@ export function ImportMultiSelectCell({
             })}
           </div>
         ) : (
-          <p className="px-2 py-3 text-sm text-muted-foreground">No presets available.</p>
+          <p className="px-2 py-3 text-sm text-muted-foreground">{t("noPresets")}</p>
         )}
         {selected.length > 0 ? (
           <div className="mt-2 border-t pt-2">
@@ -130,7 +132,7 @@ export function ImportMultiSelectCell({
               className="h-8 w-full justify-start"
               onClick={() => onChange("")}
             >
-              Clear selection
+              {t("clearSelection")}
             </Button>
           </div>
         ) : null}

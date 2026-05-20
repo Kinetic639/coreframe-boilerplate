@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Check, ChevronsUpDown, Copy, ImageIcon, Plus, X } from "lucide-react";
 import { createInventoryCustomFieldAction } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
@@ -39,10 +40,11 @@ export function SkuSourceCombobox({
   options: SkuSourceOption[];
   onChange: (value: string) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
   const [open, setOpen] = useState(false);
   const selectedLabel =
     options.find((option) => option.value === value)?.label ??
-    (value === "sequence" ? "Sequence" : "Select attribute");
+    (value === "sequence" ? t("sequence") : t("selectField"));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -60,9 +62,9 @@ export function SkuSourceCombobox({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[--radix-popover-trigger-width] p-0">
         <Command>
-          <CommandInput placeholder="Search" />
+          <CommandInput placeholder={t("search")} />
           <CommandList>
-            <CommandEmpty>No attributes found.</CommandEmpty>
+            <CommandEmpty>{t("noAttributesFound")}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem
@@ -104,6 +106,7 @@ export function VariantImagePicker({
   onClear: () => void;
   onUpload: (files: FileList | null) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
   const [open, setOpen] = useState(false);
   const primaryPreview = gallery[0]?.preview ?? null;
   const displayPreview = selectedPreviews[0] ?? primaryPreview;
@@ -115,7 +118,7 @@ export function VariantImagePicker({
         <button
           type="button"
           className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted/30"
-          aria-label="Choose variant image"
+          aria-label={t("chooseVariantImage")}
         >
           {displayPreview ? (
             <Image
@@ -137,14 +140,14 @@ export function VariantImagePicker({
       <PopoverContent align="start" className="w-72 p-3">
         <div className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">Variant images</p>
+            <p className="text-sm font-medium">{t("variantImages")}</p>
             {selectedPreviews.length > 0 ? (
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-destructive"
                 onClick={onClear}
               >
-                Use default
+                {t("useDefault")}
               </button>
             ) : null}
           </div>
@@ -168,7 +171,7 @@ export function VariantImagePicker({
                           : [...selectedPreviews, image.preview]
                       )
                     }
-                    aria-label={index === 0 ? "Use default product image" : "Use gallery image"}
+                    aria-label={index === 0 ? t("useDefaultProductImage") : t("useGalleryImage")}
                   >
                     <Image
                       src={image.preview}
@@ -180,7 +183,7 @@ export function VariantImagePicker({
                     />
                     {index === 0 ? (
                       <span className="absolute bottom-0 left-0 right-0 bg-background/80 text-[9px] leading-3 text-foreground">
-                        Default
+                        {t("default")}
                       </span>
                     ) : null}
                     {active ? (
@@ -194,13 +197,13 @@ export function VariantImagePicker({
             </div>
           ) : (
             <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-              Upload product images first, then assign one to this variant.
+              {t("uploadProductImagesFirst")}
             </p>
           )}
 
           <label className="flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border text-sm text-muted-foreground hover:bg-muted/40">
             <Plus className="h-4 w-4" />
-            Upload to gallery
+            {t("uploadToGallery")}
             <input
               type="file"
               accept="image/*"
@@ -231,6 +234,7 @@ export function Field({
   required?: boolean;
   list?: string;
 }) {
+  const t = useTranslations("warehouseInventory.create");
   return (
     <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
       <label className={required || label.endsWith("*") ? requiredLabelClass : labelClass}>
@@ -276,6 +280,8 @@ export function MasterDataField({
   onToggleQuickAdd: () => void;
   onCreate: () => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
+
   return (
     <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
       <label className="pt-2 text-sm text-foreground">{label}</label>
@@ -295,7 +301,7 @@ export function MasterDataField({
                   <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Add {label.toLowerCase()}</TooltipContent>
+              <TooltipContent>{t("addNamed", { label: label.toLowerCase() })}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -308,12 +314,12 @@ export function MasterDataField({
           <div className="flex gap-2">
             <Input
               value={draft}
-              placeholder={`New ${label.toLowerCase()}`}
+              placeholder={t("newNamed", { label: label.toLowerCase() })}
               className="h-9"
               onChange={(event) => onDraftChange(event.target.value)}
             />
             <Button type="button" variant="outline" size="sm" onClick={onCreate}>
-              Add
+              {t("add")}
             </Button>
           </div>
         ) : null}
@@ -346,6 +352,7 @@ export function Cell({
 }
 
 export function HeaderCopyAction({ label, onCopy }: { label: string; onCopy: () => void }) {
+  const t = useTranslations("warehouseInventory.common");
   return (
     <div className="flex items-center gap-1.5 whitespace-nowrap">
       <span>{label}</span>
@@ -357,13 +364,13 @@ export function HeaderCopyAction({ label, onCopy }: { label: string; onCopy: () 
               variant="ghost"
               size="icon"
               className="h-6 w-6 rounded-sm text-muted-foreground hover:text-foreground"
-              aria-label={`Copy ${label} to all rows`}
+              aria-label={t("copyColumnToAllRows", { label })}
               onClick={onCopy}
             >
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Copy to all rows</TooltipContent>
+          <TooltipContent>{t("copyToAllRows")}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>
@@ -379,6 +386,7 @@ export function CustomFieldControl({
   tokens?: string[];
   onTokensChange?: (tokens: string[]) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
   const name = `custom_field_${field.id}`;
   if (field.field_type === "boolean") {
     return (
@@ -387,7 +395,7 @@ export function CustomFieldControl({
         <div className="grid gap-1">
           <label className="flex items-center gap-2 text-sm">
             <input name={name} type="checkbox" required={field.is_required} />
-            Yes
+            {t("yes")}
           </label>
           {field.help_text ? (
             <p className="text-xs text-muted-foreground">{field.help_text}</p>
@@ -403,7 +411,7 @@ export function CustomFieldControl({
         <label className={field.is_required ? requiredLabelClass : labelClass}>{field.name}</label>
         <div className="grid gap-1">
           <select name={name} required={field.is_required} className={cn(selectClass, "pr-9")}>
-            <option value="">Select</option>
+            <option value="">{t("select")}</option>
             {field.options.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -426,7 +434,7 @@ export function CustomFieldControl({
           <TokenInput
             value={tokens}
             onChange={onTokensChange ?? (() => undefined)}
-            placeholder={field.placeholder ?? "Type value and press Enter"}
+            placeholder={field.placeholder ?? t("typeValueEnter")}
             suggestions={field.options}
           />
           {field.help_text ? (
@@ -457,9 +465,11 @@ export function TokenCell({
   value: string[];
   onChange: (value: string[]) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
+
   return (
     <td className="min-w-64 px-2 py-2 align-top">
-      <TokenInput value={value} onChange={onChange} placeholder="Enter value" compact />
+      <TokenInput value={value} onChange={onChange} placeholder={t("enterValue")} compact />
     </td>
   );
 }
@@ -583,6 +593,7 @@ export function AddCustomFieldSelect({
   fields: CustomFieldOption[];
   onAdd: (fieldId: string) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
   const [value, setValue] = useState("");
   return (
     <div className="grid gap-1 text-sm">
@@ -593,7 +604,7 @@ export function AddCustomFieldSelect({
           className={selectClass}
           onChange={(event) => setValue(event.target.value)}
         >
-          <option value="">Select field</option>
+          <option value="">{t("selectField")}</option>
           {fields.map((field) => (
             <option key={field.id} value={field.id}>
               {field.name} ({field.field_type.replace("_", " ")})
@@ -611,7 +622,7 @@ export function AddCustomFieldSelect({
           }}
         >
           <Plus className="mr-2 h-4 w-4" />
-          Add
+          {t("add")}
         </Button>
       </div>
     </div>
@@ -627,6 +638,8 @@ export function QuickCreateCustomField({
   existingFields: CustomFieldOption[];
   onCreated: (field: CustomFieldOption) => void;
 }) {
+  const t = useTranslations("warehouseInventory.create");
+  const tFieldTypes = useTranslations("warehouseInventory.fieldTypes");
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [fieldType, setFieldType] = useState<CustomFieldOption["field_type"]>("text");
@@ -650,11 +663,11 @@ export function QuickCreateCustomField({
   const create = () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Field name is required.");
+      setError(t("fieldNameRequired"));
       return;
     }
     if (needsOptions && options.length === 0) {
-      setError("Select fields need at least one option.");
+      setError(t("selectFieldsNeedOptions"));
       return;
     }
 
@@ -681,7 +694,7 @@ export function QuickCreateCustomField({
         display_order: displayOrder,
       });
       if (!result.success || !("data" in result)) {
-        setError("error" in result ? result.error : "Could not create custom field.");
+        setError("error" in result ? result.error : t("createCustomFieldFailed"));
         return;
       }
 
@@ -695,7 +708,7 @@ export function QuickCreateCustomField({
         is_filterable: isFilterable,
         options: needsOptions ? options : [],
         display_order: displayOrder,
-        section_name: "Custom fields",
+        section_name: t("customFields"),
         help_text: null,
         placeholder: null,
       });
@@ -708,7 +721,7 @@ export function QuickCreateCustomField({
       {!isOpen ? (
         <Button type="button" variant="ghost" size="sm" onClick={() => setIsOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          New {entityType === "product" ? "product field" : "variant column"}
+          {entityType === "product" ? t("newProductField") : t("newVariantColumn")}
         </Button>
       ) : (
         <div className="grid gap-3">
@@ -716,7 +729,7 @@ export function QuickCreateCustomField({
             <Input
               value={name}
               className="h-9"
-              placeholder="Field name"
+              placeholder={t("fieldName")}
               onChange={(event) => setName(event.target.value)}
             />
             <select
@@ -728,20 +741,16 @@ export function QuickCreateCustomField({
                 if (nextType !== "select" && nextType !== "multi_select") setOptions([]);
               }}
             >
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="date">Date</option>
-              <option value="boolean">Checkbox</option>
-              <option value="select">Single select</option>
-              <option value="multi_select">Multi select</option>
+              <option value="text">{tFieldTypes("text")}</option>
+              <option value="number">{tFieldTypes("number")}</option>
+              <option value="date">{tFieldTypes("date")}</option>
+              <option value="boolean">{tFieldTypes("boolean")}</option>
+              <option value="select">{tFieldTypes("select")}</option>
+              <option value="multi_select">{tFieldTypes("multi_select")}</option>
             </select>
           </div>
           {needsOptions ? (
-            <TokenInput
-              value={options}
-              onChange={setOptions}
-              placeholder="Type option and press Enter"
-            />
+            <TokenInput value={options} onChange={setOptions} placeholder={t("typeValueEnter")} />
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
@@ -751,7 +760,7 @@ export function QuickCreateCustomField({
                   checked={isRequired}
                   onChange={(event) => setIsRequired(event.target.checked)}
                 />
-                Required
+                {t("required")}
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -759,16 +768,16 @@ export function QuickCreateCustomField({
                   checked={isFilterable}
                   onChange={(event) => setIsFilterable(event.target.checked)}
                 />
-                Filterable
+                {t("filterable")}
               </label>
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={reset}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="button" size="sm" onClick={create} disabled={isPending}>
                 <Plus className="mr-2 h-4 w-4" />
-                Create
+                {t("create")}
               </Button>
             </div>
           </div>

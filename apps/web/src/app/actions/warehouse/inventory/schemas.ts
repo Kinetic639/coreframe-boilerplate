@@ -504,16 +504,12 @@ export const assignInventoryVariantGalleryImageSchema = z
   .object({
     product_id: uuidSchema,
     variant_id: uuidSchema,
-    storage_path: z.string().max(500).nullable().optional(),
-    public_url: z.string().max(1000).nullable().optional(),
-    file_name: z.string().max(240).nullable().optional(),
-    content_type: z.string().max(120).nullable().optional(),
-    file_size: z.number().int().min(0).nullable().optional(),
+    image_id: uuidSchema,
     sort_order: z.number().int().min(0).optional(),
     is_primary: z.boolean().optional(),
   })
-  .refine((value) => value.storage_path || value.public_url, {
-    message: "Image location is required",
+  .refine((value) => value.product_id !== value.variant_id, {
+    message: "Variant image assignment target is invalid",
   });
 
 export const updateInventoryProductImagesSchema = z.object({
@@ -549,13 +545,15 @@ export const archiveInventorySkuTemplateSchema = z.object({
   id: uuidSchema,
 });
 
+const PRODUCT_IMPORT_PAYLOAD_MAX_CHARS = 25 * 1024 * 1024;
+
 export const productCsvImportSchema = z.object({
-  csv: z.string().min(1),
+  csv: z.string().min(1).max(PRODUCT_IMPORT_PAYLOAD_MAX_CHARS),
   mode: z.enum(["create_only", "skip_existing"]).optional().default("create_only"),
 });
 
 export const productCsvTextSchema = z.object({
-  csv: z.string().min(1),
+  csv: z.string().min(1).max(PRODUCT_IMPORT_PAYLOAD_MAX_CHARS),
 });
 
 export const createCollectionSchema = z.object({

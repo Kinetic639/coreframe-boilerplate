@@ -2,12 +2,16 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  CreateEnhancedInventoryProductInput,
   EnhancedCustomFieldValueInput,
   InventoryCustomFieldDefinition,
   InventoryProductImportPreview,
   ProductCsvImportMode,
 } from "@/lib/warehouse/inventory-types";
 import { InventoryProductsService, type ServiceResult } from "./inventory-products.service";
+
+const EXPORT_PAGE_SIZE = 500;
+const EXPORT_MAX_ROWS = 50_000;
 
 function serviceError(result: ServiceResult<unknown>) {
   return (result as { success: false; error: string }).error;
@@ -246,20 +250,6 @@ export class InventoryProductImportsService {
     }
 
     const client = supabase as any;
-    const { data: job, error: jobError } = await client
-      .from("inventory_import_jobs")
-      .insert({
-        organization_id: orgId,
-        import_type: "products",
-        status: "processing",
-        file_name: "products.csv",
-        summary: { total_rows: preview.data.total_rows, mode },
-        created_by: userId,
-      })
-      .select("id")
-      .single();
-    if (jobError) return { success: false, error: jobError.message };
-
     const rows = parseCsv(csvText);
     const [header, ...records] = rows;
     const headers = header.map((value) => value.trim().toLowerCase());
@@ -282,6 +272,9 @@ export class InventoryProductImportsService {
       return [{ headerName, definition }];
     });
 
+    const previewBySkuFingerprint = new Map(
+      preview.data.rows.map((row) => [skuCollisionFingerprint(row.variant_sku), row])
+    );
     const groups = new Map<string, Array<Record<string, string>>>();
     for (const record of records) {
       if (!record.some((value) => value.trim())) continue;
@@ -294,17 +287,14 @@ export class InventoryProductImportsService {
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
 
-    let importedProducts = 0;
-    let importedVariants = 0;
+    const stagedProducts: CreateEnhancedInventoryProductInput[] = [];
     let skippedRows = 0;
-    for (const groupRows of groups.values()) {
+    for (const [groupKey, groupRows] of groups.entries()) {
       const importableRows =
         mode === "skip_existing"
           ? groupRows.filter((row) => {
-              const sku = (row.variant_sku || row.sku || row.product_sku || "").toLowerCase();
-              const previewRow = preview.data.rows.find(
-                (item) => item.variant_sku.toLowerCase() === sku
-              );
+              const sku = row.variant_sku || row.sku || row.product_sku || "";
+              const previewRow = previewBySkuFingerprint.get(skuCollisionFingerprint(sku));
               return !previewRow?.errors.some((error) => error.startsWith("SKU already exists"));
             })
           : groupRows;
@@ -314,7 +304,15 @@ export class InventoryProductImportsService {
       const productName = first.product_name || first.name || first.item_name || "";
       const unitCode = first.unit_code || first.unit || "";
       const baseUnitId = unitByCode.get(unitCode.toLowerCase());
-      if (!baseUnitId) continue;
+      if (!productName) {
+        return { success: false, error: `Import group ${groupKey} is missing product_name` };
+      }
+      if (!unitCode || !baseUnitId) {
+        return {
+          success: false,
+          error: `Import group ${groupKey} has an unknown or missing unit_code: ${unitCode || "(empty)"}`,
+        };
+      }
 
       const variants = importableRows.map((row) => ({
         sku: row.variant_sku || row.sku || row.product_sku,
@@ -344,51 +342,98 @@ export class InventoryProductImportsService {
         });
       });
 
+      stagedProducts.push({
+        name: productName,
+        product_type: first.product_type || "stocked",
+        base_unit_id: baseUnitId,
+        sku: first.product_sku || null,
+        description: first.description || null,
+        returnable: (first.returnable || "true").toLowerCase() !== "false",
+        brand_name: first.brand || null,
+        manufacturer_name: first.manufacturer || null,
+        sales_account_code: first.sales_account_code || first.sales_account || null,
+        purchase_account_code: first.purchase_account_code || first.purchase_account || null,
+        tax_code: first.tax_code || first.tax || null,
+        tax_rate_percent: numberOrNull(first.tax_rate_percent || first.tax_rate || first.vat_rate),
+        tags: safeSplitTokens(first.tags || ""),
+        custom_fields: [...productCustomFields, ...variantCustomFields],
+        variants,
+        track_inventory: false,
+      });
+    }
+
+    const { data: job, error: jobError } = await client
+      .from("inventory_import_jobs")
+      .insert({
+        organization_id: orgId,
+        import_type: "products",
+        status: "processing",
+        file_name: "products.xlsx",
+        summary: {
+          total_rows: preview.data.total_rows,
+          staged_products: stagedProducts.length,
+          skipped_rows: skippedRows,
+          mode,
+        },
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+    if (jobError) return { success: false, error: jobError.message };
+    const jobId = (job as { id: string }).id;
+
+    let importedProducts = 0;
+    let importedVariants = 0;
+    const createdProductIds: string[] = [];
+    const failImport = async (error: string): Promise<ServiceResult<never>> => {
+      const rollback = await InventoryProductImportsService.rollbackCreatedProducts(
+        supabase,
+        orgId,
+        createdProductIds,
+        userId
+      );
+      const rollbackError = rollback.success ? null : serviceError(rollback);
+      const finalError = rollbackError ? `${error}; rollback failed: ${rollbackError}` : error;
+      await client
+        .from("inventory_import_jobs")
+        .update({
+          status: "failed",
+          error_message: finalError,
+          summary: {
+            total_rows: preview.data.total_rows,
+            imported_products: importedProducts,
+            imported_variants: importedVariants,
+            rolled_back_products: rollback.success ? rollback.data.rolled_back_products : 0,
+            skipped_rows: skippedRows,
+            mode,
+          },
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+      return { success: false, error: finalError };
+    };
+
+    for (const stagedProduct of stagedProducts) {
       const result = await InventoryProductsService.createEnhancedProduct(
         supabase,
         orgId,
-        {
-          name: productName,
-          product_type: first.product_type || "stocked",
-          base_unit_id: baseUnitId,
-          sku: first.product_sku || null,
-          description: first.description || null,
-          returnable: (first.returnable || "true").toLowerCase() !== "false",
-          brand_name: first.brand || null,
-          manufacturer_name: first.manufacturer || null,
-          sales_account_code: first.sales_account_code || first.sales_account || null,
-          purchase_account_code: first.purchase_account_code || first.purchase_account || null,
-          tax_code: first.tax_code || first.tax || null,
-          tax_rate_percent: numberOrNull(
-            first.tax_rate_percent || first.tax_rate || first.vat_rate
-          ),
-          tags: safeSplitTokens(first.tags || ""),
-          custom_fields: [...productCustomFields, ...variantCustomFields],
-          variants,
-          track_inventory: false,
-        },
+        stagedProduct,
         userId
       );
       if (!result.success) {
-        await client
-          .from("inventory_import_jobs")
-          .update({
-            status: "failed",
-            error_message: serviceError(result),
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", (job as { id: string }).id);
-        return { success: false, error: serviceError(result) };
+        return failImport(serviceError(result));
       }
+      createdProductIds.push(result.data.product_id);
       importedProducts += 1;
       importedVariants += result.data.variant_ids.length;
     }
 
-    await client
+    const { error: completeError } = await client
       .from("inventory_import_jobs")
       .update({
         status: "completed",
         summary: {
+          total_rows: preview.data.total_rows,
           imported_products: importedProducts,
           imported_variants: importedVariants,
           skipped_rows: skippedRows,
@@ -396,7 +441,11 @@ export class InventoryProductImportsService {
         },
         completed_at: new Date().toISOString(),
       })
-      .eq("id", (job as { id: string }).id);
+      .eq("id", jobId);
+
+    if (completeError) {
+      return failImport(completeError.message);
+    }
 
     return {
       success: true,
@@ -404,9 +453,52 @@ export class InventoryProductImportsService {
         imported_products: importedProducts,
         imported_variants: importedVariants,
         skipped_rows: skippedRows,
-        job_id: (job as { id: string }).id,
+        job_id: jobId,
       },
     };
+  }
+
+  private static async rollbackCreatedProducts(
+    supabase: SupabaseClient,
+    orgId: string,
+    productIds: string[],
+    userId: string
+  ): Promise<ServiceResult<{ rolled_back_products: number }>> {
+    if (productIds.length === 0) {
+      return { success: true, data: { rolled_back_products: 0 } };
+    }
+
+    const deletedAt = new Date().toISOString();
+    const client = supabase as any;
+    const { error: variantError } = await client
+      .from("inventory_variants")
+      .update({
+        status: "archived",
+        archived_at: deletedAt,
+        archived_by: userId,
+        deleted_at: deletedAt,
+        updated_by: userId,
+      })
+      .eq("organization_id", orgId)
+      .in("product_id", productIds)
+      .is("deleted_at", null);
+    if (variantError) return { success: false, error: variantError.message };
+
+    const { error: productError } = await client
+      .from("inventory_products")
+      .update({
+        status: "archived",
+        archived_at: deletedAt,
+        archived_by: userId,
+        deleted_at: deletedAt,
+        updated_by: userId,
+      })
+      .eq("organization_id", orgId)
+      .in("id", productIds)
+      .is("deleted_at", null);
+    if (productError) return { success: false, error: productError.message };
+
+    return { success: true, data: { rolled_back_products: productIds.length } };
   }
 
   static async exportProductsCsv(
@@ -426,15 +518,19 @@ export class InventoryProductImportsService {
       .select("id")
       .single();
     if (jobError) return { success: false, error: jobError.message };
+    const jobId = (job as { id: string }).id;
 
-    const products = await InventoryProductsService.listProducts(supabase, orgId, {
-      search: "",
-      sort: { field: "name", direction: "asc" },
-      page: 1,
-      pageSize: 200,
-      filters: {},
-    });
-    if (!products.success) return { success: false, error: serviceError(products) };
+    const failExport = async (error: string): Promise<ServiceResult<never>> => {
+      await client
+        .from("inventory_export_jobs")
+        .update({
+          status: "failed",
+          error_message: error,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+      return { success: false, error };
+    };
 
     const header = [
       "product_name",
@@ -454,47 +550,74 @@ export class InventoryProductImportsService {
       "tags",
     ];
     const lines = [header.join(",")];
-    for (const product of products.data.rows) {
-      for (const variant of product.variants) {
-        lines.push(
-          [
-            product.name,
-            product.sku,
-            product.product_type,
-            product.unit_code,
-            variant.name,
-            variant.sku,
-            variant.barcode ?? "",
-            variant.purchase_price ?? "",
-            variant.sales_price ?? "",
-            product.sales_account_code ?? "",
-            product.purchase_account_code ?? "",
-            product.tax_code ?? "",
-            product.tax_rate_percent ?? "",
-            variant.reorder_point ?? "",
-            product.tags.join("|"),
-          ]
-            .map(csvEscape)
-            .join(",")
-        );
+    let exportedRows = 0;
+    let page = 1;
+    let totalCount = 0;
+
+    while (true) {
+      const products = await InventoryProductsService.listProducts(supabase, orgId, {
+        search: "",
+        sort: { field: "name", direction: "asc" },
+        page,
+        pageSize: EXPORT_PAGE_SIZE,
+        filters: {},
+      });
+      if (!products.success) return failExport(serviceError(products));
+      totalCount = products.data.totalCount;
+
+      for (const product of products.data.rows) {
+        for (const variant of product.variants) {
+          exportedRows += 1;
+          if (exportedRows > EXPORT_MAX_ROWS) {
+            return failExport(`Export exceeds the ${EXPORT_MAX_ROWS} row limit`);
+          }
+          lines.push(
+            [
+              product.name,
+              product.sku,
+              product.product_type,
+              product.unit_code,
+              variant.name,
+              variant.sku,
+              variant.barcode ?? "",
+              variant.purchase_price ?? "",
+              variant.sales_price ?? "",
+              product.sales_account_code ?? "",
+              product.purchase_account_code ?? "",
+              product.tax_code ?? "",
+              product.tax_rate_percent ?? "",
+              variant.reorder_point ?? "",
+              product.tags.join("|"),
+            ]
+              .map(csvEscape)
+              .join(",")
+          );
+        }
       }
+
+      if (products.data.rows.length < EXPORT_PAGE_SIZE || page * EXPORT_PAGE_SIZE >= totalCount) {
+        break;
+      }
+      page += 1;
     }
+
     const csv = `${lines.join("\n")}\n`;
-    await client
+    const { error: completeError } = await client
       .from("inventory_export_jobs")
       .update({
         status: "completed",
-        summary: { exported_rows: lines.length - 1 },
+        summary: { exported_rows: exportedRows, product_rows: totalCount },
         completed_at: new Date().toISOString(),
       })
-      .eq("id", (job as { id: string }).id);
+      .eq("id", jobId);
+    if (completeError) return { success: false, error: completeError.message };
 
     return {
       success: true,
       data: {
         csv,
         file_name: `inventory-products-${new Date().toISOString().slice(0, 10)}.csv`,
-        job_id: (job as { id: string }).id,
+        job_id: jobId,
       },
     };
   }

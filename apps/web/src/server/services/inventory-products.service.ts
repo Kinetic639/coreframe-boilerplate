@@ -1457,6 +1457,27 @@ export class InventoryProductsService {
     }>
   > {
     const client = supabase as any;
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      orgId,
+      input.product_id,
+      input.variant_id ?? null
+    );
+    if (!target.success) return { success: false, error: serviceError(target) };
+
+    if (input.is_primary) {
+      const primaryQuery = client
+        .from("inventory_item_images")
+        .update({ is_primary: false })
+        .eq("organization_id", orgId)
+        .eq("product_id", input.product_id)
+        .is("deleted_at", null);
+      const { error: primaryError } = input.variant_id
+        ? await primaryQuery.eq("variant_id", input.variant_id)
+        : await primaryQuery.is("variant_id", null);
+      if (primaryError) return { success: false, error: primaryError.message };
+    }
+
     const { data, error } = await client
       .from("inventory_item_images")
       .insert({
@@ -1487,6 +1508,103 @@ export class InventoryProductsService {
         file_size: number | null;
       },
     };
+  }
+
+  static async assignExistingImageToVariant(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      product_id: string;
+      variant_id: string;
+      image_id: string;
+      is_primary?: boolean;
+      sort_order?: number;
+      actor_user_id?: string | null;
+    }
+  ): Promise<
+    ServiceResult<{
+      id: string;
+      storage_path: string | null;
+      public_url: string | null;
+      file_name: string | null;
+      content_type: string | null;
+      file_size: number | null;
+    }>
+  > {
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      orgId,
+      input.product_id,
+      input.variant_id
+    );
+    if (!target.success) return { success: false, error: serviceError(target) };
+
+    const client = supabase as any;
+    const { data: source, error } = await client
+      .from("inventory_item_images")
+      .select(
+        "id, product_id, variant_id, storage_path, public_url, file_name, content_type, file_size"
+      )
+      .eq("organization_id", orgId)
+      .eq("product_id", input.product_id)
+      .eq("id", input.image_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!source) return { success: false, error: "Source image not found" };
+    const sourceVariantId = (source as { variant_id?: string | null }).variant_id ?? null;
+    if (sourceVariantId && sourceVariantId !== input.variant_id) {
+      return { success: false, error: "Source image does not belong to this product gallery" };
+    }
+
+    return InventoryProductsService.addImageRecord(supabase, orgId, {
+      product_id: input.product_id,
+      variant_id: input.variant_id,
+      storage_path: (source as { storage_path?: string | null }).storage_path ?? null,
+      public_url: (source as { public_url?: string | null }).public_url ?? null,
+      file_name: (source as { file_name?: string | null }).file_name ?? null,
+      content_type: (source as { content_type?: string | null }).content_type ?? null,
+      file_size: toNullableNumber(
+        (source as { file_size?: string | number | null }).file_size ?? null
+      ),
+      is_primary: input.is_primary ?? false,
+      sort_order: input.sort_order ?? 0,
+      actor_user_id: input.actor_user_id ?? null,
+    });
+  }
+
+  static async verifyImageTarget(
+    supabase: SupabaseClient,
+    orgId: string,
+    productId: string,
+    variantId?: string | null
+  ): Promise<ServiceResult<{ product_id: string; variant_id: string | null }>> {
+    const client = supabase as any;
+    const { data: product, error: productError } = await client
+      .from("inventory_products")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("id", productId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (productError) return { success: false, error: productError.message };
+    if (!product) return { success: false, error: "Product not found" };
+    if (!variantId) return { success: true, data: { product_id: productId, variant_id: null } };
+
+    const { data: variant, error: variantError } = await client
+      .from("inventory_variants")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("product_id", productId)
+      .eq("id", variantId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (variantError) return { success: false, error: variantError.message };
+    if (!variant) return { success: false, error: "Variant does not belong to this product" };
+    return { success: true, data: { product_id: productId, variant_id: variantId } };
   }
 
   static async listProductImages(
