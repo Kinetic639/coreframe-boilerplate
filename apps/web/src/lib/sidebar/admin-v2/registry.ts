@@ -78,6 +78,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [SUPERADMIN_ADMIN_READ],
     },
   },
+  {
+    id: "admin.rich-text-demo",
+    title: "Rich Text Demo",
+    iconKey: "documentation",
+    href: "/admin/rich-text-demo",
+    match: { startsWith: "/admin/rich-text-demo" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
 ];
 
 export const ADMIN_FOOTER_NAV_ITEMS: SidebarItem[] = [];
