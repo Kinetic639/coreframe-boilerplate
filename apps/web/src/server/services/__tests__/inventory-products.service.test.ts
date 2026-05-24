@@ -3,6 +3,8 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { InventoryProductsService } from "../inventory-products.service";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -10,6 +12,11 @@ const PRODUCT_ID = "22222222-2222-4222-8222-222222222222";
 const VARIANT_ID = "33333333-3333-4333-8333-333333333333";
 const UNIT_ID = "44444444-4444-4444-8444-444444444444";
 const USER_ID = "55555555-5555-4555-8555-555555555555";
+const servicePath = path.resolve(__dirname, "../inventory-products.service.ts");
+const inventoryActionsPath = path.resolve(
+  __dirname,
+  "../../../app/actions/warehouse/inventory/index.ts"
+);
 
 type Operation = {
   table: string;
@@ -83,10 +90,13 @@ function createSupabaseMock(state: { failOptionGroupRead?: boolean } = {}) {
 describe("InventoryProductsService.createEnhancedProduct", () => {
   it("creates the catalog through the transactional enhanced product RPC", async () => {
     const supabase = createSupabaseMock();
-    supabase.client.rpc = vi.fn().mockResolvedValue({
-      data: { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
-      error: null,
-    });
+    supabase.client.rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: { product_id: PRODUCT_ID, variant_ids: [VARIANT_ID], sku: "SKU-1" },
+        error: null,
+      });
 
     const result = await InventoryProductsService.createEnhancedProduct(
       supabase.client as never,
@@ -103,6 +113,11 @@ describe("InventoryProductsService.createEnhancedProduct", () => {
     );
 
     expect(result.success).toBe(true);
+    expect(supabase.client.rpc).toHaveBeenCalledWith("inventory_find_sku_collisions", {
+      p_organization_id: ORG_ID,
+      p_skus: ["SKU-1"],
+      p_exclude_variant_ids: [],
+    });
     expect(supabase.client.rpc).toHaveBeenCalledWith(
       "inventory_create_enhanced_product",
       expect.objectContaining({
@@ -111,6 +126,74 @@ describe("InventoryProductsService.createEnhancedProduct", () => {
         p_attributes: [{ name: "Color", values: ["Black"] }],
       })
     );
+  });
+});
+
+describe("InventoryProductsService.checkSkuCollisions", () => {
+  it("delegates collision detection to the canonical database fingerprint RPC", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            sku: "N90 619 802",
+            variant_id: VARIANT_ID,
+            product_id: PRODUCT_ID,
+            variant_name: "Default",
+            product_name: "Bolt",
+            sku_fingerprint: "N90619802",
+          },
+        ],
+        error: null,
+      }),
+    };
+
+    const result = await InventoryProductsService.checkSkuCollisions(
+      client as never,
+      ORG_ID,
+      [" N90-619/802 ", ""],
+      [VARIANT_ID]
+    );
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        {
+          sku: "N90 619 802",
+          variant_id: VARIANT_ID,
+          product_id: PRODUCT_ID,
+          variant_name: "Default",
+          product_name: "Bolt",
+        },
+      ],
+    });
+    expect(client.rpc).toHaveBeenCalledWith("inventory_find_sku_collisions", {
+      p_organization_id: ORG_ID,
+      p_skus: ["N90-619/802"],
+      p_exclude_variant_ids: [VARIANT_ID],
+    });
+  });
+
+  it("returns RPC failures so creates and edits do not save without collision proof", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "rpc unavailable" } }),
+    };
+
+    const result = await InventoryProductsService.checkSkuCollisions(client as never, ORG_ID, [
+      "SKU-1",
+    ]);
+
+    expect(result).toEqual({ success: false, error: "rpc unavailable" });
+  });
+});
+
+describe("InventoryProductsService branch-scoped stock reads", () => {
+  it("filters product catalogue balances by active branch when branch context is provided", () => {
+    const source = fs.readFileSync(servicePath, "utf8");
+    const actionsSource = fs.readFileSync(inventoryActionsPath, "utf8");
+
+    expect(source).toContain("branchId?: string | null");
+    expect(source).toContain('balancesQuery = balancesQuery.eq("branch_id", branchId)');
+    expect(actionsSource).toContain("auth.context.app.activeBranchId");
   });
 });
 

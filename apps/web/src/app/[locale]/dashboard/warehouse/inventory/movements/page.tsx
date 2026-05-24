@@ -3,13 +3,14 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
+  WAREHOUSE_INVENTORY_OPERATE,
   WAREHOUSE_INVENTORY_READ,
-  WAREHOUSE_INVENTORY_REVERSE,
   WAREHOUSE_READ,
 } from "@/lib/constants/permissions";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import { InventoryMovementsService } from "@/server/services/inventory-movements.service";
+import { WarehouseLocationsService } from "@/server/services/warehouse-locations.service";
 import { InventoryMovementsClient } from "./_components/inventory-movements-client";
 
 type PageProps = {
@@ -35,18 +36,24 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
   const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
   const supabase = await createClient();
   const branchId = context.app.activeBranchId;
-  const movementsResult = branchId
-    ? await InventoryMovementsService.listMovements(supabase, context.app.activeOrgId, branchId, {
-        search: params.search,
-        sort: params.sort,
-        page: params.page,
-        pageSize: params.pageSize,
-        filters: params.filters,
-      })
-    : {
-        success: true as const,
-        data: { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize },
-      };
+  const [movementsResult, locationsResult] = branchId
+    ? await Promise.all([
+        InventoryMovementsService.listMovements(supabase, context.app.activeOrgId, branchId, {
+          search: params.search,
+          sort: params.sort,
+          page: params.page,
+          pageSize: params.pageSize,
+          filters: params.filters,
+        }),
+        WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId),
+      ])
+    : [
+        {
+          success: true as const,
+          data: { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize },
+        },
+        { success: true as const, data: [] },
+      ];
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
@@ -61,7 +68,17 @@ export default async function WarehouseInventoryMovementsPage({ searchParams }: 
               ? movementsResult.data
               : { rows: [], totalCount: 0, page: params.page, pageSize: params.pageSize }
           }
-          canReverse={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_REVERSE)}
+          activeBranchId={branchId ?? null}
+          locations={
+            locationsResult.success
+              ? locationsResult.data.map((location) => ({
+                  id: location.id,
+                  name: location.name,
+                  code: location.code,
+                }))
+              : []
+          }
+          canOperate={checkPermission(context.user.permissionSnapshot, WAREHOUSE_INVENTORY_OPERATE)}
         />
       </div>
     </div>

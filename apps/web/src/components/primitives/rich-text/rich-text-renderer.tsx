@@ -4,6 +4,19 @@ import { cn } from "@/utils";
 import { isRichTextEmpty } from "./rich-text-utils";
 import type { RichTextRendererProps } from "./rich-text-types";
 
+function safeHref(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (trimmed.startsWith("/") || trimmed.startsWith("#")) return trimmed;
+
+  try {
+    const url = new URL(trimmed);
+    return ["http:", "https:", "mailto:", "tel:"].includes(url.protocol) ? trimmed : null;
+  } catch {
+    return null;
+  }
+}
+
 function applyMarks(text: string, marks: JSONContent[] | undefined): ReactNode {
   if (!marks?.length) return text;
   return marks.reduce<ReactNode>((node, mark) => {
@@ -19,7 +32,7 @@ function applyMarks(text: string, marks: JSONContent[] | undefined): ReactNode {
       case "code":
         return <code className="rounded bg-muted px-1 py-0.5 text-xs font-mono">{node}</code>;
       case "link": {
-        const href = mark.attrs?.href as string | undefined;
+        const href = safeHref(mark.attrs?.href as string | undefined);
         if (!href) return node;
         return (
           <a

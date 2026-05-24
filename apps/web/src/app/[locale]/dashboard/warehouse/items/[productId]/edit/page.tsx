@@ -46,7 +46,12 @@ export default async function WarehouseEditItemPage({ params }: PageProps) {
     taxRatesResult,
     customFieldsResult,
   ] = await Promise.all([
-    InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
+    InventoryProductsService.getProductDetail(
+      supabase,
+      context.app.activeOrgId,
+      productId,
+      context.app.activeBranchId
+    ),
     InventoryProductsService.listUnits(supabase, context.app.activeOrgId),
     InventoryProductsService.listSuppliers(supabase, context.app.activeOrgId),
     InventoryProductsService.listBrands(supabase, context.app.activeOrgId),

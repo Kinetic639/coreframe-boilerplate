@@ -36,13 +36,18 @@ export default async function WarehouseItemsPage({ searchParams }: PageProps = {
   const params = parseDataViewSearchParams(searchParams ? await searchParams : {});
   const supabase = await createClient();
   const [productsResult, customFieldsResult] = await Promise.all([
-    InventoryProductsService.listProducts(supabase, context.app.activeOrgId, {
-      search: params.search,
-      sort: params.sort,
-      page: params.page,
-      pageSize: params.pageSize,
-      filters: params.filters,
-    }),
+    InventoryProductsService.listProducts(
+      supabase,
+      context.app.activeOrgId,
+      {
+        search: params.search,
+        sort: params.sort,
+        page: params.page,
+        pageSize: params.pageSize,
+        filters: params.filters,
+      },
+      context.app.activeBranchId
+    ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId, ["product"]),
   ]);
 

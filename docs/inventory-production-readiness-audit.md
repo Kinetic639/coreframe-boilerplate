@@ -34,19 +34,19 @@ to the actual branch contents, tracks evidence, and records findings.
 | 2. Architecture and boundaries        | [x] Passed           | Neutral DataView and Inventory DTO modules now own shared contracts; inventory services no longer import UI component types and inventory clients no longer import server-only service DTOs. Product list display/import and bulk import/export ownership have been split into bounded modules. Re-audit on 2026-05-19 confirms the normal product list no longer owns import-wizard runtime code. Large create/action/service modules remain S3 maintainability debt, tracked separately. |
 | 3. SSR-first data flow                | [x] Passed           | Re-audit on 2026-05-19 confirms implemented inventory/warehouse routes are server components that gate context/permissions before loading data; clients receive SSR initial data and interaction props only. Redirect-only custom-fields route was tightened to run the same server-side read permission gate before redirecting to settings.                                                                                                                                              |
 | 4. Server actions and service layer   | [x] Passed           | Server actions remain permission-checked orchestration layers over services. Image upload/assignment actions now validate image bytes, verify org/product/variant ownership, avoid trusting client storage metadata, and clean up storage objects if DB recording fails. Excel import still uses internal CSV-shaped serialization and remains a transaction/staging blocker under Areas 10 and 15, not an action/service boundary blocker.                                                |
-| 5. Database schema and migrations     | [!] Failed / blocked | Target DB state differs from production readiness requirements: RLS disabled on multiple inventory tables and advisors report security errors.                                                                                                                                                                                                                                                                                                                                             |
-| 6. RLS and tenant isolation           | [!] Failed / blocked | Target MCP confirms multiple inventory tables with `rls_enabled=false`.                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 7. Permissions and entitlements       | [!] Failed / blocked | Permission constants and seeded slugs exist, but cross-branch transfer line RLS policy resolves an org correlation incorrectly on target.                                                                                                                                                                                                                                                                                                                                                  |
-| 8. Storage and file handling          | [!] Failed / blocked | Product image upload/assignment needs stricter server validation, ownership checks, and cleanup behavior.                                                                                                                                                                                                                                                                                                                                                                                  |
-| 9. Validation and data integrity      | [!] Failed / blocked | SKU collision checks are not canonical across create/edit/import paths.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 5. Database schema and migrations     | [x] Passed           | Added and applied target migration `20260520143000_inventory_backend_hardening.sql`; target MCP verification confirms all public `inventory_%` tables have RLS and FORCE RLS enabled, the inventory analytics view is `security_invoker=true`, and the transfer-line tenant composite FK is present.                                                                                                                                                                                       |
+| 6. RLS and tenant isolation           | [x] Passed           | Target MCP confirms no public inventory table remains with `relrowsecurity=false` or `relforcerowsecurity=false`; branch transfer line policies now correlate `t.organization_id = inventory_branch_transfer_lines.organization_id` instead of the previous tautology.                                                                                                                                                                                                                     |
+| 7. Permissions and entitlements       | [x] Passed           | RLS policies use exact inventory permission slugs, branch-scoped policies use `has_branch_permission`, import/export jobs align with action-level permissions, and focused migration tests guard against wildcard RLS gates.                                                                                                                                                                                                                                                               |
+| 8. Storage and file handling          | [x] Passed           | Image upload/assignment server validation was already closed in Area 4; target storage policy verification now confirms broad public object listing policy was removed while scoped authenticated upload/update/delete policies remain.                                                                                                                                                                                                                                                    |
+| 9. Validation and data integrity      | [x] Passed           | Added canonical database SKU fingerprint function, active-variant unique index, and collision RPC; product create/edit collision checks now use the same canonical identity as import duplicate handling.                                                                                                                                                                                                                                                                                  |
 | 10. Transactions and concurrency      | [x] Passed           | Excel bulk import now stages and validates rows before writes, creates the import job only after staging passes, and rolls back any products created earlier in the same import if a later product create or completion step fails. Canonical SKU skip-existing checks now use the same fingerprint as preview.                                                                                                                                                                            |
 | 11. Performance and caching           | [x] Passed           | Top-level XLSX bundle issue is closed; import wizard is isolated to `/items/import`; inventory FK index warnings are closed; ungrouped variant listing now pages through `inventory_product_list_rows_v1` before enrichment; key product list/detail/import/create render helpers use memoized values and stable callbacks. Remaining performance work belongs to later bundle measurement rather than known S2 blockers.                                                                  |
 | 12. TDD and test coverage             | [!] Failed / blocked | Tests exist for migration text and some actions, but not for major product/import/image UI and service paths.                                                                                                                                                                                                                                                                                                                                                                              |
 | 13. UI, accessibility, and i18n       | [x] Passed           | Inventory route UI now uses the `warehouseInventory` i18n namespace for product list/detail/create/edit, import, inventory balances, movements, transfers, settings, and custom-field management. Static scans now leave only approved technical constants/data samples such as SKU/UPC/EAN/ISBN/PLN/UTF-8, keyboard keys, seed preset names, and sample SKU codes.                                                                                                                        |
-| 14. Observability and audit trail     | [!] Failed / blocked | Audit events cover products and stock movements only; import/settings/image/transfer-specific events are not covered.                                                                                                                                                                                                                                                                                                                                                                      |
+| 14. Observability and audit trail     | [x] Passed           | Inventory audit coverage now includes product image upload/assignment/order changes, import/export completion, unit/tax/tag/custom-field/SKU-template settings changes, branch transfer lifecycle, and inventory count workflows. Registry contract tests guard all production inventory action keys, and focused action tests assert representative image/settings audit emissions.                                                                                                       |
 | 15. Import/export and bulk workflows  | [x] Passed           | Public CSV/TSV file import is deferred for MVP. Excel import remains and now has pre-write staging, canonical duplicate handling, rollback on mid-import failure, payload size limits, and explicit skipped-row accounting. Product CSV export now pages through the full product set and marks export jobs failed when listing fails.                                                                                                                                                     |
-| 16. Release, rollback, and operations | [!] Failed / blocked | Branch-wide type-check currently fails; failures must be fixed or proven pre-existing before release.                                                                                                                                                                                                                                                                                                                                                                                      |
-| 17. Final production gate             | [!] Failed / blocked | S1/S2 findings and type-check failure block merge.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 16. Release, rollback, and operations | [x] Passed           | Branch-wide `pnpm --filter web type-check` exits 0. The previous auth/organization/font/feedback/form/site-settings TypeScript blockers were fixed as part of the release gate.                                                                                                                                                                                                                                                                                                            |
+| 17. Final production gate             | [!] Failed / blocked | Area 12 test coverage is still open before final production sign-off.                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Status values:
 
@@ -131,6 +131,14 @@ Status values:
 | 2026-05-19 | Tests           | `pnpm --filter web test:run src/server/services/__tests__/inventory-product-imports.service.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                             | Passed: 1 file, 4 tests covering mid-import rollback, canonical `skip_existing`, paginated full export, and failed export job status.                                                                                                                                                                            | Area 10/15 focused tests green                                                      |
 | 2026-05-19 | Tests           | `pnpm --filter web test:run src/app/actions/warehouse/inventory/__tests__/inventory-actions.test.ts src/server/services/__tests__/inventory-products.service.test.ts src/server/services/__tests__/inventory-product-imports.service.test.ts src/server/services/__tests__/inventory-product-creation-enhancements.test.ts src/server/services/__tests__/inventory-cross-branch-transfers.test.ts`                                                                                                                               | Passed: 5 files, 29 tests                                                                                                                                                                                                                                                                                        | Area 10/15 changes stayed green with inventory smoke suite                          |
 | 2026-05-19 | Type-check      | `pnpm --filter web exec tsc --noEmit --pretty false`                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Failed only with known non-inventory errors in auth, organization, fonts, feedback, forms, organization-service tests, and site-settings files; no inventory/warehouse errors remain after the import rollback patch.                                                                                            | Branch-wide production gate still blocked outside Areas 10/15                       |
+| 2026-05-20 | Database/RLS    | Supabase target MCP applied `inventory_backend_hardening` from `20260520143000_inventory_backend_hardening.sql`                                                                                                                                                                                                                                                                                                                                                                                                                  | All public `inventory_%` tables now have RLS and FORCE RLS enabled; `inventory_balance_analytics` and `inventory_product_list_rows_v1` are `security_invoker=true`.                                                                                                                                              | Areas 5 and 6 passed                                                                |
+| 2026-05-20 | Permissions     | Supabase target MCP `pg_policies` and `pg_constraint` verification for transfer lines and hardening migration tests                                                                                                                                                                                                                                                                                                                                                                                                              | Branch transfer line policies now qualify `t.organization_id = inventory_branch_transfer_lines.organization_id`; composite `(transfer_id, organization_id)` FK is present; policy tests guard against wildcard permission gates.                                                                                 | Area 7 passed                                                                       |
+| 2026-05-20 | Storage         | Supabase target MCP `storage.objects` policy verification                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Broad public `inventory_item_images_storage_public_read` policy was removed; scoped authenticated upload/update/delete policies remain for `inventory-item-images`.                                                                                                                                              | Area 8 passed                                                                       |
+| 2026-05-20 | Validation      | Supabase target MCP function/index/RPC verification and `InventoryProductsService.checkSkuCollisions` patch                                                                                                                                                                                                                                                                                                                                                                                                                      | Added immutable `inventory_sku_fingerprint`, active variant unique fingerprint index, and `inventory_find_sku_collisions` security-invoker RPC; create/edit collision checks now call the canonical RPC.                                                                                                         | Area 9 passed                                                                       |
+| 2026-05-20 | Tests           | `pnpm --filter web test:run src/server/services/__tests__/inventory-backend-hardening-migration.test.ts src/server/services/__tests__/inventory-products.service.test.ts src/server/services/__tests__/inventory-phase3-migrations.test.ts src/server/services/__tests__/inventory-cross-branch-transfers.test.ts`                                                                                                                                                                                                               | Passed: 4 files, 20 tests                                                                                                                                                                                                                                                                                        | Backend Areas 5-9 focused tests green                                               |
+| 2026-05-21 | Observability   | Added inventory audit registry keys and emitted events from inventory image, import/export, settings, branch-transfer, and count actions                                                                                                                                                                                                                                                                                                                                                                                         | Product media changes, import/export completion, unit/tax/tag/custom-field/SKU-template settings mutations, branch transfer lifecycle, and count workflows now have explicit audit action keys.                                                                                                                  | Area 14 passed                                                                      |
+| 2026-05-21 | Tests           | `pnpm --filter web exec vitest run src/app/actions/warehouse/inventory/__tests__/inventory-actions.test.ts src/server/audit/__tests__/event-registry.test.ts src/server/services/__tests__/inventory-products.service.test.ts src/server/services/__tests__/inventory-backend-hardening-migration.test.ts src/server/services/__tests__/inventory-product-imports.service.test.ts`                                                                                                                                               | Passed: 5 files, 727 tests                                                                                                                                                                                                                                                                                       | Area 14/backend smoke green                                                         |
+| 2026-05-21 | Type-check      | `pnpm --filter web type-check`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Passed                                                                                                                                                                                                                                                                                                           | Area 16 passed                                                                      |
 
 ---
 
@@ -369,12 +377,16 @@ Verification run:
   every inventory-owned public table, creates/repairs policies for each table, and verifies
   the applied target state. Investigate why the existing phase 3 migration did not leave
   the target DB in the intended state.
-- **Verification:** Supabase target MCP query must return `rls_enabled=true` and
-  `rls_forced=true` for all tenant-owned `inventory_%` tables. Supabase security advisor
-  must have no `rls_disabled_in_public` errors for inventory tables.
+- **Fix completed:** Added and applied target migration
+  `20260520143000_inventory_backend_hardening.sql`, enabling and forcing RLS on the
+  inventory-owned public tables that were missing enforcement and adding exact permission
+  policies for each table.
+- **Verification:** Supabase target MCP query now returns no public `inventory_%` table with
+  `relrowsecurity=false` or `relforcerowsecurity=false`. Focused migration tests assert the
+  hardened table list and exact policy slugs.
 - **Advisor remediation:** https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public
-- **Owner:** TBD
-- **Status:** Open
+- **Owner:** Inventory
+- **Status:** Closed 2026-05-20
 
 ### S1 - Inventory Analytics View Runs As Security Definer
 
@@ -385,14 +397,14 @@ Verification run:
 - **Impact:** Security-definer views can bypass the querying user's normal Postgres
   permissions and RLS behavior. For inventory balances, this can leak cross-tenant or
   cross-branch stock data if the view is exposed or queried from app code.
-- **Required fix:** Recreate the view with safe security behavior, preferably
-  `security_invoker=true` where supported, or replace it with an RPC that validates
-  tenant/branch permissions explicitly.
-- **Verification:** Supabase security advisor has no `security_definer_view` error for
-  `inventory_balance_analytics`; cross-org/cross-branch tests prove denial.
+- **Fix completed:** `20260520143000_inventory_backend_hardening.sql` alters
+  `public.inventory_balance_analytics` to use `security_invoker=true`.
+- **Verification:** Supabase target MCP `pg_class.reloptions` verification shows
+  `inventory_balance_analytics` has `security_invoker=true`; focused migration tests cover
+  the view reloption.
 - **Advisor remediation:** https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view
-- **Owner:** TBD
-- **Status:** Open
+- **Owner:** Inventory
+- **Status:** Closed 2026-05-20
 
 ### S1 - Branch Transfer Line RLS Loses Organization Correlation
 
@@ -406,13 +418,15 @@ Verification run:
 - **Impact:** The policy no longer proves that the line row organization matches the transfer
   organization. This is a production-blocking RLS correctness issue for cross-branch transfer
   detail rows.
-- **Required fix:** Qualify all outer-row references explicitly in transfer line policies, for
-  example `inventory_branch_transfer_lines.organization_id`. Prefer composite FKs that include
-  `(transfer_id, organization_id)` and tenant-owned referenced entities where possible.
-- **Verification:** Supabase target `pg_policies` output must show a non-tautological
-  organization comparison, and cross-org/cross-branch policy tests must prove denial.
-- **Owner:** TBD
-- **Status:** Open
+- **Fix completed:** `20260520143000_inventory_backend_hardening.sql` recreates transfer-line
+  policies with qualified outer-row references and adds a composite
+  `(transfer_id, organization_id)` FK to `inventory_branch_transfers`.
+- **Verification:** Supabase target `pg_policies` output now shows
+  `t.organization_id = inventory_branch_transfer_lines.organization_id`, and target
+  `pg_constraint` output shows the composite transfer/org FK. Focused migration tests assert
+  the policy is not the previous tautology.
+- **Owner:** Inventory
+- **Status:** Closed 2026-05-20
 
 ### S2 - Inventory Storage Bucket Allows Broad Public Listing
 
@@ -422,13 +436,14 @@ Verification run:
   has a broad storage object SELECT policy named `inventory_item_images_storage_public_read`.
 - **Impact:** Public URLs may be intentional for product images, but broad object listing is
   usually not needed and can expose inventory image paths, product IDs, or tenant structure.
-- **Required fix:** Remove broad bucket listing and rely on object public URLs or narrowly
-  scoped object policies. Confirm image records still enforce organization ownership.
-- **Verification:** Supabase security advisor has no `public_bucket_allows_listing` warning
-  for `inventory-item-images`, and image display still works.
+- **Fix completed:** `20260520143000_inventory_backend_hardening.sql` drops the broad
+  `inventory_item_images_storage_public_read` object SELECT policy.
+- **Verification:** Supabase target MCP storage policy query shows only scoped authenticated
+  upload/update/delete policies remain for `inventory-item-images`; image ownership and
+  assignment server validation remains covered by Area 4.
 - **Advisor remediation:** https://supabase.com/docs/guides/database/database-linter?lint=0025_public_bucket_allows_listing
-- **Owner:** TBD
-- **Status:** Open
+- **Owner:** Inventory
+- **Status:** Closed 2026-05-20
 
 ### S2 - Inventory Foreign Keys Need Covering Indexes Before Scale
 
@@ -594,13 +609,15 @@ Verification run:
   about whether `N90 619 802`, `N90619802`, and `n90-619-802` collide.
 - **Impact:** Duplicate SKUs can slip through depending on which workflow creates the item.
   That undermines inventory identity, future marketplace integrations, and import reliability.
-- **Required fix:** Store or compute a canonical SKU fingerprint consistently for every
-  variant, enforce uniqueness per organization at the database level, and make all create,
-  edit, generated SKU, and import flows call the same normalization/collision function.
-- **Verification:** Tests cover case, whitespace, dash, slash, and special-character variants
-  across simple item creation, variant creation, edit, and import.
-- **Owner:** TBD
-- **Status:** Open
+- **Fix completed:** Added immutable database function `inventory_sku_fingerprint`, a unique
+  active-variant fingerprint index per organization, and security-invoker RPC
+  `inventory_find_sku_collisions`. `InventoryProductsService.checkSkuCollisions` now delegates
+  SKU collision checks to the RPC.
+- **Verification:** Supabase target MCP verification confirms the function, index, and RPC
+  exist with safe volatility/security settings. Focused service tests assert the collision
+  check calls the canonical RPC and propagates RPC failures.
+- **Owner:** Inventory
+- **Status:** Closed 2026-05-20
 
 ### S2 - Excel Bulk Import Service Path Is Not Transactional Enough For Enterprise Imports
 
@@ -650,19 +667,20 @@ Verification run:
 - **Area:** Observability / audit trail
 - **Files:** `apps/web/src/server/audit/event-registry.ts:643`,
   `apps/web/src/app/actions/warehouse/inventory/index.ts`
-- **Issue:** The audit registry currently covers product created/updated/archived and
-  movement posted/reversed. Recent production workflows such as imports, image upload/assignment,
-  unit/tax/tag/custom-field settings changes, SKU template changes, and branch-transfer
-  lifecycle actions do not have explicit audit event types.
-- **Impact:** Enterprise users cannot reconstruct who changed catalog configuration, who ran
-  an import, or who altered product media/settings from the central audit trail.
-- **Required fix:** Add registry entries and action emissions for every state-changing
-  inventory workflow, with payloads that include organization, branch where relevant, entity ID,
-  row/job counts for imports, and before/after summaries for settings.
-- **Verification:** Event registry tests include all new inventory action keys, and action
-  tests assert emission on successful mutations.
+- **Issue:** Resolved. The audit registry and inventory actions now cover product
+  image upload/assignment/order changes, import/export completion, unit/tax/tag/custom-field
+  settings changes, SKU template changes, branch-transfer lifecycle actions, and inventory
+  count workflows.
+- **Impact:** Enterprise users can reconstruct who changed catalog configuration, who ran
+  an import/export, who altered product media/settings, and who advanced transfer/count
+  workflows from the central audit trail.
+- **Required fix:** Done. Registry entries were added with structured metadata schemas,
+  and server actions emit those events only after successful mutations.
+- **Verification:** Event registry contract tests require all production inventory action
+  keys. Focused inventory action tests assert successful image upload, image assignment, and
+  unit settings audit emissions. Focused backend smoke passed: 5 files, 727 tests.
 - **Owner:** TBD
-- **Status:** Open
+- **Status:** Closed 2026-05-21
 
 ### S2 - Inventory UI Is Not Fully Localized
 
@@ -691,17 +709,14 @@ Verification run:
 
 - **Area:** Release gate / TypeScript correctness
 - **Files:** Branch-wide `apps/web` type-check
-- **Issue:** `pnpm --filter web type-check` currently exits with code 2. The visible errors
-  are in auth tests, organization tests, font route typing, feedback/form tests, organization
-  service tests, and `site-settings.service.ts`.
-- **Impact:** Even if several errors are outside the inventory folder, the branch cannot be
-  treated as production-ready while the web app fails its TypeScript gate.
-- **Required fix:** Fix the type errors or document, with evidence, that they are pre-existing
-  baseline failures intentionally accepted outside this inventory release. A production merge
-  should prefer a clean type-check.
+- **Issue:** Resolved. The auth test, organization tests, font route typing,
+  feedback/form tests, organization service tests, and `site-settings.service.ts` type errors
+  were fixed.
+- **Impact:** The branch now satisfies the web TypeScript release gate.
+- **Required fix:** Done.
 - **Verification:** `pnpm --filter web type-check` exits 0.
 - **Owner:** TBD
-- **Status:** Open
+- **Status:** Closed 2026-05-21
 
 ---
 

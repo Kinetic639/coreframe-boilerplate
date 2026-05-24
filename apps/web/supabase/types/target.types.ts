@@ -180,6 +180,13 @@ export type Database = {
             foreignKeyName: "inventory_allocation_lines_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
+          },
+          {
+            foreignKeyName: "inventory_allocation_lines_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id"];
           },
@@ -196,6 +203,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "inventory_serials";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_allocation_lines_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_allocation_lines_variant_id_fkey";
@@ -475,11 +489,25 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "inventory_branch_transfer_lines_transfer_org_fkey";
+            columns: ["transfer_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_branch_transfers";
+            referencedColumns: ["id", "organization_id"];
+          },
+          {
             foreignKeyName: "inventory_branch_transfer_lines_unit_id_fkey";
             columns: ["unit_id"];
             isOneToOne: false;
             referencedRelation: "inventory_units";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_branch_transfer_lines_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_branch_transfer_lines_variant_id_fkey";
@@ -504,6 +532,7 @@ export type Database = {
           id: string;
           notes: string | null;
           organization_id: string;
+          reservation_id: string | null;
           return_movement_id: string | null;
           sent_at: string | null;
           sent_by: string | null;
@@ -526,6 +555,7 @@ export type Database = {
           id?: string;
           notes?: string | null;
           organization_id: string;
+          reservation_id?: string | null;
           return_movement_id?: string | null;
           sent_at?: string | null;
           sent_by?: string | null;
@@ -548,6 +578,7 @@ export type Database = {
           id?: string;
           notes?: string | null;
           organization_id?: string;
+          reservation_id?: string | null;
           return_movement_id?: string | null;
           sent_at?: string | null;
           sent_by?: string | null;
@@ -591,6 +622,13 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_branch_transfers_reservation_id_fkey";
+            columns: ["reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_reservations";
             referencedColumns: ["id"];
           },
           {
@@ -730,6 +768,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_collection_items_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
           },
           {
             foreignKeyName: "inventory_collection_items_product_id_fkey";
@@ -913,6 +958,13 @@ export type Database = {
             foreignKeyName: "inventory_count_lines_variant_id_fkey";
             columns: ["variant_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
+          },
+          {
+            foreignKeyName: "inventory_count_lines_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_variants";
             referencedColumns: ["id"];
           },
@@ -1080,6 +1132,13 @@ export type Database = {
             foreignKeyName: "inventory_custom_field_values_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
+          },
+          {
+            foreignKeyName: "inventory_custom_field_values_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id"];
           },
@@ -1089,6 +1148,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "inventory_serials";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_custom_field_values_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_custom_field_values_variant_id_fkey";
@@ -1397,6 +1463,13 @@ export type Database = {
             foreignKeyName: "inventory_item_images_product_fk";
             columns: ["product_id", "organization_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
+          },
+          {
+            foreignKeyName: "inventory_item_images_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id", "organization_id"];
           },
@@ -1475,6 +1548,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_lots_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
           },
           {
             foreignKeyName: "inventory_lots_product_fk";
@@ -2097,6 +2177,13 @@ export type Database = {
             foreignKeyName: "inventory_product_identifiers_product_fk";
             columns: ["product_id", "organization_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
+          },
+          {
+            foreignKeyName: "inventory_product_identifiers_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id", "organization_id"];
           },
@@ -2145,6 +2232,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_product_tags_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
           },
           {
             foreignKeyName: "inventory_product_tags_product_fk";
@@ -2223,6 +2317,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_product_unit_conversions_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
           },
           {
             foreignKeyName: "inventory_product_unit_conversions_product_id_fkey";
@@ -2460,6 +2561,13 @@ export type Database = {
             foreignKeyName: "inventory_purchase_order_lines_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
+          },
+          {
+            foreignKeyName: "inventory_purchase_order_lines_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id"];
           },
@@ -2476,6 +2584,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "inventory_units";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_purchase_order_lines_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_purchase_order_lines_variant_id_fkey";
@@ -2817,6 +2932,13 @@ export type Database = {
             foreignKeyName: "inventory_reservation_lines_product_id_fkey";
             columns: ["product_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id"];
+          },
+          {
+            foreignKeyName: "inventory_reservation_lines_product_id_fkey";
+            columns: ["product_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_products";
             referencedColumns: ["id"];
           },
@@ -2833,6 +2955,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "inventory_serials";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_reservation_lines_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_reservation_lines_variant_id_fkey";
@@ -3079,6 +3208,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_serials_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
           },
           {
             foreignKeyName: "inventory_serials_product_fk";
@@ -3632,6 +3768,13 @@ export type Database = {
             foreignKeyName: "inventory_valuation_snapshots_variant_id_fkey";
             columns: ["variant_id"];
             isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
+          },
+          {
+            foreignKeyName: "inventory_valuation_snapshots_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
             referencedRelation: "inventory_variants";
             referencedColumns: ["id"];
           },
@@ -3682,6 +3825,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_variant_costs_variant_id_fkey";
+            columns: ["variant_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["variant_id"];
           },
           {
             foreignKeyName: "inventory_variant_costs_variant_id_fkey";
@@ -3830,6 +3980,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "inventory_variants_product_fk";
+            columns: ["product_id", "organization_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_product_list_rows_v1";
+            referencedColumns: ["product_id", "organization_id"];
           },
           {
             foreignKeyName: "inventory_variants_product_fk";
@@ -6408,6 +6565,29 @@ export type Database = {
           },
         ];
       };
+      inventory_product_list_rows_v1: {
+        Row: {
+          is_variant_row: boolean | null;
+          organization_id: string | null;
+          product_id: string | null;
+          product_name: string | null;
+          product_type: string | null;
+          status: string | null;
+          updated_at: string | null;
+          variant_id: string | null;
+          variant_name: string | null;
+          variant_sku: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "inventory_products_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       accept_invitation_and_join_org: {
@@ -6677,6 +6857,21 @@ export type Database = {
         };
         Returns: Json;
       };
+      inventory_find_sku_collisions: {
+        Args: {
+          p_exclude_variant_ids?: string[];
+          p_organization_id: string;
+          p_skus: string[];
+        };
+        Returns: {
+          product_id: string;
+          product_name: string;
+          sku: string;
+          sku_fingerprint: string;
+          variant_id: string;
+          variant_name: string;
+        }[];
+      };
       inventory_get_or_create_balance_for_update:
         | {
             Args: {
@@ -6783,6 +6978,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      inventory_sku_fingerprint: { Args: { p_sku: string }; Returns: string };
       inventory_sku_token: {
         Args: { p_max?: number; p_value: string };
         Returns: string;

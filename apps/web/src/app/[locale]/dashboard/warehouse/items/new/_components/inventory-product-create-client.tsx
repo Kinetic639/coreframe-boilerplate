@@ -45,12 +45,8 @@ import {
   TokenInput,
   VariantImagePicker,
 } from "./product-create-controls";
-import {
-  labelClass,
-  requiredLabelClass,
-  selectClass,
-  textareaClass,
-} from "./product-create-styles";
+import { labelClass, requiredLabelClass, selectClass } from "./product-create-styles";
+import { InventoryRichTextFormField } from "../../_components/inventory-rich-text";
 import {
   MAX_ITEM_IMAGE_BYTES,
   customFieldValue,
@@ -1133,10 +1129,7 @@ export function InventoryProductCreateClient({
                 </label>
               </div>
 
-              <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">{tc("description")}</label>
-                <textarea name="description" className={cn(textareaClass, "min-h-20")} />
-              </div>
+              <InventoryRichTextFormField name="description" label={tc("description")} />
 
               <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
                 <label className={labelClass}>{tc("tags")}</label>
@@ -1287,10 +1280,7 @@ export function InventoryProductCreateClient({
                   defaultValue={defaultTaxRate ? String(defaultTaxRate.rate_percent) : ""}
                 />
               </div>
-              <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">{tc("description")}</label>
-                <textarea name="sales_description" className={cn(textareaClass, "min-h-16")} />
-              </div>
+              <InventoryRichTextFormField name="sales_description" label={tc("description")} />
             </div>
             <div className="grid gap-4">
               <h2 className="flex items-center gap-2 text-lg font-medium">
@@ -1314,10 +1304,7 @@ export function InventoryProductCreateClient({
                   ))}
                 </select>
               </div>
-              <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-                <label className="pt-2 text-sm">{tc("description")}</label>
-                <textarea name="purchase_description" className={cn(textareaClass, "min-h-16")} />
-              </div>
+              <InventoryRichTextFormField name="purchase_description" label={tc("description")} />
             </div>
           </section>
 

@@ -17,6 +17,7 @@ import {
 } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InventoryRichTextFormField } from "../../../_components/inventory-rich-text";
 import type {
   InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
@@ -44,8 +45,6 @@ type VariantDraft = {
 
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-3 pr-9 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const textareaClass =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type DroppedFileSystemEntry = {
@@ -657,14 +656,11 @@ export function InventoryProductEditClient({
                 ))}
               </select>
             </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">{tc("description")}</label>
-              <textarea
-                name="description"
-                defaultValue={product.description ?? ""}
-                className={cn(textareaClass, "min-h-20")}
-              />
-            </div>
+            <InventoryRichTextFormField
+              name="description"
+              label={tc("description")}
+              defaultValue={product.description}
+            />
             <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
               <label className="pt-2 text-sm">{tc("tags")}</label>
               <TagsInput
@@ -1157,14 +1153,11 @@ export function InventoryProductEditClient({
                 }
               />
             </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">{tc("description")}</label>
-              <textarea
-                name="sales_description"
-                defaultValue={product.sales_description ?? ""}
-                className={cn(textareaClass, "min-h-16")}
-              />
-            </div>
+            <InventoryRichTextFormField
+              name="sales_description"
+              label={tc("description")}
+              defaultValue={product.sales_description}
+            />
           </div>
           <div className="grid gap-4">
             <h2 className="text-lg font-medium">{tCreate("purchaseInformation")}</h2>
@@ -1188,14 +1181,11 @@ export function InventoryProductEditClient({
                 ))}
               </select>
             </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">{tc("description")}</label>
-              <textarea
-                name="purchase_description"
-                defaultValue={product.purchase_description ?? ""}
-                className={cn(textareaClass, "min-h-16")}
-              />
-            </div>
+            <InventoryRichTextFormField
+              name="purchase_description"
+              label={tc("description")}
+              defaultValue={product.purchase_description}
+            />
           </div>
         </section>
 

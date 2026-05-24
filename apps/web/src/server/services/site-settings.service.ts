@@ -15,7 +15,7 @@ const DEFAULTS: SiteSettings = {
 
 export const SiteSettingsService = {
   async getSettings(supabase: SupabaseClient<Database>): Promise<SiteSettings> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("app_config")
       .select("announcement_banner_enabled, pricing_page_enabled, registration_enabled")
       .eq("id", 1)
@@ -24,9 +24,9 @@ export const SiteSettingsService = {
     if (error || !data) return DEFAULTS;
 
     return {
-      announcementBannerEnabled: data.announcement_banner_enabled,
-      pricingPageEnabled: data.pricing_page_enabled,
-      registrationEnabled: data.registration_enabled,
+      announcementBannerEnabled: Boolean(data.announcement_banner_enabled),
+      pricingPageEnabled: Boolean(data.pricing_page_enabled),
+      registrationEnabled: Boolean(data.registration_enabled),
     };
   },
 
@@ -34,7 +34,7 @@ export const SiteSettingsService = {
     serviceClient: SupabaseClient<Database>,
     patch: Partial<SiteSettings>
   ): Promise<{ success: true } | { success: false; error: string }> {
-    const update: Database["public"]["Tables"]["app_config"]["Update"] = {
+    const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
@@ -48,7 +48,7 @@ export const SiteSettingsService = {
       update.registration_enabled = patch.registrationEnabled;
     }
 
-    const { error } = await serviceClient.from("app_config").update(update).eq("id", 1);
+    const { error } = await (serviceClient as any).from("app_config").update(update).eq("id", 1);
 
     if (error) return { success: false, error: error.message };
     return { success: true };

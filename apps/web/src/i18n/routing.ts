@@ -99,9 +99,13 @@ export const routing = defineRouting({
       en: "/dashboard/warehouse/inventory/movements",
       pl: "/dashboard/magazyn/inwentarz/ruchy",
     },
-    "/dashboard/warehouse/inventory/transfers": {
-      en: "/dashboard/warehouse/inventory/transfers",
-      pl: "/dashboard/magazyn/inwentarz/przesuniecia",
+    "/dashboard/warehouse/inventory/movements/[movementId]": {
+      en: "/dashboard/warehouse/inventory/movements/[movementId]",
+      pl: "/dashboard/magazyn/inwentarz/ruchy/[movementId]",
+    },
+    "/dashboard/warehouse/inventory/movements/new": {
+      en: "/dashboard/warehouse/inventory/movements/new",
+      pl: "/dashboard/magazyn/inwentarz/ruchy/nowy",
     },
     "/dashboard/warehouse/inventory/adjustments": {
       en: "/dashboard/warehouse/inventory/adjustments",

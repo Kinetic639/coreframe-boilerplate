@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { InventoryRichTextDisplay } from "../_components/inventory-rich-text";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import {
@@ -47,7 +48,12 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
 
   const supabase = await createClient();
   const [productResult, customFieldsResult] = await Promise.all([
-    InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
+    InventoryProductsService.getProductDetail(
+      supabase,
+      context.app.activeOrgId,
+      productId,
+      context.app.activeBranchId
+    ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
   ]);
   if (!productResult.success || !productResult.data) notFound();
@@ -192,7 +198,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
             <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
               {tc("description")}
             </p>
-            <p className="text-sm">{product.description ?? tc("noDescription")}</p>
+            <InventoryRichTextDisplay value={product.description} emptyText={tc("noDescription")} />
             {product.tags.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {product.tags.map((tag) => (
@@ -211,6 +217,19 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               ))}
             </div>
           ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <DescriptionCard
+              title={tDetail("salesDescription")}
+              value={product.sales_description}
+              emptyText={tc("notSet")}
+            />
+            <DescriptionCard
+              title={tDetail("purchaseDescription")}
+              value={product.purchase_description}
+              emptyText={tc("notSet")}
+            />
+          </div>
         </div>
       </section>
 
@@ -272,6 +291,23 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
     <div>
       <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
       <div className="mt-1 text-sm">{value}</div>
+    </div>
+  );
+}
+
+function DescriptionCard({
+  title,
+  value,
+  emptyText,
+}: {
+  title: string;
+  value: string | null;
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-md border p-4">
+      <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</p>
+      <InventoryRichTextDisplay value={value} emptyText={emptyText} />
     </div>
   );
 }

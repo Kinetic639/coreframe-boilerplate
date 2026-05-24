@@ -4,6 +4,7 @@ const uuidSchema = z.string().uuid("Invalid id");
 const nullableUuidSchema = uuidSchema.nullable().optional();
 const quantitySchema = z.number().positive("Quantity must be greater than 0");
 const moneySchema = z.number().min(0).nullable().optional();
+const richTextStorageSchema = z.string().max(50000).nullable().optional();
 
 export const dataViewListParamsSchema = z.object({
   search: z.string().optional().default(""),
@@ -26,7 +27,7 @@ export const getByIdSchema = z.object({
 
 export const createInventoryProductSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
-  description: z.string().max(1000).nullable().optional(),
+  description: richTextStorageSchema,
   product_type: z
     .enum(["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"])
     .default("stocked"),
@@ -41,8 +42,8 @@ export const createInventoryProductSchema = z.object({
   dimension_unit: z.string().max(20).nullable().optional(),
   weight_value: z.number().min(0).nullable().optional(),
   weight_unit: z.string().max(20).nullable().optional(),
-  sales_description: z.string().max(1000).nullable().optional(),
-  purchase_description: z.string().max(1000).nullable().optional(),
+  sales_description: richTextStorageSchema,
+  purchase_description: richTextStorageSchema,
   preferred_supplier_id: nullableUuidSchema,
   sales_account_code: z.string().max(80).nullable().optional(),
   purchase_account_code: z.string().max(80).nullable().optional(),
@@ -138,7 +139,7 @@ export const archiveInventoryTagSchema = getByIdSchema;
 export const updateInventoryProductSchema = z.object({
   id: uuidSchema,
   name: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).nullable().optional(),
+  description: richTextStorageSchema,
   status: z.enum(["active", "archived", "discontinued"]).optional(),
   product_type: z
     .enum(["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"])
@@ -153,8 +154,8 @@ export const updateInventoryProductSchema = z.object({
   dimension_unit: z.string().max(20).nullable().optional(),
   weight_value: z.number().min(0).nullable().optional(),
   weight_unit: z.string().max(20).nullable().optional(),
-  sales_description: z.string().max(1000).nullable().optional(),
-  purchase_description: z.string().max(1000).nullable().optional(),
+  sales_description: richTextStorageSchema,
+  purchase_description: richTextStorageSchema,
   preferred_supplier_id: nullableUuidSchema,
   sales_account_code: z.string().max(80).nullable().optional(),
   purchase_account_code: z.string().max(80).nullable().optional(),

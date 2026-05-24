@@ -50,7 +50,7 @@ export default async function WarehouseInventoryPage({ searchParams }: PageProps
           filters: params.filters,
         }),
         checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_READ)
-          ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId)
+          ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
           : Promise.resolve({ success: true as const, data: [] }),
         WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId),
       ])

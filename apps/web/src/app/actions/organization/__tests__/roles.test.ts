@@ -146,7 +146,7 @@ describe("removeRoleFromUserAction", () => {
 
 describe("getUserRoleAssignmentsAction", () => {
   it("returns error when no active organization", async () => {
-    const result = await getUserRoleAssignmentsAction({ userId: VALID_UUID });
+    const result = await getUserRoleAssignmentsAction(VALID_UUID);
     expect(result.success).toBe(false);
     expect((result as { error: string }).error).toBe("No active organization");
   });
@@ -154,7 +154,7 @@ describe("getUserRoleAssignmentsAction", () => {
 
 describe("getMemberAccessAction", () => {
   it("returns error when no active organization", async () => {
-    const result = await getMemberAccessAction({ userId: VALID_UUID });
+    const result = await getMemberAccessAction(VALID_UUID);
     expect(result.success).toBe(false);
     expect((result as { error: string }).error).toBe("No active organization");
   });

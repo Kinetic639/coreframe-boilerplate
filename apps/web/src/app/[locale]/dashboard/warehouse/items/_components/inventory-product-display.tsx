@@ -18,6 +18,7 @@ import type {
   InventoryProductListRow,
   InventoryProductVariantListRow,
 } from "@/lib/warehouse/inventory-types";
+import { InventoryRichTextDisplay } from "./inventory-rich-text";
 
 export const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
@@ -226,9 +227,11 @@ export function ProductDetailPanel({
               </div>
               <Badge variant={statusVariant[detail.status] ?? "outline"}>{detail.status}</Badge>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {detail.description ?? t("noDescription")}
-            </p>
+            <InventoryRichTextDisplay
+              value={detail.description}
+              emptyText={t("noDescription")}
+              className="mt-3 text-muted-foreground"
+            />
             <TagChips tags={detail.tags} className="mt-3" />
           </div>
 
@@ -307,20 +310,18 @@ export function ProductDetailPanel({
         </section>
       ) : null}
 
-      {detail.sales_description || detail.purchase_description ? (
-        <section className="grid gap-3 md:grid-cols-2">
-          <DescriptionBlock
-            title={tDetail("salesDescription")}
-            value={detail.sales_description}
-            emptyLabel={t("notSet")}
-          />
-          <DescriptionBlock
-            title={tDetail("purchaseDescription")}
-            value={detail.purchase_description}
-            emptyLabel={t("notSet")}
-          />
-        </section>
-      ) : null}
+      <section className="grid gap-3 md:grid-cols-2">
+        <DescriptionBlock
+          title={tDetail("salesDescription")}
+          value={detail.sales_description}
+          emptyLabel={t("notSet")}
+        />
+        <DescriptionBlock
+          title={tDetail("purchaseDescription")}
+          value={detail.purchase_description}
+          emptyLabel={t("notSet")}
+        />
+      </section>
 
       {hasVisibleVariants ? (
         <section>
@@ -589,7 +590,11 @@ function DescriptionBlock({
   return (
     <div className="rounded-md border p-3">
       <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</p>
-      <p className="text-sm text-muted-foreground">{value ?? emptyLabel}</p>
+      <InventoryRichTextDisplay
+        value={value}
+        emptyText={emptyLabel}
+        className="text-muted-foreground"
+      />
     </div>
   );
 }

@@ -59,6 +59,7 @@ import {
   adjustStockAction,
   createEnhancedInventoryProductAction,
   createInventoryProductAction,
+  createInventoryUnitAction,
   issueStockAction,
   receiveStockAction,
   reverseMovementAction,
@@ -342,6 +343,50 @@ describe("inventory product image actions", () => {
     ]);
   });
 
+  it("uploadInventoryItemImageAction emits an image upload audit event after DB record success", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    vi.mocked(InventoryProductsService.verifyImageTarget).mockResolvedValue({
+      success: true,
+      data: { product_id: PRODUCT_ID, variant_id: null },
+    });
+    vi.mocked(InventoryProductsService.addImageRecord).mockResolvedValue({
+      success: true,
+      data: {
+        id: IMAGE_ID,
+        storage_path: "org/product/image.png",
+        public_url: "https://cdn.example/image.png",
+        file_name: "part.png",
+        content_type: "image/png",
+        file_size: 9,
+      },
+    });
+    const upload = vi.fn().mockResolvedValue({ error: null });
+    const remove = vi.fn().mockResolvedValue({ error: null });
+    const getPublicUrl = vi.fn(() => ({ data: { publicUrl: "https://cdn.example/image.png" } }));
+    vi.mocked(createClient).mockResolvedValue({
+      storage: { from: vi.fn(() => ({ upload, remove, getPublicUrl })) },
+    } as never);
+
+    const result = await uploadInventoryItemImageAction(formDataFor(pngFile()));
+
+    expect(result.success).toBe(true);
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "warehouse.inventory.product.image.uploaded",
+        entityType: "inventory_product_image",
+        entityId: IMAGE_ID,
+        metadata: expect.objectContaining({
+          product_id: PRODUCT_ID,
+          image_id: IMAGE_ID,
+          file_name: "part.png",
+          content_type: "image/png",
+        }),
+      })
+    );
+  });
+
   it("assignInventoryVariantGalleryImageAction assigns an existing org-owned image by id", async () => {
     vi.mocked(loadDashboardContextV2).mockResolvedValue(
       makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
@@ -378,6 +423,51 @@ describe("inventory product image actions", () => {
         is_primary: true,
         sort_order: 2,
         actor_user_id: USER_ID,
+      })
+    );
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "warehouse.inventory.product.image.assigned",
+        entityType: "inventory_product_image",
+        entityId: IMAGE_ID,
+        metadata: expect.objectContaining({
+          product_id: PRODUCT_ID,
+          variant_id: VARIANT_ID,
+          image_id: IMAGE_ID,
+        }),
+      })
+    );
+  });
+});
+
+describe("inventory settings actions", () => {
+  it("createInventoryUnitAction emits a settings audit event", async () => {
+    vi.mocked(loadDashboardContextV2).mockResolvedValue(
+      makeContext([WAREHOUSE_PRODUCTS_MANAGE]) as never
+    );
+    vi.mocked(InventoryProductsService.createUnit).mockResolvedValue({
+      success: true,
+      data: { id: UNIT_ID, code: "PCS", name: "pieces" },
+    });
+
+    const result = await createInventoryUnitAction({
+      code: "PCS",
+      name: "pieces",
+      unit_kind: "count",
+      precision: 0,
+    });
+
+    expect(result.success).toBe(true);
+    expect(eventService.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionKey: "warehouse.inventory.settings.unit.created",
+        entityType: "inventory_unit",
+        entityId: UNIT_ID,
+        metadata: expect.objectContaining({
+          unit_id: UNIT_ID,
+          code: "PCS",
+          unit_kind: "count",
+        }),
       })
     );
   });

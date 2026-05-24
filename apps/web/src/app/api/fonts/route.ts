@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
   }
   const filePath = path.join(process.cwd(), "public", "fonts", name);
   const buffer = await readFile(filePath);
-  return new NextResponse(buffer, {
+  const body = new Uint8Array(buffer);
+  return new NextResponse(body, {
     headers: {
       "Content-Type": "font/truetype",
       "Cache-Control": "public, max-age=31536000, immutable",
