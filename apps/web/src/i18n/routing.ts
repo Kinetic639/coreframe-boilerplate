@@ -248,6 +248,12 @@ export const routing = defineRouting({
       pl: "/dashboard/aktywnosc",
     },
 
+    // === Workshop module ===
+    "/dashboard/workshop": {
+      en: "/dashboard/workshop",
+      pl: "/dashboard/warsztat",
+    },
+
     // === Analytics & Reports module ===
     "/dashboard/analytics": {
       en: "/dashboard/analytics",

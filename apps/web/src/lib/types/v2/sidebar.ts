@@ -46,7 +46,8 @@ export type IconKey =
   | "qr-code"
   | "activity"
   | "shield"
-  | "barChart";
+  | "barChart"
+  | "car";
 
 /**
  * Active route matching rules (strict discriminated union)

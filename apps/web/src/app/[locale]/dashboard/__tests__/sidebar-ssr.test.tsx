@@ -844,4 +844,144 @@ describe("Sidebar SSR Integration", () => {
     const branchAccessItem = findItemById(model, "organization.branch-access");
     expect(branchAccessItem).toBeUndefined();
   });
+
+  // ── Workshop Module ────────────────────────────────────────────────────────
+
+  // ws-1: workshop visible when MODULE_WORKSHOP entitled + user has module access + workshop.read
+  it("should show workshop item when MODULE_WORKSHOP is entitled and user has access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.workshop.access", "workshop.read"],
+        deny: [],
+      },
+    };
+
+    const workshopEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["workshop"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      workshopEntitlements,
+      "en"
+    );
+
+    const workshopItem = findItemById(model, "workshop");
+    expect(workshopItem).toBeDefined(); // Shown: module entitled + user has access
+  });
+
+  // ws-2: workshop hidden when MODULE_WORKSHOP is NOT in enabled_modules
+  it("should hide workshop item when MODULE_WORKSHOP is NOT entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.workshop.access", "workshop.read"],
+        deny: [],
+      },
+    };
+
+    const noWorkshopEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"], // workshop NOT present
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      noWorkshopEntitlements,
+      "en"
+    );
+
+    const workshopItem = findItemById(model, "workshop");
+    expect(workshopItem).toBeUndefined(); // Hidden: module not entitled
+  });
+
+  // ws-3: workshop hidden when user lacks module.workshop.access
+  it("should hide workshop item when user lacks module.workshop.access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["workshop.read"], // module.workshop.access NOT present
+        deny: [],
+      },
+    };
+
+    const workshopEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["workshop"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      workshopEntitlements,
+      "en"
+    );
+
+    const workshopItem = findItemById(model, "workshop");
+    expect(workshopItem).toBeUndefined(); // Hidden: no module.workshop.access
+  });
+
+  // ws-4: workshop hidden when entitlements are null (fail-closed)
+  it("should hide workshop item when entitlements are null", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.workshop.access", "workshop.*"],
+        deny: [],
+      },
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, null, "en");
+
+    const workshopItem = findItemById(model, "workshop");
+    expect(workshopItem).toBeUndefined(); // Hidden: fail-closed with null entitlements
+  });
 });
