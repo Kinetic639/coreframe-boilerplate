@@ -2917,9 +2917,12 @@
     },
     "analytics": {
       "title": "Analityka i Raporty",
+      "titleSidebar": "Analityka",
       "description": "Analityka aktywności, raporty i ślady audytu",
       "items": {
-        "overview": "Panel aktywności",
+        "overview": "Przegląd",
+        "activity": "Aktywność",
+        "audit": "Dziennik audytu",
         "activities": "Dziennik aktywności",
         "timeline": "Widok osi czasu",
         "reports": {
@@ -2939,6 +2942,27 @@
           "notifications": "Powiadomienia o aktywności",
           "presets": "Predefiniowane filtry"
         }
+      },
+      "pages": {
+        "overview": {
+          "title": "Analityka i Raporty",
+          "subtitle": "Statystyki, aktywność i ścieżka audytu Twojej organizacji"
+        },
+        "activity": {
+          "title": "Aktywność organizacji",
+          "subtitle": "Ostatnie zdarzenia i działania w Twojej organizacji"
+        },
+        "audit": {
+          "title": "Dziennik audytu",
+          "subtitle": "Pełny dziennik zdarzeń łącznie z adresami IP i danymi przeglądarki"
+        }
+      },
+      "empty": {
+        "noData": "Brak danych",
+        "noDataDescription": "Nie ma jeszcze danych analitycznych do wyświetlenia"
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować danych analitycznych"
       }
     },
     "development": {

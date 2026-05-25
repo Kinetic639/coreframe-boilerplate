@@ -2,13 +2,13 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { ORG_READ } from "@/lib/constants/permissions";
+import { ANALYTICS_ACTIVITY_READ } from "@/lib/constants/permissions";
 import { getOrgActivityAction } from "@/app/actions/audit/get-org-activity";
 import { OrgActivityWrapper } from "./_components/org-activity-wrapper";
 
 const DEFAULT_LIMIT = 50;
 
-export default async function OrgActivityPage() {
+export default async function AnalyticsActivityPage() {
   const locale = await getLocale();
   const context = await loadDashboardContextV2();
 
@@ -16,9 +16,12 @@ export default async function OrgActivityPage() {
     return redirect({ href: "/sign-in", locale });
   }
 
-  if (!checkPermission(context.user.permissionSnapshot, ORG_READ)) {
+  if (!checkPermission(context.user.permissionSnapshot, ANALYTICS_ACTIVITY_READ)) {
     return redirect({
-      href: { pathname: "/dashboard/access-denied", query: { reason: "org_read_required" } },
+      href: {
+        pathname: "/dashboard/access-denied",
+        query: { reason: "analytics_activity_read_required" },
+      },
       locale,
     });
   }

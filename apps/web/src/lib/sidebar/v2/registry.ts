@@ -6,13 +6,20 @@ import {
   BRANCHES_READ,
   MODULE_ORGANIZATION_MANAGEMENT_ACCESS,
   PERMISSION_TOOLS_READ,
-  AUDIT_EVENTS_READ,
   MODULE_WAREHOUSE_ACCESS,
   WAREHOUSE_INVENTORY_READ,
   WAREHOUSE_LOCATIONS_READ,
   WAREHOUSE_PRODUCTS_READ,
+  MODULE_ANALYTICS_ACCESS,
+  ANALYTICS_READ,
+  ANALYTICS_ACTIVITY_READ,
+  ANALYTICS_AUDIT_READ,
 } from "@/lib/constants/permissions";
-import { MODULE_ORGANIZATION_MANAGEMENT, MODULE_WAREHOUSE } from "@/lib/constants/modules";
+import {
+  MODULE_ORGANIZATION_MANAGEMENT,
+  MODULE_WAREHOUSE,
+  MODULE_ANALYTICS,
+} from "@/lib/constants/modules";
 
 /**
  * Sidebar V2 Registry
@@ -97,26 +104,52 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
           requiresPermissions: [ORG_UPDATE], // Only owners see billing
         },
       },
+    ],
+  },
+
+  // Analytics & Reports (plan-gated: MODULE_ANALYTICS must be in enabled_modules,
+  // user-gated: MODULE_ANALYTICS_ACCESS permission required)
+  {
+    id: "analytics",
+    title: "Analytics & Reports",
+    titleKey: "modules.analytics.titleSidebar",
+    iconKey: "barChart",
+    visibility: {
+      requiresModules: [MODULE_ANALYTICS],
+      requiresPermissions: [MODULE_ANALYTICS_ACCESS],
+    },
+    children: [
       {
-        id: "organization.activity",
-        title: "Activity",
-        titleKey: "modules.organizationManagement.items.activity",
-        iconKey: "settings",
-        href: "/dashboard/organization/activity",
-        match: { exact: "/dashboard/organization/activity" },
+        id: "analytics.overview",
+        title: "Overview",
+        titleKey: "modules.analytics.items.overview",
+        iconKey: "barChart",
+        href: "/dashboard/analytics",
+        match: { exact: "/dashboard/analytics" },
         visibility: {
-          requiresPermissions: [ORG_READ],
+          requiresPermissions: [ANALYTICS_READ],
         },
       },
       {
-        id: "organization.audit",
-        title: "Audit Log",
-        titleKey: "modules.organizationManagement.items.audit",
-        iconKey: "settings",
-        href: "/dashboard/organization/audit",
-        match: { exact: "/dashboard/organization/audit" },
+        id: "analytics.activity",
+        title: "Activity",
+        titleKey: "modules.analytics.items.activity",
+        iconKey: "activity",
+        href: "/dashboard/analytics/activity",
+        match: { exact: "/dashboard/analytics/activity" },
         visibility: {
-          requiresPermissions: [AUDIT_EVENTS_READ],
+          requiresPermissions: [ANALYTICS_ACTIVITY_READ],
+        },
+      },
+      {
+        id: "analytics.audit",
+        title: "Audit Log",
+        titleKey: "modules.analytics.items.audit",
+        iconKey: "shield",
+        href: "/dashboard/analytics/audit",
+        match: { exact: "/dashboard/analytics/audit" },
+        visibility: {
+          requiresPermissions: [ANALYTICS_AUDIT_READ],
         },
       },
     ],

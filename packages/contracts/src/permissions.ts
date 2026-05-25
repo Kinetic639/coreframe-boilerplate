@@ -135,6 +135,24 @@ export const AUDIT_EVENTS_READ = "audit.events.read" as const;
 export const EVENTS_ORG_ACTIVITY_READ = "events.org_activity.read" as const;
 export const EVENTS_ORG_SENSITIVE_READ = "events.org_sensitive.read" as const;
 
+// Analytics Permissions (org-scoped — Analytics & Reports module, Premium plan only)
+// analytics.*              — org_owner wildcard; compiler expands to all concrete analytics.* slugs
+// analytics.read           — broad read gate for the analytics module shell and overview
+// analytics.activity.read  — view the organisation activity feed within the analytics module
+// analytics.audit.read     — view the full audit event log within the analytics module
+// analytics.reports.read   — view generated reports (future)
+// analytics.exports.manage — download / trigger data exports (future)
+// module.analytics.access  — user-level gate; admins assign to custom roles for premium-plan orgs
+// Seeded in migration 20260525100000_analytics_module.sql.
+// org_owner gets analytics.* wildcard — do NOT add explicit granular grants.
+export const MODULE_ANALYTICS_ACCESS = "module.analytics.access" as const;
+export const ANALYTICS_WILDCARD = "analytics.*" as const;
+export const ANALYTICS_READ = "analytics.read" as const;
+export const ANALYTICS_ACTIVITY_READ = "analytics.activity.read" as const;
+export const ANALYTICS_AUDIT_READ = "analytics.audit.read" as const;
+export const ANALYTICS_REPORTS_READ = "analytics.reports.read" as const;
+export const ANALYTICS_EXPORTS_MANAGE = "analytics.exports.manage" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -228,6 +246,13 @@ export type PermissionSlug =
   | typeof AUDIT_EVENTS_READ
   | typeof EVENTS_ORG_ACTIVITY_READ
   | typeof EVENTS_ORG_SENSITIVE_READ
+  | typeof MODULE_ANALYTICS_ACCESS
+  | typeof ANALYTICS_WILDCARD
+  | typeof ANALYTICS_READ
+  | typeof ANALYTICS_ACTIVITY_READ
+  | typeof ANALYTICS_AUDIT_READ
+  | typeof ANALYTICS_REPORTS_READ
+  | typeof ANALYTICS_EXPORTS_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -301,6 +326,13 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   AUDIT_EVENTS_READ,
   EVENTS_ORG_ACTIVITY_READ,
   EVENTS_ORG_SENSITIVE_READ,
+  MODULE_ANALYTICS_ACCESS,
+  ANALYTICS_WILDCARD,
+  ANALYTICS_READ,
+  ANALYTICS_ACTIVITY_READ,
+  ANALYTICS_AUDIT_READ,
+  ANALYTICS_REPORTS_READ,
+  ANALYTICS_EXPORTS_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,
