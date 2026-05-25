@@ -75,6 +75,16 @@ export type InventoryVariantOption = {
   product_name: string;
   unit_id: string;
   unit_code: string;
+  on_hand_quantity?: number;
+  available_quantity?: number;
+  location_count?: number;
+  location_summaries?: Array<{
+    location_id: string;
+    location_name: string;
+    location_code: string | null;
+    on_hand_quantity: number;
+    available_quantity: number;
+  }>;
 };
 
 export type InventoryVariantOptionValue = {
@@ -357,6 +367,7 @@ export type CreateDraftMovementInput = {
 
 export type InventoryMovementListRow = {
   id: string;
+  operation_type?: "movement" | "branch_transfer";
   movement_number: string;
   movement_kind: string;
   adjustment_direction: string | null;
@@ -367,11 +378,21 @@ export type InventoryMovementListRow = {
   created_by: string | null;
   created_at: string;
   posted_at: string | null;
+  source_branch_id?: string | null;
+  source_branch_name?: string | null;
+  destination_branch_id?: string | null;
+  destination_branch_name?: string | null;
 };
 
 export type InventoryMovementDetail = InventoryMovementListRow & {
   note: string | null;
   reason_code: string | null;
+  decline_reason?: string | null;
+  related_documents?: Array<
+    InventoryMovementListRow & {
+      document_role: "source_issue" | "destination_receipt" | "return_receipt" | "movement";
+    }
+  >;
   lines: Array<{
     id: string;
     sku: string;

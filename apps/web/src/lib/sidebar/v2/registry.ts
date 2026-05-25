@@ -90,17 +90,6 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
             },
           },
           {
-            id: "warehouse.inventory.transfers",
-            title: "Branch Transfers",
-            titleKey: "modules.warehouse.items.inventory.transfers",
-            iconKey: "warehouse",
-            href: "/dashboard/warehouse/inventory/transfers",
-            match: { startsWith: "/dashboard/warehouse/inventory/transfers" },
-            visibility: {
-              requiresPermissions: [WAREHOUSE_INVENTORY_READ],
-            },
-          },
-          {
             id: "warehouse.items",
             title: "Items",
             titleKey: "modules.warehouse.items.products.title",

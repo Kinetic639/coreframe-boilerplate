@@ -295,7 +295,7 @@ describe("OrgBillingService.getBillingOverview", () => {
     const result = await OrgBillingService.getBillingOverview(supabase as any, ORG_ID);
 
     expect(result.success).toBe(true);
-    const data = (result as { success: true; data: Record<string, unknown> }).data;
+    const data = (result as unknown as { success: true; data: Record<string, unknown> }).data;
     expect(data.plan_name).toBe("Starter");
     expect(data.enabled_modules).toEqual(["warehouse"]);
     expect(data.limits).toEqual({ max_branches: 3 });
@@ -316,7 +316,9 @@ describe("OrgBillingService.getBillingOverview", () => {
     const result = await OrgBillingService.getBillingOverview(supabase as any, ORG_ID);
 
     expect(result.success).toBe(true);
-    expect((result as { success: true; data: Record<string, unknown> }).data.plan_name).toBe("Pro");
+    expect(
+      (result as unknown as { success: true; data: Record<string, unknown> }).data.plan_name
+    ).toBe("Pro");
   });
 
   it("returns success with empty plan name when subscription_plans is null", async () => {
@@ -334,7 +336,9 @@ describe("OrgBillingService.getBillingOverview", () => {
     const result = await OrgBillingService.getBillingOverview(supabase as any, ORG_ID);
 
     expect(result.success).toBe(true);
-    expect((result as { success: true; data: Record<string, unknown> }).data.plan_name).toBe("");
+    expect(
+      (result as unknown as { success: true; data: Record<string, unknown> }).data.plan_name
+    ).toBe("");
   });
 
   it("returns failure when entitlements not found (data is null)", async () => {
@@ -374,7 +378,7 @@ describe("OrgBillingService.getBillingOverview", () => {
     const result = await OrgBillingService.getBillingOverview(supabase as any, ORG_ID);
 
     expect(result.success).toBe(true);
-    const data = (result as { success: true; data: Record<string, unknown> }).data;
+    const data = (result as unknown as { success: true; data: Record<string, unknown> }).data;
     expect(data.enabled_modules).toEqual([]);
     expect(data.limits).toEqual({});
   });

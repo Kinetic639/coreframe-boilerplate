@@ -4,6 +4,7 @@ const uuidSchema = z.string().uuid("Invalid id");
 const nullableUuidSchema = uuidSchema.nullable().optional();
 const quantitySchema = z.number().positive("Quantity must be greater than 0");
 const moneySchema = z.number().min(0).nullable().optional();
+const richTextStorageSchema = z.string().max(50000).nullable().optional();
 
 export const dataViewListParamsSchema = z.object({
   search: z.string().optional().default(""),
@@ -26,7 +27,7 @@ export const getByIdSchema = z.object({
 
 export const createInventoryProductSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
-  description: z.string().max(1000).nullable().optional(),
+  description: richTextStorageSchema,
   product_type: z
     .enum(["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"])
     .default("stocked"),
@@ -41,8 +42,8 @@ export const createInventoryProductSchema = z.object({
   dimension_unit: z.string().max(20).nullable().optional(),
   weight_value: z.number().min(0).nullable().optional(),
   weight_unit: z.string().max(20).nullable().optional(),
-  sales_description: z.string().max(1000).nullable().optional(),
-  purchase_description: z.string().max(1000).nullable().optional(),
+  sales_description: richTextStorageSchema,
+  purchase_description: richTextStorageSchema,
   preferred_supplier_id: nullableUuidSchema,
   sales_account_code: z.string().max(80).nullable().optional(),
   purchase_account_code: z.string().max(80).nullable().optional(),
@@ -138,7 +139,7 @@ export const archiveInventoryTagSchema = getByIdSchema;
 export const updateInventoryProductSchema = z.object({
   id: uuidSchema,
   name: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).nullable().optional(),
+  description: richTextStorageSchema,
   status: z.enum(["active", "archived", "discontinued"]).optional(),
   product_type: z
     .enum(["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"])
@@ -153,8 +154,8 @@ export const updateInventoryProductSchema = z.object({
   dimension_unit: z.string().max(20).nullable().optional(),
   weight_value: z.number().min(0).nullable().optional(),
   weight_unit: z.string().max(20).nullable().optional(),
-  sales_description: z.string().max(1000).nullable().optional(),
-  purchase_description: z.string().max(1000).nullable().optional(),
+  sales_description: richTextStorageSchema,
+  purchase_description: richTextStorageSchema,
   preferred_supplier_id: nullableUuidSchema,
   sales_account_code: z.string().max(80).nullable().optional(),
   purchase_account_code: z.string().max(80).nullable().optional(),
@@ -504,16 +505,12 @@ export const assignInventoryVariantGalleryImageSchema = z
   .object({
     product_id: uuidSchema,
     variant_id: uuidSchema,
-    storage_path: z.string().max(500).nullable().optional(),
-    public_url: z.string().max(1000).nullable().optional(),
-    file_name: z.string().max(240).nullable().optional(),
-    content_type: z.string().max(120).nullable().optional(),
-    file_size: z.number().int().min(0).nullable().optional(),
+    image_id: uuidSchema,
     sort_order: z.number().int().min(0).optional(),
     is_primary: z.boolean().optional(),
   })
-  .refine((value) => value.storage_path || value.public_url, {
-    message: "Image location is required",
+  .refine((value) => value.product_id !== value.variant_id, {
+    message: "Variant image assignment target is invalid",
   });
 
 export const updateInventoryProductImagesSchema = z.object({
@@ -549,13 +546,15 @@ export const archiveInventorySkuTemplateSchema = z.object({
   id: uuidSchema,
 });
 
+const PRODUCT_IMPORT_PAYLOAD_MAX_CHARS = 25 * 1024 * 1024;
+
 export const productCsvImportSchema = z.object({
-  csv: z.string().min(1),
+  csv: z.string().min(1).max(PRODUCT_IMPORT_PAYLOAD_MAX_CHARS),
   mode: z.enum(["create_only", "skip_existing"]).optional().default("create_only"),
 });
 
 export const productCsvTextSchema = z.object({
-  csv: z.string().min(1),
+  csv: z.string().min(1).max(PRODUCT_IMPORT_PAYLOAD_MAX_CHARS),
 });
 
 export const createCollectionSchema = z.object({

@@ -24,7 +24,7 @@ vi.mock("@/components/ui/select", () => ({
     disabled?: boolean;
   }) => (
     <div data-value={defaultValue} data-disabled={disabled ? "true" : "false"}>
-      {typeof children === "function" ? children({ onValueChange }) : children}
+      {children}
       <button type="button" onClick={() => onValueChange?.("admin")}>
         choose-admin
       </button>

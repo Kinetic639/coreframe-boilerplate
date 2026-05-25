@@ -95,8 +95,17 @@ type VariantRow = {
 
 type BalanceRow = {
   variant_id: string;
+  location_id?: string | null;
   on_hand_quantity: number;
   available_quantity: number | null;
+};
+
+type VariantLocationStock = {
+  location_id: string;
+  location_name: string;
+  location_code: string | null;
+  on_hand_quantity: number;
+  available_quantity: number;
 };
 
 type ProductListIndexRow = {
@@ -168,7 +177,8 @@ export class InventoryProductsService {
   static async listProducts(
     supabase: SupabaseClient,
     orgId: string,
-    params: DataViewListParams
+    params: DataViewListParams,
+    branchId?: string | null
   ): Promise<ServiceResult<PaginatedResult<InventoryProductListRow>>> {
     const groupVariants = params.filters.__group_variants !== false;
     const isVariantFilter = params.filters.is_variant;
@@ -222,6 +232,7 @@ export class InventoryProductsService {
         supabase,
         orgId,
         params,
+        branchId ?? null,
         filteredProductIds.data,
         from,
         to,
@@ -235,7 +246,7 @@ export class InventoryProductsService {
     if (error) return { success: false, error: error.message };
 
     const products = (data ?? []) as ProductRow[];
-    const rows = await InventoryProductsService.enrichProducts(supabase, orgId, products);
+    const rows = await InventoryProductsService.enrichProducts(supabase, orgId, products, branchId);
     if (!rows.success)
       return { success: false, error: (rows as { success: false; error: string }).error };
 
@@ -254,6 +265,7 @@ export class InventoryProductsService {
     supabase: SupabaseClient,
     orgId: string,
     params: DataViewListParams,
+    branchId: string | null,
     filteredProductIds: string[] | null,
     from: number,
     to: number,
@@ -333,7 +345,8 @@ export class InventoryProductsService {
     const enriched = await InventoryProductsService.enrichProducts(
       supabase,
       orgId,
-      (productsData ?? []) as ProductRow[]
+      (productsData ?? []) as ProductRow[],
+      branchId
     );
     if (!enriched.success) return { success: false, error: serviceError(enriched) };
 
@@ -361,7 +374,8 @@ export class InventoryProductsService {
   static async getProductDetail(
     supabase: SupabaseClient,
     orgId: string,
-    productId: string
+    productId: string,
+    branchId?: string | null
   ): Promise<ServiceResult<InventoryProductDetail | null>> {
     const normalizedProductId = productId.includes("::") ? productId.split("::")[0] : productId;
     const { data, error } = await supabase
@@ -375,9 +389,12 @@ export class InventoryProductsService {
     if (error) return { success: false, error: error.message };
     if (!data) return { success: true, data: null };
 
-    const enriched = await InventoryProductsService.enrichProducts(supabase, orgId, [
-      data as ProductRow,
-    ]);
+    const enriched = await InventoryProductsService.enrichProducts(
+      supabase,
+      orgId,
+      [data as ProductRow],
+      branchId
+    );
     if (!enriched.success)
       return { success: false, error: (enriched as { success: false; error: string }).error };
 
@@ -766,7 +783,8 @@ export class InventoryProductsService {
     supabase: SupabaseClient,
     orgId: string,
     input: UpdateInventoryProductInput,
-    userId: string
+    userId: string,
+    branchId?: string | null
   ): Promise<ServiceResult<InventoryProductDetail>> {
     const { data, error } = await supabase
       .from("inventory_products")
@@ -828,7 +846,8 @@ export class InventoryProductsService {
     const detail = await InventoryProductsService.getProductDetail(
       supabase,
       orgId,
-      (data as ProductRow).id
+      (data as ProductRow).id,
+      branchId
     );
     if (!detail.success)
       return { success: false, error: (detail as { success: false; error: string }).error };
@@ -1210,7 +1229,8 @@ export class InventoryProductsService {
 
   static async listVariantOptions(
     supabase: SupabaseClient,
-    orgId: string
+    orgId: string,
+    branchId?: string | null
   ): Promise<ServiceResult<InventoryVariantOption[]>> {
     const { data: variantsData, error: variantsError } = await supabase
       .from("inventory_variants")
@@ -1251,11 +1271,83 @@ export class InventoryProductsService {
     const unitsById = new Map(
       ((unitsData ?? []) as InventoryUnitRow[]).map((unit) => [unit.id, unit])
     );
+    const stockByVariant = new Map<
+      string,
+      {
+        on_hand_quantity: number;
+        available_quantity: number;
+        locations: VariantLocationStock[];
+      }
+    >();
+
+    if (branchId) {
+      const variantIds = variants.map((variant) => variant.id);
+      const { data: balancesData, error: balancesError } = await supabase
+        .from("inventory_balances")
+        .select("variant_id, location_id, on_hand_quantity, available_quantity")
+        .eq("organization_id", orgId)
+        .eq("branch_id", branchId)
+        .in("variant_id", variantIds);
+
+      if (balancesError) return { success: false, error: balancesError.message };
+
+      const balances = (balancesData ?? []) as BalanceRow[];
+      const locationIds = [
+        ...new Set(
+          balances
+            .map((balance) => balance.location_id)
+            .filter((locationId): locationId is string => Boolean(locationId))
+        ),
+      ];
+      const { data: locationsData, error: locationsError } = locationIds.length
+        ? await supabase
+            .from("warehouse_locations")
+            .select("id, name, code")
+            .eq("organization_id", orgId)
+            .eq("branch_id", branchId)
+            .in("id", locationIds)
+        : { data: [], error: null };
+
+      if (locationsError) return { success: false, error: locationsError.message };
+
+      const locationsById = new Map(
+        ((locationsData ?? []) as Array<{ id: string; name: string; code: string | null }>).map(
+          (location) => [location.id, location]
+        )
+      );
+
+      for (const balance of balances) {
+        const current =
+          stockByVariant.get(balance.variant_id) ??
+          ({ on_hand_quantity: 0, available_quantity: 0, locations: [] } satisfies {
+            on_hand_quantity: number;
+            available_quantity: number;
+            locations: VariantLocationStock[];
+          });
+        const onHand = toNumber(balance.on_hand_quantity);
+        const available = toNumber(balance.available_quantity);
+        current.on_hand_quantity += onHand;
+        current.available_quantity += available;
+
+        if (balance.location_id) {
+          const location = locationsById.get(balance.location_id);
+          current.locations.push({
+            location_id: balance.location_id,
+            location_name: location?.name ?? "",
+            location_code: location?.code ?? null,
+            on_hand_quantity: onHand,
+            available_quantity: available,
+          });
+        }
+
+        stockByVariant.set(balance.variant_id, current);
+      }
+    }
 
     return {
       success: true,
       data: variants
-        .map((variant) => {
+        .map((variant): InventoryVariantOption | null => {
           const product = productsById.get(variant.product_id);
           if (!product) return null;
           const unit = unitsById.get(product.base_unit_id);
@@ -1266,6 +1358,10 @@ export class InventoryProductsService {
             product_name: product.name,
             unit_id: product.base_unit_id,
             unit_code: unit?.code ?? "",
+            on_hand_quantity: stockByVariant.get(variant.id)?.on_hand_quantity ?? 0,
+            available_quantity: stockByVariant.get(variant.id)?.available_quantity ?? 0,
+            location_count: stockByVariant.get(variant.id)?.locations.length ?? 0,
+            location_summaries: stockByVariant.get(variant.id)?.locations ?? [],
           };
         })
         .filter((row): row is InventoryVariantOption => row !== null),
@@ -1457,6 +1553,27 @@ export class InventoryProductsService {
     }>
   > {
     const client = supabase as any;
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      orgId,
+      input.product_id,
+      input.variant_id ?? null
+    );
+    if (!target.success) return { success: false, error: serviceError(target) };
+
+    if (input.is_primary) {
+      const primaryQuery = client
+        .from("inventory_item_images")
+        .update({ is_primary: false })
+        .eq("organization_id", orgId)
+        .eq("product_id", input.product_id)
+        .is("deleted_at", null);
+      const { error: primaryError } = input.variant_id
+        ? await primaryQuery.eq("variant_id", input.variant_id)
+        : await primaryQuery.is("variant_id", null);
+      if (primaryError) return { success: false, error: primaryError.message };
+    }
+
     const { data, error } = await client
       .from("inventory_item_images")
       .insert({
@@ -1487,6 +1604,103 @@ export class InventoryProductsService {
         file_size: number | null;
       },
     };
+  }
+
+  static async assignExistingImageToVariant(
+    supabase: SupabaseClient,
+    orgId: string,
+    input: {
+      product_id: string;
+      variant_id: string;
+      image_id: string;
+      is_primary?: boolean;
+      sort_order?: number;
+      actor_user_id?: string | null;
+    }
+  ): Promise<
+    ServiceResult<{
+      id: string;
+      storage_path: string | null;
+      public_url: string | null;
+      file_name: string | null;
+      content_type: string | null;
+      file_size: number | null;
+    }>
+  > {
+    const target = await InventoryProductsService.verifyImageTarget(
+      supabase,
+      orgId,
+      input.product_id,
+      input.variant_id
+    );
+    if (!target.success) return { success: false, error: serviceError(target) };
+
+    const client = supabase as any;
+    const { data: source, error } = await client
+      .from("inventory_item_images")
+      .select(
+        "id, product_id, variant_id, storage_path, public_url, file_name, content_type, file_size"
+      )
+      .eq("organization_id", orgId)
+      .eq("product_id", input.product_id)
+      .eq("id", input.image_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (error) return { success: false, error: error.message };
+    if (!source) return { success: false, error: "Source image not found" };
+    const sourceVariantId = (source as { variant_id?: string | null }).variant_id ?? null;
+    if (sourceVariantId && sourceVariantId !== input.variant_id) {
+      return { success: false, error: "Source image does not belong to this product gallery" };
+    }
+
+    return InventoryProductsService.addImageRecord(supabase, orgId, {
+      product_id: input.product_id,
+      variant_id: input.variant_id,
+      storage_path: (source as { storage_path?: string | null }).storage_path ?? null,
+      public_url: (source as { public_url?: string | null }).public_url ?? null,
+      file_name: (source as { file_name?: string | null }).file_name ?? null,
+      content_type: (source as { content_type?: string | null }).content_type ?? null,
+      file_size: toNullableNumber(
+        (source as { file_size?: string | number | null }).file_size ?? null
+      ),
+      is_primary: input.is_primary ?? false,
+      sort_order: input.sort_order ?? 0,
+      actor_user_id: input.actor_user_id ?? null,
+    });
+  }
+
+  static async verifyImageTarget(
+    supabase: SupabaseClient,
+    orgId: string,
+    productId: string,
+    variantId?: string | null
+  ): Promise<ServiceResult<{ product_id: string; variant_id: string | null }>> {
+    const client = supabase as any;
+    const { data: product, error: productError } = await client
+      .from("inventory_products")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("id", productId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (productError) return { success: false, error: productError.message };
+    if (!product) return { success: false, error: "Product not found" };
+    if (!variantId) return { success: true, data: { product_id: productId, variant_id: null } };
+
+    const { data: variant, error: variantError } = await client
+      .from("inventory_variants")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("product_id", productId)
+      .eq("id", variantId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (variantError) return { success: false, error: variantError.message };
+    if (!variant) return { success: false, error: "Variant does not belong to this product" };
+    return { success: true, data: { product_id: productId, variant_id: variantId } };
   }
 
   static async listProductImages(
@@ -1681,48 +1895,28 @@ export class InventoryProductsService {
     if (normalized.length === 0) return { success: true, data: [] };
 
     const client = supabase as any;
-    let query = client
-      .from("inventory_variants")
-      .select("id, product_id, sku, name")
-      .eq("organization_id", orgId)
-      .is("deleted_at", null)
-      .in("sku", normalized);
-    if (excludeVariantIds.length > 0) {
-      query = query.not("id", "in", `(${excludeVariantIds.join(",")})`);
-    }
-    const { data, error } = await query;
+    const { data, error } = await client.rpc("inventory_find_sku_collisions", {
+      p_organization_id: orgId,
+      p_skus: normalized,
+      p_exclude_variant_ids: excludeVariantIds,
+    });
     if (error) return { success: false, error: error.message };
     const rows = (data ?? []) as Array<{
-      id: string;
-      product_id: string;
       sku: string;
-      name: string;
+      variant_id: string;
+      product_id: string;
+      variant_name: string;
+      product_name: string;
     }>;
-    if (rows.length === 0) return { success: true, data: [] };
-
-    const productIds = [...new Set(rows.map((row) => row.product_id))];
-    const { data: productsData, error: productsError } = await client
-      .from("inventory_products")
-      .select("id, name")
-      .eq("organization_id", orgId)
-      .in("id", productIds);
-    if (productsError) return { success: false, error: productsError.message };
-
-    const productNames = new Map(
-      ((productsData ?? []) as Array<{ id: string; name: string }>).map((product) => [
-        product.id,
-        product.name,
-      ])
-    );
 
     return {
       success: true,
       data: rows.map((row) => ({
         sku: row.sku,
-        variant_id: row.id,
+        variant_id: row.variant_id,
         product_id: row.product_id,
-        variant_name: row.name,
-        product_name: productNames.get(row.product_id) ?? "",
+        variant_name: row.variant_name,
+        product_name: row.product_name,
       })),
     };
   }
@@ -2251,7 +2445,8 @@ export class InventoryProductsService {
   private static async enrichProducts(
     supabase: SupabaseClient,
     orgId: string,
-    products: ProductRow[]
+    products: ProductRow[],
+    branchId?: string | null
   ): Promise<ServiceResult<InventoryProductListRow[]>> {
     if (products.length === 0) return { success: true, data: [] };
 
@@ -2273,12 +2468,18 @@ export class InventoryProductsService {
 
     const variants = variantsResult.data;
     const variantIds = variants.map((v) => v.id);
-    const { data: balancesData, error: balancesError } = variantIds.length
-      ? await supabase
+    let balancesQuery = variantIds.length
+      ? supabase
           .from("inventory_balances")
           .select("variant_id, on_hand_quantity, available_quantity")
           .eq("organization_id", orgId)
           .in("variant_id", variantIds)
+      : null;
+    if (balancesQuery && branchId) {
+      balancesQuery = balancesQuery.eq("branch_id", branchId);
+    }
+    const { data: balancesData, error: balancesError } = balancesQuery
+      ? await balancesQuery
       : { data: [], error: null };
     if (balancesError) return { success: false, error: balancesError.message };
 

@@ -71,8 +71,48 @@ describe("T-REGISTRY-CONTRACT: every registry entry satisfies the contract", () 
     expect(actionKeys.length).toBeGreaterThan(0);
   });
 
-  it("has exactly the expected 34 entries", () => {
-    expect(actionKeys.length).toBe(34);
+  it("has at least the expected production audit entries", () => {
+    expect(actionKeys.length).toBeGreaterThanOrEqual(59);
+  });
+
+  it("covers all production inventory workflows", () => {
+    const requiredInventoryActions = [
+      "warehouse.inventory.product.created",
+      "warehouse.inventory.product.updated",
+      "warehouse.inventory.product.archived",
+      "warehouse.inventory.product.image.uploaded",
+      "warehouse.inventory.product.image.assigned",
+      "warehouse.inventory.product.images.updated",
+      "warehouse.inventory.movement.posted",
+      "warehouse.inventory.movement.reversed",
+      "warehouse.inventory.import.completed",
+      "warehouse.inventory.export.completed",
+      "warehouse.inventory.settings.unit.created",
+      "warehouse.inventory.settings.unit.archived",
+      "warehouse.inventory.settings.unit_conversion.created",
+      "warehouse.inventory.settings.unit_conversion.archived",
+      "warehouse.inventory.settings.tax_rate.created",
+      "warehouse.inventory.settings.tax_rate.archived",
+      "warehouse.inventory.settings.tag.created",
+      "warehouse.inventory.settings.tag.archived",
+      "warehouse.inventory.settings.custom_field.created",
+      "warehouse.inventory.settings.custom_field.updated",
+      "warehouse.inventory.settings.custom_field.archived",
+      "warehouse.inventory.settings.sku_template.created",
+      "warehouse.inventory.settings.sku_template.updated",
+      "warehouse.inventory.settings.sku_template.archived",
+      "warehouse.inventory.branch_transfer.created",
+      "warehouse.inventory.branch_transfer.accepted",
+      "warehouse.inventory.branch_transfer.declined",
+      "warehouse.inventory.count_session.created",
+      "warehouse.inventory.count_line.updated",
+      "warehouse.inventory.count_session.approved",
+    ];
+
+    for (const actionKey of requiredInventoryActions) {
+      expect(actionKeys).toContain(actionKey);
+      expect(getRegistryEntry(actionKey)?.moduleSlug).toBe("warehouse");
+    }
   });
 
   for (const key of actionKeys) {

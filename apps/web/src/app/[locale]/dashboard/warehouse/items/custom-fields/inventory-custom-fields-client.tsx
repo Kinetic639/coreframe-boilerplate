@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Plus, Save, Trash2, X } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -46,10 +47,10 @@ function fieldKeyFromName(name: string) {
 
 export function InventoryCustomFieldsClient({
   initialFields,
-  title = "Custom fields",
-  description = "Manage typed product and variant fields used by item creation, edit, list columns, and filters.",
+  title,
+  description,
   backHref = "/dashboard/warehouse/items",
-  backLabel = "Products",
+  backLabel,
   framed = true,
 }: {
   initialFields: InventoryCustomFieldDefinition[];
@@ -59,6 +60,9 @@ export function InventoryCustomFieldsClient({
   backLabel?: string;
   framed?: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.customFields");
+  const tc = useTranslations("warehouseInventory.common");
+  const tFieldTypes = useTranslations("warehouseInventory.fieldTypes");
   const router = useRouter();
   const [fields, setFields] = useState(initialFields);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -68,14 +72,14 @@ export function InventoryCustomFieldsClient({
   const save = () => {
     const name = draft.name.trim();
     if (!name) {
-      setMessage("Field name is required.");
+      setMessage(t("fieldNameRequired"));
       return;
     }
     if (
       (draft.field_type === "select" || draft.field_type === "multi_select") &&
       draft.options.length === 0
     ) {
-      setMessage("Select fields need at least one option.");
+      setMessage(t("selectNeedsOption"));
       return;
     }
 
@@ -94,7 +98,7 @@ export function InventoryCustomFieldsClient({
           display_order: fields.find((field) => field.id === draft.id)?.display_order ?? 0,
         });
         if (!result.success) {
-          setMessage("error" in result ? result.error : "Could not update field.");
+          setMessage("error" in result ? result.error : t("updateFailed"));
           return;
         }
         setFields((current) =>
@@ -114,7 +118,7 @@ export function InventoryCustomFieldsClient({
           )
         );
         setDraft(emptyDraft);
-        setMessage("Custom field updated.");
+        setMessage(t("updated"));
         router.refresh();
         return;
       }
@@ -131,7 +135,7 @@ export function InventoryCustomFieldsClient({
         display_order: fields.length + 1,
       });
       if (!result.success || !("data" in result)) {
-        setMessage("error" in result ? result.error : "Could not create field.");
+        setMessage("error" in result ? result.error : t("createFailed"));
         return;
       }
       setFields((current) => [
@@ -149,13 +153,13 @@ export function InventoryCustomFieldsClient({
               ? draft.options
               : [],
           display_order: fields.length + 1,
-          section_name: "Custom fields",
+          section_name: t("title"),
           help_text: null,
           placeholder: null,
         },
       ]);
       setDraft(emptyDraft);
-      setMessage("Custom field created.");
+      setMessage(t("created"));
       router.refresh();
     });
   };
@@ -164,12 +168,12 @@ export function InventoryCustomFieldsClient({
     startTransition(async () => {
       const result = await archiveInventoryCustomFieldAction({ id: field.id });
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Could not archive field.");
+        setMessage("error" in result ? result.error : t("archiveFailed"));
         return;
       }
       setFields((current) => current.filter((item) => item.id !== field.id));
       if (draft.id === field.id) setDraft(emptyDraft);
-      setMessage("Custom field archived.");
+      setMessage(t("archived"));
       router.refresh();
     });
   };
@@ -178,13 +182,13 @@ export function InventoryCustomFieldsClient({
     <div className={framed ? "mx-auto grid w-full max-w-7xl gap-6 px-6 py-6" : "grid gap-6"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{title}</h1>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <h1 className="text-2xl font-semibold">{title ?? t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{description ?? t("description")}</p>
         </div>
         <Button asChild variant="outline">
           <Link href={backHref}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            {backLabel}
+            {backLabel ?? t("products")}
           </Link>
         </Button>
       </div>
@@ -195,17 +199,17 @@ export function InventoryCustomFieldsClient({
 
       <section className="grid gap-4 rounded-md border border-border p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-medium">{draft.id ? "Edit field" : "New field"}</h2>
+          <h2 className="text-lg font-medium">{draft.id ? t("editField") : t("newField")}</h2>
           {draft.id ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => setDraft(emptyDraft)}>
-              New field
+              {t("newField")}
             </Button>
           ) : null}
         </div>
         <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
           <Input
             value={draft.name}
-            placeholder="Field name"
+            placeholder={t("fieldName")}
             className="h-9"
             onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
           />
@@ -220,10 +224,10 @@ export function InventoryCustomFieldsClient({
               }))
             }
           >
-            <option value="product">Product</option>
-            <option value="variant">Variant</option>
-            <option value="lot">Lot</option>
-            <option value="serial">Serial</option>
+            <option value="product">{tFieldTypes("product")}</option>
+            <option value="variant">{tFieldTypes("variant")}</option>
+            <option value="lot">{tFieldTypes("lot")}</option>
+            <option value="serial">{tFieldTypes("serial")}</option>
           </select>
           <select
             value={draft.field_type}
@@ -240,19 +244,20 @@ export function InventoryCustomFieldsClient({
               }))
             }
           >
-            <option value="text">Text</option>
-            <option value="number">Number</option>
-            <option value="date">Date</option>
-            <option value="boolean">Checkbox</option>
-            <option value="select">Single select</option>
-            <option value="multi_select">Multi select</option>
+            <option value="text">{tFieldTypes("text")}</option>
+            <option value="number">{tFieldTypes("number")}</option>
+            <option value="date">{tFieldTypes("date")}</option>
+            <option value="boolean">{tFieldTypes("boolean")}</option>
+            <option value="select">{tFieldTypes("select")}</option>
+            <option value="multi_select">{tFieldTypes("multi_select")}</option>
           </select>
         </div>
         {draft.field_type === "select" || draft.field_type === "multi_select" ? (
           <TokenInput
             value={draft.options}
             onChange={(options) => setDraft((current) => ({ ...current, options }))}
-            placeholder="Type option and press Enter"
+            placeholder={t("optionsPlaceholder")}
+            removeLabel={(name) => t("removeOption", { name })}
           />
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -265,7 +270,7 @@ export function InventoryCustomFieldsClient({
                   setDraft((current) => ({ ...current, is_required: event.target.checked }))
                 }
               />
-              Required
+              {t("required")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -275,24 +280,24 @@ export function InventoryCustomFieldsClient({
                   setDraft((current) => ({ ...current, is_filterable: event.target.checked }))
                 }
               />
-              Filterable
+              {t("filterable")}
             </label>
           </div>
           <Button type="button" onClick={save} disabled={isPending}>
             {draft.id ? <Save className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
-            {draft.id ? "Save field" : "Create field"}
+            {draft.id ? t("saveField") : t("createField")}
           </Button>
         </div>
       </section>
 
       <section className="overflow-hidden rounded-md border border-border">
         <div className="grid grid-cols-[1fr_120px_140px_100px_100px_110px] bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-          <span>Name</span>
-          <span>Entity</span>
-          <span>Type</span>
-          <span>Required</span>
-          <span>Filterable</span>
-          <span className="text-right">Actions</span>
+          <span>{t("name")}</span>
+          <span>{t("entity")}</span>
+          <span>{t("type")}</span>
+          <span>{t("required")}</span>
+          <span>{t("filterable")}</span>
+          <span className="text-right">{t("actions")}</span>
         </div>
         {fields.map((field) => (
           <div
@@ -305,10 +310,10 @@ export function InventoryCustomFieldsClient({
                 <p className="truncate text-xs text-muted-foreground">{field.options.join(", ")}</p>
               ) : null}
             </div>
-            <span className="text-muted-foreground">{field.entity_type}</span>
-            <span className="text-muted-foreground">{field.field_type.replace("_", " ")}</span>
-            <span>{field.is_required ? "Yes" : "No"}</span>
-            <span>{field.is_filterable ? "Yes" : "No"}</span>
+            <span className="text-muted-foreground">{tFieldTypes(field.entity_type)}</span>
+            <span className="text-muted-foreground">{tFieldTypes(field.field_type)}</span>
+            <span>{field.is_required ? tc("yes") : tc("no")}</span>
+            <span>{field.is_filterable ? tc("yes") : tc("no")}</span>
             <div className="flex justify-end gap-1">
               <Button
                 type="button"
@@ -326,7 +331,7 @@ export function InventoryCustomFieldsClient({
                   })
                 }
               >
-                Edit
+                {tc("edit")}
               </Button>
               <Button
                 type="button"
@@ -334,7 +339,7 @@ export function InventoryCustomFieldsClient({
                 size="icon"
                 className="h-8 w-8 text-destructive hover:text-destructive"
                 onClick={() => archive(field)}
-                aria-label={`Archive ${field.name}`}
+                aria-label={t("archive", { name: field.name })}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -350,10 +355,12 @@ function TokenInput({
   value,
   onChange,
   placeholder,
+  removeLabel,
 }: {
   value: string[];
   onChange: (value: string[]) => void;
   placeholder?: string;
+  removeLabel: (name: string) => string;
 }) {
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -377,7 +384,7 @@ function TokenInput({
             type="button"
             className="text-muted-foreground hover:text-destructive"
             onClick={() => onChange(value.filter((item) => item !== token))}
-            aria-label={`Remove ${token}`}
+            aria-label={removeLabel(token)}
           >
             <X className="h-3 w-3" />
           </button>

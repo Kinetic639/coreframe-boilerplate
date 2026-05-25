@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { ErrorBoundary } from "../error-boundary";
 
-function Thrower({ message = "Boom" }: { message?: string }) {
+function Thrower({ message = "Boom" }: { message?: string }): never {
   throw new Error(message);
 }
 

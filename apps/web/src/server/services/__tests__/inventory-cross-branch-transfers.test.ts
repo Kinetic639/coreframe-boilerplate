@@ -2,13 +2,27 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
-const migrationPath = path.resolve(
-  __dirname,
-  "../../../../supabase-target/supabase/migrations/20260510090000_inventory_cross_branch_transfers.sql"
-);
+const migrationPaths = [
+  path.resolve(
+    __dirname,
+    "../../../../supabase-target/supabase/migrations/20260510090000_inventory_cross_branch_transfers.sql"
+  ),
+  path.resolve(
+    __dirname,
+    "../../../../supabase-target/supabase/migrations/20260521150000_inventory_branch_transfer_reservations.sql"
+  ),
+  path.resolve(
+    __dirname,
+    "../../../../supabase-target/supabase/migrations/20260521161000_inventory_branch_transfer_accept_definer.sql"
+  ),
+  path.resolve(
+    __dirname,
+    "../../../../supabase-target/supabase/migrations/20260523090000_inventory_movement_number_allocator.sql"
+  ),
+];
 
 function readMigration() {
-  return fs.readFileSync(migrationPath, "utf8");
+  return migrationPaths.map((migrationPath) => fs.readFileSync(migrationPath, "utf8")).join("\n");
 }
 
 describe("Ambra Inventory V2 cross-branch transfer migration", () => {
@@ -26,20 +40,28 @@ describe("Ambra Inventory V2 cross-branch transfer migration", () => {
     );
   });
 
-  it("uses the movement engine for send, accept, and decline flows", () => {
+  it("reserves source stock while in transit and posts movements only on accept", () => {
     const sql = readMigration();
 
     expect(sql).toContain("inventory_create_branch_transfer");
     expect(sql).toContain("inventory_accept_branch_transfer");
     expect(sql).toContain("inventory_decline_branch_transfer");
+    expect(sql).toContain("ADD COLUMN IF NOT EXISTS reservation_id");
+    expect(sql).toContain("inventory_create_reservation");
+    expect(sql).toContain("inventory_release_reservation");
+    expect(sql).toContain("'reservation_id', v_reservation_id");
     expect(sql).toContain("'issue'");
     expect(sql).toContain("'receipt'");
     expect(sql).toContain("'branch-transfer-send-'");
     expect(sql).toContain("'branch-transfer-accept-'");
+    expect(sql).toContain("'source_movement_id', null");
     expect(sql).toContain("'branch-transfer-decline-'");
     expect(sql).toContain("inventory_create_draft_movement");
     expect(sql).toContain("inventory_post_movement");
     expect(sql).toContain("SECURITY DEFINER");
+    expect(sql).toContain("Accepting a cross-branch transfer is a destination-branch decision");
+    expect(sql).toContain("inventory_allocate_movement_number");
+    expect(sql).toContain("movement_number_next = greatest");
     expect(sql).toContain("return_movement_id = v_movement_id");
   });
 

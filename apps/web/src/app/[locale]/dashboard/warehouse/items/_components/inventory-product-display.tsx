@@ -3,6 +3,7 @@
 import { memo, useCallback, useMemo, useState } from "react";
 import type React from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { ChevronDown, ChevronRight, Edit, PackagePlus } from "lucide-react";
 import { Link } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import type {
   InventoryProductListRow,
   InventoryProductVariantListRow,
 } from "@/lib/warehouse/inventory-types";
+import { InventoryRichTextDisplay } from "./inventory-rich-text";
 
 export const statusVariant: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
@@ -29,6 +31,7 @@ export const ProductSidebarItem = memo(function ProductSidebarItem({
 }: {
   product: InventoryProductListRow;
 }) {
+  const t = useTranslations("warehouseInventory.common");
   return (
     <span className="flex min-w-0 items-center gap-3">
       <ProductImageThumb src={product.thumbnail_url} className="h-8 w-8" />
@@ -38,7 +41,7 @@ export const ProductSidebarItem = memo(function ProductSidebarItem({
           {product.is_variant_row && product.parent_product_name
             ? `${product.parent_product_name} · ${product.sku}`
             : product.variant_count > 1
-              ? `${product.variant_count} variants`
+              ? t("variantsCount", { count: product.variant_count })
               : product.sku}
         </span>
       </span>
@@ -47,6 +50,7 @@ export const ProductSidebarItem = memo(function ProductSidebarItem({
 });
 
 export function VariantGroupingControl() {
+  const t = useTranslations("warehouseInventory.list");
   const { urlState } = useDataViewUrl();
   const grouped = urlState.filters.__group_variants !== false;
   const handleGroupingChange = useCallback(
@@ -69,9 +73,9 @@ export function VariantGroupingControl() {
         checked={grouped}
         onCheckedChange={handleGroupingChange}
         className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-3"
-        aria-label="Group variants"
+        aria-label={t("groupVariants")}
       />
-      <span>Group variants</span>
+      <span>{t("groupVariants")}</span>
     </label>
   );
 }
@@ -81,17 +85,19 @@ export const ExpandedVariantRows = memo(function ExpandedVariantRows({
 }: {
   product: InventoryProductListRow;
 }) {
+  const t = useTranslations("warehouseInventory.common");
+  const tList = useTranslations("warehouseInventory.list");
   return (
     <div className="border-t bg-muted/20 px-14 py-3">
       <div className="overflow-hidden rounded-md border bg-background">
         <div className="grid grid-cols-[48px_minmax(220px,1fr)_160px_180px_120px_120px_120px] gap-3 border-b bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-          <span>Image</span>
-          <span>Variant</span>
-          <span>SKU</span>
-          <span>Attributes</span>
-          <span className="text-right">On hand</span>
-          <span className="text-right">Available</span>
-          <span>Status</span>
+          <span>{t("image")}</span>
+          <span>{t("variants")}</span>
+          <span>{t("sku")}</span>
+          <span>{t("attributes")}</span>
+          <span className="text-right">{tList("onHand")}</span>
+          <span className="text-right">{tList("available")}</span>
+          <span>{t("status")}</span>
         </div>
         {product.variants.map((variant) => (
           <div
@@ -125,6 +131,9 @@ export function ProductDetailPanel({
   customFields: InventoryCustomFieldDefinition[];
   canManageProducts: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.common");
+  const tList = useTranslations("warehouseInventory.list");
+  const tDetail = useTranslations("warehouseInventory.detail");
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [expandedVariantIds, setExpandedVariantIds] = useState<Record<string, true>>({});
   const hasVisibleVariants = detail.variant_count > 1;
@@ -188,7 +197,7 @@ export function ProductDetailPanel({
                       active && "border-primary ring-1 ring-primary"
                     )}
                     onClick={() => setSelectedImageId(image.id)}
-                    aria-label="Preview product image"
+                    aria-label={t("primaryImage")}
                   >
                     <Image
                       src={url}
@@ -211,51 +220,76 @@ export function ProductDetailPanel({
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-semibold">{detail.name}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {hasVisibleVariants ? `${detail.variant_count} variants` : detail.sku || "No SKU"}
+                  {hasVisibleVariants
+                    ? t("variantsCount", { count: detail.variant_count })
+                    : detail.sku || t("noSku")}
                 </p>
               </div>
               <Badge variant={statusVariant[detail.status] ?? "outline"}>{detail.status}</Badge>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {detail.description ?? "No description"}
-            </p>
+            <InventoryRichTextDisplay
+              value={detail.description}
+              emptyText={t("noDescription")}
+              className="mt-3 text-muted-foreground"
+            />
             <TagChips tags={detail.tags} className="mt-3" />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <DetailFact label="Type" value={detail.product_type.replace("_", " ")} />
-            <DetailFact label="Unit" value={detail.unit_code || "-"} />
-            <DetailFact label="On hand" value={`${detail.on_hand_quantity} ${detail.unit_code}`} />
+            <DetailFact label={t("type")} value={detail.product_type.replace("_", " ")} />
+            <DetailFact label={t("unit")} value={detail.unit_code || "-"} />
             <DetailFact
-              label="Available"
+              label={tList("onHand")}
+              value={`${detail.on_hand_quantity} ${detail.unit_code}`}
+            />
+            <DetailFact
+              label={tList("available")}
               value={`${detail.available_quantity} ${detail.unit_code}`}
             />
-            <DetailFact label="Brand" value={detail.brand_name ?? "Not set"} />
-            <DetailFact label="Manufacturer" value={detail.manufacturer_name ?? "Not set"} />
-            <DetailFact label="Sales account" value={detail.sales_account_code ?? "Not set"} />
+            <DetailFact label={tDetail("brand")} value={detail.brand_name ?? t("notSet")} />
             <DetailFact
-              label="Purchase account"
-              value={detail.purchase_account_code ?? "Not set"}
+              label={tDetail("manufacturer")}
+              value={detail.manufacturer_name ?? t("notSet")}
             />
-            <DetailFact label="Tax code" value={detail.tax_code ?? "Not set"} />
             <DetailFact
-              label="Tax rate"
-              value={detail.tax_rate_percent == null ? "Not set" : `${detail.tax_rate_percent}%`}
+              label={tDetail("salesAccount")}
+              value={detail.sales_account_code ?? t("notSet")}
             />
-            <DetailFact label="Dimensions" value={formatDimensions(detail)} />
-            <DetailFact label="Weight" value={formatWeight(detail)} />
-            <DetailFact label="Returnable" value={detail.returnable ? "Yes" : "No"} />
+            <DetailFact
+              label={tDetail("purchaseAccount")}
+              value={detail.purchase_account_code ?? t("notSet")}
+            />
+            <DetailFact label={tDetail("taxCode")} value={detail.tax_code ?? t("notSet")} />
+            <DetailFact
+              label={tDetail("taxRate")}
+              value={detail.tax_rate_percent == null ? t("notSet") : `${detail.tax_rate_percent}%`}
+            />
+            <DetailFact
+              label={tDetail("dimensions")}
+              value={formatDimensions(detail, t("notSet"))}
+            />
+            <DetailFact label={tDetail("weight")} value={formatWeight(detail, t("notSet"))} />
+            <DetailFact
+              label={tDetail("returnable")}
+              value={detail.returnable ? t("yes") : t("no")}
+            />
           </div>
 
           {simpleVariant ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <DetailFact label="Barcode" value={simpleVariant.barcode ?? "Not set"} />
-              <DetailFact label="Purchase" value={formatPrice(simpleVariant, "purchase_price")} />
-              <DetailFact label="Sales" value={formatPrice(simpleVariant, "sales_price")} />
+              <DetailFact label={t("barcode")} value={simpleVariant.barcode ?? t("notSet")} />
               <DetailFact
-                label="Reorder point"
+                label={tDetail("purchase")}
+                value={formatPrice(simpleVariant, "purchase_price", t("notSet"))}
+              />
+              <DetailFact
+                label={tDetail("sales")}
+                value={formatPrice(simpleVariant, "sales_price", t("notSet"))}
+              />
+              <DetailFact
+                label={tDetail("reorderPoint")}
                 value={
-                  simpleVariant.reorder_point == null ? "Not set" : simpleVariant.reorder_point
+                  simpleVariant.reorder_point == null ? t("notSet") : simpleVariant.reorder_point
                 }
               />
             </div>
@@ -266,7 +300,7 @@ export function ProductDetailPanel({
       {customFieldRows.length > 0 ? (
         <section className="rounded-md border p-3">
           <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">
-            Custom fields
+            {t("customFields")}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {customFieldRows.map(({ field, value }) => (
@@ -276,16 +310,24 @@ export function ProductDetailPanel({
         </section>
       ) : null}
 
-      {detail.sales_description || detail.purchase_description ? (
-        <section className="grid gap-3 md:grid-cols-2">
-          <DescriptionBlock title="Sales description" value={detail.sales_description} />
-          <DescriptionBlock title="Purchase description" value={detail.purchase_description} />
-        </section>
-      ) : null}
+      <section className="grid gap-3 md:grid-cols-2">
+        <DescriptionBlock
+          title={tDetail("salesDescription")}
+          value={detail.sales_description}
+          emptyLabel={t("notSet")}
+        />
+        <DescriptionBlock
+          title={tDetail("purchaseDescription")}
+          value={detail.purchase_description}
+          emptyLabel={t("notSet")}
+        />
+      </section>
 
       {hasVisibleVariants ? (
         <section>
-          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Variants</p>
+          <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
+            {t("variants")}
+          </p>
           <div className="overflow-hidden rounded-md border">
             {detail.variants.map((variant) => {
               const variantImages = detail.images.filter(
@@ -321,7 +363,10 @@ export function ProductDetailPanel({
                     </span>
                     <span className="flex items-center gap-3">
                       <span className="hidden text-right text-xs text-muted-foreground sm:block">
-                        {variant.available_quantity} {detail.unit_code} available
+                        {t("availableSuffix", {
+                          quantity: variant.available_quantity,
+                          unit: detail.unit_code,
+                        })}
                       </span>
                       {expanded ? (
                         <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -338,32 +383,37 @@ export function ProductDetailPanel({
                       />
                       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         <DetailFact
-                          label="On hand"
+                          label={tList("onHand")}
                           value={`${variant.on_hand_quantity} ${detail.unit_code}`}
                         />
                         <DetailFact
-                          label="Available"
+                          label={tList("available")}
                           value={`${variant.available_quantity} ${detail.unit_code}`}
                         />
                         <DetailFact
-                          label="Reorder point"
-                          value={variant.reorder_point == null ? "Not set" : variant.reorder_point}
+                          label={tDetail("reorderPoint")}
+                          value={
+                            variant.reorder_point == null ? t("notSet") : variant.reorder_point
+                          }
                         />
-                        <DetailFact label="Status" value={variant.status} />
-                        <DetailFact label="Barcode" value={variant.barcode ?? "Not set"} />
+                        <DetailFact label={t("status")} value={variant.status} />
+                        <DetailFact label={t("barcode")} value={variant.barcode ?? t("notSet")} />
                         <DetailFact
-                          label="Purchase"
-                          value={formatPrice(variant, "purchase_price")}
+                          label={tDetail("purchase")}
+                          value={formatPrice(variant, "purchase_price", t("notSet"))}
                         />
-                        <DetailFact label="Sales" value={formatPrice(variant, "sales_price")} />
                         <DetailFact
-                          label="Attributes"
+                          label={tDetail("sales")}
+                          value={formatPrice(variant, "sales_price", t("notSet"))}
+                        />
+                        <DetailFact
+                          label={t("attributes")}
                           value={
                             variant.option_values.length > 0
                               ? variant.option_values
                                   .map((option) => `${option.option_group_name}: ${option.value}`)
                                   .join(", ")
-                              : "Not set"
+                              : t("notSet")
                           }
                         />
                         {variantCustomFieldRows.map(({ field, value }) => (
@@ -387,7 +437,7 @@ export function ProductDetailPanel({
               params: { productId: detail.id },
             }}
           >
-            Open profile
+            {t("openProfile")}
           </Link>
         </Button>
         {canManageProducts ? (
@@ -399,7 +449,7 @@ export function ProductDetailPanel({
               }}
             >
               <Edit className="mr-2 h-4 w-4" />
-              Edit
+              {t("edit")}
             </Link>
           </Button>
         ) : null}
@@ -484,8 +534,11 @@ function VariantOptionSummary({
   variant: InventoryProductVariantListRow;
   className?: string;
 }) {
+  const t = useTranslations("warehouseInventory.common");
   if (variant.option_values.length === 0) {
-    return <span className={cn("text-xs text-muted-foreground", className)}>No attributes</span>;
+    return (
+      <span className={cn("text-xs text-muted-foreground", className)}>{t("noAttributes")}</span>
+    );
   }
 
   return (
@@ -525,11 +578,23 @@ function TagChips({ tags, className }: { tags: string[]; className?: string }) {
   );
 }
 
-function DescriptionBlock({ title, value }: { title: string; value: string | null }) {
+function DescriptionBlock({
+  title,
+  value,
+  emptyLabel,
+}: {
+  title: string;
+  value: string | null;
+  emptyLabel: string;
+}) {
   return (
     <div className="rounded-md border p-3">
       <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</p>
-      <p className="text-sm text-muted-foreground">{value ?? "Not set"}</p>
+      <InventoryRichTextDisplay
+        value={value}
+        emptyText={emptyLabel}
+        className="text-muted-foreground"
+      />
     </div>
   );
 }
@@ -538,21 +603,22 @@ function imageUrl(image: InventoryProductImageRow | undefined) {
   return image?.public_url ?? image?.storage_path ?? null;
 }
 
-function formatDimensions(detail: InventoryProductDetail) {
-  if (!detail.length_value && !detail.width_value && !detail.height_value) return "Not set";
+function formatDimensions(detail: InventoryProductDetail, emptyLabel: string) {
+  if (!detail.length_value && !detail.width_value && !detail.height_value) return emptyLabel;
   return `${detail.length_value ?? "-"} x ${detail.width_value ?? "-"} x ${detail.height_value ?? "-"} ${detail.dimension_unit ?? ""}`.trim();
 }
 
-function formatWeight(detail: InventoryProductDetail) {
-  if (!detail.weight_value) return "Not set";
+function formatWeight(detail: InventoryProductDetail, emptyLabel: string) {
+  if (!detail.weight_value) return emptyLabel;
   return `${detail.weight_value} ${detail.weight_unit ?? ""}`.trim();
 }
 
 function formatPrice(
   variant: InventoryProductVariantListRow,
-  key: "purchase_price" | "sales_price"
+  key: "purchase_price" | "sales_price",
+  emptyLabel: string
 ) {
   const value = variant[key];
-  if (value == null) return "Not set";
+  if (value == null) return emptyLabel;
   return `${value} ${variant.price_currency ?? ""}`.trim();
 }

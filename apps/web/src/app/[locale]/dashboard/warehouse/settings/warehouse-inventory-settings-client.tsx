@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Plus, Trash2 } from "lucide-react";
 import {
   archiveInventoryTagAction,
@@ -73,6 +74,8 @@ export function WarehouseInventorySettingsClient({
   tags: InventoryTagRow[];
   canManage: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.settings");
+  const tc = useTranslations("warehouseInventory.common");
   const [unitRows, setUnitRows] = useState(units);
   const [conversionRows, setConversionRows] = useState(unitConversions);
   const [taxRows, setTaxRows] = useState(taxRates);
@@ -84,7 +87,7 @@ export function WarehouseInventorySettingsClient({
     startTransition(async () => {
       const result = await archiveInventoryUnitAction({ id: unitId });
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Could not remove unit.");
+        setMessage("error" in result ? result.error : t("unitRemoveFailed"));
         return;
       }
       setUnitRows((current) => current.filter((unit) => unit.id !== unitId));
@@ -93,7 +96,7 @@ export function WarehouseInventorySettingsClient({
           (conversion) => conversion.from_unit_id !== unitId && conversion.to_unit_id !== unitId
         )
       );
-      setMessage("Unit removed from presets.");
+      setMessage(t("unitRemoved"));
     });
   };
 
@@ -101,13 +104,13 @@ export function WarehouseInventorySettingsClient({
     startTransition(async () => {
       const result = await archiveInventoryUnitConversionAction({ id: conversionId });
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Could not remove conversion.");
+        setMessage("error" in result ? result.error : t("conversionRemoveFailed"));
         return;
       }
       setConversionRows((current) =>
         current.filter((conversion) => conversion.id !== conversionId)
       );
-      setMessage("Unit conversion removed.");
+      setMessage(t("conversionRemoved"));
     });
   };
 
@@ -115,11 +118,11 @@ export function WarehouseInventorySettingsClient({
     startTransition(async () => {
       const result = await archiveInventoryTaxRateAction({ id: taxRateId });
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Could not remove tax preset.");
+        setMessage("error" in result ? result.error : t("taxRemoveFailed"));
         return;
       }
       setTaxRows((current) => current.filter((tax) => tax.id !== taxRateId));
-      setMessage("Tax preset removed.");
+      setMessage(t("taxRemoved"));
     });
   };
 
@@ -127,11 +130,11 @@ export function WarehouseInventorySettingsClient({
     startTransition(async () => {
       const result = await archiveInventoryTagAction({ id: tagId });
       if (!result.success) {
-        setMessage("error" in result ? result.error : "Could not remove tag.");
+        setMessage("error" in result ? result.error : t("tagRemoveFailed"));
         return;
       }
       setTagRows((current) => current.filter((tag) => tag.id !== tagId));
-      setMessage("Tag removed.");
+      setMessage(t("tagRemoved"));
     });
   };
 
@@ -146,7 +149,7 @@ export function WarehouseInventorySettingsClient({
           setUnitRows((current) => [...current, result.data]);
         }
       }
-      setMessage(created ? `Added ${created} unit presets.` : "All preset units already exist.");
+      setMessage(created ? t("unitsAdded", { count: created }) : t("unitsAlreadyExist"));
     });
   };
 
@@ -159,11 +162,11 @@ export function WarehouseInventorySettingsClient({
         precision: Number(formData.get("precision") ?? 0),
       });
       if (!result.success || !("data" in result)) {
-        setMessage("error" in result ? result.error : "Could not create unit.");
+        setMessage("error" in result ? result.error : t("unitCreateFailed"));
         return;
       }
       setUnitRows((current) => [...current, result.data]);
-      setMessage("Unit created.");
+      setMessage(t("unitCreated"));
     });
   };
 
@@ -178,7 +181,7 @@ export function WarehouseInventorySettingsClient({
         factor,
       });
       if (!result.success || !("data" in result)) {
-        setMessage("error" in result ? result.error : "Could not create conversion.");
+        setMessage("error" in result ? result.error : t("conversionCreateFailed"));
         return;
       }
       setConversionRows((current) => [
@@ -192,7 +195,7 @@ export function WarehouseInventorySettingsClient({
           factor,
         },
       ]);
-      setMessage("Unit conversion created.");
+      setMessage(t("conversionCreated"));
     });
   };
 
@@ -205,7 +208,7 @@ export function WarehouseInventorySettingsClient({
         is_default: formData.get("is_default") === "on",
       });
       if (!result.success || !("data" in result)) {
-        setMessage("error" in result ? result.error : "Could not create tax rate.");
+        setMessage("error" in result ? result.error : t("taxCreateFailed"));
         return;
       }
       setTaxRows((current) => [
@@ -214,7 +217,7 @@ export function WarehouseInventorySettingsClient({
           : current),
         result.data,
       ]);
-      setMessage("Tax preset created.");
+      setMessage(t("taxCreated"));
     });
   };
 
@@ -234,7 +237,7 @@ export function WarehouseInventorySettingsClient({
           ]);
         }
       }
-      setMessage(created ? `Added ${created} tax presets.` : "All tax presets already exist.");
+      setMessage(created ? t("taxAdded", { count: created }) : t("taxAlreadyExist"));
     });
   };
 
@@ -245,21 +248,19 @@ export function WarehouseInventorySettingsClient({
         color: String(formData.get("tag_color") ?? "") || null,
       });
       if (!result.success || !("data" in result)) {
-        setMessage("error" in result ? result.error : "Could not create tag.");
+        setMessage("error" in result ? result.error : t("tagCreateFailed"));
         return;
       }
       setTagRows((current) => [...current, result.data]);
-      setMessage("Tag created.");
+      setMessage(t("tagCreated"));
     });
   };
 
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 px-4 py-6 md:px-6">
       <div>
-        <h1 className="text-2xl font-semibold">Inventory settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Configure product units, unit conversions, tax presets, and custom item fields.
-        </p>
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       {message ? (
@@ -269,10 +270,8 @@ export function WarehouseInventorySettingsClient({
       <section className="grid gap-4 rounded-md border border-border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-medium">Units</h2>
-            <p className="text-sm text-muted-foreground">
-              Base units used by products and import files.
-            </p>
+            <h2 className="text-lg font-medium">{t("units")}</h2>
+            <p className="text-sm text-muted-foreground">{t("unitsDescription")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -282,7 +281,7 @@ export function WarehouseInventorySettingsClient({
               onClick={() => seedUnits(metricUnits)}
               disabled={!canManage || isPending}
             >
-              Metric presets
+              {t("metricPresets")}
             </Button>
             <Button
               type="button"
@@ -291,34 +290,34 @@ export function WarehouseInventorySettingsClient({
               onClick={() => seedUnits(imperialUnits)}
               disabled={!canManage || isPending}
             >
-              Imperial presets
+              {t("imperialPresets")}
             </Button>
           </div>
         </div>
 
         <form action={addUnit} className="grid gap-2 md:grid-cols-[120px_1fr_160px_120px_auto]">
-          <Input name="unit_code" placeholder="Code" disabled={!canManage} />
-          <Input name="unit_name" placeholder="Name" disabled={!canManage} />
+          <Input name="unit_code" placeholder={t("unitCode")} disabled={!canManage} />
+          <Input name="unit_name" placeholder={t("unitName")} disabled={!canManage} />
           <select name="unit_kind" className={selectClass} disabled={!canManage}>
-            <option value="count">Count</option>
-            <option value="weight">Weight</option>
-            <option value="length">Length</option>
-            <option value="volume">Volume</option>
-            <option value="area">Area</option>
-            <option value="time">Time</option>
-            <option value="other">Other</option>
+            <option value="count">{t("count")}</option>
+            <option value="weight">{t("weight")}</option>
+            <option value="length">{t("length")}</option>
+            <option value="volume">{t("volume")}</option>
+            <option value="area">{t("area")}</option>
+            <option value="time">{t("time")}</option>
+            <option value="other">{t("other")}</option>
           </select>
           <Input
             name="precision"
             type="number"
             min={0}
             max={9}
-            placeholder="Precision"
+            placeholder={t("precision")}
             disabled={!canManage}
           />
           <Button type="submit" disabled={!canManage || isPending}>
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            {tc("add")}
           </Button>
         </form>
 
@@ -337,8 +336,8 @@ export function WarehouseInventorySettingsClient({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                aria-label={`Remove ${unit.code} unit preset`}
-                title={`Remove ${unit.code} unit preset`}
+                aria-label={t("removeUnit", { code: unit.code })}
+                title={t("removeUnit", { code: unit.code })}
                 disabled={!canManage || isPending}
                 onClick={() => removeUnit(unit.id)}
               >
@@ -351,14 +350,12 @@ export function WarehouseInventorySettingsClient({
 
       <section className="grid gap-4 rounded-md border border-border p-4">
         <div>
-          <h2 className="text-lg font-medium">Unit conversions</h2>
-          <p className="text-sm text-muted-foreground">
-            Global conversions such as 1 KG = 1000 G or 1 M = 100 CM.
-          </p>
+          <h2 className="text-lg font-medium">{t("unitConversions")}</h2>
+          <p className="text-sm text-muted-foreground">{t("unitConversionsDescription")}</p>
         </div>
         <form action={addConversion} className="grid gap-2 md:grid-cols-[1fr_1fr_160px_auto]">
           <select name="from_unit_id" className={selectClass} disabled={!canManage}>
-            <option value="">From unit</option>
+            <option value="">{t("fromUnit")}</option>
             {unitRows.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.code}
@@ -366,7 +363,7 @@ export function WarehouseInventorySettingsClient({
             ))}
           </select>
           <select name="to_unit_id" className={selectClass} disabled={!canManage}>
-            <option value="">To unit</option>
+            <option value="">{t("toUnit")}</option>
             {unitRows.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unit.code}
@@ -378,12 +375,12 @@ export function WarehouseInventorySettingsClient({
             type="number"
             step="0.0001"
             min={0}
-            placeholder="Factor"
+            placeholder={t("factor")}
             disabled={!canManage}
           />
           <Button type="submit" disabled={!canManage || isPending}>
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            {tc("add")}
           </Button>
         </form>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -400,8 +397,14 @@ export function WarehouseInventorySettingsClient({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                aria-label={`Remove ${conversion.from_unit_code} to ${conversion.to_unit_code} conversion`}
-                title={`Remove ${conversion.from_unit_code} to ${conversion.to_unit_code} conversion`}
+                aria-label={t("removeConversion", {
+                  from: conversion.from_unit_code,
+                  to: conversion.to_unit_code,
+                })}
+                title={t("removeConversion", {
+                  from: conversion.from_unit_code,
+                  to: conversion.to_unit_code,
+                })}
                 disabled={!canManage || isPending}
                 onClick={() => removeConversion(conversion.id)}
               >
@@ -415,10 +418,8 @@ export function WarehouseInventorySettingsClient({
       <section className="grid gap-4 rounded-md border border-border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-medium">Tax rates</h2>
-            <p className="text-sm text-muted-foreground">
-              Presets used when creating products. The product stores both tax code and rate.
-            </p>
+            <h2 className="text-lg font-medium">{t("taxRates")}</h2>
+            <p className="text-sm text-muted-foreground">{t("taxRatesDescription")}</p>
           </div>
           <Button
             type="button"
@@ -427,28 +428,28 @@ export function WarehouseInventorySettingsClient({
             onClick={seedTaxRates}
             disabled={!canManage || isPending}
           >
-            Polish VAT presets
+            {t("polishVatPresets")}
           </Button>
         </div>
         <form action={addTaxRate} className="grid gap-2 md:grid-cols-[1fr_120px_140px_140px_auto]">
-          <Input name="tax_name" placeholder="Name, e.g. VAT 23%" disabled={!canManage} />
-          <Input name="tax_code" placeholder="Code" disabled={!canManage} />
+          <Input name="tax_name" placeholder={t("taxNamePlaceholder")} disabled={!canManage} />
+          <Input name="tax_code" placeholder={t("taxCode")} disabled={!canManage} />
           <Input
             name="tax_rate_percent"
             type="number"
             step="0.0001"
             min={0}
             max={100}
-            placeholder="Rate %"
+            placeholder={t("ratePercent")}
             disabled={!canManage}
           />
           <label className="flex h-9 items-center gap-2 text-sm">
             <input type="checkbox" name="is_default" disabled={!canManage} />
-            Default
+            {tc("default")}
           </label>
           <Button type="submit" disabled={!canManage || isPending}>
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            {tc("add")}
           </Button>
         </form>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -468,8 +469,8 @@ export function WarehouseInventorySettingsClient({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  aria-label={`Remove ${tax.code} tax preset`}
-                  title={`Remove ${tax.code} tax preset`}
+                  aria-label={t("removeTax", { code: tax.code })}
+                  title={t("removeTax", { code: tax.code })}
                   disabled={!canManage || isPending}
                   onClick={() => removeTaxRate(tax.id)}
                 >
@@ -483,17 +484,15 @@ export function WarehouseInventorySettingsClient({
 
       <section className="grid gap-4 rounded-md border border-border p-4">
         <div>
-          <h2 className="text-lg font-medium">Tags</h2>
-          <p className="text-sm text-muted-foreground">
-            Reusable product tags shown as suggestions in product creation and edit forms.
-          </p>
+          <h2 className="text-lg font-medium">{t("tags")}</h2>
+          <p className="text-sm text-muted-foreground">{t("tagsDescription")}</p>
         </div>
         <form action={addTag} className="grid gap-2 md:grid-cols-[1fr_140px_auto]">
-          <Input name="tag_name" placeholder="Tag name" disabled={!canManage} />
-          <Input name="tag_color" placeholder="#64748b" disabled={!canManage} />
+          <Input name="tag_name" placeholder={t("tagName")} disabled={!canManage} />
+          <Input name="tag_color" placeholder={t("tagColor")} disabled={!canManage} />
           <Button type="submit" disabled={!canManage || isPending}>
             <Plus className="mr-2 h-4 w-4" />
-            Add
+            {tc("add")}
           </Button>
         </form>
         <div className="flex flex-wrap gap-2">
@@ -514,8 +513,8 @@ export function WarehouseInventorySettingsClient({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                aria-label={`Remove ${tag.name} tag`}
-                title={`Remove ${tag.name} tag`}
+                aria-label={t("removeTag", { name: tag.name })}
+                title={t("removeTag", { name: tag.name })}
                 disabled={!canManage || isPending}
                 onClick={() => removeTag(tag.id)}
               >
@@ -528,10 +527,10 @@ export function WarehouseInventorySettingsClient({
 
       <InventoryCustomFieldsClient
         initialFields={customFields}
-        title="Custom fields"
-        description="Define optional fields users can add to selected products or variant rows."
+        title={t("customFieldsTitle")}
+        description={t("customFieldsDescription")}
         backHref="/dashboard/warehouse/settings"
-        backLabel="Settings"
+        backLabel={t("settings")}
         framed={false}
       />
     </div>

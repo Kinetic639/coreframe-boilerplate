@@ -106,7 +106,7 @@ describe("organization users branches client", () => {
 
     render(<BranchesClient initialBranches={[branch]} />);
 
-    const branchRow = screen.getByText("Warsaw").closest("div.rounded-lg.border")!;
+    const branchRow = screen.getByText("Warsaw").closest("div.rounded-lg.border") as HTMLElement;
     const rowButtons = within(branchRow).getAllByRole("button");
 
     fireEvent.click(rowButtons[0]);
@@ -128,7 +128,7 @@ describe("organization users branches client", () => {
 
     render(<BranchesClient initialBranches={[branch]} />);
 
-    const branchRow = screen.getByText("Warsaw").closest("div.rounded-lg.border")!;
+    const branchRow = screen.getByText("Warsaw").closest("div.rounded-lg.border") as HTMLElement;
     const rowButtons = within(branchRow).getAllByRole("button");
 
     fireEvent.click(rowButtons[1]);

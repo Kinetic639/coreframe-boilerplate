@@ -42,7 +42,7 @@ describe("SignUp page", () => {
   it("renders signup form and smtp message", async () => {
     const page = await Signup({
       params: Promise.resolve({ locale: "en" }),
-      searchParams: Promise.resolve({ invitation: "invite-1" }),
+      searchParams: Promise.resolve({ message: "", invitation: "invite-1" }),
     });
 
     render(page);

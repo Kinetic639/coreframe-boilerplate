@@ -3,7 +3,7 @@ import type React from "react";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Edit, PackagePlus } from "lucide-react";
 import { redirect, Link } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
   WAREHOUSE_PRODUCTS_MANAGE,
@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { InventoryRichTextDisplay } from "../_components/inventory-rich-text";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { createClient } from "@/utils/supabase/server";
 import {
@@ -28,6 +29,9 @@ type PageProps = {
 
 export default async function WarehouseItemDetailPage({ params }: PageProps) {
   const locale = await getLocale();
+  const tc = await getTranslations("warehouseInventory.common");
+  const tList = await getTranslations("warehouseInventory.list");
+  const tDetail = await getTranslations("warehouseInventory.detail");
   const context = await loadDashboardContextV2();
   const { productId } = await params;
 
@@ -44,7 +48,12 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
 
   const supabase = await createClient();
   const [productResult, customFieldsResult] = await Promise.all([
-    InventoryProductsService.getProductDetail(supabase, context.app.activeOrgId, productId),
+    InventoryProductsService.getProductDetail(
+      supabase,
+      context.app.activeOrgId,
+      productId,
+      context.app.activeBranchId
+    ),
     InventoryProductsService.listCustomFields(supabase, context.app.activeOrgId),
   ]);
   if (!productResult.success || !productResult.data) notFound();
@@ -66,13 +75,15 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
             <Button asChild type="button" variant="ghost" size="sm">
               <Link href="/dashboard/warehouse/items">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Products
+                {tc("products")}
               </Link>
             </Button>
           </div>
           <h1 className="text-2xl font-semibold">{product.name}</h1>
           <p className="text-sm text-muted-foreground">
-            {hasVisibleVariants ? `${product.variant_count} variants` : product.sku}
+            {hasVisibleVariants
+              ? tc("variantsCount", { count: product.variant_count })
+              : product.sku}
           </p>
         </div>
         {canManage ? (
@@ -84,7 +95,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               }}
             >
               <Edit className="mr-2 h-4 w-4" />
-              Edit
+              {tc("edit")}
             </Link>
           </Button>
         ) : null}
@@ -128,47 +139,66 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
 
         <div className="grid min-w-0 gap-4">
           <div className="grid gap-3 rounded-md border p-4 sm:grid-cols-3">
-            <Info label="Status" value={<Badge>{product.status}</Badge>} />
-            <Info label="Type" value={product.product_type.replace("_", " ")} />
-            <Info label="Unit" value={product.unit_code} />
-            <Info label="On hand" value={`${product.on_hand_quantity} ${product.unit_code}`} />
-            <Info label="Available" value={`${product.available_quantity} ${product.unit_code}`} />
-            {hasVisibleVariants ? <Info label="Variants" value={product.variant_count} /> : null}
+            <Info label={tc("status")} value={<Badge>{product.status}</Badge>} />
+            <Info label={tc("type")} value={product.product_type.replace("_", " ")} />
+            <Info label={tc("unit")} value={product.unit_code} />
+            <Info
+              label={tList("onHand")}
+              value={`${product.on_hand_quantity} ${product.unit_code}`}
+            />
+            <Info
+              label={tList("available")}
+              value={`${product.available_quantity} ${product.unit_code}`}
+            />
+            {hasVisibleVariants ? (
+              <Info label={tc("variants")} value={product.variant_count} />
+            ) : null}
           </div>
 
           <div className="grid gap-3 rounded-md border p-4 sm:grid-cols-2">
-            <Info label="Brand" value={product.brand_name ?? "Not set"} />
-            <Info label="Manufacturer" value={product.manufacturer_name ?? "Not set"} />
-            <Info label="Sales account" value={product.sales_account_code ?? "Not set"} />
-            <Info label="Purchase account" value={product.purchase_account_code ?? "Not set"} />
-            <Info label="Tax code" value={product.tax_code ?? "Not set"} />
+            <Info label={tDetail("brand")} value={product.brand_name ?? tc("notSet")} />
             <Info
-              label="Tax rate"
-              value={product.tax_rate_percent == null ? "Not set" : `${product.tax_rate_percent}%`}
+              label={tDetail("manufacturer")}
+              value={product.manufacturer_name ?? tc("notSet")}
             />
             <Info
-              label="Dimensions"
+              label={tDetail("salesAccount")}
+              value={product.sales_account_code ?? tc("notSet")}
+            />
+            <Info
+              label={tDetail("purchaseAccount")}
+              value={product.purchase_account_code ?? tc("notSet")}
+            />
+            <Info label={tDetail("taxCode")} value={product.tax_code ?? tc("notSet")} />
+            <Info
+              label={tDetail("taxRate")}
               value={
-                product.length_value || product.width_value || product.height_value
-                  ? `${product.length_value ?? "-"} x ${product.width_value ?? "-"} x ${product.height_value ?? "-"} ${product.dimension_unit ?? ""}`
-                  : "Not set"
+                product.tax_rate_percent == null ? tc("notSet") : `${product.tax_rate_percent}%`
               }
             />
             <Info
-              label="Weight"
+              label={tDetail("dimensions")}
+              value={
+                product.length_value || product.width_value || product.height_value
+                  ? `${product.length_value ?? "-"} x ${product.width_value ?? "-"} x ${product.height_value ?? "-"} ${product.dimension_unit ?? ""}`
+                  : tc("notSet")
+              }
+            />
+            <Info
+              label={tDetail("weight")}
               value={
                 product.weight_value
                   ? `${product.weight_value} ${product.weight_unit ?? ""}`
-                  : "Not set"
+                  : tc("notSet")
               }
             />
           </div>
 
           <div className="rounded-md border p-4">
             <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
-              Description
+              {tc("description")}
             </p>
-            <p className="text-sm">{product.description ?? "No description"}</p>
+            <InventoryRichTextDisplay value={product.description} emptyText={tc("noDescription")} />
             {product.tags.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {product.tags.map((tag) => (
@@ -187,12 +217,25 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
               ))}
             </div>
           ) : null}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <DescriptionCard
+              title={tDetail("salesDescription")}
+              value={product.sales_description}
+              emptyText={tc("notSet")}
+            />
+            <DescriptionCard
+              title={tDetail("purchaseDescription")}
+              value={product.purchase_description}
+              emptyText={tc("notSet")}
+            />
+          </div>
         </div>
       </section>
 
       {hasVisibleVariants ? (
         <section className="grid gap-4 rounded-md border p-4">
-          <h2 className="text-lg font-medium">Variants</h2>
+          <h2 className="text-lg font-medium">{tc("variants")}</h2>
           <div className="overflow-hidden rounded-md border">
             {product.variants.map((variant) => (
               <VariantProfileRow
@@ -201,6 +244,20 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
                 images={product.images.filter((image) => image.variant_id === variant.id)}
                 customFields={customFields}
                 unitCode={product.unit_code}
+                labels={{
+                  onHand: tList("onHand"),
+                  available: tList("available"),
+                  reorder: tDetail("reorderPoint"),
+                  status: tc("status"),
+                  barcode: tc("barcode"),
+                  purchase: tDetail("purchase"),
+                  sales: tDetail("sales"),
+                  attributes: tc("attributes"),
+                  notSet: tc("notSet"),
+                  availableSuffix: (quantity: number | string) =>
+                    tc("availableSuffix", { quantity, unit: product.unit_code }),
+                  noAttributes: tc("noAttributes"),
+                }}
               />
             ))}
           </div>
@@ -208,7 +265,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
       ) : null}
 
       <section className="grid gap-4 rounded-md border p-4">
-        <h2 className="text-lg font-medium">Unit conversions</h2>
+        <h2 className="text-lg font-medium">{tDetail("unitConversions")}</h2>
         {product.unit_conversions.length > 0 ? (
           <div className="grid gap-2">
             {product.unit_conversions.map((conversion) => (
@@ -222,7 +279,7 @@ export default async function WarehouseItemDetailPage({ params }: PageProps) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No product-specific conversions.</p>
+          <p className="text-sm text-muted-foreground">{tDetail("noProductConversions")}</p>
         )}
       </section>
     </div>
@@ -238,16 +295,47 @@ function Info({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+function DescriptionCard({
+  title,
+  value,
+  emptyText,
+}: {
+  title: string;
+  value: string | null;
+  emptyText: string;
+}) {
+  return (
+    <div className="rounded-md border p-4">
+      <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{title}</p>
+      <InventoryRichTextDisplay value={value} emptyText={emptyText} />
+    </div>
+  );
+}
+
 function VariantProfileRow({
   variant,
   images,
   customFields,
   unitCode,
+  labels,
 }: {
   variant: InventoryProductVariantListRow;
   images: InventoryProductImageRow[];
   customFields: InventoryCustomFieldDefinition[];
   unitCode: string;
+  labels: {
+    onHand: string;
+    available: string;
+    reorder: string;
+    status: string;
+    barcode: string;
+    purchase: string;
+    sales: string;
+    attributes: string;
+    notSet: string;
+    availableSuffix: (quantity: number | string) => string;
+    noAttributes: string;
+  };
 }) {
   const customFieldRows = customFields
     .filter((field) => field.entity_type === "variant")
@@ -260,30 +348,36 @@ function VariantProfileRow({
         <span className="min-w-0">
           <span className="block truncate font-medium">{variant.name}</span>
           <span className="block truncate text-xs text-muted-foreground">{variant.sku}</span>
-          <VariantOptions variant={variant} className="mt-1" />
+          <VariantOptions variant={variant} className="mt-1" emptyLabel={labels.noAttributes} />
         </span>
         <span className="text-right text-xs text-muted-foreground">
-          {variant.available_quantity} {unitCode} available
+          {labels.availableSuffix(variant.available_quantity)}
         </span>
       </summary>
       <div className="grid gap-4 border-t bg-muted/20 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
         <VariantGallery images={images} fallback={variant.thumbnail_url} />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Info label="On hand" value={`${variant.on_hand_quantity} ${unitCode}`} />
-          <Info label="Available" value={`${variant.available_quantity} ${unitCode}`} />
-          <Info label="Reorder" value={variant.reorder_point ?? "Not set"} />
-          <Info label="Status" value={variant.status} />
-          <Info label="Barcode" value={variant.barcode ?? "Not set"} />
-          <Info label="Purchase" value={formatVariantPrice(variant, "purchase_price")} />
-          <Info label="Sales" value={formatVariantPrice(variant, "sales_price")} />
+          <Info label={labels.onHand} value={`${variant.on_hand_quantity} ${unitCode}`} />
+          <Info label={labels.available} value={`${variant.available_quantity} ${unitCode}`} />
+          <Info label={labels.reorder} value={variant.reorder_point ?? labels.notSet} />
+          <Info label={labels.status} value={variant.status} />
+          <Info label={labels.barcode} value={variant.barcode ?? labels.notSet} />
           <Info
-            label="Attributes"
+            label={labels.purchase}
+            value={formatVariantPrice(variant, "purchase_price", labels.notSet)}
+          />
+          <Info
+            label={labels.sales}
+            value={formatVariantPrice(variant, "sales_price", labels.notSet)}
+          />
+          <Info
+            label={labels.attributes}
             value={
               variant.option_values.length > 0
                 ? variant.option_values
                     .map((option) => `${option.option_group_name}: ${option.value}`)
                     .join(", ")
-                : "Not set"
+                : labels.notSet
             }
           />
           {customFieldRows.map(({ field, value }) => (
@@ -317,12 +411,14 @@ function VariantThumb({ src }: { src: string | null }) {
 function VariantOptions({
   variant,
   className,
+  emptyLabel,
 }: {
   variant: InventoryProductVariantListRow;
   className?: string;
+  emptyLabel: string;
 }) {
   if (variant.option_values.length === 0) {
-    return <span className={cn("text-xs text-muted-foreground", className)}>No attributes</span>;
+    return <span className={cn("text-xs text-muted-foreground", className)}>{emptyLabel}</span>;
   }
 
   return (
@@ -388,9 +484,10 @@ function VariantGallery({
 
 function formatVariantPrice(
   variant: InventoryProductVariantListRow,
-  key: "purchase_price" | "sales_price"
+  key: "purchase_price" | "sales_price",
+  emptyLabel: string
 ) {
   const value = variant[key];
-  if (value == null) return "Not set";
+  if (value == null) return emptyLabel;
   return `${value} ${variant.price_currency ?? ""}`.trim();
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, ImageIcon, Plus, Save, Star, Trash2, X } from "lucide-react";
 import { Link, useRouter } from "@/i18n/navigation";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/app/actions/warehouse/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InventoryRichTextFormField } from "../../../_components/inventory-rich-text";
 import type {
   InventoryCustomFieldDefinition,
   InventoryMasterDataRow,
@@ -43,8 +45,6 @@ type VariantDraft = {
 
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-3 pr-9 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const textareaClass =
-  "rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const MAX_ITEM_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type DroppedFileSystemEntry = {
@@ -193,6 +193,9 @@ export function InventoryProductEditClient({
   taxRates: InventoryTaxRateRow[];
   customFields: InventoryCustomFieldDefinition[];
 }) {
+  const t = useTranslations("warehouseInventory.edit");
+  const tc = useTranslations("warehouseInventory.common");
+  const tCreate = useTranslations("warehouseInventory.create");
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -318,7 +321,7 @@ export function InventoryProductEditClient({
           ),
       });
       setMessage(
-        result.success ? "Product saved" : "error" in result ? result.error : "Unexpected error"
+        result.success ? t("productSaved") : "error" in result ? result.error : t("unexpectedError")
       );
       if (!result.success) return;
 
@@ -333,7 +336,7 @@ export function InventoryProductEditClient({
           customFieldPayload(field, value, { product_id: product.id })
         );
         if (!customResult.success) {
-          setMessage("error" in customResult ? customResult.error : "Custom field save failed");
+          setMessage("error" in customResult ? customResult.error : t("customFieldSaveFailed"));
           return;
         }
       }
@@ -345,13 +348,13 @@ export function InventoryProductEditClient({
               ? (variantCustomTokens[variant.id]?.[field.id] ?? [])
               : field.field_type === "boolean"
                 ? variantCustomValues[variant.id]?.[field.id] === "true" ||
-                  variantCustomValues[variant.id]?.[field.id] === "Yes"
+                  variantCustomValues[variant.id]?.[field.id] === "true"
                 : (variantCustomValues[variant.id]?.[field.id] ?? "");
           const customResult = await setInventoryCustomFieldValueAction(
             customFieldPayload(field, value, { variant_id: variant.id })
           );
           if (!customResult.success) {
-            setMessage("error" in customResult ? customResult.error : "Custom field save failed");
+            setMessage("error" in customResult ? customResult.error : t("customFieldSaveFailed"));
             return;
           }
         }
@@ -386,7 +389,11 @@ export function InventoryProductEditClient({
         preferred_supplier_id: null,
       });
       setMessage(
-        result.success ? "Variant saved" : "error" in result ? result.error : "Variant save failed"
+        result.success
+          ? t("variantSaved")
+          : "error" in result
+            ? result.error
+            : t("variantSaveFailed")
       );
       if (!result.success) return;
 
@@ -398,7 +405,7 @@ export function InventoryProductEditClient({
         });
         if (!optionsResult.success) {
           setMessage(
-            "error" in optionsResult ? optionsResult.error : "Variant attributes save failed"
+            "error" in optionsResult ? optionsResult.error : t("variantAttributesSaveFailed")
           );
           return;
         }
@@ -416,7 +423,7 @@ export function InventoryProductEditClient({
     if (
       fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
     ) {
-      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+      setMessage(t("imageSkipped"));
     }
     startTransition(async () => {
       for (const file of imageFiles.slice(0, 15 - images.length)) {
@@ -426,7 +433,7 @@ export function InventoryProductEditClient({
         formData.set("file", file);
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
-          setMessage("error" in result ? result.error : "Image upload failed");
+          setMessage("error" in result ? result.error : t("imageUploadFailed"));
           return;
         }
         setImages((current) => [
@@ -460,7 +467,7 @@ export function InventoryProductEditClient({
           is_primary: image.id === primaryImageId,
         })),
       });
-      if (!result.success) setMessage("error" in result ? result.error : "Image update failed");
+      if (!result.success) setMessage("error" in result ? result.error : t("imageUpdateFailed"));
     });
   };
 
@@ -472,7 +479,7 @@ export function InventoryProductEditClient({
         product_id: product.id,
         images: [{ id: imageId, is_primary: true }],
       });
-      if (!result.success) setMessage("error" in result ? result.error : "Image update failed");
+      if (!result.success) setMessage("error" in result ? result.error : t("imageUpdateFailed"));
     });
   };
 
@@ -483,7 +490,7 @@ export function InventoryProductEditClient({
         product_id: product.id,
         images: [{ id: imageId, deleted: true }],
       });
-      if (!result.success) setMessage("error" in result ? result.error : "Image update failed");
+      if (!result.success) setMessage("error" in result ? result.error : t("imageUpdateFailed"));
     });
   };
 
@@ -496,7 +503,7 @@ export function InventoryProductEditClient({
     if (
       fileList.some((file) => !file.type.startsWith("image/") || file.size > MAX_ITEM_IMAGE_BYTES)
     ) {
-      setMessage("Some files were skipped. Images must be image files up to 5 MB each.");
+      setMessage(t("imageSkipped"));
     }
     const currentImages = variantImages.filter((image) => image.variant_id === variantId);
     startTransition(async () => {
@@ -508,7 +515,7 @@ export function InventoryProductEditClient({
         formData.set("file", file);
         const result = await uploadInventoryItemImageAction(formData);
         if (!result.success || !("data" in result)) {
-          setMessage("error" in result ? result.error : "Variant image upload failed");
+          setMessage("error" in result ? result.error : t("variantImageUploadFailed"));
           return;
         }
         setVariantImages((current) => [
@@ -538,7 +545,7 @@ export function InventoryProductEditClient({
         images: [{ id: imageId, is_primary: true }],
       });
       if (!result.success)
-        setMessage("error" in result ? result.error : "Variant image update failed");
+        setMessage("error" in result ? result.error : t("variantImageUpdateFailed"));
     });
   };
 
@@ -551,7 +558,7 @@ export function InventoryProductEditClient({
         images: [{ id: imageId, deleted: true }],
       });
       if (!result.success)
-        setMessage("error" in result ? result.error : "Variant image update failed");
+        setMessage("error" in result ? result.error : t("variantImageUpdateFailed"));
     });
   };
 
@@ -566,7 +573,7 @@ export function InventoryProductEditClient({
         );
         setBrandDraft("");
       } else {
-        setMessage("error" in result ? result.error : "Brand could not be created");
+        setMessage("error" in result ? result.error : t("brandCreateFailed"));
       }
     });
   };
@@ -582,7 +589,7 @@ export function InventoryProductEditClient({
         );
         setManufacturerDraft("");
       } else {
-        setMessage("error" in result ? result.error : "Manufacturer could not be created");
+        setMessage("error" in result ? result.error : t("manufacturerCreateFailed"));
       }
     });
   };
@@ -595,7 +602,7 @@ export function InventoryProductEditClient({
       <div className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Edit product</h1>
+            <h1 className="text-2xl font-semibold">{t("title")}</h1>
             <p className="text-sm text-muted-foreground">{product.sku}</p>
           </div>
           <Button asChild type="button" variant="outline">
@@ -606,7 +613,7 @@ export function InventoryProductEditClient({
               }}
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Product
+              {t("product")}
             </Link>
           </Button>
         </div>
@@ -617,10 +624,10 @@ export function InventoryProductEditClient({
 
         <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="grid gap-4">
-            <FormField label="Name" name="name" defaultValue={product.name} required />
-            <FormField label="SKU" value={product.sku} disabled />
+            <FormField label={tc("name")} name="name" defaultValue={product.name} required />
+            <FormField label={tc("sku")} value={product.sku} disabled />
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Type</label>
+              <label className="text-sm">{tc("type")}</label>
               <select
                 name="product_type"
                 defaultValue={product.product_type}
@@ -629,14 +636,14 @@ export function InventoryProductEditClient({
                 {["stocked", "consumable", "service", "serialized", "lot_tracked", "bundle"].map(
                   (type) => (
                     <option key={type} value={type}>
-                      {type.replace("_", " ")}
+                      {t(type)}
                     </option>
                   )
                 )}
               </select>
             </div>
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Base unit</label>
+              <label className="text-sm">{t("baseUnit")}</label>
               <select
                 name="base_unit_id"
                 defaultValue={product.base_unit_id}
@@ -649,26 +656,25 @@ export function InventoryProductEditClient({
                 ))}
               </select>
             </div>
+            <InventoryRichTextFormField
+              name="description"
+              label={tc("description")}
+              defaultValue={product.description}
+            />
             <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">Description</label>
-              <textarea
-                name="description"
-                defaultValue={product.description ?? ""}
-                className={cn(textareaClass, "min-h-20")}
-              />
-            </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">Tags</label>
+              <label className="pt-2 text-sm">{tc("tags")}</label>
               <TagsInput
                 tags={tags}
                 draft={tagDraft}
                 onDraftChange={setTagDraft}
                 onChange={setTags}
+                placeholder={t("tagPlaceholder")}
+                removeLabel={(name) => t("removeToken", { name })}
               />
             </div>
             <label className="flex items-center gap-2 text-sm md:ml-[170px]">
               <input type="checkbox" name="returnable" defaultChecked={product.returnable} />
-              Returnable item
+              {tCreate("returnableItem")}
             </label>
           </div>
 
@@ -691,7 +697,7 @@ export function InventoryProductEditClient({
               onDrop={handleImageDrop}
             >
               <ImageIcon className="mb-2 h-8 w-8" />
-              Browse images
+              {t("browseImages")}
               <input
                 type="file"
                 accept="image/*"
@@ -720,7 +726,7 @@ export function InventoryProductEditClient({
                         type="button"
                         className="absolute -left-1 -top-1 grid h-5 w-5 place-items-center rounded-full border bg-background"
                         onClick={() => setPrimaryImage(image.id)}
-                        aria-label="Set primary image"
+                        aria-label={t("setPrimaryImage")}
                       >
                         <Star className={cn("h-3 w-3", image.is_primary && "text-primary")} />
                       </button>
@@ -728,7 +734,7 @@ export function InventoryProductEditClient({
                         type="button"
                         className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border bg-background text-destructive"
                         onClick={() => removeImage(image.id)}
-                        aria-label="Remove image"
+                        aria-label={t("removeImage")}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -743,7 +749,7 @@ export function InventoryProductEditClient({
                             syncImages(next);
                           }}
                         >
-                          Up
+                          {t("imageUp")}
                         </button>
                         <button
                           type="button"
@@ -755,7 +761,7 @@ export function InventoryProductEditClient({
                             syncImages(next);
                           }}
                         >
-                          Down
+                          {t("imageDown")}
                         </button>
                       </div>
                     </div>
@@ -765,7 +771,7 @@ export function InventoryProductEditClient({
             ) : null}
             {product.variant_count > 1 ? (
               <div className="grid gap-3 rounded-md border border-border p-3">
-                <h3 className="text-sm font-medium">Variant galleries</h3>
+                <h3 className="text-sm font-medium">{t("variantGalleries")}</h3>
                 {product.variants.map((variant) => {
                   const rows = variantImages.filter((image) => image.variant_id === variant.id);
                   return (
@@ -799,7 +805,7 @@ export function InventoryProductEditClient({
                           }}
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          Add
+                          {tc("add")}
                           <input
                             type="file"
                             accept="image/*"
@@ -831,7 +837,7 @@ export function InventoryProductEditClient({
                                   type="button"
                                   className="absolute -left-1 -top-1 grid h-5 w-5 place-items-center rounded-full border bg-background"
                                   onClick={() => setPrimaryVariantImage(variant.id, image.id)}
-                                  aria-label="Set primary variant image"
+                                  aria-label={t("setPrimaryVariantImage")}
                                 >
                                   <Star
                                     className={cn("h-3 w-3", image.is_primary && "text-primary")}
@@ -841,7 +847,7 @@ export function InventoryProductEditClient({
                                   type="button"
                                   className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full border bg-background text-destructive"
                                   onClick={() => removeVariantImage(variant.id, image.id)}
-                                  aria-label="Remove variant image"
+                                  aria-label={t("removeVariantImage")}
                                 >
                                   <X className="h-3 w-3" />
                                 </button>
@@ -851,7 +857,7 @@ export function InventoryProductEditClient({
                         </div>
                       ) : (
                         <p className="text-xs text-muted-foreground">
-                          Uses product gallery until variant images are added.
+                          {t("variantGalleryFallback")}
                         </p>
                       )}
                     </div>
@@ -865,25 +871,23 @@ export function InventoryProductEditClient({
         {product.variants.length > 0 ? (
           <section className="grid gap-4">
             <div>
-              <h2 className="text-lg font-medium">Variants</h2>
-              <p className="text-sm text-muted-foreground">
-                Edit stock-bearing SKU rows, lifecycle status, prices, and reorder points.
-              </p>
+              <h2 className="text-lg font-medium">{tc("variants")}</h2>
+              <p className="text-sm text-muted-foreground">{t("variantsHelp")}</p>
             </div>
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="min-w-[1340px] text-sm">
                 <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-left">Name</th>
-                    <th className="px-3 py-2 text-left">SKU</th>
-                    <th className="px-3 py-2 text-left">Attributes</th>
-                    <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-3 py-2 text-left">Barcode</th>
-                    <th className="px-3 py-2 text-left">Purchase</th>
-                    <th className="px-3 py-2 text-left">Sales</th>
-                    <th className="px-3 py-2 text-left">Currency</th>
-                    <th className="px-3 py-2 text-left">Reorder</th>
-                    <th className="px-3 py-2 text-right">Action</th>
+                    <th className="px-3 py-2 text-left">{tc("name")}</th>
+                    <th className="px-3 py-2 text-left">{tc("sku")}</th>
+                    <th className="px-3 py-2 text-left">{tc("attributes")}</th>
+                    <th className="px-3 py-2 text-left">{tc("status")}</th>
+                    <th className="px-3 py-2 text-left">{tc("barcode")}</th>
+                    <th className="px-3 py-2 text-left">{tCreate("purchaseInformation")}</th>
+                    <th className="px-3 py-2 text-left">{tCreate("salesInformation")}</th>
+                    <th className="px-3 py-2 text-left">{t("currency")}</th>
+                    <th className="px-3 py-2 text-left">{t("reorder")}</th>
+                    <th className="px-3 py-2 text-right">{t("action")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -914,7 +918,7 @@ export function InventoryProductEditClient({
                           <Input
                             value={draft.options_text}
                             className="h-9 min-w-60"
-                            placeholder="Color: Red | Size: L"
+                            placeholder={t("attributesPlaceholder")}
                             onChange={(event) =>
                               updateVariantDraft(variant.id, {
                                 options_text: event.target.value,
@@ -932,9 +936,9 @@ export function InventoryProductEditClient({
                               })
                             }
                           >
-                            <option value="active">Active</option>
-                            <option value="discontinued">Discontinued</option>
-                            <option value="archived">Archived</option>
+                            <option value="active">{t("active")}</option>
+                            <option value="discontinued">{t("discontinued")}</option>
+                            <option value="archived">{t("archived")}</option>
                           </select>
                         </td>
                         <td className="px-3 py-2">
@@ -1005,7 +1009,7 @@ export function InventoryProductEditClient({
                             disabled={isPending}
                           >
                             <Save className="mr-2 h-4 w-4" />
-                            Save
+                            {tc("save")}
                           </Button>
                         </td>
                       </tr>
@@ -1020,11 +1024,8 @@ export function InventoryProductEditClient({
         {productCustomFields.length > 0 || variantCustomFields.length > 0 ? (
           <section className="grid gap-4">
             <div>
-              <h2 className="text-lg font-medium">Custom fields</h2>
-              <p className="text-sm text-muted-foreground">
-                Product fields apply to the item. Variant fields apply to each stock-bearing
-                variant.
-              </p>
+              <h2 className="text-lg font-medium">{tc("customFields")}</h2>
+              <p className="text-sm text-muted-foreground">{t("customFieldsHelp")}</p>
             </div>
 
             {productCustomFields.length > 0 ? (
@@ -1049,8 +1050,8 @@ export function InventoryProductEditClient({
                 <table className="min-w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
                     <tr>
-                      <th className="whitespace-nowrap px-3 py-2 text-left">Variant</th>
-                      <th className="whitespace-nowrap px-3 py-2 text-left">SKU</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left">{t("variant")}</th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left">{tc("sku")}</th>
                       {variantCustomFields.map((field) => (
                         <th key={field.id} className="min-w-48 px-3 py-2 text-left">
                           {field.name}
@@ -1106,14 +1107,14 @@ export function InventoryProductEditClient({
 
         <section className="grid gap-4 xl:grid-cols-2">
           <div className="grid gap-4">
-            <h2 className="text-lg font-medium">Sales</h2>
+            <h2 className="text-lg font-medium">{tCreate("salesInformation")}</h2>
             <FormField
-              label="Sales account"
+              label={tCreate("salesAccount")}
               name="sales_account_code"
               defaultValue={product.sales_account_code ?? ""}
             />
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Tax preset</label>
+              <label className="text-sm">{t("taxPreset")}</label>
               <select
                 defaultValue={selectedTaxPresetId}
                 className={selectClass}
@@ -1129,7 +1130,7 @@ export function InventoryProductEditClient({
                   if (rateInput) rateInput.value = selected ? String(selected.rate_percent) : "";
                 }}
               >
-                <option value="">No tax preset</option>
+                <option value="">{t("noTaxPreset")}</option>
                 {taxRates.map((tax) => (
                   <option key={tax.id} value={tax.id}>
                     {tax.name} ({tax.rate_percent}%)
@@ -1138,11 +1139,11 @@ export function InventoryProductEditClient({
               </select>
             </div>
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Tax code</label>
+              <label className="text-sm">{t("taxCode")}</label>
               <Input name="tax_code" defaultValue={product.tax_code ?? ""} />
             </div>
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Tax rate %</label>
+              <label className="text-sm">{t("taxRatePercent")}</label>
               <Input
                 name="tax_rate_percent"
                 type="number"
@@ -1152,30 +1153,27 @@ export function InventoryProductEditClient({
                 }
               />
             </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">Description</label>
-              <textarea
-                name="sales_description"
-                defaultValue={product.sales_description ?? ""}
-                className={cn(textareaClass, "min-h-16")}
-              />
-            </div>
+            <InventoryRichTextFormField
+              name="sales_description"
+              label={tc("description")}
+              defaultValue={product.sales_description}
+            />
           </div>
           <div className="grid gap-4">
-            <h2 className="text-lg font-medium">Purchase</h2>
+            <h2 className="text-lg font-medium">{tCreate("purchaseInformation")}</h2>
             <FormField
-              label="Purchase account"
+              label={tCreate("purchaseAccount")}
               name="purchase_account_code"
               defaultValue={product.purchase_account_code ?? ""}
             />
             <div className="grid items-center gap-3 md:grid-cols-[170px_1fr]">
-              <label className="text-sm">Preferred vendor</label>
+              <label className="text-sm">{t("preferredVendor")}</label>
               <select
                 name="preferred_supplier_id"
                 defaultValue={product.preferred_supplier_id ?? ""}
                 className={selectClass}
               >
-                <option value="">Select vendor</option>
+                <option value="">{t("selectVendor")}</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.name}
@@ -1183,54 +1181,51 @@ export function InventoryProductEditClient({
                 ))}
               </select>
             </div>
-            <div className="grid items-start gap-3 md:grid-cols-[170px_1fr]">
-              <label className="pt-2 text-sm">Description</label>
-              <textarea
-                name="purchase_description"
-                defaultValue={product.purchase_description ?? ""}
-                className={cn(textareaClass, "min-h-16")}
-              />
-            </div>
+            <InventoryRichTextFormField
+              name="purchase_description"
+              label={tc("description")}
+              defaultValue={product.purchase_description}
+            />
           </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
           <FormField
-            label="Length"
+            label={tCreate("length")}
             name="length_value"
             defaultValue={n(product.length_value)}
             type="number"
           />
           <FormField
-            label="Width"
+            label={tCreate("width")}
             name="width_value"
             defaultValue={n(product.width_value)}
             type="number"
           />
           <FormField
-            label="Height"
+            label={tCreate("height")}
             name="height_value"
             defaultValue={n(product.height_value)}
             type="number"
           />
           <FormField
-            label="Dimension unit"
+            label={tCreate("dimensionUnit")}
             name="dimension_unit"
             defaultValue={product.dimension_unit ?? ""}
           />
           <FormField
-            label="Weight"
+            label={tCreate("weight")}
             name="weight_value"
             defaultValue={n(product.weight_value)}
             type="number"
           />
           <FormField
-            label="Weight unit"
+            label={tCreate("weightUnit")}
             name="weight_unit"
             defaultValue={product.weight_unit ?? ""}
           />
           <MasterField
-            label="Brand"
+            label={tCreate("brand")}
             name="brand_name"
             options={brandOptions}
             defaultValue={product.brand_name ?? ""}
@@ -1239,7 +1234,7 @@ export function InventoryProductEditClient({
             onCreate={createBrand}
           />
           <MasterField
-            label="Manufacturer"
+            label={tCreate("manufacturer")}
             name="manufacturer_name"
             options={manufacturerOptions}
             defaultValue={product.manufacturer_name ?? ""}
@@ -1251,7 +1246,7 @@ export function InventoryProductEditClient({
 
         <section className="grid gap-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Unit conversions</h2>
+            <h2 className="text-lg font-medium">{tCreate("unitConversions")}</h2>
             <Button
               type="button"
               variant="outline"
@@ -1273,7 +1268,7 @@ export function InventoryProductEditClient({
               }
             >
               <Plus className="mr-2 h-4 w-4" />
-              Add conversion
+              {tCreate("addConversion")}
             </Button>
           </div>
           {unitConversions.map((conversion) => (
@@ -1330,9 +1325,9 @@ export function InventoryProductEditClient({
                   )
                 }
               >
-                <option value="half_up">Half up</option>
-                <option value="up">Up</option>
-                <option value="down">Down</option>
+                <option value="half_up">{tCreate("halfUp")}</option>
+                <option value="up">{tCreate("up")}</option>
+                <option value="down">{tCreate("down")}</option>
               </select>
               <Button
                 type="button"
@@ -1355,12 +1350,12 @@ export function InventoryProductEditClient({
         <div className="mx-auto flex max-w-7xl gap-3">
           <Button type="submit" disabled={isPending}>
             <Save className="mr-2 h-4 w-4" />
-            Save
+            {tc("save")}
           </Button>
           <Button asChild type="button" variant="outline">
             <Link href="/dashboard/warehouse/items">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Products
+              {tc("products")}
             </Link>
           </Button>
         </div>
@@ -1411,13 +1406,15 @@ function UnitSelect({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const tCreate = useTranslations("warehouseInventory.create");
+
   return (
     <select
       className={selectClass}
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
-      <option value="">Select unit</option>
+      <option value="">{tCreate("selectUnit")}</option>
       {units.map((unit) => (
         <option key={unit.id} value={unit.id}>
           {unit.code}
@@ -1446,6 +1443,8 @@ function CustomFieldControl({
   onTokensChange?: (tokens: string[]) => void;
   compact?: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.edit");
+  const tc = useTranslations("warehouseInventory.common");
   const name = target === "product" ? `custom_field_${field.id}` : undefined;
   const label = field.is_required ? `${field.name}*` : field.name;
   const inputValue = value ?? defaultValue;
@@ -1475,7 +1474,7 @@ function CustomFieldControl({
         <TokenInput
           value={tokens}
           onChange={onTokensChange ?? (() => undefined)}
-          placeholder={field.placeholder ?? "Type value and press Enter"}
+          placeholder={field.placeholder ?? t("typeValueEnter")}
           suggestions={field.options}
           compact={compact}
         />
@@ -1494,7 +1493,7 @@ function CustomFieldControl({
           className={cn(selectClass, "w-full pr-9")}
           onChange={(event) => onValueChange?.(event.target.value)}
         >
-          <option value="">Select</option>
+          <option value="">{tc("select")}</option>
           {field.options.map((option) => (
             <option key={option} value={option}>
               {option}
@@ -1554,6 +1553,7 @@ function TokenInput({
   suggestions?: string[];
   compact?: boolean;
 }) {
+  const t = useTranslations("warehouseInventory.edit");
   const [draft, setDraft] = useState("");
   const normalized = new Set(value.map((item) => item.toLowerCase()));
   const availableSuggestions = suggestions.filter(
@@ -1595,7 +1595,7 @@ function TokenInput({
               type="button"
               className="rounded-sm text-muted-foreground hover:text-destructive"
               onClick={() => onChange(value.filter((item) => item !== token))}
-              aria-label={`Remove ${token}`}
+              aria-label={t("removeToken", { name: token })}
             >
               <X className="h-3 w-3" />
             </button>
@@ -1644,11 +1644,15 @@ function TagsInput({
   draft,
   onDraftChange,
   onChange,
+  placeholder,
+  removeLabel,
 }: {
   tags: string[];
   draft: string;
   onDraftChange: (value: string) => void;
   onChange: (value: string[]) => void;
+  placeholder: string;
+  removeLabel: (name: string) => string;
 }) {
   const addDraft = () => {
     const nextTags = draft
@@ -1681,7 +1685,7 @@ function TagsInput({
             type="button"
             className="rounded-sm text-muted-foreground hover:text-destructive"
             onClick={() => onChange(tags.filter((item) => item !== tag))}
-            aria-label={`Remove ${tag}`}
+            aria-label={removeLabel(tag)}
           >
             <X className="h-3 w-3" />
           </button>
@@ -1689,7 +1693,7 @@ function TagsInput({
       ))}
       <input
         value={draft}
-        placeholder={tags.length === 0 ? "Type tag and press Enter" : ""}
+        placeholder={tags.length === 0 ? placeholder : ""}
         className="h-7 min-w-40 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
         onChange={(event) => onDraftChange(event.target.value)}
         onBlur={addDraft}

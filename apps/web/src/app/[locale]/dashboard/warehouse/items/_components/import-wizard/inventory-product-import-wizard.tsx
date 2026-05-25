@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { Check, ChevronRight, Copy, Edit, FileText, Trash2, X } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,6 @@ import {
 import { ImportMultiSelectCell } from "./import-multi-select-cell";
 import {
   autoMapHeaders,
-  csvCell,
   csvLines,
   importFieldsForStructure,
   importFileToCsv,
@@ -66,6 +66,11 @@ export function InventoryProductImportWizard({
   taxRates = EMPTY_TAX_RATES,
   tags = EMPTY_TAGS,
 }: InventoryProductImportWizardProps) {
+  const t = useTranslations("warehouseInventory.import");
+  const tc = useTranslations("warehouseInventory.common");
+  const tCreate = useTranslations("warehouseInventory.create");
+  const tFieldTypes = useTranslations("warehouseInventory.fieldTypes");
+  const tSettings = useTranslations("warehouseInventory.settings");
   const router = useRouter();
   const setFlushContent = useUiStoreV2((state) => state.setFlushContent);
   const importOnly = true;
@@ -137,32 +142,32 @@ export function InventoryProductImportWizard({
     () =>
       importStructure === "simple"
         ? [
-            { key: "product_name", label: "Item name*" },
-            { key: "product_sku", label: "SKU*", copy: true },
-            { key: "unit_code", label: "Unit*", copy: true },
-            { key: "purchase_price", label: "Cost price", copy: true },
-            { key: "sales_price", label: "Selling price", copy: true },
-            { key: "barcode", label: "Barcode" },
-            { key: "tax_code", label: "Tax", copy: true },
-            { key: "reorder_point", label: "Reorder point", copy: true },
-            { key: "tags", label: "Tags" },
-            { key: "description", label: "Description" },
+            { key: "product_name", label: t("itemNameRequired") },
+            { key: "product_sku", label: t("productSkuRequired"), copy: true },
+            { key: "unit_code", label: t("unitRequired"), copy: true },
+            { key: "purchase_price", label: t("costPrice"), copy: true },
+            { key: "sales_price", label: t("sellingPrice"), copy: true },
+            { key: "barcode", label: t("barcode") },
+            { key: "tax_code", label: t("tax"), copy: true },
+            { key: "reorder_point", label: t("reorderPoint"), copy: true },
+            { key: "tags", label: t("tags") },
+            { key: "description", label: t("description") },
           ]
         : [
-            { key: "product_name", label: "Product name*", copy: true },
-            { key: "product_sku", label: "Product SKU", copy: true },
-            { key: "variant_name", label: "Variant name" },
-            { key: "variant_sku", label: "Variant SKU*", copy: true },
-            { key: "unit_code", label: "Unit*", copy: true },
-            { key: "purchase_price", label: "Cost price", copy: true },
-            { key: "sales_price", label: "Selling price", copy: true },
-            { key: "barcode", label: "Barcode" },
-            { key: "tax_code", label: "Tax", copy: true },
-            { key: "reorder_point", label: "Reorder point", copy: true },
-            { key: "tags", label: "Tags" },
-            { key: "description", label: "Description" },
+            { key: "product_name", label: t("productNameRequired"), copy: true },
+            { key: "product_sku", label: t("productSku"), copy: true },
+            { key: "variant_name", label: t("variantName") },
+            { key: "variant_sku", label: t("variantSkuRequired"), copy: true },
+            { key: "unit_code", label: t("unitRequired"), copy: true },
+            { key: "purchase_price", label: t("costPrice"), copy: true },
+            { key: "sales_price", label: t("sellingPrice"), copy: true },
+            { key: "barcode", label: t("barcode") },
+            { key: "tax_code", label: t("tax"), copy: true },
+            { key: "reorder_point", label: t("reorderPoint"), copy: true },
+            { key: "tags", label: t("tags") },
+            { key: "description", label: t("description") },
           ],
-    [importStructure]
+    [importStructure, t]
   );
   const mappedCustomFields = useMemo(() => {
     const seen = new Set<string>();
@@ -179,7 +184,7 @@ export function InventoryProductImportWizard({
     setImportRows([]);
     setImportPreview(null);
     setImportCsv(null);
-  }, []);
+  }, [t]);
 
   const clearImportWizard = useCallback(() => {
     setImportMessage(null);
@@ -225,7 +230,14 @@ export function InventoryProductImportWizard({
       try {
         csv = await importFileToCsv(file);
       } catch (error) {
-        setImportMessage(error instanceof Error ? error.message : "Could not read import file.");
+        const code = error instanceof Error ? error.message : "";
+        setImportMessage(
+          code === "unsupported_excel_import_file"
+            ? t("unsupportedFileType")
+            : code === "missing_excel_import_worksheet"
+              ? t("missingWorksheet")
+              : t("readFailed")
+        );
         return;
       }
       const headers = parseCsvLine(csvLines(csv)[0] ?? "");
@@ -278,76 +290,63 @@ export function InventoryProductImportWizard({
     unitAssignmentMode,
   ]);
 
-  const downloadSampleImportFile = useCallback(
-    async (format: "csv" | "xlsx") => {
-      const headers = importFieldsForStructure(importStructure).map((field) => field.key);
-      const sample =
-        importStructure === "simple"
-          ? [
-              "Brake pad set",
-              "BP-001",
-              "P",
-              "stocked",
-              "active",
-              "",
-              "120",
-              "180",
-              "",
-              "",
-              "VAT23",
-              "23",
-              "5",
-              "brakes",
-              "Front axle pads",
-            ]
-          : [
-              "T-shirt",
-              "TSHIRT",
-              "T-shirt - blue - M",
-              "TSHIRT-BLU-M",
-              "P",
-              "stocked",
-              "active",
-              "",
-              "40",
-              "80",
-              "",
-              "",
-              "VAT23",
-              "23",
-              "10",
-              "shirts",
-              "Blue medium shirt",
-            ];
-      const rows = [headers, sample.slice(0, headers.length)];
-      if (format === "xlsx") {
-        const XLSX = await import("xlsx");
-        const workbook = XLSX.utils.book_new();
-        const sheet = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(workbook, sheet, "Items");
-        const data = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const url = URL.createObjectURL(
-          new Blob([data], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          })
-        );
-        const anchor = document.createElement("a");
-        anchor.href = url;
-        anchor.download = `ambra-items-${importStructure}-sample.xlsx`;
-        anchor.click();
-        URL.revokeObjectURL(url);
-        return;
-      }
-      const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
-      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `ambra-items-${importStructure}-sample.csv`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-    },
-    [importStructure]
-  );
+  const downloadSampleImportFile = useCallback(async () => {
+    const headers = importFieldsForStructure(importStructure).map((field) => field.key);
+    const sample =
+      importStructure === "simple"
+        ? [
+            t("sampleSimpleName"),
+            "BP-001",
+            "P",
+            "stocked",
+            "active",
+            "",
+            "120",
+            "180",
+            "",
+            "",
+            "VAT23",
+            "23",
+            "5",
+            t("sampleSimpleTag"),
+            t("sampleSimpleDescription"),
+          ]
+        : [
+            t("sampleVariantProductName"),
+            "TSHIRT",
+            t("sampleVariantName"),
+            "TSHIRT-BLU-M",
+            "P",
+            "stocked",
+            "active",
+            "",
+            "40",
+            "80",
+            "",
+            "",
+            "VAT23",
+            "23",
+            "10",
+            t("sampleVariantTag"),
+            t("sampleVariantDescription"),
+          ];
+    const rows = [headers, sample.slice(0, headers.length)];
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, sheet, t("sampleSheetName"));
+    const data = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const url = URL.createObjectURL(
+      new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+    );
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `ambra-items-${importStructure}-sample.xlsx`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [importStructure, t]);
 
   const previewImportRows = useCallback(
     (rows: ImportDraftRow[]) => {
@@ -355,19 +354,19 @@ export function InventoryProductImportWizard({
       startImportTransition(async () => {
         const preview = await previewInventoryProductsCsvImportAction({ csv });
         if (!preview.success || !("data" in preview)) {
-          setImportMessage("error" in preview ? preview.error : "Import preview failed");
+          setImportMessage("error" in preview ? preview.error : t("previewFailed"));
           return;
         }
         setImportPreview(preview.data);
         setImportCsv(csv);
         setImportMessage(
           preview.data.invalid_rows > 0
-            ? `Review ${preview.data.invalid_rows} invalid rows before importing.`
-            : `Preview ready: ${preview.data.valid_rows} rows can be imported.`
+            ? t("reviewInvalidRows", { count: preview.data.invalid_rows })
+            : t("previewReady", { count: preview.data.valid_rows })
         );
       });
     },
-    [importStructure, mappedCustomFields]
+    [importStructure, mappedCustomFields, t]
   );
 
   const confirmImport = useCallback(() => {
@@ -379,10 +378,14 @@ export function InventoryProductImportWizard({
       });
       setImportMessage(
         imported.success && "data" in imported
-          ? `Imported ${imported.data.imported_products} products and ${imported.data.imported_variants} variants. Skipped ${imported.data.skipped_rows ?? 0} rows.`
+          ? t("importedSummary", {
+              products: imported.data.imported_products,
+              variants: imported.data.imported_variants,
+              skipped: imported.data.skipped_rows ?? 0,
+            })
           : "error" in imported
             ? imported.error
-            : "Import failed"
+            : t("importFailed")
       );
       if (imported.success) {
         if (importOnly) {
@@ -401,13 +404,13 @@ export function InventoryProductImportWizard({
         }
       }
     });
-  }, [importMode, importOnly, importRows, importStructure, mappedCustomFields, router]);
+  }, [importMode, importOnly, importRows, importStructure, mappedCustomFields, router, t]);
 
   const createUnitFromDraft = useCallback(() => {
     const code = unitDraft.code.trim();
     const name = unitDraft.name.trim();
     if (!code || !name) {
-      setImportMessage("Unit code and name are required.");
+      setImportMessage(t("unitRequiredMessage"));
       return;
     }
     startImportTransition(async () => {
@@ -418,7 +421,7 @@ export function InventoryProductImportWizard({
         precision: 0,
       });
       if (!result.success || !("data" in result)) {
-        setImportMessage("error" in result ? result.error : "Could not create unit.");
+        setImportMessage("error" in result ? result.error : t("unitCreateFailed"));
         return;
       }
       setUnitOptions((current) =>
@@ -431,14 +434,14 @@ export function InventoryProductImportWizard({
       setFallbackUnitCode(result.data.code);
       setUnitDraft({ code: "", name: "", kind: "count" });
       setShowQuickAddUnit(false);
-      setImportMessage(`Unit ${result.data.code} added.`);
+      setImportMessage(t("unitAdded", { code: result.data.code }));
     });
-  }, [unitDraft.code, unitDraft.kind, unitDraft.name]);
+  }, [t, unitDraft.code, unitDraft.kind, unitDraft.name]);
 
   const createCustomFieldFromDraft = useCallback(() => {
     const name = customFieldDraft.name.trim();
     if (!name) {
-      setImportMessage("Custom field name is required.");
+      setImportMessage(t("customFieldRequiredMessage"));
       return;
     }
     startImportTransition(async () => {
@@ -453,7 +456,7 @@ export function InventoryProductImportWizard({
         display_order: customFieldOptions.length + 1,
       });
       if (!result.success || !("data" in result)) {
-        setImportMessage("error" in result ? result.error : "Could not create custom field.");
+        setImportMessage("error" in result ? result.error : t("customFieldCreateFailed"));
         return;
       }
       const created: InventoryCustomFieldDefinition = {
@@ -479,13 +482,14 @@ export function InventoryProductImportWizard({
       ]);
       setCustomFieldDraft({ name: "", entityType: "product", fieldType: "text" });
       setShowQuickAddCustomField(false);
-      setImportMessage(`Custom field ${created.name} added.`);
+      setImportMessage(t("customFieldAdded", { name: created.name }));
     });
   }, [
     customFieldDraft.entityType,
     customFieldDraft.fieldType,
     customFieldDraft.name,
     customFieldOptions.length,
+    t,
   ]);
 
   const updateImportRow = useCallback(
@@ -514,7 +518,7 @@ export function InventoryProductImportWizard({
         return (
           <label className="grid gap-1">
             <span className="text-xs font-medium uppercase text-muted-foreground">
-              Normalize names
+              {t("normalizeNames")}
             </span>
             <select
               value={nameCaseNormalization}
@@ -524,10 +528,10 @@ export function InventoryProductImportWizard({
                 resetImportDraft();
               }}
             >
-              <option value="none">None</option>
-              <option value="upper">Upper case</option>
-              <option value="lower">Lower case</option>
-              <option value="title">Title case</option>
+              <option value="none">{t("none")}</option>
+              <option value="upper">{t("upperCase")}</option>
+              <option value="lower">{t("lowerCase")}</option>
+              <option value="title">{t("titleCase")}</option>
             </select>
           </label>
         );
@@ -537,7 +541,7 @@ export function InventoryProductImportWizard({
           <div className="flex flex-wrap items-end gap-2">
             <label className="grid w-44 gap-1">
               <span className="text-xs font-medium uppercase text-muted-foreground">
-                Letter case
+                {t("letterCase")}
               </span>
               <select
                 value={skuCaseNormalization}
@@ -547,15 +551,15 @@ export function InventoryProductImportWizard({
                   resetImportDraft();
                 }}
               >
-                <option value="none">Keep case</option>
-                <option value="upper">Upper case</option>
-                <option value="lower">Lower case</option>
-                <option value="title">Title case</option>
+                <option value="none">{t("keepCase")}</option>
+                <option value="upper">{t("upperCase")}</option>
+                <option value="lower">{t("lowerCase")}</option>
+                <option value="title">{t("titleCase")}</option>
               </select>
             </label>
             <label className="grid w-40 gap-1">
               <span className="text-xs font-medium uppercase text-muted-foreground">
-                Whitespace
+                {t("whitespace")}
               </span>
               <select
                 value={skuWhitespaceNormalization}
@@ -565,15 +569,15 @@ export function InventoryProductImportWizard({
                   resetImportDraft();
                 }}
               >
-                <option value="keep">Keep</option>
-                <option value="remove">Remove</option>
-                <option value="replace">Replace</option>
+                <option value="keep">{t("keep")}</option>
+                <option value="remove">{t("remove")}</option>
+                <option value="replace">{t("replace")}</option>
               </select>
             </label>
             {skuWhitespaceNormalization === "replace" ? (
               <label className="grid w-44 gap-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">
-                  Replace with
+                  {t("replaceWith")}
                 </span>
                 <input
                   value={skuWhitespaceReplacement}
@@ -587,7 +591,7 @@ export function InventoryProductImportWizard({
             ) : null}
             <label className="grid w-52 gap-1">
               <span className="text-xs font-medium uppercase text-muted-foreground">
-                Special characters
+                {t("specialCharacters")}
               </span>
               <select
                 value={skuSpecialCharacterNormalization}
@@ -599,15 +603,15 @@ export function InventoryProductImportWizard({
                   resetImportDraft();
                 }}
               >
-                <option value="keep">Keep</option>
-                <option value="remove_selected">Remove selected</option>
-                <option value="remove_all">Remove all special</option>
+                <option value="keep">{t("keep")}</option>
+                <option value="remove_selected">{t("removeSelected")}</option>
+                <option value="remove_all">{t("removeAllSpecial")}</option>
               </select>
             </label>
             {skuSpecialCharacterNormalization === "remove_selected" ? (
               <label className="grid w-40 gap-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">
-                  Remove chars
+                  {t("removeChars")}
                 </span>
                 <input
                   value={skuSpecialCharacters}
@@ -636,6 +640,7 @@ export function InventoryProductImportWizard({
       skuSpecialCharacters,
       skuWhitespaceNormalization,
       skuWhitespaceReplacement,
+      t,
     ]
   );
 
@@ -663,7 +668,7 @@ export function InventoryProductImportWizard({
             className={cn(inputClassForImportField(fieldKey), "pr-10")}
             onChange={(event) => updateImportRow(row.id, { unit_code: event.target.value })}
           >
-            <option value="">Select unit</option>
+            <option value="">{tCreate("selectUnit")}</option>
             {unitOptions.map((unit) => (
               <option key={unit.id} value={unit.code}>
                 {unit.code} · {unit.name}
@@ -685,7 +690,7 @@ export function InventoryProductImportWizard({
               });
             }}
           >
-            <option value="">No tax</option>
+            <option value="">{t("noTax")}</option>
             {taxRateOptions.map((tax) => (
               <option key={tax.id} value={tax.code}>
                 {tax.code} · {tax.rate_percent}%
@@ -713,7 +718,7 @@ export function InventoryProductImportWizard({
         />
       );
     },
-    [inputClassForImportField, tagOptions, taxRateOptions, unitOptions, updateImportRow]
+    [inputClassForImportField, t, tCreate, tagOptions, taxRateOptions, unitOptions, updateImportRow]
   );
 
   const renderCustomImportCell = useCallback(
@@ -726,9 +731,9 @@ export function InventoryProductImportWizard({
             className="h-9 w-full min-w-36 rounded-md border border-input bg-background px-2 pr-10 text-sm"
             onChange={(event) => updateImportRowCustomField(row.id, field.id, event.target.value)}
           >
-            <option value="">Unset</option>
-            <option value="true">True</option>
-            <option value="false">False</option>
+            <option value="">{tc("unset")}</option>
+            <option value="true">{tc("yes")}</option>
+            <option value="false">{tc("no")}</option>
           </select>
         );
       }
@@ -739,7 +744,7 @@ export function InventoryProductImportWizard({
             className="h-9 w-full min-w-52 rounded-md border border-input bg-background px-2 pr-10 text-sm"
             onChange={(event) => updateImportRowCustomField(row.id, field.id, event.target.value)}
           >
-            <option value="">Select</option>
+            <option value="">{tc("select")}</option>
             {field.options.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -772,12 +777,37 @@ export function InventoryProductImportWizard({
         />
       );
     },
-    [updateImportRowCustomField]
+    [tc, updateImportRowCustomField]
   );
 
   const importMappingFields = useMemo(
     () => importFieldsForStructure(importStructure),
     [importStructure]
+  );
+  const importFieldLabel = useCallback(
+    (key: ImportFieldKey) => {
+      const labels: Record<ImportFieldKey, string> = {
+        product_name: t("productName"),
+        product_sku: t("productSku"),
+        variant_name: t("variantName"),
+        variant_sku: tc("sku"),
+        unit_code: tc("unit"),
+        product_type: tc("type"),
+        status: tc("status"),
+        barcode: t("barcode"),
+        purchase_price: t("costPrice"),
+        sales_price: t("sellingPrice"),
+        sales_account_code: tCreate("salesAccount"),
+        purchase_account_code: tCreate("purchaseAccount"),
+        tax_code: t("taxCode"),
+        tax_rate_percent: tCreate("taxRate"),
+        reorder_point: t("reorderPoint"),
+        tags: t("tags"),
+        description: t("description"),
+      };
+      return labels[key];
+    },
+    [t, tCreate, tc]
   );
   const missingRequiredMappings = useMemo(
     () =>
@@ -817,7 +847,7 @@ export function InventoryProductImportWizard({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".csv,.tsv,.xlsx,.xls,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+          accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -843,10 +873,10 @@ export function InventoryProductImportWizard({
             <div className="min-w-0 text-center">
               <h2 className="text-xl font-semibold">
                 {importStep === 1
-                  ? "Items - Select File"
+                  ? t("selectFileTitle")
                   : importStep === 2
-                    ? "Map Fields"
-                    : "Preview"}
+                    ? t("mapFieldsTitle")
+                    : t("previewTitle")}
               </h2>
               <ImportStepper step={importStep} />
             </div>
@@ -854,7 +884,7 @@ export function InventoryProductImportWizard({
               <button
                 type="button"
                 className="absolute right-5 top-4 grid h-8 w-8 place-items-center rounded hover:bg-muted"
-                aria-label="Close import"
+                aria-label={t("closeImport")}
                 onClick={cancelImport}
               >
                 <X className="h-4 w-4" />
@@ -881,14 +911,10 @@ export function InventoryProductImportWizard({
                 >
                   <span className="grid gap-3">
                     <FileText className="mx-auto h-12 w-12 text-primary" />
-                    <span className="font-medium">
-                      {importFileName ?? "Drop your CSV or Excel file here"}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Maximum file size: 25 MB. File format: CSV, TSV, XLS, or XLSX.
-                    </span>
+                    <span className="font-medium">{importFileName ?? t("dropFile")}</span>
+                    <span className="text-sm text-muted-foreground">{t("fileLimits")}</span>
                     <span className="text-sm text-primary">
-                      {importFileName ? "Replace file" : "Browse file"}
+                      {importFileName ? t("replaceFile") : t("browseFile")}
                     </span>
                   </span>
                 </button>
@@ -909,38 +935,32 @@ export function InventoryProductImportWizard({
                     }}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Remove file
+                    {t("removeFile")}
                   </Button>
                 ) : null}
 
                 <p className="text-sm text-muted-foreground">
-                  Download a{" "}
+                  {t("samplePrefix")}
                   <button
                     type="button"
                     className="text-primary underline-offset-4 hover:underline"
-                    onClick={() => void downloadSampleImportFile("csv")}
+                    onClick={() => void downloadSampleImportFile()}
                   >
-                    sample csv file
+                    {t("sampleLink")}
                   </button>{" "}
-                  or{" "}
-                  <button
-                    type="button"
-                    className="text-primary underline-offset-4 hover:underline"
-                    onClick={() => void downloadSampleImportFile("xlsx")}
-                  >
-                    sample xls file
-                  </button>{" "}
-                  and compare it to your import file before continuing.
+                  {t("sampleSuffix")}
                 </p>
 
                 <div className="grid gap-4 rounded-md border bg-muted/20 p-4">
                   <div className="grid gap-3 md:grid-cols-[220px_1fr] md:items-start">
-                    <p className="text-sm font-medium text-muted-foreground">Item structure</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("itemStructure")}
+                    </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <ImportRadioCard
                         checked={importStructure === "simple"}
-                        title="Simple items"
-                        description="Each row becomes one item. Variant fields stay hidden."
+                        title={t("simpleItems")}
+                        description={t("simpleItemsHelp")}
                         onClick={() => {
                           setImportStructure("simple");
                           setColumnMapping((mapping) => ({
@@ -962,8 +982,8 @@ export function InventoryProductImportWizard({
                       />
                       <ImportRadioCard
                         checked={importStructure === "variants"}
-                        title="Items with variants"
-                        description="Rows can share a product and import separate variant SKUs."
+                        title={t("variantItems")}
+                        description={t("variantItemsHelp")}
                         onClick={() => {
                           setImportStructure("variants");
                           setColumnMapping((mapping) =>
@@ -980,7 +1000,9 @@ export function InventoryProductImportWizard({
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-[220px_1fr] md:items-start">
-                    <p className="text-sm font-medium text-muted-foreground">Duplicate handling</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("duplicateHandling")}
+                    </p>
                     <div className="grid gap-3">
                       <label className="flex gap-3">
                         <input
@@ -989,9 +1011,11 @@ export function InventoryProductImportWizard({
                           onChange={() => setImportMode("skip_existing")}
                         />
                         <span>
-                          <span className="block text-sm font-medium">Skip duplicate SKUs</span>
+                          <span className="block text-sm font-medium">
+                            {t("skipDuplicateSkus")}
+                          </span>
                           <span className="block text-sm text-muted-foreground">
-                            Existing items stay unchanged and duplicate rows are skipped.
+                            {t("skipDuplicateSkusHelp")}
                           </span>
                         </span>
                       </label>
@@ -1002,9 +1026,11 @@ export function InventoryProductImportWizard({
                           onChange={() => setImportMode("create_only")}
                         />
                         <span>
-                          <span className="block text-sm font-medium">Stop on duplicate SKUs</span>
+                          <span className="block text-sm font-medium">
+                            {t("stopDuplicateSkus")}
+                          </span>
                           <span className="block text-sm text-muted-foreground">
-                            Duplicates are reported during validation before import.
+                            {t("stopDuplicateSkusHelp")}
                           </span>
                         </span>
                       </label>
@@ -1013,7 +1039,7 @@ export function InventoryProductImportWizard({
 
                   <label className="grid gap-1 md:grid-cols-[220px_1fr] md:items-center">
                     <span className="text-sm font-medium text-muted-foreground">
-                      Character encoding
+                      {t("characterEncoding")}
                     </span>
                     <select
                       value="utf-8"
@@ -1028,34 +1054,34 @@ export function InventoryProductImportWizard({
                   <div className="grid gap-2 md:pl-[220px]">
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked readOnly />
-                      Execute validation rules on the imported items
+                      {t("validationRules")}
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked readOnly />
-                      Execute workflow rules on the imported items
+                      {t("workflowRules")}
                     </label>
                   </div>
                 </div>
 
                 <div className="rounded-md bg-muted/40 p-4 text-sm">
-                  <p className="mb-2 font-medium">Page Tips</p>
+                  <p className="mb-2 font-medium">{t("pageTips")}</p>
                   <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                    <li>Use the first row for column headers so Ambra can auto-map fields.</li>
-                    <li>Simple item imports do not require variant columns.</li>
-                    <li>You can edit values in the final preview before importing.</li>
+                    <li>{t("tipHeaders")}</li>
+                    <li>{t("tipSimple")}</li>
+                    <li>{t("tipPreview")}</li>
                   </ul>
                 </div>
 
                 <div className="flex justify-between border-t pt-4">
                   <Button type="button" variant="outline" onClick={cancelImport}>
-                    Cancel
+                    {tc("cancel")}
                   </Button>
                   <Button
                     type="button"
                     disabled={!rawImportCsv || isImportPending}
                     onClick={() => setImportStep(2)}
                   >
-                    Next
+                    {t("next")}
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
                 </div>
@@ -1065,30 +1091,30 @@ export function InventoryProductImportWizard({
             {importStep === 2 ? (
               <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-6">
                 <p className="text-sm">
-                  Your selected file: <span className="font-medium">{importFileName}</span>
+                  {t("selectedFile")} <span className="font-medium">{importFileName}</span>
                 </p>
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100">
-                  The best match to each field on the selected file has been auto-selected.
+                  {t("autoMapped")}
                 </div>
                 <div className="rounded-md bg-muted/40 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="font-medium">Default Data Formats</p>
+                    <p className="font-medium">{t("defaultFormats")}</p>
                     <Button type="button" variant="ghost" size="sm" disabled>
                       <Edit className="mr-2 h-4 w-4" />
-                      Edit
+                      {tc("edit")}
                     </Button>
                   </div>
-                  <p className="mt-4 text-xs text-muted-foreground">Decimal Format</p>
+                  <p className="mt-4 text-xs text-muted-foreground">{t("decimalFormat")}</p>
                   <p className="text-sm">1234567.89</p>
                 </div>
 
                 <div>
-                  <h3 className="mb-3 text-lg font-medium">Item Details</h3>
+                  <h3 className="mb-3 text-lg font-medium">{t("itemDetails")}</h3>
                   <div className="overflow-hidden rounded-md border">
                     <div className="hidden gap-4 bg-muted px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[180px_minmax(320px,1fr)_minmax(320px,1fr)]">
-                      <span>Ambra field</span>
-                      <span>Imported file headers</span>
-                      <span>Options</span>
+                      <span>{t("ambraField")}</span>
+                      <span>{t("importedHeaders")}</span>
+                      <span>{t("options")}</span>
                     </div>
                     {importMappingFields.map((field) => {
                       const isSkuField = field.key === "product_sku" || field.key === "variant_sku";
@@ -1099,7 +1125,7 @@ export function InventoryProductImportWizard({
                             key={field.key}
                             className="grid items-start gap-4 border-t px-4 py-4 lg:grid-cols-[180px_minmax(0,1fr)]"
                           >
-                            <span className="text-sm text-destructive lg:pt-2">Unit*</span>
+                            <span className="text-sm text-destructive lg:pt-2">{t("unit")}</span>
                             <div className="grid min-w-0 gap-3">
                               <div className="inline-flex w-fit overflow-hidden rounded-md border">
                                 <button
@@ -1119,7 +1145,7 @@ export function InventoryProductImportWizard({
                                     setImportCsv(null);
                                   }}
                                 >
-                                  Map column
+                                  {t("mapColumn")}
                                 </button>
                                 <button
                                   type="button"
@@ -1137,14 +1163,14 @@ export function InventoryProductImportWizard({
                                     setImportCsv(null);
                                   }}
                                 >
-                                  Use one unit
+                                  {t("useOneUnit")}
                                 </button>
                               </div>
 
                               {unitAssignmentMode === "column" ? (
                                 <label className="grid max-w-2xl gap-1">
                                   <span className="text-xs font-medium uppercase text-muted-foreground">
-                                    Unit column
+                                    {t("unitColumn")}
                                   </span>
                                   <select
                                     value={columnMapping.unit_code}
@@ -1159,7 +1185,7 @@ export function InventoryProductImportWizard({
                                       setImportCsv(null);
                                     }}
                                   >
-                                    <option value="">Select unit column</option>
+                                    <option value="">{t("selectUnitColumn")}</option>
                                     {importHeaders.map((header) => (
                                       <option key={header} value={header}>
                                         {header}
@@ -1174,7 +1200,7 @@ export function InventoryProductImportWizard({
                                   <div className="grid items-end gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
                                     <label className="grid gap-1">
                                       <span className="text-xs font-medium uppercase text-muted-foreground">
-                                        Unit for all rows
+                                        {t("unitForAllRows")}
                                       </span>
                                       <select
                                         value={fallbackUnitCode}
@@ -1186,7 +1212,7 @@ export function InventoryProductImportWizard({
                                           setImportCsv(null);
                                         }}
                                       >
-                                        <option value="">Select unit</option>
+                                        <option value="">{tCreate("selectUnit")}</option>
                                         {unitOptions.map((unit) => (
                                           <option key={unit.id} value={unit.code}>
                                             {unit.code} · {unit.name}
@@ -1202,7 +1228,7 @@ export function InventoryProductImportWizard({
                                         className="h-10"
                                         onClick={() => setShowQuickAddUnit((current) => !current)}
                                       >
-                                        Add unit
+                                        {t("addUnit")}
                                       </Button>
                                     ) : null}
                                   </div>
@@ -1210,7 +1236,7 @@ export function InventoryProductImportWizard({
                                     <div className="grid gap-2 rounded-md border bg-muted/20 p-3 sm:grid-cols-[1fr_1fr_140px_auto]">
                                       <input
                                         value={unitDraft.code}
-                                        placeholder="Code"
+                                        placeholder={t("unitCode")}
                                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                                         onChange={(event) =>
                                           setUnitDraft((draft) => ({
@@ -1221,7 +1247,7 @@ export function InventoryProductImportWizard({
                                       />
                                       <input
                                         value={unitDraft.name}
-                                        placeholder="Unit name"
+                                        placeholder={t("unitName")}
                                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                                         onChange={(event) =>
                                           setUnitDraft((draft) => ({
@@ -1250,7 +1276,7 @@ export function InventoryProductImportWizard({
                                           "other",
                                         ].map((kind) => (
                                           <option key={kind} value={kind}>
-                                            {kind}
+                                            {tSettings(kind)}
                                           </option>
                                         ))}
                                       </select>
@@ -1260,7 +1286,7 @@ export function InventoryProductImportWizard({
                                         className="h-10"
                                         onClick={createUnitFromDraft}
                                       >
-                                        Add
+                                        {tc("add")}
                                       </Button>
                                     </div>
                                   ) : null}
@@ -1282,13 +1308,13 @@ export function InventoryProductImportWizard({
                               )}
                             >
                               {field.key === "product_sku" && importStructure === "simple"
-                                ? "SKU"
-                                : field.label}
+                                ? tc("sku")
+                                : importFieldLabel(field.key)}
                               {isImportFieldRequired(field.key, importStructure) ? "*" : ""}
                             </span>
                             <label className="grid gap-1">
                               <span className="text-xs font-medium uppercase text-muted-foreground lg:hidden">
-                                Imported file headers
+                                {t("importedHeaders")}
                               </span>
                               <select
                                 value={columnMapping[field.key]}
@@ -1303,7 +1329,7 @@ export function InventoryProductImportWizard({
                                   setImportCsv(null);
                                 }}
                               >
-                                <option value="">Select</option>
+                                <option value="">{t("select")}</option>
                                 {importHeaders.map((header) => (
                                   <option key={header} value={header}>
                                     {header}
@@ -1318,7 +1344,7 @@ export function InventoryProductImportWizard({
                           {isSkuField ? (
                             <div className="grid gap-2 px-4 pb-4 lg:grid-cols-[180px_minmax(0,1fr)]">
                               <span className="text-xs font-medium uppercase text-muted-foreground">
-                                SKU normalization
+                                {t("skuNormalization")}
                               </span>
                               <div className="min-w-0">{renderMappingOptions(field.key)}</div>
                             </div>
@@ -1332,10 +1358,8 @@ export function InventoryProductImportWizard({
                 <div className="rounded-md border">
                   <div className="flex items-center justify-between gap-3 bg-muted px-4 py-3">
                     <div>
-                      <h3 className="font-medium">Custom fields</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Map optional product or variant fields from the import file.
-                      </p>
+                      <h3 className="font-medium">{t("customFields")}</h3>
+                      <p className="text-xs text-muted-foreground">{t("customFieldsHelp")}</p>
                     </div>
                     {canManageProducts ? (
                       <Button
@@ -1344,7 +1368,7 @@ export function InventoryProductImportWizard({
                         size="sm"
                         onClick={() => setShowQuickAddCustomField((current) => !current)}
                       >
-                        Add preset
+                        {t("addPreset")}
                       </Button>
                     ) : null}
                   </div>
@@ -1352,7 +1376,7 @@ export function InventoryProductImportWizard({
                     <div className="grid gap-2 border-t px-4 py-3 md:grid-cols-[1fr_160px_160px_auto]">
                       <input
                         value={customFieldDraft.name}
-                        placeholder="Custom field name"
+                        placeholder={t("customFieldName")}
                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                         onChange={(event) =>
                           setCustomFieldDraft((draft) => ({ ...draft, name: event.target.value }))
@@ -1368,8 +1392,8 @@ export function InventoryProductImportWizard({
                           }))
                         }
                       >
-                        <option value="product">Product</option>
-                        <option value="variant">Variant</option>
+                        <option value="product">{tc("product")}</option>
+                        <option value="variant">{tc("variant")}</option>
                       </select>
                       <select
                         value={customFieldDraft.fieldType}
@@ -1385,7 +1409,7 @@ export function InventoryProductImportWizard({
                         {["text", "number", "date", "boolean", "select", "multi_select"].map(
                           (type) => (
                             <option key={type} value={type}>
-                              {type.replace("_", " ")}
+                              {tFieldTypes(type)}
                             </option>
                           )
                         )}
@@ -1396,15 +1420,13 @@ export function InventoryProductImportWizard({
                         className="h-10"
                         onClick={createCustomFieldFromDraft}
                       >
-                        Add
+                        {tc("add")}
                       </Button>
                     </div>
                   ) : null}
                   <div className="grid gap-2 border-t p-4">
                     {customFieldMappings.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No custom fields mapped for this import.
-                      </p>
+                      <p className="text-sm text-muted-foreground">{t("noCustomFieldsMapped")}</p>
                     ) : null}
                     {customFieldMappings.map((mapping) => (
                       <div
@@ -1424,7 +1446,7 @@ export function InventoryProductImportWizard({
                             )
                           }
                         >
-                          <option value="">Select custom field</option>
+                          <option value="">{t("selectCustomField")}</option>
                           {customFieldOptions
                             .filter((field) =>
                               importStructure === "variants"
@@ -1450,7 +1472,7 @@ export function InventoryProductImportWizard({
                             )
                           }
                         >
-                          <option value="">Select import column</option>
+                          <option value="">{t("selectImportColumn")}</option>
                           {importHeaders.map((header) => (
                             <option key={header} value={header}>
                               {header}
@@ -1460,7 +1482,7 @@ export function InventoryProductImportWizard({
                         <button
                           type="button"
                           className="grid h-10 w-10 place-items-center rounded text-destructive hover:bg-destructive/10"
-                          aria-label="Remove custom field mapping"
+                          aria-label={t("removeCustomFieldMapping")}
                           onClick={() =>
                             setCustomFieldMappings((current) =>
                               current.filter((item) => item.id !== mapping.id)
@@ -1488,25 +1510,28 @@ export function InventoryProductImportWizard({
                         ])
                       }
                     >
-                      Add custom field mapping
+                      {t("addCustomFieldMapping")}
                     </Button>
                   </div>
                 </div>
 
                 {missingRequiredMappings.length > 0 ? (
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                    Required mappings missing:{" "}
-                    {missingRequiredMappings.map((field) => field.label).join(", ")}
+                    {t("requiredMappingsMissing", {
+                      fields: missingRequiredMappings
+                        .map((field) => importFieldLabel(field.key))
+                        .join(", "),
+                    })}
                   </div>
                 ) : null}
 
                 <div className="flex justify-between border-t pt-4">
                   <Button type="button" variant="outline" onClick={() => setImportStep(1)}>
-                    Previous
+                    {t("previous")}
                   </Button>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={cancelImport}>
-                      Cancel
+                      {tc("cancel")}
                     </Button>
                     <Button
                       type="button"
@@ -1514,14 +1539,14 @@ export function InventoryProductImportWizard({
                       onClick={() => {
                         const rows = buildImportRows();
                         if (rows.length === 0) {
-                          setImportMessage("No import rows were found in the selected file.");
+                          setImportMessage(t("noRows"));
                           return;
                         }
                         previewImportRows(rows);
                         setImportStep(3);
                       }}
                     >
-                      Next
+                      {t("next")}
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -1535,22 +1560,22 @@ export function InventoryProductImportWizard({
                   <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100">
                     {importPreview
                       ? importPreview.invalid_rows > 0
-                        ? "Some rows need attention before import."
-                        : "All items in your file are ready to be imported."
-                      : "Review your rows and refresh validation before importing."}
+                        ? t("readyWithIssues")
+                        : t("readyAll")
+                      : t("reviewRefresh")}
                   </div>
                   <ImportSummaryRow
-                    label="Items that are ready to be imported"
+                    label={t("readyCount")}
                     value={importPreview?.valid_rows ?? 0}
                     good
                   />
                   <ImportSummaryRow
-                    label="Records skipped"
+                    label={t("recordsSkipped")}
                     value={importSkippedRows}
                     muted={importSkippedRows === 0}
                   />
                   <ImportSummaryRow
-                    label="Rows with errors"
+                    label={t("rowsWithErrors")}
                     value={importPreview?.invalid_rows ?? 0}
                     muted={(importPreview?.invalid_rows ?? 0) === 0}
                   />
@@ -1559,10 +1584,8 @@ export function InventoryProductImportWizard({
                 <div className="overflow-hidden rounded-md border bg-background">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2">
                     <div>
-                      <p className="font-medium">Final item changes</p>
-                      <p className="text-xs text-muted-foreground">
-                        Edit values before import. Refresh validation after changes.
-                      </p>
+                      <p className="font-medium">{t("finalChanges")}</p>
+                      <p className="text-xs text-muted-foreground">{t("finalChangesHelp")}</p>
                     </div>
                     <Button
                       type="button"
@@ -1571,14 +1594,14 @@ export function InventoryProductImportWizard({
                       disabled={isImportPending || importRows.length === 0}
                       onClick={() => previewImportRows(importRows)}
                     >
-                      Refresh validation
+                      {t("refreshValidation")}
                     </Button>
                   </div>
                   <div className="overflow-auto">
                     <table className="min-w-[1900px] text-sm">
                       <thead className="bg-muted text-xs uppercase text-muted-foreground">
                         <tr>
-                          <th className="w-16 px-3 py-2 text-left">Row</th>
+                          <th className="w-16 px-3 py-2 text-left">{t("row")}</th>
                           {editableImportFields.map((field) => (
                             <th key={field.key} className="px-3 py-2 text-left">
                               <span className="flex items-center gap-1.5">
@@ -1608,7 +1631,7 @@ export function InventoryProductImportWizard({
                               </span>
                             </th>
                           ))}
-                          <th className="min-w-56 px-3 py-2 text-left">Status</th>
+                          <th className="min-w-56 px-3 py-2 text-left">{t("status")}</th>
                           <th className="w-12 px-3 py-2" />
                         </tr>
                       </thead>
@@ -1634,10 +1657,10 @@ export function InventoryProductImportWizard({
                                     {previewRow.errors.join(", ")}
                                   </span>
                                 ) : previewRow ? (
-                                  <span className="text-xs text-emerald-600">Ready</span>
+                                  <span className="text-xs text-emerald-600">{t("ready")}</span>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">
-                                    Needs validation
+                                    {t("needsValidation")}
                                   </span>
                                 )}
                               </td>
@@ -1645,7 +1668,7 @@ export function InventoryProductImportWizard({
                                 <button
                                   type="button"
                                   className="grid h-8 w-8 place-items-center rounded text-destructive hover:bg-destructive/10"
-                                  aria-label="Remove row"
+                                  aria-label={t("removeRow")}
                                   onClick={() =>
                                     updateImportRows(
                                       importRows.filter((current) => current.id !== row.id)
@@ -1665,18 +1688,18 @@ export function InventoryProductImportWizard({
 
                 <div className="flex justify-between border-t pt-4">
                   <Button type="button" variant="outline" onClick={() => setImportStep(2)}>
-                    Previous
+                    {t("previous")}
                   </Button>
                   <div className="flex gap-2">
                     <Button type="button" variant="outline" onClick={cancelImport}>
-                      Cancel
+                      {tc("cancel")}
                     </Button>
                     <Button
                       type="button"
                       disabled={isImportPending || !canConfirmImport}
                       onClick={confirmImport}
                     >
-                      Import
+                      {t("import")}
                     </Button>
                   </div>
                 </div>
@@ -1690,10 +1713,11 @@ export function InventoryProductImportWizard({
 }
 
 function ImportStepper({ step }: { step: ImportStep }) {
+  const t = useTranslations("warehouseInventory.import");
   const steps: Array<{ id: ImportStep; label: string }> = [
-    { id: 1, label: "Configure" },
-    { id: 2, label: "Map Fields" },
-    { id: 3, label: "Preview" },
+    { id: 1, label: t("configure") },
+    { id: 2, label: t("mapFields") },
+    { id: 3, label: t("preview") },
   ];
 
   return (

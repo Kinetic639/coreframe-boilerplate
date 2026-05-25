@@ -1,5 +1,5 @@
 import { redirect } from "@/i18n/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { parseDataViewSearchParams } from "@/components/data-view/data-view-search-params";
 import { checkPermission } from "@/lib/utils/permissions";
 import {
@@ -22,6 +22,7 @@ type PageProps = {
 
 export default async function WarehouseInventoryPage({ searchParams }: PageProps = {}) {
   const locale = await getLocale();
+  const t = await getTranslations("warehouseInventory.inventory");
   const context = await loadDashboardContextV2();
 
   if (!context?.app.activeOrgId) return redirect({ href: "/sign-in", locale });
@@ -49,7 +50,7 @@ export default async function WarehouseInventoryPage({ searchParams }: PageProps
           filters: params.filters,
         }),
         checkPermission(context.user.permissionSnapshot, WAREHOUSE_PRODUCTS_READ)
-          ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId)
+          ? InventoryProductsService.listVariantOptions(supabase, context.app.activeOrgId, branchId)
           : Promise.resolve({ success: true as const, data: [] }),
         WarehouseLocationsService.listByBranch(supabase, context.app.activeOrgId, branchId),
       ])
@@ -69,8 +70,8 @@ export default async function WarehouseInventoryPage({ searchParams }: PageProps
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-bold">Inventory</h1>
-        <p className="text-sm text-muted-foreground">Location-level stock balances</p>
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
       <div className="min-h-0 flex-1">
         <InventoryClient
