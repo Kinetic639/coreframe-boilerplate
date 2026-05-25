@@ -2944,6 +2944,36 @@
         "preferences": "Preferences"
       }
     },
+    "workshop": {
+      "title": "Workshop",
+      "titleSidebar": "Workshop",
+      "description": "Manage automotive repairs, workshop processes, vehicles, claims, tasks, and service operations.",
+      "items": {
+        "overview": "Overview"
+      },
+      "pages": {
+        "overview": {
+          "title": "Workshop",
+          "subtitle": "Manage automotive repairs, workshop processes, vehicles, claims, tasks, and service operations."
+        }
+      },
+      "features": {
+        "repairs": "Repairs",
+        "vehicles": "Vehicles",
+        "claims": "Insurance Claims",
+        "parts": "Parts & Inventory",
+        "tasks": "Mechanic Tasks",
+        "handover": "Client Handover",
+        "comingSoon": "Coming soon"
+      },
+      "empty": {
+        "noData": "No workshop data available",
+        "noDataDescription": "Start by configuring your workshop settings."
+      },
+      "errors": {
+        "loadFailed": "Failed to load workshop data"
+      }
+    },
     "analytics": {
       "title": "Analytics & Reports",
       "titleSidebar": "Analytics",

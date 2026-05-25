@@ -14,11 +14,14 @@ import {
   ANALYTICS_READ,
   ANALYTICS_ACTIVITY_READ,
   ANALYTICS_AUDIT_READ,
+  MODULE_WORKSHOP_ACCESS,
+  WORKSHOP_READ,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
   MODULE_WAREHOUSE,
   MODULE_ANALYTICS,
+  MODULE_WORKSHOP,
 } from "@/lib/constants/modules";
 
 /**
@@ -157,6 +160,22 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         match: { startsWith: "/dashboard/warehouse/settings" },
       },
     ],
+  },
+
+  // Workshop (plan-gated: MODULE_WORKSHOP must be in enabled_modules,
+  // user-gated: MODULE_WORKSHOP_ACCESS permission required)
+  {
+    id: "workshop",
+    group: "workspace",
+    title: "Workshop",
+    titleKey: "modules.workshop.titleSidebar",
+    iconKey: "car",
+    href: "/dashboard/workshop",
+    match: { startsWith: "/dashboard/workshop" },
+    visibility: {
+      requiresModules: [MODULE_WORKSHOP],
+      requiresPermissions: [MODULE_WORKSHOP_ACCESS],
+    },
   },
 
   // Tools (always available — no requiresModules gate)

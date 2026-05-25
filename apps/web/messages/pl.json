@@ -2915,6 +2915,36 @@
         "preferences": "Preferencje"
       }
     },
+    "workshop": {
+      "title": "Warsztat",
+      "titleSidebar": "Warsztat",
+      "description": "Zarządzaj naprawami pojazdów i procesami warsztatowymi.",
+      "items": {
+        "overview": "Przegląd"
+      },
+      "pages": {
+        "overview": {
+          "title": "Warsztat",
+          "subtitle": "Zarządzaj naprawami pojazdów i procesami warsztatowymi."
+        }
+      },
+      "features": {
+        "repairs": "Naprawy",
+        "vehicles": "Pojazdy",
+        "claims": "Szkody ubezpieczeniowe",
+        "parts": "Części i magazyn",
+        "tasks": "Zadania mechaników",
+        "handover": "Wydanie pojazdu klientowi",
+        "comingSoon": "Wkrótce"
+      },
+      "empty": {
+        "noData": "Brak danych warsztatu",
+        "noDataDescription": "Zacznij od skonfigurowania ustawień warsztatu."
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować danych warsztatu"
+      }
+    },
     "analytics": {
       "title": "Analityka i Raporty",
       "titleSidebar": "Analityka",

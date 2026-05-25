@@ -21,6 +21,7 @@ import {
   SlidersHorizontal,
   Wrench,
   QrCode,
+  Car,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -51,6 +52,7 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   preferences: SlidersHorizontal,
   tools: Wrench,
   "qr-code": QrCode,
+  car: Car,
 };
 
 /**

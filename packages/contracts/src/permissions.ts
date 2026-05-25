@@ -153,6 +153,18 @@ export const ANALYTICS_AUDIT_READ = "analytics.audit.read" as const;
 export const ANALYTICS_REPORTS_READ = "analytics.reports.read" as const;
 export const ANALYTICS_EXPORTS_MANAGE = "analytics.exports.manage" as const;
 
+// Workshop Permissions (org-scoped — Workshop module, Premium plan only)
+// workshop.*       — org_owner wildcard; compiler expands to all concrete workshop.* slugs
+// workshop.read    — view workshop module shell, overview, and read-only data
+// workshop.manage  — manage workshop settings and configuration
+// module.workshop.access — user-level gate; admins assign to custom roles for premium-plan orgs
+// Seeded in migration 20260525110000_workshop_module.sql.
+// org_owner gets workshop.* wildcard — do NOT add explicit granular grants.
+export const MODULE_WORKSHOP_ACCESS = "module.workshop.access" as const;
+export const WORKSHOP_WILDCARD = "workshop.*" as const;
+export const WORKSHOP_READ = "workshop.read" as const;
+export const WORKSHOP_MANAGE = "workshop.manage" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -253,6 +265,10 @@ export type PermissionSlug =
   | typeof ANALYTICS_AUDIT_READ
   | typeof ANALYTICS_REPORTS_READ
   | typeof ANALYTICS_EXPORTS_MANAGE
+  | typeof MODULE_WORKSHOP_ACCESS
+  | typeof WORKSHOP_WILDCARD
+  | typeof WORKSHOP_READ
+  | typeof WORKSHOP_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -333,6 +349,10 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   ANALYTICS_AUDIT_READ,
   ANALYTICS_REPORTS_READ,
   ANALYTICS_EXPORTS_MANAGE,
+  MODULE_WORKSHOP_ACCESS,
+  WORKSHOP_WILDCARD,
+  WORKSHOP_READ,
+  WORKSHOP_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,
