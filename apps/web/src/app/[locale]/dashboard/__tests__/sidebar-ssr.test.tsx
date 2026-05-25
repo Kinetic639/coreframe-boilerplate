@@ -577,6 +577,238 @@ describe("Sidebar SSR Integration", () => {
     expect(findItemById(model, "tools")).toBeDefined();
   });
 
+  // ── Analytics & Reports Module ─────────────────────────────────────────────
+
+  // an-1: analytics group visible when module entitled + user has access + analytics.read
+  it("should show analytics group when MODULE_ANALYTICS is entitled and user has access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: [
+          "module.analytics.access",
+          "analytics.read",
+          "analytics.activity.read",
+          "analytics.audit.read",
+        ],
+        deny: [],
+      },
+    };
+
+    const analyticsEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["analytics"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      analyticsEntitlements,
+      "en"
+    );
+
+    const analyticsGroup = findItemById(model, "analytics");
+    expect(analyticsGroup).toBeDefined(); // Shown: module entitled + user has access
+    expect(findItemById(model, "analytics.overview")).toBeDefined();
+    expect(findItemById(model, "analytics.activity")).toBeDefined();
+    expect(findItemById(model, "analytics.audit")).toBeDefined();
+  });
+
+  // an-2: analytics group absent when MODULE_ANALYTICS is NOT in enabled_modules
+  it("should hide analytics group when MODULE_ANALYTICS is NOT entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.analytics.access", "analytics.read", "analytics.activity.read"],
+        deny: [],
+      },
+    };
+
+    const noAnalyticsEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"], // analytics NOT present
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      noAnalyticsEntitlements,
+      "en"
+    );
+
+    const analyticsGroup = findItemById(model, "analytics");
+    expect(analyticsGroup).toBeUndefined(); // Hidden: module not entitled
+  });
+
+  // an-3: analytics group absent when MODULE_ANALYTICS_ACCESS permission missing
+  it("should hide analytics group when user lacks module.analytics.access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["analytics.read"], // module.analytics.access NOT present
+        deny: [],
+      },
+    };
+
+    const analyticsEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["analytics"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      analyticsEntitlements,
+      "en"
+    );
+
+    const analyticsGroup = findItemById(model, "analytics");
+    expect(analyticsGroup).toBeUndefined(); // Hidden: no module.analytics.access
+  });
+
+  // an-4: analytics.activity hidden when user lacks analytics.activity.read
+  it("should hide analytics.activity when user lacks analytics.activity.read", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.analytics.access", "analytics.read"], // no analytics.activity.read
+        deny: [],
+      },
+    };
+
+    const analyticsEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["analytics"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      analyticsEntitlements,
+      "en"
+    );
+
+    expect(findItemById(model, "analytics.activity")).toBeUndefined();
+  });
+
+  // an-5: analytics.audit hidden when user lacks analytics.audit.read
+  it("should hide analytics.audit when user lacks analytics.audit.read", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.analytics.access", "analytics.read", "analytics.activity.read"],
+        deny: [],
+      },
+    };
+
+    const analyticsEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["analytics"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      analyticsEntitlements,
+      "en"
+    );
+
+    expect(findItemById(model, "analytics.audit")).toBeUndefined();
+  });
+
+  // an-6: organization.activity and organization.audit no longer exist (moved to analytics)
+  it("should never show organization.activity or organization.audit in sidebar", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.organization-management.access", "org.read", "audit.events.read"],
+        deny: [],
+      },
+    };
+
+    const entitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-25T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, entitlements, "en");
+
+    // These items were moved to the analytics module — must not appear under organization
+    expect(findItemById(model, "organization.activity")).toBeUndefined();
+    expect(findItemById(model, "organization.audit")).toBeUndefined();
+  });
+
   // org-6: organization.branch-access no longer exists in the sidebar registry
   it("should never show organization.branch-access (page removed)", () => {
     const userContext = {

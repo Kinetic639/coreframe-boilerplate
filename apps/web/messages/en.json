@@ -2946,9 +2946,12 @@
     },
     "analytics": {
       "title": "Analytics & Reports",
+      "titleSidebar": "Analytics",
       "description": "Activity analytics, reports, and audit trails",
       "items": {
-        "overview": "Activity Dashboard",
+        "overview": "Overview",
+        "activity": "Activity",
+        "audit": "Audit Log",
         "activities": "Activity Log",
         "timeline": "Timeline View",
         "reports": {
@@ -2968,6 +2971,27 @@
           "notifications": "Activity Notifications",
           "presets": "Filter Presets"
         }
+      },
+      "pages": {
+        "overview": {
+          "title": "Analytics & Reports",
+          "subtitle": "Insights, activity, and audit trail for your organisation"
+        },
+        "activity": {
+          "title": "Organisation Activity",
+          "subtitle": "Recent events and actions across your organisation"
+        },
+        "audit": {
+          "title": "Audit Log",
+          "subtitle": "Full audit event log including IP addresses and browser details"
+        }
+      },
+      "empty": {
+        "noData": "No data available",
+        "noDataDescription": "There is no analytics data to display yet"
+      },
+      "errors": {
+        "loadFailed": "Failed to load analytics data"
       }
     },
     "development": {

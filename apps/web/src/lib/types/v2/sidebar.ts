@@ -43,7 +43,10 @@ export type IconKey =
   | "preferences"
   | "tools"
   | "map"
-  | "qr-code";
+  | "qr-code"
+  | "activity"
+  | "shield"
+  | "barChart";
 
 /**
  * Active route matching rules (strict discriminated union)

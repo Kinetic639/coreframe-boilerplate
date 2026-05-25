@@ -51,8 +51,8 @@ vi.mock("../event-feed-client", () => ({
 }));
 
 import { PersonalActivityWrapper } from "../personal-activity-wrapper";
-import { OrgActivityWrapper } from "@/app/[locale]/dashboard/organization/activity/_components/org-activity-wrapper";
-import { AuditFeedWrapper } from "@/app/[locale]/dashboard/organization/audit/_components/audit-feed-wrapper";
+import { OrgActivityWrapper } from "@/app/[locale]/dashboard/analytics/activity/_components/org-activity-wrapper";
+import { AuditFeedWrapper } from "@/app/[locale]/dashboard/analytics/audit/_components/audit-feed-wrapper";
 
 const initialEvents = [
   {

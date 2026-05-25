@@ -247,6 +247,20 @@ export const routing = defineRouting({
       en: "/dashboard/activity",
       pl: "/dashboard/aktywnosc",
     },
+
+    // === Analytics & Reports module ===
+    "/dashboard/analytics": {
+      en: "/dashboard/analytics",
+      pl: "/dashboard/analityka",
+    },
+    "/dashboard/analytics/activity": {
+      en: "/dashboard/analytics/activity",
+      pl: "/dashboard/analityka/aktywnosc",
+    },
+    "/dashboard/analytics/audit": {
+      en: "/dashboard/analytics/audit",
+      pl: "/dashboard/analityka/audyt",
+    },
     "/dashboard/qr": {
       en: "/dashboard/qr",
       pl: "/dashboard/kody-qr",
