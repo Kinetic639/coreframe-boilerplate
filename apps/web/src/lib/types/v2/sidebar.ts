@@ -123,6 +123,13 @@ export interface SidebarItem {
   badge?: string;
 
   /**
+   * Visual grouping key. Items sharing the same group are rendered together;
+   * a separator is drawn between consecutive groups.
+   * Items with no group form their own implicit group.
+   */
+  group?: string;
+
+  /**
    * IMPORTANT: Active state is NOT in this model.
    * Active highlighting is a CLIENT-SIDE concern computed using router pathname.
    * Server-side model only contains VISIBILITY data (permissions/entitlements).

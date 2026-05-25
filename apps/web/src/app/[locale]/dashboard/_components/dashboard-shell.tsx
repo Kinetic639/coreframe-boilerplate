@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect, useRef } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef, Fragment } from "react";
 import { ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -888,6 +888,28 @@ function AppSidebar({
         avatar: "",
       };
 
+  // Split main nav into display groups, preserving item order.
+  // Consecutive items sharing the same `group` key are bundled together.
+  // Items with no group each form their own implicit group.
+  const itemGroups = useMemo(() => {
+    const groups: (typeof model.main)[] = [];
+    let currentGroup: typeof model.main = [];
+    let currentKey: string | undefined;
+
+    for (const item of model.main) {
+      const key = item.group ?? `__solo__${item.id}`;
+      if (key !== currentKey) {
+        if (currentGroup.length > 0) groups.push(currentGroup);
+        currentGroup = [item];
+        currentKey = key;
+      } else {
+        currentGroup.push(item);
+      }
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+    return groups;
+  }, [model.main]);
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="bg-muted border-b">
@@ -895,7 +917,12 @@ function AppSidebar({
         <SidebarBranchSwitcher branches={accessibleBranches} activeBranchId={activeBranchId} />
       </SidebarHeader>
       <SidebarContent>
-        <NavSection items={model.main} pathname={pathname} getLabel={getItemLabel} />
+        {itemGroups.map((groupItems, i) => (
+          <Fragment key={groupItems[0]?.id ?? i}>
+            {i > 0 && <div className="mx-2 h-px shrink-0 bg-border/50" />}
+            <NavSection items={groupItems} pathname={pathname} getLabel={getItemLabel} />
+          </Fragment>
+        ))}
         <NavSection items={model.footer} pathname={pathname} getLabel={getItemLabel} />
       </SidebarContent>
       <SidebarFooter className="bg-muted border-t">
