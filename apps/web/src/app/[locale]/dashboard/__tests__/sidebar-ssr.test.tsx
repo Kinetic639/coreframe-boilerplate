@@ -984,4 +984,191 @@ describe("Sidebar SSR Integration", () => {
     const workshopItem = findItemById(model, "workshop");
     expect(workshopItem).toBeUndefined(); // Hidden: fail-closed with null entitlements
   });
+
+  // ── Help Desk Module ───────────────────────────────────────────────────────
+
+  // hd-1: help-desk visible when MODULE_HELPDESK entitled + user has access + children visible
+  it("should show help-desk group when MODULE_HELPDESK is entitled and user has access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: [
+          "module.helpdesk.access",
+          "helpdesk.read",
+          "helpdesk.tickets.read",
+          "helpdesk.ticket-types.manage",
+        ],
+        deny: [],
+      },
+    };
+
+    const helpdeskEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["help-desk"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      helpdeskEntitlements,
+      "en"
+    );
+
+    const helpdeskGroup = findItemById(model, "help-desk");
+    expect(helpdeskGroup).toBeDefined(); // Shown: module entitled + user has access
+    expect(findItemById(model, "help-desk.overview")).toBeDefined();
+    expect(findItemById(model, "help-desk.tickets")).toBeDefined();
+    expect(findItemById(model, "help-desk.ticket-types")).toBeDefined();
+  });
+
+  // hd-2: help-desk hidden when MODULE_HELPDESK is NOT in enabled_modules
+  it("should hide help-desk group when MODULE_HELPDESK is NOT entitled", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.helpdesk.access", "helpdesk.read", "helpdesk.tickets.read"],
+        deny: [],
+      },
+    };
+
+    const noHelpdeskEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-free",
+      enabled_modules: ["organization-management"], // help-desk NOT present
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      noHelpdeskEntitlements,
+      "en"
+    );
+
+    const helpdeskGroup = findItemById(model, "help-desk");
+    expect(helpdeskGroup).toBeUndefined(); // Hidden: module not entitled
+  });
+
+  // hd-3: help-desk hidden when user lacks module.helpdesk.access
+  it("should hide help-desk group when user lacks module.helpdesk.access", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["helpdesk.read", "helpdesk.tickets.read"], // module.helpdesk.access NOT present
+        deny: [],
+      },
+    };
+
+    const helpdeskEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["help-desk"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      helpdeskEntitlements,
+      "en"
+    );
+
+    const helpdeskGroup = findItemById(model, "help-desk");
+    expect(helpdeskGroup).toBeUndefined(); // Hidden: no module.helpdesk.access
+  });
+
+  // hd-4: help-desk.ticket-types hidden when user lacks helpdesk.ticket-types.manage
+  it("should hide help-desk.ticket-types when user lacks helpdesk.ticket-types.manage", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.helpdesk.access", "helpdesk.read", "helpdesk.tickets.read"],
+        // helpdesk.ticket-types.manage NOT present
+        deny: [],
+      },
+    };
+
+    const helpdeskEntitlements = {
+      organization_id: "org-123",
+      plan_id: "plan-professional",
+      enabled_modules: ["help-desk"],
+      contexts: [],
+      limits: {},
+      updated_at: "2026-05-26T00:00:00.000Z",
+    };
+
+    const model = buildSidebarModelUncached(
+      BASE_APP_CONTEXT,
+      userContext,
+      helpdeskEntitlements,
+      "en"
+    );
+
+    expect(findItemById(model, "help-desk.ticket-types")).toBeUndefined(); // Hidden: no manage perm
+    expect(findItemById(model, "help-desk.tickets")).toBeDefined(); // Tickets still visible
+  });
+
+  // hd-5: help-desk hidden when entitlements are null (fail-closed)
+  it("should hide help-desk group when entitlements are null", () => {
+    const userContext = {
+      user: {
+        id: "user-123",
+        email: "test@example.com",
+        first_name: null,
+        last_name: null,
+        avatar_url: null,
+        avatar_signed_url: null,
+      },
+      roles: [],
+      permissionSnapshot: {
+        allow: ["module.helpdesk.access", "helpdesk.*"],
+        deny: [],
+      },
+    };
+
+    const model = buildSidebarModelUncached(BASE_APP_CONTEXT, userContext, null, "en");
+
+    const helpdeskGroup = findItemById(model, "help-desk");
+    expect(helpdeskGroup).toBeUndefined(); // Hidden: fail-closed with null entitlements
+  });
 });

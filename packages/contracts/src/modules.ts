@@ -35,6 +35,7 @@ export const MODULE_DOCUMENTATION = "documentation" as const;
 export const MODULE_ANALYTICS = "analytics" as const;
 export const MODULE_DEVELOPMENT = "development" as const;
 export const MODULE_WORKSHOP = "workshop" as const;
+export const MODULE_HELPDESK = "help-desk" as const;
 
 // Tools Module (Always available — no plan gating; not in enabled_modules)
 export const MODULE_TOOLS = "tools" as const;
@@ -58,6 +59,7 @@ export type ModuleSlug =
   | typeof MODULE_ANALYTICS
   | typeof MODULE_DEVELOPMENT
   | typeof MODULE_WORKSHOP
+  | typeof MODULE_HELPDESK
   | typeof MODULE_TOOLS
   | typeof MODULE_ADMIN;
 
@@ -78,7 +80,12 @@ export const FREE_PLAN_MODULES = [
 /**
  * Premium modules (require paid plan)
  */
-export const PREMIUM_MODULES = [MODULE_ANALYTICS, MODULE_DEVELOPMENT, MODULE_WORKSHOP] as const;
+export const PREMIUM_MODULES = [
+  MODULE_ANALYTICS,
+  MODULE_DEVELOPMENT,
+  MODULE_WORKSHOP,
+  MODULE_HELPDESK,
+] as const;
 
 /**
  * Core modules (available across all paid plans)

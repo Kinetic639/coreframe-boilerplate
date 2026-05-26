@@ -47,7 +47,9 @@ export type IconKey =
   | "activity"
   | "shield"
   | "barChart"
-  | "car";
+  | "car"
+  | "lifeBuoy"
+  | "ticket";
 
 /**
  * Active route matching rules (strict discriminated union)

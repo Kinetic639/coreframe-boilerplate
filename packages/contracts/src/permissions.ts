@@ -165,6 +165,28 @@ export const WORKSHOP_WILDCARD = "workshop.*" as const;
 export const WORKSHOP_READ = "workshop.read" as const;
 export const WORKSHOP_MANAGE = "workshop.manage" as const;
 
+// Help Desk Permissions (org-scoped — Help Desk module, Premium plan only)
+// helpdesk.*                  — org_owner wildcard; compiler expands to concrete slugs
+// helpdesk.read               — view the Help Desk module shell and overview
+// helpdesk.manage             — manage Help Desk global settings
+// helpdesk.tickets.read       — list and view tickets (own org)
+// helpdesk.tickets.create     — submit new tickets
+// helpdesk.tickets.manage     — update status, assign, close, delete tickets
+// helpdesk.ticket-types.manage — create / edit / archive ticket types
+// helpdesk.settings.manage    — configure Help Desk org settings
+// module.helpdesk.access      — user-level gate; admins assign to custom roles
+// Seeded in migration 20260526100000_helpdesk_module.sql.
+// org_owner gets helpdesk.* wildcard — do NOT add explicit granular grants.
+export const MODULE_HELPDESK_ACCESS = "module.helpdesk.access" as const;
+export const HELPDESK_WILDCARD = "helpdesk.*" as const;
+export const HELPDESK_READ = "helpdesk.read" as const;
+export const HELPDESK_MANAGE = "helpdesk.manage" as const;
+export const HELPDESK_TICKETS_READ = "helpdesk.tickets.read" as const;
+export const HELPDESK_TICKETS_CREATE = "helpdesk.tickets.create" as const;
+export const HELPDESK_TICKETS_MANAGE = "helpdesk.tickets.manage" as const;
+export const HELPDESK_TICKET_TYPES_MANAGE = "helpdesk.ticket-types.manage" as const;
+export const HELPDESK_SETTINGS_MANAGE = "helpdesk.settings.manage" as const;
+
 // Tools Permissions (user-scoped — always available, no plan gating)
 // tools.read  — view the tools catalog, tool detail pages, and personal enabled-tools list
 // tools.manage — enable, disable, pin, and update settings for tools
@@ -269,6 +291,15 @@ export type PermissionSlug =
   | typeof WORKSHOP_WILDCARD
   | typeof WORKSHOP_READ
   | typeof WORKSHOP_MANAGE
+  | typeof MODULE_HELPDESK_ACCESS
+  | typeof HELPDESK_WILDCARD
+  | typeof HELPDESK_READ
+  | typeof HELPDESK_MANAGE
+  | typeof HELPDESK_TICKETS_READ
+  | typeof HELPDESK_TICKETS_CREATE
+  | typeof HELPDESK_TICKETS_MANAGE
+  | typeof HELPDESK_TICKET_TYPES_MANAGE
+  | typeof HELPDESK_SETTINGS_MANAGE
   | typeof PERMISSION_TOOLS_READ
   | typeof PERMISSION_TOOLS_MANAGE
   | typeof PERMISSION_WDD_MATCHER_READ
@@ -353,6 +384,15 @@ export const ALL_PERMISSION_SLUGS: PermissionSlug[] = [
   WORKSHOP_WILDCARD,
   WORKSHOP_READ,
   WORKSHOP_MANAGE,
+  MODULE_HELPDESK_ACCESS,
+  HELPDESK_WILDCARD,
+  HELPDESK_READ,
+  HELPDESK_MANAGE,
+  HELPDESK_TICKETS_READ,
+  HELPDESK_TICKETS_CREATE,
+  HELPDESK_TICKETS_MANAGE,
+  HELPDESK_TICKET_TYPES_MANAGE,
+  HELPDESK_SETTINGS_MANAGE,
   PERMISSION_TOOLS_READ,
   PERMISSION_TOOLS_MANAGE,
   PERMISSION_WDD_MATCHER_READ,

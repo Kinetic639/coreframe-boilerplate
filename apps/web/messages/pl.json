@@ -2945,6 +2945,132 @@
         "loadFailed": "Nie udało się załadować danych warsztatu"
       }
     },
+    "helpDesk": {
+      "title": "Help Desk",
+      "titleSidebar": "Help Desk",
+      "description": "Śledź, zarządzaj i rozwiązuj zgłoszenia, wnioski i zatwierdzenia z różnych modułów.",
+      "items": {
+        "overview": "Przegląd",
+        "tickets": "Zgłoszenia",
+        "ticketTypes": "Typy zgłoszeń"
+      },
+      "pages": {
+        "overview": {
+          "title": "Help Desk",
+          "subtitle": "Śledź, zarządzaj i rozwiązuj wnioski i zgłoszenia w całej organizacji."
+        },
+        "tickets": {
+          "title": "Zgłoszenia",
+          "subtitle": "Przeglądaj i zarządzaj wszystkimi zgłoszeniami."
+        },
+        "ticketTypes": {
+          "title": "Typy zgłoszeń",
+          "subtitle": "Konfiguruj kategorie i przepływy pracy dla zgłoszeń."
+        }
+      },
+      "tickets": {
+        "status": {
+          "open": "Otwarte",
+          "in_progress": "W toku",
+          "waiting": "Oczekujące",
+          "waiting_response": "Oczekuje na odpowiedź",
+          "resolved": "Rozwiązane",
+          "closed": "Zamknięte",
+          "cancelled": "Anulowane"
+        },
+        "priority": {
+          "low": "Niski",
+          "medium": "Średni",
+          "high": "Wysoki",
+          "urgent": "Pilny"
+        },
+        "columns": {
+          "number": "#",
+          "title": "Tytuł",
+          "type": "Typ",
+          "status": "Status",
+          "priority": "Priorytet",
+          "createdBy": "Utworzone przez",
+          "responders": "Osoby odpowiedzialne",
+          "createdAt": "Utworzone",
+          "updatedAt": "Zaktualizowane"
+        },
+        "filters": {
+          "createdAt": "Data utworzenia",
+          "createdBy": "Utworzone przez",
+          "assignedTo": "Przypisane do",
+          "status": "Status",
+          "priority": "Priorytet",
+          "ticketType": "Typ zgłoszenia"
+        },
+        "fields": {
+          "title": "Tytuł",
+          "titlePlaceholder": "Krótkie podsumowanie problemu",
+          "description": "Opis",
+          "descriptionPlaceholder": "Opisz problem szczegółowo…",
+          "ticketType": "Typ zgłoszenia",
+          "ticketTypePlaceholder": "Wybierz typ (opcjonalnie)",
+          "priority": "Priorytet",
+          "responders": "Osoby odpowiedzialne",
+          "respondersPlaceholder": "Wybierz osoby odpowiedzialne",
+          "respondersFixed": "Osoby odpowiedzialne są ustalone przez wybrany typ zgłoszenia.",
+          "dueAt": "Termin"
+        },
+        "validation": {
+          "titleRequired": "Tytuł jest wymagany.",
+          "responderRequired": "Wymagana jest co najmniej jedna osoba odpowiedzialna."
+        },
+        "createTicket": "Nowe zgłoszenie",
+        "newTicket": "Nowe zgłoszenie",
+        "newTicketSubtitle": "Utwórz nowe zgłoszenie i przypisz je do osoby odpowiedzialnej.",
+        "backToList": "Wróć do zgłoszeń",
+        "submit": "Wyślij zgłoszenie",
+        "submitting": "Wysyłanie…",
+        "cancel": "Anuluj",
+        "created": "Zgłoszenie #{number} zostało utworzone.",
+        "description": "Opis",
+        "details": "Szczegóły",
+        "comments": "Komentarze",
+        "noComments": "Brak komentarzy.",
+        "commentPlaceholder": "Napisz komentarz…",
+        "addComment": "Dodaj komentarz",
+        "commentAdded": "Komentarz dodany.",
+        "closeTicket": "Zamknij zgłoszenie",
+        "ticketClosed": "Zgłoszenie zamknięte.",
+        "viewFull": "Zobacz zgłoszenie",
+        "activityLabel": "Aktywność",
+        "activity": {
+          "ticket_created": "utworzył(a) zgłoszenie",
+          "comment_added": "dodał(a) komentarz",
+          "ticket_closed": "zamknął(a) zgłoszenie",
+          "status_changed": "zmienił(a) status",
+          "assignee_added": "dodał(a) osobę odpowiedzialną",
+          "assignee_removed": "usunął(a) osobę odpowiedzialną"
+        }
+      },
+      "features": {
+        "tickets": "Zarządzanie zgłoszeniami",
+        "ticketTypes": "Typy zgłoszeń i przepływy pracy",
+        "crossModule": "Łączenie z innymi modułami",
+        "comments": "Komentarze i notatki",
+        "activity": "Dziennik aktywności",
+        "settings": "Ustawienia Help Desk",
+        "comingSoon": "Wkrótce"
+      },
+      "empty": {
+        "noData": "Brak danych Help Desk",
+        "noDataDescription": "Zacznij od utworzenia typów zgłoszeń i pierwszego zgłoszenia.",
+        "noTickets": "Nie znaleziono zgłoszeń",
+        "noTicketsDescription": "Brak zgłoszeń pasujących do bieżących filtrów.",
+        "noTicketTypes": "Brak skonfigurowanych typów zgłoszeń",
+        "noTicketTypesDescription": "Utwórz typy zgłoszeń, aby kategoryzować przychodzące wnioski."
+      },
+      "errors": {
+        "loadFailed": "Nie udało się załadować danych Help Desk",
+        "ticketLoadFailed": "Nie udało się załadować zgłoszeń",
+        "ticketTypesLoadFailed": "Nie udało się załadować typów zgłoszeń"
+      }
+    },
     "analytics": {
       "title": "Analityka i Raporty",
       "titleSidebar": "Analityka",

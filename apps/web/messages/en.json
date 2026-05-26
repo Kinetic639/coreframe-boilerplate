@@ -2974,6 +2974,132 @@
         "loadFailed": "Failed to load workshop data"
       }
     },
+    "helpDesk": {
+      "title": "Help Desk",
+      "titleSidebar": "Help Desk",
+      "description": "Track, manage, and resolve cross-module requests, tickets, and approvals in one place.",
+      "items": {
+        "overview": "Overview",
+        "tickets": "Tickets",
+        "ticketTypes": "Ticket Types"
+      },
+      "pages": {
+        "overview": {
+          "title": "Help Desk",
+          "subtitle": "Track, manage, and resolve requests, tickets, and approvals across your organisation."
+        },
+        "tickets": {
+          "title": "Tickets",
+          "subtitle": "View and manage all support tickets."
+        },
+        "ticketTypes": {
+          "title": "Ticket Types",
+          "subtitle": "Configure the categories and workflows used for tickets."
+        }
+      },
+      "tickets": {
+        "status": {
+          "open": "Open",
+          "in_progress": "In Progress",
+          "waiting": "Waiting",
+          "waiting_response": "Waiting for Response",
+          "resolved": "Resolved",
+          "closed": "Closed",
+          "cancelled": "Cancelled"
+        },
+        "priority": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "urgent": "Urgent"
+        },
+        "columns": {
+          "number": "#",
+          "title": "Title",
+          "type": "Type",
+          "status": "Status",
+          "priority": "Priority",
+          "createdBy": "Created By",
+          "responders": "Responders",
+          "createdAt": "Created",
+          "updatedAt": "Updated"
+        },
+        "filters": {
+          "createdAt": "Created Date",
+          "createdBy": "Created By",
+          "assignedTo": "Assigned To",
+          "status": "Status",
+          "priority": "Priority",
+          "ticketType": "Ticket Type"
+        },
+        "fields": {
+          "title": "Title",
+          "titlePlaceholder": "Brief summary of the issue",
+          "description": "Description",
+          "descriptionPlaceholder": "Describe the issue in detail…",
+          "ticketType": "Ticket Type",
+          "ticketTypePlaceholder": "Select a type (optional)",
+          "priority": "Priority",
+          "responders": "Responders",
+          "respondersPlaceholder": "Select responders",
+          "respondersFixed": "Responders are fixed by the selected ticket type.",
+          "dueAt": "Due Date"
+        },
+        "validation": {
+          "titleRequired": "Title is required.",
+          "responderRequired": "At least one responder is required."
+        },
+        "createTicket": "New Ticket",
+        "newTicket": "New Ticket",
+        "newTicketSubtitle": "Submit a new support ticket and assign it to a responder.",
+        "backToList": "Back to tickets",
+        "submit": "Submit Ticket",
+        "submitting": "Submitting…",
+        "cancel": "Cancel",
+        "created": "Ticket #{number} created successfully.",
+        "description": "Description",
+        "details": "Details",
+        "comments": "Comments",
+        "noComments": "No comments yet.",
+        "commentPlaceholder": "Write a comment…",
+        "addComment": "Add Comment",
+        "commentAdded": "Comment added.",
+        "closeTicket": "Close Ticket",
+        "ticketClosed": "Ticket closed.",
+        "viewFull": "View Ticket",
+        "activityLabel": "Activity",
+        "activity": {
+          "ticket_created": "created the ticket",
+          "comment_added": "added a comment",
+          "ticket_closed": "closed the ticket",
+          "status_changed": "changed the status",
+          "assignee_added": "added a responder",
+          "assignee_removed": "removed a responder"
+        }
+      },
+      "features": {
+        "tickets": "Ticket Management",
+        "ticketTypes": "Ticket Types & Workflows",
+        "crossModule": "Cross-Module Linking",
+        "comments": "Comments & Notes",
+        "activity": "Activity Log",
+        "settings": "Help Desk Settings",
+        "comingSoon": "Coming soon"
+      },
+      "empty": {
+        "noData": "No help desk data available",
+        "noDataDescription": "Start by creating ticket types and submitting your first ticket.",
+        "noTickets": "No tickets found",
+        "noTicketsDescription": "There are no tickets matching your current filters.",
+        "noTicketTypes": "No ticket types configured",
+        "noTicketTypesDescription": "Create ticket types to categorise incoming requests."
+      },
+      "errors": {
+        "loadFailed": "Failed to load help desk data",
+        "ticketLoadFailed": "Failed to load tickets",
+        "ticketTypesLoadFailed": "Failed to load ticket types"
+      }
+    },
     "analytics": {
       "title": "Analytics & Reports",
       "titleSidebar": "Analytics",
