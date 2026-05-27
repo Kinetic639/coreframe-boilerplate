@@ -12,6 +12,7 @@ export interface RichTextEditorFieldProps {
   mode?: EditorMode;
   maxLength?: number;
   className?: string;
+  contentClassName?: string;
   label?: string;
   error?: string;
   id?: string;

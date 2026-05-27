@@ -16,6 +16,7 @@ export function RichTextEditorField({
   mode = "simple",
   maxLength,
   className,
+  contentClassName,
   label,
   error,
   id,
@@ -93,7 +94,8 @@ export function RichTextEditorField({
             "[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:text-xs [&_.ProseMirror_code]:font-mono",
             "[&_.ProseMirror_a]:text-primary [&_.ProseMirror_a]:underline",
             "[&_.ProseMirror_hr]:border-border [&_.ProseMirror_hr]:my-2",
-            "[&_.ProseMirror_.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]"
+            "[&_.ProseMirror_.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+            contentClassName
           )}
         />
 

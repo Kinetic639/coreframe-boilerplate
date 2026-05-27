@@ -88,6 +88,26 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [SUPERADMIN_ADMIN_READ],
     },
   },
+  {
+    id: "admin.comments-demo",
+    title: "Comments Demo",
+    iconKey: "documentation",
+    href: "/admin/comments-demo",
+    match: { startsWith: "/admin/comments-demo" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
+  {
+    id: "admin.avatar-demo",
+    title: "Avatar Demo",
+    iconKey: "users",
+    href: "/admin/avatar-demo",
+    match: { startsWith: "/admin/avatar-demo" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
 ];
 
 export const ADMIN_FOOTER_NAV_ITEMS: SidebarItem[] = [];
