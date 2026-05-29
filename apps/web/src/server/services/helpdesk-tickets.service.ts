@@ -371,9 +371,9 @@ export class HelpdeskTicketsService {
   static async getDetail(
     supabase: SupabaseClient,
     orgId: string,
-    ticketId: string
+    ticketNumber: string
   ): Promise<ServiceResult<HelpdeskTicketDetail>> {
-    // Ticket + type + creator
+    // Ticket + type + creator — look up by human-readable ticket_number
     const { data: ticketRaw, error } = await supabase
       .from("helpdesk_tickets")
       .select(
@@ -383,7 +383,7 @@ export class HelpdeskTicketsService {
           "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join("")
       )
-      .eq("id", ticketId)
+      .eq("ticket_number", ticketNumber)
       .eq("org_id", orgId)
       .is("deleted_at", null)
       .single();
@@ -391,6 +391,8 @@ export class HelpdeskTicketsService {
     if (error) return { success: false, error: error.message };
 
     const ticket = ticketRaw as any;
+    // Sub-queries join on the internal UUID FK, not the human-readable ticket_number
+    const ticketId = ticket.id as string;
 
     // Assignees, comments, activity are all independent — fetch in parallel
     const [{ data: assigneeRows }, { data: commentRows }, { data: activityRows }] =
