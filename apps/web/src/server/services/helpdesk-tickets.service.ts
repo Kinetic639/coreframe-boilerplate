@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceClient } from "@/utils/supabase/service";
 import type {
   AddTicketCommentInput,
   AssigneeRole,
@@ -116,6 +117,43 @@ function memberProfileHref(userId: string): string {
   return `/dashboard/organization/users/members/${userId}`;
 }
 
+const USER_AVATAR_BUCKET = "user-avatars";
+const AVATAR_TTL_SECONDS = 60 * 60;
+
+// One batch call to Supabase storage for all users — O(1) network round-trips regardless of count
+async function batchSignAvatarUrls(
+  entries: Array<{ userId: string; avatarPath: string }>
+): Promise<Map<string, string>> {
+  if (entries.length === 0) return new Map();
+  try {
+    const svc = createServiceClient();
+    const { data, error } = await svc.storage.from(USER_AVATAR_BUCKET).createSignedUrls(
+      entries.map((e) => e.avatarPath),
+      AVATAR_TTL_SECONDS
+    );
+    if (error || !data) return new Map();
+    const map = new Map<string, string>();
+    data.forEach((item, i) => {
+      if (item.signedUrl) map.set(entries[i].userId, item.signedUrl);
+    });
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function resolveAvatarUrl(
+  userId: string,
+  avatarUrl: string | null,
+  avatarPath: string | null,
+  signedUrls: Map<string, string>
+): string | null {
+  if (avatarPath?.startsWith(`${userId}/`)) {
+    return signedUrls.get(userId) ?? avatarUrl;
+  }
+  return avatarUrl;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -167,7 +205,7 @@ export class HelpdeskTicketsService {
           "id, org_id, ticket_number, title, status, priority,",
           "ticket_type_id, created_by, branch_id, closed_at, created_at, updated_at,",
           "ticket_type:helpdesk_ticket_types!ticket_type_id(id,name,color,icon),",
-          "creator:users!created_by(id,first_name,last_name,email,avatar_url)",
+          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join(""),
         { count: "exact" }
       )
@@ -224,21 +262,48 @@ export class HelpdeskTicketsService {
           email: string | null;
           avatar_url: string | null;
         } | null;
+        const u2 = row.user as {
+          id: string;
+          first_name: string | null;
+          last_name: string | null;
+          email: string | null;
+          avatar_url: string | null;
+          avatar_path: string | null;
+        } | null;
         const info: HelpdeskAssigneeInfo = {
           user_id: row.user_id as string,
           role: row.role as AssigneeRole,
           status: row.status as AssigneeStatus,
-          name: u ? displayName(u.first_name, u.last_name, u.email) : null,
-          email: u?.email ?? null,
-          avatar_url: u?.avatar_url ?? null,
+          name: u2 ? displayName(u2.first_name, u2.last_name, u2.email) : null,
+          email: u2?.email ?? null,
+          avatar_url: u2?.avatar_url ?? null,
+          _avatar_path: u2?.avatar_path ?? null,
           profile_href: null,
-        };
+        } as HelpdeskAssigneeInfo & { _avatar_path: string | null };
         const tid = row.ticket_id as string;
         const bucket = assigneeMap.get(tid);
         if (bucket) bucket.push(info);
         else assigneeMap.set(tid, [info]);
       }
     }
+
+    // Collect all users with a private avatar_path, sign them in one batch call
+    const avatarEntries: Array<{ userId: string; avatarPath: string }> = [];
+    tickets.forEach((t) => {
+      const creator = t.creator as { id: string; avatar_path: string | null } | null;
+      if (creator?.avatar_path?.startsWith(`${creator.id}/`)) {
+        avatarEntries.push({ userId: creator.id, avatarPath: creator.avatar_path });
+      }
+    });
+    assigneeMap.forEach((infos) => {
+      infos.forEach((a) => {
+        const ap = (a as HelpdeskAssigneeInfo & { _avatar_path?: string | null })._avatar_path;
+        if (ap?.startsWith(`${a.user_id}/`)) {
+          avatarEntries.push({ userId: a.user_id, avatarPath: ap });
+        }
+      });
+    });
+    const signedAvatarUrls = await batchSignAvatarUrls(avatarEntries);
 
     const rows: HelpdeskTicketListRow[] = tickets.map((t) => {
       const type = t.ticket_type as {
@@ -253,6 +318,7 @@ export class HelpdeskTicketsService {
         last_name: string | null;
         email: string | null;
         avatar_url: string | null;
+        avatar_path: string | null;
       } | null;
       return {
         id: t.id as string,
@@ -270,10 +336,18 @@ export class HelpdeskTicketsService {
           ? displayName(creator.first_name, creator.last_name, creator.email)
           : null,
         creator_email: creator?.email ?? null,
-        creator_avatar_url: creator?.avatar_url ?? null,
+        creator_avatar_url: creator
+          ? resolveAvatarUrl(creator.id, creator.avatar_url, creator.avatar_path, signedAvatarUrls)
+          : null,
         creator_profile_href: t.created_by ? memberProfileHref(t.created_by as string) : null,
         assignees: (assigneeMap.get(t.id as string) ?? []).map((a) => ({
           ...a,
+          avatar_url: resolveAvatarUrl(
+            a.user_id,
+            a.avatar_url ?? null,
+            (a as any)._avatar_path ?? null,
+            signedAvatarUrls
+          ),
           profile_href: memberProfileHref(a.user_id),
         })),
         branch_id: (t.branch_id as string | null) ?? null,
@@ -300,7 +374,7 @@ export class HelpdeskTicketsService {
         [
           "*,",
           "ticket_type:helpdesk_ticket_types!ticket_type_id(id,name,color,icon),",
-          "creator:users!created_by(id,first_name,last_name,email,avatar_url)",
+          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join("")
       )
       .eq("id", ticketId)
@@ -318,13 +392,15 @@ export class HelpdeskTicketsService {
         supabase
           .from("helpdesk_ticket_assignees")
           .select(
-            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url)"
+            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
           )
           .eq("ticket_id", ticketId)
           .is("deleted_at", null),
         supabase
           .from("helpdesk_ticket_comments")
-          .select("*, commenter:users!created_by(id,first_name,last_name,email,avatar_url)")
+          .select(
+            "*, commenter:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)"
+          )
           .eq("ticket_id", ticketId)
           .eq("org_id", orgId)
           .is("deleted_at", null)
@@ -338,13 +414,14 @@ export class HelpdeskTicketsService {
           .limit(50),
       ]);
 
-    const assignees: HelpdeskAssigneeInfo[] = ((assigneeRows ?? []) as any[]).map((row) => {
+    const assignees = ((assigneeRows ?? []) as any[]).map((row) => {
       const u = row.user as {
         id: string;
         first_name: string | null;
         last_name: string | null;
         email: string | null;
         avatar_url: string | null;
+        avatar_path: string | null;
       } | null;
       return {
         user_id: row.user_id as string,
@@ -353,35 +430,24 @@ export class HelpdeskTicketsService {
         name: u ? displayName(u.first_name, u.last_name, u.email) : null,
         email: u?.email ?? null,
         avatar_url: u?.avatar_url ?? null,
+        _avatar_path: u?.avatar_path ?? null,
         profile_href: null,
       };
     });
 
-    const comments: HelpdeskTicketComment[] = (commentRows ?? []).map((row) => {
-      const u = row.commenter as {
-        id: string;
-        first_name: string | null;
-        last_name: string | null;
-        email: string | null;
-        avatar_url: string | null;
-      } | null;
-      return {
-        id: row.id as string,
-        ticket_id: row.ticket_id as string,
-        org_id: row.org_id as string,
-        body: row.body as string,
-        body_rich: row.body_rich ?? null,
-        is_internal: row.is_internal as boolean,
-        created_by: row.created_by as string,
-        creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
-        creator_email: u?.email ?? null,
-        creator_avatar_url: u?.avatar_url ?? null,
-        creator_profile_href: null,
-        created_at: row.created_at as string,
-        updated_at: row.updated_at as string,
-        deleted_at: (row.deleted_at as string | null) ?? null,
-      };
-    });
+    type RawCommenter = {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      avatar_url: string | null;
+      avatar_path: string | null;
+    };
+
+    const rawComments = (commentRows ?? []).map((row) => ({
+      row,
+      u: row.commenter as RawCommenter | null,
+    }));
 
     const activity: HelpdeskTicketActivity[] = (activityRows ?? []).map((row) => {
       const a = row.actor as {
@@ -414,7 +480,46 @@ export class HelpdeskTicketsService {
       last_name: string | null;
       email: string | null;
       avatar_url: string | null;
+      avatar_path: string | null;
     } | null;
+
+    // Batch-sign all private avatar paths in one storage API call
+    type RawAssignee = HelpdeskAssigneeInfo & { _avatar_path?: string | null };
+    const detailAvatarEntries: Array<{ userId: string; avatarPath: string }> = [];
+    if (creator?.avatar_path?.startsWith(`${creator.id}/`)) {
+      detailAvatarEntries.push({ userId: creator.id, avatarPath: creator.avatar_path });
+    }
+    assignees.forEach((a) => {
+      const ap = (a as RawAssignee)._avatar_path;
+      if (ap?.startsWith(`${a.user_id}/`)) {
+        detailAvatarEntries.push({ userId: a.user_id, avatarPath: ap });
+      }
+    });
+    rawComments.forEach(({ u }) => {
+      if (u?.avatar_path?.startsWith(`${u.id}/`)) {
+        detailAvatarEntries.push({ userId: u.id, avatarPath: u.avatar_path });
+      }
+    });
+    const detailSignedUrls = await batchSignAvatarUrls(detailAvatarEntries);
+
+    const comments: HelpdeskTicketComment[] = rawComments.map(({ row, u }) => ({
+      id: row.id as string,
+      ticket_id: row.ticket_id as string,
+      org_id: row.org_id as string,
+      body: row.body as string,
+      body_rich: row.body_rich ?? null,
+      is_internal: row.is_internal as boolean,
+      created_by: row.created_by as string,
+      creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
+      creator_email: u?.email ?? null,
+      creator_avatar_url: u
+        ? resolveAvatarUrl(u.id, u.avatar_url, u.avatar_path, detailSignedUrls)
+        : null,
+      creator_profile_href: row.created_by ? memberProfileHref(row.created_by as string) : null,
+      created_at: row.created_at as string,
+      updated_at: row.updated_at as string,
+      deleted_at: (row.deleted_at as string | null) ?? null,
+    }));
 
     const detail: HelpdeskTicketDetail = {
       id: ticket.id as string,
@@ -432,12 +537,20 @@ export class HelpdeskTicketsService {
         ? displayName(creator.first_name, creator.last_name, creator.email)
         : null,
       creator_email: creator?.email ?? null,
-      creator_avatar_url: creator?.avatar_url ?? null,
+      creator_avatar_url: creator
+        ? resolveAvatarUrl(creator.id, creator.avatar_url, creator.avatar_path, detailSignedUrls)
+        : null,
       creator_profile_href: ticket.created_by
         ? memberProfileHref(ticket.created_by as string)
         : null,
       assignees: assignees.map((a) => ({
         ...a,
+        avatar_url: resolveAvatarUrl(
+          a.user_id,
+          a.avatar_url ?? null,
+          (a as RawAssignee)._avatar_path ?? null,
+          detailSignedUrls
+        ),
         profile_href: memberProfileHref(a.user_id),
       })),
       branch_id: (ticket.branch_id as string | null) ?? null,
