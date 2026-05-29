@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MemberSelector, type MemberOption } from "@/components/help-desk/member-selector";
-import { createTicketAction, getTicketTypeDefaultRespondersAction } from "@/app/actions/help-desk";
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
 import { TICKET_PRIORITIES, type TicketPriority } from "@/lib/validations/helpdesk";
 import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
@@ -25,6 +24,10 @@ import {
   createEmptyRichText,
   extractPlainText,
 } from "@/components/primitives/rich-text/rich-text-utils";
+import {
+  useCreateTicketMutation,
+  useTicketTypeDefaultRespondersQuery,
+} from "@/hooks/queries/help-desk";
 
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
@@ -34,7 +37,6 @@ interface NewTicketFormProps {
 export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
@@ -43,25 +45,27 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // When ticket type changes, load default responders and pre-populate
+  // Cached query — re-selecting the same type reuses the cached result, no extra network call
+  const { data: defaultResponders } = useTicketTypeDefaultRespondersQuery(ticketTypeId || null);
+  const appliedTypeIdRef = useRef<string>("");
+  const createTicketMutation = useCreateTicketMutation();
+
+  // Apply default responders + priority when ticket type changes
   useEffect(() => {
-    if (!ticketTypeId) return;
-    void (async () => {
-      const result = await getTicketTypeDefaultRespondersAction(ticketTypeId);
-      if (result.success && result.data.length > 0) {
-        const defaultIds = result.data.map((r) => r.responder_user_id);
-        setAssigneeIds((prev) => {
-          const merged = [...new Set([...prev, ...defaultIds])];
-          return merged;
-        });
-      }
-      // Pre-fill priority from ticket type
-      const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
-      if (selectedType?.default_priority) {
-        setPriority(selectedType.default_priority);
-      }
-    })();
-  }, [ticketTypeId, ticketTypes]);
+    if (!ticketTypeId || ticketTypeId === appliedTypeIdRef.current) return;
+    if (defaultResponders === undefined) return; // still loading
+    appliedTypeIdRef.current = ticketTypeId;
+
+    if (defaultResponders.length > 0) {
+      const defaultIds = defaultResponders.map((r) => r.responder_user_id);
+      setAssigneeIds((prev) => [...new Set([...prev, ...defaultIds])]);
+    }
+
+    const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
+    if (selectedType?.default_priority) {
+      setPriority(selectedType.default_priority);
+    }
+  }, [ticketTypeId, defaultResponders, ticketTypes]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -75,10 +79,9 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
     e.preventDefault();
     if (!validate()) return;
 
-    setIsSubmitting(true);
-    try {
-      const descriptionPlain = extractPlainText(descriptionRich);
-      const result = await createTicketAction({
+    const descriptionPlain = extractPlainText(descriptionRich);
+    createTicketMutation.mutate(
+      {
         title: title.trim(),
         description_plain: descriptionPlain || undefined,
         description_rich: descriptionRich,
@@ -86,21 +89,17 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
         priority,
         ticket_type_id: ticketTypeId || undefined,
         assignee_user_ids: assigneeIds,
-      });
-
-      if (!result.success) {
-        toast.error((result as { success: false; error: string }).error);
-        return;
+      },
+      {
+        onSuccess: (data) => {
+          toast.success(t("tickets.created", { number: data.ticket_number }));
+          router.push({
+            pathname: "/dashboard/help-desk/tickets/[ticketId]",
+            params: { ticketId: data.id },
+          });
+        },
       }
-
-      toast.success(t("tickets.created", { number: result.data.ticket_number }));
-      router.push({
-        pathname: "/dashboard/help-desk/tickets/[ticketId]",
-        params: { ticketId: result.data.id },
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
@@ -162,7 +161,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("tickets.fields.titlePlaceholder")}
             maxLength={255}
-            disabled={isSubmitting}
+            disabled={createTicketMutation.isPending}
           />
           {errors.title && <p className="text-destructive text-xs">{errors.title}</p>}
         </div>
@@ -173,7 +172,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
           <Select
             value={priority}
             onValueChange={(v) => setPriority(v as TicketPriority)}
-            disabled={isSubmitting}
+            disabled={createTicketMutation.isPending}
           >
             <SelectTrigger id="priority">
               <SelectValue />
@@ -199,7 +198,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
             selectedIds={assigneeIds}
             onChange={setAssigneeIds}
             placeholder={t("tickets.fields.respondersPlaceholder")}
-            disabled={isSubmitting || !allowsManualAssignees}
+            disabled={createTicketMutation.isPending || !allowsManualAssignees}
           />
           {errors.assignees && <p className="text-destructive text-xs">{errors.assignees}</p>}
           {!allowsManualAssignees && (
@@ -215,15 +214,15 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
             onChange={setDescriptionRich}
             mode="simple"
             placeholder={t("tickets.fields.descriptionPlaceholder")}
-            disabled={isSubmitting}
+            disabled={createTicketMutation.isPending}
             maxLength={10000}
           />
         </div>
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
+          <Button type="submit" disabled={createTicketMutation.isPending}>
+            {createTicketMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t("tickets.submitting")}
@@ -239,7 +238,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
             type="button"
             variant="outline"
             onClick={() => router.push("/dashboard/help-desk/tickets")}
-            disabled={isSubmitting}
+            disabled={createTicketMutation.isPending}
           >
             {t("tickets.cancel")}
           </Button>

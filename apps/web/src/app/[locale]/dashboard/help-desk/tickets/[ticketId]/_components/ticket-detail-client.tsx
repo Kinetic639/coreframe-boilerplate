@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
-import { toast } from "react-toastify";
 import { ArrowLeft, Loader2, CheckCircle, Clock, User, Tag, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { TicketStatusBadge } from "@/components/help-desk/ticket-status-badge";
 import { TicketPriorityBadge } from "@/components/help-desk/ticket-priority-badge";
-import {
-  closeTicketAction,
-  addTicketCommentAction,
-  getTicketDetailAction,
-} from "@/app/actions/help-desk";
 import type {
   HelpdeskTicketDetail,
   HelpdeskTicketComment,
@@ -29,6 +23,11 @@ import {
   extractPlainText,
   normalizeRichText,
 } from "@/components/primitives/rich-text/rich-text-utils";
+import {
+  useTicketDetailQuery,
+  useAddTicketCommentMutation,
+  useCloseTicketMutation,
+} from "@/hooks/queries/help-desk";
 
 interface TicketDetailClientProps {
   ticket: HelpdeskTicketDetail;
@@ -56,62 +55,33 @@ export function TicketDetailClient({
 }: TicketDetailClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
-  const [ticket, setTicket] = useState(initialTicket);
+
+  // React Query: SSR data as initialData — no loading flash, auto-refreshes after mutations
+  const { data: ticket = initialTicket } = useTicketDetailQuery(initialTicket.id, initialTicket);
+  const addCommentMutation = useAddTicketCommentMutation(initialTicket.id);
+  const closeTicketMutation = useCloseTicketMutation(initialTicket.id);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
 
   const isCreator = ticket.created_by === currentUserId;
   const canClose =
     (canManage || isCreator) && ticket.status !== "closed" && ticket.status !== "cancelled";
 
-  const handleAddComment = async (value: RichTextValue) => {
-    const bodyPlain = extractPlainText(value);
-    if (!bodyPlain.trim()) return;
-    setIsSubmittingComment(true);
-    try {
-      const result = await addTicketCommentAction({
-        ticket_id: ticket.id,
-        body: bodyPlain.trim(),
-        body_rich: value,
-        is_internal: false,
-      });
-      if (!result.success) {
-        toast.error((result as { success: false; error: string }).error);
-        return;
-      }
-      setCommentValue(createEmptyRichText());
-      toast.success(t("tickets.commentAdded"));
-      const fresh = await getTicketDetailAction(ticket.id);
-      if (fresh.success && fresh.data) {
-        setTicket(fresh.data);
-      } else {
-        setTicket((prev) => ({
-          ...prev,
-          comments: [...prev.comments, result.data],
-          updated_at: new Date().toISOString(),
-        }));
-      }
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
+  const handleAddComment = useCallback(
+    (value: RichTextValue) => {
+      const bodyPlain = extractPlainText(value);
+      if (!bodyPlain.trim()) return;
+      addCommentMutation.mutate(
+        { ticket_id: ticket.id, body: bodyPlain.trim(), body_rich: value, is_internal: false },
+        { onSuccess: () => setCommentValue(createEmptyRichText()) }
+      );
+    },
+    [addCommentMutation, ticket.id]
+  );
 
-  const handleClose = async () => {
+  const handleClose = useCallback(() => {
     if (!canClose) return;
-    setIsClosing(true);
-    try {
-      const result = await closeTicketAction({ ticket_id: ticket.id });
-      if (!result.success) {
-        toast.error((result as { success: false; error: string }).error);
-        return;
-      }
-      setTicket((prev) => ({ ...prev, status: "closed", closed_at: new Date().toISOString() }));
-      toast.success(t("tickets.ticketClosed"));
-    } finally {
-      setIsClosing(false);
-    }
-  };
+    closeTicketMutation.mutate({ ticket_id: ticket.id });
+  }, [closeTicketMutation, ticket.id, canClose]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -201,7 +171,7 @@ export function TicketDetailClient({
                   onSubmit={handleAddComment}
                   placeholder={t("tickets.commentPlaceholder")}
                   submitLabel={t("tickets.addComment")}
-                  submitting={isSubmittingComment}
+                  submitting={addCommentMutation.isPending}
                   density="compact"
                 />
               </div>
@@ -213,8 +183,13 @@ export function TicketDetailClient({
         <div className="w-full space-y-4 lg:w-64 lg:shrink-0">
           {/* Close button */}
           {canClose && (
-            <Button variant="outline" className="w-full" onClick={handleClose} disabled={isClosing}>
-              {isClosing ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleClose}
+              disabled={closeTicketMutation.isPending}
+            >
+              {closeTicketMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <CheckCircle className="mr-2 h-4 w-4" />
