@@ -147,14 +147,17 @@ export async function deleteTicketTypeAction(id: string): Promise<ActionResult<v
 // ---------------------------------------------------------------------------
 
 export async function listTicketsForDataViewAction(
-  params: DataViewListParams
+  params: DataViewListParams,
+  orgId: string
 ): Promise<ActionResult<PaginatedResult<HelpdeskTicketListRow>>> {
   try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    return HelpdeskTicketsService.listForDataView(ctx.supabase, ctx.orgId, params);
+    // Lightweight auth: RLS enforces is_org_member(org_id) + has_permission('helpdesk.tickets.read')
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return HelpdeskTicketsService.listForDataView(supabase, orgId, params);
   } catch {
     return { success: false, error: "Unexpected error" };
   }
@@ -165,14 +168,17 @@ export async function listTicketsForDataViewAction(
 // ---------------------------------------------------------------------------
 
 export async function getTicketDetailAction(
-  ticketId: string
+  ticketId: string,
+  orgId: string
 ): Promise<ActionResult<HelpdeskTicketDetail>> {
   try {
-    const ctx = await getAuthedContext();
-    if (!ctx) return { success: false, error: "Unauthorized" };
-    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
-      return { success: false, error: "Insufficient permissions" };
-    return HelpdeskTicketsService.getDetail(ctx.supabase, ctx.orgId, ticketId);
+    // Lightweight auth: RLS enforces is_org_member(org_id) + has_permission('helpdesk.tickets.read')
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+    return HelpdeskTicketsService.getDetail(supabase, orgId, ticketId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

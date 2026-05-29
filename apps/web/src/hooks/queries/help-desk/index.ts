@@ -95,11 +95,15 @@ export function useOrgMembersForAssignmentQuery() {
 // Ticket Detail
 // ---------------------------------------------------------------------------
 
-export function useTicketDetailQuery(ticketId: string, initialData?: HelpdeskTicketDetail) {
+export function useTicketDetailQuery(
+  ticketId: string,
+  orgId: string,
+  initialData?: HelpdeskTicketDetail
+) {
   return useQuery({
     queryKey: helpdeskKeys.ticketDetail(ticketId),
     queryFn: async () => {
-      const result = await getTicketDetailAction(ticketId);
+      const result = await getTicketDetailAction(ticketId, orgId);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },

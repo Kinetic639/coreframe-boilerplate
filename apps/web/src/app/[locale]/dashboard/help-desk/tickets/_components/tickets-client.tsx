@@ -44,20 +44,7 @@ interface TicketsClientProps {
   ticketTypes: HelpdeskTicketType[];
   members: Array<{ user_id: string; name: string | null; email: string | null }>;
   canCreate: boolean;
-}
-
-async function listFetcher(
-  params: DataViewListParams
-): Promise<PaginatedResult<HelpdeskTicketListRow>> {
-  const result = await listTicketsForDataViewAction(params);
-  if (result.success) return result.data;
-  throw new Error((result as { success: false; error: string }).error);
-}
-
-async function detailFetcher(id: string): Promise<HelpdeskTicketDetail | null> {
-  const result = await getTicketDetailAction(id);
-  if (!result.success) return null;
-  return result.data;
+  orgId: string;
 }
 
 function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
@@ -79,7 +66,7 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
           onSuccess: async () => {
             setCommentValue(createEmptyRichText());
             // Refetch to get fresh comments + activity with signed avatars
-            const fresh = await getTicketDetailAction(detail.id);
+            const fresh = await getTicketDetailAction(detail.id, detail.org_id);
             if (fresh.success && fresh.data) {
               setComments(fresh.data.comments);
               setActivity(fresh.data.activity);
@@ -302,9 +289,28 @@ export function TicketsClient({
   ticketTypes,
   members,
   canCreate,
+  orgId,
 }: TicketsClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
+
+  const listFetcher = useCallback(
+    async (params: DataViewListParams): Promise<PaginatedResult<HelpdeskTicketListRow>> => {
+      const result = await listTicketsForDataViewAction(params, orgId);
+      if (result.success) return result.data;
+      throw new Error((result as { success: false; error: string }).error);
+    },
+    [orgId]
+  );
+
+  const detailFetcher = useCallback(
+    async (id: string): Promise<HelpdeskTicketDetail | null> => {
+      const result = await getTicketDetailAction(id, orgId);
+      if (!result.success) return null;
+      return result.data;
+    },
+    [orgId]
+  );
 
   const typeOptions = useMemo(
     () => ticketTypes.map((tt) => ({ label: tt.name, value: tt.id })),

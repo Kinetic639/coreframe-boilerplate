@@ -60,6 +60,7 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
       ticketTypes={ticketTypes}
       members={members}
       canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
+      orgId={orgId}
     />
   );
 }
