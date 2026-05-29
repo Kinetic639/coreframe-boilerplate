@@ -344,12 +344,31 @@ export class HelpdeskTicketsService {
 
     const ticket = ticketRaw as any;
 
-    // Assignees
-    const { data: assigneeRows } = await supabase
-      .from("helpdesk_ticket_assignees")
-      .select("user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url)")
-      .eq("ticket_id", ticketId)
-      .is("deleted_at", null);
+    // Assignees, comments, activity are all independent — fetch in parallel
+    const [{ data: assigneeRows }, { data: commentRows }, { data: activityRows }] =
+      await Promise.all([
+        supabase
+          .from("helpdesk_ticket_assignees")
+          .select(
+            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url)"
+          )
+          .eq("ticket_id", ticketId)
+          .is("deleted_at", null),
+        supabase
+          .from("helpdesk_ticket_comments")
+          .select("*, commenter:users!created_by(id,first_name,last_name,email,avatar_url)")
+          .eq("ticket_id", ticketId)
+          .eq("org_id", orgId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("helpdesk_ticket_activity")
+          .select("*, actor:users!actor_id(id,first_name,last_name,email)")
+          .eq("ticket_id", ticketId)
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
 
     const assignees: HelpdeskAssigneeInfo[] = ((assigneeRows ?? []) as any[]).map((row) => {
       const u = row.user as {
@@ -369,15 +388,6 @@ export class HelpdeskTicketsService {
         profile_href: null,
       };
     });
-
-    // Comments
-    const { data: commentRows } = await supabase
-      .from("helpdesk_ticket_comments")
-      .select("*, commenter:users!created_by(id,first_name,last_name,email,avatar_url)")
-      .eq("ticket_id", ticketId)
-      .eq("org_id", orgId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true });
 
     const comments: HelpdeskTicketComment[] = (commentRows ?? []).map((row) => {
       const u = row.commenter as {
@@ -404,15 +414,6 @@ export class HelpdeskTicketsService {
         deleted_at: (row.deleted_at as string | null) ?? null,
       };
     });
-
-    // Activity (last 50)
-    const { data: activityRows } = await supabase
-      .from("helpdesk_ticket_activity")
-      .select("*, actor:users!actor_id(id,first_name,last_name,email)")
-      .eq("ticket_id", ticketId)
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(50);
 
     const activity: HelpdeskTicketActivity[] = (activityRows ?? []).map((row) => {
       const a = row.actor as {
