@@ -550,7 +550,7 @@ export function TicketsClient({
               <span className="text-sm font-medium">{row.title}</span>
             </div>
           )}
-          renderDetail={(detail) => <TicketDetailPanel detail={detail} />}
+          renderDetail={(detail) => <TicketDetailPanel key={detail.id} detail={detail} />}
           renderToolbarControls={() =>
             canCreate ? (
               <Button size="sm" onClick={() => router.push("/dashboard/help-desk/tickets/new")}>
