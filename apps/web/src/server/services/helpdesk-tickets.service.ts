@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/utils/supabase/service";
 import type {
+  AcceptTicketInput,
   AddTicketCommentInput,
   AssigneeRole,
   AssigneeStatus,
@@ -28,6 +29,14 @@ export interface HelpdeskAssigneeInfo {
   profile_href: string | null;
 }
 
+export interface HelpdeskAcceptorInfo {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  profile_href: string;
+}
+
 export interface HelpdeskTicketListRow {
   id: string;
   org_id: string;
@@ -45,6 +54,11 @@ export interface HelpdeskTicketListRow {
   creator_avatar_url: string | null;
   creator_profile_href: string | null;
   assignees: HelpdeskAssigneeInfo[];
+  requires_acceptance: boolean;
+  accepted_by: string | null;
+  accepted_at: string | null;
+  accepted_by_name: string | null;
+  accepted_by_avatar_url: string | null;
   branch_id: string | null;
   closed_at: string | null;
   created_at: string;
@@ -60,6 +74,7 @@ export interface HelpdeskTicketDetail extends HelpdeskTicketListRow {
   due_at: string | null;
   comments: HelpdeskTicketComment[];
   activity: HelpdeskTicketActivity[];
+  acceptors: HelpdeskAcceptorInfo[];
 }
 
 export interface HelpdeskTicketComment {
@@ -217,8 +232,10 @@ export class HelpdeskTicketsService {
         [
           "id, org_id, ticket_number, title, status, priority,",
           "ticket_type_id, created_by, branch_id, closed_at, created_at, updated_at,",
+          "requires_acceptance, accepted_by, accepted_at,",
           "ticket_type:helpdesk_ticket_types!ticket_type_id(id,name,color,icon),",
-          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
+          "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path),",
+          "acceptor:users!accepted_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join(""),
         { count: "exact" }
       )
@@ -293,12 +310,16 @@ export class HelpdeskTicketsService {
       }
     }
 
-    // Collect all users with a private avatar_path, sign them in one batch call
+    // Collect all users with a private avatar_path for batch signing
     const avatarEntries: Array<{ userId: string; avatarPath: string }> = [];
     tickets.forEach((t) => {
       const creator = t.creator as { id: string; avatar_path: string | null } | null;
       if (creator?.avatar_path?.startsWith(`${creator.id}/`)) {
         avatarEntries.push({ userId: creator.id, avatarPath: creator.avatar_path });
+      }
+      const acceptor = t.acceptor as { id: string; avatar_path: string | null } | null;
+      if (acceptor?.avatar_path?.startsWith(`${acceptor.id}/`)) {
+        avatarEntries.push({ userId: acceptor.id, avatarPath: acceptor.avatar_path });
       }
     });
     assigneeMap.forEach((infos) => {
@@ -319,6 +340,14 @@ export class HelpdeskTicketsService {
         icon: string;
       } | null;
       const creator = t.creator as {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        email: string | null;
+        avatar_url: string | null;
+        avatar_path: string | null;
+      } | null;
+      const acceptorUser = t.acceptor as {
         id: string;
         first_name: string | null;
         last_name: string | null;
@@ -356,6 +385,20 @@ export class HelpdeskTicketsService {
           ),
           profile_href: memberProfileHref(a.user_id),
         })),
+        requires_acceptance: (t.requires_acceptance as boolean) ?? false,
+        accepted_by: (t.accepted_by as string | null) ?? null,
+        accepted_at: (t.accepted_at as string | null) ?? null,
+        accepted_by_name: acceptorUser
+          ? displayName(acceptorUser.first_name, acceptorUser.last_name, acceptorUser.email)
+          : null,
+        accepted_by_avatar_url: acceptorUser
+          ? resolveAvatarUrl(
+              acceptorUser.id,
+              acceptorUser.avatar_url,
+              acceptorUser.avatar_path,
+              signedAvatarUrls
+            )
+          : null,
         branch_id: (t.branch_id as string | null) ?? null,
         closed_at: (t.closed_at as string | null) ?? null,
         created_at: t.created_at as string,
@@ -394,33 +437,41 @@ export class HelpdeskTicketsService {
     // Sub-queries join on the internal UUID FK, not the human-readable ticket_number
     const ticketId = ticket.id as string;
 
-    // Assignees, comments, activity are all independent — fetch in parallel
-    const [{ data: assigneeRows }, { data: commentRows }, { data: activityRows }] =
-      await Promise.all([
-        supabase
-          .from("helpdesk_ticket_assignees")
-          .select(
-            "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
-          )
-          .eq("ticket_id", ticketId)
-          .is("deleted_at", null),
-        supabase
-          .from("helpdesk_ticket_comments")
-          .select(
-            "*, commenter:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)"
-          )
-          .eq("ticket_id", ticketId)
-          .eq("org_id", orgId)
-          .is("deleted_at", null)
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("helpdesk_ticket_activity")
-          .select("*, actor:users!actor_id(id,first_name,last_name,email)")
-          .eq("ticket_id", ticketId)
-          .eq("org_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
+    // Assignees, comments, activity, acceptors — all independent, fetch in parallel
+    const [
+      { data: assigneeRows },
+      { data: commentRows },
+      { data: activityRows },
+      { data: acceptorRows },
+    ] = await Promise.all([
+      supabase
+        .from("helpdesk_ticket_assignees")
+        .select(
+          "user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
+        )
+        .eq("ticket_id", ticketId)
+        .is("deleted_at", null),
+      supabase
+        .from("helpdesk_ticket_comments")
+        .select(
+          "*, commenter:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)"
+        )
+        .eq("ticket_id", ticketId)
+        .eq("org_id", orgId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("helpdesk_ticket_activity")
+        .select("*, actor:users!actor_id(id,first_name,last_name,email)")
+        .eq("ticket_id", ticketId)
+        .eq("org_id", orgId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("helpdesk_ticket_acceptors")
+        .select("user_id, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)")
+        .eq("ticket_id", ticketId),
+    ]);
 
     const assignees = ((assigneeRows ?? []) as any[]).map((row) => {
       const u = row.user as {
@@ -508,7 +559,32 @@ export class HelpdeskTicketsService {
         detailAvatarEntries.push({ userId: u.id, avatarPath: u.avatar_path });
       }
     });
+    type RawAcceptorUser = {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      avatar_url: string | null;
+      avatar_path: string | null;
+    };
+    const rawAcceptors = ((acceptorRows ?? []) as any[]).map((row) => ({
+      user_id: row.user_id as string,
+      u: row.user as RawAcceptorUser | null,
+    }));
+    rawAcceptors.forEach(({ u }) => {
+      if (u?.avatar_path?.startsWith(`${u.id}/`)) {
+        detailAvatarEntries.push({ userId: u.id, avatarPath: u.avatar_path });
+      }
+    });
     const detailSignedUrls = await batchSignAvatarUrls(detailAvatarEntries);
+
+    const acceptors: HelpdeskAcceptorInfo[] = rawAcceptors.map(({ user_id, u }) => ({
+      user_id,
+      name: u ? displayName(u.first_name, u.last_name, u.email) : null,
+      email: u?.email ?? null,
+      avatar_url: u ? resolveAvatarUrl(u.id, u.avatar_url, u.avatar_path, detailSignedUrls) : null,
+      profile_href: memberProfileHref(user_id),
+    }));
 
     const comments: HelpdeskTicketComment[] = rawComments.map(({ row, u }) => ({
       id: row.id as string,
@@ -561,6 +637,11 @@ export class HelpdeskTicketsService {
         ),
         profile_href: memberProfileHref(a.user_id),
       })),
+      requires_acceptance: (ticket.requires_acceptance as boolean) ?? false,
+      accepted_by: (ticket.accepted_by as string | null) ?? null,
+      accepted_at: (ticket.accepted_at as string | null) ?? null,
+      accepted_by_name: null,
+      accepted_by_avatar_url: null,
       branch_id: (ticket.branch_id as string | null) ?? null,
       closed_at: (ticket.closed_at as string | null) ?? null,
       created_at: ticket.created_at as string,
@@ -576,6 +657,7 @@ export class HelpdeskTicketsService {
         creator_profile_href: memberProfileHref(c.created_by),
       })),
       activity,
+      acceptors,
     };
 
     return { success: true, data: detail };
@@ -599,6 +681,8 @@ export class HelpdeskTicketsService {
       p_branch_id: input.branch_id ?? null,
       p_assignee_ids: input.assignee_user_ids,
       p_due_at: input.due_at ?? null,
+      p_requires_acceptance: input.requires_acceptance ?? false,
+      p_acceptor_ids: input.acceptor_user_ids ?? [],
     });
 
     if (error) return { success: false, error: error.message };
@@ -749,12 +833,43 @@ export class HelpdeskTicketsService {
         creator_avatar_url: null,
         creator_profile_href: null,
         assignees: [],
+        requires_acceptance: false,
+        accepted_by: null,
+        accepted_at: null,
+        accepted_by_name: null,
+        accepted_by_avatar_url: null,
         branch_id: (data.branch_id as string | null) ?? null,
         closed_at: data.closed_at as string,
         created_at: data.created_at as string,
         updated_at: data.updated_at as string,
       },
     };
+  }
+
+  // ── Accept Ticket ──────────────────────────────────────────────────────────
+
+  static async acceptTicket(
+    supabase: SupabaseClient,
+    _orgId: string,
+    _userId: string,
+    input: AcceptTicketInput
+  ): Promise<
+    ServiceResult<{ id: string; ticket_number: string; accepted_by: string; accepted_at: string }>
+  > {
+    const { data, error } = await supabase.rpc("helpdesk_accept_ticket", {
+      p_ticket_id: input.ticket_id,
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    const result = data as {
+      id: string;
+      ticket_number: string;
+      accepted_by: string;
+      accepted_at: string;
+    };
+
+    return { success: true, data: result };
   }
 
   // ── Legacy methods kept for backward compat ────────────────────────────────

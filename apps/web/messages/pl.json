@@ -2990,6 +2990,7 @@
           "type": "Typ",
           "status": "Status",
           "priority": "Priorytet",
+          "acceptance": "Akceptacja",
           "createdBy": "Autor",
           "responders": "Przypisani",
           "createdAt": "Utworzone",
@@ -3014,11 +3015,16 @@
           "responders": "Osoby odpowiedzialne",
           "respondersPlaceholder": "Wybierz osoby odpowiedzialne",
           "respondersFixed": "Osoby odpowiedzialne są ustalone przez wybrany typ zgłoszenia.",
-          "dueAt": "Termin"
+          "dueAt": "Termin",
+          "requiresAcceptance": "Wymaga akceptacji",
+          "requiresAcceptanceHint": "Zgłoszenie musi zostać zaakceptowane przez upoważnioną osobę przed rozwiązaniem.",
+          "acceptors": "Osoby upoważnione do akceptacji",
+          "acceptorsPlaceholder": "Wybierz osoby upoważnione do akceptacji"
         },
         "validation": {
           "titleRequired": "Tytuł jest wymagany.",
-          "responderRequired": "Wymagana jest co najmniej jedna osoba odpowiedzialna."
+          "responderRequired": "Wymagana jest co najmniej jedna osoba odpowiedzialna.",
+          "acceptorRequired": "Przy włączonej akceptacji wymagana jest co najmniej jedna osoba upoważniona."
         },
         "createTicket": "Nowe zgłoszenie",
         "newTicket": "Nowe zgłoszenie",
@@ -3043,9 +3049,19 @@
           "ticket_created": "utworzył(a) zgłoszenie",
           "comment_added": "dodał(a) komentarz",
           "ticket_closed": "zamknął(a) zgłoszenie",
+          "ticket_accepted": "zaakceptował(a) zgłoszenie",
           "status_changed": "zmienił(a) status",
           "assignee_added": "dodał(a) osobę odpowiedzialną",
           "assignee_removed": "usunął(a) osobę odpowiedzialną"
+        },
+        "acceptance": {
+          "label": "Akceptacja",
+          "pending": "Oczekuje na akceptację",
+          "accepted": "Zaakceptowane",
+          "acceptButton": "Zaakceptuj zgłoszenie",
+          "acceptSuccess": "Zgłoszenie zostało zaakceptowane.",
+          "acceptedBy": "Zaakceptowane przez",
+          "authorizedAcceptors": "Osoby upoważnione"
         }
       },
       "features": {
@@ -3068,7 +3084,11 @@
       "errors": {
         "loadFailed": "Nie udało się załadować danych Help Desk",
         "ticketLoadFailed": "Nie udało się załadować zgłoszeń",
-        "ticketTypesLoadFailed": "Nie udało się załadować typów zgłoszeń"
+        "ticketTypesLoadFailed": "Nie udało się załadować typów zgłoszeń",
+        "createFailed": "Nie udało się utworzyć zgłoszenia.",
+        "commentFailed": "Nie udało się dodać komentarza.",
+        "closeFailed": "Nie udało się zamknąć zgłoszenia.",
+        "acceptFailed": "Nie udało się zaakceptować zgłoszenia."
       }
     },
     "analytics": {

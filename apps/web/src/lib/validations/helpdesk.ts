@@ -52,17 +52,29 @@ export type UpdateTicketTypeInput = z.infer<typeof updateTicketTypeSchema>;
 // Tickets
 // ---------------------------------------------------------------------------
 
-export const createTicketSchema = z.object({
-  title: z.string().min(1, "Title is required").max(255),
-  description_plain: z.string().max(10000).optional(),
-  description_rich: z.unknown().optional(),
-  status: z.enum(TICKET_STATUSES).default("waiting_response"),
-  priority: z.enum(TICKET_PRIORITIES).default("medium"),
-  ticket_type_id: z.string().uuid().optional(),
-  assignee_user_ids: z.array(z.string().uuid()).min(1, "At least one responder is required"),
-  branch_id: z.string().uuid().optional(),
-  due_at: z.string().datetime().optional(),
-});
+export const createTicketSchema = z
+  .object({
+    title: z.string().min(1, "Title is required").max(255),
+    description_plain: z.string().max(10000).optional(),
+    description_rich: z.unknown().optional(),
+    status: z.enum(TICKET_STATUSES).default("waiting_response"),
+    priority: z.enum(TICKET_PRIORITIES).default("medium"),
+    ticket_type_id: z.string().uuid().optional(),
+    assignee_user_ids: z.array(z.string().uuid()).min(1, "At least one responder is required"),
+    branch_id: z.string().uuid().optional(),
+    due_at: z.string().datetime().optional(),
+    requires_acceptance: z.boolean().default(false),
+    acceptor_user_ids: z.array(z.string().uuid()).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (data.requires_acceptance && data.acceptor_user_ids.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one acceptor is required when acceptance is enabled.",
+        path: ["acceptor_user_ids"],
+      });
+    }
+  });
 
 export const closeTicketSchema = z.object({
   ticket_id: z.string().uuid(),
@@ -95,6 +107,16 @@ export const addTicketCommentSchema = z.object({
 });
 
 export type AddTicketCommentInput = z.infer<typeof addTicketCommentSchema>;
+
+// ---------------------------------------------------------------------------
+// Accept ticket
+// ---------------------------------------------------------------------------
+
+export const acceptTicketSchema = z.object({
+  ticket_id: z.string().uuid(),
+});
+
+export type AcceptTicketInput = z.infer<typeof acceptTicketSchema>;
 
 // ---------------------------------------------------------------------------
 // Legacy compat aliases used in existing service/action code

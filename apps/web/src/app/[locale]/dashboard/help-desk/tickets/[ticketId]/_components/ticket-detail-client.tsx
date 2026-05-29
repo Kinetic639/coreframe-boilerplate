@@ -27,6 +27,7 @@ import {
   useTicketDetailQuery,
   useAddTicketCommentMutation,
   useCloseTicketMutation,
+  useAcceptTicketMutation,
 } from "@/hooks/queries/help-desk";
 
 interface TicketDetailClientProps {
@@ -64,6 +65,12 @@ export function TicketDetailClient({
   );
   const addCommentMutation = useAddTicketCommentMutation(initialTicket.ticket_number);
   const closeTicketMutation = useCloseTicketMutation(initialTicket.ticket_number);
+  const acceptTicketMutation = useAcceptTicketMutation(initialTicket.ticket_number);
+
+  const canAccept =
+    ticket.requires_acceptance &&
+    !ticket.accepted_at &&
+    (canManage || ticket.acceptors.some((a) => a.user_id === currentUserId));
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
   const isCreator = ticket.created_by === currentUserId;
@@ -200,6 +207,65 @@ export function TicketDetailClient({
               )}
               {t("tickets.closeTicket")}
             </Button>
+          )}
+
+          {/* Acceptance */}
+          {ticket.requires_acceptance && (
+            <div className="rounded-lg border p-4 space-y-3">
+              <h3 className="text-sm font-semibold">{t("tickets.acceptance.label")}</h3>
+              {ticket.accepted_at ? (
+                <div className="space-y-1">
+                  <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    {t("tickets.acceptance.accepted")}
+                  </span>
+                  {ticket.accepted_by_name && <p className="text-sm">{ticket.accepted_by_name}</p>}
+                  <p className="text-xs text-muted-foreground">{formatDate(ticket.accepted_at)}</p>
+                </div>
+              ) : (
+                <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  {t("tickets.acceptance.pending")}
+                </span>
+              )}
+              {ticket.acceptors.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                      {t("tickets.acceptance.authorizedAcceptors")}
+                    </p>
+                    <div className="space-y-2">
+                      {ticket.acceptors.map((a) => (
+                        <div key={a.user_id} className="flex items-center gap-2">
+                          <UserAvatar
+                            className="h-6 w-6"
+                            fullName={a.name}
+                            email={a.email}
+                            src={a.avatar_url}
+                            profileHref={a.profile_href}
+                          />
+                          <span className="truncate text-sm">{a.name ?? a.email ?? a.user_id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {canAccept && (
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={() => acceptTicketMutation.mutate({ ticket_id: ticket.id })}
+                  disabled={acceptTicketMutation.isPending}
+                >
+                  {acceptTicketMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  {t("tickets.acceptance.acceptButton")}
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Details */}

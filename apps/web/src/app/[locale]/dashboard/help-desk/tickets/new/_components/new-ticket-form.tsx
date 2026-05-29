@@ -8,6 +8,7 @@ import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -40,6 +41,8 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
 
   const [title, setTitle] = useState("");
   const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
+  const [requiresAcceptance, setRequiresAcceptance] = useState(false);
+  const [acceptorIds, setAcceptorIds] = useState<string[]>([]);
   const [ticketTypeId, setTicketTypeId] = useState<string>("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
@@ -71,6 +74,8 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
     const errs: Record<string, string> = {};
     if (!title.trim()) errs.title = t("tickets.validation.titleRequired");
     if (assigneeIds.length === 0) errs.assignees = t("tickets.validation.responderRequired");
+    if (requiresAcceptance && acceptorIds.length === 0)
+      errs.acceptors = t("tickets.validation.acceptorRequired");
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -89,6 +94,8 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
         priority,
         ticket_type_id: ticketTypeId || undefined,
         assignee_user_ids: assigneeIds,
+        requires_acceptance: requiresAcceptance,
+        acceptor_user_ids: acceptorIds,
       },
       {
         onSuccess: (data) => {
@@ -203,6 +210,44 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
           {errors.assignees && <p className="text-destructive text-xs">{errors.assignees}</p>}
           {!allowsManualAssignees && (
             <p className="text-muted-foreground text-xs">{t("tickets.fields.respondersFixed")}</p>
+          )}
+        </div>
+
+        {/* Requires Acceptance */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="requiresAcceptance">{t("tickets.fields.requiresAcceptance")}</Label>
+              <p className="text-muted-foreground text-xs">
+                {t("tickets.fields.requiresAcceptanceHint")}
+              </p>
+            </div>
+            <Switch
+              id="requiresAcceptance"
+              checked={requiresAcceptance}
+              onCheckedChange={(checked) => {
+                setRequiresAcceptance(checked);
+                if (!checked) setAcceptorIds([]);
+              }}
+              disabled={createTicketMutation.isPending}
+            />
+          </div>
+
+          {requiresAcceptance && (
+            <div className="space-y-2">
+              <Label>
+                {t("tickets.fields.acceptors")}
+                <span className="text-destructive ml-1">*</span>
+              </Label>
+              <MemberSelector
+                members={members}
+                selectedIds={acceptorIds}
+                onChange={setAcceptorIds}
+                placeholder={t("tickets.fields.acceptorsPlaceholder")}
+                disabled={createTicketMutation.isPending}
+              />
+              {errors.acceptors && <p className="text-destructive text-xs">{errors.acceptors}</p>}
+            </div>
           )}
         </div>
 

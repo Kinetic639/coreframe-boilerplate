@@ -2,7 +2,11 @@ import { redirect } from "@/i18n/navigation";
 import { getLocale } from "next-intl/server";
 import { loadDashboardContextV2 } from "@/server/loaders/v2/load-dashboard-context.v2";
 import { checkPermission } from "@/lib/utils/permissions";
-import { HELPDESK_TICKETS_READ, HELPDESK_TICKETS_CREATE } from "@/lib/constants/permissions";
+import {
+  HELPDESK_TICKETS_READ,
+  HELPDESK_TICKETS_CREATE,
+  HELPDESK_TICKETS_MANAGE,
+} from "@/lib/constants/permissions";
 import { createClient } from "@/utils/supabase/server";
 import { HelpdeskTicketsService } from "@/server/services/helpdesk-tickets.service";
 import { HelpdeskTicketTypesService } from "@/server/services/helpdesk-ticket-types.service";
@@ -60,6 +64,8 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
       ticketTypes={ticketTypes}
       members={members}
       canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
+      canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
+      currentUserId={context.user.user?.id ?? ""}
       orgId={orgId}
     />
   );
