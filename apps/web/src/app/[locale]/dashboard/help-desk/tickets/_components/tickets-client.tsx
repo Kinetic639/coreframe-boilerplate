@@ -348,7 +348,8 @@ export function TicketsClient({
                 params: { ticketId: row.id },
               })
             }
-            className="hover:text-primary text-left font-medium transition-colors"
+            className="hover:text-primary max-w-[28ch] truncate text-left font-medium transition-colors"
+            title={row.title}
           >
             {row.title}
           </button>
@@ -541,7 +542,9 @@ export function TicketsClient({
                 <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
                 <TicketStatusBadge status={row.status} />
               </div>
-              <span className="text-sm font-medium">{row.title}</span>
+              <span className="max-w-[28ch] truncate text-sm font-medium" title={row.title}>
+                {row.title}
+              </span>
             </div>
           )}
           renderDetail={(detail) => <TicketDetailPanel key={detail.id} detail={detail} />}
