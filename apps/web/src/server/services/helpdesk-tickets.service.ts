@@ -247,8 +247,10 @@ export class HelpdeskTicketsService {
           avatar_url: u?.avatar_url ?? null,
           profile_href: null,
         };
-        const existing = assigneeMap.get(row.ticket_id as string) ?? [];
-        assigneeMap.set(row.ticket_id as string, [...existing, info]);
+        const tid = row.ticket_id as string;
+        const bucket = assigneeMap.get(tid);
+        if (bucket) bucket.push(info);
+        else assigneeMap.set(tid, [info]);
       }
     }
 

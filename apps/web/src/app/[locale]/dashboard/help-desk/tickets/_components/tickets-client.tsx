@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Plus, Ticket, Calendar, Clock, Tag, User } from "lucide-react";
-import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
@@ -14,11 +13,8 @@ import type {
   DataViewListParams,
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
-import {
-  listTicketsForDataViewAction,
-  getTicketDetailAction,
-  addTicketCommentAction,
-} from "@/app/actions/help-desk";
+import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
+import { useAddTicketCommentMutation } from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketListRow,
   HelpdeskTicketDetail,
@@ -69,39 +65,31 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
   const [comments, setComments] = useState<HelpdeskTicketComment[]>(detail.comments);
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
+  const addCommentMutation = useAddTicketCommentMutation(detail.id);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
 
-  const handleAddComment = async (value: RichTextValue) => {
-    const bodyPlain = extractPlainText(value);
-    if (!bodyPlain.trim()) return;
-    setIsSubmittingComment(true);
-    try {
-      const result = await addTicketCommentAction({
-        ticket_id: detail.id,
-        body: bodyPlain.trim(),
-        body_rich: value,
-        is_internal: false,
-      });
-      if (!result.success) {
-        toast.error((result as { success: false; error: string }).error);
-        return;
-      }
-      setCommentValue(createEmptyRichText());
-      toast.success(t("tickets.commentAdded"));
-      // Refetch full detail to get updated comments + activity in one shot
-      const fresh = await getTicketDetailAction(detail.id);
-      if (fresh.success && fresh.data) {
-        setComments(fresh.data.comments);
-        setActivity(fresh.data.activity);
-      } else {
-        setComments((prev) => [...prev, result.data]);
-      }
-    } finally {
-      setIsSubmittingComment(false);
-    }
-  };
+  const handleAddComment = useCallback(
+    (value: RichTextValue) => {
+      const bodyPlain = extractPlainText(value);
+      if (!bodyPlain.trim()) return;
+      addCommentMutation.mutate(
+        { ticket_id: detail.id, body: bodyPlain.trim(), body_rich: value, is_internal: false },
+        {
+          onSuccess: async () => {
+            setCommentValue(createEmptyRichText());
+            // Refetch to get fresh comments + activity with signed avatars
+            const fresh = await getTicketDetailAction(detail.id);
+            if (fresh.success && fresh.data) {
+              setComments(fresh.data.comments);
+              setActivity(fresh.data.activity);
+            }
+          },
+        }
+      );
+    },
+    [addCommentMutation, detail.id]
+  );
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -179,7 +167,7 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
                 onSubmit={handleAddComment}
                 placeholder={t("tickets.commentPlaceholder")}
                 submitLabel={t("tickets.addComment")}
-                submitting={isSubmittingComment}
+                submitting={addCommentMutation.isPending}
                 density="compact"
               />
             )}

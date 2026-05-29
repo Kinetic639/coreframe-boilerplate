@@ -17,6 +17,7 @@ import type {
   AddTicketCommentInput,
   CloseTicketInput,
 } from "@/lib/validations/helpdesk";
+import type { HelpdeskTicketDetail } from "@/server/services/helpdesk-tickets.service";
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -94,7 +95,7 @@ export function useOrgMembersForAssignmentQuery() {
 // Ticket Detail
 // ---------------------------------------------------------------------------
 
-export function useTicketDetailQuery(ticketId: string) {
+export function useTicketDetailQuery(ticketId: string, initialData?: HelpdeskTicketDetail) {
   return useQuery({
     queryKey: helpdeskKeys.ticketDetail(ticketId),
     queryFn: async () => {
@@ -102,6 +103,7 @@ export function useTicketDetailQuery(ticketId: string) {
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },
+    initialData,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
