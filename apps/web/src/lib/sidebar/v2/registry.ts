@@ -16,12 +16,17 @@ import {
   ANALYTICS_AUDIT_READ,
   MODULE_WORKSHOP_ACCESS,
   WORKSHOP_READ,
+  MODULE_HELPDESK_ACCESS,
+  HELPDESK_READ,
+  HELPDESK_TICKETS_READ,
+  HELPDESK_TICKET_TYPES_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
   MODULE_WAREHOUSE,
   MODULE_ANALYTICS,
   MODULE_WORKSHOP,
+  MODULE_HELPDESK,
 } from "@/lib/constants/modules";
 
 /**
@@ -165,6 +170,55 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresModules: [MODULE_WORKSHOP],
       requiresPermissions: [MODULE_WORKSHOP_ACCESS],
     },
+  },
+
+  // Help Desk (plan-gated: MODULE_HELPDESK must be in enabled_modules,
+  // user-gated: MODULE_HELPDESK_ACCESS permission required)
+  {
+    id: "help-desk",
+    group: "workspace",
+    title: "Help Desk",
+    titleKey: "modules.helpDesk.titleSidebar",
+    iconKey: "lifeBuoy",
+    visibility: {
+      requiresModules: [MODULE_HELPDESK],
+      requiresPermissions: [MODULE_HELPDESK_ACCESS],
+    },
+    children: [
+      {
+        id: "help-desk.overview",
+        title: "Overview",
+        titleKey: "modules.helpDesk.items.overview",
+        iconKey: "lifeBuoy",
+        href: "/dashboard/help-desk",
+        match: { exact: "/dashboard/help-desk" },
+        visibility: {
+          requiresPermissions: [HELPDESK_READ],
+        },
+      },
+      {
+        id: "help-desk.tickets",
+        title: "Tickets",
+        titleKey: "modules.helpDesk.items.tickets",
+        iconKey: "ticket",
+        href: "/dashboard/help-desk/tickets",
+        match: { startsWith: "/dashboard/help-desk/tickets" },
+        visibility: {
+          requiresPermissions: [HELPDESK_TICKETS_READ],
+        },
+      },
+      {
+        id: "help-desk.ticket-types",
+        title: "Ticket Types",
+        titleKey: "modules.helpDesk.items.ticketTypes",
+        iconKey: "settings",
+        href: "/dashboard/help-desk/ticket-types",
+        match: { startsWith: "/dashboard/help-desk/ticket-types" },
+        visibility: {
+          requiresPermissions: [HELPDESK_TICKET_TYPES_MANAGE],
+        },
+      },
+    ],
   },
 
   // Tools (always available — no requiresModules gate)

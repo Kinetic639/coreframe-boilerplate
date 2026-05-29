@@ -94,6 +94,532 @@ export type Database = {
           },
         ];
       };
+      helpdesk_settings: {
+        Row: {
+          auto_close_days: number | null;
+          created_at: string;
+          default_priority: string;
+          email_notifications: boolean;
+          org_id: string;
+          ticket_prefix: string;
+          updated_at: string;
+        };
+        Insert: {
+          auto_close_days?: number | null;
+          created_at?: string;
+          default_priority?: string;
+          email_notifications?: boolean;
+          org_id: string;
+          ticket_prefix?: string;
+          updated_at?: string;
+        };
+        Update: {
+          auto_close_days?: number | null;
+          created_at?: string;
+          default_priority?: string;
+          email_notifications?: boolean;
+          org_id?: string;
+          ticket_prefix?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_settings_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_activity: {
+        Row: {
+          actor_id: string | null;
+          created_at: string;
+          event_type: string;
+          id: string;
+          org_id: string;
+          payload: Json | null;
+          ticket_id: string;
+        };
+        Insert: {
+          actor_id?: string | null;
+          created_at?: string;
+          event_type: string;
+          id?: string;
+          org_id: string;
+          payload?: Json | null;
+          ticket_id: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          created_at?: string;
+          event_type?: string;
+          id?: string;
+          org_id?: string;
+          payload?: Json | null;
+          ticket_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_activity_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_activity_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_activity_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_tickets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_assignees: {
+        Row: {
+          assigned_at: string;
+          assigned_by: string | null;
+          completed_at: string | null;
+          deleted_at: string | null;
+          id: string;
+          org_id: string;
+          responded_at: string | null;
+          role: string;
+          status: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Insert: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          completed_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id: string;
+          responded_at?: string | null;
+          role?: string;
+          status?: string;
+          ticket_id: string;
+          user_id: string;
+        };
+        Update: {
+          assigned_at?: string;
+          assigned_by?: string | null;
+          completed_at?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id?: string;
+          responded_at?: string | null;
+          role?: string;
+          status?: string;
+          ticket_id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_assignees_assigned_by_fkey";
+            columns: ["assigned_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_assignees_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_assignees_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_tickets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_assignees_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_comments: {
+        Row: {
+          body: string;
+          body_rich: Json | null;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          id: string;
+          is_internal: boolean;
+          org_id: string;
+          ticket_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          body: string;
+          body_rich?: Json | null;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_internal?: boolean;
+          org_id: string;
+          ticket_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string;
+          body_rich?: Json | null;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          id?: string;
+          is_internal?: boolean;
+          org_id?: string;
+          ticket_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_comments_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_comments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_comments_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_tickets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_references: {
+        Row: {
+          context_snapshot: Json | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          source_id: string;
+          source_module: string;
+          source_type: string;
+          ticket_id: string;
+        };
+        Insert: {
+          context_snapshot?: Json | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          source_id: string;
+          source_module: string;
+          source_type: string;
+          ticket_id: string;
+        };
+        Update: {
+          context_snapshot?: Json | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          source_id?: string;
+          source_module?: string;
+          source_type?: string;
+          ticket_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_references_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_references_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_tickets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_type_default_responders: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          id: string;
+          org_id: string;
+          responder_user_id: string;
+          ticket_type_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id: string;
+          responder_user_id: string;
+          ticket_type_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id?: string;
+          responder_user_id?: string;
+          ticket_type_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_type_default_responders_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_default_responders_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_default_responders_responder_user_id_fkey";
+            columns: ["responder_user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_type_default_responders_ticket_type_id_fkey";
+            columns: ["ticket_type_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_ticket_types";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_ticket_types: {
+        Row: {
+          allows_manual_assignees: boolean;
+          color: string;
+          created_at: string;
+          created_by: string | null;
+          default_priority: string;
+          deleted_at: string | null;
+          description: string | null;
+          icon: string;
+          id: string;
+          is_active: boolean;
+          is_system: boolean;
+          key: string | null;
+          metadata: Json | null;
+          name: string;
+          org_id: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          allows_manual_assignees?: boolean;
+          color?: string;
+          created_at?: string;
+          created_by?: string | null;
+          default_priority?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          icon?: string;
+          id?: string;
+          is_active?: boolean;
+          is_system?: boolean;
+          key?: string | null;
+          metadata?: Json | null;
+          name: string;
+          org_id: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          allows_manual_assignees?: boolean;
+          color?: string;
+          created_at?: string;
+          created_by?: string | null;
+          default_priority?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          icon?: string;
+          id?: string;
+          is_active?: boolean;
+          is_system?: boolean;
+          key?: string | null;
+          metadata?: Json | null;
+          name?: string;
+          org_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_ticket_types_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_ticket_types_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      helpdesk_tickets: {
+        Row: {
+          assigned_to: string | null;
+          branch_id: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          created_at: string;
+          created_by: string;
+          deleted_at: string | null;
+          description: string | null;
+          description_plain: string | null;
+          description_rich: Json | null;
+          due_at: string | null;
+          id: string;
+          org_id: string;
+          priority: string;
+          requested_by: string | null;
+          resolved_at: string | null;
+          status: string;
+          ticket_number: string;
+          ticket_type_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_to?: string | null;
+          branch_id?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          description_plain?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          org_id: string;
+          priority?: string;
+          requested_by?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          ticket_number: string;
+          ticket_type_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_to?: string | null;
+          branch_id?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          description_plain?: string | null;
+          description_rich?: Json | null;
+          due_at?: string | null;
+          id?: string;
+          org_id?: string;
+          priority?: string;
+          requested_by?: string | null;
+          resolved_at?: string | null;
+          status?: string;
+          ticket_number?: string;
+          ticket_type_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "helpdesk_tickets_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_closed_by_fkey";
+            columns: ["closed_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "helpdesk_tickets_ticket_type_id_fkey";
+            columns: ["ticket_type_id"];
+            isOneToOne: false;
+            referencedRelation: "helpdesk_ticket_types";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       inventory_allocation_lines: {
         Row: {
           allocated_quantity: number;
@@ -6704,6 +7230,21 @@ export type Database = {
         Args: { org_id: string; permission: string };
         Returns: boolean;
       };
+      helpdesk_create_ticket: {
+        Args: {
+          p_assignee_ids: string[];
+          p_branch_id: string;
+          p_description_plain: string;
+          p_description_rich: Json;
+          p_due_at?: string;
+          p_org_id: string;
+          p_priority: string;
+          p_status: string;
+          p_ticket_type_id: string;
+          p_title: string;
+        };
+        Returns: Json;
+      };
       inventory_accept_branch_transfer: {
         Args: {
           p_actor_user_id?: string;
@@ -6711,6 +7252,10 @@ export type Database = {
           p_transfer_id: string;
         };
         Returns: Json;
+      };
+      inventory_allocate_movement_number: {
+        Args: { p_actor_user_id?: string; p_organization_id: string };
+        Returns: string;
       };
       inventory_approve_count_session: {
         Args: { p_actor_user_id?: string; p_count_session_id: string };

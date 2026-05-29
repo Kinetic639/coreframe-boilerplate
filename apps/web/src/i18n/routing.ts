@@ -270,6 +270,28 @@ export const routing = defineRouting({
       pl: "/dashboard/warsztat",
     },
 
+    // === Help Desk module ===
+    "/dashboard/help-desk": {
+      en: "/dashboard/help-desk",
+      pl: "/dashboard/help-desk",
+    },
+    "/dashboard/help-desk/tickets": {
+      en: "/dashboard/help-desk/tickets",
+      pl: "/dashboard/help-desk/zgloszenia",
+    },
+    "/dashboard/help-desk/tickets/new": {
+      en: "/dashboard/help-desk/tickets/new",
+      pl: "/dashboard/help-desk/zgloszenia/nowe",
+    },
+    "/dashboard/help-desk/tickets/[ticketId]": {
+      en: "/dashboard/help-desk/tickets/[ticketId]",
+      pl: "/dashboard/help-desk/zgloszenia/[ticketId]",
+    },
+    "/dashboard/help-desk/ticket-types": {
+      en: "/dashboard/help-desk/ticket-types",
+      pl: "/dashboard/help-desk/typy-zgloszen",
+    },
+
     // === Analytics & Reports module ===
     "/dashboard/analytics": {
       en: "/dashboard/analytics",

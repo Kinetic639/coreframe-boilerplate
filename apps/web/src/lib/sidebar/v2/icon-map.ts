@@ -22,6 +22,8 @@ import {
   Wrench,
   QrCode,
   Car,
+  LifeBuoy,
+  Ticket,
 } from "lucide-react";
 import type { IconKey } from "@/lib/types/v2/sidebar";
 
@@ -53,6 +55,8 @@ export const ICON_MAP: Record<IconKey, React.ComponentType<{ className?: string 
   tools: Wrench,
   "qr-code": QrCode,
   car: Car,
+  lifeBuoy: LifeBuoy,
+  ticket: Ticket,
 };
 
 /**
