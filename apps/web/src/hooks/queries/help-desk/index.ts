@@ -96,14 +96,14 @@ export function useOrgMembersForAssignmentQuery() {
 // ---------------------------------------------------------------------------
 
 export function useTicketDetailQuery(
-  ticketId: string,
+  ticketNumber: string,
   orgId: string,
   initialData?: HelpdeskTicketDetail
 ) {
   return useQuery({
-    queryKey: helpdeskKeys.ticketDetail(ticketId),
+    queryKey: helpdeskKeys.ticketDetail(ticketNumber),
     queryFn: async () => {
-      const result = await getTicketDetailAction(ticketId, orgId);
+      const result = await getTicketDetailAction(ticketNumber, orgId);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },
@@ -136,7 +136,7 @@ export function useCreateTicketMutation() {
 // Add Comment
 // ---------------------------------------------------------------------------
 
-export function useAddTicketCommentMutation(ticketId: string) {
+export function useAddTicketCommentMutation(ticketNumber: string) {
   const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
 
@@ -147,7 +147,7 @@ export function useAddTicketCommentMutation(ticketId: string) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketId) });
+      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
       toast.success(t("tickets.commentAdded"));
     },
     onError: (err: Error) => {
@@ -160,7 +160,7 @@ export function useAddTicketCommentMutation(ticketId: string) {
 // Close Ticket
 // ---------------------------------------------------------------------------
 
-export function useCloseTicketMutation(ticketId: string) {
+export function useCloseTicketMutation(ticketNumber: string) {
   const queryClient = useQueryClient();
   const t = useTranslations("modules.helpDesk");
 
@@ -171,7 +171,7 @@ export function useCloseTicketMutation(ticketId: string) {
       return result.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketId) });
+      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
       queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
       toast.success(t("tickets.ticketClosed"));
     },

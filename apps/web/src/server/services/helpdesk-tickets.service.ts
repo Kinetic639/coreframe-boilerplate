@@ -262,7 +262,7 @@ export class HelpdeskTicketsService {
       const { data: assigneeRows } = await supabase
         .from("helpdesk_ticket_assignees")
         .select(
-          "ticket_id, user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url)"
+          "ticket_id, user_id, role, status, user:users!user_id(id,first_name,last_name,email,avatar_url,avatar_path)"
         )
         .in("ticket_id", ticketIds)
         .is("deleted_at", null);
@@ -274,23 +274,16 @@ export class HelpdeskTicketsService {
           last_name: string | null;
           email: string | null;
           avatar_url: string | null;
-        } | null;
-        const u2 = row.user as {
-          id: string;
-          first_name: string | null;
-          last_name: string | null;
-          email: string | null;
-          avatar_url: string | null;
           avatar_path: string | null;
         } | null;
         const info: HelpdeskAssigneeInfo = {
           user_id: row.user_id as string,
           role: row.role as AssigneeRole,
           status: row.status as AssigneeStatus,
-          name: u2 ? displayName(u2.first_name, u2.last_name, u2.email) : null,
-          email: u2?.email ?? null,
-          avatar_url: u2?.avatar_url ?? null,
-          _avatar_path: u2?.avatar_path ?? null,
+          name: u ? displayName(u.first_name, u.last_name, u.email) : null,
+          email: u?.email ?? null,
+          avatar_url: u?.avatar_url ?? null,
+          _avatar_path: u?.avatar_path ?? null,
           profile_href: null,
         } as HelpdeskAssigneeInfo & { _avatar_path: string | null };
         const tid = row.ticket_id as string;
@@ -378,9 +371,9 @@ export class HelpdeskTicketsService {
   static async getDetail(
     supabase: SupabaseClient,
     orgId: string,
-    ticketId: string
+    ticketNumber: string
   ): Promise<ServiceResult<HelpdeskTicketDetail>> {
-    // Ticket + type + creator
+    // Ticket + type + creator — look up by human-readable ticket_number
     const { data: ticketRaw, error } = await supabase
       .from("helpdesk_tickets")
       .select(
@@ -390,7 +383,7 @@ export class HelpdeskTicketsService {
           "creator:users!created_by(id,first_name,last_name,email,avatar_url,avatar_path)",
         ].join("")
       )
-      .eq("id", ticketId)
+      .eq("ticket_number", ticketNumber)
       .eq("org_id", orgId)
       .is("deleted_at", null)
       .single();
@@ -398,6 +391,8 @@ export class HelpdeskTicketsService {
     if (error) return { success: false, error: error.message };
 
     const ticket = ticketRaw as any;
+    // Sub-queries join on the internal UUID FK, not the human-readable ticket_number
+    const ticketId = ticket.id as string;
 
     // Assignees, comments, activity are all independent — fetch in parallel
     const [{ data: assigneeRows }, { data: commentRows }, { data: activityRows }] =

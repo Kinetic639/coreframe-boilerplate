@@ -53,7 +53,7 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
-  const addCommentMutation = useAddTicketCommentMutation(detail.id);
+  const addCommentMutation = useAddTicketCommentMutation(detail.ticket_number);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
 
   const handleAddComment = useCallback(
@@ -66,7 +66,7 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
           onSuccess: async () => {
             setCommentValue(createEmptyRichText());
             // Refetch to get fresh comments + activity with signed avatars
-            const fresh = await getTicketDetailAction(detail.id, detail.org_id);
+            const fresh = await getTicketDetailAction(detail.ticket_number, detail.org_id);
             if (fresh.success && fresh.data) {
               setComments(fresh.data.comments);
               setActivity(fresh.data.activity);
@@ -167,7 +167,9 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
             variant="outline"
             size="sm"
             className="w-full"
-            onClick={() => (window.location.href = `/dashboard/help-desk/tickets/${detail.id}`)}
+            onClick={() =>
+              (window.location.href = `/dashboard/help-desk/tickets/${detail.ticket_number}`)
+            }
           >
             <Ticket className="mr-1.5 h-3.5 w-3.5" />
             {t("tickets.viewFull")}
@@ -304,8 +306,8 @@ export function TicketsClient({
   );
 
   const detailFetcher = useCallback(
-    async (id: string): Promise<HelpdeskTicketDetail | null> => {
-      const result = await getTicketDetailAction(id, orgId);
+    async (ticketNumber: string): Promise<HelpdeskTicketDetail | null> => {
+      const result = await getTicketDetailAction(ticketNumber, orgId);
       if (!result.success) return null;
       return result.data;
     },
@@ -345,10 +347,11 @@ export function TicketsClient({
             onClick={() =>
               router.push({
                 pathname: "/dashboard/help-desk/tickets/[ticketId]",
-                params: { ticketId: row.id },
+                params: { ticketId: row.ticket_number },
               })
             }
-            className="hover:text-primary text-left font-medium transition-colors"
+            className="hover:text-primary max-w-[28ch] truncate text-left font-medium transition-colors"
+            title={row.title}
           >
             {row.title}
           </button>
@@ -534,14 +537,16 @@ export function TicketsClient({
           queryKey={HELPDESK_TICKETS_QUERY_KEY}
           listFetcher={listFetcher}
           detailFetcher={detailFetcher}
-          getRowId={(row) => row.id}
+          getRowId={(row) => row.ticket_number}
           renderCompactItem={(row) => (
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
                 <TicketStatusBadge status={row.status} />
               </div>
-              <span className="text-sm font-medium">{row.title}</span>
+              <span className="max-w-[28ch] truncate text-sm font-medium" title={row.title}>
+                {row.title}
+              </span>
             </div>
           )}
           renderDetail={(detail) => <TicketDetailPanel key={detail.id} detail={detail} />}

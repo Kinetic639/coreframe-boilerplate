@@ -58,12 +58,12 @@ export function TicketDetailClient({
 
   // React Query: SSR data as initialData — no loading flash, auto-refreshes after mutations
   const { data: ticket = initialTicket } = useTicketDetailQuery(
-    initialTicket.id,
+    initialTicket.ticket_number,
     initialTicket.org_id,
     initialTicket
   );
-  const addCommentMutation = useAddTicketCommentMutation(initialTicket.id);
-  const closeTicketMutation = useCloseTicketMutation(initialTicket.id);
+  const addCommentMutation = useAddTicketCommentMutation(initialTicket.ticket_number);
+  const closeTicketMutation = useCloseTicketMutation(initialTicket.ticket_number);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
   const isCreator = ticket.created_by === currentUserId;
