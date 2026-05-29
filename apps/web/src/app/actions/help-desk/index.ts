@@ -24,8 +24,10 @@ import {
   createTicketTypeSchema,
   updateTicketTypeSchema,
   createTicketSchema,
+  acceptTicketSchema,
   closeTicketSchema,
   addTicketCommentSchema,
+  type AcceptTicketInput,
   type CreateTicketTypeInput,
   type UpdateTicketTypeInput,
   type CreateTicketInput,
@@ -308,6 +310,25 @@ export async function listTicketsAction(
     if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
       return { success: false, error: "Insufficient permissions" };
     return HelpdeskTicketsService.list(ctx.supabase, ctx.orgId, filters);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function acceptTicketAction(
+  input: AcceptTicketInput
+): Promise<
+  ActionResult<{ id: string; ticket_number: string; accepted_by: string; accepted_at: string }>
+> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
+      return { success: false, error: "Insufficient permissions" };
+    const parsed = acceptTicketSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+    return HelpdeskTicketsService.acceptTicket(ctx.supabase, ctx.orgId, ctx.userId, parsed.data);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

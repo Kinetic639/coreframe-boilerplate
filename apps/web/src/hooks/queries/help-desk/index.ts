@@ -11,8 +11,10 @@ import {
   getTicketDetailAction,
   addTicketCommentAction,
   closeTicketAction,
+  acceptTicketAction,
 } from "@/app/actions/help-desk";
 import type {
+  AcceptTicketInput,
   CreateTicketInput,
   AddTicketCommentInput,
   CloseTicketInput,
@@ -177,6 +179,31 @@ export function useCloseTicketMutation(ticketNumber: string) {
     },
     onError: (err: Error) => {
       toast.error(err.message || t("errors.closeFailed"));
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Accept Ticket
+// ---------------------------------------------------------------------------
+
+export function useAcceptTicketMutation(ticketNumber: string) {
+  const queryClient = useQueryClient();
+  const t = useTranslations("modules.helpDesk");
+
+  return useMutation({
+    mutationFn: async (input: AcceptTicketInput) => {
+      const result = await acceptTicketAction(input);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketDetail(ticketNumber) });
+      queryClient.invalidateQueries({ queryKey: helpdeskKeys.ticketsDataView() });
+      toast.success(t("tickets.acceptance.acceptSuccess"));
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || t("errors.acceptFailed"));
     },
   });
 }

@@ -3019,6 +3019,7 @@
           "type": "Type",
           "status": "Status",
           "priority": "Priority",
+          "acceptance": "Acceptance",
           "createdBy": "Author",
           "responders": "Assigned",
           "createdAt": "Created",
@@ -3043,11 +3044,16 @@
           "responders": "Responders",
           "respondersPlaceholder": "Select responders",
           "respondersFixed": "Responders are fixed by the selected ticket type.",
-          "dueAt": "Due Date"
+          "dueAt": "Due Date",
+          "requiresAcceptance": "Requires Acceptance",
+          "requiresAcceptanceHint": "Ticket must be accepted by an authorized user before it can be resolved.",
+          "acceptors": "Authorized Acceptors",
+          "acceptorsPlaceholder": "Select authorized acceptors"
         },
         "validation": {
           "titleRequired": "Title is required.",
-          "responderRequired": "At least one responder is required."
+          "responderRequired": "At least one responder is required.",
+          "acceptorRequired": "At least one acceptor is required when acceptance is enabled."
         },
         "createTicket": "New Ticket",
         "newTicket": "New Ticket",
@@ -3072,9 +3078,19 @@
           "ticket_created": "created the ticket",
           "comment_added": "added a comment",
           "ticket_closed": "closed the ticket",
+          "ticket_accepted": "accepted the ticket",
           "status_changed": "changed the status",
           "assignee_added": "added a responder",
           "assignee_removed": "removed a responder"
+        },
+        "acceptance": {
+          "label": "Acceptance",
+          "pending": "Pending Acceptance",
+          "accepted": "Accepted",
+          "acceptButton": "Accept Ticket",
+          "acceptSuccess": "Ticket accepted successfully.",
+          "acceptedBy": "Accepted by",
+          "authorizedAcceptors": "Authorized Acceptors"
         }
       },
       "features": {
@@ -3097,7 +3113,11 @@
       "errors": {
         "loadFailed": "Failed to load help desk data",
         "ticketLoadFailed": "Failed to load tickets",
-        "ticketTypesLoadFailed": "Failed to load ticket types"
+        "ticketTypesLoadFailed": "Failed to load ticket types",
+        "createFailed": "Failed to create ticket.",
+        "commentFailed": "Failed to add comment.",
+        "closeFailed": "Failed to close ticket.",
+        "acceptFailed": "Failed to accept ticket."
       }
     },
     "analytics": {

@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { Plus, Ticket, Calendar, Clock, Tag, User } from "lucide-react";
+import { Plus, Ticket, Calendar, Clock, Tag, User, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
@@ -14,7 +14,7 @@ import type {
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
 import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
-import { useAddTicketCommentMutation } from "@/hooks/queries/help-desk";
+import { useAddTicketCommentMutation, useAcceptTicketMutation } from "@/hooks/queries/help-desk";
 import type {
   HelpdeskTicketListRow,
   HelpdeskTicketDetail,
@@ -44,17 +44,32 @@ interface TicketsClientProps {
   ticketTypes: HelpdeskTicketType[];
   members: Array<{ user_id: string; name: string | null; email: string | null }>;
   canCreate: boolean;
+  canManage: boolean;
+  currentUserId: string;
   orgId: string;
 }
 
-function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
+function TicketDetailPanel({
+  detail,
+  canManage,
+  currentUserId,
+}: {
+  detail: HelpdeskTicketDetail;
+  canManage: boolean;
+  currentUserId: string;
+}) {
   const t = useTranslations("modules.helpDesk");
   const [comments, setComments] = useState<HelpdeskTicketComment[]>(detail.comments);
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
   const addCommentMutation = useAddTicketCommentMutation(detail.ticket_number);
+  const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
+  const canAccept =
+    detail.requires_acceptance &&
+    !detail.accepted_at &&
+    (canManage || detail.acceptors.some((a) => a.user_id === currentUserId));
 
   const handleAddComment = useCallback(
     (value: RichTextValue) => {
@@ -175,6 +190,68 @@ function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
             {t("tickets.viewFull")}
           </Button>
 
+          {/* Acceptance card */}
+          {detail.requires_acceptance && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-muted-foreground text-[10px] uppercase font-medium">
+                {t("tickets.acceptance.label")}
+              </p>
+              {detail.accepted_at ? (
+                <div className="space-y-1">
+                  <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    {t("tickets.acceptance.accepted")}
+                  </span>
+                  {detail.accepted_by_name && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {detail.accepted_by_name}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(detail.accepted_at).toLocaleString()}
+                  </p>
+                </div>
+              ) : (
+                <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  {t("tickets.acceptance.pending")}
+                </span>
+              )}
+              {detail.acceptors.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground uppercase">
+                    {t("tickets.acceptance.authorizedAcceptors")}
+                  </p>
+                  {detail.acceptors.map((a) => (
+                    <div key={a.user_id} className="flex items-center gap-2">
+                      <UserAvatar
+                        className="h-5 w-5"
+                        fullName={a.name}
+                        email={a.email}
+                        src={a.avatar_url}
+                        profileHref={a.profile_href}
+                      />
+                      <span className="truncate text-xs">{a.name ?? a.email}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {canAccept && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={acceptMutation.isPending}
+                  onClick={() => acceptMutation.mutate({ ticket_id: detail.id })}
+                >
+                  {acceptMutation.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {t("tickets.acceptance.acceptButton")}
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="rounded-lg border p-3 space-y-2">
             <div className="flex items-start gap-2">
               <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -291,6 +368,8 @@ export function TicketsClient({
   ticketTypes,
   members,
   canCreate,
+  canManage,
+  currentUserId,
   orgId,
 }: TicketsClientProps) {
   const t = useTranslations("modules.helpDesk");
@@ -392,6 +471,26 @@ export function TicketsClient({
         header: t("tickets.columns.priority"),
         accessor: (row) => <TicketPriorityBadge priority={row.priority} />,
         sortable: true,
+        defaultVisible: true,
+      },
+      {
+        key: "acceptance",
+        header: t("tickets.columns.acceptance"),
+        accessor: (row) =>
+          row.requires_acceptance ? (
+            row.accepted_at ? (
+              <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                {t("tickets.acceptance.accepted")}
+              </span>
+            ) : (
+              <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                {t("tickets.acceptance.pending")}
+              </span>
+            )
+          ) : (
+            <span className="text-muted-foreground text-xs">—</span>
+          ),
+        sortable: false,
         defaultVisible: true,
       },
       {
@@ -549,7 +648,14 @@ export function TicketsClient({
               </span>
             </div>
           )}
-          renderDetail={(detail) => <TicketDetailPanel key={detail.id} detail={detail} />}
+          renderDetail={(detail) => (
+            <TicketDetailPanel
+              key={detail.id}
+              detail={detail}
+              canManage={canManage}
+              currentUserId={currentUserId}
+            />
+          )}
           renderToolbarControls={() =>
             canCreate ? (
               <Button size="sm" onClick={() => router.push("/dashboard/help-desk/tickets/new")}>
