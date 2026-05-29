@@ -13,8 +13,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
 
 export interface MemberOption {
   user_id: string;
@@ -31,16 +31,6 @@ interface MemberSelectorProps {
   disabled?: boolean;
   maxSelections?: number;
   className?: string;
-}
-
-function getInitials(name: string | null, email: string | null): string {
-  if (name) {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  if (email) return email.slice(0, 2).toUpperCase();
-  return "?";
 }
 
 export function MemberSelector({
@@ -109,12 +99,13 @@ export function MemberSelector({
                       value={`${member.name ?? ""} ${member.email ?? ""}`}
                       onSelect={() => toggle(member.user_id)}
                     >
-                      <Avatar className="mr-2 h-6 w-6">
-                        <AvatarImage src={member.avatar_url ?? undefined} />
-                        <AvatarFallback className="text-[10px]">
-                          {getInitials(member.name, member.email)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <UserAvatar
+                        className="mr-2 h-6 w-6"
+                        fullName={member.name}
+                        email={member.email}
+                        src={member.avatar_url}
+                        disabledPopover
+                      />
                       <div className="flex min-w-0 flex-col">
                         <span className="truncate text-sm">{displayLabel}</span>
                         {member.name && member.email && (
@@ -146,12 +137,13 @@ export function MemberSelector({
               variant="secondary"
               className="flex items-center gap-1 pr-1 pl-2 text-xs"
             >
-              <Avatar className="h-4 w-4">
-                <AvatarImage src={member.avatar_url ?? undefined} />
-                <AvatarFallback className="text-[8px]">
-                  {getInitials(member.name, member.email)}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                className="h-4 w-4"
+                fullName={member.name}
+                email={member.email}
+                src={member.avatar_url}
+                disabledPopover
+              />
               <span className="max-w-[120px] truncate">
                 {member.name || member.email || member.user_id}
               </span>

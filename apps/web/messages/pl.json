@@ -2990,8 +2990,8 @@
           "type": "Typ",
           "status": "Status",
           "priority": "Priorytet",
-          "createdBy": "Utworzone przez",
-          "responders": "Osoby odpowiedzialne",
+          "createdBy": "Autor",
+          "responders": "Przypisani",
           "createdAt": "Utworzone",
           "updatedAt": "Zaktualizowane"
         },

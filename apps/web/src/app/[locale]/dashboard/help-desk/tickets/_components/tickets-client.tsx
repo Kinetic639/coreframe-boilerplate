@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { Plus, Ticket } from "lucide-react";
+import { Plus, Ticket, Calendar, Clock, Tag, User } from "lucide-react";
+import { toast } from "react-toastify";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { DataView } from "@/components/data-view/data-view";
 import type {
   DataViewColumnDef,
@@ -12,14 +14,32 @@ import type {
   DataViewListParams,
   PaginatedResult,
 } from "@/components/data-view/data-view.types";
-import { listTicketsForDataViewAction, getTicketDetailAction } from "@/app/actions/help-desk";
+import {
+  listTicketsForDataViewAction,
+  getTicketDetailAction,
+  addTicketCommentAction,
+} from "@/app/actions/help-desk";
 import type {
   HelpdeskTicketListRow,
   HelpdeskTicketDetail,
+  HelpdeskTicketComment,
+  HelpdeskTicketActivity,
 } from "@/server/services/helpdesk-tickets.service";
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
 import { TicketStatusBadge } from "@/components/help-desk/ticket-status-badge";
 import { TicketPriorityBadge } from "@/components/help-desk/ticket-priority-badge";
+import { UserAvatarGroup } from "@/components/primitives/avatar/user-avatar-group";
+import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-avatar-group";
+import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
+import { CommentRenderer } from "@/components/primitives/comments/comment-renderer";
+import { CommentEditor } from "@/components/primitives/comments/comment-editor";
+import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
+import {
+  createEmptyRichText,
+  extractPlainText,
+  normalizeRichText,
+} from "@/components/primitives/rich-text/rich-text-utils";
 
 const HELPDESK_TICKETS_QUERY_KEY = ["helpdesk-tickets-dataview"];
 
@@ -44,24 +64,249 @@ async function detailFetcher(id: string): Promise<HelpdeskTicketDetail | null> {
   return result.data;
 }
 
-function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assignees"] }) {
-  if (assignees.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
-  const displayed = assignees.slice(0, 3);
-  const extra = assignees.length - displayed.length;
+function TicketDetailPanel({ detail }: { detail: HelpdeskTicketDetail }) {
+  const t = useTranslations("modules.helpDesk");
+  const [comments, setComments] = useState<HelpdeskTicketComment[]>(detail.comments);
+  const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
+  const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  const canComment = detail.status !== "closed" && detail.status !== "cancelled";
+
+  const handleAddComment = async (value: RichTextValue) => {
+    const bodyPlain = extractPlainText(value);
+    if (!bodyPlain.trim()) return;
+    setIsSubmittingComment(true);
+    try {
+      const result = await addTicketCommentAction({
+        ticket_id: detail.id,
+        body: bodyPlain.trim(),
+        body_rich: value,
+        is_internal: false,
+      });
+      if (!result.success) {
+        toast.error((result as { success: false; error: string }).error);
+        return;
+      }
+      setCommentValue(createEmptyRichText());
+      toast.success(t("tickets.commentAdded"));
+      // Refetch full detail to get updated comments + activity in one shot
+      const fresh = await getTicketDetailAction(detail.id);
+      if (fresh.success && fresh.data) {
+        setComments(fresh.data.comments);
+        setActivity(fresh.data.activity);
+      } else {
+        setComments((prev) => [...prev, result.data]);
+      }
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
   return (
-    <div className="flex items-center gap-1">
-      {displayed.map((a) => (
-        <span
-          key={a.user_id}
-          className="bg-muted inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium"
-          title={a.name ?? a.email ?? a.user_id}
-        >
-          {(a.name ?? a.email ?? "?").slice(0, 2).toUpperCase()}
-        </span>
-      ))}
-      {extra > 0 && <span className="text-muted-foreground text-xs">+{extra}</span>}
+    <div className="flex flex-col gap-4 p-4">
+      {/* Header */}
+      <div>
+        <p className="text-muted-foreground font-mono text-xs">{detail.ticket_number}</p>
+        <h3 className="mt-1 text-base font-semibold leading-snug">{detail.title}</h3>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <TicketStatusBadge status={detail.status} />
+          <TicketPriorityBadge priority={detail.priority} />
+          {detail.ticket_type_name && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+              style={{ borderColor: detail.ticket_type_color ?? undefined }}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: detail.ticket_type_color ?? "#6366f1" }}
+              />
+              {detail.ticket_type_name}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Two-column body */}
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Main: description + comments */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {(detail.description_rich || detail.description_plain) && (
+            <div>
+              <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+                {t("tickets.description")}
+              </p>
+              <RichTextRenderer
+                value={normalizeRichText(detail.description_rich)}
+                emptyText={detail.description_plain ?? undefined}
+                prose
+                className="break-words"
+              />
+            </div>
+          )}
+
+          <Separator />
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold">
+              {t("tickets.comments")} ({comments.length})
+            </h4>
+            {comments.length === 0 ? (
+              <p className="text-muted-foreground text-sm">{t("tickets.noComments")}</p>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((c) => (
+                  <CommentRenderer
+                    key={c.id}
+                    value={normalizeRichText(c.body_rich) ?? undefined}
+                    author={{
+                      name: c.creator_name ?? c.creator_email ?? "Unknown",
+                      email: c.creator_email ?? undefined,
+                      avatarUrl: c.creator_avatar_url ?? undefined,
+                      profileHref: c.creator_profile_href ?? undefined,
+                    }}
+                    createdAt={new Date(c.created_at).toLocaleString()}
+                    emptyText={c.body}
+                    density="compact"
+                  />
+                ))}
+              </div>
+            )}
+            {canComment && (
+              <CommentEditor
+                value={commentValue}
+                onChange={setCommentValue}
+                onSubmit={handleAddComment}
+                placeholder={t("tickets.commentPlaceholder")}
+                submitLabel={t("tickets.addComment")}
+                submitting={isSubmittingComment}
+                density="compact"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar: view button + details */}
+        <div className="w-full shrink-0 space-y-3 lg:w-52">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => (window.location.href = `/dashboard/help-desk/tickets/${detail.id}`)}
+          >
+            <Ticket className="mr-1.5 h-3.5 w-3.5" />
+            {t("tickets.viewFull")}
+          </Button>
+
+          <div className="rounded-lg border p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <User className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-muted-foreground text-[10px] uppercase">
+                  {t("tickets.columns.createdBy")}
+                </p>
+                <p className="truncate text-xs">
+                  {detail.creator_name ?? detail.creator_email ?? "—"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <Calendar className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-muted-foreground text-[10px] uppercase">
+                  {t("tickets.columns.createdAt")}
+                </p>
+                <p className="text-xs">{new Date(detail.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {detail.due_at && (
+              <div className="flex items-start gap-2">
+                <Clock className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tickets.fields.dueAt")}
+                  </p>
+                  <p className="text-xs">{new Date(detail.due_at).toLocaleString()}</p>
+                </div>
+              </div>
+            )}
+
+            {detail.ticket_type_name && (
+              <div className="flex items-start gap-2">
+                <Tag className="text-muted-foreground mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-muted-foreground text-[10px] uppercase">
+                    {t("tickets.columns.type")}
+                  </p>
+                  <p className="truncate text-xs">{detail.ticket_type_name}</p>
+                </div>
+              </div>
+            )}
+
+            {detail.assignees.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <p className="text-muted-foreground mb-1.5 text-[10px] uppercase">
+                    {t("tickets.columns.responders")}
+                  </p>
+                  <div className="space-y-1.5">
+                    {detail.assignees.map((a) => (
+                      <div key={a.user_id} className="flex items-center gap-2">
+                        <UserAvatar
+                          className="h-5 w-5"
+                          fullName={a.name}
+                          email={a.email}
+                          src={a.avatar_url}
+                          profileHref={a.profile_href ?? undefined}
+                        />
+                        <span className="truncate text-xs">{a.name ?? a.email ?? a.user_id}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {activity.length > 0 && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <h4 className="text-xs font-semibold">{t("tickets.activityLabel")}</h4>
+              <div className="space-y-2">
+                {activity.slice(0, 10).map((a) => (
+                  <div key={a.id} className="flex gap-2 text-xs">
+                    <span className="text-muted-foreground shrink-0 pt-0.5">
+                      {new Date(a.created_at).toLocaleDateString()}
+                    </span>
+                    <span className="text-muted-foreground">
+                      <span className="font-medium text-foreground">
+                        {a.actor_name ?? "System"}
+                      </span>{" "}
+                      {t(`tickets.activity.${a.event_type}`, { defaultValue: a.event_type })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
+}
+
+function AssigneeAvatars({ assignees }: { assignees: HelpdeskTicketListRow["assignees"] }) {
+  if (assignees.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  const users: UserAvatarGroupItem[] = assignees.map((a) => ({
+    id: a.user_id,
+    fullName: a.name ?? undefined,
+    email: a.email ?? undefined,
+    src: a.avatar_url ?? undefined,
+    profileHref: a.profile_href ?? undefined,
+  }));
+  return <UserAvatarGroup users={users} max={3} size="sm" popoverSide="top" />;
 }
 
 export function TicketsClient({
@@ -155,16 +400,33 @@ export function TicketsClient({
       {
         key: "creator",
         header: t("tickets.columns.createdBy"),
-        accessor: (row) => (
-          <span className="text-sm">{row.creator_name ?? row.creator_email ?? "—"}</span>
-        ),
+        accessor: (row) =>
+          row.creator_name || row.creator_email ? (
+            <div className="flex justify-center">
+              <UserAvatar
+                className="h-6 w-6"
+                fullName={row.creator_name}
+                email={row.creator_email}
+                src={row.creator_avatar_url}
+                profileHref={row.creator_profile_href ?? undefined}
+              />
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <span className="text-muted-foreground text-xs">—</span>
+            </div>
+          ),
         sortable: false,
         defaultVisible: true,
       },
       {
         key: "assignees",
         header: t("tickets.columns.responders"),
-        accessor: (row) => <AssigneeAvatars assignees={row.assignees} />,
+        accessor: (row) => (
+          <div className="flex justify-center">
+            <AssigneeAvatars assignees={row.assignees} />
+          </div>
+        ),
         sortable: false,
         defaultVisible: true,
       },
@@ -288,73 +550,7 @@ export function TicketsClient({
               <span className="text-sm font-medium">{row.title}</span>
             </div>
           )}
-          renderDetail={(detail) => (
-            <div className="space-y-4 p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-muted-foreground font-mono text-xs">{detail.ticket_number}</p>
-                  <h3 className="mt-1 text-base font-semibold">{detail.title}</h3>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    (window.location.href = `/dashboard/help-desk/tickets/${detail.id}`)
-                  }
-                >
-                  <Ticket className="mr-1 h-3 w-3" />
-                  {t("tickets.viewFull")}
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <TicketStatusBadge status={detail.status} />
-                <TicketPriorityBadge priority={detail.priority} />
-              </div>
-              {detail.ticket_type_name && (
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase">
-                    {t("tickets.columns.type")}
-                  </p>
-                  <p className="text-sm">{detail.ticket_type_name}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-muted-foreground text-xs uppercase">
-                  {t("tickets.columns.createdBy")}
-                </p>
-                <p className="text-sm">{detail.creator_name ?? detail.creator_email ?? "—"}</p>
-              </div>
-              {detail.assignees.length > 0 && (
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase">
-                    {t("tickets.columns.responders")}
-                  </p>
-                  <div className="mt-1 flex flex-col gap-1">
-                    {detail.assignees.map((a) => (
-                      <span key={a.user_id} className="text-sm">
-                        {a.name ?? a.email ?? a.user_id}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {detail.description_plain && (
-                <div>
-                  <p className="text-muted-foreground text-xs uppercase">
-                    {t("tickets.description")}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-sm line-clamp-4">
-                    {detail.description_plain}
-                  </p>
-                </div>
-              )}
-              <div className="pt-1">
-                <p className="text-muted-foreground text-xs">
-                  {t("tickets.comments")}: {detail.comments.length}
-                </p>
-              </div>
-            </div>
-          )}
+          renderDetail={(detail) => <TicketDetailPanel detail={detail} />}
           renderToolbarControls={() =>
             canCreate ? (
               <Button size="sm" onClick={() => router.push("/dashboard/help-desk/tickets/new")}>

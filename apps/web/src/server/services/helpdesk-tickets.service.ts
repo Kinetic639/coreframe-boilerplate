@@ -1,5 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { OrgMemberPublicProfileService } from "./org-member-public-profile.service";
+import type { OrgMemberPublicProfile } from "./org-member-public-profile.service";
 import type {
   AddTicketCommentInput,
   AssigneeRole,
@@ -24,6 +26,7 @@ export interface HelpdeskAssigneeInfo {
   name: string | null;
   email: string | null;
   avatar_url?: string | null;
+  profile_href: string | null;
 }
 
 export interface HelpdeskTicketListRow {
@@ -40,6 +43,8 @@ export interface HelpdeskTicketListRow {
   created_by: string;
   creator_name: string | null;
   creator_email: string | null;
+  creator_avatar_url: string | null;
+  creator_profile_href: string | null;
   assignees: HelpdeskAssigneeInfo[];
   branch_id: string | null;
   closed_at: string | null;
@@ -69,6 +74,7 @@ export interface HelpdeskTicketComment {
   creator_name: string | null;
   creator_email: string | null;
   creator_avatar_url: string | null;
+  creator_profile_href: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -107,6 +113,22 @@ export interface HelpdeskTicket {
 }
 
 export type ServiceResult<T> = { success: true; data: T } | { success: false; error: string };
+
+// ---------------------------------------------------------------------------
+// Profile enrichment helper
+// ---------------------------------------------------------------------------
+
+async function fetchProfileMap(
+  supabase: SupabaseClient,
+  orgId: string,
+  userIds: string[]
+): Promise<Map<string, OrgMemberPublicProfile>> {
+  const unique = Array.from(new Set(userIds.filter(Boolean)));
+  if (unique.length === 0) return new Map();
+  const result = await OrgMemberPublicProfileService.listProfiles(supabase, orgId, unique);
+  if (!result.success) return new Map();
+  return new Map(result.data.map((p) => [p.user_id, p]));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -159,7 +181,7 @@ export class HelpdeskTicketsService {
           "id, org_id, ticket_number, title, status, priority,",
           "ticket_type_id, created_by, branch_id, closed_at, created_at, updated_at,",
           "ticket_type:helpdesk_ticket_types!ticket_type_id(id,name,color,icon),",
-          "creator:users!created_by(id,first_name,last_name,email)",
+          "creator:users!created_by(id,first_name,last_name,email,avatar_url)",
         ].join(""),
         { count: "exact" }
       )
@@ -223,11 +245,20 @@ export class HelpdeskTicketsService {
           name: u ? displayName(u.first_name, u.last_name, u.email) : null,
           email: u?.email ?? null,
           avatar_url: u?.avatar_url ?? null,
+          profile_href: null,
         };
         const existing = assigneeMap.get(row.ticket_id as string) ?? [];
         assigneeMap.set(row.ticket_id as string, [...existing, info]);
       }
     }
+
+    // Batch-enrich all user references with signed avatars + profile links
+    const allUserIds: string[] = [];
+    tickets.forEach((t) => {
+      if (t.created_by) allUserIds.push(t.created_by as string);
+    });
+    assigneeMap.forEach((infos) => infos.forEach((a) => allUserIds.push(a.user_id)));
+    const profileMap = await fetchProfileMap(supabase, orgId, allUserIds);
 
     const rows: HelpdeskTicketListRow[] = tickets.map((t) => {
       const type = t.ticket_type as {
@@ -241,7 +272,21 @@ export class HelpdeskTicketsService {
         first_name: string | null;
         last_name: string | null;
         email: string | null;
+        avatar_url: string | null;
       } | null;
+      const creatorProfile = profileMap.get(t.created_by as string);
+      const enrichedAssignees = (assigneeMap.get(t.id as string) ?? []).map((a) => {
+        const p = profileMap.get(a.user_id);
+        return p
+          ? {
+              ...a,
+              name: p.display_name,
+              email: p.email,
+              avatar_url: p.avatar_url,
+              profile_href: p.profile_href,
+            }
+          : a;
+      });
       return {
         id: t.id as string,
         org_id: t.org_id as string,
@@ -254,11 +299,13 @@ export class HelpdeskTicketsService {
         ticket_type_color: type?.color ?? null,
         ticket_type_icon: type?.icon ?? null,
         created_by: t.created_by as string,
-        creator_name: creator
-          ? displayName(creator.first_name, creator.last_name, creator.email)
-          : null,
-        creator_email: creator?.email ?? null,
-        assignees: assigneeMap.get(t.id as string) ?? [],
+        creator_name:
+          creatorProfile?.display_name ??
+          (creator ? displayName(creator.first_name, creator.last_name, creator.email) : null),
+        creator_email: creatorProfile?.email ?? creator?.email ?? null,
+        creator_avatar_url: creatorProfile?.avatar_url ?? creator?.avatar_url ?? null,
+        creator_profile_href: creatorProfile?.profile_href ?? null,
+        assignees: enrichedAssignees,
         branch_id: (t.branch_id as string | null) ?? null,
         closed_at: (t.closed_at as string | null) ?? null,
         created_at: t.created_at as string,
@@ -317,6 +364,7 @@ export class HelpdeskTicketsService {
         name: u ? displayName(u.first_name, u.last_name, u.email) : null,
         email: u?.email ?? null,
         avatar_url: u?.avatar_url ?? null,
+        profile_href: null,
       };
     });
 
@@ -348,6 +396,7 @@ export class HelpdeskTicketsService {
         creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
         creator_email: u?.email ?? null,
         creator_avatar_url: u?.avatar_url ?? null,
+        creator_profile_href: null,
         created_at: row.created_at as string,
         updated_at: row.updated_at as string,
         deleted_at: (row.deleted_at as string | null) ?? null,
@@ -395,6 +444,40 @@ export class HelpdeskTicketsService {
       email: string | null;
     } | null;
 
+    // Batch-enrich all user references with signed avatars + profile links
+    const detailUserIds = [
+      ticket.created_by as string,
+      ...assignees.map((a) => a.user_id),
+      ...comments.map((c) => c.created_by),
+    ].filter(Boolean);
+    const profileMap = await fetchProfileMap(supabase, orgId, detailUserIds);
+
+    const creatorProfile = profileMap.get(ticket.created_by as string);
+    const enrichedAssignees = assignees.map((a) => {
+      const p = profileMap.get(a.user_id);
+      return p
+        ? {
+            ...a,
+            name: p.display_name,
+            email: p.email,
+            avatar_url: p.avatar_url,
+            profile_href: p.profile_href,
+          }
+        : a;
+    });
+    const enrichedComments = comments.map((c) => {
+      const p = profileMap.get(c.created_by);
+      return p
+        ? {
+            ...c,
+            creator_name: p.display_name,
+            creator_email: p.email,
+            creator_avatar_url: p.avatar_url,
+            creator_profile_href: p.profile_href,
+          }
+        : c;
+    });
+
     const detail: HelpdeskTicketDetail = {
       id: ticket.id as string,
       org_id: ticket.org_id as string,
@@ -407,11 +490,13 @@ export class HelpdeskTicketsService {
       ticket_type_color: type?.color ?? null,
       ticket_type_icon: type?.icon ?? null,
       created_by: ticket.created_by as string,
-      creator_name: creator
-        ? displayName(creator.first_name, creator.last_name, creator.email)
-        : null,
-      creator_email: creator?.email ?? null,
-      assignees,
+      creator_name:
+        creatorProfile?.display_name ??
+        (creator ? displayName(creator.first_name, creator.last_name, creator.email) : null),
+      creator_email: creatorProfile?.email ?? creator?.email ?? null,
+      creator_avatar_url: creatorProfile?.avatar_url ?? null,
+      creator_profile_href: creatorProfile?.profile_href ?? null,
+      assignees: enrichedAssignees,
       branch_id: (ticket.branch_id as string | null) ?? null,
       closed_at: (ticket.closed_at as string | null) ?? null,
       created_at: ticket.created_at as string,
@@ -422,7 +507,7 @@ export class HelpdeskTicketsService {
       closed_by: (ticket.closed_by as string | null) ?? null,
       resolved_at: (ticket.resolved_at as string | null) ?? null,
       due_at: (ticket.due_at as string | null) ?? null,
-      comments,
+      comments: enrichedComments,
       activity,
     };
 
@@ -509,6 +594,7 @@ export class HelpdeskTicketsService {
         creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
         creator_email: u?.email ?? null,
         creator_avatar_url: u?.avatar_url ?? null,
+        creator_profile_href: null,
         created_at: data.created_at as string,
         updated_at: data.updated_at as string,
         deleted_at: (data.deleted_at as string | null) ?? null,
@@ -593,6 +679,8 @@ export class HelpdeskTicketsService {
           ? displayName(creator.first_name, creator.last_name, creator.email)
           : null,
         creator_email: creator?.email ?? null,
+        creator_avatar_url: null,
+        creator_profile_href: null,
         assignees: [],
         branch_id: (data.branch_id as string | null) ?? null,
         closed_at: data.closed_at as string,
@@ -720,6 +808,7 @@ export class HelpdeskTicketsService {
           creator_name: u ? displayName(u.first_name, u.last_name, u.email) : null,
           creator_email: u?.email ?? null,
           creator_avatar_url: u?.avatar_url ?? null,
+          creator_profile_href: null,
           created_at: row.created_at as string,
           updated_at: row.updated_at as string,
           deleted_at: (row.deleted_at as string | null) ?? null,

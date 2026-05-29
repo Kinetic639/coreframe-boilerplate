@@ -8,7 +8,6 @@ import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -20,6 +19,12 @@ import { MemberSelector, type MemberOption } from "@/components/help-desk/member
 import { createTicketAction, getTicketTypeDefaultRespondersAction } from "@/app/actions/help-desk";
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
 import { TICKET_PRIORITIES, type TicketPriority } from "@/lib/validations/helpdesk";
+import { RichTextEditorField } from "@/components/primitives/rich-text/rich-text-editor-field";
+import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
+import {
+  createEmptyRichText,
+  extractPlainText,
+} from "@/components/primitives/rich-text/rich-text-utils";
 
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
@@ -32,7 +37,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [descriptionRich, setDescriptionRich] = useState<RichTextValue>(createEmptyRichText);
   const [ticketTypeId, setTicketTypeId] = useState<string>("");
   const [priority, setPriority] = useState<TicketPriority>("medium");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
@@ -72,9 +77,11 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
 
     setIsSubmitting(true);
     try {
+      const descriptionPlain = extractPlainText(descriptionRich);
       const result = await createTicketAction({
         title: title.trim(),
-        description_plain: description.trim() || undefined,
+        description_plain: descriptionPlain || undefined,
+        description_rich: descriptionRich,
         status: "waiting_response",
         priority,
         ticket_type_id: ticketTypeId || undefined,
@@ -202,17 +209,15 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
 
         {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="description">{t("tickets.fields.description")}</Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+          <Label>{t("tickets.fields.description")}</Label>
+          <RichTextEditorField
+            value={descriptionRich}
+            onChange={setDescriptionRich}
+            mode="simple"
             placeholder={t("tickets.fields.descriptionPlaceholder")}
-            rows={5}
-            maxLength={10000}
             disabled={isSubmitting}
+            maxLength={10000}
           />
-          <p className="text-muted-foreground text-xs">{description.length}/10000</p>
         </div>
 
         {/* Actions */}

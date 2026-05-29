@@ -4,18 +4,31 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "react-toastify";
-import { ArrowLeft, Send, Loader2, CheckCircle, Clock, User, Tag, Calendar } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, Clock, User, Tag, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { TicketStatusBadge } from "@/components/help-desk/ticket-status-badge";
 import { TicketPriorityBadge } from "@/components/help-desk/ticket-priority-badge";
-import { closeTicketAction, addTicketCommentAction } from "@/app/actions/help-desk";
+import {
+  closeTicketAction,
+  addTicketCommentAction,
+  getTicketDetailAction,
+} from "@/app/actions/help-desk";
 import type {
   HelpdeskTicketDetail,
   HelpdeskTicketComment,
 } from "@/server/services/helpdesk-tickets.service";
+import { CommentEditor } from "@/components/primitives/comments/comment-editor";
+import { CommentRenderer } from "@/components/primitives/comments/comment-renderer";
+import type { CommentAuthor } from "@/components/primitives/comments/comment-types";
+import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
+import { RichTextRenderer } from "@/components/primitives/rich-text/rich-text-renderer";
+import type { RichTextValue } from "@/components/primitives/rich-text/rich-text-types";
+import {
+  createEmptyRichText,
+  extractPlainText,
+  normalizeRichText,
+} from "@/components/primitives/rich-text/rich-text-utils";
 
 interface TicketDetailClientProps {
   ticket: HelpdeskTicketDetail;
@@ -23,38 +36,17 @@ interface TicketDetailClientProps {
   currentUserId: string;
 }
 
-function getInitials(name: string | null, email: string | null): string {
-  if (name) {
-    const parts = name.trim().split(" ");
-    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-  if (email) return email.slice(0, 2).toUpperCase();
-  return "?";
-}
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
-function CommentItem({ comment }: { comment: HelpdeskTicketComment }) {
-  const displayName = comment.creator_name ?? comment.creator_email ?? "Unknown";
-  return (
-    <div className="flex gap-3">
-      <Avatar className="mt-0.5 h-8 w-8 shrink-0">
-        <AvatarFallback className="text-xs">
-          {getInitials(comment.creator_name, comment.creator_email)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1 space-y-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-sm font-medium">{displayName}</span>
-          <span className="text-muted-foreground text-xs">{formatDate(comment.created_at)}</span>
-        </div>
-        <div className="bg-muted/50 rounded-lg p-3 text-sm whitespace-pre-wrap">{comment.body}</div>
-      </div>
-    </div>
-  );
+function commentToAuthor(comment: HelpdeskTicketComment): CommentAuthor {
+  return {
+    name: comment.creator_name ?? comment.creator_email ?? "Unknown",
+    email: comment.creator_email ?? undefined,
+    avatarUrl: comment.creator_avatar_url ?? undefined,
+    profileHref: comment.creator_profile_href ?? undefined,
+  };
 }
 
 export function TicketDetailClient({
@@ -65,7 +57,7 @@ export function TicketDetailClient({
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
   const [ticket, setTicket] = useState(initialTicket);
-  const [commentBody, setCommentBody] = useState("");
+  const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -73,27 +65,33 @@ export function TicketDetailClient({
   const canClose =
     (canManage || isCreator) && ticket.status !== "closed" && ticket.status !== "cancelled";
 
-  const handleAddComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentBody.trim()) return;
+  const handleAddComment = async (value: RichTextValue) => {
+    const bodyPlain = extractPlainText(value);
+    if (!bodyPlain.trim()) return;
     setIsSubmittingComment(true);
     try {
       const result = await addTicketCommentAction({
         ticket_id: ticket.id,
-        body: commentBody.trim(),
+        body: bodyPlain.trim(),
+        body_rich: value,
         is_internal: false,
       });
       if (!result.success) {
         toast.error((result as { success: false; error: string }).error);
         return;
       }
-      setCommentBody("");
-      setTicket((prev) => ({
-        ...prev,
-        comments: [...prev.comments, result.data],
-        updated_at: new Date().toISOString(),
-      }));
+      setCommentValue(createEmptyRichText());
       toast.success(t("tickets.commentAdded"));
+      const fresh = await getTicketDetailAction(ticket.id);
+      if (fresh.success && fresh.data) {
+        setTicket(fresh.data);
+      } else {
+        setTicket((prev) => ({
+          ...prev,
+          comments: [...prev.comments, result.data],
+          updated_at: new Date().toISOString(),
+        }));
+      }
     } finally {
       setIsSubmittingComment(false);
     }
@@ -156,12 +154,17 @@ export function TicketDetailClient({
           </div>
 
           {/* Description */}
-          {ticket.description_plain && (
+          {(ticket.description_rich || ticket.description_plain) && (
             <div>
               <p className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
                 {t("tickets.description")}
               </p>
-              <p className="text-sm whitespace-pre-wrap">{ticket.description_plain}</p>
+              <RichTextRenderer
+                value={normalizeRichText(ticket.description_rich)}
+                emptyText={ticket.description_plain ?? undefined}
+                prose
+                className="break-words"
+              />
             </div>
           )}
 
@@ -178,35 +181,30 @@ export function TicketDetailClient({
             ) : (
               <div className="space-y-4">
                 {ticket.comments.map((c) => (
-                  <CommentItem key={c.id} comment={c} />
+                  <CommentRenderer
+                    key={c.id}
+                    value={normalizeRichText(c.body_rich) ?? undefined}
+                    author={commentToAuthor(c)}
+                    createdAt={formatDate(c.created_at)}
+                    emptyText={c.body}
+                  />
                 ))}
               </div>
             )}
 
-            {/* Add comment form */}
+            {/* Add comment */}
             {ticket.status !== "closed" && ticket.status !== "cancelled" && (
-              <form onSubmit={handleAddComment} className="space-y-2 pt-2">
-                <Textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
+              <div className="pt-2">
+                <CommentEditor
+                  value={commentValue}
+                  onChange={setCommentValue}
+                  onSubmit={handleAddComment}
                   placeholder={t("tickets.commentPlaceholder")}
-                  rows={3}
-                  maxLength={5000}
-                  disabled={isSubmittingComment}
+                  submitLabel={t("tickets.addComment")}
+                  submitting={isSubmittingComment}
+                  density="compact"
                 />
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmittingComment || !commentBody.trim()}
-                >
-                  {isSubmittingComment ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  {t("tickets.addComment")}
-                </Button>
-              </form>
+              </div>
             )}
           </div>
         </div>
@@ -278,11 +276,13 @@ export function TicketDetailClient({
                   <div className="space-y-2">
                     {ticket.assignees.map((a) => (
                       <div key={a.user_id} className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-[10px]">
-                            {getInitials(a.name, a.email)}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserAvatar
+                          className="h-6 w-6"
+                          fullName={a.name}
+                          email={a.email}
+                          src={a.avatar_url}
+                          profileHref={a.profile_href ?? undefined}
+                        />
                         <span className="truncate text-sm">{a.name ?? a.email ?? a.user_id}</span>
                       </div>
                     ))}

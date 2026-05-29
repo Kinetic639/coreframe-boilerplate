@@ -3019,8 +3019,8 @@
           "type": "Type",
           "status": "Status",
           "priority": "Priority",
-          "createdBy": "Created By",
-          "responders": "Responders",
+          "createdBy": "Author",
+          "responders": "Assigned",
           "createdAt": "Created",
           "updatedAt": "Updated"
         },
