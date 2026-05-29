@@ -5347,5 +5347,39 @@
       "sampleVariantDescription": "Niebieska koszulka rozmiar M",
       "sampleSheetName": "Produkty"
     }
+  },
+  "publicOrgProfile": {
+    "badge": "Profil publiczny",
+    "description": "Publiczne informacje organizacji, oddziały i członkowie zespołu widoczni wewnątrz organizacji.",
+    "memberCount": "{count} aktywnych członków",
+    "tabs": {
+      "organization": "Profil organizacji",
+      "branches": "Oddziały",
+      "members": "Członkowie"
+    },
+    "organization": {
+      "publicInformation": "Informacje publiczne"
+    },
+    "branches": {
+      "publicMap": "Mapa publiczna",
+      "publicMapShort": "Mapa"
+    },
+    "members": {
+      "showing": "Pokazano {from}-{to} z {count}",
+      "previous": "Poprzednia",
+      "next": "Następna"
+    },
+    "memberProfile": {
+      "back": "Wróć do członków",
+      "badge": "Profil członka",
+      "about": "O użytkowniku"
+    },
+    "empty": {
+      "description": "Nie dodano jeszcze publicznego opisu.",
+      "branches": "Nie znaleziono publicznych oddziałów.",
+      "branchDescription": "Nie dodano jeszcze publicznego opisu oddziału.",
+      "members": "Nie znaleziono publicznych członków.",
+      "memberBio": "Nie dodano jeszcze publicznego biogramu."
+    }
   }
 }

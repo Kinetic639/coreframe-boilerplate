@@ -12,6 +12,14 @@ vi.mock("@/lib/stores/v2/app-store", () => ({
   useAppStoreV2: vi.fn(),
 }));
 
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={String(href)} {...props}>
+      {children}
+    </a>
+  ),
+}));
+
 import { SidebarOrgHeader } from "../sidebar-org-header";
 import { useAppStoreV2 } from "@/lib/stores/v2/app-store";
 
@@ -38,6 +46,10 @@ describe("SidebarOrgHeader", () => {
     expect(screen.getByText("Main Org")).toBeInTheDocument();
     expect(screen.getByText("Warehouse Division")).toBeInTheDocument();
     expect(screen.getByAltText("Main Org")).toHaveAttribute("src", "https://example.com/logo.png");
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "/dashboard/organization/public-profile"
+    );
   });
 
   it("renders the fallback icon when the org has no logo", () => {
