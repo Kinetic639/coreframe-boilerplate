@@ -203,6 +203,18 @@ export const routing = defineRouting({
       en: "/dashboard/organization/profile",
       pl: "/dashboard/organizacja/profil",
     },
+    "/dashboard/organization/public-profile": {
+      en: "/dashboard/organization/public-profile",
+      pl: "/dashboard/organizacja/profil-publiczny",
+    },
+    "/dashboard/organization/public-profile/[tab]": {
+      en: "/dashboard/organization/public-profile/[tab]",
+      pl: "/dashboard/organizacja/profil-publiczny/[tab]",
+    },
+    "/dashboard/organization/public-profile/members/[memberId]": {
+      en: "/dashboard/organization/public-profile/members/[memberId]",
+      pl: "/dashboard/organizacja/profil-publiczny/czlonkowie/[memberId]",
+    },
     "/dashboard/organization/users": {
       en: "/dashboard/organization/users",
       pl: "/dashboard/organizacja/uzytkownicy",

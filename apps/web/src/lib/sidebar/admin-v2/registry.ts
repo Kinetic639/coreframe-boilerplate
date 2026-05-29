@@ -108,6 +108,16 @@ export const ADMIN_MAIN_NAV_ITEMS: SidebarItem[] = [
       requiresPermissions: [SUPERADMIN_ADMIN_READ],
     },
   },
+  {
+    id: "admin.org-members",
+    title: "Org Members",
+    iconKey: "users",
+    href: "/admin/org-members",
+    match: { startsWith: "/admin/org-members" },
+    visibility: {
+      requiresPermissions: [SUPERADMIN_ADMIN_READ],
+    },
+  },
 ];
 
 export const ADMIN_FOOTER_NAV_ITEMS: SidebarItem[] = [];

@@ -5499,5 +5499,39 @@
       "sampleVariantDescription": "Blue medium shirt",
       "sampleSheetName": "Items"
     }
+  },
+  "publicOrgProfile": {
+    "badge": "Public profile",
+    "description": "Public organization information, branches, and team members visible inside your organization.",
+    "memberCount": "{count} active members",
+    "tabs": {
+      "organization": "Org profile",
+      "branches": "Branches",
+      "members": "Members"
+    },
+    "organization": {
+      "publicInformation": "Public information"
+    },
+    "branches": {
+      "publicMap": "Public map",
+      "publicMapShort": "Map"
+    },
+    "members": {
+      "showing": "Showing {from}-{to} of {count}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "memberProfile": {
+      "back": "Back to members",
+      "badge": "Member profile",
+      "about": "About"
+    },
+    "empty": {
+      "description": "No public description has been added yet.",
+      "branches": "No public branches found.",
+      "branchDescription": "No public branch description has been added yet.",
+      "members": "No public members found.",
+      "memberBio": "No public biography has been added yet."
+    }
   }
 }

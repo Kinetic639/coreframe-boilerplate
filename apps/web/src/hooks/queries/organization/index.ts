@@ -17,6 +17,7 @@ import {
   updateMemberStatusAction,
   removeMemberAction,
 } from "@/app/actions/organization/members";
+import { listOrgMemberPublicProfilesAction } from "@/app/actions/organization/member-public-profiles";
 import {
   listInvitationsAction,
   createInvitationAction,
@@ -58,6 +59,7 @@ import type {
   OrgMemberAccess,
   UpdateOrgProfileInput,
 } from "@/server/services/organization.service";
+import type { OrgMemberPublicProfile } from "@/server/services/org-member-public-profile.service";
 
 // ─── Discriminated result helper ──────────────────────────────────────────────
 // Narrowing happens inside the helper where `result` is typed as a parameter,
@@ -78,6 +80,8 @@ export const organizationKeys = {
   all: ["organization"] as const,
   profile: () => [...organizationKeys.all, "profile"] as const,
   members: () => [...organizationKeys.all, "members"] as const,
+  memberPublicProfiles: (userIds: string[]) =>
+    [...organizationKeys.all, "member-public-profiles", [...userIds].sort()] as const,
   memberAccess: (userId: string) => [...organizationKeys.all, "member-access", userId] as const,
   invitations: () => [...organizationKeys.all, "invitations"] as const,
   roles: () => [...organizationKeys.all, "roles"] as const,
@@ -152,6 +156,23 @@ export function useMembersQuery(initialMembers: OrgMember[]) {
     queryKey: organizationKeys.members(),
     queryFn: async () => unwrapSR((await listMembersAction()) as SR<OrgMember[]>),
     initialData: initialMembers,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useOrgMemberPublicProfilesQuery(userIds: string[], enabled = true) {
+  const uniqueUserIds = Array.from(new Set(userIds.filter(Boolean)));
+
+  return useQuery({
+    queryKey: organizationKeys.memberPublicProfiles(uniqueUserIds),
+    queryFn: async () =>
+      unwrapSR(
+        (await listOrgMemberPublicProfilesAction({
+          userIds: uniqueUserIds,
+        })) as SR<OrgMemberPublicProfile[]>
+      ),
+    enabled: enabled && uniqueUserIds.length > 0,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
