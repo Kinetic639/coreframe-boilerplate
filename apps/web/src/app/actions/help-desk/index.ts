@@ -9,10 +9,14 @@ import {
   HELPDESK_TICKETS_CREATE,
   HELPDESK_TICKETS_MANAGE,
   HELPDESK_TICKET_TYPES_MANAGE,
+  HELPDESK_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   HelpdeskTicketTypesService,
   type HelpdeskTicketType,
+  type HelpdeskTicketTypeWithDetails,
+  type HelpdeskTypeDefaultAcceptor,
+  type HelpdeskSettingsRow,
 } from "@/server/services/helpdesk-ticket-types.service";
 import {
   HelpdeskTicketsService,
@@ -27,12 +31,14 @@ import {
   acceptTicketSchema,
   closeTicketSchema,
   addTicketCommentSchema,
+  saveHelpdeskSettingsSchema,
   type AcceptTicketInput,
   type CreateTicketTypeInput,
   type UpdateTicketTypeInput,
   type CreateTicketInput,
   type CloseTicketInput,
   type AddTicketCommentInput,
+  type SaveHelpdeskSettingsInput,
 } from "@/lib/validations/helpdesk";
 import { OrgMembersService, type OrgMember } from "@/server/services/organization.service";
 import type { DataViewListParams, PaginatedResult } from "@/lib/data-view/types";
@@ -343,6 +349,154 @@ export async function listCommentsAction(
     if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKETS_READ))
       return { success: false, error: "Insufficient permissions" };
     return HelpdeskTicketsService.listComments(ctx.supabase, ctx.orgId, ticketId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+
+export async function getHelpdeskSettingsAction(): Promise<
+  ActionResult<HelpdeskSettingsRow | null>
+> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_READ))
+      return { success: false, error: "Insufficient permissions" };
+    return HelpdeskTicketTypesService.getSettings(ctx.supabase, ctx.orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function saveHelpdeskSettingsAction(
+  input: SaveHelpdeskSettingsInput
+): Promise<ActionResult<void>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_SETTINGS_MANAGE))
+      return { success: false, error: "Insufficient permissions" };
+    const parsed = saveHelpdeskSettingsSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+    return HelpdeskTicketTypesService.saveSettings(ctx.supabase, ctx.orgId, parsed.data);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ticket types — with responders + acceptors
+// ---------------------------------------------------------------------------
+
+export async function listTicketTypesWithDetailsAction(): Promise<
+  ActionResult<HelpdeskTicketTypeWithDetails[]>
+> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKET_TYPES_MANAGE))
+      return { success: false, error: "Insufficient permissions" };
+    return HelpdeskTicketTypesService.listWithDetails(ctx.supabase, ctx.orgId);
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function createTicketTypeWithRespondersAction(
+  input: CreateTicketTypeInput
+): Promise<ActionResult<HelpdeskTicketType>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKET_TYPES_MANAGE))
+      return { success: false, error: "Insufficient permissions" };
+    const parsed = createTicketTypeSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+
+    const typeResult = await HelpdeskTicketTypesService.create(
+      ctx.supabase,
+      ctx.orgId,
+      ctx.userId,
+      parsed.data
+    );
+    if (!typeResult.success) return typeResult;
+
+    await Promise.all([
+      HelpdeskTicketTypesService.setDefaultResponders(
+        ctx.supabase,
+        ctx.orgId,
+        typeResult.data.id,
+        parsed.data.responder_user_ids ?? []
+      ),
+      HelpdeskTicketTypesService.setDefaultAcceptors(
+        ctx.supabase,
+        ctx.orgId,
+        typeResult.data.id,
+        parsed.data.acceptor_user_ids ?? []
+      ),
+    ]);
+
+    return typeResult;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function updateTicketTypeWithRespondersAction(
+  input: UpdateTicketTypeInput
+): Promise<ActionResult<HelpdeskTicketType>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_TICKET_TYPES_MANAGE))
+      return { success: false, error: "Insufficient permissions" };
+    const parsed = updateTicketTypeSchema.safeParse(input);
+    if (!parsed.success)
+      return { success: false, error: parsed.error.errors[0]?.message ?? parsed.error.message };
+
+    const typeResult = await HelpdeskTicketTypesService.update(
+      ctx.supabase,
+      ctx.orgId,
+      parsed.data
+    );
+    if (!typeResult.success) return typeResult;
+
+    await Promise.all([
+      HelpdeskTicketTypesService.setDefaultResponders(
+        ctx.supabase,
+        ctx.orgId,
+        (parsed.data as any).id,
+        (parsed.data as any).responder_user_ids ?? []
+      ),
+      HelpdeskTicketTypesService.setDefaultAcceptors(
+        ctx.supabase,
+        ctx.orgId,
+        (parsed.data as any).id,
+        (parsed.data as any).acceptor_user_ids ?? []
+      ),
+    ]);
+
+    return typeResult;
+  } catch {
+    return { success: false, error: "Unexpected error" };
+  }
+}
+
+export async function getTicketTypeDefaultAcceptorsAction(
+  ticketTypeId: string
+): Promise<ActionResult<HelpdeskTypeDefaultAcceptor[]>> {
+  try {
+    const ctx = await getAuthedContext();
+    if (!ctx) return { success: false, error: "Unauthorized" };
+    if (!checkPermission(ctx.context.user.permissionSnapshot, HELPDESK_READ))
+      return { success: false, error: "Insufficient permissions" };
+    return HelpdeskTicketTypesService.getDefaultAcceptors(ctx.supabase, ctx.orgId, ticketTypeId);
   } catch {
     return { success: false, error: "Unexpected error" };
   }

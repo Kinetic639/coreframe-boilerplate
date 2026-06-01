@@ -20,6 +20,7 @@ import {
   HELPDESK_READ,
   HELPDESK_TICKETS_READ,
   HELPDESK_TICKET_TYPES_MANAGE,
+  HELPDESK_SETTINGS_MANAGE,
 } from "@/lib/constants/permissions";
 import {
   MODULE_ORGANIZATION_MANAGEMENT,
@@ -211,11 +212,22 @@ export const MAIN_NAV_ITEMS: SidebarItem[] = [
         id: "help-desk.ticket-types",
         title: "Ticket Types",
         titleKey: "modules.helpDesk.items.ticketTypes",
-        iconKey: "settings",
+        iconKey: "ticket",
         href: "/dashboard/help-desk/ticket-types",
         match: { startsWith: "/dashboard/help-desk/ticket-types" },
         visibility: {
           requiresPermissions: [HELPDESK_TICKET_TYPES_MANAGE],
+        },
+      },
+      {
+        id: "help-desk.settings",
+        title: "Settings",
+        titleKey: "modules.helpDesk.items.settings",
+        iconKey: "settings",
+        href: "/dashboard/help-desk/settings",
+        match: { startsWith: "/dashboard/help-desk/settings" },
+        visibility: {
+          requiresPermissions: [HELPDESK_SETTINGS_MANAGE],
         },
       },
     ],

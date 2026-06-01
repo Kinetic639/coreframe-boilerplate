@@ -27,7 +27,7 @@ export type AssigneeStatus = (typeof ASSIGNEE_STATUSES)[number];
 // Ticket Types
 // ---------------------------------------------------------------------------
 
-export const createTicketTypeSchema = z.object({
+const ticketTypeBaseSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
   color: z
@@ -38,12 +38,40 @@ export const createTicketTypeSchema = z.object({
   sort_order: z.number().int().min(0).default(0),
   default_priority: z.enum(TICKET_PRIORITIES).default("medium"),
   allows_manual_assignees: z.boolean().default(true),
+  scope: z.enum(["org", "branch"]).default("org"),
+  branch_id: z.string().uuid().nullable().optional(),
+  requires_acceptance: z.boolean().default(false),
+  responder_user_ids: z.array(z.string().uuid()).default([]),
+  acceptor_user_ids: z.array(z.string().uuid()).default([]),
 });
 
-export const updateTicketTypeSchema = createTicketTypeSchema.extend({
-  id: z.string().uuid(),
-  is_active: z.boolean().optional(),
-});
+function applyTicketTypeRefinement<T extends typeof ticketTypeBaseSchema>(schema: T) {
+  return schema.superRefine((data, ctx) => {
+    if (data.scope === "branch" && !data.branch_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Branch is required for branch-scoped ticket types.",
+        path: ["branch_id"],
+      });
+    }
+    if (data.requires_acceptance && data.acceptor_user_ids.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "At least one default acceptor is required when acceptance is enabled.",
+        path: ["acceptor_user_ids"],
+      });
+    }
+  });
+}
+
+export const createTicketTypeSchema = applyTicketTypeRefinement(ticketTypeBaseSchema);
+
+export const updateTicketTypeSchema = applyTicketTypeRefinement(
+  ticketTypeBaseSchema.extend({
+    id: z.string().uuid(),
+    is_active: z.boolean().optional(),
+  })
+);
 
 export type CreateTicketTypeInput = z.infer<typeof createTicketTypeSchema>;
 export type UpdateTicketTypeInput = z.infer<typeof updateTicketTypeSchema>;
@@ -118,6 +146,22 @@ export const acceptTicketSchema = z.object({
 });
 
 export type AcceptTicketInput = z.infer<typeof acceptTicketSchema>;
+
+// ---------------------------------------------------------------------------
+// Helpdesk settings
+// ---------------------------------------------------------------------------
+
+const badgeConfigSchema = z.object({
+  label: z.string().min(1).max(50),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+
+export const saveHelpdeskSettingsSchema = z.object({
+  status_configs: z.record(z.enum(TICKET_STATUSES), badgeConfigSchema).optional(),
+  priority_configs: z.record(z.enum(TICKET_PRIORITIES), badgeConfigSchema).optional(),
+});
+
+export type SaveHelpdeskSettingsInput = z.infer<typeof saveHelpdeskSettingsSchema>;
 
 // ---------------------------------------------------------------------------
 // Legacy compat aliases used in existing service/action code

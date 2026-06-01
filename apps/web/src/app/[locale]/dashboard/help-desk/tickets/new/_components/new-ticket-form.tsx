@@ -33,9 +33,15 @@ import {
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
   members: MemberOption[];
+  activeBranchId: string | null;
 }
 
-export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
+export function NewTicketForm({ ticketTypes, members, activeBranchId }: NewTicketFormProps) {
+  const visibleTicketTypes = ticketTypes.filter(
+    (tt) =>
+      (tt as any).scope !== "branch" ||
+      ((tt as any).scope === "branch" && (tt as any).branch_id === activeBranchId)
+  );
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
 
@@ -67,6 +73,10 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
     const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
     if (selectedType?.default_priority) {
       setPriority(selectedType.default_priority);
+    }
+    // Auto-enable acceptance if the type requires it
+    if ((selectedType as any)?.requires_acceptance) {
+      setRequiresAcceptance(true);
     }
   }, [ticketTypeId, defaultResponders, ticketTypes]);
 
@@ -141,7 +151,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
               <SelectValue placeholder={t("tickets.fields.ticketTypePlaceholder")} />
             </SelectTrigger>
             <SelectContent>
-              {ticketTypes.map((tt) => (
+              {visibleTicketTypes.map((tt) => (
                 <SelectItem key={tt.id} value={tt.id}>
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tt.color }} />

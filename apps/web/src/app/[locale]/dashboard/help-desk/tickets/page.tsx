@@ -38,10 +38,11 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [ticketsResult, ticketTypesResult, membersResult] = await Promise.all([
+  const [ticketsResult, ticketTypesResult, membersResult, settingsResult] = await Promise.all([
     HelpdeskTicketsService.listForDataView(supabase, orgId, params),
     HelpdeskTicketTypesService.list(supabase, orgId, false),
     OrgMembersService.listMembers(supabase, orgId),
+    HelpdeskTicketTypesService.getSettings(supabase, orgId),
   ]);
 
   const initialData = ticketsResult.success
@@ -58,6 +59,8 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
       }))
     : [];
 
+  const settings = settingsResult.success ? settingsResult.data : null;
+
   return (
     <TicketsClient
       initialData={initialData}
@@ -68,6 +71,8 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
       canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
       currentUserId={context.user.user?.id ?? ""}
       orgId={orgId}
+      statusConfigs={settings?.status_configs ?? null}
+      priorityConfigs={settings?.priority_configs ?? null}
     />
   );
 }

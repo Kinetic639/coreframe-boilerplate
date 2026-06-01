@@ -2952,7 +2952,8 @@
       "items": {
         "overview": "Przegląd",
         "tickets": "Zgłoszenia",
-        "ticketTypes": "Typy zgłoszeń"
+        "ticketTypes": "Typy zgłoszeń",
+        "settings": "Ustawienia"
       },
       "pages": {
         "overview": {
@@ -2966,6 +2967,10 @@
         "ticketTypes": {
           "title": "Typy zgłoszeń",
           "subtitle": "Konfiguruj kategorie i przepływy pracy dla zgłoszeń."
+        },
+        "settings": {
+          "title": "Ustawienia Help Desk",
+          "subtitle": "Dostosuj etykiety statusów, priorytety i kolory plakietek dla swojej organizacji."
         }
       },
       "tickets": {
@@ -3091,6 +3096,38 @@
         "commentFailed": "Nie udało się dodać komentarza.",
         "closeFailed": "Nie udało się zamknąć zgłoszenia.",
         "acceptFailed": "Nie udało się zaakceptować zgłoszenia."
+      },
+      "settings": {
+        "statuses": "Statusy",
+        "statusesDescription": "Dostosuj etykiety i kolory plakietek dla każdego statusu zgłoszenia.",
+        "priorities": "Priorytety",
+        "prioritiesDescription": "Dostosuj etykiety i kolory plakietek dla każdego poziomu priorytetu.",
+        "saveSettings": "Zapisz zmiany",
+        "settingsSaved": "Ustawienia zostały zapisane.",
+        "settingsSaveFailed": "Nie udało się zapisać ustawień.",
+        "labelField": "Etykieta",
+        "colorField": "Kolor"
+      },
+      "ticketTypes": {
+        "scope": "Zakres",
+        "scopeOrg": "Całej organizacji",
+        "scopeBranch": "Konkretnego oddziału",
+        "branchLabel": "Oddział",
+        "branchPlaceholder": "Wybierz oddział",
+        "branchRequired": "Oddział jest wymagany dla typów ograniczonych do oddziału.",
+        "requiresAcceptance": "Wymaga akceptacji",
+        "requiresAcceptanceHint": "Wszystkie zgłoszenia tego typu będą automatycznie wymagać akceptacji.",
+        "defaultAcceptors": "Domyślne osoby akceptujące",
+        "defaultAcceptorsPlaceholder": "Wybierz domyślne osoby akceptujące",
+        "defaultAssignees": "Domyślne osoby odpowiedzialne",
+        "defaultAssigneesPlaceholder": "Wybierz domyślne osoby odpowiedzialne",
+        "createType": "Nowy typ zgłoszenia",
+        "editType": "Edytuj typ zgłoszenia",
+        "deleteConfirm": "Usunąć typ zgłoszenia?",
+        "deleteConfirmDescription": "Typ zostanie zarchiwizowany. Istniejące zgłoszenia nie zostaną zmienione.",
+        "createSuccess": "Typ zgłoszenia został utworzony.",
+        "updateSuccess": "Typ zgłoszenia został zaktualizowany.",
+        "deleteSuccess": "Typ zgłoszenia został usunięty."
       }
     },
     "analytics": {

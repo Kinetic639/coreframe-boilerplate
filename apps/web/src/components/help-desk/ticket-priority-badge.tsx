@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { TicketPriority } from "@/lib/validations/helpdesk";
 
-const PRIORITY_CONFIG: Record<TicketPriority, { label: string; className: string }> = {
+const PRIORITY_DEFAULTS: Record<TicketPriority, { label: string; className: string }> = {
   low: {
     label: "Low",
     className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -23,22 +23,43 @@ const PRIORITY_CONFIG: Record<TicketPriority, { label: string; className: string
   },
 };
 
+export interface PriorityBadgeConfig {
+  label: string;
+  color: string; // hex
+}
+
 interface TicketPriorityBadgeProps {
   priority: TicketPriority;
   className?: string;
+  config?: PriorityBadgeConfig;
 }
 
-export function TicketPriorityBadge({ priority, className }: TicketPriorityBadgeProps) {
-  const config = PRIORITY_CONFIG[priority] ?? {
+export function TicketPriorityBadge({ priority, className, config }: TicketPriorityBadgeProps) {
+  if (config) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("border-0 text-xs font-medium", className)}
+        style={{
+          backgroundColor: `${config.color}1a`,
+          color: config.color,
+        }}
+      >
+        {config.label}
+      </Badge>
+    );
+  }
+
+  const defaults = PRIORITY_DEFAULTS[priority] ?? {
     label: priority,
     className: "bg-muted text-muted-foreground",
   };
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", config.className, className)}
+      className={cn("border-0 text-xs font-medium", defaults.className, className)}
     >
-      {config.label}
+      {defaults.label}
     </Badge>
   );
 }

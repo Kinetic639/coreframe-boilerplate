@@ -43,5 +43,11 @@ export default async function NewTicketPage() {
       }))
     : [];
 
-  return <NewTicketForm ticketTypes={ticketTypes} members={members} />;
+  return (
+    <NewTicketForm
+      ticketTypes={ticketTypes}
+      members={members}
+      activeBranchId={context.app.activeBranchId ?? null}
+    />
+  );
 }

@@ -6,8 +6,14 @@ import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, CheckCircle, Clock, User, Tag, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { TicketStatusBadge } from "@/components/help-desk/ticket-status-badge";
-import { TicketPriorityBadge } from "@/components/help-desk/ticket-priority-badge";
+import {
+  TicketStatusBadge,
+  type StatusBadgeConfig,
+} from "@/components/help-desk/ticket-status-badge";
+import {
+  TicketPriorityBadge,
+  type PriorityBadgeConfig,
+} from "@/components/help-desk/ticket-priority-badge";
 import type {
   HelpdeskTicketDetail,
   HelpdeskTicketComment,
@@ -34,6 +40,8 @@ interface TicketDetailClientProps {
   ticket: HelpdeskTicketDetail;
   canManage: boolean;
   currentUserId: string;
+  statusConfigs: Record<string, StatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }
 
 function formatDate(iso: string): string {
@@ -53,6 +61,8 @@ export function TicketDetailClient({
   ticket: initialTicket,
   canManage,
   currentUserId,
+  statusConfigs,
+  priorityConfigs,
 }: TicketDetailClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
@@ -117,8 +127,11 @@ export function TicketDetailClient({
             <p className="text-muted-foreground font-mono text-sm">{ticket.ticket_number}</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">{ticket.title}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TicketStatusBadge status={ticket.status} />
-              <TicketPriorityBadge priority={ticket.priority} />
+              <TicketStatusBadge status={ticket.status} config={statusConfigs?.[ticket.status]} />
+              <TicketPriorityBadge
+                priority={ticket.priority}
+                config={priorityConfigs?.[ticket.priority]}
+              />
               {ticket.ticket_type_name && (
                 <span
                   className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"

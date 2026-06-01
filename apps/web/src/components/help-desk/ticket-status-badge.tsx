@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { TicketStatus } from "@/lib/validations/helpdesk";
 
-const STATUS_CONFIG: Record<TicketStatus, { label: string; className: string }> = {
+const STATUS_DEFAULTS: Record<TicketStatus, { label: string; className: string }> = {
   open: {
     label: "Open",
     className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
@@ -35,22 +35,43 @@ const STATUS_CONFIG: Record<TicketStatus, { label: string; className: string }> 
   },
 };
 
+export interface StatusBadgeConfig {
+  label: string;
+  color: string; // hex e.g. "#3b82f6"
+}
+
 interface TicketStatusBadgeProps {
   status: TicketStatus;
   className?: string;
+  config?: StatusBadgeConfig;
 }
 
-export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps) {
-  const config = STATUS_CONFIG[status] ?? {
+export function TicketStatusBadge({ status, className, config }: TicketStatusBadgeProps) {
+  if (config) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("border-0 text-xs font-medium", className)}
+        style={{
+          backgroundColor: `${config.color}1a`,
+          color: config.color,
+        }}
+      >
+        {config.label}
+      </Badge>
+    );
+  }
+
+  const defaults = STATUS_DEFAULTS[status] ?? {
     label: status,
     className: "bg-muted text-muted-foreground",
   };
   return (
     <Badge
       variant="outline"
-      className={cn("border-0 text-xs font-medium", config.className, className)}
+      className={cn("border-0 text-xs font-medium", defaults.className, className)}
     >
-      {config.label}
+      {defaults.label}
     </Badge>
   );
 }
