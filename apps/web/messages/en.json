@@ -3029,6 +3029,7 @@
           "createdAt": "Created Date",
           "createdBy": "Created By",
           "assignedTo": "Assigned To",
+          "branch": "Branch",
           "status": "Status",
           "priority": "Priority",
           "ticketType": "Ticket Type"

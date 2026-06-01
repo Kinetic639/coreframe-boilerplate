@@ -43,6 +43,7 @@ interface TicketsClientProps {
   initialData: PaginatedResult<HelpdeskTicketListRow>;
   ticketTypes: HelpdeskTicketType[];
   members: Array<{ user_id: string; name: string | null; email: string | null }>;
+  branches: Array<{ id: string; name: string }>;
   canCreate: boolean;
   canManage: boolean;
   currentUserId: string;
@@ -63,12 +64,15 @@ function TicketDetailPanel({
   const [activity, setActivity] = useState<HelpdeskTicketActivity[]>(detail.activity);
   const [commentValue, setCommentValue] = useState<RichTextValue>(createEmptyRichText);
 
+  const [acceptedAt, setAcceptedAt] = useState<string | null>(detail.accepted_at);
+  const [acceptedByName, setAcceptedByName] = useState<string | null>(detail.accepted_by_name);
+
   const addCommentMutation = useAddTicketCommentMutation(detail.ticket_number);
   const acceptMutation = useAcceptTicketMutation(detail.ticket_number);
   const canComment = detail.status !== "closed" && detail.status !== "cancelled";
   const canAccept =
     detail.requires_acceptance &&
-    !detail.accepted_at &&
+    !acceptedAt &&
     (canManage || detail.acceptors.some((a) => a.user_id === currentUserId));
 
   const handleAddComment = useCallback(
@@ -94,7 +98,7 @@ function TicketDetailPanel({
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-3">
       {/* Header */}
       <div>
         <p className="text-muted-foreground font-mono text-xs">{detail.ticket_number}</p>
@@ -118,7 +122,7 @@ function TicketDetailPanel({
       </div>
 
       {/* Two-column body */}
-      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
         {/* Main: description + comments */}
         <div className="min-w-0 flex-1 space-y-4">
           {(detail.description_rich || detail.description_plain) && (
@@ -177,7 +181,7 @@ function TicketDetailPanel({
         </div>
 
         {/* Sidebar: view button + details */}
-        <div className="w-full shrink-0 space-y-3 lg:w-52">
+        <div className="w-full shrink-0 space-y-3 self-start lg:w-52">
           <Button
             variant="outline"
             size="sm"
@@ -196,18 +200,16 @@ function TicketDetailPanel({
               <p className="text-muted-foreground text-[10px] uppercase font-medium">
                 {t("tickets.acceptance.label")}
               </p>
-              {detail.accepted_at ? (
+              {acceptedAt ? (
                 <div className="space-y-1">
                   <span className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
                     {t("tickets.acceptance.accepted")}
                   </span>
-                  {detail.accepted_by_name && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {detail.accepted_by_name}
-                    </p>
+                  {acceptedByName && (
+                    <p className="truncate text-xs text-muted-foreground">{acceptedByName}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {new Date(detail.accepted_at).toLocaleString()}
+                    {new Date(acceptedAt).toLocaleString()}
                   </p>
                 </div>
               ) : (
@@ -239,7 +241,25 @@ function TicketDetailPanel({
                   size="sm"
                   className="w-full"
                   disabled={acceptMutation.isPending}
-                  onClick={() => acceptMutation.mutate({ ticket_id: detail.id })}
+                  onClick={() =>
+                    acceptMutation.mutate(
+                      { ticket_id: detail.id },
+                      {
+                        onSuccess: async () => {
+                          const fresh = await getTicketDetailAction(
+                            detail.ticket_number,
+                            detail.org_id
+                          );
+                          if (fresh.success && fresh.data) {
+                            setAcceptedAt(fresh.data.accepted_at);
+                            setAcceptedByName(fresh.data.accepted_by_name);
+                            setComments(fresh.data.comments);
+                            setActivity(fresh.data.activity);
+                          }
+                        },
+                      }
+                    )
+                  }
                 >
                   {acceptMutation.isPending ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -367,6 +387,7 @@ export function TicketsClient({
   initialData,
   ticketTypes,
   members,
+  branches,
   canCreate,
   canManage,
   currentUserId,
@@ -405,6 +426,11 @@ export function TicketsClient({
         value: m.user_id,
       })),
     [members]
+  );
+
+  const branchOptions = useMemo(
+    () => branches.map((b) => ({ label: b.name, value: b.id })),
+    [branches]
   );
 
   const columns = useMemo<DataViewColumnDef<HelpdeskTicketListRow>[]>(
@@ -574,7 +600,7 @@ export function TicketsClient({
         options: memberOptions,
       },
       {
-        type: "select",
+        type: "multi-select",
         key: "status",
         label: t("tickets.filters.status"),
         options: [
@@ -608,8 +634,18 @@ export function TicketsClient({
             },
           ]
         : []),
+      ...(branchOptions.length > 0
+        ? [
+            {
+              type: "select" as const,
+              key: "branchId",
+              label: t("tickets.filters.branch"),
+              options: branchOptions,
+            },
+          ]
+        : []),
     ],
-    [t, memberOptions, typeOptions]
+    [t, memberOptions, typeOptions, branchOptions]
   );
 
   return (
@@ -639,11 +675,11 @@ export function TicketsClient({
           getRowId={(row) => row.ticket_number}
           renderCompactItem={(row) => (
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
                 <TicketStatusBadge status={row.status} />
               </div>
-              <span className="max-w-[28ch] truncate text-sm font-medium" title={row.title}>
+              <span className="truncate text-sm font-medium" title={row.title}>
                 {row.title}
               </span>
             </div>
