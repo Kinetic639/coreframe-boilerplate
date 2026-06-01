@@ -27,9 +27,10 @@ export default async function HelpDeskTicketTypesPage() {
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [typesResult, membersResult] = await Promise.all([
+  const [typesResult, membersResult, settingsResult] = await Promise.all([
     HelpdeskTicketTypesService.listWithDetails(supabase, orgId),
     OrgMembersService.listMembers(supabase, orgId),
+    HelpdeskTicketTypesService.getSettings(supabase, orgId),
   ]);
 
   const types = typesResult.success ? typesResult.data : [];
@@ -42,11 +43,14 @@ export default async function HelpDeskTicketTypesPage() {
       }))
     : [];
 
+  const settings = settingsResult.success ? settingsResult.data : null;
+
   return (
     <TicketTypesClient
       initialTypes={types}
       members={members}
       availableBranches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
+      priorityConfigs={settings?.priority_configs ?? null}
     />
   );
 }

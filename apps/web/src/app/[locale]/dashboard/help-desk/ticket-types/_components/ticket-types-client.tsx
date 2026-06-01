@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { deleteTicketTypeAction } from "@/app/actions/help-desk";
+import type { PriorityBadgeConfig } from "@/components/help-desk/ticket-priority-badge";
 import type { HelpdeskTicketTypeWithDetails } from "@/server/services/helpdesk-ticket-types.service";
 import type { MemberOption } from "@/components/help-desk/member-selector";
 import { TicketTypeFormDialog } from "./ticket-type-form-dialog";
@@ -25,12 +26,14 @@ interface TicketTypesClientProps {
   initialTypes: HelpdeskTicketTypeWithDetails[];
   members: MemberOption[];
   availableBranches: Array<{ id: string; name: string }>;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }
 
 export function TicketTypesClient({
   initialTypes,
   members,
   availableBranches,
+  priorityConfigs,
 }: TicketTypesClientProps) {
   const t = useTranslations("modules.helpDesk");
   const [types, setTypes] = useState(initialTypes);
@@ -195,6 +198,7 @@ export function TicketTypesClient({
         editingType={editingType}
         members={members}
         availableBranches={availableBranches}
+        priorityConfigs={priorityConfigs}
         onSaved={handleSaved}
       />
 

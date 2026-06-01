@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import {
   listTicketTypesAction,
   getTicketTypeDefaultRespondersAction,
+  getTicketTypeDefaultAcceptorsAction,
   listOrgMembersForTicketAssignmentAction,
   createTicketAction,
   getTicketDetailAction,
@@ -67,6 +68,23 @@ export function useTicketTypeDefaultRespondersQuery(ticketTypeId: string | null 
     queryFn: async () => {
       if (!ticketTypeId) return [];
       const result = await getTicketTypeDefaultRespondersAction(ticketTypeId);
+      if (!result.success) throw new Error((result as { success: false; error: string }).error);
+      return result.data;
+    },
+    enabled: !!ticketTypeId,
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useTicketTypeDefaultAcceptorsQuery(ticketTypeId: string | null | undefined) {
+  return useQuery({
+    queryKey: ticketTypeId
+      ? [...helpdeskKeys.ticketTypeDefaultResponders(ticketTypeId), "acceptors"]
+      : helpdeskKeys.ticketTypes(),
+    queryFn: async () => {
+      if (!ticketTypeId) return [];
+      const result = await getTicketTypeDefaultAcceptorsAction(ticketTypeId);
       if (!result.success) throw new Error((result as { success: false; error: string }).error);
       return result.data;
     },

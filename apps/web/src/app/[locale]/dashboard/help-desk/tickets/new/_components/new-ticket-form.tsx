@@ -28,15 +28,26 @@ import {
 import {
   useCreateTicketMutation,
   useTicketTypeDefaultRespondersQuery,
+  useTicketTypeDefaultAcceptorsQuery,
 } from "@/hooks/queries/help-desk";
+import type { StatusBadgeConfig } from "@/components/help-desk/ticket-status-badge";
+import type { PriorityBadgeConfig } from "@/components/help-desk/ticket-priority-badge";
 
 interface NewTicketFormProps {
   ticketTypes: HelpdeskTicketType[];
   members: MemberOption[];
   activeBranchId: string | null;
+  statusConfigs: Record<string, StatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }
 
-export function NewTicketForm({ ticketTypes, members, activeBranchId }: NewTicketFormProps) {
+export function NewTicketForm({
+  ticketTypes,
+  members,
+  activeBranchId,
+  statusConfigs,
+  priorityConfigs,
+}: NewTicketFormProps) {
   const visibleTicketTypes = ticketTypes.filter(
     (tt) =>
       (tt as any).scope !== "branch" ||
@@ -56,13 +67,21 @@ export function NewTicketForm({ ticketTypes, members, activeBranchId }: NewTicke
 
   // Cached query — re-selecting the same type reuses the cached result, no extra network call
   const { data: defaultResponders } = useTicketTypeDefaultRespondersQuery(ticketTypeId || null);
+  const { data: defaultAcceptors } = useTicketTypeDefaultAcceptorsQuery(ticketTypeId || null);
   const appliedTypeIdRef = useRef<string>("");
   const createTicketMutation = useCreateTicketMutation();
 
-  // Apply default responders + priority when ticket type changes
+  // Apply default responders, acceptors, and priority when ticket type changes
   useEffect(() => {
     if (!ticketTypeId || ticketTypeId === appliedTypeIdRef.current) return;
     if (defaultResponders === undefined) return; // still loading
+
+    const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
+    const typeRequiresAcceptance = (selectedType as any)?.requires_acceptance === true;
+
+    // Wait for acceptors query too when the type requires acceptance
+    if (typeRequiresAcceptance && defaultAcceptors === undefined) return;
+
     appliedTypeIdRef.current = ticketTypeId;
 
     if (defaultResponders.length > 0) {
@@ -70,15 +89,18 @@ export function NewTicketForm({ ticketTypes, members, activeBranchId }: NewTicke
       setAssigneeIds((prev) => [...new Set([...prev, ...defaultIds])]);
     }
 
-    const selectedType = ticketTypes.find((tt) => tt.id === ticketTypeId);
     if (selectedType?.default_priority) {
       setPriority(selectedType.default_priority);
     }
-    // Auto-enable acceptance if the type requires it
-    if ((selectedType as any)?.requires_acceptance) {
+
+    if (typeRequiresAcceptance) {
       setRequiresAcceptance(true);
+      if (defaultAcceptors && defaultAcceptors.length > 0) {
+        const ids = defaultAcceptors.map((a) => a.user_id);
+        setAcceptorIds((prev) => [...new Set([...prev, ...ids])]);
+      }
     }
-  }, [ticketTypeId, defaultResponders, ticketTypes]);
+  }, [ticketTypeId, defaultResponders, defaultAcceptors, ticketTypes]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -197,7 +219,7 @@ export function NewTicketForm({ ticketTypes, members, activeBranchId }: NewTicke
             <SelectContent>
               {TICKET_PRIORITIES.map((p) => (
                 <SelectItem key={p} value={p}>
-                  {t(`tickets.priority.${p}`)}
+                  {priorityConfigs?.[p]?.label ?? t(`tickets.priority.${p}`)}
                 </SelectItem>
               ))}
             </SelectContent>

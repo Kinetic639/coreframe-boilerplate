@@ -27,9 +27,10 @@ export default async function NewTicketPage() {
   const supabase = await createClient();
   const orgId = context.app.activeOrgId;
 
-  const [ticketTypesResult, membersResult] = await Promise.all([
+  const [ticketTypesResult, membersResult, settingsResult] = await Promise.all([
     HelpdeskTicketTypesService.list(supabase, orgId, false),
     OrgMembersService.listMembers(supabase, orgId),
+    HelpdeskTicketTypesService.getSettings(supabase, orgId),
   ]);
 
   const ticketTypes = ticketTypesResult.success ? ticketTypesResult.data : [];
@@ -43,11 +44,15 @@ export default async function NewTicketPage() {
       }))
     : [];
 
+  const settings = settingsResult.success ? settingsResult.data : null;
+
   return (
     <NewTicketForm
       ticketTypes={ticketTypes}
       members={members}
       activeBranchId={context.app.activeBranchId ?? null}
+      statusConfigs={settings?.status_configs ?? null}
+      priorityConfigs={settings?.priority_configs ?? null}
     />
   );
 }
