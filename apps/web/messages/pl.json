@@ -3000,6 +3000,7 @@
           "createdAt": "Data utworzenia",
           "createdBy": "Utworzone przez",
           "assignedTo": "Przypisane do",
+          "branch": "Oddział",
           "status": "Status",
           "priority": "Priorytet",
           "ticketType": "Typ zgłoszenia"

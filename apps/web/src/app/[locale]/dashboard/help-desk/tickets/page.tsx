@@ -63,6 +63,7 @@ export default async function HelpDeskTicketsPage({ searchParams }: PageProps = 
       initialData={initialData}
       ticketTypes={ticketTypes}
       members={members}
+      branches={context.app.availableBranches.map((b) => ({ id: b.id, name: b.name }))}
       canCreate={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_CREATE)}
       canManage={checkPermission(context.user.permissionSnapshot, HELPDESK_TICKETS_MANAGE)}
       currentUserId={context.user.user?.id ?? ""}

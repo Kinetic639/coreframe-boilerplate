@@ -102,7 +102,7 @@ export function NewTicketForm({ ticketTypes, members }: NewTicketFormProps) {
           toast.success(t("tickets.created", { number: data.ticket_number }));
           router.push({
             pathname: "/dashboard/help-desk/tickets/[ticketId]",
-            params: { ticketId: data.id },
+            params: { ticketId: data.ticket_number },
           });
         },
       }

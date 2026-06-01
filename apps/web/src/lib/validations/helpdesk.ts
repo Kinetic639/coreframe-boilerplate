@@ -82,13 +82,14 @@ export const closeTicketSchema = z.object({
 });
 
 export const ticketListFiltersSchema = z.object({
-  status: z.enum(TICKET_STATUSES).optional(),
+  status: z.union([z.enum(TICKET_STATUSES), z.array(z.enum(TICKET_STATUSES))]).optional(),
   priority: z.enum(TICKET_PRIORITIES).optional(),
   ticketTypeId: z.string().uuid().optional(),
   createdBy: z.string().uuid().optional(),
   assignedTo: z.string().uuid().optional(),
   createdAtFrom: z.string().optional(),
   createdAtTo: z.string().optional(),
+  branchId: z.string().uuid().optional(),
 });
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;

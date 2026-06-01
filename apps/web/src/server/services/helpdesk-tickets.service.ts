@@ -243,9 +243,16 @@ export class HelpdeskTicketsService {
       .is("deleted_at", null);
 
     // Filters
-    if (filters.status) query = query.eq("status", filters.status as string);
+    if (filters.status) {
+      if (Array.isArray(filters.status)) {
+        query = query.in("status", filters.status as string[]);
+      } else {
+        query = query.eq("status", filters.status as string);
+      }
+    }
     if (filters.priority) query = query.eq("priority", filters.priority as string);
     if (filters.ticketTypeId) query = query.eq("ticket_type_id", filters.ticketTypeId as string);
+    if (filters.branchId) query = query.eq("branch_id", filters.branchId as string);
     if (filters.createdBy) query = query.eq("created_by", filters.createdBy as string);
     if (filters.createdAtFrom) query = query.gte("created_at", filters.createdAtFrom as string);
     if (filters.createdAtTo) query = query.lte("created_at", filters.createdAtTo as string);
