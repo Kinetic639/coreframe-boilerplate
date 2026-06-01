@@ -2981,7 +2981,8 @@
       "items": {
         "overview": "Overview",
         "tickets": "Tickets",
-        "ticketTypes": "Ticket Types"
+        "ticketTypes": "Ticket Types",
+        "settings": "Settings"
       },
       "pages": {
         "overview": {
@@ -2995,6 +2996,10 @@
         "ticketTypes": {
           "title": "Ticket Types",
           "subtitle": "Configure the categories and workflows used for tickets."
+        },
+        "settings": {
+          "title": "Help Desk Settings",
+          "subtitle": "Customize status labels, priority labels, and badge colors for your organisation."
         }
       },
       "tickets": {
@@ -3120,6 +3125,38 @@
         "commentFailed": "Failed to add comment.",
         "closeFailed": "Failed to close ticket.",
         "acceptFailed": "Failed to accept ticket."
+      },
+      "settings": {
+        "statuses": "Statuses",
+        "statusesDescription": "Customize the display label and badge color for each ticket status.",
+        "priorities": "Priorities",
+        "prioritiesDescription": "Customize the display label and badge color for each priority level.",
+        "saveSettings": "Save Changes",
+        "settingsSaved": "Settings saved.",
+        "settingsSaveFailed": "Failed to save settings.",
+        "labelField": "Label",
+        "colorField": "Color"
+      },
+      "ticketTypes": {
+        "scope": "Scope",
+        "scopeOrg": "Organisation-wide",
+        "scopeBranch": "Branch-specific",
+        "branchLabel": "Branch",
+        "branchPlaceholder": "Select branch",
+        "branchRequired": "Branch is required for branch-scoped ticket types.",
+        "requiresAcceptance": "Requires Acceptance",
+        "requiresAcceptanceHint": "All tickets of this type will automatically require acceptance.",
+        "defaultAcceptors": "Default Acceptors",
+        "defaultAcceptorsPlaceholder": "Select default acceptors",
+        "defaultAssignees": "Default Responders",
+        "defaultAssigneesPlaceholder": "Select default responders",
+        "createType": "New Ticket Type",
+        "editType": "Edit Ticket Type",
+        "deleteConfirm": "Delete ticket type?",
+        "deleteConfirmDescription": "This will archive the type. Existing tickets are not affected.",
+        "createSuccess": "Ticket type created.",
+        "updateSuccess": "Ticket type updated.",
+        "deleteSuccess": "Ticket type deleted."
       }
     },
     "analytics": {

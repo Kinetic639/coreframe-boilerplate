@@ -22,8 +22,14 @@ import type {
   HelpdeskTicketActivity,
 } from "@/server/services/helpdesk-tickets.service";
 import type { HelpdeskTicketType } from "@/server/services/helpdesk-ticket-types.service";
-import { TicketStatusBadge } from "@/components/help-desk/ticket-status-badge";
-import { TicketPriorityBadge } from "@/components/help-desk/ticket-priority-badge";
+import {
+  TicketStatusBadge,
+  type StatusBadgeConfig,
+} from "@/components/help-desk/ticket-status-badge";
+import {
+  TicketPriorityBadge,
+  type PriorityBadgeConfig,
+} from "@/components/help-desk/ticket-priority-badge";
 import { UserAvatarGroup } from "@/components/primitives/avatar/user-avatar-group";
 import type { UserAvatarGroupItem } from "@/components/primitives/avatar/user-avatar-group";
 import { UserAvatar } from "@/components/primitives/avatar/user-avatar";
@@ -48,16 +54,22 @@ interface TicketsClientProps {
   canManage: boolean;
   currentUserId: string;
   orgId: string;
+  statusConfigs: Record<string, StatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }
 
 function TicketDetailPanel({
   detail,
   canManage,
   currentUserId,
+  statusConfigs,
+  priorityConfigs,
 }: {
   detail: HelpdeskTicketDetail;
   canManage: boolean;
   currentUserId: string;
+  statusConfigs: Record<string, StatusBadgeConfig> | null;
+  priorityConfigs: Record<string, PriorityBadgeConfig> | null;
 }) {
   const t = useTranslations("modules.helpDesk");
   const [comments, setComments] = useState<HelpdeskTicketComment[]>(detail.comments);
@@ -104,8 +116,11 @@ function TicketDetailPanel({
         <p className="text-muted-foreground font-mono text-xs">{detail.ticket_number}</p>
         <h3 className="mt-1 text-base font-semibold leading-snug">{detail.title}</h3>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <TicketStatusBadge status={detail.status} />
-          <TicketPriorityBadge priority={detail.priority} />
+          <TicketStatusBadge status={detail.status} config={statusConfigs?.[detail.status]} />
+          <TicketPriorityBadge
+            priority={detail.priority}
+            config={priorityConfigs?.[detail.priority]}
+          />
           {detail.ticket_type_name && (
             <span
               className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
@@ -392,6 +407,8 @@ export function TicketsClient({
   canManage,
   currentUserId,
   orgId,
+  statusConfigs,
+  priorityConfigs,
 }: TicketsClientProps) {
   const t = useTranslations("modules.helpDesk");
   const router = useRouter();
@@ -502,14 +519,18 @@ export function TicketsClient({
       {
         key: "status",
         header: t("tickets.columns.status"),
-        accessor: (row) => <TicketStatusBadge status={row.status} />,
+        accessor: (row) => (
+          <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
+        ),
         sortable: true,
         defaultVisible: true,
       },
       {
         key: "priority",
         header: t("tickets.columns.priority"),
-        accessor: (row) => <TicketPriorityBadge priority={row.priority} />,
+        accessor: (row) => (
+          <TicketPriorityBadge priority={row.priority} config={priorityConfigs?.[row.priority]} />
+        ),
         sortable: true,
         defaultVisible: true,
       },
@@ -589,7 +610,7 @@ export function TicketsClient({
         defaultVisible: false,
       },
     ],
-    [t, router, branchNameMap, branchOptions.length]
+    [t, router, branchNameMap, branchOptions.length, statusConfigs, priorityConfigs]
   );
 
   const filters = useMemo<DataViewFilterDef[]>(
@@ -691,7 +712,7 @@ export function TicketsClient({
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground font-mono text-xs">{row.ticket_number}</span>
-                <TicketStatusBadge status={row.status} />
+                <TicketStatusBadge status={row.status} config={statusConfigs?.[row.status]} />
               </div>
               <span className="truncate text-sm font-medium" title={row.title}>
                 {row.title}
@@ -704,6 +725,8 @@ export function TicketsClient({
               detail={detail}
               canManage={canManage}
               currentUserId={currentUserId}
+              statusConfigs={statusConfigs}
+              priorityConfigs={priorityConfigs}
             />
           )}
           renderToolbarControls={() =>
