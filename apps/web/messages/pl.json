@@ -2991,6 +2991,7 @@
           "status": "Status",
           "priority": "Priorytet",
           "acceptance": "Akceptacja",
+          "branch": "Oddział",
           "createdBy": "Autor",
           "responders": "Przypisani",
           "createdAt": "Utworzone",

@@ -3020,6 +3020,7 @@
           "status": "Status",
           "priority": "Priority",
           "acceptance": "Acceptance",
+          "branch": "Branch",
           "createdBy": "Author",
           "responders": "Assigned",
           "createdAt": "Created",
